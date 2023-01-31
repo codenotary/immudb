@@ -32,6 +32,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestSession_OpenCloseSession(t *testing.T) {
@@ -85,7 +86,7 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 			client := ic.NewClient().WithOptions(ic.
 				DefaultOptions().
 				WithDir(t.TempDir()).
-				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}).
 				WithHeartBeatFrequency(time.Millisecond * 100),
 			)
 			err := client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
@@ -139,7 +140,7 @@ func TestSession_ExpireSessions(t *testing.T) {
 			client := ic.NewClient().WithOptions(ic.
 				DefaultOptions().
 				WithDir(t.TempDir()).
-				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}),
+				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}),
 			)
 
 			err := client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")

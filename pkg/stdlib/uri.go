@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func ParseConfig(uri string) (*client.Options, error) {
@@ -79,7 +80,7 @@ func dialOptions(sslmode string) ([]grpc.DialOption, error) {
 
 	switch sslmode {
 	case "disable":
-		return []grpc.DialOption{grpc.WithInsecure()}, nil
+		return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
 	case "insecure-verify":
 		return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))}, nil
 	case "require":

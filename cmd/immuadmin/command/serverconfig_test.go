@@ -41,7 +41,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options()
 	cliopt.DialOptions = dialOptions
@@ -94,7 +94,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options()
 	cliopt.DialOptions = dialOptions

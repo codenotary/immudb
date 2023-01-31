@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestConnect(t *testing.T) {
@@ -38,7 +39,7 @@ func TestConnect(t *testing.T) {
 	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		}).WithDir(t.TempDir())
 	imc, err := Init(opts)
 	require.NoError(t, err)

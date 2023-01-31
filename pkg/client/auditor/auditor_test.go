@@ -38,6 +38,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var dirname = "./test"
@@ -110,7 +111,7 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
 		[]grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 		"immudb",
 		"immudb",
@@ -148,7 +149,7 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
 		[]grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 		"immudb",
 		"immudb",
@@ -188,7 +189,7 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
 		[]grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 		"immudb",
 		"immudb",
@@ -231,7 +232,7 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
 		[]grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 		"immudb",
 		"immudb",
@@ -277,7 +278,7 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
 		[]grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 		"immudb",
 		"immudb",
@@ -351,7 +352,7 @@ func testDefaultAuditorRunOnDbWithInvalidSignature(t *testing.T, pk *ecdsa.Publi
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
 		[]grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 		"immudb",
 		"immudb",

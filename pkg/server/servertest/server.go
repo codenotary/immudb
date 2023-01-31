@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/server"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -66,7 +67,6 @@ func NewBufconnServer(options *server.Options) *BufconnServer {
 		Server:     &ServerMock{Srv: immuserver},
 		uuid:       uuid,
 	}
-
 
 	return bs
 }
@@ -162,7 +162,7 @@ func (bs *BufconnServer) WaitForPgsqlListener() {
 
 func (bs *BufconnServer) NewClient(options *client.Options) client.ImmuClient {
 	return client.NewClient().WithOptions(
-		options.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}),
+		options.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}),
 	)
 }
 

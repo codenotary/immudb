@@ -43,6 +43,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -95,7 +96,7 @@ func setupTestServerAndClientWithToken(t *testing.T) (*servertest.BufconnServer,
 	client, err := ic.NewImmuClient(ic.
 		DefaultOptions().
 		WithDir(t.TempDir()).
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}).
 		WithServerSigningPubKey("./../../test/signer/ec1.pub"),
 	)
 	require.NoError(t, err)
@@ -1128,7 +1129,7 @@ func TestImmuClient_Logout(t *testing.T) {
 	for i, expect := range expectations {
 		client, err := ic.NewImmuClient(ic.
 			DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}).
 			WithDir(t.TempDir()),
 		)
 		if err != nil {

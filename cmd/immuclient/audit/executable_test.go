@@ -37,7 +37,7 @@ func TestExecutableRun(t *testing.T) {
 defer bs.Stop()
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	pidpath := "my_pid"
 	ad := new(auditAgent)

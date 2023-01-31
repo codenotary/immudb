@@ -16,7 +16,7 @@ func TestDatabaseList(t *testing.T) {
 	}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
 	cliopt.PasswordReader = pr
@@ -68,7 +68,7 @@ func TestDatabaseCreate(t *testing.T) {
 	}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
 	cliopt.PasswordReader = pr

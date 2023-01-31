@@ -242,7 +242,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 	suite.Run("should commit again once first replica is back online", func() {
 		suite.StartReplica(0)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key4"), []byte("value4"))

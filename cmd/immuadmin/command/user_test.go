@@ -49,7 +49,7 @@ defer bs.Stop()
 	}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
 
@@ -142,7 +142,7 @@ defer bs.Stop()
 
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
@@ -258,7 +258,7 @@ defer bs.Stop()
 	}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
@@ -424,7 +424,7 @@ defer bs.Stop()
 	}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
@@ -481,7 +481,7 @@ defer bs.Stop()
 
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
@@ -552,7 +552,7 @@ defer bs.Stop()
 
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
