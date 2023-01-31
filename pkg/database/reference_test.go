@@ -34,6 +34,7 @@ func TestStoreReference(t *testing.T) {
 
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	txhdr, err := db.Set(context.Background(), req)
+	require.NoError(t, err)
 
 	item, err := db.Get(context.Background(), &schema.KeyRequest{Key: []byte(`firstKey`), SinceTx: txhdr.Id})
 	require.NoError(t, err)
@@ -44,8 +45,8 @@ func TestStoreReference(t *testing.T) {
 		Key:           []byte(`myTag`),
 		ReferencedKey: []byte(`secondKey`),
 	}
-	txhdr, err = db.SetReference(context.Background(), refOpts)
-	require.Equal(t, store.ErrKeyNotFound, err)
+	_, err = db.SetReference(context.Background(), refOpts)
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
 
 	refOpts = &schema.ReferenceRequest{
 		Key:           []byte(`firstKeyR`),
@@ -54,14 +55,14 @@ func TestStoreReference(t *testing.T) {
 		BoundRef:      true,
 	}
 	_, err = db.SetReference(context.Background(), refOpts)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	refOpts = &schema.ReferenceRequest{
 		Key:           []byte(`firstKey`),
 		ReferencedKey: []byte(`firstKey`),
 	}
-	txhdr, err = db.SetReference(context.Background(), refOpts)
-	require.Equal(t, ErrFinalKeyCannotBeConvertedIntoReference, err)
+	_, err = db.SetReference(context.Background(), refOpts)
+	require.ErrorIs(t, err, ErrFinalKeyCannotBeConvertedIntoReference)
 
 	refOpts = &schema.ReferenceRequest{
 		Key:           []byte(`myTag`),
@@ -127,6 +128,7 @@ func TestStoreInvalidReferenceToReference(t *testing.T) {
 
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	txhdr, err := db.Set(context.Background(), req)
+	require.NoError(t, err)
 
 	ref1, err := db.SetReference(context.Background(), &schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`firstKey`), AtTx: txhdr.Id, BoundRef: true})
 	require.NoError(t, err)
@@ -263,10 +265,10 @@ func TestStoreIndexReference(t *testing.T) {
 	idx2, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item2`)}}})
 	require.NoError(t, err)
 
-	ref, err := db.SetReference(context.Background(), &schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag1`), AtTx: idx1.Id, BoundRef: true})
+	_, err = db.SetReference(context.Background(), &schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag1`), AtTx: idx1.Id, BoundRef: true})
 	require.NoError(t, err)
 
-	ref, err = db.SetReference(context.Background(), &schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag2`), AtTx: idx2.Id, BoundRef: true})
+	ref, err := db.SetReference(context.Background(), &schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag2`), AtTx: idx2.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	tag1, err := db.Get(context.Background(), &schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref.Id})

@@ -134,8 +134,8 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference1, err := db.ZAdd(context.Background(), zaddOpts)
-	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
+	_, err = db.ZAdd(context.Background(), zaddOpts)
+	require.ErrorIs(t, err, ErrReferencedKeyCannotBeAReference)
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:      []byte(`hashA`),
@@ -656,13 +656,13 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 
 	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`value1`)}}})
 
-	vtx, err := db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
+	_, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  nil,
 		ProveSinceTx: i1.Id + 1,
 	})
 	require.Equal(t, store.ErrIllegalArguments, err)
 
-	vtx, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
+	_, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  nil,
 		ProveSinceTx: i1.Id,
 	})
@@ -676,7 +676,7 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		BoundRef: true,
 	}
 
-	vtx, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
+	vtx, err := db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  req,
 		ProveSinceTx: i1.Id,
 	})
