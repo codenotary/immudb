@@ -448,7 +448,7 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 		return nil, ctx.Err()
 	}
 
-	return tx.st.commit(ctx, tx, nil, waitForIndexing)
+	return tx.st.commit(ctx, tx, nil, false, waitForIndexing)
 }
 
 func (tx *OngoingTx) Cancel() error {
