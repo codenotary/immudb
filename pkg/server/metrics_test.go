@@ -100,7 +100,7 @@ func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 			Zone: "zone",
 		},
 	}
-	ctx := peer.NewContext(context.TODO(), p)
+	ctx := peer.NewContext(context.Background(), p)
 	mc.UpdateClientMetrics(ctx)
 
 	require.IsType(t, MetricsCollection{}, mc)

@@ -50,7 +50,7 @@ func TestRegisterConnConfig(t *testing.T) {
 	defer UnregisterConnConfig(connStr)
 
 	db = Open(connStr)
-	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	_, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
 	require.NoError(t, err)
 
 }

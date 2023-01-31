@@ -49,7 +49,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx = metadata.NewIncomingContext(context.TODO(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
+	ctx = metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
 
 	t.Run("reserved databases can not be updated", func(t *testing.T) {
 		_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
@@ -159,7 +159,7 @@ func TestServerDatabaseRuntimeEdgeCases(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx = metadata.NewIncomingContext(context.TODO(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
+	ctx = metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
 
 	for i, c := range []struct {
 		req *schema.LoadDatabaseRequest

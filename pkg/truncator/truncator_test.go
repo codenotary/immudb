@@ -55,7 +55,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 	so.VLogCacheSize = 0
 	options.WithStoreOptions(so)
 
-	ctx := context.TODO()
+	ctx := context.Background()
 	db := makeDbWith(t, "db", options)
 	tr := NewTruncator(db, 0, 0, logger.NewSimpleLogger("immudb ", os.Stderr))
 	tr.retentionPeriodF = func(ts time.Time, retentionPeriod time.Duration) time.Time {

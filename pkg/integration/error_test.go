@@ -34,7 +34,7 @@ func TestGRPCError(t *testing.T) {
 
 	t.Run("errors with token-based auth", func(t *testing.T) {
 
-		_, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
+		_, err := cli.Login(context.Background(), []byte(`immudb`), []byte(`wrong`))
 
 		require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
 		require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")

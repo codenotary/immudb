@@ -39,7 +39,7 @@ func TestConn_BeginTx(t *testing.T) {
 	require.NoError(t, err)
 
 	table := getRandomTableName()
-	result, err = tx.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
+	result, err = tx.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -78,21 +78,21 @@ func TestTx_Rollback(t *testing.T) {
 	require.NoError(t, err)
 
 	table := getRandomTableName()
-	result, err := tx.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, PRIMARY KEY id)", table))
+	result, err := tx.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	_, err = tx.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id) VALUES (2)", table))
+	_, err = tx.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id) VALUES (2)", table))
 	require.NoError(t, err)
 
-	rows, err := tx.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+	rows, err := tx.QueryContext(context.Background(), fmt.Sprintf("SELECT * FROM %s", table))
 	require.NoError(t, err)
 	require.NotNil(t, rows)
 
 	err = tx.Rollback()
 	require.NoError(t, err)
 
-	_, err = db.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+	_, err = db.QueryContext(context.Background(), fmt.Sprintf("SELECT * FROM %s", table))
 	st, _ := status.FromError(err)
 	require.Equal(t, fmt.Sprintf("table does not exist (%s)", table), st.Message())
 }
@@ -103,9 +103,9 @@ func TestTx_Errors(t *testing.T) {
 	tx, err := db.Begin()
 	require.NoError(t, err)
 
-	_, err = tx.ExecContext(context.TODO(), "this is really wrong")
+	_, err = tx.ExecContext(context.Background(), "this is really wrong")
 	require.Error(t, err)
 
-	_, err = tx.QueryContext(context.TODO(), "this is also very wrong")
+	_, err = tx.QueryContext(context.Background(), "this is also very wrong")
 	require.Error(t, err)
 }

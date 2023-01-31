@@ -53,7 +53,7 @@ func (ss *MockedServerStream) Context() context.Context {
 		},
 	}
 
-	return peer.NewContext(context.TODO(), p)
+	return peer.NewContext(context.Background(), p)
 }
 
 func (ss *MockedServerStream) SendMsg(m interface{}) error {

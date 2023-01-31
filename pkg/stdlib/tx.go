@@ -10,7 +10,7 @@ type dbTx struct {
 }
 
 func (c *Conn) Begin() (driver.Tx, error) {
-	return c.BeginTx(context.TODO(), driver.TxOptions{})
+	return c.BeginTx(context.Background(), driver.TxOptions{})
 }
 
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
@@ -29,13 +29,13 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 }
 
 func (dbTx *dbTx) Commit() error {
-	_, err := dbTx.tx.Commit(context.TODO())
+	_, err := dbTx.tx.Commit(context.Background())
 	dbTx.tx = nil
 	return err
 }
 
 func (dbTx *dbTx) Rollback() error {
-	err := dbTx.tx.Rollback(context.TODO())
+	err := dbTx.tx.Rollback(context.Background())
 	dbTx.tx = nil
 	return err
 }

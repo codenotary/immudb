@@ -56,7 +56,7 @@ func TestEmptyDBCorruptionChecker(t *testing.T) {
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
 
-	err = cc.Start(context.TODO())
+	err = cc.Start(context.Background())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
@@ -84,7 +84,7 @@ func TestCorruptionChecker(t *testing.T) {
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
 
-	err = cc.Start(context.TODO())
+	err = cc.Start(context.Background())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
@@ -146,7 +146,7 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
 
-	err = cc.Start(context.TODO())
+	err = cc.Start(context.Background())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
@@ -206,7 +206,7 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
 
-	err = cc.Start(context.TODO())
+	err = cc.Start(context.Background())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
@@ -275,7 +275,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGeneratorMock{})
 
-	err = cc.Start(context.TODO())
+	err = cc.Start(context.Background())
 	assert.NoError(t, err)
 
 	for i := 0; i < dbList.Length(); i++ {
@@ -309,7 +309,7 @@ func TestCorruptionChecker_Stop(t *testing.T) {
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
 
-	cc.Start(context.TODO())
+	cc.Start(context.Background())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
@@ -337,7 +337,7 @@ func TestCorruptionChecker_ExitImmediatly(t *testing.T) {
 	cco.singleiteration = true
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
-	err = cc.Start(context.TODO())
+	err = cc.Start(context.Background())
 	cc.Stop()
 
 	for i := 0; i < dbList.Length(); i++ {

@@ -2178,6 +2178,7 @@ func Test_database_truncate(t *testing.T) {
 	db := makeDbWith(t, "db", options)
 
 	var queryTime time.Time
+
 	for i := 2; i <= 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
@@ -2185,22 +2186,27 @@ func Test_database_truncate(t *testing.T) {
 		}
 		_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
+
 		if i == 10 {
 			queryTime = time.Now()
 		}
 	}
 
 	c := NewVlogTruncator(db)
+
 	hdr, err := c.Plan(queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-	err = c.Truncate(context.TODO(), hdr.ID)
+	err = c.Truncate(context.Background(), hdr.ID)
 	require.NoError(t, err)
 
 	for i := hdr.ID; i <= 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
-		err = db.st.ReadTx(i, tx)
+
+		err = db.st.ReadTx(i, false, tx)
+		require.NoError(t, err)
+
 		for _, e := range tx.Entries() {
 			_, err := db.st.ReadValue(e)
 			require.NoError(t, err)
@@ -2209,7 +2215,10 @@ func Test_database_truncate(t *testing.T) {
 
 	for i := hdr.ID - 1; i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
-		err = db.st.ReadTx(i, tx)
+
+		err = db.st.ReadTx(i, false, tx)
+		require.NoError(t, err)
+
 		for _, e := range tx.Entries() {
 			_, err := db.st.ReadValue(e)
 			require.Error(t, err)

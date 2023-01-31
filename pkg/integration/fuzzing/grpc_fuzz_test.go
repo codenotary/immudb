@@ -57,7 +57,7 @@ func FuzzGRPCProtocol(f *testing.F) {
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())})
 	client := immudb.NewClient().WithOptions(clientOpts)
 
-	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(f, err)
 
 	// Add few execall requests

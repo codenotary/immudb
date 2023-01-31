@@ -36,14 +36,14 @@ func TestNewSession(t *testing.T) {
 }
 
 func TestGetSessionIDFromContext(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("sessionid", "sessionID"))
 	sessionID, err := GetSessionIDFromContext(ctx)
 	require.NoError(t, err)
 	require.Equal(t, sessionID, "sessionID")
 	_, err = GetSessionIDFromContext(metadata.NewIncomingContext(ctx, metadata.Pairs("sessionid", "")))
 	require.ErrorIs(t, ErrNoSessionIDPresent, err)
-	_, err = GetSessionIDFromContext(context.TODO())
+	_, err = GetSessionIDFromContext(context.Background())
 	require.ErrorIs(t, ErrNoSessionIDPresent, err)
 	_, err = GetSessionIDFromContext(metadata.NewIncomingContext(ctx, metadata.Pairs()))
 	require.ErrorIs(t, ErrNoSessionAuthDataProvided, err)
