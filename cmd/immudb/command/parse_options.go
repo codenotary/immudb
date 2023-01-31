@@ -42,7 +42,9 @@ func parseOptions() (options *server.Options, err error) {
 			WithPrimaryPassword(viper.GetString("replication-primary-password")).
 			WithPrefetchTxBufferSize(viper.GetInt("replication-prefetch-tx-buffer-size")).
 			WithReplicationCommitConcurrency(viper.GetInt("replication-commit-concurrency")).
-			WithAllowTxDiscarding(viper.GetBool("replication-allow-tx-discarding"))
+			WithAllowTxDiscarding(viper.GetBool("replication-allow-tx-discarding")).
+			WithSkipIntegrityCheck(viper.GetBool("replication-skip-integrity-check")).
+			WithWaitForIndexing(viper.GetBool("replication-wait-for-indexing"))
 	} else {
 		replicationOptions.
 			WithSyncAcks(viper.GetInt("replication-sync-acks"))

@@ -72,7 +72,9 @@ func TestReplicationOptions(t *testing.T) {
 		WithPrimaryPassword("primary-pwd").
 		WithPrefetchTxBufferSize(100).
 		WithReplicationCommitConcurrency(5).
-		WithAllowTxDiscarding(true)
+		WithAllowTxDiscarding(true).
+		WithSkipIntegrityCheck(true).
+		WithWaitForIndexing(true)
 
 	require.True(t, repOpts.IsReplica)
 	require.False(t, repOpts.SyncReplication)
@@ -84,6 +86,8 @@ func TestReplicationOptions(t *testing.T) {
 	require.Equal(t, 100, repOpts.PrefetchTxBufferSize)
 	require.Equal(t, 5, repOpts.ReplicationCommitConcurrency)
 	require.True(t, repOpts.AllowTxDiscarding)
+	require.True(t, repOpts.SkipIntegrityCheck)
+	require.True(t, repOpts.WaitForIndexing)
 
 	// primary-related settings
 	repOpts.

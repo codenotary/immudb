@@ -43,6 +43,8 @@ func TestOptions(t *testing.T) {
 		WithPrefetchTxBufferSize(DefaultPrefetchTxBufferSize).
 		WithReplicationCommitConcurrency(DefaultReplicationCommitConcurrency).
 		WithAllowTxDiscarding(true).
+		WithSkipIntegrityCheck(true).
+		WithWaitForIndexing(true).
 		WithDelayer(delayer)
 
 	require.Equal(t, "defaultdb", opts.primaryDatabase)
@@ -54,6 +56,8 @@ func TestOptions(t *testing.T) {
 	require.Equal(t, DefaultPrefetchTxBufferSize, opts.prefetchTxBufferSize)
 	require.Equal(t, DefaultReplicationCommitConcurrency, opts.replicationCommitConcurrency)
 	require.True(t, opts.allowTxDiscarding)
+	require.True(t, opts.skipIntegrityCheck)
+	require.True(t, opts.waitForIndexing)
 	require.Equal(t, delayer, opts.delayer)
 
 	require.True(t, opts.Valid())

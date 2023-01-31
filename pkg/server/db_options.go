@@ -50,6 +50,8 @@ type dbOptions struct {
 	PrefetchTxBufferSize         int    `json:"prefetchTxBufferSize"`
 	ReplicationCommitConcurrency int    `json:"replicationCommitConcurrency"`
 	AllowTxDiscarding            bool   `json:"allowTxDiscarding"`
+	SkipIntegrityCheck           bool   `json:"skipIntegrityCheck"`
+	WaitForIndexing              bool   `json:"waitForIndexing"`
 
 	// store options
 	FileSize     int `json:"fileSize"`     // permanent
@@ -182,6 +184,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 			dbOpts.PrefetchTxBufferSize = repOpts.PrefetchTxBufferSize
 			dbOpts.ReplicationCommitConcurrency = repOpts.ReplicationCommitConcurrency
 			dbOpts.AllowTxDiscarding = repOpts.AllowTxDiscarding
+			dbOpts.SkipIntegrityCheck = repOpts.SkipIntegrityCheck
 		} else {
 			dbOpts.SyncAcks = repOpts.SyncAcks
 		}
@@ -302,6 +305,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
 			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},
 			AllowTxDiscarding:            &schema.NullableBool{Value: opts.AllowTxDiscarding},
+			SkipIntegrityCheck:           &schema.NullableBool{Value: opts.SkipIntegrityCheck},
+			WaitForIndexing:              &schema.NullableBool{Value: opts.WaitForIndexing},
 		},
 
 		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
@@ -498,6 +503,12 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 		if rs.AllowTxDiscarding != nil {
 			opts.AllowTxDiscarding = rs.AllowTxDiscarding.Value
+		}
+		if rs.SkipIntegrityCheck != nil {
+			opts.SkipIntegrityCheck = rs.SkipIntegrityCheck.Value
+		}
+		if rs.WaitForIndexing != nil {
+			opts.WaitForIndexing = rs.WaitForIndexing.Value
 		}
 	}
 
@@ -734,6 +745,18 @@ func (opts *dbOptions) Validate() error {
 				ErrIllegalArguments, opts.Database)
 		}
 
+		if opts.SkipIntegrityCheck {
+			return fmt.Errorf(
+				"%w: invalid value for replication option SkipIntegrityCheck on primary database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.WaitForIndexing {
+			return fmt.Errorf(
+				"%w: invalid value for replication option WaitForIndexing on primary database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
 		if opts.SyncReplication && opts.SyncAcks == 0 {
 			return fmt.Errorf(
 				"%w: invalid replication options for primary database '%s'. It is necessary to have at least one sync replica",
@@ -852,6 +875,8 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.PrefetchTxBufferSize: %v", database, opts.PrefetchTxBufferSize)
 	s.Logger.Infof("%s.ReplicationCommitConcurrency: %v", database, opts.ReplicationCommitConcurrency)
 	s.Logger.Infof("%s.AllowTxDiscarding: %v", database, opts.AllowTxDiscarding)
+	s.Logger.Infof("%s.SkipIntegrityCheck: %v", database, opts.SkipIntegrityCheck)
+	s.Logger.Infof("%s.WaitForIndexing: %v", database, opts.WaitForIndexing)
 	s.Logger.Infof("%s.FileSize: %v", database, opts.FileSize)
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)
 	s.Logger.Infof("%s.MaxValueLen: %v", database, opts.MaxValueLen)

@@ -19,6 +19,7 @@ package integration
 import (
 	"context"
 	"io"
+	"strconv"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -73,7 +74,11 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	txmd, err := client.Set(ctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	rmd := metadata.Pairs("authorization", replicatedMD.Token)
+	rmd := metadata.Pairs(
+		"authorization", replicatedMD.Token,
+		"skip-integrity-check", strconv.FormatBool(false),
+		"wait-for-indexing", strconv.FormatBool(false),
+	)
 	rctx := metadata.NewOutgoingContext(context.Background(), rmd)
 
 	for i := uint64(1); i <= 2; i++ {

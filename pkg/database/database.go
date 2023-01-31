@@ -123,7 +123,7 @@ type DB interface {
 
 	TxByID(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error)
 	ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error)
-	ReplicateTx(ctx context.Context, exportedTx []byte) (*schema.TxHeader, error)
+	ReplicateTx(ctx context.Context, exportedTx []byte, skipIntegrityCheck bool, waitForIndexing bool) (*schema.TxHeader, error)
 	AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error
 	DiscardPrecommittedTxsSince(txID uint64) error
 
@@ -1311,7 +1311,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 	return txbs, mayCommitUpToTxID, mayCommitUpToAlh, nil
 }
 
-func (d *db) ReplicateTx(ctx context.Context, exportedTx []byte) (*schema.TxHeader, error) {
+func (d *db) ReplicateTx(ctx context.Context, exportedTx []byte, skipIntegrityCheck bool, waitForIndexing bool) (*schema.TxHeader, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -1319,7 +1319,7 @@ func (d *db) ReplicateTx(ctx context.Context, exportedTx []byte) (*schema.TxHead
 		return nil, ErrNotReplica
 	}
 
-	hdr, err := d.st.ReplicateTx(ctx, exportedTx, true, false)
+	hdr, err := d.st.ReplicateTx(ctx, exportedTx, skipIntegrityCheck, waitForIndexing)
 	if err != nil {
 		return nil, err
 	}

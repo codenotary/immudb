@@ -1448,7 +1448,9 @@ Only succeed if given key was not modified after given transaction
 | syncAcks | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of confirmations from synchronous replicas required to commit a transaction |
 | prefetchTxBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of prefetched transactions |
 | replicationCommitConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of concurrent replications |
-| AllowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the replica diverges from the primary |
+| allowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the replica diverges from the primary |
+| skipIntegrityCheck | [NullableBool](#immudb.schema.NullableBool) |  | Disable integrity check when reading data during replication |
+| waitForIndexing | [NullableBool](#immudb.schema.NullableBool) |  | Wait for indexing to be up to date during replication |
 
 
 

@@ -3063,9 +3063,17 @@
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Number of concurrent replications"
         },
-        "AllowTxDiscarding": {
+        "allowTxDiscarding": {
           "$ref": "#/definitions/schemaNullableBool",
           "title": "Allow precommitted transactions to be discarded if the replica diverges from the primary"
+        },
+        "skipIntegrityCheck": {
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "Disable integrity check when reading data during replication"
+        },
+        "waitForIndexing": {
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "Wait for indexing to be up to date during replication"
         }
       }
     },
