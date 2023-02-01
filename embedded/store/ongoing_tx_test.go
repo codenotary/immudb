@@ -18,6 +18,7 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -78,4 +79,15 @@ func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 	}
 	err = otx.checkPreconditions(st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
+}
+
+func TestOngoingTxOptions(t *testing.T) {
+	var opts *TxOptions
+	require.Error(t, opts.Validate())
+
+	opts = &TxOptions{}
+	require.Equal(t, TxMode(4), opts.WithMode(4).Mode)
+	require.Error(t, opts.Validate())
+
+	require.Equal(t, 1*time.Hour, opts.WithSnapshotRenewalPeriod(1*time.Hour).SnapshotRenewalPeriod)
 }
