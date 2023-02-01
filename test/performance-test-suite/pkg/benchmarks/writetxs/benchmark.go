@@ -132,8 +132,8 @@ func (b *benchmark) Warmup() error {
 		return err
 	}
 
-	if b.cfg.Replica == "async" {
-		const replicaDirName = "async-replica-tx-test"
+	if b.cfg.Replica == "async" || b.cfg.Replica == "sync" {
+		replicaDirName := fmt.Sprintf("%s-replica-tx-test", b.cfg.Replica)
 
 		replicaOptions := server.
 			ReplicationOptions{}
@@ -141,29 +141,17 @@ func (b *benchmark) Warmup() error {
 		options2 := server.
 			DefaultOptions().
 			WithDir(replicaDirName).
-			WithLogFormat(logger.LogFormatJSON).
-			WithReplicationOptions(replicaOptions.WithIsReplica(true))
+			WithLogFormat(logger.LogFormatJSON)
 
-		b.replicaServer = servertest.NewBufconnServer(options2)
-		b.replicaServer.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
-
-		err = b.replicaServer.Start()
-		if err != nil {
-			return err
+		if b.cfg.Replica == "async" {
+			options2.
+				WithReplicationOptions(replicaOptions.WithIsReplica(true))
 		}
-	}
 
-	if b.cfg.Replica == "sync" {
-		const replicaDirName = "sync-replica-tx-test"
-
-		replicaOptions := server.
-			ReplicationOptions{}
-
-		options2 := server.
-			DefaultOptions().
-			WithDir(replicaDirName).
-			WithLogFormat(logger.LogFormatJSON).
-			WithReplicationOptions(replicaOptions.WithIsReplica(true).WithSyncReplication(true))
+		if b.cfg.Replica == "sync" {
+			options2.
+				WithReplicationOptions(replicaOptions.WithIsReplica(true).WithSyncReplication(true))
+		}
 
 		b.replicaServer = servertest.NewBufconnServer(options2)
 		b.replicaServer.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
