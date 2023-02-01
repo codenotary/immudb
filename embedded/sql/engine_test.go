@@ -5916,8 +5916,10 @@ func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *s
 }
 
 func TestCopyCatalogToTx(t *testing.T) {
+	fileSize := 1024
+
 	opts := store.DefaultOptions()
-	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(256)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(fileSize)
 
 	engine, st := setupCommonTestWithOptions(t, opts)
 
@@ -6012,7 +6014,7 @@ func TestCopyCatalogToTx(t *testing.T) {
 			require.NoError(t, err)
 
 			key := []byte(fmt.Sprintf("key_%d", i))
-			value := []byte(fmt.Sprintf("val_%d", i))
+			value := make([]byte, fileSize)
 
 			err = tx.Set(key, nil, value)
 			require.NoError(t, err)

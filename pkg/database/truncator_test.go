@@ -72,18 +72,20 @@ func Test_vlogCompactor_Compact(t *testing.T) {
 func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	rootPath := t.TempDir()
 
+	fileSize := 1024
+
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
-	for i := 2; i <= 20; i++ {
+	for i := 0; i < 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
-			Value: []byte(fmt.Sprintf("val_%d", i)),
+			Value: make([]byte, fileSize),
 		}
 		_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
@@ -98,7 +100,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 
 	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
 
-	for i := deletePointTx; i <= 20; i++ {
+	for i := deletePointTx; i < 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -115,18 +117,20 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	rootPath := t.TempDir()
 
+	fileSize := 1024
+
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
-	for i := 2; i <= 10; i++ {
+	for i := 0; i < 10; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
-			Value: []byte(fmt.Sprintf("val_%d", i)),
+			Value: make([]byte, fileSize),
 		}
 		_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
@@ -141,7 +145,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
 
-	for i := deletePointTx; i <= 10; i++ {
+	for i := deletePointTx; i < 10; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -157,7 +161,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
 			_, err := db.st.ReadValue(e)
@@ -170,8 +174,10 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	rootPath := t.TempDir()
 
+	fileSize := 1024
+
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
@@ -189,7 +195,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 			for k := 1*(j-1)*10 + 1; k < (j*10)+1; k++ {
 				kv := &schema.KeyValue{
 					Key:   []byte(fmt.Sprintf("key_%d", k)),
-					Value: []byte(fmt.Sprintf("val_%d", k)),
+					Value: make([]byte, fileSize),
 				}
 				_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 				require.NoError(t, err)
@@ -212,7 +218,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
 			_, err := db.st.ReadValue(e)
@@ -224,7 +230,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
 			_, err := db.st.ReadValue(e)
@@ -261,8 +267,10 @@ func Test_newTruncatorMetrics(t *testing.T) {
 func Test_vlogCompactor_Plan(t *testing.T) {
 	rootPath := t.TempDir()
 
+	fileSize := 1024
+
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(600)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
 
@@ -272,7 +280,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 	for i := 2; i <= 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
-			Value: []byte(fmt.Sprintf("val_%d", i)),
+			Value: make([]byte, fileSize),
 		}
 		_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
@@ -287,21 +295,11 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 }
 
-var sqlPrefix = []byte{2}
-
-func closeStore(t *testing.T, st *store.ImmuStore) {
-	err := st.Close()
-	if !t.Failed() {
-		// Do not pollute error output if test has already failed
-		require.NoError(t, err)
-	}
-}
-
 func setupCommonTest(t *testing.T) *db {
 	rootPath := t.TempDir()
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(1024)
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db1", options)
@@ -335,7 +333,7 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 		var err error
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
-			Value: []byte(fmt.Sprintf("val_%d", i)),
+			Value: make([]byte, 1024),
 		}
 		deleteUptoTx, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
@@ -386,7 +384,7 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 		for i := 6; i <= 10; i++ {
 			kv := &schema.KeyValue{
 				Key:   []byte(fmt.Sprintf("key_%d", i)),
-				Value: []byte(fmt.Sprintf("val_%d", i)),
+				Value: make([]byte, 1024),
 			}
 			hdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 			require.NoError(t, err)
@@ -419,8 +417,10 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 func Test_vlogCompactor_without_data(t *testing.T) {
 	rootPath := t.TempDir()
 
+	fileSize := 1024
+
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
 
@@ -610,8 +610,10 @@ func Test_vlogTruncator_isRetentionPeriodReached(t *testing.T) {
 func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	rootPath := t.TempDir()
 
+	fileSize := 1024
+
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithFileSize(60)
+	options.storeOpts.WithFileSize(fileSize)
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
@@ -620,21 +622,21 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
-			Value: []byte(fmt.Sprintf("val_%d", i)),
+			Value: make([]byte, fileSize),
 		}
 		_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
 	}
 
 	once := sync.Once{}
-	doneTruncateCh := make(chan bool, 0)
-	startWritesCh := make(chan bool, 0)
-	doneWritesCh := make(chan bool, 0)
+	doneTruncateCh := make(chan bool)
+	startWritesCh := make(chan bool)
+	doneWritesCh := make(chan bool)
 	go func() {
 		for i := 11; i <= 40; i++ {
 			kv := &schema.KeyValue{
 				Key:   []byte(fmt.Sprintf("key_%d", i)),
-				Value: []byte(fmt.Sprintf("val_%d", i)),
+				Value: make([]byte, fileSize),
 			}
 			_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 			once.Do(func() {

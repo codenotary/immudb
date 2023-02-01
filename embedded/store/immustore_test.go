@@ -4293,8 +4293,10 @@ func TestImmudbStoreWithoutVLogCache(t *testing.T) {
 }
 
 func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxConcurrency(100).
 		WithMaxIOConcurrency(5)
 
@@ -4309,7 +4311,7 @@ func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
 		require.NoError(t, err)
 
 		key := []byte(fmt.Sprintf("key_%d", i))
-		value := []byte(fmt.Sprintf("val_%d", i))
+		value := make([]byte, fileSize)
 
 		err = tx.Set(key, nil, value)
 		require.NoError(t, err)
@@ -4349,8 +4351,10 @@ func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
 }
 
 func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
@@ -4364,7 +4368,7 @@ func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
 		require.NoError(t, err)
 
 		key := []byte(fmt.Sprintf("key_%d", i))
-		value := []byte(fmt.Sprintf("val_%d", i))
+		value := make([]byte, fileSize)
 
 		err = tx.Set(key, nil, value)
 		require.NoError(t, err)
@@ -4406,8 +4410,10 @@ func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
 }
 
 func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
@@ -4420,7 +4426,7 @@ func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
 		require.NoError(t, err)
 
 		key := []byte(fmt.Sprintf("key_%d", i))
-		value := []byte(fmt.Sprintf("val_%d", i))
+		value := make([]byte, fileSize)
 
 		err = tx.Set(key, nil, value)
 		require.NoError(t, err)
@@ -4466,8 +4472,10 @@ func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
 }
 
 func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxConcurrency(100).
 		WithMaxIOConcurrency(3)
 
@@ -4490,7 +4498,7 @@ func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
 				require.NoError(t, err)
 
 				key := []byte(fmt.Sprintf("key_%d", k))
-				value := []byte(fmt.Sprintf("val_%d", k))
+				value := make([]byte, fileSize)
 
 				err = tx.Set(key, nil, value)
 				require.NoError(t, err)
@@ -4523,8 +4531,10 @@ func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
 }
 
 func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
@@ -4541,7 +4551,7 @@ func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
 		require.NoError(t, err)
 
 		key := []byte(fmt.Sprintf("key_%d", i))
-		value := []byte(fmt.Sprintf("val_%d", i))
+		value := make([]byte, fileSize)
 
 		err = tx.Set(key, nil, value)
 		require.NoError(t, err)
@@ -4594,8 +4604,10 @@ func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
 }
 
 func TestExportTxWithTruncation(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxIOConcurrency(1)
 
 	// Create a master store
@@ -4619,7 +4631,7 @@ func TestExportTxWithTruncation(t *testing.T) {
 			require.NoError(t, err)
 
 			key := []byte(fmt.Sprintf("key_%d", i))
-			value := []byte(fmt.Sprintf("val_%d", i))
+			value := make([]byte, fileSize)
 
 			err = tx.Set(key, nil, value)
 			require.NoError(t, err)
@@ -4767,8 +4779,10 @@ func TestImmudbStoreTxMetadata(t *testing.T) {
 }
 
 func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
+	fileSize := 1024
+
 	opts := DefaultOptions().
-		WithFileSize(6).
+		WithFileSize(fileSize).
 		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
@@ -4782,7 +4796,7 @@ func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
 		require.NoError(t, err)
 
 		key := []byte(fmt.Sprintf("key_%d", i))
-		value := []byte(fmt.Sprintf("val_%d", i))
+		value := make([]byte, fileSize)
 
 		err = tx.Set(key, nil, value)
 		require.NoError(t, err)
@@ -4803,7 +4817,7 @@ func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
 		require.NoError(t, err)
 
 		key := []byte(fmt.Sprintf("key_%d", i))
-		value := []byte(fmt.Sprintf("val_%d", i))
+		value := make([]byte, fileSize)
 
 		err = tx.Set(key, nil, value)
 		require.NoError(t, err)
