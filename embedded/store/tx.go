@@ -602,14 +602,16 @@ func (t *txDataReader) readEntry(entry *TxEntry) error {
 }
 
 func (t *txDataReader) buildAndValidateHtree(htree *htree.HTree) error {
-	if t.skipIntegrityCheck {
-		return nil
-	}
-
+	// it's better to consume alh from appendable even if it's not validated
+	// as seuqential tx reading can be done
 	var alh [sha256.Size]byte
 	_, err := t.r.Read(alh[:])
 	if err != nil {
 		return err
+	}
+
+	if t.skipIntegrityCheck {
+		return nil
 	}
 
 	err = htree.BuildWith(t.digests)
