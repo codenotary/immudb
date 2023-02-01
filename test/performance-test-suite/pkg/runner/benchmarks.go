@@ -30,7 +30,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
-			Replica:    false,
+			Replica:    "",
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
@@ -40,7 +40,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
-			Replica:    false,
+			Replica:    "",
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
@@ -50,7 +50,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
-			Replica:    true,
+			Replica:    "async",
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
@@ -60,7 +60,27 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
-			Replica:    true,
+			Replica:    "async",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write TX/s - one sync replica",
+			Workers:    30,
+			BatchSize:  1,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: true,
+			Replica:    "sync",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write KV/s - one sync replica",
+			Workers:    30,
+			BatchSize:  1000,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: true,
+			Replica:    "sync",
 		}),
 	}
 }

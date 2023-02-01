@@ -47,7 +47,7 @@ type Config struct {
 	KeySize    int
 	ValueSize  int
 	AsyncWrite bool
-	Replica    bool
+	Replica    string
 }
 
 type benchmark struct {
@@ -132,19 +132,40 @@ func (b *benchmark) Warmup() error {
 		return err
 	}
 
-	if b.cfg.Replica {
-		const replicaDirName = "replica-tx-test"
+	if b.cfg.Replica == "async" {
+		const replicaDirName = "async-replica-tx-test"
 
 		replicaOptions := server.
 			ReplicationOptions{}
 
-		options_2 := server.
+		options2 := server.
 			DefaultOptions().
 			WithDir(replicaDirName).
 			WithLogFormat(logger.LogFormatJSON).
 			WithReplicationOptions(replicaOptions.WithIsReplica(true))
 
-		b.replicaServer = servertest.NewBufconnServer(options_2)
+		b.replicaServer = servertest.NewBufconnServer(options2)
+		b.replicaServer.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
+
+		err = b.replicaServer.Start()
+		if err != nil {
+			return err
+		}
+	}
+
+	if b.cfg.Replica == "sync" {
+		const replicaDirName = "sync-replica-tx-test"
+
+		replicaOptions := server.
+			ReplicationOptions{}
+
+		options2 := server.
+			DefaultOptions().
+			WithDir(replicaDirName).
+			WithLogFormat(logger.LogFormatJSON).
+			WithReplicationOptions(replicaOptions.WithIsReplica(true).WithSyncReplication(true))
+
+		b.replicaServer = servertest.NewBufconnServer(options2)
 		b.replicaServer.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
 
 		err = b.replicaServer.Start()
