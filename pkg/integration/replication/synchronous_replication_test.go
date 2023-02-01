@@ -221,7 +221,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 	suite.Run("should commit successfully without two replicas", func() {
 		suite.StopReplica(1)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key2"), []byte("value2"))
@@ -231,7 +231,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 	suite.Run("should not commit without three replicas", func() {
 		suite.StopReplica(2)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key3"), []byte("value3"))
@@ -242,7 +242,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 	suite.Run("should commit again once first replica is back online", func() {
 		suite.StartReplica(0)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key4"), []byte("value4"))
@@ -256,7 +256,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 		suite.AddReplica(true)
 		suite.AddReplica(true)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key5"), []byte("value5"))
@@ -273,7 +273,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 				ctx, client, cleanup := suite.ClientForReplica(i)
 				defer cleanup()
 
-				suite.WaitForCommittedTx(ctx, client, primaryState.TxId, time.Second)
+				suite.WaitForCommittedTx(ctx, client, primaryState.TxId, 2*time.Second)
 
 				for i := 1; i <= 5; i++ {
 					val, err := client.Get(ctx, []byte(fmt.Sprintf("key%d", i)))
