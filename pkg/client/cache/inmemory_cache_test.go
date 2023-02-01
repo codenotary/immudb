@@ -60,4 +60,12 @@ func TestInMemoryCache(t *testing.T) {
 	err = imc.Unlock()
 	require.Error(t, err)
 
+	err = imc.ServerIdentityCheck("server1", "identity1")
+	require.NoError(t, err)
+
+	err = imc.ServerIdentityCheck("server1", "identity2")
+	require.ErrorIs(t, err, ErrServerIdentityValidationFailed)
+
+	err = imc.ServerIdentityCheck("server1", "identity1")
+	require.NoError(t, err)
 }

@@ -33,7 +33,8 @@ type inMemoryCache struct {
 // NewInMemoryCache returns a new in-memory cache
 func NewInMemoryCache() Cache {
 	return &inMemoryCache{
-		states: map[string]map[string]*schema.ImmutableState{},
+		states:     map[string]map[string]*schema.ImmutableState{},
+		identities: map[string]string{},
 	}
 }
 

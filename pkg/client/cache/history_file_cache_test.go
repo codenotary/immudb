@@ -34,6 +34,12 @@ func TestNewHistoryFileCache(t *testing.T) {
 
 	fc := NewHistoryFileCache(dir)
 	require.IsType(t, &historyFileCache{}, fc)
+
+	require.Error(t, fc.Lock("foo"))
+	require.Error(t, fc.Unlock())
+
+	err := fc.ServerIdentityCheck("identity1", "uuid2")
+	require.NoError(t, err)
 }
 
 func TestNewHistoryFileCacheSet(t *testing.T) {

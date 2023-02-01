@@ -1,16 +1,18 @@
+//go:build !webconsole
 // +build !webconsole
 
 package webconsole
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetupWebconsoleDefault(t *testing.T) {
@@ -19,7 +21,7 @@ func TestSetupWebconsoleDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	handler := http.NewServeMux()
-	SetupWebconsole(handler, logger.NewSimpleLogger("webconsole", os.Stderr), "localhost:8080")
+	err = SetupWebconsole(handler, logger.NewSimpleLogger("webconsole", os.Stderr), "localhost:8080")
 	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
