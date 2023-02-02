@@ -21,13 +21,13 @@ import (
 )
 
 type msgSenderMock struct {
-	SendF    func(reader io.Reader, payloadSize int) (err error)
+	SendF    func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error)
 	RecvMsgF func(m interface{}) error
 }
 
 func DefaultMsgSenderMock(s *ImmuServiceSender_StreamMock, chunkSize int) *msgSenderMock {
 	return &msgSenderMock{
-		SendF: func(reader io.Reader, payloadSize int) (err error) {
+		SendF: func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 			return nil
 		},
 		RecvMsgF: func(m interface{}) error {
@@ -36,8 +36,8 @@ func DefaultMsgSenderMock(s *ImmuServiceSender_StreamMock, chunkSize int) *msgSe
 	}
 }
 
-func (st *msgSenderMock) Send(reader io.Reader, payloadSize int) (err error) {
-	return st.SendF(reader, payloadSize)
+func (st *msgSenderMock) Send(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
+	return st.SendF(reader, payloadSize, metadata)
 }
 
 func (st *msgSenderMock) RecvMsg(m interface{}) error {

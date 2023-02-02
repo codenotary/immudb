@@ -56,11 +56,11 @@ func TestKvStreamSender_SendEOF(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		return io.EOF
 	}
 	s.RecvMsgF = func(m interface{}) error {
-		return errors.New(ErrNotEnoughDataOnStream)
+		return io.EOF
 	}
 	kvss := NewKvStreamSender(s)
 	kv := &KeyValue{
@@ -75,15 +75,14 @@ func TestKvStreamSender_SendEOF(t *testing.T) {
 	}
 
 	err := kvss.Send(kv)
-
-	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestKvStreamSender_SendErr(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		return errors.New("custom one")
 	}
 

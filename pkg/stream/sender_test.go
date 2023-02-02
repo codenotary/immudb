@@ -39,7 +39,7 @@ func TestMsgSender_Send(t *testing.T) {
 	content := []byte(`mycontent`)
 	message := bytes.Join([][]byte{streamtest.GetTrailer(len(content)), content}, nil)
 	b := bytes.NewBuffer(message)
-	err := s.Send(b, b.Len())
+	err := s.Send(b, b.Len(), nil)
 	require.NoError(t, err)
 }
 
@@ -47,8 +47,8 @@ func TestMsgSender_SendPayloadSizeZero(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := NewMsgSender(sm, 4096)
 	b := bytes.NewBuffer(nil)
-	err := s.Send(b, 0)
-	require.Equal(t, ErrMessageLengthIsZero, err.Error())
+	err := s.Send(b, 0, nil)
+	require.NoError(t, err)
 }
 
 func TestMsgSender_SendErrReader(t *testing.T) {
@@ -59,7 +59,7 @@ func TestMsgSender_SendErrReader(t *testing.T) {
 			return 0, errors.New("custom one")
 		},
 	}
-	err := s.Send(r, 5000)
+	err := s.Send(r, 5000, nil)
 	require.Error(t, err)
 }
 
@@ -71,8 +71,8 @@ func TestMsgSender_SendEmptyReader(t *testing.T) {
 			return 0, io.EOF
 		},
 	}
-	err := s.Send(r, 5000)
-	require.Equal(t, ErrReaderIsEmpty, err.Error())
+	err := s.Send(r, 5000, nil)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
@@ -82,8 +82,8 @@ func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
 	content := []byte(`mycontent`)
 	message := streamtest.GetTrailer(len(content))
 	b := bytes.NewBuffer(message)
-	err := s.Send(b, 5000)
-	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	err := s.Send(b, 5000, nil)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestMsgSender_SendLastChunk(t *testing.T) {
@@ -92,7 +92,7 @@ func TestMsgSender_SendLastChunk(t *testing.T) {
 
 	content := []byte(`mycontent`)
 	b := bytes.NewBuffer(content)
-	err := s.Send(b, len(content))
+	err := s.Send(b, len(content), nil)
 	require.NoError(t, err)
 }
 
@@ -102,7 +102,7 @@ func TestMsgSender_SendMultipleChunks(t *testing.T) {
 
 	content := []byte(`mycontent`)
 	b := bytes.NewBuffer(content)
-	err := s.Send(b, len(content))
+	err := s.Send(b, len(content), nil)
 	require.NoError(t, err)
 }
 

@@ -116,9 +116,6 @@ func (c *immuClient) _streamGet(ctx context.Context, k *schema.KeyRequest) (*sch
 
 	value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 	if err != nil {
-		if err == io.EOF {
-			return nil, errors.New(stream.ErrMissingExpectedData)
-		}
 		return nil, err
 	}
 
@@ -188,7 +185,7 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	ss := c.StreamServiceFactory.NewMsgSender(s)
 	kvss := c.StreamServiceFactory.NewKvStreamSender(ss)
 
-	err = ss.Send(bytes.NewBuffer(stateTxID), len(stateTxID))
+	err = ss.Send(bytes.NewBuffer(stateTxID), len(stateTxID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -423,9 +420,6 @@ func (c *immuClient) _streamScan(ctx context.Context, req *schema.ScanRequest) (
 		}
 		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
-			if err == io.EOF {
-				return nil, errors.New(stream.ErrMissingExpectedData)
-			}
 			return nil, err
 		}
 
@@ -480,9 +474,6 @@ func (c *immuClient) _streamHistory(ctx context.Context, req *schema.HistoryRequ
 		}
 		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
-			if err == io.EOF {
-				return nil, errors.New(stream.ErrMissingExpectedData)
-			}
 			return nil, err
 		}
 

@@ -75,7 +75,7 @@ func TestExecAllStreamSender_Send(t *testing.T) {
 func TestExecAllStreamSender_SendZAddError(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		return errors.New("custom one")
 	}
 	eas := NewExecAllStreamSender(s)
@@ -122,7 +122,7 @@ func TestExecAllStreamSender_SendZAddError3(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
 	sec := false
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		if sec {
 			return errors.New("custom one")
 		}
@@ -154,7 +154,7 @@ func TestExecAllStreamSender_SendZAddError3(t *testing.T) {
 func TestExecAllStreamSender_SendKVError(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		return errors.New("custom one")
 	}
 	eas := NewExecAllStreamSender(s)
@@ -184,7 +184,7 @@ func TestExecAllStreamSender_SendKVError(t *testing.T) {
 func TestExecAllStreamSender_SendRefError(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		return errors.New("custom one")
 	}
 	eas := NewExecAllStreamSender(s)

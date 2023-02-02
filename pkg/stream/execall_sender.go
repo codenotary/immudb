@@ -41,13 +41,13 @@ func (st *execAllStreamSender) Send(req *ExecAllRequest) error {
 	for _, op := range req.Operations {
 		switch x := op.Operation.(type) {
 		case *Op_KeyValue:
-			st.s.Send(bytes.NewBuffer([]byte{TOp_Kv}), 1)
+			st.s.Send(bytes.NewBuffer([]byte{TOp_Kv}), 1, nil)
 			err := st.kvStreamSender.Send(x.KeyValue)
 			if err != nil {
 				return err
 			}
 		case *Op_ZAdd:
-			err := st.s.Send(bytes.NewBuffer([]byte{TOp_ZAdd}), 1)
+			err := st.s.Send(bytes.NewBuffer([]byte{TOp_ZAdd}), 1, nil)
 			if err != nil {
 				return err
 			}
@@ -55,7 +55,7 @@ func (st *execAllStreamSender) Send(req *ExecAllRequest) error {
 			if err != nil {
 				return err
 			}
-			err = st.s.Send(bytes.NewBuffer(zAddRequest), len(zAddRequest))
+			err = st.s.Send(bytes.NewBuffer(zAddRequest), len(zAddRequest), nil)
 			if err != nil {
 				return err
 			}

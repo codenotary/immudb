@@ -357,7 +357,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 
 	txr.exportTxStream.Send(req)
 
-	etx, err := txr.exportTxStreamReceiver.ReadFully()
+	etx, emd, err := txr.exportTxStreamReceiver.ReadFully()
 
 	if err != nil && !errors.Is(err, io.EOF) {
 		if strings.Contains(err.Error(), "commit state diverged from") {
@@ -390,25 +390,32 @@ func (txr *TxReplicator) fetchNextTx() error {
 	}
 
 	if syncReplicationEnabled {
-		md := txr.exportTxStream.Trailer()
-
-		if len(md.Get("may-commit-up-to-txid-bin")) == 0 ||
-			len(md.Get("may-commit-up-to-alh-bin")) == 0 ||
-			len(md.Get("committed-txid-bin")) == 0 {
+		bMayCommitUpToTxID, ok := emd["may-commit-up-to-txid-bin"]
+		if !ok {
 			return ErrNoSynchronousReplicationOnPrimary
 		}
 
-		if len(md.Get("may-commit-up-to-txid-bin")[0]) != 8 ||
-			len(md.Get("may-commit-up-to-alh-bin")[0]) != sha256.Size ||
-			len(md.Get("committed-txid-bin")[0]) != 8 {
+		bmayCommitUpToAlh, ok := emd["may-commit-up-to-alh-bin"]
+		if !ok {
+			return ErrNoSynchronousReplicationOnPrimary
+		}
+
+		bCommittedTxID, ok := emd["committed-txid-bin"]
+		if !ok {
+			return ErrNoSynchronousReplicationOnPrimary
+		}
+
+		if len(bMayCommitUpToTxID) != 8 ||
+			len(bmayCommitUpToAlh) != sha256.Size ||
+			len(bCommittedTxID) != 8 {
 			return ErrInvalidReplicationMetadata
 		}
 
-		mayCommitUpToTxID := binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
-		committedTxID := binary.BigEndian.Uint64([]byte(md.Get("committed-txid-bin")[0]))
+		mayCommitUpToTxID := binary.BigEndian.Uint64(bMayCommitUpToTxID)
+		committedTxID := binary.BigEndian.Uint64(bCommittedTxID)
 
 		var mayCommitUpToAlh [sha256.Size]byte
-		copy(mayCommitUpToAlh[:], []byte(md.Get("may-commit-up-to-alh-bin")[0]))
+		copy(mayCommitUpToAlh[:], bmayCommitUpToAlh)
 
 		txr.metrics.primaryCommittedTxID.Set(float64(committedTxID))
 		txr.metrics.allowCommitUpToTxID.Set(float64(mayCommitUpToTxID))
