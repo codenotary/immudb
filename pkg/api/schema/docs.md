@@ -9,6 +9,7 @@
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
+    - [Chunk.MetadataEntry](#immudb.schema.Chunk.MetadataEntry)
     - [Column](#immudb.schema.Column)
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
@@ -227,6 +228,23 @@ DEPRECATED
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | content | [bytes](#bytes) |  |  |
+| metadata | [Chunk.MetadataEntry](#immudb.schema.Chunk.MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.Chunk.MetadataEntry"></a>
+
+### Chunk.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [bytes](#bytes) |  |  |
 
 
 

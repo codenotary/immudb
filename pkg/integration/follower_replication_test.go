@@ -19,9 +19,8 @@ package integration
 import (
 	"context"
 	"encoding/binary"
-	"errors"
-	"io"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -223,11 +222,11 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	// init primary client
 	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
 
-	primaryOpts := ic.DefaultOptions().
+	primaryClientOpts := ic.DefaultOptions().
 		WithDir(t.TempDir()).
 		WithPort(primaryPort)
 
-	primaryClient := ic.NewClient().WithOptions(primaryOpts)
+	primaryClient := ic.NewClient().WithOptions(primaryClientOpts)
 	require.NoError(t, err)
 
 	err = primaryClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
@@ -272,11 +271,11 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	// init replica client
 	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
 
-	replicaOpts := ic.DefaultOptions().
+	replicaClientOpts := ic.DefaultOptions().
 		WithDir(t.TempDir()).
 		WithPort(replicaPort)
 
-	replicaClient := ic.NewClient().WithOptions(replicaOpts)
+	replicaClient := ic.NewClient().WithOptions(replicaClientOpts)
 	require.NoError(t, err)
 
 	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
@@ -453,7 +452,7 @@ func BenchmarkExportTx(b *testing.B) {
 					}
 
 					receiver := streamServiceFactory.NewMsgReceiver(exportTxStream)
-					_, err = receiver.ReadFully()
+					_, _, err = receiver.ReadFully()
 					if err != nil {
 						panic(err)
 					}
@@ -614,12 +613,13 @@ func BenchmarkStreamExportTx(b *testing.B) {
 
 				go func() {
 					for {
-						_, err := exportTxStreamReceiver.ReadFully()
-						if errors.Is(err, io.EOF) {
-							doneCh <- struct{}{}
-							return
-						}
+						_, _, err := exportTxStreamReceiver.ReadFully()
 						if err != nil {
+							if strings.Contains(err.Error(), "EOF") {
+								doneCh <- struct{}{}
+								return
+							}
+
 							panic(err)
 						}
 

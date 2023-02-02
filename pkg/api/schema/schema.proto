@@ -1326,6 +1326,7 @@ message DatabaseWithSettings {
 
 message Chunk {
   bytes content = 1;
+  map<string, bytes> metadata = 2;
 }
 
 message UseSnapshotRequest {

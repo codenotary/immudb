@@ -63,7 +63,7 @@ func TestVEntryStreamSender_Send(t *testing.T) {
 func TestVEntryStreamSender_SendErr(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
-	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		return errors.New("custom")
 	}
 	kvss := NewVEntryStreamSender(s)

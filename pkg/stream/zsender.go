@@ -16,7 +16,10 @@ limitations under the License.
 
 package stream
 
-import "io"
+import (
+	"errors"
+	"io"
+)
 
 type zStreamSender struct {
 	s MsgSender
@@ -31,11 +34,11 @@ func NewZStreamSender(s MsgSender) *zStreamSender {
 
 func (st *zStreamSender) Send(ze *ZEntry) error {
 	for _, vs := range []*ValueSize{ze.Set, ze.Key, ze.Score, ze.AtTx, ze.Value} {
-		err := st.s.Send(vs.Content, vs.Size)
+		err := st.s.Send(vs.Content, vs.Size, nil)
+		if errors.Is(err, io.EOF) {
+			return st.s.RecvMsg(nil)
+		}
 		if err != nil {
-			if err == io.EOF {
-				return st.s.RecvMsg(nil)
-			}
 			return err
 		}
 	}

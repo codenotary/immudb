@@ -16,6 +16,11 @@ limitations under the License.
 
 package stream
 
+import (
+	"errors"
+	"io"
+)
+
 type vEntryStreamSender struct {
 	s MsgSender
 }
@@ -29,7 +34,10 @@ func NewVEntryStreamSender(s MsgSender) *vEntryStreamSender {
 func (vess *vEntryStreamSender) Send(ve *VerifiableEntry) error {
 	ves := []*ValueSize{ve.EntryWithoutValueProto, ve.VerifiableTxProto, ve.InclusionProofProto, ve.Value}
 	for _, vs := range ves {
-		err := vess.s.Send(vs.Content, vs.Size)
+		err := vess.s.Send(vs.Content, vs.Size, nil)
+		if errors.Is(err, io.EOF) {
+			return vess.s.RecvMsg(nil)
+		}
 		if err != nil {
 			return err
 		}

@@ -17,102 +17,83 @@ limitations under the License.
 package stream
 
 import (
-	"bytes"
 	"encoding/binary"
 	"io"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/errors"
 )
 
 type MsgSender interface {
-	Send(reader io.Reader, payloadSize int) (err error)
+	Send(reader io.Reader, chunkSize int, metadata map[string][]byte) (err error)
 	RecvMsg(m interface{}) error
 }
 
 type msgSender struct {
-	stream     ImmuServiceSender_Stream
-	b          *bytes.Buffer
-	BufferSize int
+	stream ImmuServiceSender_Stream
+	buf    []byte
+	chunk  *schema.Chunk
 }
 
 // NewMsgSender returns a NewMsgSender. It can be used on server side or client side to send a message on a stream.
-func NewMsgSender(s ImmuServiceSender_Stream, bs int) *msgSender {
-	buffer := new(bytes.Buffer)
+func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
 	return &msgSender{
-		stream:     s,
-		b:          buffer,
-		BufferSize: bs,
+		stream: s,
+		buf:    make([]byte, chunkSize),
+		chunk:  &schema.Chunk{},
 	}
 }
 
-// Send reads from a reader until it reach payloadSize. It fill an internal buffer from what it read from reader and, when there is enough data, it sends a chunk on stream.
-// It continues until it reach the payloadsize. At that point it sends the last content of the buffer.
-func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
-	if payloadSize == 0 {
-		return errors.New(ErrMessageLengthIsZero)
-	}
-	var read = 0
-	var run = true
-	for run {
-		// if read is 0 here trailer is created
-		if read == 0 {
-			ml := make([]byte, 8)
-			binary.BigEndian.PutUint64(ml, uint64(payloadSize))
-			st.b.Write(ml)
-		}
-		// read data from reader and append it to the buffer
-		//  todo @Michele reader need to be dynamic, not of chunk size
-		data := make([]byte, st.BufferSize)
-		r, err := reader.Read(data)
+// Send reads from a reader until it reach msgSize. It fill an internal buffer from what it read from reader and, when there is enough data, it sends a chunk on stream.
+// It continues until it reach the msgSize. At that point it sends the last content of the buffer.
+func (st *msgSender) Send(reader io.Reader, msgSize int, metadata map[string][]byte) error {
+	available := len(st.buf)
+
+	// first chunk begins with the message size and including metadata
+	binary.BigEndian.PutUint64(st.buf, uint64(msgSize))
+	available -= 8
+
+	st.chunk.Metadata = metadata
+
+	read := 0
+
+	for read < msgSize {
+		n, err := reader.Read(st.buf[len(st.buf)-available:])
 		if err != nil {
-			if err != io.EOF {
-				return err
-			}
-		}
-		if read == 0 && err == io.EOF {
-			return errors.New(ErrReaderIsEmpty)
-		}
-		read += r
-		if read < payloadSize && err == io.EOF {
-			return errors.New(ErrNotEnoughDataOnStream)
+			return err
 		}
 
-		// append read data in the buffer
-		st.b.Write(data[:r])
+		available -= n
+		read += n
 
-		// chunk processing
-		var chunk []byte
-		// last chunk creation
-		if read == payloadSize {
-			chunk = make([]byte, st.b.Len())
-			_, err = st.b.Read(chunk)
-			if err != nil {
-				return nil
-			}
-		}
-		// enough data to send a chunk
-		if st.b.Len() > st.BufferSize {
-			chunk = make([]byte, st.BufferSize)
-			_, err = st.b.Read(chunk)
-			if err != nil {
-				return nil
-			}
-		}
-		// sending ...
-		if len(chunk) > 0 {
-			err = st.stream.Send(&schema.Chunk{
-				Content: chunk,
-			})
+		if available == 0 {
+			// send chunk when it's full
+			st.chunk.Content = st.buf[:len(st.buf)-available]
+
+			err = st.stream.Send(st.chunk)
 			if err != nil {
 				return err
 			}
-			// is last chunk
-			if read == payloadSize {
-				run = false
-			}
+
+			available = len(st.buf)
+
+			// metadata is only included into the first chunk
+			st.chunk.Metadata = nil
 		}
 	}
+
+	if available < len(st.buf) {
+		// send last partially written chunk
+		st.chunk.Content = st.buf[:len(st.buf)-available]
+
+		err := st.stream.Send(st.chunk)
+		if err != nil {
+			return err
+		}
+
+		// just to avoid keeping a useless reference
+		st.chunk.Metadata = nil
+	}
+
 	return nil
 }
 

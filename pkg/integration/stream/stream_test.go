@@ -364,8 +364,7 @@ func TestImmuClient_SetEmptyReader(t *testing.T) {
 
 	kvs := []*stream.KeyValue{kv1, kv2}
 	hdr, err := client.StreamSet(context.Background(), kvs)
-	require.Equal(t, stream.ErrReaderIsEmpty, err.Error())
-	require.Equal(t, errors.CodInvalidParameterValue, err.(errors.ImmuError).Code())
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, hdr)
 }
 
@@ -385,7 +384,7 @@ func TestImmuClient_SetSizeTooLarge(t *testing.T) {
 
 	kvs := []*stream.KeyValue{kv1}
 	hdr, err := client.StreamSet(context.Background(), kvs)
-	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, hdr)
 }
 
@@ -400,7 +399,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	kvs1[0].Value.Size = 22_000_000
 
 	hdr, err := client.StreamSet(context.Background(), kvs1)
-	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, hdr)
 
 	f1, _ := streamtest.GenerateDummyFile("myFile1", 10_000_000)
@@ -414,7 +413,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	kvs2[1].Value.Size = 12_000_000
 
 	hdr, err = client.StreamSet(context.Background(), kvs2)
-	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, hdr)
 }
 
@@ -605,7 +604,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 	sfm.NewMsgSenderF = func(str stream.ImmuServiceSender_Stream) stream.MsgSender {
 		sm := streamtest.DefaultImmuServiceSenderStreamMock()
 		s := streamtest.DefaultMsgSenderMock(sm, 4096)
-		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+		s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 			return errors.New("custom one")
 		}
 		return streamtest.DefaultMsgSenderMock(sm, 4096)

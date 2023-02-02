@@ -16,7 +16,10 @@ limitations under the License.
 
 package stream
 
-import "io"
+import (
+	"errors"
+	"io"
+)
 
 type kvStreamSender struct {
 	s MsgSender
@@ -32,21 +35,23 @@ func NewKvStreamSender(s MsgSender) *kvStreamSender {
 // Send send a KeyValue on strem
 func (st *kvStreamSender) Send(kv *KeyValue) error {
 	vss := []*ValueSize{kv.Key, kv.Value}
+
 	for _, vs := range vss {
 		err := st.send(vs)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (st *kvStreamSender) send(vs *ValueSize) error {
-	err := st.s.Send(vs.Content, vs.Size)
+	err := st.s.Send(vs.Content, vs.Size, nil)
+	if errors.Is(err, io.EOF) {
+		return st.s.RecvMsg(nil)
+	}
 	if err != nil {
-		if err == io.EOF {
-			return st.s.RecvMsg(nil)
-		}
 		return err
 	}
 	return nil

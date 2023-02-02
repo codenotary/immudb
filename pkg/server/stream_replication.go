@@ -19,7 +19,6 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"io"
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -37,39 +36,40 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 	}
 
 	txbs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(txsServer.Context(), req)
-
-	defer func() {
-		if req.ReplicaState != nil {
-			var bMayCommitUpToTxID [8]byte
-			binary.BigEndian.PutUint64(bMayCommitUpToTxID[:], mayCommitUpToTxID)
-
-			var bCommittedTxID [8]byte
-			state, err := db.CurrentState()
-			if err == nil {
-				binary.BigEndian.PutUint64(bCommittedTxID[:], state.TxId)
-			}
-
-			md := metadata.Pairs(
-				"may-commit-up-to-txid-bin", string(bMayCommitUpToTxID[:]),
-				"may-commit-up-to-alh-bin", string(mayCommitUpToAlh[:]),
-				"committed-txid-bin", string(bCommittedTxID[:]),
-			)
-
-			txsServer.SetTrailer(md)
-		}
-	}()
-
 	if err != nil {
 		return err
 	}
 
-	if len(txbs) == 0 {
-		return nil
+	var streamMetadata map[string][]byte
+
+	if req.ReplicaState != nil {
+		var bMayCommitUpToTxID [8]byte
+		binary.BigEndian.PutUint64(bMayCommitUpToTxID[:], mayCommitUpToTxID)
+
+		var bCommittedTxID [8]byte
+		state, err := db.CurrentState()
+		if err == nil {
+			binary.BigEndian.PutUint64(bCommittedTxID[:], state.TxId)
+		}
+
+		streamMetadata = map[string][]byte{
+			"may-commit-up-to-txid-bin": bMayCommitUpToTxID[:],
+			"may-commit-up-to-alh-bin":  mayCommitUpToAlh[:],
+			"committed-txid-bin":        bCommittedTxID[:],
+		}
+
+		// trailer metadata is kept for backward compatibility
+		md := metadata.Pairs(
+			"may-commit-up-to-txid-bin", string(bMayCommitUpToTxID[:]),
+			"may-commit-up-to-alh-bin", string(mayCommitUpToAlh[:]),
+			"committed-txid-bin", string(bCommittedTxID[:]),
+		)
+		txsServer.SetTrailer(md)
 	}
 
 	sender := s.StreamServiceFactory.NewMsgSender(txsServer)
 
-	err = sender.Send(bytes.NewReader(txbs), len(txbs))
+	err = sender.Send(bytes.NewReader(txbs), len(txbs), streamMetadata)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 
 	receiver := s.StreamServiceFactory.NewMsgReceiver(replicateTxServer)
 
-	bs, err := receiver.ReadFully()
+	bs, _, err := receiver.ReadFully()
 	if err != nil {
 		return err
 	}
@@ -131,9 +131,6 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 func (s *ImmuServer) StreamExportTx(stream schema.ImmuService_StreamExportTxServer) error {
 	for {
 		req, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
 		if err != nil {
 			return err
 		}

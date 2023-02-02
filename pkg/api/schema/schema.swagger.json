@@ -1888,6 +1888,13 @@
         "content": {
           "type": "string",
           "format": "byte"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "format": "byte"
+          }
         }
       }
     },
