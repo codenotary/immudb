@@ -35,7 +35,7 @@ func NewVEntryStreamReceiver(s io.Reader, bs int) VEntryStreamReceiver {
 
 func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, io.Reader, error) {
 	ris := make([][]byte, 3)
-	for i, _ := range ris {
+	for i := range ris {
 		r, err := ReadValue(vesr.s, vesr.BufferSize)
 		if err != nil {
 			return nil, nil, nil, nil, err

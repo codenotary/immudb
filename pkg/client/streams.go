@@ -34,8 +34,8 @@ import (
 
 // StreamSet performs a write operation of a value for a single key retrieving key and value form io.Reader streams.
 func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
-	txMeta, err := c._streamSet(ctx, kvs)
-	return txMeta, errors.FromError(err)
+	txhdr, err := c._streamSet(ctx, kvs)
+	return txhdr, errors.FromError(err)
 }
 
 // StreamGet retrieves a single entry for a key read from an io.Reader stream.

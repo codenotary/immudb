@@ -77,9 +77,9 @@ func streamSetFiles(
 		vSizes[i] = kv.Value.Size
 	}
 
-	txMeta, err := cli.StreamSet(ctx, kvs)
+	txhdr, err := cli.StreamSet(ctx, kvs)
 	require.NoError(t, err)
-	require.NotNil(t, txMeta)
+	require.NotNil(t, txhdr)
 
 	return
 }

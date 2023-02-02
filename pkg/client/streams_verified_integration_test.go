@@ -38,9 +38,9 @@ func TestImmuServer_StreamVerifiedSetAndGet(t *testing.T) {
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	require.NoError(t, err)
 
-	txMeta, err := cliIF.StreamVerifiedSet(ctx, kvs)
+	txhdr, err := cliIF.StreamVerifiedSet(ctx, kvs)
 	require.NoError(t, err)
-	require.NotNil(t, txMeta)
+	require.NotNil(t, txhdr)
 
 	entry, err := cliIF.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{
 		KeyRequest: &schema.KeyRequest{Key: []byte(tmpFile.Name())},
