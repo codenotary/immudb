@@ -100,7 +100,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
 	}
 
-	txMeta, err := db.Set(str.Context(), &schema.SetRequest{KVs: kvs})
+	txhdr, err := db.Set(str.Context(), &schema.SetRequest{KVs: kvs})
 	if err == store.ErrorMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded)
 	}
@@ -108,7 +108,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 		return status.Errorf(codes.Unknown, "StreamSet receives following error: %s", err.Error())
 	}
 
-	err = str.SendAndClose(txMeta)
+	err = str.SendAndClose(txhdr)
 	if err != nil {
 		return err
 	}
@@ -467,12 +467,12 @@ func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) e
 		}
 	}
 
-	txMeta, err := db.ExecAll(str.Context(), &schema.ExecAllRequest{Operations: sops})
+	txhdr, err := db.ExecAll(str.Context(), &schema.ExecAllRequest{Operations: sops})
 	if err != nil {
 		return err
 	}
 
-	err = str.SendAndClose(txMeta)
+	err = str.SendAndClose(txhdr)
 	if err != nil {
 		return err
 	}
