@@ -29,6 +29,7 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 	return s.exportTx(req, txsServer, true)
 }
 
+// StreamExportTx implements the bidirectional streaming endpoint used to export transactions
 func (s *ImmuServer) StreamExportTx(stream schema.ImmuService_StreamExportTxServer) error {
 	for {
 		req, err := stream.Recv()
