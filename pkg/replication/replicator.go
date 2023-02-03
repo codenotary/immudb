@@ -241,6 +241,7 @@ func (txr *TxReplicator) replicationFailureDelay(consecutiveFailures int) bool {
 	defer txr.metrics.replicatorsInRetryDelay.Dec()
 
 	timer := time.NewTimer(txr.delayer.DelayAfter(consecutiveFailures))
+
 	select {
 	case <-txr.context.Done():
 		timer.Stop()
@@ -264,6 +265,7 @@ func (txr *TxReplicator) connect() error {
 		WithAddress(txr.opts.primaryHost).
 		WithPort(txr.opts.primaryPort).
 		WithDisableIdentityCheck(true)
+
 	txr.client = client.NewClient().WithOptions(opts)
 
 	err := txr.client.OpenSession(
@@ -296,10 +298,10 @@ func (txr *TxReplicator) disconnect() {
 
 	if txr.exportTxStream != nil {
 		txr.exportTxStream.CloseSend()
+		txr.exportTxStream = nil
 	}
 
 	txr.client.CloseSession(txr.context)
-
 	txr.client = nil
 
 	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.primaryHost, txr.opts.primaryPort, txr.db.GetName())
@@ -313,7 +315,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 		return ErrAlreadyStopped
 	}
 
-	if txr.client == nil {
+	if txr.exportTxStream == nil {
 		err := txr.connect()
 		if err != nil {
 			return err
