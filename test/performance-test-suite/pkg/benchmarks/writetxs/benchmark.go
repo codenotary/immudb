@@ -122,7 +122,18 @@ func (b *benchmark) Warmup() error {
 	options := server.
 		DefaultOptions().
 		WithDir(dirName).
-		WithLogFormat(logger.LogFormatJSON)
+		WithLogFormat(logger.LogFormatJSON).
+		WithLogfile("./immudb.log")
+
+	replicaOptions := server.ReplicationOptions{}
+
+	if b.cfg.Replica == "async" {
+		options.WithReplicationOptions(replicaOptions.WithIsReplica(false))
+	}
+
+	if b.cfg.Replica == "sync" {
+		options.WithReplicationOptions(replicaOptions.WithIsReplica(false).WithSyncReplication(true).WithSyncAcks(1))
+	}
 
 	b.server = servertest.NewBufconnServer(options)
 	b.server.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
@@ -135,22 +146,33 @@ func (b *benchmark) Warmup() error {
 	if b.cfg.Replica == "async" || b.cfg.Replica == "sync" {
 		replicaDirName := fmt.Sprintf("%s-replica-tx-test", b.cfg.Replica)
 
-		replicaOptions := server.
-			ReplicationOptions{}
-
 		options2 := server.
 			DefaultOptions().
 			WithDir(replicaDirName).
-			WithLogFormat(logger.LogFormatJSON)
+			WithLogFormat(logger.LogFormatJSON).
+			WithLogfile("./replica.log")
+
+		options2.PgsqlServer = false
+		options2.MetricsServer = false
+		options2.WebServer = false
+
+		replicaOptions2 := server.ReplicationOptions{}
+
+		replicaOptions2.PrimaryHost = "127.0.0.0"
+		replicaOptions2.PrimaryPort = b.server.GetPort()
+		replicaOptions2.PrimaryUsername = "immudb"
+		replicaOptions2.PrimaryPassword = "immudb"
+		replicaOptions2.PrefetchTxBufferSize = 1000
+		replicaOptions2.ReplicationCommitConcurrency = 100
 
 		if b.cfg.Replica == "async" {
-			options2.
-				WithReplicationOptions(replicaOptions.WithIsReplica(true))
+			options2.WithReplicationOptions(replicaOptions2.WithIsReplica(true))
 		}
 
 		if b.cfg.Replica == "sync" {
-			options2.
-				WithReplicationOptions(replicaOptions.WithIsReplica(true).WithSyncReplication(true))
+			replicaOptions2 = *replicaOptions2.WithIsReplica(true).WithSyncReplication(true)
+
+			options2.WithReplicationOptions(&replicaOptions2)
 		}
 
 		b.replicaServer = servertest.NewBufconnServer(options2)

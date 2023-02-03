@@ -24,7 +24,7 @@ import (
 func getBenchmarksToRun() []benchmarks.Benchmark {
 	return []benchmarks.Benchmark{
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write TX/s - single server",
+			Name:       "Write TX/s - no replicas",
 			Workers:    30,
 			BatchSize:  1,
 			KeySize:    32,
@@ -34,7 +34,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write KV/s - single server",
+			Name:       "Write KV/s - no replicas",
 			Workers:    30,
 			BatchSize:  1000,
 			KeySize:    32,
