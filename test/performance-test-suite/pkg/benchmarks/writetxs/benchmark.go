@@ -111,17 +111,16 @@ func (b *benchmark) Name() string {
 }
 
 func (b *benchmark) Warmup() error {
-	const dirName = "tx-test"
-
-	err := os.RemoveAll(dirName)
+	primaryPath, err := os.MkdirTemp("", "tx-test-primary")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dirName)
+
+	defer os.RemoveAll(primaryPath)
 
 	primaryServerOpts := server.
 		DefaultOptions().
-		WithDir(dirName).
+		WithDir(primaryPath).
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
@@ -155,11 +154,16 @@ func (b *benchmark) Warmup() error {
 	primaryPort := b.primaryServer.Listener.Addr().(*net.TCPAddr).Port
 
 	if b.cfg.Replica == "async" || b.cfg.Replica == "sync" {
-		replicaDirName := fmt.Sprintf("%s-replica-tx-test", b.cfg.Replica)
+		replicaPath, err := os.MkdirTemp("", fmt.Sprintf("%s-tx-test-replica", b.cfg.Replica))
+		if err != nil {
+			return err
+		}
+
+		defer os.RemoveAll(primaryPath)
 
 		replicaServerOptions := server.
 			DefaultOptions().
-			WithDir(replicaDirName).
+			WithDir(replicaPath).
 			WithPort(0).
 			WithLogFormat(logger.LogFormatJSON).
 			WithLogfile("./replica.log")
@@ -175,7 +179,7 @@ func (b *benchmark) Warmup() error {
 		replicaServerReplicaOptions.PrimaryUsername = "immudb"
 		replicaServerReplicaOptions.PrimaryPassword = "immudb"
 		replicaServerReplicaOptions.PrefetchTxBufferSize = 1000
-		replicaServerReplicaOptions.ReplicationCommitConcurrency = 100
+		replicaServerReplicaOptions.ReplicationCommitConcurrency = 30
 
 		if b.cfg.Replica == "async" {
 			replicaServerOptions.WithReplicationOptions(replicaServerReplicaOptions.WithIsReplica(true))
@@ -203,7 +207,11 @@ func (b *benchmark) Warmup() error {
 
 	b.clients = []client.ImmuClient{}
 	for i := 0; i < b.cfg.Workers; i++ {
-		c := client.NewClient().WithOptions(client.DefaultOptions().WithPort(primaryPort))
+		path, err := os.MkdirTemp("", "immudb_client")
+		if err != nil {
+			return err
+		}
+		c := client.NewClient().WithOptions(client.DefaultOptions().WithPort(primaryPort).WithDir(path))
 
 		err = c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 		if err != nil {
