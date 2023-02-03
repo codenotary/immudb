@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -30,7 +31,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks"
 )
 
@@ -65,8 +65,8 @@ type benchmark struct {
 
 	m sync.Mutex
 
-	server        *servertest.BufconnServer
-	replicaServer *servertest.BufconnServer
+	primaryServer *server.ImmuServer
+	replicaServer *server.ImmuServer
 	clients       []client.ImmuClient
 }
 
@@ -119,64 +119,75 @@ func (b *benchmark) Warmup() error {
 	}
 	defer os.RemoveAll(dirName)
 
-	options := server.
+	primaryServerOpts := server.
 		DefaultOptions().
 		WithDir(dirName).
+		WithPort(0).
 		WithLogFormat(logger.LogFormatJSON).
 		WithLogfile("./immudb.log")
 
-	replicaOptions := server.ReplicationOptions{}
+	primaryServerReplicaOptions := server.ReplicationOptions{}
 
 	if b.cfg.Replica == "async" {
-		options.WithReplicationOptions(replicaOptions.WithIsReplica(false))
+		primaryServerOpts.WithReplicationOptions(primaryServerReplicaOptions.WithIsReplica(false))
 	}
 
 	if b.cfg.Replica == "sync" {
-		options.WithReplicationOptions(replicaOptions.WithIsReplica(false).WithSyncReplication(true).WithSyncAcks(1))
+		primaryServerOpts.WithReplicationOptions(primaryServerReplicaOptions.WithIsReplica(false).WithSyncReplication(true).WithSyncAcks(1))
 	}
 
-	b.server = servertest.NewBufconnServer(options)
-	b.server.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
+	b.primaryServer = server.DefaultServer().WithOptions(primaryServerOpts).(*server.ImmuServer)
 
-	err = b.server.Start()
+	err = b.primaryServer.Initialize()
 	if err != nil {
 		return err
 	}
 
+	err = b.primaryServer.Start()
+	if err != nil {
+		return err
+	}
+
+	primaryPort := b.primaryServer.Listener.Addr().(*net.TCPAddr).Port
+
 	if b.cfg.Replica == "async" || b.cfg.Replica == "sync" {
 		replicaDirName := fmt.Sprintf("%s-replica-tx-test", b.cfg.Replica)
 
-		options2 := server.
+		replicaServerOptions := server.
 			DefaultOptions().
 			WithDir(replicaDirName).
 			WithLogFormat(logger.LogFormatJSON).
 			WithLogfile("./replica.log")
 
-		options2.PgsqlServer = false
-		options2.MetricsServer = false
-		options2.WebServer = false
+		replicaServerOptions.PgsqlServer = false
+		replicaServerOptions.MetricsServer = false
+		replicaServerOptions.WebServer = false
 
-		replicaOptions2 := server.ReplicationOptions{}
+		replicaServerReplicaOptions := server.ReplicationOptions{}
 
-		replicaOptions2.PrimaryHost = "127.0.0.0"
-		replicaOptions2.PrimaryPort = b.server.GetPort()
-		replicaOptions2.PrimaryUsername = "immudb"
-		replicaOptions2.PrimaryPassword = "immudb"
-		replicaOptions2.PrefetchTxBufferSize = 1000
-		replicaOptions2.ReplicationCommitConcurrency = 100
+		replicaServerReplicaOptions.PrimaryHost = "127.0.0.0"
+		replicaServerReplicaOptions.PrimaryPort = primaryPort
+		replicaServerReplicaOptions.PrimaryUsername = "immudb"
+		replicaServerReplicaOptions.PrimaryPassword = "immudb"
+		replicaServerReplicaOptions.PrefetchTxBufferSize = 1000
+		replicaServerReplicaOptions.ReplicationCommitConcurrency = 100
 
 		if b.cfg.Replica == "async" {
-			options2.WithReplicationOptions(replicaOptions2.WithIsReplica(true))
+			replicaServerOptions.WithReplicationOptions(replicaServerReplicaOptions.WithIsReplica(true))
 		}
 
 		if b.cfg.Replica == "sync" {
-			replicaOptions2 = *replicaOptions2.WithIsReplica(true).WithSyncReplication(true)
+			replicaServerReplicaOptions = *replicaServerReplicaOptions.WithIsReplica(true).WithSyncReplication(true)
 
-			options2.WithReplicationOptions(&replicaOptions2)
+			replicaServerOptions.WithReplicationOptions(&replicaServerReplicaOptions)
 		}
 
-		b.replicaServer = servertest.NewBufconnServer(options2)
-		b.replicaServer.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
+		b.replicaServer = server.DefaultServer().WithOptions(replicaServerOptions).(*server.ImmuServer)
+
+		err = b.replicaServer.Initialize()
+		if err != nil {
+			return err
+		}
 
 		err = b.replicaServer.Start()
 		if err != nil {
@@ -186,10 +197,13 @@ func (b *benchmark) Warmup() error {
 
 	b.clients = []client.ImmuClient{}
 	for i := 0; i < b.cfg.Workers; i++ {
-		c, err := b.server.NewAuthenticatedClient(client.DefaultOptions())
+		c := client.NewClient().WithOptions(client.DefaultOptions().WithPort(primaryPort))
+
+		err = c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 		if err != nil {
 			return err
 		}
+
 		b.clients = append(b.clients, c)
 	}
 
@@ -205,7 +219,10 @@ func (b *benchmark) Cleanup() error {
 		}
 	}
 
-	return b.server.Stop()
+	b.primaryServer.Stop()
+	b.replicaServer.Stop()
+
+	return nil
 }
 
 func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error) {
