@@ -122,6 +122,9 @@ func (b *benchmark) Warmup() error {
 	primaryServerOpts := server.
 		DefaultOptions().
 		WithDir(dirName).
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
 		WithPort(0).
 		WithLogFormat(logger.LogFormatJSON).
 		WithLogfile("./immudb.log")
@@ -143,10 +146,11 @@ func (b *benchmark) Warmup() error {
 		return err
 	}
 
-	err = b.primaryServer.Start()
-	if err != nil {
-		return err
-	}
+	go func() {
+		b.primaryServer.Start()
+	}()
+
+	time.Sleep(1 * time.Second)
 
 	primaryPort := b.primaryServer.Listener.Addr().(*net.TCPAddr).Port
 
@@ -156,6 +160,7 @@ func (b *benchmark) Warmup() error {
 		replicaServerOptions := server.
 			DefaultOptions().
 			WithDir(replicaDirName).
+			WithPort(0).
 			WithLogFormat(logger.LogFormatJSON).
 			WithLogfile("./replica.log")
 
@@ -165,7 +170,7 @@ func (b *benchmark) Warmup() error {
 
 		replicaServerReplicaOptions := server.ReplicationOptions{}
 
-		replicaServerReplicaOptions.PrimaryHost = "127.0.0.0"
+		replicaServerReplicaOptions.PrimaryHost = "127.0.0.1"
 		replicaServerReplicaOptions.PrimaryPort = primaryPort
 		replicaServerReplicaOptions.PrimaryUsername = "immudb"
 		replicaServerReplicaOptions.PrimaryPassword = "immudb"
@@ -189,10 +194,11 @@ func (b *benchmark) Warmup() error {
 			return err
 		}
 
-		err = b.replicaServer.Start()
-		if err != nil {
-			return err
-		}
+		go func() {
+			b.replicaServer.Start()
+		}()
+
+		time.Sleep(1 * time.Second)
 	}
 
 	b.clients = []client.ImmuClient{}
