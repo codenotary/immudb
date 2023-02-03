@@ -26,6 +26,24 @@ import (
 )
 
 func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer) error {
+	return s.exportTx(req, txsServer, true)
+}
+
+func (s *ImmuServer) StreamExportTx(stream schema.ImmuService_StreamExportTxServer) error {
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		err = s.exportTx(req, stream, false)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (s *ImmuServer) exportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer, setTrailer bool) error {
 	if req == nil || req.Tx == 0 || txsServer == nil {
 		return ErrIllegalArguments
 	}
@@ -58,13 +76,17 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 			"committed-txid-bin":        bCommittedTxID[:],
 		}
 
-		// trailer metadata is kept for backward compatibility
-		md := metadata.Pairs(
-			"may-commit-up-to-txid-bin", string(bMayCommitUpToTxID[:]),
-			"may-commit-up-to-alh-bin", string(mayCommitUpToAlh[:]),
-			"committed-txid-bin", string(bCommittedTxID[:]),
-		)
-		txsServer.SetTrailer(md)
+		if setTrailer {
+			// trailer metadata is kept for backward compatibility
+			// it should not be sent when replication is done with bidirectional streaming
+			// otherwise metadata will get accumulated over time
+			md := metadata.Pairs(
+				"may-commit-up-to-txid-bin", string(bMayCommitUpToTxID[:]),
+				"may-commit-up-to-alh-bin", string(mayCommitUpToAlh[:]),
+				"committed-txid-bin", string(bCommittedTxID[:]),
+			)
+			txsServer.SetTrailer(md)
+		}
 	}
 
 	sender := s.StreamServiceFactory.NewMsgSender(txsServer)
@@ -126,18 +148,4 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 	}
 
 	return replicateTxServer.SendAndClose(hdr)
-}
-
-func (s *ImmuServer) StreamExportTx(stream schema.ImmuService_StreamExportTxServer) error {
-	for {
-		req, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-
-		err = s.ExportTx(req, stream)
-		if err != nil {
-			return err
-		}
-	}
 }
