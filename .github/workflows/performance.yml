@@ -53,9 +53,10 @@ jobs:
         id: performance
         run: |
           SECONDS=0
-          ./perf-test-suite $ARG_DURATION > perf-test-results.json
+          ./perf-test-suite $ARG_DURATION > perf-test-results-with-summaries.txt
           echo "duration=$SECONDS" >> $GITHUB_ENV
           echo "version=$(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',])" >> $GITHUB_ENV
+          sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
