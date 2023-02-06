@@ -159,7 +159,7 @@ func (b *benchmark) Warmup() error {
 			return err
 		}
 
-		defer os.RemoveAll(primaryPath)
+		defer os.RemoveAll(replicaPath)
 
 		replicaServerOptions := server.
 			DefaultOptions().
