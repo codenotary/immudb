@@ -34,9 +34,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v3
-      - run: |
-          curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
-          gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@v2.14.0
+        with:
+          args: -fmt=json -out=results-$JOB_ID.json -no-fail ./...
 
   binaries:
       name: Build binaries and notarize sources
