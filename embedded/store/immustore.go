@@ -2571,13 +2571,17 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 		val, err := s.vLogCache.Get(off)
 		if err == nil {
 			// the requested value was found in the value cache
-			copy(b, val.([]byte))
+			bval := val.([]byte)
+			n := len(bval)
 
-			if !skipIntegrityCheck && hvalue != sha256.Sum256(b) {
-				return len(b), ErrCorruptedData
+			copy(b, bval)
+
+			// length is compared to cover the corner case where empty value is stored in the cache
+			if !skipIntegrityCheck && (len(b) != n || hvalue != sha256.Sum256(b[:n])) {
+				return n, ErrCorruptedData
 			}
 
-			return len(b), nil
+			return n, nil
 		} else {
 			if !errors.Is(err, cache.ErrKeyNotFound) {
 				return 0, err
@@ -2587,26 +2591,28 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 
 	vLogID, offset := decodeOffset(off)
 
-	if vLogID > 0 {
+	if vLogID == 0 {
+		// vLogID == 0 means value was not stored on any vlog i.e. empty value
+		// integrity check may still be done in such case
+		n = 0
+	} else {
 		vLog := s.fetchVLog(vLogID)
 		defer s.releaseVLog(vLogID)
 
-		n, err := vLog.ReadAt(b, offset)
+		n, err = vLog.ReadAt(b, offset)
 		if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
 			return n, ErrAlreadyClosed
 		}
 		if err != nil {
 			return n, err
 		}
-
-		if !skipIntegrityCheck && hvalue != sha256.Sum256(b) {
-			return len(b), ErrCorruptedData
-		}
-
-		return len(b), nil
 	}
 
-	return 0, nil
+	if !skipIntegrityCheck && hvalue != sha256.Sum256(b[:n]) {
+		return n, ErrCorruptedData
+	}
+
+	return n, nil
 }
 
 func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
