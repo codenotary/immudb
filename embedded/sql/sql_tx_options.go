@@ -27,6 +27,7 @@ type TxOptions struct {
 	ReadOnly                bool
 	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
 	SnapshotRenewalPeriod   time.Duration
+	ExplicitClose           bool
 }
 
 func DefaultTxOptions() *TxOptions {
@@ -36,6 +37,7 @@ func DefaultTxOptions() *TxOptions {
 		ReadOnly:                txOpts.Mode == store.ReadOnlyTx,
 		SnapshotMustIncludeTxID: txOpts.SnapshotMustIncludeTxID,
 		SnapshotRenewalPeriod:   txOpts.SnapshotRenewalPeriod,
+		ExplicitClose:           false, // commit or rollback explicitly required
 	}
 }
 
@@ -59,5 +61,10 @@ func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(
 
 func (opts *TxOptions) WithSnapshotRenewalPeriod(snapshotRenewalPeriod time.Duration) *TxOptions {
 	opts.SnapshotRenewalPeriod = snapshotRenewalPeriod
+	return opts
+}
+
+func (opts *TxOptions) WithExplicitClose(explicitClose bool) *TxOptions {
+	opts.ExplicitClose = explicitClose
 	return opts
 }

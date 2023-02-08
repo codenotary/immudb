@@ -35,8 +35,6 @@ type SQLTx struct {
 	currentDB *Database
 	catalog   *Catalog // in-mem catalog
 
-	explicitClose bool
-
 	updatedRows      int
 	lastInsertedPKs  map[string]int64 // last inserted PK by table name
 	firstInsertedPKs map[string]int64 // first inserted PK by table name
@@ -49,6 +47,20 @@ type SQLTx struct {
 
 func (sqlTx *SQLTx) Catalog() *Catalog {
 	return sqlTx.catalog
+}
+
+func (sqlTx *SQLTx) IsExplicitCloseRequired() bool {
+	return sqlTx.opts.ExplicitClose
+}
+
+func (sqlTx *SQLTx) RequireExplicitClose() error {
+	if sqlTx.updatedRows != 0 {
+		return store.ErrIllegalState
+	}
+
+	sqlTx.opts.ExplicitClose = true
+
+	return nil
 }
 
 func (sqlTx *SQLTx) useDatabase(dbName string) error {
@@ -125,15 +137,12 @@ func (sqlTx *SQLTx) Cancel() error {
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) commit(ctx context.Context) error {
-	if sqlTx.closed {
-		return ErrAlreadyClosed
-	}
-
+func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 	sqlTx.committed = true
 	sqlTx.closed = true
 
-	hdr, err := sqlTx.tx.Commit(ctx)
+	// no need to wait for indexing to be up to date during commit phase
+	hdr, err := sqlTx.tx.AsyncCommit(ctx)
 	if err != nil && err != store.ErrorNoEntriesProvided {
 		return err
 	}
