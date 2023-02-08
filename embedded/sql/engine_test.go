@@ -6114,3 +6114,87 @@ func TestCopyCatalogToTx(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func BenchmarkInsertInto(b *testing.B) {
+	workerCount := 100
+
+	opts := store.DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(workerCount)
+
+	st, err := store.Open(b.TempDir(), opts)
+	if err != nil {
+		b.Fail()
+	}
+
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	if err != nil {
+		b.Fail()
+	}
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE db1;", nil)
+	if err != nil {
+		b.Fail()
+	}
+
+	_, _, err = engine.Exec(context.Background(), nil, "USE DATABASE db1;", nil)
+	if err != nil {
+		b.Fail()
+	}
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);", nil)
+	if err != nil {
+		b.Fail()
+	}
+
+	time.Sleep(1 * time.Second)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var wg sync.WaitGroup
+		wg.Add(workerCount)
+
+		for w := 0; w < workerCount; w++ {
+			go func(r, w int) {
+				txCount := 50
+				eCount := 10
+
+				for i := 0; i < txCount; i++ {
+					txOpts := DefaultTxOptions().
+						WithExplicitClose(true).
+						WithSnapshotRenewalPeriod(1000 * time.Millisecond).
+						WithSnapshotMustIncludeTxID(nil)
+
+					tx, err := engine.NewTx(context.Background(), txOpts)
+					if err != nil {
+						b.Fail()
+					}
+
+					for j := 0; j < eCount; j++ {
+						params := map[string]interface{}{
+							"id":    fmt.Sprintf("id_%d_%d_%d_%d", r, w, i, j),
+							"title": fmt.Sprintf("title_%d_%d_%d_%d", r, w, i, j),
+						}
+
+						_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO mytable1(id, title) VALUES (@id, @title);", params)
+						if err != nil {
+							b.Fail()
+						}
+					}
+
+					err = tx.Commit(context.Background())
+					if err != nil {
+						b.Fail()
+					}
+				}
+
+				wg.Done()
+			}(i, w)
+		}
+
+		wg.Wait()
+	}
+}
