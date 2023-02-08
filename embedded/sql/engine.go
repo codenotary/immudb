@@ -291,8 +291,8 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 		_, isDBSelectionStmt := stmt.(*UseDatabaseStmt)
 
 		// handle the case when working in non-autocommit mode outside a transaction block
-		if isDBSelectionStmt && (currTx != nil && !currTx.closed) && !currTx.explicitClose {
-			err = currTx.commit(ctx)
+		if isDBSelectionStmt && (currTx != nil && !currTx.Closed()) && !currTx.IsExplicitCloseRequired() {
+			err = currTx.Commit(ctx)
 			if err == nil {
 				committedTxs = append(committedTxs, currTx)
 			}
@@ -301,7 +301,7 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 			}
 		}
 
-		if currTx == nil || currTx.closed {
+		if currTx == nil || currTx.Closed() {
 			var opts *TxOptions
 
 			if currTx != nil {
@@ -325,8 +325,8 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 			return nil, committedTxs, stmts[execStmts:], err
 		}
 
-		if !currTx.closed && !currTx.explicitClose && e.autocommit {
-			err = currTx.commit(ctx)
+		if !currTx.Closed() && !currTx.IsExplicitCloseRequired() && e.autocommit {
+			err = currTx.Commit(ctx)
 			if err != nil {
 				return nil, committedTxs, stmts[execStmts:], err
 			}
@@ -345,8 +345,8 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 		}
 	}
 
-	if currTx != nil && !currTx.closed && !currTx.explicitClose {
-		err = currTx.commit(ctx)
+	if currTx != nil && !currTx.Closed() && !currTx.IsExplicitCloseRequired() {
+		err = currTx.Commit(ctx)
 		if err != nil {
 			return nil, committedTxs, stmts[execStmts:], err
 		}
@@ -354,7 +354,7 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 		committedTxs = append(committedTxs, currTx)
 	}
 
-	if currTx != nil && currTx.closed {
+	if currTx != nil && currTx.Closed() {
 		currTx = nil
 	}
 

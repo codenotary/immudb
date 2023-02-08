@@ -135,29 +135,24 @@ func (stmt *BeginTransactionStmt) inferParameters(ctx context.Context, tx *SQLTx
 }
 
 func (stmt *BeginTransactionStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if tx.explicitClose {
+	if tx.IsExplicitCloseRequired() {
 		return nil, ErrNestedTxNotSupported
 	}
 
-	if tx.updatedRows == 0 {
-		tx.explicitClose = true
+	err := tx.RequireExplicitClose()
+	if err == nil {
+		// current tx can be reused as no changes were already made
 		return tx, nil
 	}
 
-	// explicit tx initialization with implicit tx in progress
+	// commit current transaction and start a fresh one
 
-	err := tx.commit(ctx)
+	err = tx.Commit(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	ntx, err := tx.engine.NewTx(ctx, tx.opts)
-	if err != nil {
-		return nil, err
-	}
-
-	ntx.explicitClose = true
-	return ntx, nil
+	return tx.engine.NewTx(ctx, tx.opts.WithExplicitClose(true))
 }
 
 type CommitStmt struct {
@@ -168,11 +163,11 @@ func (stmt *CommitStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 }
 
 func (stmt *CommitStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if !tx.explicitClose {
+	if !tx.IsExplicitCloseRequired() {
 		return nil, ErrNoOngoingTx
 	}
 
-	return nil, tx.commit(ctx)
+	return nil, tx.Commit(ctx)
 }
 
 type RollbackStmt struct {
@@ -183,7 +178,7 @@ func (stmt *RollbackStmt) inferParameters(ctx context.Context, tx *SQLTx, params
 }
 
 func (stmt *RollbackStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if !tx.explicitClose {
+	if !tx.IsExplicitCloseRequired() {
 		return nil, ErrNoOngoingTx
 	}
 
@@ -200,7 +195,7 @@ func (stmt *CreateDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, 
 }
 
 func (stmt *CreateDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if tx.explicitClose {
+	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: database creation can not be done within a transaction", ErrNonTransactionalStmt)
 	}
 
@@ -239,7 +234,7 @@ func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, fmt.Errorf("%w: no database name was provided", ErrIllegalArguments)
 	}
 
-	if tx.explicitClose {
+	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
 	}
 
