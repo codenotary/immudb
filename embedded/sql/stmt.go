@@ -692,7 +692,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 			if err == nil && stmt.onConflict != nil {
 				// TODO: conflict resolution may be extended. Currently only supports "ON CONFLICT DO NOTHING"
-				return tx, nil
+				continue
 			}
 		}
 
