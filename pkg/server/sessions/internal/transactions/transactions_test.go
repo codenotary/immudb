@@ -33,6 +33,9 @@ func TestNewTx(t *testing.T) {
 	db, err := database.NewDB("db1", nil, database.DefaultOption().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
 	require.NoError(t, err)
 
+	_, err = NewTransaction(context.Background(), nil, db, "session1")
+	require.ErrorIs(t, err, sql.ErrIllegalArguments)
+
 	tx, err := NewTransaction(context.Background(), sql.DefaultTxOptions(), db, "session1")
 	require.NoError(t, err)
 	require.NotNil(t, tx)

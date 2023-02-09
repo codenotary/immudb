@@ -45,14 +45,13 @@ type Transaction interface {
 }
 
 func NewTransaction(ctx context.Context, opts *sql.TxOptions, db database.DB, sessionID string) (*transaction, error) {
-	transactionID := xid.New().String()
-
-	tx, err := db.NewSQLTx(ctx, opts)
-	if err != nil {
-		return nil, err
+	if opts == nil {
+		return nil, sql.ErrIllegalArguments
 	}
 
-	sqlTx, _, err := db.SQLExec(ctx, tx, &schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"})
+	transactionID := xid.New().String()
+
+	sqlTx, err := db.NewSQLTx(ctx, opts.WithExplicitClose(true))
 	if err != nil {
 		return nil, err
 	}
