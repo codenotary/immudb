@@ -131,13 +131,4 @@ kill $REPLICA_PID
 
 echo "Elapsed: $((T2-T0)) seconds, $((T1-T0)) for inserting, $((T2-T1)) for sync"
 
-## SYNC, real disks, size 500 batchsize 1000
-## master: 771s
-## v1.4.1: 824s
 
-## ASYNC, real disks, size 500 batchsize 1000
-## master: Elapsed: 423 seconds, 150 for inserting, 273 for sync
-## v1.4.1  Elapsed: 439 seconds, 145 for inserting, 294 for sync
-
-## ASYNC, real disks, size 1000 batchsize 100
-## master Elapsed: 78 seconds, 70 for inserting, 8 for sync
