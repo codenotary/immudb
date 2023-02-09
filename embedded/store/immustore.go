@@ -2057,7 +2057,8 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 	}
 
 	var isValueTruncated bool
-	for _, e := range tx.Entries() {
+
+	for i, e := range tx.Entries() {
 		var blen [lszSize]byte
 
 		// kLen
@@ -2101,24 +2102,12 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 			return nil, err
 		}
 
-		// if the error is eof, the value has been truncated, so we do not write the value bytes
-		if errors.Is(err, io.EOF) {
-			isValueTruncated = true
-			// vHashLen
-			binary.BigEndian.PutUint32(blen[:], uint32(len(e.hVal)))
-			_, err = buf.Write(blen[:])
-			if err != nil {
-				s._valBsMux.Unlock()
-				return nil, err
+		if err == nil {
+			if isValueTruncated {
+				// currently, either all the values are sent or none
+				return nil, fmt.Errorf("%w: partially truncated transaction", ErrCorruptedData)
 			}
 
-			// vHash
-			_, err = buf.Write(e.hVal[:])
-			if err != nil {
-				s._valBsMux.Unlock()
-				return nil, err
-			}
-		} else {
 			// vLen
 			binary.BigEndian.PutUint32(blen[:], uint32(e.vLen))
 			_, err = buf.Write(blen[:])
@@ -2133,7 +2122,33 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 				s._valBsMux.Unlock()
 				return nil, err
 			}
+		} else {
+			// error is eof, the value has been truncated,
+			// value is not available but digest is written instead
+
+			if !isValueTruncated && i > 0 {
+				// currently, either all the values are sent or none
+				return nil, fmt.Errorf("%w: partially truncated transaction", ErrCorruptedData)
+			}
+
+			isValueTruncated = true
+
+			// vHashLen
+			binary.BigEndian.PutUint32(blen[:], uint32(len(e.hVal)))
+			_, err = buf.Write(blen[:])
+			if err != nil {
+				s._valBsMux.Unlock()
+				return nil, err
+			}
+
+			// vHash
+			_, err = buf.Write(e.hVal[:])
+			if err != nil {
+				s._valBsMux.Unlock()
+				return nil, err
+			}
 		}
+
 		s._valBsMux.Unlock()
 	}
 
@@ -2192,6 +2207,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 	txSpec.metadata = hdr.Metadata
 
 	var entries []*EntrySpec = make([]*EntrySpec, 0)
+
 	for e := 0; e < hdr.NEntries; e++ {
 		if len(exportedTx) < i+2*sszSize+lszSize {
 			return nil, ErrIllegalArguments
@@ -2553,6 +2569,11 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 	}
 
 	if entry.vLen == 0 {
+		// while not required, nil is returned instead of an empty slice
+
+		// TODO: this step should be done after reading the value to ensure proper validations are made
+		// But current changes in ExportTx with truncated transactions are not providing the value length
+		// for truncated transactions, making it impossible to differentiate an empty value with a truncated one
 		return nil, nil
 	}
 
@@ -2566,49 +2587,62 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 	return b, nil
 }
 
+// readValueAt fills b with the value referenced by off
+// expected value size and digest may be required for validations to pass
 func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (n int, err error) {
-	if s.vLogCache != nil {
-		val, err := s.vLogCache.Get(off)
-		if err == nil {
-			// the requested value was found in the value cache
-			bval := val.([]byte)
-			n := len(bval)
+	vLogID, offset := decodeOffset(off)
 
-			copy(b, bval)
+	if vLogID == 0 && len(b) > 0 {
+		// it means value was not stored on any vlog i.e. a truncated transaction was replicated
+		return 0, io.EOF
+	}
 
-			// length is compared to cover the corner case where empty value is stored in the cache
-			if !skipIntegrityCheck && (len(b) != n || hvalue != sha256.Sum256(b[:n])) {
-				return n, ErrCorruptedData
-			}
+	if vLogID > 0 {
+		foundInTheCache := false
 
-			return n, nil
-		} else {
-			if !errors.Is(err, cache.ErrKeyNotFound) {
+		if s.vLogCache != nil {
+			val, err := s.vLogCache.Get(off)
+			if err == nil {
+				// the requested value was found in the value cache
+				bval := val.([]byte)
+
+				copy(b, bval)
+				n = len(bval)
+
+				foundInTheCache = true
+			} else if !errors.Is(err, cache.ErrKeyNotFound) {
 				return 0, err
 			}
 		}
+
+		if !foundInTheCache {
+			vLog := s.fetchVLog(vLogID)
+			defer s.releaseVLog(vLogID)
+
+			n, err = vLog.ReadAt(b, offset)
+			if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+				return n, ErrAlreadyClosed
+			}
+			if err != nil {
+				return n, err
+			}
+
+			if s.vLogCache != nil {
+				cb := make([]byte, n)
+				copy(cb, b)
+
+				_, _, err = s.vLogCache.Put(off, cb)
+				if err != nil {
+					return n, err
+				}
+			}
+		}
 	}
 
-	vLogID, offset := decodeOffset(off)
+	// either value was empty (n == 0 && vLogID == 0)
+	// or a non-empty value (n > 0 && vLogID > 0) was read from cache or disk
 
-	if vLogID == 0 {
-		// vLogID == 0 means value was not stored on any vlog i.e. empty value
-		// integrity check may still be done in such case
-		n = 0
-	} else {
-		vLog := s.fetchVLog(vLogID)
-		defer s.releaseVLog(vLogID)
-
-		n, err = vLog.ReadAt(b, offset)
-		if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
-			return n, ErrAlreadyClosed
-		}
-		if err != nil {
-			return n, err
-		}
-	}
-
-	if !skipIntegrityCheck && hvalue != sha256.Sum256(b[:n]) {
+	if !skipIntegrityCheck && (len(b) != n || hvalue != sha256.Sum256(b[:n])) {
 		return n, ErrCorruptedData
 	}
 

@@ -303,6 +303,15 @@ func (v *valueRef) Resolve() (val []byte, err error) {
 		return nil, ErrExpiredEntry
 	}
 
+	if v.valLen == 0 {
+		// while not required, nil is returned instead of an empty slice
+
+		// TODO: this step should be done after reading the value to ensure proper validations are made
+		// But current changes in ExportTx with truncated transactions are not providing the value length
+		// for truncated transactions
+		return nil, nil
+	}
+
 	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal, false)
 	if err != nil {
 		return nil, err
