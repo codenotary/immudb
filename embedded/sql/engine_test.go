@@ -839,7 +839,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1 (title)", nil)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE UNIQUE INDEX ON table1 (title)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1 (active)", nil)
@@ -861,6 +861,23 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 		require.Len(t, ctxs, 1)
 		require.Zero(t, ctxs[0].UpdatedRows())
 		require.Nil(t, ctxs[0].TxHeader())
+	})
+
+	t.Run("on conflict case with multiple rows", func(t *testing.T) {
+		ntx, ctxs, err := engine.Exec(context.Background(), nil, `
+			INSERT INTO table1 (id, title, active, payload)
+			VALUES
+				(1, 'title1', true, x'00A1'),
+				(11, 'title11', true, x'00B1')
+			ON CONFLICT DO NOTHING`, nil)
+		require.NoError(t, err)
+		require.Nil(t, ntx)
+		require.Len(t, ctxs, 1)
+		require.Equal(t, 1, ctxs[0].UpdatedRows())
+		require.NotNil(t, ctxs[0].TxHeader())
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title11', true, x'00B1')", nil)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 	})
 
 	t.Run("varchar key cases", func(t *testing.T) {
