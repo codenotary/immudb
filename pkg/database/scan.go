@@ -18,7 +18,9 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -93,6 +95,10 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, valRef.HC(), true)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
+			continue
+		}
+		if errors.Is(err, io.EOF) {
+			// ignore truncated values (referenced value may have been truncated)
 			continue
 		}
 		if err != nil {

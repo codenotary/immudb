@@ -19,7 +19,9 @@ package database
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -209,6 +211,10 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 		e, err := d.getAtTx(key, atTx, 1, snap, 0, true)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
+			continue
+		}
+		if errors.Is(err, io.EOF) {
+			// ignore truncated values (referenced value may have been truncated)
 			continue
 		}
 		if err != nil {

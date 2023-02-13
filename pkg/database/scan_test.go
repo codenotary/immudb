@@ -265,3 +265,91 @@ func TestStoreScanEndKey(t *testing.T) {
 		}
 	})
 }
+
+func TestStoreScanWithTruncation(t *testing.T) {
+	rootPath := t.TempDir()
+
+	fileSize := 12
+
+	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.MaxIOConcurrency = 1
+	options.storeOpts.MaxConcurrency = 500
+	options.storeOpts.VLogCacheSize = 0
+
+	db := makeDbWith(t, "db", options)
+
+	for i := 0; i < 10; i++ {
+		_, err := db.Set(
+			context.Background(),
+			&schema.SetRequest{
+				KVs: []*schema.KeyValue{{
+					Key:   []byte(fmt.Sprintf("prefix:suffix%d", i)),
+					Value: []byte(`item`),
+				}},
+			},
+		)
+		require.NoError(t, err)
+	}
+
+	deletePointTx := uint64(5)
+
+	t.Run("ensure data is truncated up to delete point", func(t *testing.T) {
+		hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
+		require.NoError(t, err)
+		c := NewVlogTruncator(db)
+		require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+
+		for i := deletePointTx; i < 10; i++ {
+			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			err = db.st.ReadTx(i, false, tx)
+			require.NoError(t, err)
+			for _, e := range tx.Entries() {
+				_, err := db.st.ReadValue(e)
+				require.NoError(t, err)
+			}
+		}
+
+		for i := deletePointTx - 1; i > 0; i-- {
+			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			err = db.st.ReadTx(i, false, tx)
+			require.NoError(t, err)
+			for _, e := range tx.Entries() {
+				_, err := db.st.ReadValue(e)
+				require.Error(t, err)
+			}
+		}
+	})
+
+	t.Run("ensure scanning prefix works post data deletion", func(t *testing.T) {
+		scanOptions := schema.ScanRequest{
+			SeekKey: nil,
+			Prefix:  []byte(`prefix:`),
+			Limit:   0,
+			Desc:    false,
+			SinceTx: deletePointTx,
+		}
+
+		list, err := db.Scan(context.Background(), &scanOptions)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(list.Entries), 6)
+		require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix3`))
+		require.Equal(t, list.Entries[1].Key, []byte(`prefix:suffix4`))
+		require.Equal(t, list.Entries[2].Key, []byte(`prefix:suffix5`))
+
+		scanOptions = schema.ScanRequest{
+			SeekKey: []byte(`prefix?`),
+			Prefix:  []byte(`prefix:`),
+			Limit:   0,
+			Desc:    true,
+			SinceTx: deletePointTx,
+		}
+
+		list, err = db.Scan(context.Background(), &scanOptions)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(list.Entries), 6)
+		require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix9`))
+		require.Equal(t, list.Entries[1].Key, []byte(`prefix:suffix8`))
+		require.Equal(t, list.Entries[2].Key, []byte(`prefix:suffix7`))
+	})
+}
