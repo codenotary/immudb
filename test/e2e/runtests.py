@@ -20,7 +20,7 @@ def build_docker():
 
 def replication(ts):
 	logging.info("Starting replication test")
-	xmlresult = ET.SubElement(tree, 'testcase', name="replication")
+	xmlresult = ET.SubElement(ts, 'testcase', name="replication")
 	t0=time.time()
 	result=subprocess.run(
 		["docker", "run", "-it", "--rm", "--entrypoint", "/src/immudb/test/e2e/replication/run.sh", TAG],
@@ -38,7 +38,7 @@ def replication(ts):
 
 def truncation(ts):
 	logging.info("Starting truncation test")
-	xmlresult = ET.SubElement(tree, 'testcase', name="truncation")
+	xmlresult = ET.SubElement(ts, 'testcase', name="truncation")
 	t0=time.time()
 
 	result=subprocess.run(
@@ -62,8 +62,9 @@ def truncation(ts):
 if not build_docker():
 	sys.exit(1)
 
-tree=ET.Element('testsuites')
-ts = ET.SubElement(tree, 'testsuite', name="e2e")
+root=ET.Element('testsuites')
+tree=ET.ElementTree(root)
+ts = ET.SubElement(root, 'testsuite', name="e2e")
 err=0
 for test in (replication, truncation):
 	if not test(ts):
