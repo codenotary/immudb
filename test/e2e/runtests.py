@@ -23,7 +23,7 @@ def replication(ts):
 	xmlresult = ET.SubElement(ts, 'testcase', name="replication")
 	t0=time.time()
 	result=subprocess.run(
-		["docker", "run", "-it", "--rm", "--entrypoint", "/src/immudb/test/e2e/replication/run.sh", TAG],
+		["docker", "run", "--tty", "--rm", "--entrypoint", "/src/immudb/test/e2e/replication/run.sh", TAG],
 		capture_output=True, text=True
 		)
 	for l in result.stdout.split("\n")[-5:]:
@@ -42,7 +42,7 @@ def truncation(ts):
 	t0=time.time()
 
 	result=subprocess.run(
-		["docker", "run", "-it", "--rm", "--entrypoint", "/src/immudb/test/e2e/truncation/run.sh", TAG],
+		["docker", "run", "--tty", "--rm", "--entrypoint", "/src/immudb/test/e2e/truncation/run.sh", TAG],
 		capture_output=True, text=True
 		)
 	ET.SubElement(xmlresult, "system-out").text=result.stdout
