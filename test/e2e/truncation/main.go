@@ -102,7 +102,7 @@ func randStr(length int) []byte {
 }
 
 func insertData(ic immuclient.ImmuClient, ctx context.Context) {
-	k := []byte(fmt.Sprintf("key:%d", time.Now()))
+	k := []byte(fmt.Sprintf("key:%d", time.Now().Unix()))
 	v := randStr(256)
 	_, err := ic.Set(ctx, k, v)
 	if err != nil {

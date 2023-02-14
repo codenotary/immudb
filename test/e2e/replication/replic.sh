@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 PRIMARY_ADDR=127.71.17.10
 REPLICA_ADDR=127.71.17.11
@@ -11,7 +11,8 @@ IMMUCLIENT=./immuclient
 SIZE=500
 SYNC_OPTION_PRIMARY=()
 SYNC_OPTION_REPLICA=()
-
+BATCHSIZE=100
+WORKERS=10
 
 usage () {
 cat <<EOF
@@ -74,7 +75,7 @@ rm -rf $DATADIR/*
 $IMMUDB --dir $DATADIR/primary_data -a $PRIMARY_ADDR 2>/dev/null &
 PRIMARY_PID=$!
 
-while nc -z $PRIMARY_ADDR 3322
+while ! nc -z $PRIMARY_ADDR 3322
 do
   echo "Waiting primary"
   sleep 1
@@ -83,7 +84,7 @@ done
 $IMMUDB --dir $DATADIR/replica_data -a $REPLICA_ADDR 2>/dev/null &
 REPLICA_PID=$!
 
-while nc -z $PRIMARY_ADDR 3322
+while ! nc -z $PRIMARY_ADDR 3322
 do
   echo "Waiting replica"
   sleep 1
@@ -105,7 +106,7 @@ $IMMUADMIN -a $REPLICA_ADDR database create $DB \
 echo "Launching $STRESS_APPLICATION"
 
 T0=`date +%s`
-$STRESS_APPLICATION -addr $PRIMARY_ADDR -write-speed 0 -read-workers 0 -write-batchnum $SIZE -write-workers 10 -db $DB -batchsize 100
+$STRESS_APPLICATION -addr $PRIMARY_ADDR -write-speed 0 -read-workers 0 -write-batchnum $SIZE -write-workers $WORKERS -db $DB -batchsize $BATCHSIZE
 T1=`date +%s`
 
 txid() {
@@ -129,6 +130,6 @@ T2=`date +%s`
 kill $PRIMARY_PID
 kill $REPLICA_PID
 
-echo "Elapsed: $((T2-T0)) seconds, $((T1-T0)) for inserting, $((T2-T1)) for sync"
-
-
+echo "RESULT: Elapsed: $((T2-T0)) seconds, $((T1-T0)) for inserting, $((T2-T1)) for sync"
+echo "RESULT: Total KV: $((SIZE*$WORKERS*BATCHSIZE)), Total TX $(($WORKERS*BATCHSIZE))"
+echo "RESULT: Total KV/s: $(( (SIZE*$WORKERS*BATCHSIZE)/(T2-T0) )), Total TX/s $(( (10*BATCHSIZE)/(T2-T0) ))"

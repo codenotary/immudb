@@ -1,0 +1,24 @@
+diff --git a/embedded/store/options.go b/embedded/store/options.go
+index 1e93f2f9..b6de2dd6 100644
+--- a/embedded/store/options.go
++++ b/embedded/store/options.go
+@@ -51,7 +51,7 @@ const DefaultWriteBufferSize = 1 << 22 //4Mb
+ const DefaultIndexingMaxBulkSize = 1
+ const DefaultBulkPreparationTimeout = DefaultSyncFrequency
+ const DefaultTruncationFrequency = 24 * time.Hour
+-const MinimumRetentionPeriod = 24 * time.Hour
++const MinimumRetentionPeriod = 5 * time.Second
+ const MinimumTruncationFrequency = 1 * time.Hour
+
+ const MaxFileSize = (1 << 31) - 1 // 2Gb
+diff --git a/pkg/database/truncator.go b/pkg/database/truncator.go
+index a69aa231..ff1b483f 100644
+--- a/pkg/database/truncator.go
++++ b/pkg/database/truncator.go
+@@ -166,5 +166,5 @@ func newTruncatorMetrics(db string) *truncatorMetrics {
+
+ // TruncateToDay truncates the time to the beginning of the day.
+ func TruncateToDay(t time.Time) time.Time {
+-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
++	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, t.Location())
+ }
