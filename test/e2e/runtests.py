@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import subprocess,sys,logging, time
 import xml.etree.ElementTree as ET
+import xml.sax.saxutils as saxutils
+
 TAG="bla"
 logging.basicConfig(
 	format='%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s', level=logging.INFO
@@ -18,6 +20,13 @@ def build_docker():
 		return False, time.time()-t0
 	return True, time.time()-t0
 
+def cleanup(s):
+	ret=""
+	for c in s:
+		if c>=' ' and c<='~':
+			ret=ret+c
+	return saxutils.escape(ret)
+
 def replication(ts):
 	logging.info("Starting replication test")
 	xmlresult = ET.SubElement(ts, 'testcase', name="replication")
@@ -28,8 +37,8 @@ def replication(ts):
 		)
 	for l in result.stdout.split("\n")[-5:]:
 		logging.info("replication result: %s", l)
-	ET.SubElement(xmlresult, "system-out").text=result.stdout
-	ET.SubElement(xmlresult, "system-err").text=result.stderr
+	ET.SubElement(xmlresult, "system-out").text=cleanup(result.stdout)
+	ET.SubElement(xmlresult, "system-err").text=cleanup(result.stderr)
 	xmlresult.set("time", str(time.time()-t0))
 	if result.returncode!=0:
 		logging.error("Docker replication test:", result.stderr)
@@ -45,8 +54,8 @@ def truncation(ts):
 		["docker", "run", "--tty", "--rm", "--entrypoint", "/src/immudb/test/e2e/truncation/run.sh", TAG],
 		capture_output=True, text=True
 		)
-	ET.SubElement(xmlresult, "system-out").text=result.stdout
-	ET.SubElement(xmlresult, "system-err").text=result.stderr
+	ET.SubElement(xmlresult, "system-out").text=cleanup(result.stdout)
+	ET.SubElement(xmlresult, "system-err").text=cleanup(result.stderr)
 	xmlresult.set("time", str(time.time()-t0))
 
 	if result.returncode!=0:
