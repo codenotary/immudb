@@ -69,6 +69,9 @@ while getopts "s:c:a:i:d:x:P:R:D:Sh" opt; do
 	esac
 done
 
+PRIMARY_OPTS=(--max-commit-concurrency 1000 --sync-frequency 5ms --write-buffer-size 16777216)
+REPLICA_OPTS=(--sync-frequency 5ms --write-buffer-size 16777216 --max-commit-concurrency 1000 --replication-prefetch-tx-buffer-size 100 --replication-commit-concurrency 100 --replication-skip-integrity-check)
+
 mkdir -p $DATADIR
 rm -rf $DATADIR/*
 
@@ -91,7 +94,7 @@ do
 done
 
 echo -n "immudb" | $IMMUADMIN login -a $PRIMARY_ADDR immudb
-$IMMUADMIN -a $PRIMARY_ADDR database create $DB ${SYNC_OPTION_PRIMARY[@]}
+$IMMUADMIN -a $PRIMARY_ADDR database create $DB ${SYNC_OPTION_PRIMARY[@]} ${PRIMARY_OPTS[@]}
 
 echo -n "immudb" | $IMMUADMIN login -a $REPLICA_ADDR immudb
 $IMMUADMIN -a $REPLICA_ADDR database create $DB \
@@ -101,7 +104,8 @@ $IMMUADMIN -a $REPLICA_ADDR database create $DB \
   --replication-primary-password immudb \
   --replication-primary-port 3322 \
   --replication-primary-username immudb \
-  ${SYNC_OPTION_REPLICA[@]}
+  ${SYNC_OPTION_REPLICA[@]} \
+  ${REPLICA_OPTS[@]}
 
 echo "Launching $STRESS_APPLICATION"
 
