@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"time"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 )
@@ -27,7 +26,7 @@ func SendResultsToInfluxDb(host string, token string, bucket string, r *Benchmar
 			AddField("IOBytesRead", b.Results.HWStats.IOBytesRead).
 			AddField("IOCallsRead", b.Results.HWStats.IOCallsRead).
 			AddField("IOCallsWrite", b.Results.HWStats.IOCallsWrite).
-			SetTime(time.Now())
+			SetTime(b.EndTime)
 
 		writer.WritePoint(context.Background(), p)
 

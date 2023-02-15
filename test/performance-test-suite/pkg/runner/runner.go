@@ -106,6 +106,8 @@ func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, erro
 
 		log.Printf("Benchmark %s finished", b.Name())
 		log.Printf("Results: %s", res)
+
+		b.Cleanup()
 	}
 
 	ret.EndTime = time.Now()
