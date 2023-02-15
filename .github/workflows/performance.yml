@@ -43,6 +43,8 @@ jobs:
     runs-on: ${{ matrix.target.runs-on }}
     env:
       ARG_DURATION: "${{ startsWith(github.ref, 'refs/tags/v') && '-d 10m' || '' }}"
+      INFLUX_HOST: ${{ secrets.INFLUX_HOST }}
+      INFLUX_TOKEN: ${{ secrets.INFLUX_TOKEN }}
     steps:
       - uses: actions/setup-go@v3
         with:
@@ -53,7 +55,7 @@ jobs:
         id: performance
         run: |
           SECONDS=0
-          ./perf-test-suite $ARG_DURATION > perf-test-results-with-summaries.txt
+          ./perf-test-suite $ARG_DURATION -host $INFLUX_HOST -token $INFLUX_TOKEN > perf-test-results-with-summaries.txt
           echo "duration=$SECONDS" >> $GITHUB_ENV
           echo "version=$(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',])" >> $GITHUB_ENV
           sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json
