@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package immudb.schemav2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "schema.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+
+option go_package = "github.com/codenotary/immudb/pkg/api/schemav2";
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  info: {
+    title: "immudb REST API v2";
+    description: ""
+  };
+  security_definitions: {
+    security: {
+      key: "bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Authentication token, prefixed by Bearer: Bearer <token>"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "bearer"
+    }
+  }
+};
+
+message DocumentInsertRequest {
+  string collection = 1;
+  repeated google.protobuf.Struct document = 2;
+}
+
+message DocumentSearchRequest {
+  string collection = 1;
+  map<string, google.protobuf.Value> query = 2;
+  uint32 page = 3;
+  uint32 perPage = 4;
+}
+
+message DocumentSearchResponse {
+  repeated google.protobuf.Struct results = 1;
+  uint32 page = 2;
+  uint32 perPage = 3;
+  uint32 entriesLeft = 4;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+  string database = 3;
+  bool writeAccess = 4;
+}
+
+message LoginResponse {
+  string token = 1;
+}
+
+message PossibleIndexValue {
+  // The kind of value.
+  oneof kind {
+    // Represents a double value.
+    double number_value = 1;
+    // Represents a string value.
+    string string_value = 2;
+    // Represents a boolean value.
+    bool bool_value = 3;
+    // Represents a int64 value
+    int64 int_value = 4;
+  }
+}
+
+message CollectionCreateRequest {
+  string name = 1;
+  map<string, PossibleIndexValue> primaryKeys = 2;
+  map<string, PossibleIndexValue>  indexKeys = 3;
+}
+
+message CollectionInformation {
+  string name = 1;
+  map<string, PossibleIndexValue>  primaryKeys = 2;
+  map<string, PossibleIndexValue>  indexKeys = 3;
+}
+
+message CollectionListRequest {
+}
+
+message CollectionListResponse {
+  repeated CollectionInformation collections = 1;
+}
+
+message CollectionDeleteRequest {
+  string name = 1;
+}
+
+
+service ImmuService {
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v2/system/login"
+      body: "*"
+    };
+  } 
+
+  rpc DocumentInsert(DocumentInsertRequest) returns (schema.VerifiableTx) {
+    option (google.api.http) = {
+      post: "/api/v2/documents/documentInsert"
+      body: "*"
+    };
+  } 
+ 
+  rpc DocumentSearch(DocumentSearchRequest) returns (DocumentSearchResponse) {
+    option (google.api.http) = {
+      post: "/api/v2/documents/documentSearch"
+      body: "*"
+    };
+  } 
+
+  rpc CollectionCreate(CollectionCreateRequest) returns (CollectionInformation) {
+    option (google.api.http) = {
+      post: "/api/v2/collections/collectionCreate"
+      body: "*"
+    };
+  }
+  rpc CollectionList(CollectionListRequest) returns (CollectionListResponse) {
+    option (google.api.http) = {
+      post: "/api/v2/collections/collectionList"
+      body: "*"
+    };
+  }
+  rpc CollectionDelete(CollectionDeleteRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/v2/collections/collectionDelete"
+      body: "*"
+    };
+  }
+}
