@@ -57,6 +57,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
 
@@ -239,6 +240,9 @@ func (s *ImmuServer) Initialize() error {
 	)
 
 	s.GrpcServer = grpc.NewServer(grpcSrvOpts...)
+	if s.Options.ReflectionServerEnabled {
+		reflection.Register(s.GrpcServer)
+	}
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
