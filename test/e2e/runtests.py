@@ -40,8 +40,8 @@ def replication(ts, stats):
 		logging.info("replication result: %s", l)
 		m = re.match(r'RESULT: Total KV/s: (?P<kv>\d+), Total TX/s (?P<tx>\d+)',l)
 		if m is not None:
-			stats['replication_kvs']=m.groups('kv')
-			stats['replication_txs']=m.groups('tx')
+			stats['replication_kvs']=m.group('kv')
+			stats['replication_txs']=m.group('tx')
 	ET.SubElement(xmlresult, "system-out").text=cleanup(result.stdout)
 	ET.SubElement(xmlresult, "system-err").text=cleanup(result.stderr)
 	xmlresult.set("time", str(time.time()-t0))
