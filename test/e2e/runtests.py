@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import subprocess,sys,logging, time, string, os
+import subprocess,sys,logging, time, string, os, re
 import xml.etree.ElementTree as ET
 import xml.sax.saxutils as saxutils
 import influxdb_client
@@ -28,7 +28,7 @@ def cleanup(s):
 			ret=ret+c
 	return saxutils.escape(ret)
 
-def replication(ts):
+def replication(ts, stats):
 	logging.info("Starting replication test")
 	xmlresult = ET.SubElement(ts, 'testcase', name="replication")
 	t0=time.time()
@@ -38,6 +38,10 @@ def replication(ts):
 		)
 	for l in result.stdout.split("\n")[-5:]:
 		logging.info("replication result: %s", l)
+		m := re.match(r'RESULT: Total KV/s: (?P<kv>\d+), Total TX/s (?P<tx>\d+)')
+		if m is not None:
+			stats['replication_kvs']=m.groups('kv')
+			stats['replication_txs']=m.groups('tx')
 	ET.SubElement(xmlresult, "system-out").text=cleanup(result.stdout)
 	ET.SubElement(xmlresult, "system-err").text=cleanup(result.stderr)
 	xmlresult.set("time", str(time.time()-t0))
@@ -49,7 +53,7 @@ def replication(ts):
 	xmlresult.set("status", "success")
 	return True
 
-def truncation(ts):
+def truncation(ts, stats):
 	logging.info("Starting truncation test")
 	xmlresult = ET.SubElement(ts, 'testcase', name="truncation")
 	t0=time.time()
@@ -82,8 +86,9 @@ root=ET.Element('testsuites')
 tree=ET.ElementTree(root)
 ts = ET.SubElement(root, 'testsuite', name="e2e")
 err=0
+stats={}
 for test in (replication, truncation):
-	if not test(ts):
+	if not test(ts,stats):
 		err=err+1
 ts.set("errors",str(err))
 ET.dump(tree)
@@ -108,6 +113,8 @@ if all(map(os.getenv,["INFLUX_TOKEN", "INFLUX_ORG", "INFLUX_BUCKET", "INFLUX_ORG
 		.field("replication_status", repl_status) \
 		.field("truncation_time", trunc_time) \
 		.field("truncation_status", trunc_status)
+	for s in stats:
+		p.field(s, stats[s])
 	with client.write_api(
 		write_options=influxdb_client.client.write_api.SYNCHRONOUS
 		) as write_api:

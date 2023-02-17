@@ -135,5 +135,5 @@ kill $PRIMARY_PID
 kill $REPLICA_PID
 
 echo "RESULT: Elapsed: $((T2-T0)) seconds, $((T1-T0)) for inserting, $((T2-T1)) for sync"
-echo "RESULT: Total KV: $((SIZE*$WORKERS*BATCHSIZE)), Total TX $(($WORKERS*BATCHSIZE))"
-echo "RESULT: Total KV/s: $(( (SIZE*$WORKERS*BATCHSIZE)/(T2-T0) )), Total TX/s $(( (10*BATCHSIZE)/(T2-T0) ))"
+echo "RESULT: Total KV: $((SIZE*WORKERS*BATCHSIZE)), Total TX $(($WORKERS*BATCHSIZE))"
+echo "RESULT: Total KV/s: $(( (SIZE*WORKERS*BATCHSIZE)/(T2-T0) )), Total TX/s $(( (SIZE*WORKERS)/(T2-T0) ))"
