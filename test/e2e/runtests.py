@@ -38,7 +38,7 @@ def replication(ts, stats):
 		)
 	for l in result.stdout.split("\n")[-5:]:
 		logging.info("replication result: %s", l)
-		m := re.match(r'RESULT: Total KV/s: (?P<kv>\d+), Total TX/s (?P<tx>\d+)',l)
+		m = re.match(r'RESULT: Total KV/s: (?P<kv>\d+), Total TX/s (?P<tx>\d+)',l)
 		if m is not None:
 			stats['replication_kvs']=m.groups('kv')
 			stats['replication_txs']=m.groups('tx')
