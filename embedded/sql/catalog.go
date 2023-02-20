@@ -29,6 +29,27 @@ import (
 type Catalog struct {
 	dbsByID   map[uint32]*Database
 	dbsByName map[string]*Database
+
+	// prefixes
+	databasePrefix string
+	tablePrefix    string
+	columnPrefix   string
+	indexPrefix    string
+}
+
+func (c *Catalog) WithDatabasePrefix(databasePrefix string) *Catalog {
+	c.databasePrefix = databasePrefix
+	return c
+}
+
+func (c *Catalog) WithTablePrefix(tablePrefix string) *Catalog {
+	c.tablePrefix = tablePrefix
+	return c
+}
+
+func (c *Catalog) WithColumnPrefix(columnPrefix string) *Catalog {
+	c.columnPrefix = columnPrefix
+	return c
 }
 
 type Database struct {
@@ -38,6 +59,10 @@ type Database struct {
 	tables       []*Table
 	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
+
+	// prefixes
+	tablePrefix  string
+	columnPrefix string
 }
 
 type Table struct {
@@ -73,10 +98,27 @@ type Column struct {
 	notNull       bool
 }
 
-func newCatalog() *Catalog {
+func NewCatalog(databasePrefix, tablePrefix, columnPrefix, indexPrefix string) *Catalog {
 	return &Catalog{
 		dbsByID:   map[uint32]*Database{},
 		dbsByName: map[string]*Database{},
+
+		databasePrefix: databasePrefix,
+		tablePrefix:    tablePrefix,
+		columnPrefix:   columnPrefix,
+		indexPrefix:    indexPrefix,
+	}
+}
+
+func newSQLCatalog() *Catalog {
+	return &Catalog{
+		dbsByID:   map[uint32]*Database{},
+		dbsByName: map[string]*Database{},
+
+		databasePrefix: catalogDatabasePrefix,
+		tablePrefix:    catalogTablePrefix,
+		columnPrefix:   catalogColumnPrefix,
+		indexPrefix:    catalogIndexPrefix,
 	}
 }
 
@@ -97,6 +139,8 @@ func (c *Catalog) newDatabase(id uint32, name string) (*Database, error) {
 		name:         name,
 		tablesByID:   map[uint32]*Table{},
 		tablesByName: map[string]*Table{},
+		tablePrefix:  c.tablePrefix,
+		columnPrefix: c.columnPrefix,
 	}
 
 	c.dbsByID[db.id] = db
@@ -518,9 +562,13 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 	return maxLen >= 0
 }
 
+func (c *Catalog) Load(sqlPrefix []byte, tx *store.OngoingTx) error {
+	return c.load(sqlPrefix, tx)
+}
+
 func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
+		Prefix:  mapKey(sqlPrefix, c.databasePrefix),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -539,7 +587,7 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		id, err := unmapDatabaseID(sqlPrefix, mkey)
+		id, err := unmapDatabaseID(sqlPrefix, mkey, c.databasePrefix)
 		if err != nil {
 			return err
 		}
@@ -554,7 +602,7 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		err = db.loadTables(sqlPrefix, tx)
+		err = db.loadTables(sqlPrefix, c.indexPrefix, tx)
 		if err != nil {
 			return err
 		}
@@ -563,9 +611,9 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 	return nil
 }
 
-func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (db *Database) loadTables(sqlPrefix []byte, indexPrefix string, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
+		Prefix:  mapKey(sqlPrefix, db.tablePrefix, EncodeID(db.id)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -584,7 +632,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
+		dbID, tableID, err := unmapTableID(sqlPrefix, mkey, db.tablePrefix)
 		if err != nil {
 			return err
 		}
@@ -593,7 +641,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		colSpecs, err := loadColSpecs(db.id, tableID, tx, sqlPrefix)
+		colSpecs, err := loadColSpecs(db.id, tableID, tx, sqlPrefix, db.columnPrefix)
 		if err != nil {
 			return err
 		}
@@ -612,7 +660,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(sqlPrefix, tx)
+		err = table.loadIndexes(sqlPrefix, indexPrefix, tx)
 		if err != nil {
 			return err
 		}
@@ -664,8 +712,8 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
-func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte, columnPrefix string) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, columnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -689,7 +737,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 			return nil, err
 		}
 
-		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
+		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey, columnPrefix)
 		if err != nil {
 			return nil, err
 		}
@@ -724,8 +772,8 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 	return
 }
 
-func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
+func (table *Table) loadIndexes(sqlPrefix []byte, indexPrefix string, tx *store.OngoingTx) error {
+	initialKey := mapKey(sqlPrefix, indexPrefix, EncodeID(table.db.id), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -804,8 +852,8 @@ func trimPrefix(prefix, mkey []byte, mappingPrefix []byte) ([]byte, error) {
 	return mkey[len(prefix)+len(mappingPrefix):], nil
 }
 
-func unmapDatabaseID(prefix, mkey []byte) (dbID uint32, err error) {
-	encID, err := trimPrefix(prefix, mkey, []byte(catalogDatabasePrefix))
+func unmapDatabaseID(prefix, mkey []byte, dbPrefix string) (dbID uint32, err error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(dbPrefix))
 	if err != nil {
 		return 0, err
 	}
@@ -817,8 +865,8 @@ func unmapDatabaseID(prefix, mkey []byte) (dbID uint32, err error) {
 	return binary.BigEndian.Uint32(encID), nil
 }
 
-func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
-	encID, err := trimPrefix(prefix, mkey, []byte(catalogTablePrefix))
+func unmapTableID(prefix, mkey []byte, tablePrefix string) (dbID, tableID uint32, err error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(tablePrefix))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -833,8 +881,8 @@ func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
 	return
 }
 
-func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQLValueType, err error) {
-	encID, err := trimPrefix(prefix, mkey, []byte(catalogColumnPrefix))
+func unmapColSpec(prefix, mkey []byte, columnPrefix string) (dbID, tableID, colID uint32, colType SQLValueType, err error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(columnPrefix))
 	if err != nil {
 		return 0, 0, 0, "", err
 	}
