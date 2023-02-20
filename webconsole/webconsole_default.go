@@ -1,17 +1,20 @@
+//go:build !webconsole
 // +build !webconsole
 
 package webconsole
 
-//go:generate go run github.com/rakyll/statik -f -src=./default -p=webconsole -dest=../ -tags=!webconsole
+//go:generate go run github.com/rakyll/statik -f -src=./default -p=webconsole -dest=. -tags=!webconsole
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
 	"net/http"
+
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/rakyll/statik/fs"
 )
 
+var statikFS, err = fs.New()
+
 func SetupWebconsole(mux *http.ServeMux, l logger.Logger, addr string) error {
-	statikFS, err := fs.New()
 	if err != nil {
 		return err
 	}

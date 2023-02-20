@@ -4,6 +4,7 @@
     "title": "immudb REST API v2",
     "version": "version not set"
   },
+  "basePath": "/api/v2",
   "consumes": [
     "application/json"
   ],
@@ -11,9 +12,9 @@
     "application/json"
   ],
   "paths": {
-    "/api/v2/collections/collectionCreate": {
-      "post": {
-        "operationId": "ImmuService_CollectionCreate",
+    "/collections/create": {
+      "put": {
+        "operationId": "ImmuServiceV2_CollectionCreate",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -39,13 +40,13 @@
           }
         ],
         "tags": [
-          "ImmuService"
+          "collections"
         ]
       }
     },
-    "/api/v2/collections/collectionDelete": {
-      "post": {
-        "operationId": "ImmuService_CollectionDelete",
+    "/collections/delete": {
+      "delete": {
+        "operationId": "ImmuServiceV2_CollectionDelete",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -62,22 +63,50 @@
         },
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemav2CollectionDeleteRequest"
-            }
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
-          "ImmuService"
+          "collections"
         ]
       }
     },
-    "/api/v2/collections/collectionList": {
+    "/collections/get": {
+      "get": {
+        "operationId": "ImmuServiceV2_CollectionGet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemav2CollectionInformation"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/collections/list": {
       "post": {
-        "operationId": "ImmuService_CollectionList",
+        "operationId": "ImmuServiceV2_CollectionList",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -103,13 +132,13 @@
           }
         ],
         "tags": [
-          "ImmuService"
+          "collections"
         ]
       }
     },
-    "/api/v2/documents/documentInsert": {
-      "post": {
-        "operationId": "ImmuService_DocumentInsert",
+    "/documents/insert": {
+      "put": {
+        "operationId": "ImmuServiceV2_DocumentInsert",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -135,13 +164,13 @@
           }
         ],
         "tags": [
-          "ImmuService"
+          "documents"
         ]
       }
     },
-    "/api/v2/documents/documentSearch": {
+    "/documents/search": {
       "post": {
-        "operationId": "ImmuService_DocumentSearch",
+        "operationId": "ImmuServiceV2_DocumentSearch",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -167,18 +196,18 @@
           }
         ],
         "tags": [
-          "ImmuService"
+          "documents"
         ]
       }
     },
-    "/api/v2/system/login": {
+    "/system/login": {
       "post": {
-        "operationId": "ImmuService_Login",
+        "operationId": "ImmuServiceV2_LoginV2",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/immudbschemav2LoginResponse"
+              "$ref": "#/definitions/schemav2LoginResponseV2"
             }
           },
           "default": {
@@ -199,7 +228,7 @@
           }
         ],
         "tags": [
-          "ImmuService"
+          "authorization"
         ]
       }
     }
@@ -215,17 +244,6 @@
           "type": "string"
         },
         "database": {
-          "type": "string"
-        },
-        "writeAccess": {
-          "type": "boolean"
-        }
-      }
-    },
-    "immudbschemav2LoginResponse": {
-      "type": "object",
-      "properties": {
-        "token": {
           "type": "string"
         }
       }
@@ -673,22 +691,14 @@
         "primaryKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexValue"
+            "$ref": "#/definitions/schemav2PossibleIndexType"
           }
         },
         "indexKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexValue"
+            "$ref": "#/definitions/schemav2PossibleIndexType"
           }
-        }
-      }
-    },
-    "schemav2CollectionDeleteRequest": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
         }
       }
     },
@@ -701,13 +711,13 @@
         "primaryKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexValue"
+            "$ref": "#/definitions/schemav2PossibleIndexType"
           }
         },
         "indexKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexValue"
+            "$ref": "#/definitions/schemav2PossibleIndexType"
           }
         }
       }
@@ -740,6 +750,20 @@
         }
       }
     },
+    "schemav2DocumentQuery": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/definitions/schemav2QueryOperator"
+        },
+        "value": {
+          "type": "object"
+        }
+      }
+    },
     "schemav2DocumentSearchRequest": {
       "type": "object",
       "properties": {
@@ -747,9 +771,9 @@
           "type": "string"
         },
         "query": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object"
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemav2DocumentQuery"
           }
         },
         "page": {
@@ -785,28 +809,38 @@
         }
       }
     },
-    "schemav2PossibleIndexValue": {
+    "schemav2LoginResponseV2": {
       "type": "object",
       "properties": {
-        "number_value": {
-          "type": "number",
-          "format": "double",
-          "description": "Represents a double value."
+        "token": {
+          "type": "string"
         },
-        "string_value": {
-          "type": "string",
-          "description": "Represents a string value."
-        },
-        "bool_value": {
-          "type": "boolean",
-          "description": "Represents a boolean value."
-        },
-        "int_value": {
-          "type": "string",
-          "format": "int64",
-          "title": "Represents a int64 value"
+        "expirationTimestamp": {
+          "type": "integer",
+          "format": "int32"
         }
       }
+    },
+    "schemav2PossibleIndexType": {
+      "type": "string",
+      "enum": [
+        "DOUBLE",
+        "INTEGER",
+        "STRING"
+      ],
+      "default": "DOUBLE"
+    },
+    "schemav2QueryOperator": {
+      "type": "string",
+      "enum": [
+        "EQ",
+        "GT",
+        "GTE",
+        "LT",
+        "LTE",
+        "LIKE"
+      ],
+      "default": "EQ"
     }
   },
   "securityDefinitions": {

@@ -20,6 +20,8 @@ VERSION=1.4.1
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
+SWAGGERUIVERSION=4.15.5
+SWAGGERUILINK="https://github.com/swagger-api/swagger-ui/archive/refs/tags/v${SWAGGERUIVERSION}.tar.gz"
 
 PWD = $(shell pwd)
 GO ?= go
@@ -45,8 +47,9 @@ V_LDFLAGS_FIPS_BUILD = ${V_LDFLAGS_BUILD} \
 				  -X github.com/codenotary/immudb/cmd/version.FIPSEnabled=true
 
 GRPC_GATEWAY_VERSION := $(shell go list -m -versions github.com/grpc-ecosystem/grpc-gateway | awk -F ' ' '{print $$NF}')
+IMMUDB_BUILD_TAGS=-tags swagger
 ifdef WEBCONSOLE
-IMMUDB_BUILD_TAGS=-tags webconsole
+IMMUDB_BUILD_TAGS=-tags webconsole,swagger
 endif
 
 .PHONY: all
@@ -210,6 +213,15 @@ build/codegenv2:
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
 	  --doc_out=pkg/api/schemav2 --doc_opt=markdown,docs.md \
 	  --plugin=protoc-gen-doc=$(PWD)/scripts/protoc-gen-doc
+
+.PHONY: build/embedswagger
+build/embedswagger:
+	rm -rf swagger/dist/
+	curl -L $(SWAGGERUILINK) | tar -xvz -C swagger
+	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
+	cp pkg/api/schemav2/schemav2.swagger.json swagger/dist/schemav2.swagger.json
+	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
 
 .PHONY: clean
 clean:

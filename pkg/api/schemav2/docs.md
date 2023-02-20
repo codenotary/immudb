@@ -8,20 +8,24 @@
     - [CollectionCreateRequest.IndexKeysEntry](#immudb.schemav2.CollectionCreateRequest.IndexKeysEntry)
     - [CollectionCreateRequest.PrimaryKeysEntry](#immudb.schemav2.CollectionCreateRequest.PrimaryKeysEntry)
     - [CollectionDeleteRequest](#immudb.schemav2.CollectionDeleteRequest)
+    - [CollectionGetRequest](#immudb.schemav2.CollectionGetRequest)
     - [CollectionInformation](#immudb.schemav2.CollectionInformation)
     - [CollectionInformation.IndexKeysEntry](#immudb.schemav2.CollectionInformation.IndexKeysEntry)
     - [CollectionInformation.PrimaryKeysEntry](#immudb.schemav2.CollectionInformation.PrimaryKeysEntry)
     - [CollectionListRequest](#immudb.schemav2.CollectionListRequest)
     - [CollectionListResponse](#immudb.schemav2.CollectionListResponse)
     - [DocumentInsertRequest](#immudb.schemav2.DocumentInsertRequest)
+    - [DocumentQuery](#immudb.schemav2.DocumentQuery)
     - [DocumentSearchRequest](#immudb.schemav2.DocumentSearchRequest)
-    - [DocumentSearchRequest.QueryEntry](#immudb.schemav2.DocumentSearchRequest.QueryEntry)
     - [DocumentSearchResponse](#immudb.schemav2.DocumentSearchResponse)
     - [LoginRequest](#immudb.schemav2.LoginRequest)
-    - [LoginResponse](#immudb.schemav2.LoginResponse)
-    - [PossibleIndexValue](#immudb.schemav2.PossibleIndexValue)
+    - [LoginResponseV2](#immudb.schemav2.LoginResponseV2)
+    - [Proof](#immudb.schemav2.Proof)
   
-    - [ImmuService](#immudb.schemav2.ImmuService)
+    - [PossibleIndexType](#immudb.schemav2.PossibleIndexType)
+    - [QueryOperator](#immudb.schemav2.QueryOperator)
+  
+    - [ImmuServiceV2](#immudb.schemav2.ImmuServiceV2)
   
 - [Scalar Value Types](#scalar-value-types)
 
@@ -60,7 +64,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [PossibleIndexValue](#immudb.schemav2.PossibleIndexValue) |  |  |
+| value | [PossibleIndexType](#immudb.schemav2.PossibleIndexType) |  |  |
 
 
 
@@ -76,7 +80,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [PossibleIndexValue](#immudb.schemav2.PossibleIndexValue) |  |  |
+| value | [PossibleIndexType](#immudb.schemav2.PossibleIndexType) |  |  |
 
 
 
@@ -86,6 +90,21 @@
 <a name="immudb.schemav2.CollectionDeleteRequest"></a>
 
 ### CollectionDeleteRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schemav2.CollectionGetRequest"></a>
+
+### CollectionGetRequest
 
 
 
@@ -124,7 +143,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [PossibleIndexValue](#immudb.schemav2.PossibleIndexValue) |  |  |
+| value | [PossibleIndexType](#immudb.schemav2.PossibleIndexType) |  |  |
 
 
 
@@ -140,7 +159,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [PossibleIndexValue](#immudb.schemav2.PossibleIndexValue) |  |  |
+| value | [PossibleIndexType](#immudb.schemav2.PossibleIndexType) |  |  |
 
 
 
@@ -188,6 +207,23 @@
 
 
 
+<a name="immudb.schemav2.DocumentQuery"></a>
+
+### DocumentQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| field | [string](#string) |  |  |
+| operator | [QueryOperator](#immudb.schemav2.QueryOperator) |  |  |
+| value | [google.protobuf.Value](#google.protobuf.Value) |  |  |
+
+
+
+
+
+
 <a name="immudb.schemav2.DocumentSearchRequest"></a>
 
 ### DocumentSearchRequest
@@ -197,25 +233,9 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| query | [DocumentSearchRequest.QueryEntry](#immudb.schemav2.DocumentSearchRequest.QueryEntry) | repeated |  |
+| query | [DocumentQuery](#immudb.schemav2.DocumentQuery) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schemav2.DocumentSearchRequest.QueryEntry"></a>
-
-### DocumentSearchRequest.QueryEntry
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [string](#string) |  |  |
-| value | [google.protobuf.Value](#google.protobuf.Value) |  |  |
 
 
 
@@ -251,40 +271,37 @@
 | username | [string](#string) |  |  |
 | password | [string](#string) |  |  |
 | database | [string](#string) |  |  |
-| writeAccess | [bool](#bool) |  |  |
 
 
 
 
 
 
-<a name="immudb.schemav2.LoginResponse"></a>
+<a name="immudb.schemav2.LoginResponseV2"></a>
 
-### LoginResponse
+### LoginResponseV2
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | token | [string](#string) |  |  |
+| expirationTimestamp | [int32](#int32) |  |  |
 
 
 
 
 
 
-<a name="immudb.schemav2.PossibleIndexValue"></a>
+<a name="immudb.schemav2.Proof"></a>
 
-### PossibleIndexValue
+### Proof
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| number_value | [double](#double) |  | Represents a double value. |
-| string_value | [string](#string) |  | Represents a string value. |
-| bool_value | [bool](#bool) |  | Represents a boolean value. |
-| int_value | [int64](#int64) |  | Represents a int64 value |
+| name | [string](#string) |  |  |
 
 
 
@@ -292,22 +309,52 @@
 
  
 
- 
+
+<a name="immudb.schemav2.PossibleIndexType"></a>
+
+### PossibleIndexType
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| DOUBLE | 0 |  |
+| INTEGER | 1 |  |
+| STRING | 2 |  |
+
+
+
+<a name="immudb.schemav2.QueryOperator"></a>
+
+### QueryOperator
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| EQ | 0 |  |
+| GT | 1 |  |
+| GTE | 2 |  |
+| LT | 3 |  |
+| LTE | 4 |  |
+| LIKE | 5 |  |
+
 
  
 
+ 
 
-<a name="immudb.schemav2.ImmuService"></a>
 
-### ImmuService
+<a name="immudb.schemav2.ImmuServiceV2"></a>
+
+### ImmuServiceV2
 
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| Login | [LoginRequest](#immudb.schemav2.LoginRequest) | [LoginResponse](#immudb.schemav2.LoginResponse) |  |
+| LoginV2 | [LoginRequest](#immudb.schemav2.LoginRequest) | [LoginResponseV2](#immudb.schemav2.LoginResponseV2) |  |
 | DocumentInsert | [DocumentInsertRequest](#immudb.schemav2.DocumentInsertRequest) | [.immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | DocumentSearch | [DocumentSearchRequest](#immudb.schemav2.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.schemav2.DocumentSearchResponse) |  |
 | CollectionCreate | [CollectionCreateRequest](#immudb.schemav2.CollectionCreateRequest) | [CollectionInformation](#immudb.schemav2.CollectionInformation) |  |
+| CollectionGet | [CollectionGetRequest](#immudb.schemav2.CollectionGetRequest) | [CollectionInformation](#immudb.schemav2.CollectionInformation) |  |
 | CollectionList | [CollectionListRequest](#immudb.schemav2.CollectionListRequest) | [CollectionListResponse](#immudb.schemav2.CollectionListResponse) |  |
 | CollectionDelete | [CollectionDeleteRequest](#immudb.schemav2.CollectionDeleteRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 

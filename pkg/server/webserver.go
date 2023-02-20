@@ -3,24 +3,38 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/swagger"
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"net/http"
 )
 
-func StartWebServer(addr string, tlsConfig *tls.Config, s schema.ImmuServiceServer, l logger.Logger) (*http.Server, error) {
+func StartWebServer(addr string, tlsConfig *tls.Config, s *ImmuServer, l logger.Logger) (*http.Server, error) {
 	proxyMux := runtime.NewServeMux()
 	err := schema.RegisterImmuServiceHandlerServer(context.Background(), proxyMux, s)
 	if err != nil {
 		return nil, err
 	}
 
+	proxyMuxV2 := runtime.NewServeMux()
+	err = schemav2.RegisterImmuServiceV2HandlerServer(context.Background(), proxyMuxV2, s)
+	if err != nil {
+		return nil, err
+	}
+
 	webMux := http.NewServeMux()
 	webMux.Handle("/api/", http.StripPrefix("/api", proxyMux))
+	webMux.Handle("/api/v2/", http.StripPrefix("/api/v2", proxyMuxV2))
 
 	err = webconsole.SetupWebconsole(webMux, l, addr)
+	if err != nil {
+		return nil, err
+	}
+	err = swagger.SetupSwaggerUI(webMux, l, addr)
 	if err != nil {
 		return nil, err
 	}

@@ -50,6 +50,7 @@ import (
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -243,7 +244,9 @@ func (s *ImmuServer) Initialize() error {
 	if s.Options.ReflectionServerEnabled {
 		reflection.Register(s.GrpcServer)
 	}
+
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
+	schemav2.RegisterImmuServiceV2Server(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
 	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Address(s.Options.Address), pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDB), pgsqlsrv.TlsConfig(s.Options.TLSConfig), pgsqlsrv.Logger(s.Logger))
