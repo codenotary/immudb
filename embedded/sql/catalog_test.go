@@ -23,7 +23,7 @@ import (
 )
 
 func TestFromEmptyCatalog(t *testing.T) {
-	catalog := newCatalog()
+	catalog := newSQLCatalog()
 
 	dbs := catalog.Databases()
 	require.Empty(t, dbs)

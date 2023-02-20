@@ -4264,32 +4264,32 @@ func TestTrimPrefix(t *testing.T) {
 func TestUnmapDatabaseId(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	id, err := unmapDatabaseID(e.prefix, nil)
+	id, err := unmapDatabaseID(e.prefix, nil, catalogDatabasePrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, id)
 
-	id, err = unmapDatabaseID(e.prefix, []byte{})
+	id, err = unmapDatabaseID(e.prefix, []byte{}, catalogDatabasePrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, id)
 
-	id, err = unmapDatabaseID(e.prefix, []byte("pref"))
+	id, err = unmapDatabaseID(e.prefix, []byte("pref"), catalogDatabasePrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, id)
 
-	id, err = unmapDatabaseID(e.prefix, []byte("e-prefix.a"))
+	id, err = unmapDatabaseID(e.prefix, []byte("e-prefix.a"), catalogDatabasePrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, id)
 
 	id, err = unmapDatabaseID(e.prefix, []byte(
 		"e-prefix.CTL.DATABASE.a",
-	))
+	), catalogDatabasePrefix)
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, id)
 
 	id, err = unmapDatabaseID(e.prefix, append(
 		[]byte("e-prefix.CTL.DATABASE."),
 		1, 2, 3, 4,
-	))
+	), catalogDatabasePrefix)
 	require.NoError(t, err)
 	require.EqualValues(t, 0x01020304, id)
 }
@@ -4297,14 +4297,14 @@ func TestUnmapDatabaseId(t *testing.T) {
 func TestUnmapTableId(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, err := unmapTableID(e.prefix, nil)
+	dbID, tableID, err := unmapTableID(e.prefix, nil, catalogTablePrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
 
 	dbID, tableID, err = unmapTableID(e.prefix, []byte(
 		"e-prefix.CTL.TABLE.a",
-	))
+	), catalogTablePrefix)
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -4313,7 +4313,7 @@ func TestUnmapTableId(t *testing.T) {
 		[]byte("e-prefix.CTL.TABLE."),
 		0x01, 0x02, 0x03, 0x04,
 		0x11, 0x12, 0x13, 0x14,
-	))
+	), catalogTablePrefix)
 	require.NoError(t, err)
 	require.EqualValues(t, 0x01020304, dbID)
 	require.EqualValues(t, 0x11121314, tableID)
@@ -4322,7 +4322,7 @@ func TestUnmapTableId(t *testing.T) {
 func TestUnmapColSpec(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, colID, colType, err := unmapColSpec(e.prefix, nil)
+	dbID, tableID, colID, colType, err := unmapColSpec(e.prefix, nil, catalogColumnPrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -4331,7 +4331,7 @@ func TestUnmapColSpec(t *testing.T) {
 
 	dbID, tableID, colID, colType, err = unmapColSpec(e.prefix, []byte(
 		"e-prefix.CTL.COLUMN.a",
-	))
+	), catalogColumnPrefix)
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -4344,7 +4344,7 @@ func TestUnmapColSpec(t *testing.T) {
 		0x11, 0x12, 0x13, 0x14,
 		0x21, 0x22, 0x23, 0x24,
 		0x00,
-	))
+	), catalogColumnPrefix)
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -4357,7 +4357,7 @@ func TestUnmapColSpec(t *testing.T) {
 		0x11, 0x12, 0x13, 0x14,
 		0x21, 0x22, 0x23, 0x24,
 		'I', 'N', 'T', 'E', 'G', 'E', 'R',
-	))
+	), catalogColumnPrefix)
 
 	require.NoError(t, err)
 	require.EqualValues(t, 0x01020304, dbID)

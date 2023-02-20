@@ -62,3 +62,15 @@ func (opts *Options) WithAutocommit(autocommit bool) *Options {
 	opts.autocommit = autocommit
 	return opts
 }
+
+func (opts *Options) GetPrefix() []byte {
+	return opts.prefix
+}
+
+func (opts *Options) GetDistinctLimit() int {
+	return opts.distinctLimit
+}
+
+func (opts *Options) GetAutoCommit() bool {
+	return opts.autocommit
+}
