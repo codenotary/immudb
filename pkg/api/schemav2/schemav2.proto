@@ -10,6 +10,7 @@ import "protoc-gen-swagger/options/annotations.proto";
 
 option go_package = "github.com/codenotary/immudb/pkg/api/schemav2";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  base_path: "/api/v2",
   info: {
     title: "immudb REST API v2";
     description: ""
@@ -37,9 +38,26 @@ message DocumentInsertRequest {
   repeated google.protobuf.Struct document = 2;
 }
 
+
+enum QueryOperator {
+  EQ = 0;
+  GT = 1;
+  GTE = 2;
+  LT = 3;
+  LTE = 4;
+  LIKE = 5;
+}
+
+message DocumentQuery {
+  string field = 1;
+  QueryOperator operator = 2;
+  google.protobuf.Value value = 3;
+}
+
+
 message DocumentSearchRequest {
   string collection = 1;
-  map<string, google.protobuf.Value> query = 2;
+  repeated DocumentQuery query = 2;
   uint32 page = 3;
   uint32 perPage = 4;
 }
@@ -55,37 +73,34 @@ message LoginRequest {
   string username = 1;
   string password = 2;
   string database = 3;
-  bool writeAccess = 4;
 }
 
-message LoginResponse {
+message LoginResponseV2 {
   string token = 1;
+  int32 expirationTimestamp = 2;
+
 }
 
-message PossibleIndexValue {
-  // The kind of value.
-  oneof kind {
-    // Represents a double value.
-    double number_value = 1;
-    // Represents a string value.
-    string string_value = 2;
-    // Represents a boolean value.
-    bool bool_value = 3;
-    // Represents a int64 value
-    int64 int_value = 4;
-  }
+enum PossibleIndexType {
+  DOUBLE = 0;
+  INTEGER = 1;
+  STRING = 2;
 }
 
 message CollectionCreateRequest {
   string name = 1;
-  map<string, PossibleIndexValue> primaryKeys = 2;
-  map<string, PossibleIndexValue>  indexKeys = 3;
+  map<string, PossibleIndexType> primaryKeys = 2;
+  map<string, PossibleIndexType>  indexKeys = 3;
 }
 
 message CollectionInformation {
   string name = 1;
-  map<string, PossibleIndexValue>  primaryKeys = 2;
-  map<string, PossibleIndexValue>  indexKeys = 3;
+  map<string, PossibleIndexType>  primaryKeys = 2;
+  map<string, PossibleIndexType>  indexKeys = 3;
+}
+
+message CollectionGetRequest {
+  string name = 1;
 }
 
 message CollectionListRequest {
@@ -99,45 +114,77 @@ message CollectionDeleteRequest {
   string name = 1;
 }
 
+message Proof {
+  string name = 1;
+}
 
-service ImmuService {
-  rpc Login(LoginRequest) returns (LoginResponse) {
+
+service ImmuServiceV2 {
+  rpc LoginV2(LoginRequest) returns (LoginResponseV2) {
     option (google.api.http) = {
-      post: "/api/v2/system/login"
+      post: "/system/login"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "authorization";
     };
   } 
 
   rpc DocumentInsert(DocumentInsertRequest) returns (schema.VerifiableTx) {
     option (google.api.http) = {
-      post: "/api/v2/documents/documentInsert"
+      put: "/documents/insert"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
     };
   } 
  
   rpc DocumentSearch(DocumentSearchRequest) returns (DocumentSearchResponse) {
     option (google.api.http) = {
-      post: "/api/v2/documents/documentSearch"
+      post: "/documents/search"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
     };
   } 
 
   rpc CollectionCreate(CollectionCreateRequest) returns (CollectionInformation) {
     option (google.api.http) = {
-      post: "/api/v2/collections/collectionCreate"
+      put: "/collections/create"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
   }
+
+  rpc CollectionGet(CollectionGetRequest) returns (CollectionInformation) {
+    option (google.api.http) = {
+      get: "/collections/get"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  
   rpc CollectionList(CollectionListRequest) returns (CollectionListResponse) {
     option (google.api.http) = {
-      post: "/api/v2/collections/collectionList"
+      post: "/collections/list"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
     };
   }
   rpc CollectionDelete(CollectionDeleteRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/api/v2/collections/collectionDelete"
-      body: "*"
+      delete: "/collections/delete"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
     };
   }
 }

@@ -33,7 +33,7 @@ var _ = utilities.NewDoubleArray
 var _ = descriptor.ForMessage
 var _ = metadata.Join
 
-func request_ImmuService_Login_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ImmuServiceV2_LoginV2_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq LoginRequest
 	var metadata runtime.ServerMetadata
 
@@ -45,12 +45,12 @@ func request_ImmuService_Login_0(ctx context.Context, marshaler runtime.Marshale
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.Login(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.LoginV2(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ImmuService_Login_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuServiceV2_LoginV2_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq LoginRequest
 	var metadata runtime.ServerMetadata
 
@@ -62,12 +62,12 @@ func local_request_ImmuService_Login_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.Login(ctx, &protoReq)
+	msg, err := server.LoginV2(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_ImmuService_DocumentInsert_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ImmuServiceV2_DocumentInsert_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DocumentInsertRequest
 	var metadata runtime.ServerMetadata
 
@@ -84,7 +84,7 @@ func request_ImmuService_DocumentInsert_0(ctx context.Context, marshaler runtime
 
 }
 
-func local_request_ImmuService_DocumentInsert_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuServiceV2_DocumentInsert_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DocumentInsertRequest
 	var metadata runtime.ServerMetadata
 
@@ -101,7 +101,7 @@ func local_request_ImmuService_DocumentInsert_0(ctx context.Context, marshaler r
 
 }
 
-func request_ImmuService_DocumentSearch_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ImmuServiceV2_DocumentSearch_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DocumentSearchRequest
 	var metadata runtime.ServerMetadata
 
@@ -118,7 +118,7 @@ func request_ImmuService_DocumentSearch_0(ctx context.Context, marshaler runtime
 
 }
 
-func local_request_ImmuService_DocumentSearch_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuServiceV2_DocumentSearch_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DocumentSearchRequest
 	var metadata runtime.ServerMetadata
 
@@ -135,7 +135,7 @@ func local_request_ImmuService_DocumentSearch_0(ctx context.Context, marshaler r
 
 }
 
-func request_ImmuService_CollectionCreate_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ImmuServiceV2_CollectionCreate_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CollectionCreateRequest
 	var metadata runtime.ServerMetadata
 
@@ -152,7 +152,7 @@ func request_ImmuService_CollectionCreate_0(ctx context.Context, marshaler runti
 
 }
 
-func local_request_ImmuService_CollectionCreate_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuServiceV2_CollectionCreate_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CollectionCreateRequest
 	var metadata runtime.ServerMetadata
 
@@ -169,7 +169,43 @@ func local_request_ImmuService_CollectionCreate_0(ctx context.Context, marshaler
 
 }
 
-func request_ImmuService_CollectionList_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+var (
+	filter_ImmuServiceV2_CollectionGet_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+)
+
+func request_ImmuServiceV2_CollectionGet_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CollectionGetRequest
+	var metadata runtime.ServerMetadata
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ImmuServiceV2_CollectionGet_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.CollectionGet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_ImmuServiceV2_CollectionGet_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CollectionGetRequest
+	var metadata runtime.ServerMetadata
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ImmuServiceV2_CollectionGet_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.CollectionGet(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
+func request_ImmuServiceV2_CollectionList_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CollectionListRequest
 	var metadata runtime.ServerMetadata
 
@@ -186,7 +222,7 @@ func request_ImmuService_CollectionList_0(ctx context.Context, marshaler runtime
 
 }
 
-func local_request_ImmuService_CollectionList_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuServiceV2_CollectionList_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CollectionListRequest
 	var metadata runtime.ServerMetadata
 
@@ -203,15 +239,18 @@ func local_request_ImmuService_CollectionList_0(ctx context.Context, marshaler r
 
 }
 
-func request_ImmuService_CollectionDelete_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+var (
+	filter_ImmuServiceV2_CollectionDelete_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+)
+
+func request_ImmuServiceV2_CollectionDelete_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceV2Client, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CollectionDeleteRequest
 	var metadata runtime.ServerMetadata
 
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ImmuServiceV2_CollectionDelete_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -220,15 +259,14 @@ func request_ImmuService_CollectionDelete_0(ctx context.Context, marshaler runti
 
 }
 
-func local_request_ImmuService_CollectionDelete_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuServiceV2_CollectionDelete_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceV2Server, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CollectionDeleteRequest
 	var metadata runtime.ServerMetadata
 
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ImmuServiceV2_CollectionDelete_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -237,13 +275,13 @@ func local_request_ImmuService_CollectionDelete_0(ctx context.Context, marshaler
 
 }
 
-// RegisterImmuServiceHandlerServer registers the http handlers for service ImmuService to "mux".
-// UnaryRPC     :call ImmuServiceServer directly.
+// RegisterImmuServiceV2HandlerServer registers the http handlers for service ImmuServiceV2 to "mux".
+// UnaryRPC     :call ImmuServiceV2Server directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
-// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterImmuServiceHandlerFromEndpoint instead.
-func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server ImmuServiceServer) error {
+// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterImmuServiceV2HandlerFromEndpoint instead.
+func RegisterImmuServiceV2HandlerServer(ctx context.Context, mux *runtime.ServeMux, server ImmuServiceV2Server) error {
 
-	mux.Handle("POST", pattern_ImmuService_Login_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuServiceV2_LoginV2_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -254,7 +292,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_Login_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuServiceV2_LoginV2_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -262,11 +300,11 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_Login_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_LoginV2_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_DocumentInsert_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_ImmuServiceV2_DocumentInsert_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -277,7 +315,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_DocumentInsert_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuServiceV2_DocumentInsert_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -285,11 +323,11 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_DocumentInsert_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_DocumentInsert_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_DocumentSearch_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuServiceV2_DocumentSearch_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -300,7 +338,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_DocumentSearch_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuServiceV2_DocumentSearch_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -308,11 +346,11 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_DocumentSearch_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_DocumentSearch_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_CollectionCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_ImmuServiceV2_CollectionCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -323,7 +361,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_CollectionCreate_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuServiceV2_CollectionCreate_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -331,11 +369,11 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_CollectionCreate_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_CollectionCreate_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_CollectionList_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ImmuServiceV2_CollectionGet_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -346,7 +384,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_CollectionList_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuServiceV2_CollectionGet_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -354,11 +392,11 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_CollectionList_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_CollectionGet_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_CollectionDelete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuServiceV2_CollectionList_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -369,7 +407,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_CollectionDelete_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuServiceV2_CollectionList_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -377,16 +415,39 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_CollectionDelete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_CollectionList_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("DELETE", pattern_ImmuServiceV2_CollectionDelete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_ImmuServiceV2_CollectionDelete_0(rctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ImmuServiceV2_CollectionDelete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
 	return nil
 }
 
-// RegisterImmuServiceHandlerFromEndpoint is same as RegisterImmuServiceHandler but
+// RegisterImmuServiceV2HandlerFromEndpoint is same as RegisterImmuServiceV2Handler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterImmuServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterImmuServiceV2HandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -406,23 +467,23 @@ func RegisterImmuServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.Se
 		}()
 	}()
 
-	return RegisterImmuServiceHandler(ctx, mux, conn)
+	return RegisterImmuServiceV2Handler(ctx, mux, conn)
 }
 
-// RegisterImmuServiceHandler registers the http handlers for service ImmuService to "mux".
+// RegisterImmuServiceV2Handler registers the http handlers for service ImmuServiceV2 to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterImmuServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterImmuServiceHandlerClient(ctx, mux, NewImmuServiceClient(conn))
+func RegisterImmuServiceV2Handler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterImmuServiceV2HandlerClient(ctx, mux, NewImmuServiceV2Client(conn))
 }
 
-// RegisterImmuServiceHandlerClient registers the http handlers for service ImmuService
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "ImmuServiceClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "ImmuServiceClient"
+// RegisterImmuServiceV2HandlerClient registers the http handlers for service ImmuServiceV2
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "ImmuServiceV2Client".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "ImmuServiceV2Client"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "ImmuServiceClient" to call the correct interceptors.
-func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ImmuServiceClient) error {
+// "ImmuServiceV2Client" to call the correct interceptors.
+func RegisterImmuServiceV2HandlerClient(ctx context.Context, mux *runtime.ServeMux, client ImmuServiceV2Client) error {
 
-	mux.Handle("POST", pattern_ImmuService_Login_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuServiceV2_LoginV2_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -431,18 +492,18 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_Login_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuServiceV2_LoginV2_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_Login_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_LoginV2_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_DocumentInsert_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_ImmuServiceV2_DocumentInsert_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -451,18 +512,18 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_DocumentInsert_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuServiceV2_DocumentInsert_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_DocumentInsert_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_DocumentInsert_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_DocumentSearch_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuServiceV2_DocumentSearch_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -471,18 +532,18 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_DocumentSearch_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuServiceV2_DocumentSearch_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_DocumentSearch_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_DocumentSearch_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_CollectionCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_ImmuServiceV2_CollectionCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -491,18 +552,18 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_CollectionCreate_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuServiceV2_CollectionCreate_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_CollectionCreate_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_CollectionCreate_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_CollectionList_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ImmuServiceV2_CollectionGet_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -511,18 +572,18 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_CollectionList_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuServiceV2_CollectionGet_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_CollectionList_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_CollectionGet_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_CollectionDelete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuServiceV2_CollectionList_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -531,14 +592,34 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_CollectionDelete_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuServiceV2_CollectionList_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_CollectionDelete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuServiceV2_CollectionList_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("DELETE", pattern_ImmuServiceV2_CollectionDelete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_ImmuServiceV2_CollectionDelete_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ImmuServiceV2_CollectionDelete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -546,29 +627,33 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 }
 
 var (
-	pattern_ImmuService_Login_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v2", "system", "login"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuServiceV2_LoginV2_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"system", "login"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_DocumentInsert_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v2", "documents", "documentInsert"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuServiceV2_DocumentInsert_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "insert"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_DocumentSearch_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v2", "documents", "documentSearch"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuServiceV2_DocumentSearch_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "search"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_CollectionCreate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v2", "collections", "collectionCreate"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuServiceV2_CollectionCreate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"collections", "create"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_CollectionList_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v2", "collections", "collectionList"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuServiceV2_CollectionGet_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"collections", "get"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_CollectionDelete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v2", "collections", "collectionDelete"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuServiceV2_CollectionList_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"collections", "list"}, "", runtime.AssumeColonVerbOpt(true)))
+
+	pattern_ImmuServiceV2_CollectionDelete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"collections", "delete"}, "", runtime.AssumeColonVerbOpt(true)))
 )
 
 var (
-	forward_ImmuService_Login_0 = runtime.ForwardResponseMessage
+	forward_ImmuServiceV2_LoginV2_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_DocumentInsert_0 = runtime.ForwardResponseMessage
+	forward_ImmuServiceV2_DocumentInsert_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_DocumentSearch_0 = runtime.ForwardResponseMessage
+	forward_ImmuServiceV2_DocumentSearch_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_CollectionCreate_0 = runtime.ForwardResponseMessage
+	forward_ImmuServiceV2_CollectionCreate_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_CollectionList_0 = runtime.ForwardResponseMessage
+	forward_ImmuServiceV2_CollectionGet_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_CollectionDelete_0 = runtime.ForwardResponseMessage
+	forward_ImmuServiceV2_CollectionList_0 = runtime.ForwardResponseMessage
+
+	forward_ImmuServiceV2_CollectionDelete_0 = runtime.ForwardResponseMessage
 )

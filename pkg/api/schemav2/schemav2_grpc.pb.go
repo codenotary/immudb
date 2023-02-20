@@ -16,264 +16,300 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// ImmuServiceClient is the client API for ImmuService service.
+// ImmuServiceV2Client is the client API for ImmuServiceV2 service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ImmuServiceClient interface {
-	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+type ImmuServiceV2Client interface {
+	LoginV2(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponseV2, error)
 	DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
 	DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error)
 	CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionInformation, error)
+	CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionInformation, error)
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
 	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
-type immuServiceClient struct {
+type immuServiceV2Client struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewImmuServiceClient(cc grpc.ClientConnInterface) ImmuServiceClient {
-	return &immuServiceClient{cc}
+func NewImmuServiceV2Client(cc grpc.ClientConnInterface) ImmuServiceV2Client {
+	return &immuServiceV2Client{cc}
 }
 
-func (c *immuServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
-	out := new(LoginResponse)
-	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuService/Login", in, out, opts...)
+func (c *immuServiceV2Client) LoginV2(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponseV2, error) {
+	out := new(LoginResponseV2)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/LoginV2", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *immuServiceClient) DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
+func (c *immuServiceV2Client) DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
 	out := new(schema.VerifiableTx)
-	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuService/DocumentInsert", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/DocumentInsert", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *immuServiceClient) DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error) {
+func (c *immuServiceV2Client) DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error) {
 	out := new(DocumentSearchResponse)
-	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuService/DocumentSearch", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/DocumentSearch", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *immuServiceClient) CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionInformation, error) {
+func (c *immuServiceV2Client) CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionInformation, error) {
 	out := new(CollectionInformation)
-	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuService/CollectionCreate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/CollectionCreate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *immuServiceClient) CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error) {
+func (c *immuServiceV2Client) CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionInformation, error) {
+	out := new(CollectionInformation)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/CollectionGet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceV2Client) CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error) {
 	out := new(CollectionListResponse)
-	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuService/CollectionList", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/CollectionList", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *immuServiceClient) CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *immuServiceV2Client) CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuService/CollectionDelete", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/CollectionDelete", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ImmuServiceServer is the server API for ImmuService service.
-// All implementations should embed UnimplementedImmuServiceServer
+// ImmuServiceV2Server is the server API for ImmuServiceV2 service.
+// All implementations should embed UnimplementedImmuServiceV2Server
 // for forward compatibility
-type ImmuServiceServer interface {
-	Login(context.Context, *LoginRequest) (*LoginResponse, error)
+type ImmuServiceV2Server interface {
+	LoginV2(context.Context, *LoginRequest) (*LoginResponseV2, error)
 	DocumentInsert(context.Context, *DocumentInsertRequest) (*schema.VerifiableTx, error)
 	DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error)
 	CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionInformation, error)
+	CollectionGet(context.Context, *CollectionGetRequest) (*CollectionInformation, error)
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
 	CollectionDelete(context.Context, *CollectionDeleteRequest) (*empty.Empty, error)
 }
 
-// UnimplementedImmuServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedImmuServiceServer struct {
+// UnimplementedImmuServiceV2Server should be embedded to have forward compatible implementations.
+type UnimplementedImmuServiceV2Server struct {
 }
 
-func (UnimplementedImmuServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
+func (UnimplementedImmuServiceV2Server) LoginV2(context.Context, *LoginRequest) (*LoginResponseV2, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LoginV2 not implemented")
 }
-func (UnimplementedImmuServiceServer) DocumentInsert(context.Context, *DocumentInsertRequest) (*schema.VerifiableTx, error) {
+func (UnimplementedImmuServiceV2Server) DocumentInsert(context.Context, *DocumentInsertRequest) (*schema.VerifiableTx, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsert not implemented")
 }
-func (UnimplementedImmuServiceServer) DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error) {
+func (UnimplementedImmuServiceV2Server) DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentSearch not implemented")
 }
-func (UnimplementedImmuServiceServer) CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionInformation, error) {
+func (UnimplementedImmuServiceV2Server) CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionInformation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionCreate not implemented")
 }
-func (UnimplementedImmuServiceServer) CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error) {
+func (UnimplementedImmuServiceV2Server) CollectionGet(context.Context, *CollectionGetRequest) (*CollectionInformation, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CollectionGet not implemented")
+}
+func (UnimplementedImmuServiceV2Server) CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionList not implemented")
 }
-func (UnimplementedImmuServiceServer) CollectionDelete(context.Context, *CollectionDeleteRequest) (*empty.Empty, error) {
+func (UnimplementedImmuServiceV2Server) CollectionDelete(context.Context, *CollectionDeleteRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionDelete not implemented")
 }
 
-// UnsafeImmuServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ImmuServiceServer will
+// UnsafeImmuServiceV2Server may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ImmuServiceV2Server will
 // result in compilation errors.
-type UnsafeImmuServiceServer interface {
-	mustEmbedUnimplementedImmuServiceServer()
+type UnsafeImmuServiceV2Server interface {
+	mustEmbedUnimplementedImmuServiceV2Server()
 }
 
-func RegisterImmuServiceServer(s grpc.ServiceRegistrar, srv ImmuServiceServer) {
-	s.RegisterService(&ImmuService_ServiceDesc, srv)
+func RegisterImmuServiceV2Server(s grpc.ServiceRegistrar, srv ImmuServiceV2Server) {
+	s.RegisterService(&ImmuServiceV2_ServiceDesc, srv)
 }
 
-func _ImmuService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuServiceV2_LoginV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LoginRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).Login(ctx, in)
+		return srv.(ImmuServiceV2Server).LoginV2(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schemav2.ImmuService/Login",
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/LoginV2",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).Login(ctx, req.(*LoginRequest))
+		return srv.(ImmuServiceV2Server).LoginV2(ctx, req.(*LoginRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_DocumentInsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuServiceV2_DocumentInsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DocumentInsertRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).DocumentInsert(ctx, in)
+		return srv.(ImmuServiceV2Server).DocumentInsert(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schemav2.ImmuService/DocumentInsert",
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/DocumentInsert",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).DocumentInsert(ctx, req.(*DocumentInsertRequest))
+		return srv.(ImmuServiceV2Server).DocumentInsert(ctx, req.(*DocumentInsertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_DocumentSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuServiceV2_DocumentSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DocumentSearchRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).DocumentSearch(ctx, in)
+		return srv.(ImmuServiceV2Server).DocumentSearch(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schemav2.ImmuService/DocumentSearch",
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/DocumentSearch",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).DocumentSearch(ctx, req.(*DocumentSearchRequest))
+		return srv.(ImmuServiceV2Server).DocumentSearch(ctx, req.(*DocumentSearchRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_CollectionCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuServiceV2_CollectionCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CollectionCreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).CollectionCreate(ctx, in)
+		return srv.(ImmuServiceV2Server).CollectionCreate(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schemav2.ImmuService/CollectionCreate",
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/CollectionCreate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CollectionCreate(ctx, req.(*CollectionCreateRequest))
+		return srv.(ImmuServiceV2Server).CollectionCreate(ctx, req.(*CollectionCreateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_CollectionList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuServiceV2_CollectionGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CollectionGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceV2Server).CollectionGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/CollectionGet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceV2Server).CollectionGet(ctx, req.(*CollectionGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuServiceV2_CollectionList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CollectionListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).CollectionList(ctx, in)
+		return srv.(ImmuServiceV2Server).CollectionList(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schemav2.ImmuService/CollectionList",
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/CollectionList",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CollectionList(ctx, req.(*CollectionListRequest))
+		return srv.(ImmuServiceV2Server).CollectionList(ctx, req.(*CollectionListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_CollectionDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuServiceV2_CollectionDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CollectionDeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).CollectionDelete(ctx, in)
+		return srv.(ImmuServiceV2Server).CollectionDelete(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schemav2.ImmuService/CollectionDelete",
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/CollectionDelete",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CollectionDelete(ctx, req.(*CollectionDeleteRequest))
+		return srv.(ImmuServiceV2Server).CollectionDelete(ctx, req.(*CollectionDeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ImmuService_ServiceDesc is the grpc.ServiceDesc for ImmuService service.
+// ImmuServiceV2_ServiceDesc is the grpc.ServiceDesc for ImmuServiceV2 service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ImmuService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "immudb.schemav2.ImmuService",
-	HandlerType: (*ImmuServiceServer)(nil),
+var ImmuServiceV2_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "immudb.schemav2.ImmuServiceV2",
+	HandlerType: (*ImmuServiceV2Server)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Login",
-			Handler:    _ImmuService_Login_Handler,
+			MethodName: "LoginV2",
+			Handler:    _ImmuServiceV2_LoginV2_Handler,
 		},
 		{
 			MethodName: "DocumentInsert",
-			Handler:    _ImmuService_DocumentInsert_Handler,
+			Handler:    _ImmuServiceV2_DocumentInsert_Handler,
 		},
 		{
 			MethodName: "DocumentSearch",
-			Handler:    _ImmuService_DocumentSearch_Handler,
+			Handler:    _ImmuServiceV2_DocumentSearch_Handler,
 		},
 		{
 			MethodName: "CollectionCreate",
-			Handler:    _ImmuService_CollectionCreate_Handler,
+			Handler:    _ImmuServiceV2_CollectionCreate_Handler,
+		},
+		{
+			MethodName: "CollectionGet",
+			Handler:    _ImmuServiceV2_CollectionGet_Handler,
 		},
 		{
 			MethodName: "CollectionList",
-			Handler:    _ImmuService_CollectionList_Handler,
+			Handler:    _ImmuServiceV2_CollectionList_Handler,
 		},
 		{
 			MethodName: "CollectionDelete",
-			Handler:    _ImmuService_CollectionDelete_Handler,
+			Handler:    _ImmuServiceV2_CollectionDelete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

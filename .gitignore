@@ -47,3 +47,7 @@ vendor
 immudb_pwd
 token
 token_admin
+
+swagger/dist
+swagger/swagger
+webconsole/webconsole
