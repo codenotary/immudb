@@ -20,6 +20,7 @@ VERSION=1.4.1
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
+SWAGGER?=true
 SWAGGERUIVERSION=4.15.5
 SWAGGERUILINK="https://github.com/swagger-api/swagger-ui/archive/refs/tags/v${SWAGGERUIVERSION}.tar.gz"
 
@@ -52,7 +53,7 @@ WEBCONSOLE_BUILDTAG=
 ifdef WEBCONSOLE
 WEBCONSOLE_BUILDTAG=webconsole
 endif
-ifdef SWAGGER
+ifeq ($(SWAGGER),true)
 SWAGGER_BUILDTAG=swagger
 endif
 IMMUDB_BUILD_TAGS=-tags "$(SWAGGER_BUILDTAG) $(WEBCONSOLE_BUILDTAG)"
@@ -219,8 +220,7 @@ build/codegenv2:
 	  --doc_out=pkg/api/schemav2 --doc_opt=markdown,docs.md \
 	  --plugin=protoc-gen-doc=$(PWD)/scripts/protoc-gen-doc
 
-.PHONY: build/embedswagger
-build/embedswagger:
+./swagger/dist:
 	rm -rf swagger/dist/
 	curl -L $(SWAGGERUILINK) | tar -xz -C swagger
 	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
@@ -228,8 +228,8 @@ build/embedswagger:
 	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
 
 .PHONY: swagger
-ifdef SWAGGER
-swagger: ./build/embedswagger
+ifeq ($(SWAGGER),true)
+swagger: ./swagger/dist
 	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
 else
 swagger:
@@ -239,7 +239,7 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist
+	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist ./swagger/dist
 
 .PHONY: man
 man:
