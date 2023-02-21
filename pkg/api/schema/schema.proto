@@ -25,6 +25,7 @@ import "protoc-gen-swagger/options/annotations.proto";
 
 option go_package = "github.com/codenotary/immudb/pkg/api/schema";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  base_path: "/api",
   info: {
     title: "immudb REST API";
     description: "<b>IMPORTANT</b>: All <code>get</code> and <code>safeget</code> functions return <u>base64-encoded</u> keys and values, while all <code>set</code> and <code>safeset</code> functions expect <u>base64-encoded</u> inputs."
@@ -1902,5 +1903,4 @@ service ImmuService {
       body: "*"
     };
   }
-
 }
