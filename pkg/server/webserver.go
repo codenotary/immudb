@@ -34,9 +34,11 @@ func StartWebServer(addr string, tlsConfig *tls.Config, s *ImmuServer, l logger.
 	if err != nil {
 		return nil, err
 	}
-	err = swagger.SetupSwaggerUI(webMux, l, addr)
-	if err != nil {
-		return nil, err
+	if s.Options.SwaggerUIEnabled {
+		err = swagger.SetupSwaggerUI(webMux, l, addr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	httpServer := &http.Server{Addr: addr, Handler: webMux}

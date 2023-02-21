@@ -49,5 +49,5 @@ token
 token_admin
 
 swagger/dist
-swagger/swagger
+swagger/swaggerembedded
 webconsole/webconsole
