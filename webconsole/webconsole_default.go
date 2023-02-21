@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/codenotary/immudb/pkg/logger"
+	_ "github.com/codenotary/immudb/webconsole/webconsole"
 	"github.com/rakyll/statik/fs"
 )
 

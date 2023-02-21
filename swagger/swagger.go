@@ -3,12 +3,12 @@
 
 package swagger
 
-//go:generate go run github.com/rakyll/statik -f -src=./dist -p=swagger -dest=. -tags=swagger
+//go:generate go run github.com/rakyll/statik -f -src=./dist -p=swaggerembedded -dest=. -tags=swagger
 
 import (
 	"net/http"
 
-	_ "github.com/codenotary/immudb/swagger/swagger"
+	_ "github.com/codenotary/immudb/swagger/swaggerembedded"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/rakyll/statik/fs"

@@ -1,3 +1,4 @@
+//go:build webconsole
 // +build webconsole
 
 package webconsole

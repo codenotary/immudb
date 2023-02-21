@@ -82,7 +82,6 @@ func parseOptions() (options *server.Options, err error) {
 
 	pprof := viper.GetBool("pprof")
 
-	gatewayServerEnabled := viper.GetBool("restapi")
 	reflectionServerEnabled := viper.GetBool("reflection")
 	swaggerUIEnabled := viper.GetBool("swaggerui")
 
@@ -145,7 +144,6 @@ func parseOptions() (options *server.Options, err error) {
 		WithSessionOptions(sessionOptions).
 		WithPProf(pprof).
 		WithLogFormat(logFormat).
-		WithGatewayServerEnabled(gatewayServerEnabled).
 		WithSwaggerUIEnabled(swaggerUIEnabled).
 		WithReflectionServerEnabled(reflectionServerEnabled)
 
