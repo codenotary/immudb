@@ -59,9 +59,9 @@ ifeq ($(SWAGGER),true)
 SWAGGER_BUILDTAG=swagger
 endif
 ifeq ($(FIPSENABLED),true)
-SWAGGER_BUILDTAG=swagger
+FIPS_BUILDTAG=swagger
 endif
-IMMUDB_BUILD_TAGS=-tags "$(SWAGGER_BUILDTAG) $(WEBCONSOLE_BUILDTAG)"
+IMMUDB_BUILD_TAGS=-tags "$(SWAGGER_BUILDTAG) $(WEBCONSOLE_BUILDTAG) $(FIPS_BUILDTAG)"
 
 .PHONY: all
 all: immudb immuclient immuadmin immutest
