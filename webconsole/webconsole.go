@@ -3,14 +3,14 @@
 
 package webconsole
 
-//go:generate go run github.com/rakyll/statik -f -src=./dist -p=webconsole -dest=. -tags=webconsole
+//go:generate go run github.com/rakyll/statik -f -src=./dist -p=webconsoleembedded -dest=. -tags=webconsole
 
 import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/rakyll/statik/fs"
 	"net/http"
 
-	_ "github.com/codenotary/immudb/webconsole/webconsole"
+	_ "github.com/codenotary/immudb/webconsole/webconsoleembedded"
 )
 
 var statikFS, err = fs.New()
