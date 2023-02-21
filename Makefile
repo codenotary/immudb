@@ -225,6 +225,7 @@ build/codegenv2:
 	curl -L $(SWAGGERUILINK) | tar -xz -C swagger
 	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
 	cp pkg/api/schemav2/schemav2.swagger.json swagger/dist/schemav2.swagger.json
+	cp pkg/api/schema/schema.swagger.json swagger/dist/schema.swagger.json
 	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
 
 .PHONY: swagger

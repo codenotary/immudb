@@ -5,6 +5,7 @@
     "description": "\u003cb\u003eIMPORTANT\u003c/b\u003e: All \u003ccode\u003eget\u003c/code\u003e and \u003ccode\u003esafeget\u003c/code\u003e functions return \u003cu\u003ebase64-encoded\u003c/u\u003e keys and values, while all \u003ccode\u003eset\u003c/code\u003e and \u003ccode\u003esafeset\u003c/code\u003e functions expect \u003cu\u003ebase64-encoded\u003c/u\u003e inputs.",
     "version": "version not set"
   },
+  "basePath": "/api",
   "consumes": [
     "application/json"
   ],
