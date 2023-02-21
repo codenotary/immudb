@@ -47,10 +47,15 @@ V_LDFLAGS_FIPS_BUILD = ${V_LDFLAGS_BUILD} \
 				  -X github.com/codenotary/immudb/cmd/version.FIPSEnabled=true
 
 GRPC_GATEWAY_VERSION := $(shell go list -m -versions github.com/grpc-ecosystem/grpc-gateway | awk -F ' ' '{print $$NF}')
-IMMUDB_BUILD_TAGS=-tags swagger
+SWAGGER_BUILDTAG=
+WEBCONSOLE_BUILDTAG=
 ifdef WEBCONSOLE
-IMMUDB_BUILD_TAGS=-tags webconsole,swagger
+WEBCONSOLE_BUILDTAG=webconsole
 endif
+ifdef SWAGGER
+SWAGGER_BUILDTAG=swagger
+endif
+IMMUDB_BUILD_TAGS=-tags "$(SWAGGER_BUILDTAG) $(WEBCONSOLE_BUILDTAG)"
 
 .PHONY: all
 all: immudb immuclient immuadmin immutest
@@ -82,7 +87,7 @@ immuadmin:
 	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
-immudb: webconsole
+immudb: webconsole swagger
 	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
 .PHONY: immutest
@@ -217,11 +222,20 @@ build/codegenv2:
 .PHONY: build/embedswagger
 build/embedswagger:
 	rm -rf swagger/dist/
-	curl -L $(SWAGGERUILINK) | tar -xvz -C swagger
+	curl -L $(SWAGGERUILINK) | tar -xz -C swagger
 	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
 	cp pkg/api/schemav2/schemav2.swagger.json swagger/dist/schemav2.swagger.json
 	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
+
+.PHONY: swagger
+ifdef SWAGGER
+swagger: ./build/embedswagger
 	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
+else
+swagger:
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
+endif
+
 
 .PHONY: clean
 clean:

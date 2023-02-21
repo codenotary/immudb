@@ -72,7 +72,6 @@ type Options struct {
 	PProf                   bool
 	LogFormat               string
 	ReflectionServerEnabled bool
-	GatewayServerEnabled    bool
 	SwaggerUIEnabled        bool
 }
 
@@ -136,9 +135,8 @@ func DefaultOptions() *Options {
 		ReplicationOptions:      &ReplicationOptions{IsReplica: false, SyncAcks: 0},
 		SessionsOptions:         sessions.DefaultOptions(),
 		PProf:                   false,
-		GatewayServerEnabled:    false,
-		ReflectionServerEnabled: false,
-		SwaggerUIEnabled:        false,
+		ReflectionServerEnabled: true,
+		SwaggerUIEnabled:        true,
 	}
 }
 
@@ -455,11 +453,6 @@ func (o *Options) WithSessionOptions(options *sessions.Options) *Options {
 
 func (o *Options) WithPProf(pprof bool) *Options {
 	o.PProf = pprof
-	return o
-}
-
-func (o *Options) WithGatewayServerEnabled(enabled bool) *Options {
-	o.GatewayServerEnabled = enabled
 	return o
 }
 
