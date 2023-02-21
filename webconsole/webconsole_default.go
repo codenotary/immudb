@@ -3,13 +3,13 @@
 
 package webconsole
 
-//go:generate go run github.com/rakyll/statik -f -src=./default -p=webconsole -dest=. -tags=!webconsole
+//go:generate go run github.com/rakyll/statik -f -src=./default -p=webconsoleembedded -dest=. -tags=!webconsole
 
 import (
 	"net/http"
 
 	"github.com/codenotary/immudb/pkg/logger"
-	_ "github.com/codenotary/immudb/webconsole/webconsole"
+	_ "github.com/codenotary/immudb/webconsole/webconsoleembedded"
 	"github.com/rakyll/statik/fs"
 )
 
