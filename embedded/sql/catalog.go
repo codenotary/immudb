@@ -127,6 +127,10 @@ func (c *Catalog) ExistDatabase(db string) bool {
 	return exists
 }
 
+func (c *Catalog) NewDatabase(id uint32, name string) (*Database, error) {
+	return c.newDatabase(id, name)
+}
+
 func (c *Catalog) newDatabase(id uint32, name string) (*Database, error) {
 	exists := c.ExistDatabase(name)
 	if exists {
@@ -343,6 +347,10 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
+func (db *Database) NewTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
+	return db.newTable(name, colsSpec)
+}
+
 func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
@@ -547,6 +555,10 @@ func (c *Column) IsNullable() bool {
 
 func (c *Column) IsAutoIncremental() bool {
 	return c.autoIncrement
+}
+
+func (c *Column) Table() *Table {
+	return c.table
 }
 
 func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
