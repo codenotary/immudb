@@ -104,7 +104,7 @@ func (otx *ObjectTx) TxHeader() *store.TxHeader {
 	return otx.txHeader
 }
 
-func (otx *ObjectTx) sqlPrefix() []byte {
+func (otx *ObjectTx) Prefix() []byte {
 	return otx.engine.prefix
 }
 

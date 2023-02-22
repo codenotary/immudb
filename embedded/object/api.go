@@ -2,8 +2,6 @@ package object
 
 import (
 	"context"
-
-	"github.com/codenotary/immudb/embedded/sql"
 )
 
 const (
@@ -27,5 +25,4 @@ const (
 
 type Stmt interface {
 	execAt(ctx context.Context, tx Tx, params map[string]interface{}) (Tx, error)
-	inferParameters(ctx context.Context, tx Tx, params map[string]sql.SQLValueType) error
 }
