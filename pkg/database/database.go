@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/object"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 
@@ -153,6 +154,10 @@ type db struct {
 	sqlInitCancel chan (struct{})
 	sqlInit       sync.WaitGroup
 
+	objectEngine     *object.Engine
+	objectInitCancel chan (struct{})
+	objectInit       sync.WaitGroup
+
 	mutex        *instrumentedRWMutex
 	closingMutex sync.Mutex
 
@@ -212,6 +217,11 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
+	dbi.objectEngine, err = object.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix(object.ObjectPrefix))
+	if err != nil {
+		return nil, err
+	}
+
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
@@ -220,6 +230,8 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	if op.replica {
 		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
+		// TODO: object engine should be able to handle multiple databases
+		// dbi.objectEngine.SetMultiDBHandler(multidbHandler)
 
 		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 		return dbi, nil
@@ -227,6 +239,9 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	dbi.sqlInitCancel = make(chan struct{})
 	dbi.sqlInit.Add(1)
+
+	dbi.objectInitCancel = make(chan struct{})
+	dbi.objectInit.Add(1)
 
 	go func() {
 		defer dbi.sqlInit.Done()
@@ -240,6 +255,23 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		}
 
 		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
+
+		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	}()
+
+	go func() {
+		defer dbi.objectInit.Done()
+
+		dbi.Logger.Infof("Loading Object Engine for database '%s' {replica = %v}...", dbName, op.replica)
+
+		err := dbi.initObjectEngine(context.Background())
+		if err != nil {
+			dbi.Logger.Errorf("Unable to load Object Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+			return
+		}
+
+		// TODO: object engine should be able to handle multiple databases
+		// dbi.objectEngine.SetMultiDBHandler(multidbHandler)
 
 		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 	}()
@@ -267,6 +299,20 @@ func (d *db) releaseTx(tx *store.Tx) {
 
 func (d *db) initSQLEngine(ctx context.Context) error {
 	err := d.sqlEngine.SetCurrentDatabase(ctx, dbInstanceName)
+	if err != nil && err != sql.ErrDatabaseDoesNotExist {
+		return err
+	}
+
+	if err == sql.ErrDatabaseDoesNotExist {
+		return fmt.Errorf("automatic SQL initialization of databases created with older versions is now disabled. " +
+			"Please reach out to the immudb maintainers at the Discord channel if you need any assistance")
+	}
+
+	return nil
+}
+
+func (d *db) initObjectEngine(ctx context.Context) error {
+	err := d.objectEngine.SetCurrentDatabase(ctx, dbInstanceName)
 	if err != nil && err != sql.ErrDatabaseDoesNotExist {
 		return err
 	}
@@ -334,6 +380,11 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	dbi.txPool = txPool
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+	}
+
+	dbi.objectEngine, err = object.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix(object.ObjectPrefix))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -1616,7 +1667,13 @@ func (d *db) Close() (err error) {
 		d.sqlInitCancel = nil
 	}
 
+	if d.objectInitCancel != nil {
+		close(d.objectInitCancel)
+		d.objectInitCancel = nil
+	}
+
 	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
+	d.objectInit.Wait()
 
 	return d.st.Close()
 }

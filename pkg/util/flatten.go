@@ -17,19 +17,19 @@ func DefaultOption() *Option {
 	}
 }
 
-// Flatten takes a nested map and returns a flattened map.
-func Flatten(nested map[string]interface{}, opts *Option) (m map[string]interface{}) {
+// Flatten takes a data map and returns a flattened map.
+func Flatten(data map[string]interface{}, opts *Option) (m map[string]interface{}) {
 	if opts == nil {
 		opts = DefaultOption()
 	}
 
-	return flatten(opts.Prefix, 0, nested, opts)
+	return flatten(opts.Prefix, 0, data, opts)
 }
 
-func flatten(prefix string, depth int, nested interface{}, opts *Option) (res map[string]interface{}) {
+func flatten(prefix string, depth int, data interface{}, opts *Option) (res map[string]interface{}) {
 	res = make(map[string]interface{})
 
-	switch t := nested.(type) {
+	switch t := data.(type) {
 	case map[string]interface{}:
 		if opts.MaxDepth != 0 && depth >= opts.MaxDepth {
 			res[prefix] = t
@@ -41,8 +41,8 @@ func flatten(prefix string, depth int, nested interface{}, opts *Option) (res ma
 		}
 		for k, v := range t {
 			key := withPrefix(prefix, k, opts)
-			fm1 := flatten(key, depth+1, v, opts)
-			mergeMap(res, fm1)
+			fmap := flatten(key, depth+1, v, opts)
+			mergeMap(res, fmap)
 		}
 	case []interface{}:
 		if reflect.DeepEqual(t, []interface{}{}) {
@@ -51,8 +51,8 @@ func flatten(prefix string, depth int, nested interface{}, opts *Option) (res ma
 		}
 		for i, v := range t {
 			key := withPrefix(prefix, strconv.Itoa(i), opts)
-			fm1 := flatten(key, depth+1, v, opts)
-			mergeMap(res, fm1)
+			fmap := flatten(key, depth+1, v, opts)
+			mergeMap(res, fmap)
 		}
 	default:
 		res[prefix] = t
