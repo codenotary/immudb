@@ -4369,7 +4369,7 @@ func TestUnmapColSpec(t *testing.T) {
 func TestUnmapIndex(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, colID, err := unmapIndex(e.prefix, nil)
+	dbID, tableID, colID, err := unmapIndex(e.prefix, nil, catalogIndexPrefix)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -4377,7 +4377,7 @@ func TestUnmapIndex(t *testing.T) {
 
 	dbID, tableID, colID, err = unmapIndex(e.prefix, []byte(
 		"e-prefix.CTL.INDEX.a",
-	))
+	), catalogIndexPrefix)
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -4388,7 +4388,7 @@ func TestUnmapIndex(t *testing.T) {
 		0x01, 0x02, 0x03, 0x04,
 		0x11, 0x12, 0x13, 0x14,
 		0x21, 0x22, 0x23, 0x24,
-	))
+	), catalogIndexPrefix)
 
 	require.NoError(t, err)
 	require.EqualValues(t, 0x01020304, dbID)

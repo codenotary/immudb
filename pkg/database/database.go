@@ -151,12 +151,9 @@ type db struct {
 	st *store.ImmuStore
 
 	sqlEngine     *sql.Engine
+	objectEngine  *sql.Engine
 	sqlInitCancel chan (struct{})
 	sqlInit       sync.WaitGroup
-
-	objectEngine     *object.Engine
-	objectInitCancel chan (struct{})
-	objectInit       sync.WaitGroup
 
 	mutex        *instrumentedRWMutex
 	closingMutex sync.Mutex
@@ -217,7 +214,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
-	dbi.objectEngine, err = object.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix(object.ObjectPrefix))
+	dbi.objectEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix(object.ObjectPrefix))
 	if err != nil {
 		return nil, err
 	}
@@ -240,9 +237,6 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 	dbi.sqlInitCancel = make(chan struct{})
 	dbi.sqlInit.Add(1)
 
-	dbi.objectInitCancel = make(chan struct{})
-	dbi.objectInit.Add(1)
-
 	go func() {
 		defer dbi.sqlInit.Done()
 
@@ -257,23 +251,17 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
 		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
-	}()
-
-	go func() {
-		defer dbi.objectInit.Done()
 
 		dbi.Logger.Infof("Loading Object Engine for database '%s' {replica = %v}...", dbName, op.replica)
 
-		err := dbi.initObjectEngine(context.Background())
+		err = dbi.initObjectEngine(context.Background())
 		if err != nil {
 			dbi.Logger.Errorf("Unable to load Object Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
 			return
 		}
 
-		// TODO: object engine should be able to handle multiple databases
-		// dbi.objectEngine.SetMultiDBHandler(multidbHandler)
+		dbi.objectEngine.SetMultiDBHandler(multidbHandler)
 
-		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 	}()
 
 	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
@@ -384,7 +372,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.objectEngine, err = object.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix(object.ObjectPrefix))
+	dbi.objectEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix(object.ObjectPrefix))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -1667,13 +1655,7 @@ func (d *db) Close() (err error) {
 		d.sqlInitCancel = nil
 	}
 
-	if d.objectInitCancel != nil {
-		close(d.objectInitCancel)
-		d.objectInitCancel = nil
-	}
-
 	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
-	d.objectInit.Wait()
 
 	return d.st.Close()
 }

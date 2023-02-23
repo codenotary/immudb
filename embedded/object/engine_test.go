@@ -22,34 +22,38 @@ func TestCreateCollection(t *testing.T) {
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
-	engine, err := NewEngine(st, sql.DefaultOptions().WithPrefix(ObjectPrefix))
+	opts := sql.DefaultOptions().
+		WithPrefix(ObjectPrefix).
+		WithDatabasePrefix(catalogDatabasePrefix).
+		WithTablePrefix(catalogTablePrefix).
+		WithColumnPrefix(catalogColumnPrefix).
+		WithIndexPrefix(catalogIndexPrefix)
+
+	engine, err := sql.NewEngine(st, opts)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, []Stmt{
-		&CreateDatabaseStmt{DB: "db1"},
+	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
+		&sql.CreateDatabaseStmt{DB: "db1"},
 	}, nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, []Stmt{
-		&UseDatabaseStmt{DB: "db1"},
+	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
+		&sql.UseDatabaseStmt{DB: "db1"},
 	}, nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(
+	_, _, err = engine.ExecPreparedStmts(
 		context.Background(),
 		nil,
-		[]Stmt{&CreateCollectionStmt{
-			collection:  "collection1",
-			ifNotExists: false,
-			colsSpec: []*sql.ColSpec{
+		[]sql.SQLStmt{sql.NewCreateTableStmt(
+			"collection1",
+			false, []*sql.ColSpec{
 				sql.NewColSpec("id", sql.IntegerType, 0, false, false),
 				sql.NewColSpec("name", sql.VarcharType, 50, false, false),
-				sql.NewColSpec("ts", sql.TimestampType, 0, false, false),
-				sql.NewColSpec("active", sql.BooleanType, 0, false, false),
-				sql.NewColSpec("content", sql.BLOBType, 0, false, false),
+				sql.NewColSpec("encoded_obj", sql.BLOBType, 0, false, false),
 			},
-			pkColNames: []string{"id", "name"},
-		}},
+			[]string{"id", "name"},
+		)},
 		nil,
 	)
 	require.NoError(t, err)
