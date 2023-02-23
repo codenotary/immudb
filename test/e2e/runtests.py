@@ -17,7 +17,7 @@ def build_docker():
 		capture_output=True, text=True
 		)
 	if result.returncode!=0:
-		logging.error("Docker build failure:", result.stderr)
+		logging.error("Docker build failure: %s", result.stderr)
 		return False, time.time()-t0
 	return True, time.time()-t0
 
@@ -46,7 +46,7 @@ def replication(ts, stats):
 	ET.SubElement(xmlresult, "system-err").text=cleanup(result.stderr)
 	xmlresult.set("time", str(time.time()-t0))
 	if result.returncode!=0:
-		logging.error("Docker replication test:", result.stderr)
+		logging.error("Docker replication test: %s", result.stderr)
 		xmlresult.set("status", "failure")
 		ET.SubElement(xmlresult, "failure", message="Test failed")
 		return False
