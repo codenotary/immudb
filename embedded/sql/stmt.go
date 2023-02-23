@@ -348,6 +348,16 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	return tx, nil
 }
 
+func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement bool, notNull bool) *ColSpec {
+	return &ColSpec{
+		colName:       name,
+		colType:       colType,
+		maxLen:        maxLen,
+		autoIncrement: autoIncrement,
+		notNull:       notNull,
+	}
+}
+
 type ColSpec struct {
 	colName       string
 	colType       SQLValueType

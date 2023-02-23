@@ -11,7 +11,7 @@ import (
 )
 
 var maxKeyLen = 256
-var objectPrefix = []byte{3}
+var ObjectPrefix = []byte{3}
 
 const EncIDLen = 4
 const EncLenLen = 4
@@ -36,7 +36,7 @@ type MultiDBHandler interface {
 	ListDatabases(ctx context.Context) ([]string, error)
 	CreateDatabase(ctx context.Context, db string, ifNotExists bool) error
 	UseDatabase(ctx context.Context, db string) error
-	ExecPreparedStmts(ctx context.Context, opts *sql.TxOptions, stmts []Stmt, params map[string]interface{}) (ntx *ObjectTx, committedTxs []*ObjectTx, err error)
+	Exec(ctx context.Context, opts *sql.TxOptions, stmts []Stmt, params map[string]interface{}) (ntx *ObjectTx, committedTxs []*ObjectTx, err error)
 }
 
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
@@ -127,7 +127,6 @@ func (e *Engine) NewTx(ctx context.Context, opts *sql.TxOptions) (*ObjectTx, err
 	}
 
 	catalog := newObjectCatalog()
-
 	err = catalog.Load(e.prefix, tx)
 	if err != nil {
 		return nil, err
@@ -155,7 +154,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *sql.TxOptions) (*ObjectTx, err
 	}, nil
 }
 
-func (e *Engine) ExecPreparedStmts(ctx context.Context, tx *ObjectTx, stmts []Stmt, params map[string]interface{}) (ntx *ObjectTx, committedTxs []*ObjectTx, err error) {
+func (e *Engine) Exec(ctx context.Context, tx *ObjectTx, stmts []Stmt, params map[string]interface{}) (ntx *ObjectTx, committedTxs []*ObjectTx, err error) {
 	ntx, ctxs, pendingStmts, err := e.execPreparedStmts(ctx, tx, stmts, params)
 	if err != nil {
 		return ntx, ctxs, err
@@ -176,7 +175,7 @@ func (e *Engine) ExecPreparedStmts(ctx context.Context, tx *ObjectTx, stmts []St
 			opts = sql.DefaultTxOptions()
 		}
 
-		ntx, hctxs, err := e.multidbHandler.ExecPreparedStmts(ctx, opts, pendingStmts, params)
+		ntx, hctxs, err := e.multidbHandler.Exec(ctx, opts, pendingStmts, params)
 
 		return ntx, append(ctxs, hctxs...), err
 	}
