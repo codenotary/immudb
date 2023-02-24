@@ -25,7 +25,7 @@ func TestCreateCollection(t *testing.T) {
 	opts := sql.DefaultOptions().
 		WithPrefix(ObjectPrefix).
 		WithDatabasePrefix(catalogDatabasePrefix).
-		WithTablePrefix(catalogTablePrefix).
+		WithTablePrefix(catalogCollectionPrefix).
 		WithColumnPrefix(catalogColumnPrefix).
 		WithIndexPrefix(catalogIndexPrefix)
 
