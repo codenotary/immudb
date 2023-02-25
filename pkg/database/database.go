@@ -1645,3 +1645,74 @@ func (d *db) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
 	// TODO: add object store support for truncation too
 	return d.sqlEngine.CopyCatalogToTx(ctx, tx)
 }
+
+// TODO: make new objectdb to embed object engine commands
+// GetCollection returns the collection schema
+func (d *db) GetCollection(ctx context.Context, collection string) (interface{}, error) {
+	return nil, nil
+}
+
+// CreateCollection creates a new collection
+func (d *db) CreateCollection(ctx context.Context, collection string, schema interface{}) error {
+	_, _, err := d.objectEngine.ExecPreparedStmts(
+		context.Background(),
+		nil,
+		[]sql.SQLStmt{sql.NewCreateTableStmt(
+			collection,
+			false, []*sql.ColSpec{
+				sql.NewColSpec("id", sql.IntegerType, 0, true, false),
+				sql.NewColSpec("name", sql.VarcharType, 50, false, false),
+				sql.NewColSpec("_obj", sql.BLOBType, 0, false, false),
+			},
+			[]string{"id", "name"},
+		)},
+		nil,
+	)
+	return err
+}
+
+// GetDocument returns the document
+func (d *db) GetDocument(ctx context.Context, collection string, id string) (*object.Document, error) {
+	return nil, nil
+}
+
+// CreateDocument creates a new document
+func (d *db) CreateDocument(ctx context.Context, collection string, document *object.Document) (string, error) {
+	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return "", err
+	}
+	defer tx.Cancel()
+
+	// check if collection exists
+	_, err = tx.Catalog().GetTableByName(d.objectEngine.CurrentDatabase(), collection)
+	if err != nil {
+		return "", err
+	}
+
+	// add document to collection
+	_, _, err = d.objectEngine.ExecPreparedStmts(
+		context.Background(),
+		nil,
+		[]sql.SQLStmt{sql.NewUpserIntoStmt(d.objectEngine.CurrentDatabase(), collection, []string{"name", "_obj"}, nil, nil)},
+		nil,
+	)
+	// stmt := &sql.UpsertIntoStmt{
+	// 	tableRef: &tableRef{table: "table1"},
+	// 	cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+	// 	rows: []*RowSpec{
+	// 		{Values: []ValueExp{
+	// 			&Number{val: 2},
+	// 			&FnCall{fn: "now"},
+	// 			&Varchar{val: "un'titled row"},
+	// 			&Bool{val: true},
+	// 			&Bool{val: false},
+	// 			&Blob{val: decodedBLOB},
+	// 			&Param{id: "param1"},
+	// 		},
+	// 		},
+	// 	},
+	// }
+
+	return "", err
+}

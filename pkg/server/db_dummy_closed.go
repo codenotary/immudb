@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/object"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -242,4 +243,24 @@ func (db *closedDB) Close() error {
 
 func (db *closedDB) Truncate(ts time.Duration) error {
 	return store.ErrAlreadyClosed
+}
+
+// GetCollection returns the collection schema
+func (d *closedDB) GetCollection(ctx context.Context, collection string) (interface{}, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+// CreateCollection creates a new collection
+func (d *closedDB) CreateCollection(ctx context.Context, collection string, schema interface{}) error {
+	return store.ErrAlreadyClosed
+}
+
+// GetDocument returns the document
+func (d *closedDB) GetDocument(ctx context.Context, collection string, id string) (*object.Document, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+// CreateDocument creates a new document
+func (d *closedDB) CreateDocument(ctx context.Context, collection string, document *object.Document) (string, error) {
+	return "", store.ErrAlreadyClosed
 }

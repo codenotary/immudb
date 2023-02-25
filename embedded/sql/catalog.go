@@ -52,6 +52,11 @@ func (c *Catalog) WithColumnPrefix(columnPrefix string) *Catalog {
 	return c
 }
 
+func (c *Catalog) WithIndexPrefix(indexPrefix string) *Catalog {
+	c.indexPrefix = indexPrefix
+	return c
+}
+
 type Database struct {
 	id           uint32
 	catalog      *Catalog
