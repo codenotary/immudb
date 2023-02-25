@@ -523,6 +523,16 @@ func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 	return tx, nil
 }
 
+func NewUpserIntoStmt(db string, table string, cols []string, rows []*RowSpec, onConflict *OnConflictDo) *UpsertIntoStmt {
+	return &UpsertIntoStmt{
+		isInsert:   true,
+		tableRef:   newTableRef(db, table, ""),
+		cols:       cols,
+		rows:       rows,
+		onConflict: onConflict,
+	}
+}
+
 type UpsertIntoStmt struct {
 	isInsert   bool
 	tableRef   *tableRef
@@ -2406,6 +2416,14 @@ func (stmt *UnionStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string
 
 func (stmt *UnionStmt) Alias() string {
 	return ""
+}
+
+func newTableRef(db, table string, as string) *tableRef {
+	return &tableRef{
+		db:    db,
+		table: table,
+		as:    as,
+	}
 }
 
 type tableRef struct {

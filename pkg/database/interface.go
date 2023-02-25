@@ -97,6 +97,8 @@ type DB interface {
 
 	IsClosed() bool
 	Close() error
+
+	ObjectDatabase
 }
 
 // ObjectDatabase is the interface for object database
