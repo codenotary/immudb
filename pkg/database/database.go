@@ -33,6 +33,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	schemav2 "github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -1653,18 +1654,35 @@ func (d *db) GetCollection(ctx context.Context, collection string) (interface{},
 }
 
 // CreateCollection creates a new collection
-func (d *db) CreateCollection(ctx context.Context, collection string, schema interface{}) error {
+func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error {
+	collectionName := req.Name
+	primaryKeys := make([]string, 0)
+	collectionSpec := make([]*sql.ColSpec, 0, len(req.PrimaryKeys))
+
+	for name, pk := range req.PrimaryKeys {
+		schType, isValid := SchemaToValueType[pk]
+		if !isValid {
+			return fmt.Errorf("invalid primary key type: %v", pk)
+		}
+		primaryKeys = append(primaryKeys, name)
+		// TODO: add support for other types
+		// TODO: add support for max length
+		// TODO: add support for auto increment
+		collectionSpec = append(collectionSpec, sql.NewColSpec(name, schType, 50, false, false))
+	}
+
+	// add support for blob
+	// TODO: add support for max length for blob storage
+	collectionSpec = append(collectionSpec, sql.NewColSpec("_obj", sql.BLOBType, 10000, false, false))
+
 	_, _, err := d.objectEngine.ExecPreparedStmts(
 		context.Background(),
 		nil,
 		[]sql.SQLStmt{sql.NewCreateTableStmt(
-			collection,
-			false, []*sql.ColSpec{
-				sql.NewColSpec("id", sql.IntegerType, 0, true, false),
-				sql.NewColSpec("name", sql.VarcharType, 50, false, false),
-				sql.NewColSpec("_obj", sql.BLOBType, 0, false, false),
-			},
-			[]string{"id", "name"},
+			collectionName,
+			false,
+			collectionSpec,
+			primaryKeys,
 		)},
 		nil,
 	)
@@ -1677,7 +1695,7 @@ func (d *db) GetDocument(ctx context.Context, collection string, id string) (*ob
 }
 
 // CreateDocument creates a new document
-func (d *db) CreateDocument(ctx context.Context, collection string, document *object.Document) (string, error) {
+func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (string, error) {
 	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return "", err
@@ -1685,34 +1703,63 @@ func (d *db) CreateDocument(ctx context.Context, collection string, document *ob
 	defer tx.Cancel()
 
 	// check if collection exists
-	_, err = tx.Catalog().GetTableByName(d.objectEngine.CurrentDatabase(), collection)
+	table, err := tx.Catalog().GetTableByName(d.objectEngine.CurrentDatabase(), req.Collection)
 	if err != nil {
 		return "", err
 	}
 
-	// add document to collection
+	cols := make([]string, 0)
+	tcolumns := table.ColsByName()
+	rows := make([]*sql.RowSpec, 0)
+
+	for _, col := range tcolumns {
+		cols = append(cols, col.Name())
+	}
+
+	// TODO: should be able to send only a single document
+	for _, doc := range req.Document {
+		values := make([]sql.ValueExp, 0)
+		for _, col := range tcolumns {
+			if rval, ok := doc.Fields[col.Name()]; ok && col.Name() != "_obj" {
+				valType, err := ValueTypeToExp(col.Type(), rval)
+				if err != nil {
+					return "", err
+				}
+				values = append(values, valType)
+			}
+			if col.Name() == "_obj" {
+				document, err := object.NewDocumentFrom(doc)
+				if err != nil {
+					return "", err
+				}
+				res, err := document.MarshalJSON()
+				if err != nil {
+					return "", err
+				}
+				values = append(values, sql.NewBlob(res))
+			}
+		}
+
+		if len(values) > 0 {
+			rows = append(rows, sql.NewRowSpec(values))
+		}
+	}
+
+	// add documents to collection
 	_, _, err = d.objectEngine.ExecPreparedStmts(
 		context.Background(),
 		nil,
-		[]sql.SQLStmt{sql.NewUpserIntoStmt(d.objectEngine.CurrentDatabase(), collection, []string{"name", "_obj"}, nil, nil)},
+		[]sql.SQLStmt{
+			sql.NewUpserIntoStmt(
+				d.objectEngine.CurrentDatabase(),
+				req.Collection,
+				cols,
+				rows,
+				nil,
+			),
+		},
 		nil,
 	)
-	// stmt := &sql.UpsertIntoStmt{
-	// 	tableRef: &tableRef{table: "table1"},
-	// 	cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
-	// 	rows: []*RowSpec{
-	// 		{Values: []ValueExp{
-	// 			&Number{val: 2},
-	// 			&FnCall{fn: "now"},
-	// 			&Varchar{val: "un'titled row"},
-	// 			&Bool{val: true},
-	// 			&Bool{val: false},
-	// 			&Blob{val: decodedBLOB},
-	// 			&Param{id: "param1"},
-	// 		},
-	// 		},
-	// 	},
-	// }
 
 	return "", err
 }
