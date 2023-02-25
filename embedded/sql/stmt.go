@@ -541,6 +541,12 @@ type UpsertIntoStmt struct {
 	onConflict *OnConflictDo
 }
 
+func NewRowSpec(values []ValueExp) *RowSpec {
+	return &RowSpec{
+		Values: values,
+	}
+}
+
 type RowSpec struct {
 	Values []ValueExp
 }
@@ -1464,6 +1470,10 @@ func (v *NullValue) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
+func NewNumber(val int64) *Number {
+	return &Number{val: val}
+}
+
 type Number struct {
 	val int64
 }
@@ -1604,6 +1614,10 @@ func (v *Timestamp) Compare(val TypedValue) (int, error) {
 	return 0, nil
 }
 
+func NewVarchar(val string) *Varchar {
+	return &Varchar{val: val}
+}
+
 type Varchar struct {
 	val string
 }
@@ -1734,6 +1748,10 @@ func (v *Bool) Compare(val TypedValue) (int, error) {
 	}
 
 	return -1, nil
+}
+
+func NewBlob(val []byte) *Blob {
+	return &Blob{val: val}
 }
 
 type Blob struct {

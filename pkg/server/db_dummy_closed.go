@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/database"
 )
 
@@ -251,7 +252,7 @@ func (d *closedDB) GetCollection(ctx context.Context, collection string) (interf
 }
 
 // CreateCollection creates a new collection
-func (d *closedDB) CreateCollection(ctx context.Context, collection string, schema interface{}) error {
+func (d *closedDB) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error {
 	return store.ErrAlreadyClosed
 }
 
@@ -261,6 +262,6 @@ func (d *closedDB) GetDocument(ctx context.Context, collection string, id string
 }
 
 // CreateDocument creates a new document
-func (d *closedDB) CreateDocument(ctx context.Context, collection string, document *object.Document) (string, error) {
+func (d *closedDB) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (string, error) {
 	return "", store.ErrAlreadyClosed
 }

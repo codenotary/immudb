@@ -3,12 +3,14 @@ package database
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/object"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	schemav2 "github.com/codenotary/immudb/pkg/api/schemav2"
 )
 
 type DB interface {
@@ -106,10 +108,43 @@ type ObjectDatabase interface {
 	// GetCollection returns the collection schema
 	GetCollection(ctx context.Context, collection string) (interface{}, error)
 	// CreateCollection creates a new collection
-	CreateCollection(ctx context.Context, collection string, schema interface{}) error
+	CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error
 
 	// GetDocument returns the document
 	GetDocument(ctx context.Context, collection string, id string) (*object.Document, error)
 	// CreateDocument creates a new document
-	CreateDocument(ctx context.Context, collection string, document *object.Document) (string, error)
+	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (string, error)
+}
+
+// Schema to ValueType mapping
+var SchemaToValueType = map[schemav2.PossibleIndexType]sql.SQLValueType{
+	schemav2.PossibleIndexType_STRING:  sql.VarcharType,
+	schemav2.PossibleIndexType_INTEGER: sql.IntegerType,
+}
+
+// ValueType to ValueExp conversion
+var ValueTypeToExp = func(stype sql.SQLValueType, value interface{}) (sql.ValueExp, error) {
+	errType := fmt.Errorf("unsupported type %v", stype)
+	switch stype {
+	case sql.VarcharType:
+		_, ok := value.(string)
+		if !ok {
+			return nil, errType
+		}
+		return sql.NewVarchar(value.(string)), nil
+	case sql.IntegerType:
+		_, ok := value.(int64)
+		if !ok {
+			return nil, errType
+		}
+		return sql.NewNumber(value.(int64)), nil
+	case sql.BLOBType:
+		_, ok := value.([]byte)
+		if !ok {
+			return nil, errType
+		}
+		return sql.NewBlob(value.([]byte)), nil
+	}
+
+	return nil, errType
 }
