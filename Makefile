@@ -27,6 +27,7 @@ GOPATH ?= $(shell go env GOPATH)
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
+VCN ?= vcn
 
 V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
@@ -190,6 +191,10 @@ man:
 prerequisites:
 	$(GO) mod tidy
 	cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
+
+
+sbom: immudb.sbom.json immuclient.sbom.json immuadmin.sbom.json
+%.sbom.json: ./% ; $(VCN) bom --bom-cdx-json $@ $<
 
 ########################## releases scripts ############################################################################
 .PHONY: CHANGELOG.md
