@@ -6134,10 +6134,14 @@ func TestCopyCatalogToTx(t *testing.T) {
 
 func BenchmarkInsertInto(b *testing.B) {
 	workerCount := 100
+	txCount := 1
+	eCount := 1
 
 	opts := store.DefaultOptions().
-		WithSynced(false).
+		WithSynced(true).
 		WithMaxConcurrency(workerCount)
+
+	opts.IndexOpts.WithFlushThld(1_000_000)
 
 	st, err := store.Open(b.TempDir(), opts)
 	if err != nil {
@@ -6161,7 +6165,7 @@ func BenchmarkInsertInto(b *testing.B) {
 		b.Fail()
 	}
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);", nil)
+	_, ctxs, err := engine.Exec(context.Background(), nil, "CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);", nil)
 	if err != nil {
 		b.Fail()
 	}
@@ -6174,16 +6178,18 @@ func BenchmarkInsertInto(b *testing.B) {
 		var wg sync.WaitGroup
 		wg.Add(workerCount)
 
+		stmts, err := Parse(strings.NewReader("INSERT INTO mytable1(id, title) VALUES (@id, @title);"))
+		if err != nil {
+			b.Fail()
+		}
+
 		for w := 0; w < workerCount; w++ {
 			go func(r, w int) {
-				txCount := 50
-				eCount := 10
-
 				for i := 0; i < txCount; i++ {
 					txOpts := DefaultTxOptions().
 						WithExplicitClose(true).
-						WithSnapshotRenewalPeriod(1000 * time.Millisecond).
-						WithSnapshotMustIncludeTxID(nil)
+						WithSnapshotRenewalPeriod(10_000 * time.Millisecond).
+						WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return ctxs[0].txHeader.ID })
 
 					tx, err := engine.NewTx(context.Background(), txOpts)
 					if err != nil {
@@ -6196,13 +6202,15 @@ func BenchmarkInsertInto(b *testing.B) {
 							"title": fmt.Sprintf("title_%d_%d_%d_%d", r, w, i, j),
 						}
 
-						_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO mytable1(id, title) VALUES (@id, @title);", params)
+						//_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO mytable1(id, title) VALUES (@id, @title);", params)
+						_, _, err = engine.ExecPreparedStmts(context.Background(), tx, stmts, params)
 						if err != nil {
 							b.Fail()
 						}
 					}
 
 					err = tx.Commit(context.Background())
+					//err = tx.Cancel()
 					if err != nil {
 						b.Fail()
 					}
