@@ -55,7 +55,7 @@ jobs:
         id: performance
         run: |
           SECONDS=0
-          ./perf-test-suite $ARG_DURATION -host $INFLUX_HOST -token $INFLUX_TOKEN > perf-test-results-with-summaries.txt
+          ./perf-test-suite $ARG_DURATION -host $INFLUX_HOST -token $INFLUX_TOKEN -runner ${{ matrix.target.name }} > perf-test-results-with-summaries.txt
           echo "duration=$SECONDS" >> $GITHUB_ENV
           echo "version=$(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',])" >> $GITHUB_ENV
           sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json

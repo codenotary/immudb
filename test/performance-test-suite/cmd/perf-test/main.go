@@ -36,6 +36,7 @@ func main() {
 	flInfluxDbHost := flag.String("host", "", "url for influxdb")
 	flInfluxToken := flag.String("token", "", "token for influxdb")
 	flInfluxBucket := flag.String("bucket", "immudb-tests-results", "bucket for influxdb")
+	flInfluxRunner := flag.String("runner", "", "github runner for influxdb")
 
 	flag.Parse()
 
@@ -60,8 +61,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *flInfluxDbHost != "" && *flInfluxToken != "" {
-		runner.SendResultsToInfluxDb(*flInfluxDbHost, *flInfluxToken, *flInfluxBucket, results)
+	if *flInfluxDbHost != "" && *flInfluxToken != "" && *flInfluxRunner != "" {
+		runner.SendResultsToInfluxDb(*flInfluxDbHost, *flInfluxToken, *flInfluxBucket, *flInfluxRunner, results)
 	}
 
 }

@@ -6,7 +6,7 @@ import (
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 )
 
-func SendResultsToInfluxDb(host string, token string, bucket string, r *BenchmarkSuiteResult) {
+func SendResultsToInfluxDb(host string, token string, bucket string, runner string, r *BenchmarkSuiteResult) {
 	client := influxdb2.NewClient(host, token)
 	writer := client.WriteAPIBlocking("Codenotary", bucket)
 
@@ -14,6 +14,7 @@ func SendResultsToInfluxDb(host string, token string, bucket string, r *Benchmar
 
 		p := influxdb2.NewPointWithMeasurement("performance").
 			AddTag("name", b.Name).
+			AddTag("runner", runner).
 			AddField("duration", b.Duration.Seconds()).
 			AddField("txTotal", b.Results.TxTotal).
 			AddField("kvTotal", b.Results.KvTotal).
