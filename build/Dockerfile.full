@@ -7,7 +7,7 @@ RUN rm -rf /src/webconsole/dist
 RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static immuclient-static
 RUN mkdir /empty
 
-FROM debian:bullseye-slim as bullseye-slim
+FROM debian:11.6-slim as bullseye-slim
 LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 
 COPY --from=build /src/immudb /usr/sbin/immudb
