@@ -6169,6 +6169,9 @@ func BenchmarkInsertInto(b *testing.B) {
 		b.Fail()
 	}
 
+	// TODO: lastCatalogTxID automatically managed by the engine
+	engine.lastCatalogTxID = ctxs[0].txHeader.ID
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -6185,8 +6188,8 @@ func BenchmarkInsertInto(b *testing.B) {
 				for i := 0; i < txCount; i++ {
 					txOpts := DefaultTxOptions().
 						WithExplicitClose(true).
-						WithSnapshotRenewalPeriod(0).
-						WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return ctxs[0].txHeader.ID })
+						WithUnsafeMVCC(true).
+						WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 })
 
 					tx, err := engine.NewTx(context.Background(), txOpts)
 					if err != nil {
