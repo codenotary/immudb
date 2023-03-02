@@ -28,6 +28,7 @@ type TxOptions struct {
 	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
 	SnapshotRenewalPeriod   time.Duration
 	ExplicitClose           bool
+	UnsafeMVCC              bool
 }
 
 func DefaultTxOptions() *TxOptions {
@@ -38,6 +39,7 @@ func DefaultTxOptions() *TxOptions {
 		SnapshotMustIncludeTxID: txOpts.SnapshotMustIncludeTxID,
 		SnapshotRenewalPeriod:   txOpts.SnapshotRenewalPeriod,
 		ExplicitClose:           false, // commit or rollback explicitly required
+		UnsafeMVCC:              false, // mvcc restricted to catalog changes
 	}
 }
 
@@ -66,5 +68,10 @@ func (opts *TxOptions) WithSnapshotRenewalPeriod(snapshotRenewalPeriod time.Dura
 
 func (opts *TxOptions) WithExplicitClose(explicitClose bool) *TxOptions {
 	opts.ExplicitClose = explicitClose
+	return opts
+}
+
+func (opts *TxOptions) WithUnsafeMVCC(unsafeMVCC bool) *TxOptions {
+	opts.UnsafeMVCC = unsafeMVCC
 	return opts
 }

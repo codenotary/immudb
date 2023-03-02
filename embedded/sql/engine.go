@@ -195,7 +195,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	// At least that requirement is at commit time,
 	// but it's set during tx initialization to simplify commit steps
 
-	if opts.unsafeMVCC && e.lastCatalogTxID > 0 {
+	if opts.UnsafeMVCC && e.lastCatalogTxID > 0 {
 		snapshotMustIncludeTxID = func(lastPrecommittedTxID uint64) uint64 {
 			// return the greatest value  e.lastCatalogTxID and opts.SnapshotMustIncludeTxID
 			if opts.SnapshotMustIncludeTxID == nil {
@@ -210,12 +210,17 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 			return e.lastCatalogTxID
 		}
+	} else {
+		snapshotMustIncludeTxID = func(lastPrecommittedTxID uint64) uint64 {
+			return lastPrecommittedTxID
+		}
 	}
 
 	txOpts := &store.TxOptions{
 		Mode:                    mode,
 		SnapshotMustIncludeTxID: snapshotMustIncludeTxID,
 		SnapshotRenewalPeriod:   opts.SnapshotRenewalPeriod,
+		UnsafeMVCC:              opts.UnsafeMVCC,
 	}
 
 	e.mutex.RLock()

@@ -38,6 +38,9 @@ type TxOptions struct {
 	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
 	// SnapshotRenewalPeriod determines for how long a snaphsot may reuse existent dumped root
 	SnapshotRenewalPeriod time.Duration
+
+	// MVCC does not wait for indexing to be up to date
+	UnsafeMVCC bool
 }
 
 func DefaultTxOptions() *TxOptions {
@@ -46,6 +49,7 @@ func DefaultTxOptions() *TxOptions {
 		SnapshotMustIncludeTxID: func(lastPrecommittedTxID uint64) uint64 {
 			return lastPrecommittedTxID
 		},
+		UnsafeMVCC: false,
 	}
 }
 
@@ -73,5 +77,10 @@ func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(
 
 func (opts *TxOptions) WithSnapshotRenewalPeriod(snapshotRenewalPeriod time.Duration) *TxOptions {
 	opts.SnapshotRenewalPeriod = snapshotRenewalPeriod
+	return opts
+}
+
+func (opts *TxOptions) WithUnsafeMVCC(unsafeMVCC bool) *TxOptions {
+	opts.UnsafeMVCC = unsafeMVCC
 	return opts
 }
