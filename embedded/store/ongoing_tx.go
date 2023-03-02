@@ -34,6 +34,8 @@ type OngoingTx struct {
 	readOnly   bool // MVCC validations are not needed for read-only transactions
 	unsafeMVCC bool
 
+	requireMVCCOnFollowingTxs bool
+
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
 
@@ -418,6 +420,10 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	}
 
 	return newOngoingTxKeyReader(tx, spec)
+}
+
+func (tx *OngoingTx) RequireMVCCOnFollowingTxs(requireMVCCOnFollowingTxs bool) {
+	tx.requireMVCCOnFollowingTxs = requireMVCCOnFollowingTxs
 }
 
 func (tx *OngoingTx) Commit(ctx context.Context) (*TxHeader, error) {
