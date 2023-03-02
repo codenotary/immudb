@@ -14,7 +14,13 @@
     - [CollectionInformation.PrimaryKeysEntry](#immudb.schemav2.CollectionInformation.PrimaryKeysEntry)
     - [CollectionListRequest](#immudb.schemav2.CollectionListRequest)
     - [CollectionListResponse](#immudb.schemav2.CollectionListResponse)
+    - [DocumentAudit](#immudb.schemav2.DocumentAudit)
+    - [DocumentAuditRequest](#immudb.schemav2.DocumentAuditRequest)
+    - [DocumentAuditRequest.PrimaryKeysEntry](#immudb.schemav2.DocumentAuditRequest.PrimaryKeysEntry)
+    - [DocumentAuditResponse](#immudb.schemav2.DocumentAuditResponse)
     - [DocumentInsertRequest](#immudb.schemav2.DocumentInsertRequest)
+    - [DocumentProofRequest](#immudb.schemav2.DocumentProofRequest)
+    - [DocumentProofRequest.PrimaryKeysEntry](#immudb.schemav2.DocumentProofRequest.PrimaryKeysEntry)
     - [DocumentQuery](#immudb.schemav2.DocumentQuery)
     - [DocumentSearchRequest](#immudb.schemav2.DocumentSearchRequest)
     - [DocumentSearchResponse](#immudb.schemav2.DocumentSearchResponse)
@@ -191,6 +197,74 @@
 
 
 
+<a name="immudb.schemav2.DocumentAudit"></a>
+
+### DocumentAudit
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| transactionID | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schemav2.DocumentAuditRequest"></a>
+
+### DocumentAuditRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| primaryKeys | [DocumentAuditRequest.PrimaryKeysEntry](#immudb.schemav2.DocumentAuditRequest.PrimaryKeysEntry) | repeated |  |
+| page | [uint32](#uint32) |  |  |
+| perPage | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schemav2.DocumentAuditRequest.PrimaryKeysEntry"></a>
+
+### DocumentAuditRequest.PrimaryKeysEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [PossibleIndexType](#immudb.schemav2.PossibleIndexType) |  |  |
+
+
+
+
+
+
+<a name="immudb.schemav2.DocumentAuditResponse"></a>
+
+### DocumentAuditResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| results | [DocumentAudit](#immudb.schemav2.DocumentAudit) | repeated |  |
+| page | [uint32](#uint32) |  |  |
+| perPage | [uint32](#uint32) |  |  |
+| entriesLeft | [uint32](#uint32) |  |  |
+
+
+
+
+
+
 <a name="immudb.schemav2.DocumentInsertRequest"></a>
 
 ### DocumentInsertRequest
@@ -201,6 +275,39 @@
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schemav2.DocumentProofRequest"></a>
+
+### DocumentProofRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| primaryKeys | [DocumentProofRequest.PrimaryKeysEntry](#immudb.schemav2.DocumentProofRequest.PrimaryKeysEntry) | repeated |  |
+| atRevision | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schemav2.DocumentProofRequest.PrimaryKeysEntry"></a>
+
+### DocumentProofRequest.PrimaryKeysEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [PossibleIndexType](#immudb.schemav2.PossibleIndexType) |  |  |
 
 
 
@@ -353,6 +460,8 @@
 | LoginV2 | [LoginRequest](#immudb.schemav2.LoginRequest) | [LoginResponseV2](#immudb.schemav2.LoginResponseV2) |  |
 | DocumentInsert | [DocumentInsertRequest](#immudb.schemav2.DocumentInsertRequest) | [.immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | DocumentSearch | [DocumentSearchRequest](#immudb.schemav2.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.schemav2.DocumentSearchResponse) |  |
+| DocumentAudit | [DocumentAuditRequest](#immudb.schemav2.DocumentAuditRequest) | [DocumentAuditResponse](#immudb.schemav2.DocumentAuditResponse) |  |
+| DocumentProof | [DocumentProofRequest](#immudb.schemav2.DocumentProofRequest) | [.immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | CollectionCreate | [CollectionCreateRequest](#immudb.schemav2.CollectionCreateRequest) | [CollectionInformation](#immudb.schemav2.CollectionInformation) |  |
 | CollectionGet | [CollectionGetRequest](#immudb.schemav2.CollectionGetRequest) | [CollectionInformation](#immudb.schemav2.CollectionInformation) |  |
 | CollectionList | [CollectionListRequest](#immudb.schemav2.CollectionListRequest) | [CollectionListResponse](#immudb.schemav2.CollectionListResponse) |  |

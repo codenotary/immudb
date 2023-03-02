@@ -23,6 +23,8 @@ type ImmuServiceV2Client interface {
 	LoginV2(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponseV2, error)
 	DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
 	DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error)
+	DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error)
+	DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
 	CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionInformation, error)
 	CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionInformation, error)
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
@@ -58,6 +60,24 @@ func (c *immuServiceV2Client) DocumentInsert(ctx context.Context, in *DocumentIn
 func (c *immuServiceV2Client) DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error) {
 	out := new(DocumentSearchResponse)
 	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/DocumentSearch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceV2Client) DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error) {
+	out := new(DocumentAuditResponse)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/DocumentAudit", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceV2Client) DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
+	out := new(schema.VerifiableTx)
+	err := c.cc.Invoke(ctx, "/immudb.schemav2.ImmuServiceV2/DocumentProof", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +127,8 @@ type ImmuServiceV2Server interface {
 	LoginV2(context.Context, *LoginRequest) (*LoginResponseV2, error)
 	DocumentInsert(context.Context, *DocumentInsertRequest) (*schema.VerifiableTx, error)
 	DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error)
+	DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error)
+	DocumentProof(context.Context, *DocumentProofRequest) (*schema.VerifiableTx, error)
 	CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionInformation, error)
 	CollectionGet(context.Context, *CollectionGetRequest) (*CollectionInformation, error)
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
@@ -125,6 +147,12 @@ func (UnimplementedImmuServiceV2Server) DocumentInsert(context.Context, *Documen
 }
 func (UnimplementedImmuServiceV2Server) DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentSearch not implemented")
+}
+func (UnimplementedImmuServiceV2Server) DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentAudit not implemented")
+}
+func (UnimplementedImmuServiceV2Server) DocumentProof(context.Context, *DocumentProofRequest) (*schema.VerifiableTx, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentProof not implemented")
 }
 func (UnimplementedImmuServiceV2Server) CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionInformation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionCreate not implemented")
@@ -200,6 +228,42 @@ func _ImmuServiceV2_DocumentSearch_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceV2Server).DocumentSearch(ctx, req.(*DocumentSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuServiceV2_DocumentAudit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentAuditRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceV2Server).DocumentAudit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/DocumentAudit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceV2Server).DocumentAudit(ctx, req.(*DocumentAuditRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuServiceV2_DocumentProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentProofRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceV2Server).DocumentProof(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schemav2.ImmuServiceV2/DocumentProof",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceV2Server).DocumentProof(ctx, req.(*DocumentProofRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -294,6 +358,14 @@ var ImmuServiceV2_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DocumentSearch",
 			Handler:    _ImmuServiceV2_DocumentSearch_Handler,
+		},
+		{
+			MethodName: "DocumentAudit",
+			Handler:    _ImmuServiceV2_DocumentAudit_Handler,
+		},
+		{
+			MethodName: "DocumentProof",
+			Handler:    _ImmuServiceV2_DocumentProof_Handler,
 		},
 		{
 			MethodName: "CollectionCreate",

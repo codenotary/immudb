@@ -37,3 +37,11 @@ func (s *ImmuServer) CollectionList(ctx context.Context, req *schemav2.Collectio
 func (s *ImmuServer) CollectionDelete(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*empty.Empty, error) {
 	return nil, nil
 }
+
+func (s *ImmuServer) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
+	return nil, nil
+}
+
+func (s *ImmuServer) DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schema.VerifiableTx, error) {
+	return nil, nil
+}
