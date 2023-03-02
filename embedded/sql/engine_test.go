@@ -6169,19 +6169,11 @@ func BenchmarkInsertInto(b *testing.B) {
 		b.Fail()
 	}
 
-	// TODO: lastCatalogTxID automatically managed by the engine
-	engine.lastCatalogTxID = ctxs[0].txHeader.ID
-
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
 		wg.Add(workerCount)
-
-		stmts, err := Parse(strings.NewReader("INSERT INTO mytable1(id, title) VALUES (@id, @title);"))
-		if err != nil {
-			b.Fail()
-		}
 
 		for w := 0; w < workerCount; w++ {
 			go func(r, w int) {
@@ -6189,7 +6181,7 @@ func BenchmarkInsertInto(b *testing.B) {
 					txOpts := DefaultTxOptions().
 						WithExplicitClose(true).
 						WithUnsafeMVCC(true).
-						WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 })
+						WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return ctxs[0].txHeader.ID })
 
 					tx, err := engine.NewTx(context.Background(), txOpts)
 					if err != nil {
@@ -6202,8 +6194,7 @@ func BenchmarkInsertInto(b *testing.B) {
 							"title": fmt.Sprintf("title_%d_%d_%d_%d", r, w, i, j),
 						}
 
-						//_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO mytable1(id, title) VALUES (@id, @title);", params)
-						_, _, err = engine.ExecPreparedStmts(context.Background(), tx, stmts, params)
+						_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO mytable1(id, title) VALUES (@id, @title);", params)
 						if err != nil {
 							b.Fail()
 						}
@@ -6211,7 +6202,6 @@ func BenchmarkInsertInto(b *testing.B) {
 					}
 
 					err = tx.Commit(context.Background())
-					//err = tx.Cancel()
 					if err != nil {
 						b.Fail()
 					}

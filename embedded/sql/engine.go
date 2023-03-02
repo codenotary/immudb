@@ -106,8 +106,6 @@ type Engine struct {
 
 	multidbHandler MultiDBHandler
 
-	lastCatalogTxID uint64
-
 	mutex sync.RWMutex
 }
 
@@ -190,35 +188,9 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		mode = store.ReadWriteTx
 	}
 
-	var snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
-	// If last tx modifying the schema is not set, indexing must to be up-to-date.
-	// At least that requirement is at commit time,
-	// but it's set during tx initialization to simplify commit steps
-
-	if opts.UnsafeMVCC && e.lastCatalogTxID > 0 {
-		snapshotMustIncludeTxID = func(lastPrecommittedTxID uint64) uint64 {
-			// return the greatest value  e.lastCatalogTxID and opts.SnapshotMustIncludeTxID
-			if opts.SnapshotMustIncludeTxID == nil {
-				return e.lastCatalogTxID
-			}
-
-			providedTxID := opts.SnapshotMustIncludeTxID(lastPrecommittedTxID)
-
-			if e.lastCatalogTxID < providedTxID {
-				return providedTxID
-			}
-
-			return e.lastCatalogTxID
-		}
-	} else {
-		snapshotMustIncludeTxID = func(lastPrecommittedTxID uint64) uint64 {
-			return lastPrecommittedTxID
-		}
-	}
-
 	txOpts := &store.TxOptions{
 		Mode:                    mode,
-		SnapshotMustIncludeTxID: snapshotMustIncludeTxID,
+		SnapshotMustIncludeTxID: opts.SnapshotMustIncludeTxID,
 		SnapshotRenewalPeriod:   opts.SnapshotRenewalPeriod,
 		UnsafeMVCC:              opts.UnsafeMVCC,
 	}
