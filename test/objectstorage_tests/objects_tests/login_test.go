@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	apiclient "github.com/codenotary/immudb/objectstester/go-client"
+	apiclient "github.com/codenotary/immudb/test/objectstorage_tests/go-client"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,7 +14,7 @@ func TestBadLogin(t *testing.T) {
 	client := GetObjectsClient()
 
 	// Bad credentials, good database
-	resp, http, err := client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.SchemaLoginRequest{
+	resp, http, err := client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.Immudbschemav2LoginRequest{
 		Username: "obviouslybad",
 		Password: "usernamandpassword",
 		Database: "defaultdb",
@@ -23,7 +24,7 @@ func TestBadLogin(t *testing.T) {
 	assert.True(t, resp.ExpirationTimestamp == 0)
 
 	// Bad credentials, good database
-	resp, http, err = client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.SchemaLoginRequest{
+	resp, http, err = client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.Immudbschemav2LoginRequest{
 		Username: "",
 		Password: "",
 		Database: "defaultdb",
@@ -33,7 +34,7 @@ func TestBadLogin(t *testing.T) {
 	assert.True(t, resp.ExpirationTimestamp == 0)
 
 	// Good credentials, bad database
-	resp, http, err = client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.SchemaLoginRequest{
+	resp, http, err = client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.Immudbschemav2LoginRequest{
 		Username: "immudb",
 		Password: "immudb",
 		Database: "obviouslydatabasethatdoesntexist",
@@ -43,7 +44,7 @@ func TestBadLogin(t *testing.T) {
 	assert.True(t, resp.ExpirationTimestamp == 0)
 
 	// bad credentials, bad database
-	resp, http, err = client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.SchemaLoginRequest{
+	resp, http, err = client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.Immudbschemav2LoginRequest{
 		Username: "obviouslydatabasethatdoesntexist",
 		Password: "obviouslydatabasethatdoesntexist",
 		Database: "obviouslydatabasethatdoesntexist",
@@ -56,7 +57,7 @@ func TestBadLogin(t *testing.T) {
 func TestProperLogin(t *testing.T) {
 	client := GetObjectsClient()
 	current := int32(time.Now().Unix())
-	resp, http, err := client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.SchemaLoginRequest{
+	resp, http, err := client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.Immudbschemav2LoginRequest{
 		Username: "immudb",
 		Password: "immudb",
 		Database: "defaultdb",

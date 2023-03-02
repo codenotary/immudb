@@ -31,19 +31,19 @@ CollectionsApiService
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
 
-@return SchemaCollectionInformation
+@return Schemav2CollectionInformation
 */
-func (a *CollectionsApiService) ImmuServiceV2CollectionCreate(ctx context.Context, body SchemaCollectionCreateRequest) (SchemaCollectionInformation, *http.Response, error) {
+func (a *CollectionsApiService) ImmuServiceV2CollectionCreate(ctx context.Context, body Schemav2CollectionCreateRequest) (Schemav2CollectionInformation, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Put")
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-		localVarReturnValue SchemaCollectionInformation
+		localVarReturnValue Schemav2CollectionInformation
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/api/collections/create"
+	localVarPath := a.client.cfg.BasePath + "/collections/create"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -110,7 +110,7 @@ func (a *CollectionsApiService) ImmuServiceV2CollectionCreate(ctx context.Contex
 		}
 		
 		if localVarHttpResponse.StatusCode == 200 {
-			var v SchemaCollectionInformation
+			var v Schemav2CollectionInformation
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
@@ -160,7 +160,7 @@ func (a *CollectionsApiService) ImmuServiceV2CollectionDelete(ctx context.Contex
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/api/collections/delete"
+	localVarPath := a.client.cfg.BasePath + "/collections/delete"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -261,24 +261,24 @@ CollectionsApiService
  * @param optional nil or *CollectionsApiImmuServiceV2CollectionGetOpts - Optional Parameters:
      * @param "Name" (optional.String) - 
 
-@return SchemaCollectionInformation
+@return Schemav2CollectionInformation
 */
 
 type CollectionsApiImmuServiceV2CollectionGetOpts struct { 
 	Name optional.String
 }
 
-func (a *CollectionsApiService) ImmuServiceV2CollectionGet(ctx context.Context, localVarOptionals *CollectionsApiImmuServiceV2CollectionGetOpts) (SchemaCollectionInformation, *http.Response, error) {
+func (a *CollectionsApiService) ImmuServiceV2CollectionGet(ctx context.Context, localVarOptionals *CollectionsApiImmuServiceV2CollectionGetOpts) (Schemav2CollectionInformation, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-		localVarReturnValue SchemaCollectionInformation
+		localVarReturnValue Schemav2CollectionInformation
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/api/collections/get"
+	localVarPath := a.client.cfg.BasePath + "/collections/get"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -346,7 +346,7 @@ func (a *CollectionsApiService) ImmuServiceV2CollectionGet(ctx context.Context, 
 		}
 		
 		if localVarHttpResponse.StatusCode == 200 {
-			var v SchemaCollectionInformation
+			var v Schemav2CollectionInformation
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
@@ -378,19 +378,19 @@ CollectionsApiService
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
 
-@return SchemaCollectionListResponse
+@return Schemav2CollectionListResponse
 */
-func (a *CollectionsApiService) ImmuServiceV2CollectionList(ctx context.Context, body SchemaCollectionListRequest) (SchemaCollectionListResponse, *http.Response, error) {
+func (a *CollectionsApiService) ImmuServiceV2CollectionList(ctx context.Context, body Schemav2CollectionListRequest) (Schemav2CollectionListResponse, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-		localVarReturnValue SchemaCollectionListResponse
+		localVarReturnValue Schemav2CollectionListResponse
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/api/collections/list"
+	localVarPath := a.client.cfg.BasePath + "/collections/list"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -457,7 +457,7 @@ func (a *CollectionsApiService) ImmuServiceV2CollectionList(ctx context.Context,
 		}
 		
 		if localVarHttpResponse.StatusCode == 200 {
-			var v SchemaCollectionListResponse
+			var v Schemav2CollectionListResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()

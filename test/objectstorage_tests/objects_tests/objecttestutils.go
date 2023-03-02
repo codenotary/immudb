@@ -2,13 +2,22 @@ package main
 
 import (
 	"context"
+	"os"
 
-	apiclient "github.com/codenotary/immudb/objectstester/go-client"
+	apiclient "github.com/codenotary/immudb/test/objectstorage_tests/go-client"
 
 	"github.com/google/uuid"
 )
 
-var baseURL = "http://localhost:8091"
+var baseURL = GetEnv("OBJECTS_TEST_BASEURL", "http://localhost:8091/api/v2")
+
+func GetEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		return defaultValue
+	}
+	return value
+}
 
 func GetObjectsClient() *apiclient.APIClient {
 
@@ -24,7 +33,7 @@ func GetAuthorizedClient() *apiclient.APIClient {
 	config := apiclient.NewConfiguration()
 	config.BasePath = baseURL
 	client := apiclient.NewAPIClient(config)
-	resp, http, err := client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.SchemaLoginRequest{
+	resp, http, err := client.AuthorizationApi.ImmuServiceV2LoginV2(context.Background(), apiclient.Immudbschemav2LoginRequest{
 		Username: "immudb",
 		Password: "immudb",
 		Database: "defaultdb",
@@ -44,9 +53,9 @@ func GetStandarizedRandomString() string {
 }
 
 func CreateStandardTestCollection(client *apiclient.APIClient, name string) {
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        name,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,

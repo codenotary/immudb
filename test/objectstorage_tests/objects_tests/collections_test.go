@@ -5,17 +5,18 @@ import (
 	"testing"
 
 	"github.com/antihax/optional"
-	apiclient "github.com/codenotary/immudb/objectstester/go-client"
+	apiclient "github.com/codenotary/immudb/test/objectstorage_tests/go-client"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateCollection(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["uuid"] = apiclient.STRING_
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -33,15 +34,15 @@ func TestCreateCollectionWithoutPrimaryIndex(t *testing.T) {
 
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
 	})
 
-	expectedPrimaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	expectedPrimaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	expectedPrimaryKeysMap["_uuid"] = apiclient.STRING_
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
@@ -54,16 +55,16 @@ func TestCreateCollectionWithIndexes(t *testing.T) {
 
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	indexKeysMap["name"] = apiclient.STRING_
-	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
 	})
 
-	expectedPrimaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	expectedPrimaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	expectedPrimaryKeysMap["_uuid"] = apiclient.STRING_
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
@@ -76,13 +77,13 @@ func TestCreateCollectionWithDifferentIndexes(t *testing.T) {
 
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	indexKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
 	indexKeysMap["height"] = apiclient.DOUBLE
 	primaryKeysMap["uuid"] = apiclient.STRING_
-	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	resp, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -131,7 +132,7 @@ func TestGetCollection(t *testing.T) {
 	getResponse, http, err := client.CollectionsApi.ImmuServiceV2CollectionGet(context.Background(), &apiclient.CollectionsApiImmuServiceV2CollectionGetOpts{
 		Name: optional.NewString(collection),
 	})
-	expectedPrimaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	expectedPrimaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	expectedPrimaryKeysMap["_uuid"] = apiclient.STRING_
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
@@ -145,7 +146,7 @@ func TestListCollections(t *testing.T) {
 	collectionNameToFind := GetStandarizedRandomString()
 	CreateStandardTestCollection(client, collectionNameToFind)
 
-	collectionList, http, err := client.CollectionsApi.ImmuServiceV2CollectionList(context.Background(), apiclient.SchemaCollectionListRequest{})
+	collectionList, http, err := client.CollectionsApi.ImmuServiceV2CollectionList(context.Background(), apiclient.Schemav2CollectionListRequest{})
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
@@ -161,7 +162,7 @@ func TestListCollections(t *testing.T) {
 	collectionNameToFind = GetStandarizedRandomString()
 	CreateStandardTestCollection(client, collectionNameToFind)
 
-	collectionList, http, err = client.CollectionsApi.ImmuServiceV2CollectionList(context.Background(), apiclient.SchemaCollectionListRequest{})
+	collectionList, http, err = client.CollectionsApi.ImmuServiceV2CollectionList(context.Background(), apiclient.Schemav2CollectionListRequest{})
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 

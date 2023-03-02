@@ -17,37 +17,57 @@ import "./swagger"
 
 ## Documentation for API Endpoints
 
-All URIs are relative to *https://localhost*
+All URIs are relative to *https://localhost/api/v2*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
-*AuthorizationApi* | [**ImmuServiceV2LoginV2**](docs/AuthorizationApi.md#immuservicev2loginv2) | **Post** /api/system/login | 
-*CollectionsApi* | [**ImmuServiceV2CollectionCreate**](docs/CollectionsApi.md#immuservicev2collectioncreate) | **Put** /api/collections/create | 
-*CollectionsApi* | [**ImmuServiceV2CollectionDelete**](docs/CollectionsApi.md#immuservicev2collectiondelete) | **Delete** /api/collections/delete | 
-*CollectionsApi* | [**ImmuServiceV2CollectionGet**](docs/CollectionsApi.md#immuservicev2collectionget) | **Get** /api/collections/get | 
-*CollectionsApi* | [**ImmuServiceV2CollectionList**](docs/CollectionsApi.md#immuservicev2collectionlist) | **Post** /api/collections/list | 
-*DocumentsApi* | [**ImmuServiceV2DocumentInsert**](docs/DocumentsApi.md#immuservicev2documentinsert) | **Put** /api/documents/insert | 
-*DocumentsApi* | [**ImmuServiceV2DocumentSearch**](docs/DocumentsApi.md#immuservicev2documentsearch) | **Post** /api/documents/search | 
+*AuthorizationApi* | [**ImmuServiceV2LoginV2**](docs/AuthorizationApi.md#immuservicev2loginv2) | **Post** /system/login | 
+*CollectionsApi* | [**ImmuServiceV2CollectionCreate**](docs/CollectionsApi.md#immuservicev2collectioncreate) | **Put** /collections/create | 
+*CollectionsApi* | [**ImmuServiceV2CollectionDelete**](docs/CollectionsApi.md#immuservicev2collectiondelete) | **Delete** /collections/delete | 
+*CollectionsApi* | [**ImmuServiceV2CollectionGet**](docs/CollectionsApi.md#immuservicev2collectionget) | **Get** /collections/get | 
+*CollectionsApi* | [**ImmuServiceV2CollectionList**](docs/CollectionsApi.md#immuservicev2collectionlist) | **Post** /collections/list | 
+*DocumentsApi* | [**ImmuServiceV2DocumentAudit**](docs/DocumentsApi.md#immuservicev2documentaudit) | **Post** /documents/audit | 
+*DocumentsApi* | [**ImmuServiceV2DocumentInsert**](docs/DocumentsApi.md#immuservicev2documentinsert) | **Put** /documents/insert | 
+*DocumentsApi* | [**ImmuServiceV2DocumentProof**](docs/DocumentsApi.md#immuservicev2documentproof) | **Post** /documents/proof | 
+*DocumentsApi* | [**ImmuServiceV2DocumentSearch**](docs/DocumentsApi.md#immuservicev2documentsearch) | **Post** /documents/search | 
 
 
 ## Documentation For Models
 
+ - [Immudbschemav2LoginRequest](docs/Immudbschemav2LoginRequest.md)
  - [ProtobufAny](docs/ProtobufAny.md)
  - [ProtobufNullValue](docs/ProtobufNullValue.md)
  - [RuntimeError](docs/RuntimeError.md)
- - [SchemaCollectionCreateRequest](docs/SchemaCollectionCreateRequest.md)
- - [SchemaCollectionInformation](docs/SchemaCollectionInformation.md)
- - [SchemaCollectionListRequest](docs/SchemaCollectionListRequest.md)
- - [SchemaCollectionListResponse](docs/SchemaCollectionListResponse.md)
- - [SchemaDocumentInsertRequest](docs/SchemaDocumentInsertRequest.md)
- - [SchemaDocumentQuery](docs/SchemaDocumentQuery.md)
- - [SchemaDocumentSearchRequest](docs/SchemaDocumentSearchRequest.md)
- - [SchemaDocumentSearchResponse](docs/SchemaDocumentSearchResponse.md)
- - [SchemaLoginRequest](docs/SchemaLoginRequest.md)
- - [SchemaLoginResponseV2](docs/SchemaLoginResponseV2.md)
- - [SchemaPossibleIndexType](docs/SchemaPossibleIndexType.md)
- - [SchemaProof](docs/SchemaProof.md)
- - [SchemaQueryOperator](docs/SchemaQueryOperator.md)
+ - [SchemaDualProof](docs/SchemaDualProof.md)
+ - [SchemaEntry](docs/SchemaEntry.md)
+ - [SchemaExpiration](docs/SchemaExpiration.md)
+ - [SchemaInclusionProof](docs/SchemaInclusionProof.md)
+ - [SchemaKvMetadata](docs/SchemaKvMetadata.md)
+ - [SchemaLinearAdvanceProof](docs/SchemaLinearAdvanceProof.md)
+ - [SchemaLinearProof](docs/SchemaLinearProof.md)
+ - [SchemaReference](docs/SchemaReference.md)
+ - [SchemaSignature](docs/SchemaSignature.md)
+ - [SchemaTx](docs/SchemaTx.md)
+ - [SchemaTxEntry](docs/SchemaTxEntry.md)
+ - [SchemaTxHeader](docs/SchemaTxHeader.md)
+ - [SchemaTxMetadata](docs/SchemaTxMetadata.md)
+ - [SchemaVerifiableTx](docs/SchemaVerifiableTx.md)
+ - [SchemaZEntry](docs/SchemaZEntry.md)
+ - [Schemav2CollectionCreateRequest](docs/Schemav2CollectionCreateRequest.md)
+ - [Schemav2CollectionInformation](docs/Schemav2CollectionInformation.md)
+ - [Schemav2CollectionListRequest](docs/Schemav2CollectionListRequest.md)
+ - [Schemav2CollectionListResponse](docs/Schemav2CollectionListResponse.md)
+ - [Schemav2DocumentAudit](docs/Schemav2DocumentAudit.md)
+ - [Schemav2DocumentAuditRequest](docs/Schemav2DocumentAuditRequest.md)
+ - [Schemav2DocumentAuditResponse](docs/Schemav2DocumentAuditResponse.md)
+ - [Schemav2DocumentInsertRequest](docs/Schemav2DocumentInsertRequest.md)
+ - [Schemav2DocumentProofRequest](docs/Schemav2DocumentProofRequest.md)
+ - [Schemav2DocumentQuery](docs/Schemav2DocumentQuery.md)
+ - [Schemav2DocumentSearchRequest](docs/Schemav2DocumentSearchRequest.md)
+ - [Schemav2DocumentSearchResponse](docs/Schemav2DocumentSearchResponse.md)
+ - [Schemav2LoginResponseV2](docs/Schemav2LoginResponseV2.md)
+ - [Schemav2PossibleIndexType](docs/Schemav2PossibleIndexType.md)
+ - [Schemav2QueryOperator](docs/Schemav2QueryOperator.md)
 
 
 ## Documentation For Authorization

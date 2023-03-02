@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	apiclient "github.com/codenotary/immudb/objectstester/go-client"
+	apiclient "github.com/codenotary/immudb/test/objectstorage_tests/go-client"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +21,7 @@ func TestCreateDocument(t *testing.T) {
 
 	documentsToInsert := []interface{}{documentToInsert}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documentsToInsert,
 	}
@@ -40,7 +41,7 @@ func TestCreateDocumentAndSearch(t *testing.T) {
 
 	documentsToInsert := []interface{}{documentToInsert}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documentsToInsert,
 	}
@@ -54,21 +55,21 @@ func TestCreateDocumentAndSearch(t *testing.T) {
 
 	documentsToInsert = []interface{}{documentToInsert}
 
-	documentInsertRequest = apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest = apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documentsToInsert,
 	}
 	client.DocumentsApi.ImmuServiceV2DocumentInsert(context.Background(), documentInsertRequest)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
-	query := make([]apiclient.SchemaDocumentQuery, 1)
+	query := make([]apiclient.Schemav2DocumentQuery, 1)
 	eqOperator := apiclient.EQ
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &eqOperator,
 		Field:    "name",
 		Value:    "John",
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -88,11 +89,11 @@ func TestGTSearchOperators(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -108,7 +109,7 @@ func TestGTSearchOperators(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -116,14 +117,14 @@ func TestGTSearchOperators(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
-	query := make([]apiclient.SchemaDocumentQuery, 1)
+	query := make([]apiclient.Schemav2DocumentQuery, 1)
 	gtOperator := apiclient.GT
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    10,
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -138,12 +139,12 @@ func TestGTSearchOperators(t *testing.T) {
 	assert.True(t, mapped["age"].(float64) > 10)
 
 	gtOperator = apiclient.GT
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    11,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -157,12 +158,12 @@ func TestGTSearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) > 11)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    99,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -176,12 +177,12 @@ func TestGTSearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) > 99)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    100,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -198,11 +199,11 @@ func TestGTESearchOperators(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -218,7 +219,7 @@ func TestGTESearchOperators(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -226,14 +227,14 @@ func TestGTESearchOperators(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
-	query := make([]apiclient.SchemaDocumentQuery, 1)
+	query := make([]apiclient.Schemav2DocumentQuery, 1)
 	gtOperator := apiclient.GTE
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    10,
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -247,12 +248,12 @@ func TestGTESearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) >= 10)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    11,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -266,12 +267,12 @@ func TestGTESearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) >= 11)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    99,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -285,12 +286,12 @@ func TestGTESearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) >= 99)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    100,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -307,11 +308,11 @@ func TestLTSearchOperators(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -327,7 +328,7 @@ func TestLTSearchOperators(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -335,14 +336,14 @@ func TestLTSearchOperators(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
-	query := make([]apiclient.SchemaDocumentQuery, 1)
+	query := make([]apiclient.Schemav2DocumentQuery, 1)
 	ltOperator := apiclient.LT
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    10,
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -356,12 +357,12 @@ func TestLTSearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) < 10)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    11,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -375,12 +376,12 @@ func TestLTSearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) < 11)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    99,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -394,12 +395,12 @@ func TestLTSearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) < 99)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    100,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -416,11 +417,11 @@ func TestLTESearchOperators(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -436,7 +437,7 @@ func TestLTESearchOperators(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -444,14 +445,14 @@ func TestLTESearchOperators(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
-	query := make([]apiclient.SchemaDocumentQuery, 1)
+	query := make([]apiclient.Schemav2DocumentQuery, 1)
 	ltOperator := apiclient.LTE
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    10,
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -465,12 +466,12 @@ func TestLTESearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) <= 10)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    11,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -484,12 +485,12 @@ func TestLTESearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) <= 11)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    99,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -503,12 +504,12 @@ func TestLTESearchOperators(t *testing.T) {
 	assert.Equal(t, mapped["surname"], "Doe")
 	assert.True(t, mapped["age"].(float64) < 100)
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &ltOperator,
 		Field:    "age",
 		Value:    100,
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -525,11 +526,11 @@ func TestLIKESearchOperators(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -548,7 +549,7 @@ func TestLIKESearchOperators(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -556,14 +557,14 @@ func TestLIKESearchOperators(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
-	query := make([]apiclient.SchemaDocumentQuery, 1)
+	query := make([]apiclient.Schemav2DocumentQuery, 1)
 	likeOperator := apiclient.LIKE
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "surname",
 		Value:    ".*",
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -574,12 +575,12 @@ func TestLIKESearchOperators(t *testing.T) {
 	assert.Equal(t, http.StatusCode, 200)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(100))
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "surname",
 		Value:    "Do.*",
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -590,12 +591,12 @@ func TestLIKESearchOperators(t *testing.T) {
 	assert.Equal(t, http.StatusCode, 200)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(49))
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "surname",
 		Value:    ".*o.*",
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -606,12 +607,12 @@ func TestLIKESearchOperators(t *testing.T) {
 	assert.Equal(t, http.StatusCode, 200)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(100))
 
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "surname",
 		Value:    ".*n.*",
 	}
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -628,11 +629,11 @@ func TestPagination(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -651,7 +652,7 @@ func TestPagination(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -659,8 +660,8 @@ func TestPagination(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, http.StatusCode, 200)
 
-	query := make([]apiclient.SchemaDocumentQuery, 0)
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	query := make([]apiclient.Schemav2DocumentQuery, 0)
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    1,
@@ -672,7 +673,7 @@ func TestPagination(t *testing.T) {
 	assert.Equal(t, len(searchResponse.Results), 1)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(999))
 
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       2,
 		PerPage:    1,
@@ -684,7 +685,7 @@ func TestPagination(t *testing.T) {
 	assert.Equal(t, len(searchResponse.Results), 1)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(998))
 
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    100,
@@ -696,7 +697,7 @@ func TestPagination(t *testing.T) {
 	assert.Equal(t, len(searchResponse.Results), 100)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(900))
 
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       2,
 		PerPage:    100,
@@ -708,7 +709,7 @@ func TestPagination(t *testing.T) {
 	assert.Equal(t, len(searchResponse.Results), 100)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(800))
 
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       10,
 		PerPage:    100,
@@ -720,7 +721,7 @@ func TestPagination(t *testing.T) {
 	assert.Equal(t, len(searchResponse.Results), 100)
 	assert.Equal(t, searchResponse.EntriesLeft, int64(0))
 
-	searchRequest = apiclient.SchemaDocumentSearchRequest{
+	searchRequest = apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       11,
 		PerPage:    100,
@@ -738,11 +739,11 @@ func TestPrimaryKeyViolations(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -757,7 +758,7 @@ func TestPrimaryKeyViolations(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -771,7 +772,7 @@ func TestPrimaryKeyViolations(t *testing.T) {
 	documentToInsert["age"] = 1
 	documents = append(documents, documentToInsert)
 
-	documentInsertRequest = apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest = apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -789,12 +790,12 @@ func TestMultiplePrimaryKeyViolations(t *testing.T) {
 	client := GetAuthorizedClient()
 	collection := GetStandarizedRandomString()
 
-	primaryKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
-	indexKeysMap := make(map[string]apiclient.SchemaPossibleIndexType)
+	primaryKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
+	indexKeysMap := make(map[string]apiclient.Schemav2PossibleIndexType)
 	primaryKeysMap["name"] = apiclient.STRING_
 	primaryKeysMap["test"] = apiclient.STRING_
 	indexKeysMap["age"] = apiclient.INTEGER
-	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.SchemaCollectionCreateRequest{
+	_, http, err := client.CollectionsApi.ImmuServiceV2CollectionCreate(context.Background(), apiclient.Schemav2CollectionCreateRequest{
 		Name:        collection,
 		PrimaryKeys: primaryKeysMap,
 		IndexKeys:   indexKeysMap,
@@ -810,7 +811,7 @@ func TestMultiplePrimaryKeyViolations(t *testing.T) {
 
 	}
 
-	documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -824,7 +825,7 @@ func TestMultiplePrimaryKeyViolations(t *testing.T) {
 	documentToInsert["age"] = 1
 	documents = append(documents, documentToInsert)
 
-	documentInsertRequest = apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest = apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}
@@ -843,7 +844,7 @@ func TestMultiplePrimaryKeyViolations(t *testing.T) {
 	documentToInsert["test"] = "3"
 	documents = append(documents, documentToInsert)
 
-	documentInsertRequest = apiclient.SchemaDocumentInsertRequest{
+	documentInsertRequest = apiclient.Schemav2DocumentInsertRequest{
 		Collection: collection,
 		Document:   documents,
 	}

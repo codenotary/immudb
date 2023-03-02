@@ -1,17 +1,17 @@
 # \CollectionsApi
 
-All URIs are relative to *https://localhost*
+All URIs are relative to *https://localhost/api/v2*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**ImmuServiceV2CollectionCreate**](CollectionsApi.md#ImmuServiceV2CollectionCreate) | **Put** /api/collections/create | 
-[**ImmuServiceV2CollectionDelete**](CollectionsApi.md#ImmuServiceV2CollectionDelete) | **Delete** /api/collections/delete | 
-[**ImmuServiceV2CollectionGet**](CollectionsApi.md#ImmuServiceV2CollectionGet) | **Get** /api/collections/get | 
-[**ImmuServiceV2CollectionList**](CollectionsApi.md#ImmuServiceV2CollectionList) | **Post** /api/collections/list | 
+[**ImmuServiceV2CollectionCreate**](CollectionsApi.md#ImmuServiceV2CollectionCreate) | **Put** /collections/create | 
+[**ImmuServiceV2CollectionDelete**](CollectionsApi.md#ImmuServiceV2CollectionDelete) | **Delete** /collections/delete | 
+[**ImmuServiceV2CollectionGet**](CollectionsApi.md#ImmuServiceV2CollectionGet) | **Get** /collections/get | 
+[**ImmuServiceV2CollectionList**](CollectionsApi.md#ImmuServiceV2CollectionList) | **Post** /collections/list | 
 
 
 # **ImmuServiceV2CollectionCreate**
-> SchemaCollectionInformation ImmuServiceV2CollectionCreate(ctx, body)
+> Schemav2CollectionInformation ImmuServiceV2CollectionCreate(ctx, body)
 
 
 ### Required Parameters
@@ -19,11 +19,11 @@ Method | HTTP request | Description
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **ctx** | **context.Context** | context for authentication, logging, cancellation, deadlines, tracing, etc.
-  **body** | [**SchemaCollectionCreateRequest**](SchemaCollectionCreateRequest.md)|  | 
+  **body** | [**Schemav2CollectionCreateRequest**](Schemav2CollectionCreateRequest.md)|  | 
 
 ### Return type
 
-[**SchemaCollectionInformation**](schemaCollectionInformation.md)
+[**Schemav2CollectionInformation**](schemav2CollectionInformation.md)
 
 ### Authorization
 
@@ -70,7 +70,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ImmuServiceV2CollectionGet**
-> SchemaCollectionInformation ImmuServiceV2CollectionGet(ctx, optional)
+> Schemav2CollectionInformation ImmuServiceV2CollectionGet(ctx, optional)
 
 
 ### Required Parameters
@@ -89,7 +89,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**SchemaCollectionInformation**](schemaCollectionInformation.md)
+[**Schemav2CollectionInformation**](schemav2CollectionInformation.md)
 
 ### Authorization
 
@@ -103,7 +103,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ImmuServiceV2CollectionList**
-> SchemaCollectionListResponse ImmuServiceV2CollectionList(ctx, body)
+> Schemav2CollectionListResponse ImmuServiceV2CollectionList(ctx, body)
 
 
 ### Required Parameters
@@ -111,11 +111,11 @@ Name | Type | Description  | Notes
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **ctx** | **context.Context** | context for authentication, logging, cancellation, deadlines, tracing, etc.
-  **body** | [**SchemaCollectionListRequest**](SchemaCollectionListRequest.md)|  | 
+  **body** | [**Schemav2CollectionListRequest**](Schemav2CollectionListRequest.md)|  | 
 
 ### Return type
 
-[**SchemaCollectionListResponse**](schemaCollectionListResponse.md)
+[**Schemav2CollectionListResponse**](schemav2CollectionListResponse.md)
 
 ### Authorization
 

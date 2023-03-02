@@ -3,6 +3,7 @@ swagger: "2.0"
 info:
   version: "version not set"
   title: "immudb REST API v2"
+basePath: "/api/v2"
 consumes:
 - "application/json"
 produces:
@@ -10,7 +11,7 @@ produces:
 security:
 - bearer: []
 paths:
-  /api/collections/create:
+  /collections/create:
     put:
       tags:
       - "collections"
@@ -20,18 +21,18 @@ paths:
         name: "body"
         required: true
         schema:
-          $ref: "#/definitions/schemaCollectionCreateRequest"
+          $ref: "#/definitions/schemav2CollectionCreateRequest"
         x-exportParamName: "Body"
       responses:
         "200":
           description: "A successful response."
           schema:
-            $ref: "#/definitions/schemaCollectionInformation"
+            $ref: "#/definitions/schemav2CollectionInformation"
         default:
           description: "An unexpected error response."
           schema:
             $ref: "#/definitions/runtimeError"
-  /api/collections/delete:
+  /collections/delete:
     delete:
       tags:
       - "collections"
@@ -51,7 +52,7 @@ paths:
           description: "An unexpected error response."
           schema:
             $ref: "#/definitions/runtimeError"
-  /api/collections/get:
+  /collections/get:
     get:
       tags:
       - "collections"
@@ -67,12 +68,12 @@ paths:
         "200":
           description: "A successful response."
           schema:
-            $ref: "#/definitions/schemaCollectionInformation"
+            $ref: "#/definitions/schemav2CollectionInformation"
         default:
           description: "An unexpected error response."
           schema:
             $ref: "#/definitions/runtimeError"
-  /api/collections/list:
+  /collections/list:
     post:
       tags:
       - "collections"
@@ -82,18 +83,39 @@ paths:
         name: "body"
         required: true
         schema:
-          $ref: "#/definitions/schemaCollectionListRequest"
+          $ref: "#/definitions/schemav2CollectionListRequest"
         x-exportParamName: "Body"
       responses:
         "200":
           description: "A successful response."
           schema:
-            $ref: "#/definitions/schemaCollectionListResponse"
+            $ref: "#/definitions/schemav2CollectionListResponse"
         default:
           description: "An unexpected error response."
           schema:
             $ref: "#/definitions/runtimeError"
-  /api/documents/insert:
+  /documents/audit:
+    post:
+      tags:
+      - "documents"
+      operationId: "ImmuServiceV2_DocumentAudit"
+      parameters:
+      - in: "body"
+        name: "body"
+        required: true
+        schema:
+          $ref: "#/definitions/schemav2DocumentAuditRequest"
+        x-exportParamName: "Body"
+      responses:
+        "200":
+          description: "A successful response."
+          schema:
+            $ref: "#/definitions/schemav2DocumentAuditResponse"
+        default:
+          description: "An unexpected error response."
+          schema:
+            $ref: "#/definitions/runtimeError"
+  /documents/insert:
     put:
       tags:
       - "documents"
@@ -103,18 +125,39 @@ paths:
         name: "body"
         required: true
         schema:
-          $ref: "#/definitions/schemaDocumentInsertRequest"
+          $ref: "#/definitions/schemav2DocumentInsertRequest"
         x-exportParamName: "Body"
       responses:
         "200":
           description: "A successful response."
           schema:
-            $ref: "#/definitions/schemaProof"
+            $ref: "#/definitions/schemaVerifiableTx"
         default:
           description: "An unexpected error response."
           schema:
             $ref: "#/definitions/runtimeError"
-  /api/documents/search:
+  /documents/proof:
+    post:
+      tags:
+      - "documents"
+      operationId: "ImmuServiceV2_DocumentProof"
+      parameters:
+      - in: "body"
+        name: "body"
+        required: true
+        schema:
+          $ref: "#/definitions/schemav2DocumentProofRequest"
+        x-exportParamName: "Body"
+      responses:
+        "200":
+          description: "A successful response."
+          schema:
+            $ref: "#/definitions/schemaVerifiableTx"
+        default:
+          description: "An unexpected error response."
+          schema:
+            $ref: "#/definitions/runtimeError"
+  /documents/search:
     post:
       tags:
       - "documents"
@@ -124,18 +167,18 @@ paths:
         name: "body"
         required: true
         schema:
-          $ref: "#/definitions/schemaDocumentSearchRequest"
+          $ref: "#/definitions/schemav2DocumentSearchRequest"
         x-exportParamName: "Body"
       responses:
         "200":
           description: "A successful response."
           schema:
-            $ref: "#/definitions/schemaDocumentSearchResponse"
+            $ref: "#/definitions/schemav2DocumentSearchResponse"
         default:
           description: "An unexpected error response."
           schema:
             $ref: "#/definitions/runtimeError"
-  /api/system/login:
+  /system/login:
     post:
       tags:
       - "authorization"
@@ -145,13 +188,13 @@ paths:
         name: "body"
         required: true
         schema:
-          $ref: "#/definitions/schemaLoginRequest"
+          $ref: "#/definitions/immudbschemav2LoginRequest"
         x-exportParamName: "Body"
       responses:
         "200":
           description: "A successful response."
           schema:
-            $ref: "#/definitions/schemaLoginResponseV2"
+            $ref: "#/definitions/schemav2LoginResponseV2"
         default:
           description: "An unexpected error response."
           schema:
@@ -163,6 +206,15 @@ securityDefinitions:
     name: "Authorization"
     in: "header"
 definitions:
+  immudbschemav2LoginRequest:
+    type: "object"
+    properties:
+      username:
+        type: "string"
+      password:
+        type: "string"
+      database:
+        type: "string"
   protobufAny:
     type: "object"
     properties:
@@ -243,7 +295,804 @@ definitions:
         type: "array"
         items:
           $ref: "#/definitions/protobufAny"
-  schemaCollectionCreateRequest:
+  schemaDualProof:
+    type: "object"
+    properties:
+      sourceTxHeader:
+        title: "Header of the source (earlier) transaction"
+        $ref: "#/definitions/schemaTxHeader"
+      targetTxHeader:
+        title: "Header of the target (latter) transaction"
+        $ref: "#/definitions/schemaTxHeader"
+      inclusionProof:
+        type: "array"
+        title: "Inclusion proof of the source transaction hash in the main Merkle\
+          \ Tree"
+        items:
+          type: "string"
+          format: "byte"
+          pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      consistencyProof:
+        type: "array"
+        title: "Consistency proof between Merkle Trees in the source and target transactions"
+        items:
+          type: "string"
+          format: "byte"
+          pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      targetBlTxAlh:
+        type: "string"
+        format: "byte"
+        title: "Accumulative hash (Alh) of the last transaction that's part of the\
+          \ target Merkle Tree"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      lastInclusionProof:
+        type: "array"
+        title: "Inclusion proof of the targetBlTxAlh in the target Merkle Tree"
+        items:
+          type: "string"
+          format: "byte"
+          pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      linearProof:
+        title: "Linear proof starting from targetBlTxAlh to the final state value"
+        $ref: "#/definitions/schemaLinearProof"
+      LinearAdvanceProof:
+        title: "Proof of consistency between some part of older linear chain and newer\
+          \ Merkle Tree"
+        $ref: "#/definitions/schemaLinearAdvanceProof"
+    title: "DualProof contains inclusion and consistency proofs for dual Merkle-Tree\
+      \ + Linear proofs"
+    example:
+      LinearAdvanceProof:
+        inclusionProofs:
+        - terms:
+          - "terms"
+          - "terms"
+          width: 2
+          leaf: 5
+        - terms:
+          - "terms"
+          - "terms"
+          width: 2
+          leaf: 5
+        linearProofTerms:
+        - "linearProofTerms"
+        - "linearProofTerms"
+      sourceTxHeader:
+        nentries: 0
+        prevAlh: "prevAlh"
+        metadata:
+          truncatedTxID: "truncatedTxID"
+        eH: "eH"
+        id: "id"
+        blTxId: "blTxId"
+        version: 6
+        ts: "ts"
+        blRoot: "blRoot"
+      linearProof:
+        TargetTxId: "TargetTxId"
+        terms:
+        - "terms"
+        - "terms"
+        sourceTxId: "sourceTxId"
+      targetBlTxAlh: "targetBlTxAlh"
+      targetTxHeader:
+        nentries: 0
+        prevAlh: "prevAlh"
+        metadata:
+          truncatedTxID: "truncatedTxID"
+        eH: "eH"
+        id: "id"
+        blTxId: "blTxId"
+        version: 6
+        ts: "ts"
+        blRoot: "blRoot"
+      inclusionProof:
+      - "inclusionProof"
+      - "inclusionProof"
+      consistencyProof:
+      - "consistencyProof"
+      - "consistencyProof"
+      lastInclusionProof:
+      - "lastInclusionProof"
+      - "lastInclusionProof"
+  schemaEntry:
+    type: "object"
+    properties:
+      tx:
+        type: "string"
+        format: "uint64"
+        title: "Transaction id at which the target value was set (i.e. not the reference\
+          \ transaction id)"
+      key:
+        type: "string"
+        format: "byte"
+        title: "Key of the target value (i.e. not the reference entry)"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      value:
+        type: "string"
+        format: "byte"
+        title: "Value"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      referencedBy:
+        title: "If the request was for a reference, this field will keep information\
+          \ about the reference entry"
+        $ref: "#/definitions/schemaReference"
+      metadata:
+        title: "Metadata of the target entry (i.e. not the reference entry)"
+        $ref: "#/definitions/schemaKVMetadata"
+      expired:
+        type: "boolean"
+        title: "If set to true, this entry has expired and the value is not retrieved"
+      revision:
+        type: "string"
+        format: "uint64"
+        title: "Key's revision, in case of GetAt it will be 0"
+    example:
+      metadata:
+        deleted: true
+        expiration:
+          expiresAt: "expiresAt"
+        nonIndexable: true
+      expired: true
+      tx: "tx"
+      referencedBy:
+        metadata:
+          deleted: true
+          expiration:
+            expiresAt: "expiresAt"
+          nonIndexable: true
+        tx: "tx"
+        atTx: "atTx"
+        key: "key"
+        revision: "revision"
+      value: "value"
+      key: "key"
+      revision: "revision"
+  schemaExpiration:
+    type: "object"
+    properties:
+      expiresAt:
+        type: "string"
+        format: "int64"
+        title: "Entry expiration time (unix timestamp in seconds)"
+    example:
+      expiresAt: "expiresAt"
+  schemaInclusionProof:
+    type: "object"
+    properties:
+      leaf:
+        type: "integer"
+        format: "int32"
+        title: "Index of the leaf for which the proof is generated"
+      width:
+        type: "integer"
+        format: "int32"
+        title: "Width of the tree at the leaf level"
+      terms:
+        type: "array"
+        title: "Proof terms (selected hashes from the tree)"
+        items:
+          type: "string"
+          format: "byte"
+          pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    example:
+      terms:
+      - "terms"
+      - "terms"
+      width: 2
+      leaf: 5
+  schemaKVMetadata:
+    type: "object"
+    properties:
+      deleted:
+        type: "boolean"
+        title: "True if this entry denotes a logical deletion"
+      expiration:
+        title: "Entry expiration information"
+        $ref: "#/definitions/schemaExpiration"
+      nonIndexable:
+        type: "boolean"
+        title: "If set to true, this entry will not be indexed and will only be accessed\
+          \ through GetAt calls"
+    example:
+      deleted: true
+      expiration:
+        expiresAt: "expiresAt"
+      nonIndexable: true
+  schemaLinearAdvanceProof:
+    type: "object"
+    properties:
+      linearProofTerms:
+        type: "array"
+        title: "terms for the linear chain"
+        items:
+          type: "string"
+          format: "byte"
+          pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      inclusionProofs:
+        type: "array"
+        title: "inclusion proofs for steps on the linear chain"
+        items:
+          $ref: "#/definitions/schemaInclusionProof"
+    title: "LinearAdvanceProof contains the proof of consistency between the consumed\
+      \ part of the older linear chain\nand the new Merkle Tree"
+    example:
+      inclusionProofs:
+      - terms:
+        - "terms"
+        - "terms"
+        width: 2
+        leaf: 5
+      - terms:
+        - "terms"
+        - "terms"
+        width: 2
+        leaf: 5
+      linearProofTerms:
+      - "linearProofTerms"
+      - "linearProofTerms"
+  schemaLinearProof:
+    type: "object"
+    properties:
+      sourceTxId:
+        type: "string"
+        format: "uint64"
+        title: "Starting transaction of the proof"
+      TargetTxId:
+        type: "string"
+        format: "uint64"
+        title: "End transaction of the proof"
+      terms:
+        type: "array"
+        title: "List of terms (inner hashes of transaction entries)"
+        items:
+          type: "string"
+          format: "byte"
+          pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    title: "LinearProof contains the linear part of the proof (outside the main Merkle\
+      \ Tree)"
+    example:
+      TargetTxId: "TargetTxId"
+      terms:
+      - "terms"
+      - "terms"
+      sourceTxId: "sourceTxId"
+  schemaReference:
+    type: "object"
+    properties:
+      tx:
+        type: "string"
+        format: "uint64"
+        title: "Transaction if when the reference key was set"
+      key:
+        type: "string"
+        format: "byte"
+        title: "Reference key"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      atTx:
+        type: "string"
+        format: "uint64"
+        title: "At which transaction the key is bound, 0 if reference is not bound\
+          \ and should read the most recent reference"
+      metadata:
+        title: "Metadata of the reference entry"
+        $ref: "#/definitions/schemaKVMetadata"
+      revision:
+        type: "string"
+        format: "uint64"
+        title: "Revision of the reference entry"
+    example:
+      metadata:
+        deleted: true
+        expiration:
+          expiresAt: "expiresAt"
+        nonIndexable: true
+      tx: "tx"
+      atTx: "atTx"
+      key: "key"
+      revision: "revision"
+  schemaSignature:
+    type: "object"
+    properties:
+      publicKey:
+        type: "string"
+        format: "byte"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      signature:
+        type: "string"
+        format: "byte"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    example:
+      signature: "signature"
+      publicKey: "publicKey"
+  schemaTx:
+    type: "object"
+    properties:
+      header:
+        title: "Transaction header"
+        $ref: "#/definitions/schemaTxHeader"
+      entries:
+        type: "array"
+        title: "Raw entry values"
+        items:
+          $ref: "#/definitions/schemaTxEntry"
+      kvEntries:
+        type: "array"
+        title: "KV entries in the transaction (parsed)"
+        items:
+          $ref: "#/definitions/schemaEntry"
+      zEntries:
+        type: "array"
+        title: "Sorted Set entries in the transaction (parsed)"
+        items:
+          $ref: "#/definitions/schemaZEntry"
+    example:
+      entries:
+      - metadata:
+          deleted: true
+          expiration:
+            expiresAt: "expiresAt"
+          nonIndexable: true
+        hValue: "hValue"
+        vLen: 1
+        value: "value"
+        key: "key"
+      - metadata:
+          deleted: true
+          expiration:
+            expiresAt: "expiresAt"
+          nonIndexable: true
+        hValue: "hValue"
+        vLen: 1
+        value: "value"
+        key: "key"
+      kvEntries:
+      - metadata:
+          deleted: true
+          expiration:
+            expiresAt: "expiresAt"
+          nonIndexable: true
+        expired: true
+        tx: "tx"
+        referencedBy:
+          metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          tx: "tx"
+          atTx: "atTx"
+          key: "key"
+          revision: "revision"
+        value: "value"
+        key: "key"
+        revision: "revision"
+      - metadata:
+          deleted: true
+          expiration:
+            expiresAt: "expiresAt"
+          nonIndexable: true
+        expired: true
+        tx: "tx"
+        referencedBy:
+          metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          tx: "tx"
+          atTx: "atTx"
+          key: "key"
+          revision: "revision"
+        value: "value"
+        key: "key"
+        revision: "revision"
+      header:
+        nentries: 0
+        prevAlh: "prevAlh"
+        metadata:
+          truncatedTxID: "truncatedTxID"
+        eH: "eH"
+        id: "id"
+        blTxId: "blTxId"
+        version: 6
+        ts: "ts"
+        blRoot: "blRoot"
+      zEntries:
+      - entry:
+          metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          expired: true
+          tx: "tx"
+          referencedBy:
+            metadata:
+              deleted: true
+              expiration:
+                expiresAt: "expiresAt"
+              nonIndexable: true
+            tx: "tx"
+            atTx: "atTx"
+            key: "key"
+            revision: "revision"
+          value: "value"
+          key: "key"
+          revision: "revision"
+        score: 5.962133916683182
+        set: "set"
+        atTx: "atTx"
+        key: "key"
+      - entry:
+          metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          expired: true
+          tx: "tx"
+          referencedBy:
+            metadata:
+              deleted: true
+              expiration:
+                expiresAt: "expiresAt"
+              nonIndexable: true
+            tx: "tx"
+            atTx: "atTx"
+            key: "key"
+            revision: "revision"
+          value: "value"
+          key: "key"
+          revision: "revision"
+        score: 5.962133916683182
+        set: "set"
+        atTx: "atTx"
+        key: "key"
+  schemaTxEntry:
+    type: "object"
+    properties:
+      key:
+        type: "string"
+        format: "byte"
+        title: "Raw key value (contains 1-byte prefix for kind of the key)"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      hValue:
+        type: "string"
+        format: "byte"
+        title: "Value hash"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      vLen:
+        type: "integer"
+        format: "int32"
+        title: "Value length"
+      metadata:
+        title: "Entry metadata"
+        $ref: "#/definitions/schemaKVMetadata"
+      value:
+        type: "string"
+        format: "byte"
+        description: "value, must be ignored when len(value) == 0 and vLen > 0.\n\
+          Otherwise sha256(value) must be equal to hValue."
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    example:
+      metadata:
+        deleted: true
+        expiration:
+          expiresAt: "expiresAt"
+        nonIndexable: true
+      hValue: "hValue"
+      vLen: 1
+      value: "value"
+      key: "key"
+  schemaTxHeader:
+    type: "object"
+    properties:
+      id:
+        type: "string"
+        format: "uint64"
+        title: "Transaction ID"
+      prevAlh:
+        type: "string"
+        format: "byte"
+        title: "State value (Accumulative Hash - Alh) of the previous transaction"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      ts:
+        type: "string"
+        format: "int64"
+        title: "Unix timestamp of the transaction (in seconds)"
+      nentries:
+        type: "integer"
+        format: "int32"
+        title: "Number of entries in a transaction"
+      eH:
+        type: "string"
+        format: "byte"
+        title: "Entries Hash - cumulative hash of all entries in the transaction"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      blTxId:
+        type: "string"
+        format: "uint64"
+        title: "Binary linking tree transaction ID\n(ID of last transaction already\
+          \ in the main Merkle Tree)"
+      blRoot:
+        type: "string"
+        format: "byte"
+        title: "Binary linking tree root (Root hash of the Merkle Tree)"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      version:
+        type: "integer"
+        format: "int32"
+        title: "Header version"
+      metadata:
+        title: "Transaction metadata"
+        $ref: "#/definitions/schemaTxMetadata"
+    example:
+      nentries: 0
+      prevAlh: "prevAlh"
+      metadata:
+        truncatedTxID: "truncatedTxID"
+      eH: "eH"
+      id: "id"
+      blTxId: "blTxId"
+      version: 6
+      ts: "ts"
+      blRoot: "blRoot"
+  schemaTxMetadata:
+    type: "object"
+    properties:
+      truncatedTxID:
+        type: "string"
+        format: "uint64"
+        title: "Entry expiration information"
+    title: "TxMetadata contains metadata set to whole transaction"
+    example:
+      truncatedTxID: "truncatedTxID"
+  schemaVerifiableTx:
+    type: "object"
+    properties:
+      tx:
+        title: "Transaction to verify"
+        $ref: "#/definitions/schemaTx"
+      dualProof:
+        title: "Proof for the transaction"
+        $ref: "#/definitions/schemaDualProof"
+      signature:
+        title: "Signature for the new state value"
+        $ref: "#/definitions/schemaSignature"
+    example:
+      dualProof:
+        LinearAdvanceProof:
+          inclusionProofs:
+          - terms:
+            - "terms"
+            - "terms"
+            width: 2
+            leaf: 5
+          - terms:
+            - "terms"
+            - "terms"
+            width: 2
+            leaf: 5
+          linearProofTerms:
+          - "linearProofTerms"
+          - "linearProofTerms"
+        sourceTxHeader:
+          nentries: 0
+          prevAlh: "prevAlh"
+          metadata:
+            truncatedTxID: "truncatedTxID"
+          eH: "eH"
+          id: "id"
+          blTxId: "blTxId"
+          version: 6
+          ts: "ts"
+          blRoot: "blRoot"
+        linearProof:
+          TargetTxId: "TargetTxId"
+          terms:
+          - "terms"
+          - "terms"
+          sourceTxId: "sourceTxId"
+        targetBlTxAlh: "targetBlTxAlh"
+        targetTxHeader:
+          nentries: 0
+          prevAlh: "prevAlh"
+          metadata:
+            truncatedTxID: "truncatedTxID"
+          eH: "eH"
+          id: "id"
+          blTxId: "blTxId"
+          version: 6
+          ts: "ts"
+          blRoot: "blRoot"
+        inclusionProof:
+        - "inclusionProof"
+        - "inclusionProof"
+        consistencyProof:
+        - "consistencyProof"
+        - "consistencyProof"
+        lastInclusionProof:
+        - "lastInclusionProof"
+        - "lastInclusionProof"
+      tx:
+        entries:
+        - metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          hValue: "hValue"
+          vLen: 1
+          value: "value"
+          key: "key"
+        - metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          hValue: "hValue"
+          vLen: 1
+          value: "value"
+          key: "key"
+        kvEntries:
+        - metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          expired: true
+          tx: "tx"
+          referencedBy:
+            metadata:
+              deleted: true
+              expiration:
+                expiresAt: "expiresAt"
+              nonIndexable: true
+            tx: "tx"
+            atTx: "atTx"
+            key: "key"
+            revision: "revision"
+          value: "value"
+          key: "key"
+          revision: "revision"
+        - metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          expired: true
+          tx: "tx"
+          referencedBy:
+            metadata:
+              deleted: true
+              expiration:
+                expiresAt: "expiresAt"
+              nonIndexable: true
+            tx: "tx"
+            atTx: "atTx"
+            key: "key"
+            revision: "revision"
+          value: "value"
+          key: "key"
+          revision: "revision"
+        header:
+          nentries: 0
+          prevAlh: "prevAlh"
+          metadata:
+            truncatedTxID: "truncatedTxID"
+          eH: "eH"
+          id: "id"
+          blTxId: "blTxId"
+          version: 6
+          ts: "ts"
+          blRoot: "blRoot"
+        zEntries:
+        - entry:
+            metadata:
+              deleted: true
+              expiration:
+                expiresAt: "expiresAt"
+              nonIndexable: true
+            expired: true
+            tx: "tx"
+            referencedBy:
+              metadata:
+                deleted: true
+                expiration:
+                  expiresAt: "expiresAt"
+                nonIndexable: true
+              tx: "tx"
+              atTx: "atTx"
+              key: "key"
+              revision: "revision"
+            value: "value"
+            key: "key"
+            revision: "revision"
+          score: 5.962133916683182
+          set: "set"
+          atTx: "atTx"
+          key: "key"
+        - entry:
+            metadata:
+              deleted: true
+              expiration:
+                expiresAt: "expiresAt"
+              nonIndexable: true
+            expired: true
+            tx: "tx"
+            referencedBy:
+              metadata:
+                deleted: true
+                expiration:
+                  expiresAt: "expiresAt"
+                nonIndexable: true
+              tx: "tx"
+              atTx: "atTx"
+              key: "key"
+              revision: "revision"
+            value: "value"
+            key: "key"
+            revision: "revision"
+          score: 5.962133916683182
+          set: "set"
+          atTx: "atTx"
+          key: "key"
+      signature:
+        signature: "signature"
+        publicKey: "publicKey"
+  schemaZEntry:
+    type: "object"
+    properties:
+      set:
+        type: "string"
+        format: "byte"
+        title: "Name of the sorted set"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      key:
+        type: "string"
+        format: "byte"
+        title: "Referenced key"
+        pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+      entry:
+        title: "Referenced entry"
+        $ref: "#/definitions/schemaEntry"
+      score:
+        type: "number"
+        format: "double"
+        title: "Sorted set element's score"
+      atTx:
+        type: "string"
+        format: "uint64"
+        title: "At which transaction the key is bound,\n0 if reference is not bound\
+          \ and should read the most recent reference"
+    example:
+      entry:
+        metadata:
+          deleted: true
+          expiration:
+            expiresAt: "expiresAt"
+          nonIndexable: true
+        expired: true
+        tx: "tx"
+        referencedBy:
+          metadata:
+            deleted: true
+            expiration:
+              expiresAt: "expiresAt"
+            nonIndexable: true
+          tx: "tx"
+          atTx: "atTx"
+          key: "key"
+          revision: "revision"
+        value: "value"
+        key: "key"
+        revision: "revision"
+      score: 5.962133916683182
+      set: "set"
+      atTx: "atTx"
+      key: "key"
+  schemav2CollectionCreateRequest:
     type: "object"
     properties:
       name:
@@ -251,12 +1100,12 @@ definitions:
       primaryKeys:
         type: "object"
         additionalProperties:
-          $ref: "#/definitions/schemaPossibleIndexType"
+          $ref: "#/definitions/schemav2PossibleIndexType"
       indexKeys:
         type: "object"
         additionalProperties:
-          $ref: "#/definitions/schemaPossibleIndexType"
-  schemaCollectionInformation:
+          $ref: "#/definitions/schemav2PossibleIndexType"
+  schemav2CollectionInformation:
     type: "object"
     properties:
       name:
@@ -264,25 +1113,25 @@ definitions:
       primaryKeys:
         type: "object"
         additionalProperties:
-          $ref: "#/definitions/schemaPossibleIndexType"
+          $ref: "#/definitions/schemav2PossibleIndexType"
       indexKeys:
         type: "object"
         additionalProperties:
-          $ref: "#/definitions/schemaPossibleIndexType"
+          $ref: "#/definitions/schemav2PossibleIndexType"
     example:
       primaryKeys:
         key: {}
       name: "name"
       indexKeys: {}
-  schemaCollectionListRequest:
+  schemav2CollectionListRequest:
     type: "object"
-  schemaCollectionListResponse:
+  schemav2CollectionListResponse:
     type: "object"
     properties:
       collections:
         type: "array"
         items:
-          $ref: "#/definitions/schemaCollectionInformation"
+          $ref: "#/definitions/schemav2CollectionInformation"
     example:
       collections:
       - primaryKeys:
@@ -293,7 +1142,59 @@ definitions:
           key: {}
         name: "name"
         indexKeys: {}
-  schemaDocumentInsertRequest:
+  schemav2DocumentAudit:
+    type: "object"
+    properties:
+      value:
+        type: "object"
+        properties: {}
+      transactionID:
+        type: "string"
+        format: "uint64"
+    example:
+      value: "{}"
+      transactionID: "transactionID"
+  schemav2DocumentAuditRequest:
+    type: "object"
+    properties:
+      collection:
+        type: "string"
+      primaryKeys:
+        type: "object"
+        additionalProperties:
+          $ref: "#/definitions/schemav2PossibleIndexType"
+      page:
+        type: "integer"
+        format: "int64"
+      perPage:
+        type: "integer"
+        format: "int64"
+  schemav2DocumentAuditResponse:
+    type: "object"
+    properties:
+      results:
+        type: "array"
+        items:
+          $ref: "#/definitions/schemav2DocumentAudit"
+      page:
+        type: "integer"
+        format: "int64"
+      perPage:
+        type: "integer"
+        format: "int64"
+      entriesLeft:
+        type: "integer"
+        format: "int64"
+    example:
+      perPage: 6
+      entriesLeft: 1
+      page: 0
+      results:
+      - value: "{}"
+        transactionID: "transactionID"
+      - value: "{}"
+        transactionID: "transactionID"
+  schemav2DocumentInsertRequest:
     type: "object"
     properties:
       collection:
@@ -303,17 +1204,29 @@ definitions:
         items:
           type: "object"
           properties: {}
-  schemaDocumentQuery:
+  schemav2DocumentProofRequest:
+    type: "object"
+    properties:
+      collection:
+        type: "string"
+      primaryKeys:
+        type: "object"
+        additionalProperties:
+          $ref: "#/definitions/schemav2PossibleIndexType"
+      atRevision:
+        type: "string"
+        format: "int64"
+  schemav2DocumentQuery:
     type: "object"
     properties:
       field:
         type: "string"
       operator:
-        $ref: "#/definitions/schemaQueryOperator"
+        $ref: "#/definitions/schemav2QueryOperator"
       value:
         type: "object"
         properties: {}
-  schemaDocumentSearchRequest:
+  schemav2DocumentSearchRequest:
     type: "object"
     properties:
       collection:
@@ -321,14 +1234,14 @@ definitions:
       query:
         type: "array"
         items:
-          $ref: "#/definitions/schemaDocumentQuery"
+          $ref: "#/definitions/schemav2DocumentQuery"
       page:
         type: "integer"
         format: "int64"
       perPage:
         type: "integer"
         format: "int64"
-  schemaDocumentSearchResponse:
+  schemav2DocumentSearchResponse:
     type: "object"
     properties:
       results:
@@ -352,16 +1265,7 @@ definitions:
       results:
       - "{}"
       - "{}"
-  schemaLoginRequest:
-    type: "object"
-    properties:
-      username:
-        type: "string"
-      password:
-        type: "string"
-      database:
-        type: "string"
-  schemaLoginResponseV2:
+  schemav2LoginResponseV2:
     type: "object"
     properties:
       token:
@@ -372,21 +1276,14 @@ definitions:
     example:
       expirationTimestamp: 0
       token: "token"
-  schemaPossibleIndexType:
+  schemav2PossibleIndexType:
     type: "string"
     enum:
     - "DOUBLE"
     - "INTEGER"
     - "STRING"
     default: "DOUBLE"
-  schemaProof:
-    type: "object"
-    properties:
-      name:
-        type: "string"
-    example:
-      name: "name"
-  schemaQueryOperator:
+  schemav2QueryOperator:
     type: "string"
     enum:
     - "EQ"

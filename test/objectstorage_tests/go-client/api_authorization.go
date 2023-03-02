@@ -30,19 +30,19 @@ AuthorizationApiService
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
 
-@return SchemaLoginResponseV2
+@return Schemav2LoginResponseV2
 */
-func (a *AuthorizationApiService) ImmuServiceV2LoginV2(ctx context.Context, body SchemaLoginRequest) (SchemaLoginResponseV2, *http.Response, error) {
+func (a *AuthorizationApiService) ImmuServiceV2LoginV2(ctx context.Context, body Immudbschemav2LoginRequest) (Schemav2LoginResponseV2, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-		localVarReturnValue SchemaLoginResponseV2
+		localVarReturnValue Schemav2LoginResponseV2
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/api/system/login"
+	localVarPath := a.client.cfg.BasePath + "/system/login"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -109,7 +109,7 @@ func (a *AuthorizationApiService) ImmuServiceV2LoginV2(ctx context.Context, body
 		}
 		
 		if localVarHttpResponse.StatusCode == 200 {
-			var v SchemaLoginResponseV2
+			var v Schemav2LoginResponseV2
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()

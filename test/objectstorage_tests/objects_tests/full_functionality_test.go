@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	apiclient "github.com/codenotary/immudb/objectstester/go-client"
+	apiclient "github.com/codenotary/immudb/test/objectstorage_tests/go-client"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +27,7 @@ func TestSimpleApplication(t *testing.T) {
 
 		documentsToInsert := []interface{}{documentToInsert}
 
-		documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+		documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 			Collection: collection,
 			Document:   documentsToInsert,
 		}
@@ -35,25 +36,25 @@ func TestSimpleApplication(t *testing.T) {
 		assert.Equal(t, http.StatusCode, 200)
 	}
 
-	query := make([]apiclient.SchemaDocumentQuery, 3)
+	query := make([]apiclient.Schemav2DocumentQuery, 3)
 	gtOperator := apiclient.GT
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    10,
 	}
 	likeOperator := apiclient.LIKE
-	query[1] = apiclient.SchemaDocumentQuery{
+	query[1] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "name",
 		Value:    "John",
 	}
-	query[2] = apiclient.SchemaDocumentQuery{
+	query[2] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "surname",
 		Value:    "Doe",
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    100,
@@ -100,7 +101,7 @@ func TestSimpleApplicationStructApproach(t *testing.T) {
 
 		documentsToInsert := []interface{}{documentToInsert}
 
-		documentInsertRequest := apiclient.SchemaDocumentInsertRequest{
+		documentInsertRequest := apiclient.Schemav2DocumentInsertRequest{
 			Collection: collection,
 			Document:   documentsToInsert,
 		}
@@ -109,25 +110,25 @@ func TestSimpleApplicationStructApproach(t *testing.T) {
 		assert.Equal(t, http.StatusCode, 200)
 	}
 
-	query := make([]apiclient.SchemaDocumentQuery, 3)
+	query := make([]apiclient.Schemav2DocumentQuery, 3)
 	gtOperator := apiclient.GT
-	query[0] = apiclient.SchemaDocumentQuery{
+	query[0] = apiclient.Schemav2DocumentQuery{
 		Operator: &gtOperator,
 		Field:    "age",
 		Value:    29,
 	}
 	likeOperator := apiclient.LIKE
-	query[1] = apiclient.SchemaDocumentQuery{
+	query[1] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "name",
 		Value:    "John",
 	}
-	query[2] = apiclient.SchemaDocumentQuery{
+	query[2] = apiclient.Schemav2DocumentQuery{
 		Operator: &likeOperator,
 		Field:    "surname",
 		Value:    "Doe",
 	}
-	searchRequest := apiclient.SchemaDocumentSearchRequest{
+	searchRequest := apiclient.Schemav2DocumentSearchRequest{
 		Collection: collection,
 		Page:       1,
 		PerPage:    100,
