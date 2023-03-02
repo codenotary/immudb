@@ -846,8 +846,8 @@
   "securityDefinitions": {
     "bearer": {
       "type": "apiKey",
-      "description": "Authentication token, prefixed by Bearer: Bearer \u003ctoken\u003e",
-      "name": "Authorization",
+      "description": "Session token: \u003ctoken\u003e",
+      "name": "grpc-metadata-sessionid",
       "in": "header"
     }
   },
