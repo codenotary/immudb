@@ -6134,14 +6134,13 @@ func TestCopyCatalogToTx(t *testing.T) {
 
 func BenchmarkInsertInto(b *testing.B) {
 	workerCount := 100
-	txCount := 1
-	eCount := 1
+	txCount := 10
+	eCount := 100
 
 	opts := store.DefaultOptions().
 		WithSynced(true).
+		WithMaxActiveTransactions(100).
 		WithMaxConcurrency(workerCount)
-
-	opts.IndexOpts.WithFlushThld(1_000_000)
 
 	st, err := store.Open(b.TempDir(), opts)
 	if err != nil {
@@ -6170,8 +6169,6 @@ func BenchmarkInsertInto(b *testing.B) {
 		b.Fail()
 	}
 
-	time.Sleep(1 * time.Second)
-
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -6188,7 +6185,7 @@ func BenchmarkInsertInto(b *testing.B) {
 				for i := 0; i < txCount; i++ {
 					txOpts := DefaultTxOptions().
 						WithExplicitClose(true).
-						WithSnapshotRenewalPeriod(10_000 * time.Millisecond).
+						WithSnapshotRenewalPeriod(0).
 						WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return ctxs[0].txHeader.ID })
 
 					tx, err := engine.NewTx(context.Background(), txOpts)
@@ -6207,6 +6204,7 @@ func BenchmarkInsertInto(b *testing.B) {
 						if err != nil {
 							b.Fail()
 						}
+
 					}
 
 					err = tx.Commit(context.Background())

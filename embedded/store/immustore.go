@@ -1268,10 +1268,12 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	}
 
 	if otx.hasPreconditions() {
-		// Preconditions must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(ctx, currPrecomittedTxID)
-		if err != nil {
-			return nil, err
+		if !otx.unsafeMVCC {
+			// Preconditions must be executed with up-to-date tree
+			err = s.WaitForIndexingUpto(ctx, currPrecomittedTxID)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = otx.checkPreconditions(s)
