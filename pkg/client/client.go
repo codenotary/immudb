@@ -507,7 +507,7 @@ type ImmuClient interface {
 	// NewTx starts a new transaction.
 	//
 	// Note: Currently such transaction can only be used for SQL operations.
-	NewTx(ctx context.Context) (Tx, error)
+	NewTx(ctx context.Context, opts ...TxOption) (Tx, error)
 
 	// TruncateDatabase truncates a database.
 	// This truncates the locally stored value log files used by the database.

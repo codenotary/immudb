@@ -48,7 +48,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	_, client := setupTest(t)
 
 	// tx mode
-	tx, err := client.NewTx(context.Background())
+	tx, err := client.NewTx(context.Background(), ic.UnsafeMVCC())
 	require.NoError(t, err)
 
 	err = tx.SQLExec(context.Background(), `CREATE TABLE table1(
