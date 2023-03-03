@@ -1440,6 +1440,8 @@ message NewTxRequest {
   NullableUint64 snapshotMustIncludeTxID = 2;
   // An existing snapshot may be reused as long as it is not older than the specified timeframe
   NullableMilliseconds snapshotRenewalPeriod = 3;
+  // Indexing may not be up to date when doing MVCC
+  bool unsafeMVCC = 4;
 }
 
 message NewTxResponse {
