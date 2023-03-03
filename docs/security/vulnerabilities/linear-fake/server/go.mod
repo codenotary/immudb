@@ -2,7 +2,7 @@ module linear-fake
 
 go 1.19
 
-require github.com/codenotary/immudb v1.3.3-0.20220901104917-81d4fb37b70e
+require github.com/codenotary/immudb v1.4.1
 
 require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
