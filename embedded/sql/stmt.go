@@ -218,6 +218,8 @@ func (stmt *CreateDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params ma
 		return nil, err
 	}
 
+	tx.mutatedCatalog = true
+
 	return tx, nil
 }
 
@@ -345,6 +347,8 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, err
 	}
 
+	tx.mutatedCatalog = true
+
 	return tx, nil
 }
 
@@ -441,6 +445,8 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, err
 	}
 
+	tx.mutatedCatalog = true
+
 	return tx, nil
 }
 
@@ -472,6 +478,8 @@ func (stmt *AddColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	if err != nil {
 		return nil, err
 	}
+
+	tx.mutatedCatalog = true
 
 	return tx, nil
 }
@@ -505,6 +513,8 @@ func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 	if err != nil {
 		return nil, err
 	}
+
+	tx.mutatedCatalog = true
 
 	return tx, nil
 }
