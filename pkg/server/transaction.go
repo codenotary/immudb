@@ -58,6 +58,8 @@ func (s *ImmuServer) NewTx(ctx context.Context, request *schema.NewTxRequest) (*
 		opts.WithSnapshotRenewalPeriod(time.Duration(request.SnapshotRenewalPeriod.GetValue()) * time.Millisecond)
 	}
 
+	opts.UnsafeMVCC = request.UnsafeMVCC
+
 	tx, err := sess.NewTransaction(ctx, opts)
 	if err != nil {
 		return nil, err

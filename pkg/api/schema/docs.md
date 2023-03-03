@@ -1150,6 +1150,7 @@ DEPRECATED
 | mode | [TxMode](#immudb.schema.TxMode) |  | Transaction mode |
 | snapshotMustIncludeTxID | [NullableUint64](#immudb.schema.NullableUint64) |  | An existing snapshot may be reused as long as it includes the specified transaction If not specified it will include up to the latest precommitted transaction |
 | snapshotRenewalPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | An existing snapshot may be reused as long as it is not older than the specified timeframe |
+| unsafeMVCC | [bool](#bool) |  | Indexing may not be up to date when doing MVCC |
 
 
 
