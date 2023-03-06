@@ -45,9 +45,9 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220708220712-1185a9018129
-	golang.org/x/sys v0.0.0-20220708085239-5a0f0661e09d
-	golang.org/x/tools v0.1.5
+	golang.org/x/net v0.8.0
+	golang.org/x/sys v0.6.0
+	golang.org/x/tools/cmd/cover v0.1.0-deprecated
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd
 	google.golang.org/grpc v1.46.2
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
