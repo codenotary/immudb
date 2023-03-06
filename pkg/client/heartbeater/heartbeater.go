@@ -32,11 +32,15 @@ type heartBeater struct {
 	serviceClient schema.ImmuServiceClient
 	done          chan struct{}
 	t             *time.Ticker
+	// connectionError is nil if the last keep alive request was successful
+	connectionError error
 }
 
 type HeartBeater interface {
 	KeepAlive(ctx context.Context)
 	Stop()
+	// IsAlive returns true if the last keep alive request was successful
+	IsAlive() bool
 }
 
 func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration) *heartBeater {
@@ -58,9 +62,10 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 			case t := <-hb.t.C:
 				hb.logger.Debugf("keep alive for %s at %s\n", hb.sessionID, t.String())
 
-				err := hb.keepAliveRequest(ctx)
-				if err != nil {
-					hb.logger.Errorf("an error occurred on keep alive %s at %s: %v\n", hb.sessionID, t.String(), err)
+				// hb.connectionError is nil if the last keep alive request was successful
+				hb.connectionError = hb.keepAliveRequest(ctx)
+				if hb.connectionError != nil {
+					hb.logger.Errorf("an error occurred on keep alive %s at %s: %v\n", hb.sessionID, t.String(), hb.connectionError)
 				}
 			}
 		}
@@ -82,4 +87,9 @@ func (hb *heartBeater) keepAliveRequest(ctx context.Context) error {
 	}
 
 	return err
+}
+
+// IsAlive returns true if the last keep alive request was successful
+func (hb *heartBeater) IsAlive() bool {
+	return hb.connectionError == nil
 }

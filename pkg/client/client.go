@@ -744,7 +744,11 @@ func (c *immuClient) Disconnect() error {
 
 // IsConnected checks whether the client is connected to the server.
 func (c *immuClient) IsConnected() bool {
-	return c.clientConn != nil && c.ServiceClient != nil
+	isConnected := c.clientConn != nil && c.ServiceClient != nil
+	if c.HeartBeater != nil {
+		isConnected = isConnected && c.HeartBeater.IsAlive()
+	}
+	return isConnected
 }
 
 // WaitForHealthCheck waits for up to Options.HealthCheckRetries seconds to
