@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/object"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -257,7 +256,7 @@ func (d *closedDB) CreateCollection(ctx context.Context, req *schemav2.Collectio
 }
 
 // GetDocument returns the document
-func (d *closedDB) GetDocument(ctx context.Context, collection string, id string) (*object.Document, error) {
+func (d *closedDB) GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

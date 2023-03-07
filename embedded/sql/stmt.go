@@ -2110,6 +2110,14 @@ type DataSource interface {
 	Alias() string
 }
 
+func NewSelectStmt(db string, table string, where ValueExp) *SelectStmt {
+	tableref := newTableRef(db, table, "")
+	return &SelectStmt{
+		ds:    tableref,
+		where: where,
+	}
+}
+
 type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
@@ -2623,6 +2631,15 @@ type Selector interface {
 	setAlias(alias string)
 }
 
+func NewColSelector(db, table, col, as string) *ColSelector {
+	return &ColSelector{
+		db:    db,
+		table: table,
+		col:   col,
+		as:    as,
+	}
+}
+
 type ColSelector struct {
 	db    string
 	table string
@@ -3096,6 +3113,14 @@ func (bexp *LikeBoolExp) isConstant() bool {
 
 func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func NewCmpBoolExp(op CmpOperator, left, right ValueExp) *CmpBoolExp {
+	return &CmpBoolExp{
+		op:    op,
+		left:  left,
+		right: right,
+	}
 }
 
 type CmpBoolExp struct {

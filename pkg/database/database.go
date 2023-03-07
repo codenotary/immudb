@@ -33,7 +33,6 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	schemav2 "github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -297,6 +296,16 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		}
 
 		err = dbi.sqlEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		}
+
+		_, _, err = dbi.objectEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		}
+
+		err = dbi.objectEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
@@ -1645,121 +1654,4 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 func (d *db) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
 	// TODO: add object store support for truncation too
 	return d.sqlEngine.CopyCatalogToTx(ctx, tx)
-}
-
-// TODO: make new objectdb to embed object engine commands
-// GetCollection returns the collection schema
-func (d *db) GetCollection(ctx context.Context, collection string) (interface{}, error) {
-	return nil, nil
-}
-
-// CreateCollection creates a new collection
-func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error {
-	collectionName := req.Name
-	primaryKeys := make([]string, 0)
-	collectionSpec := make([]*sql.ColSpec, 0, len(req.PrimaryKeys))
-
-	for name, pk := range req.PrimaryKeys {
-		schType, isValid := SchemaToValueType[pk]
-		if !isValid {
-			return fmt.Errorf("invalid primary key type: %v", pk)
-		}
-		primaryKeys = append(primaryKeys, name)
-		// TODO: add support for other types
-		// TODO: add support for max length
-		// TODO: add support for auto increment
-		collectionSpec = append(collectionSpec, sql.NewColSpec(name, schType, 50, false, false))
-	}
-
-	// add support for blob
-	// TODO: add support for max length for blob storage
-	collectionSpec = append(collectionSpec, sql.NewColSpec("_obj", sql.BLOBType, 10000, false, false))
-
-	_, _, err := d.objectEngine.ExecPreparedStmts(
-		context.Background(),
-		nil,
-		[]sql.SQLStmt{sql.NewCreateTableStmt(
-			collectionName,
-			false,
-			collectionSpec,
-			primaryKeys,
-		)},
-		nil,
-	)
-	return err
-}
-
-// GetDocument returns the document
-func (d *db) GetDocument(ctx context.Context, collection string, id string) (*object.Document, error) {
-	return nil, nil
-}
-
-// CreateDocument creates a new document
-func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (string, error) {
-	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
-	if err != nil {
-		return "", err
-	}
-	defer tx.Cancel()
-
-	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(d.objectEngine.CurrentDatabase(), req.Collection)
-	if err != nil {
-		return "", err
-	}
-
-	cols := make([]string, 0)
-	tcolumns := table.ColsByName()
-	rows := make([]*sql.RowSpec, 0)
-
-	for _, col := range tcolumns {
-		cols = append(cols, col.Name())
-	}
-
-	// TODO: should be able to send only a single document
-	for _, doc := range req.Document {
-		values := make([]sql.ValueExp, 0)
-		for _, col := range tcolumns {
-			if rval, ok := doc.Fields[col.Name()]; ok && col.Name() != "_obj" {
-				valType, err := ValueTypeToExp(col.Type(), rval)
-				if err != nil {
-					return "", err
-				}
-				values = append(values, valType)
-			}
-			if col.Name() == "_obj" {
-				document, err := object.NewDocumentFrom(doc)
-				if err != nil {
-					return "", err
-				}
-				res, err := document.MarshalJSON()
-				if err != nil {
-					return "", err
-				}
-				values = append(values, sql.NewBlob(res))
-			}
-		}
-
-		if len(values) > 0 {
-			rows = append(rows, sql.NewRowSpec(values))
-		}
-	}
-
-	// add documents to collection
-	_, _, err = d.objectEngine.ExecPreparedStmts(
-		context.Background(),
-		nil,
-		[]sql.SQLStmt{
-			sql.NewUpserIntoStmt(
-				d.objectEngine.CurrentDatabase(),
-				req.Collection,
-				cols,
-				rows,
-				nil,
-			),
-		},
-		nil,
-	)
-
-	return "", err
 }
