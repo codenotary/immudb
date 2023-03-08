@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type DocumentServiceClient interface {
 	DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*DocumentInsertResponse, error)
 	DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error)
+	DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error)
+	DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*DocumentProofResponse, error)
 	CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionCreateResponse, error)
 	CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionGetResponse, error)
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
@@ -46,6 +48,24 @@ func (c *documentServiceClient) DocumentInsert(ctx context.Context, in *Document
 func (c *documentServiceClient) DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error) {
 	out := new(DocumentSearchResponse)
 	err := c.cc.Invoke(ctx, "/immudb.documentsschema.DocumentService/DocumentSearch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error) {
+	out := new(DocumentAuditResponse)
+	err := c.cc.Invoke(ctx, "/immudb.documentsschema.DocumentService/DocumentAudit", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*DocumentProofResponse, error) {
+	out := new(DocumentProofResponse)
+	err := c.cc.Invoke(ctx, "/immudb.documentsschema.DocumentService/DocumentProof", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +114,8 @@ func (c *documentServiceClient) CollectionDelete(ctx context.Context, in *Collec
 type DocumentServiceServer interface {
 	DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error)
 	DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error)
+	DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error)
+	DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error)
 	CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionCreateResponse, error)
 	CollectionGet(context.Context, *CollectionGetRequest) (*CollectionGetResponse, error)
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
@@ -109,6 +131,12 @@ func (UnimplementedDocumentServiceServer) DocumentInsert(context.Context, *Docum
 }
 func (UnimplementedDocumentServiceServer) DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentSearch not implemented")
+}
+func (UnimplementedDocumentServiceServer) DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentAudit not implemented")
+}
+func (UnimplementedDocumentServiceServer) DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentProof not implemented")
 }
 func (UnimplementedDocumentServiceServer) CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionCreateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionCreate not implemented")
@@ -166,6 +194,42 @@ func _DocumentService_DocumentSearch_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).DocumentSearch(ctx, req.(*DocumentSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_DocumentAudit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentAuditRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DocumentAudit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.documentsschema.DocumentService/DocumentAudit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DocumentAudit(ctx, req.(*DocumentAuditRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_DocumentProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentProofRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DocumentProof(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.documentsschema.DocumentService/DocumentProof",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DocumentProof(ctx, req.(*DocumentProofRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -256,6 +320,14 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DocumentSearch",
 			Handler:    _DocumentService_DocumentSearch_Handler,
+		},
+		{
+			MethodName: "DocumentAudit",
+			Handler:    _DocumentService_DocumentAudit_Handler,
+		},
+		{
+			MethodName: "DocumentProof",
+			Handler:    _DocumentService_DocumentProof_Handler,
 		},
 		{
 			MethodName: "CollectionCreate",

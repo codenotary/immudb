@@ -17,8 +17,15 @@
     - [CollectionInformation.PrimaryKeysEntry](#immudb.documentsschema.CollectionInformation.PrimaryKeysEntry)
     - [CollectionListRequest](#immudb.documentsschema.CollectionListRequest)
     - [CollectionListResponse](#immudb.documentsschema.CollectionListResponse)
+    - [DocumentAudit](#immudb.documentsschema.DocumentAudit)
+    - [DocumentAuditRequest](#immudb.documentsschema.DocumentAuditRequest)
+    - [DocumentAuditRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentAuditRequest.PrimaryKeysEntry)
+    - [DocumentAuditResponse](#immudb.documentsschema.DocumentAuditResponse)
     - [DocumentInsertRequest](#immudb.documentsschema.DocumentInsertRequest)
     - [DocumentInsertResponse](#immudb.documentsschema.DocumentInsertResponse)
+    - [DocumentProofRequest](#immudb.documentsschema.DocumentProofRequest)
+    - [DocumentProofRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentProofRequest.PrimaryKeysEntry)
+    - [DocumentProofResponse](#immudb.documentsschema.DocumentProofResponse)
     - [DocumentQuery](#immudb.documentsschema.DocumentQuery)
     - [DocumentSearchRequest](#immudb.documentsschema.DocumentSearchRequest)
     - [DocumentSearchResponse](#immudb.documentsschema.DocumentSearchResponse)
@@ -240,6 +247,74 @@
 
 
 
+<a name="immudb.documentsschema.DocumentAudit"></a>
+
+### DocumentAudit
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| transactionID | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentsschema.DocumentAuditRequest"></a>
+
+### DocumentAuditRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| primaryKeys | [DocumentAuditRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentAuditRequest.PrimaryKeysEntry) | repeated |  |
+| page | [uint32](#uint32) |  |  |
+| perPage | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentsschema.DocumentAuditRequest.PrimaryKeysEntry"></a>
+
+### DocumentAuditRequest.PrimaryKeysEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [IndexValue](#immudb.documentsschema.IndexValue) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentsschema.DocumentAuditResponse"></a>
+
+### DocumentAuditResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| results | [DocumentAudit](#immudb.documentsschema.DocumentAudit) | repeated |  |
+| page | [uint32](#uint32) |  |  |
+| perPage | [uint32](#uint32) |  |  |
+| entriesLeft | [uint32](#uint32) |  |  |
+
+
+
+
+
+
 <a name="immudb.documentsschema.DocumentInsertRequest"></a>
 
 ### DocumentInsertRequest
@@ -259,6 +334,54 @@
 <a name="immudb.documentsschema.DocumentInsertResponse"></a>
 
 ### DocumentInsertResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| proof | [immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentsschema.DocumentProofRequest"></a>
+
+### DocumentProofRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| primaryKeys | [DocumentProofRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentProofRequest.PrimaryKeysEntry) | repeated |  |
+| atRevision | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentsschema.DocumentProofRequest.PrimaryKeysEntry"></a>
+
+### DocumentProofRequest.PrimaryKeysEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [IndexValue](#immudb.documentsschema.IndexValue) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentsschema.DocumentProofResponse"></a>
+
+### DocumentProofResponse
 
 
 
@@ -416,6 +539,8 @@
 | ----------- | ------------ | ------------- | ------------|
 | DocumentInsert | [DocumentInsertRequest](#immudb.documentsschema.DocumentInsertRequest) | [DocumentInsertResponse](#immudb.documentsschema.DocumentInsertResponse) |  |
 | DocumentSearch | [DocumentSearchRequest](#immudb.documentsschema.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.documentsschema.DocumentSearchResponse) |  |
+| DocumentAudit | [DocumentAuditRequest](#immudb.documentsschema.DocumentAuditRequest) | [DocumentAuditResponse](#immudb.documentsschema.DocumentAuditResponse) |  |
+| DocumentProof | [DocumentProofRequest](#immudb.documentsschema.DocumentProofRequest) | [DocumentProofResponse](#immudb.documentsschema.DocumentProofResponse) |  |
 | CollectionCreate | [CollectionCreateRequest](#immudb.documentsschema.CollectionCreateRequest) | [CollectionCreateResponse](#immudb.documentsschema.CollectionCreateResponse) |  |
 | CollectionGet | [CollectionGetRequest](#immudb.documentsschema.CollectionGetRequest) | [CollectionGetResponse](#immudb.documentsschema.CollectionGetResponse) |  |
 | CollectionList | [CollectionListRequest](#immudb.documentsschema.CollectionListRequest) | [CollectionListResponse](#immudb.documentsschema.CollectionListResponse) |  |

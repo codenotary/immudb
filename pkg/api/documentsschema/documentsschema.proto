@@ -82,6 +82,40 @@ message DocumentSearchResponse {
   uint32 entriesLeft = 4;
 }
 
+
+message DocumentProofRequest {
+  string collection = 1;
+  map<string, IndexValue> primaryKeys = 2;
+  int64 atRevision = 3;
+}
+
+
+message DocumentProofResponse {
+  schema.VerifiableTx proof = 1;
+}
+
+
+message DocumentAuditRequest {
+  string collection = 1;
+  map<string, IndexValue> primaryKeys = 2;
+  uint32 page = 3;
+  uint32 perPage = 4;
+}
+
+
+message DocumentAuditResponse {
+  repeated DocumentAudit results = 1;
+  uint32 page = 2;
+  uint32 perPage = 3;
+  uint32 entriesLeft = 4;
+}
+
+message DocumentAudit {
+  google.protobuf.Struct value = 1;
+  uint64 transactionID = 2;
+}
+
+
 message IndexOption {
   IndexType type = 1;
 }
@@ -154,6 +188,27 @@ service DocumentService {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";
+    };
+  } 
+
+ 
+  rpc DocumentAudit(DocumentAuditRequest) returns (DocumentAuditResponse) {
+    option (google.api.http) = {
+      post: "/documents/audit"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: ["documents", "audit"];
+    };
+  } 
+ 
+  rpc DocumentProof(DocumentProofRequest) returns (DocumentProofResponse) {
+    option (google.api.http) = {
+      post: "/documents/proof"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: ["documents", "audit"];
     };
   } 
 

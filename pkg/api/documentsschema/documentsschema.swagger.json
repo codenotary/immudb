@@ -137,6 +137,39 @@
         ]
       }
     },
+    "/documents/audit": {
+      "post": {
+        "operationId": "DocumentService_DocumentAudit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/documentsschemaDocumentAuditResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/documentsschemaDocumentAuditRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents",
+          "audit"
+        ]
+      }
+    },
     "/documents/insert": {
       "put": {
         "operationId": "DocumentService_DocumentInsert",
@@ -166,6 +199,39 @@
         ],
         "tags": [
           "documents"
+        ]
+      }
+    },
+    "/documents/proof": {
+      "post": {
+        "operationId": "DocumentService_DocumentProof",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/documentsschemaDocumentProofResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/documentsschemaDocumentProofRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents",
+          "audit"
         ]
       }
     },
@@ -281,6 +347,63 @@
         }
       }
     },
+    "documentsschemaDocumentAudit": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object"
+        },
+        "transactionID": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "documentsschemaDocumentAuditRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "primaryKeys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentsschemaIndexValue"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "perPage": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "documentsschemaDocumentAuditResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/documentsschemaDocumentAudit"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "perPage": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "entriesLeft": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "documentsschemaDocumentInsertRequest": {
       "type": "object",
       "properties": {
@@ -296,6 +419,32 @@
       }
     },
     "documentsschemaDocumentInsertResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/schemaVerifiableTx"
+        }
+      }
+    },
+    "documentsschemaDocumentProofRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "primaryKeys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentsschemaIndexValue"
+          }
+        },
+        "atRevision": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "documentsschemaDocumentProofResponse": {
       "type": "object",
       "properties": {
         "proof": {
@@ -378,6 +527,24 @@
         "STRING"
       ],
       "default": "DOUBLE"
+    },
+    "documentsschemaIndexValue": {
+      "type": "object",
+      "properties": {
+        "null_value": {
+          "type": "string"
+        },
+        "number_value": {
+          "type": "number",
+          "format": "double"
+        },
+        "string_value": {
+          "type": "string"
+        },
+        "bool_value": {
+          "type": "boolean"
+        }
+      }
     },
     "documentsschemaQueryOperator": {
       "type": "string",
@@ -829,8 +996,8 @@
   "securityDefinitions": {
     "bearer": {
       "type": "apiKey",
-      "description": "Authentication token, prefixed by Bearer: Bearer \u003ctoken\u003e",
-      "name": "Authorization",
+      "description": "Session token: \u003ctoken\u003e",
+      "name": "grpc-metadata-sessionid",
       "in": "header"
     }
   },

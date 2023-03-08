@@ -53,3 +53,19 @@ func (s *ImmuServer) CollectionDelete(ctx context.Context, req *documentsschema.
 	}
 	return nil, nil
 }
+
+func (s *ImmuServer) DocumentAudit(ctx context.Context, req *documentsschema.DocumentAuditRequest) (*documentsschema.DocumentAuditResponse, error) {
+	_, err := s.getDBFromCtx(ctx, "DocumentAudit")
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (s *ImmuServer) DocumentProof(ctx context.Context, req *documentsschema.DocumentProofRequest) (*documentsschema.DocumentProofResponse, error) {
+	_, err := s.getDBFromCtx(ctx, "DocumentProof")
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
