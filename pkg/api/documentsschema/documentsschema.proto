@@ -21,8 +21,8 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
       value: {
         type: TYPE_API_KEY
         in: IN_HEADER
-        name: "Authorization"
-        description: "Authentication token, prefixed by Bearer: Bearer <token>"
+        name: "grpc-metadata-sessionid"
+        description: "Session token: <token>"
       }
     }
   }
