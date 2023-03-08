@@ -246,7 +246,7 @@ func (db *closedDB) Truncate(ts time.Duration) error {
 }
 
 // GetCollection returns the collection schema
-func (d *closedDB) GetCollection(ctx context.Context, collection string) (interface{}, error) {
+func (d *closedDB) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionInformation, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

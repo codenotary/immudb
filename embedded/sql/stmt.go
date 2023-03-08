@@ -3128,6 +3128,14 @@ type CmpBoolExp struct {
 	left, right ValueExp
 }
 
+func (bexp *CmpBoolExp) Left() ValueExp {
+	return bexp.left
+}
+
+func (bexp *CmpBoolExp) Right() ValueExp {
+	return bexp.right
+}
+
 func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	tleft, err := bexp.left.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
@@ -3353,9 +3361,28 @@ func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
 	return false
 }
 
+func NewBinBoolExp(op LogicOperator, lrexp, rrexp ValueExp) *BinBoolExp {
+	bexp := &BinBoolExp{
+		op: op,
+	}
+
+	bexp.left = lrexp
+	bexp.right = rrexp
+
+	return bexp
+}
+
 type BinBoolExp struct {
 	op          LogicOperator
 	left, right ValueExp
+}
+
+func (bexp *BinBoolExp) Left() ValueExp {
+	return bexp.left
+}
+
+func (bexp *BinBoolExp) Right() ValueExp {
+	return bexp.right
 }
 
 func (bexp *BinBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
