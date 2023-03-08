@@ -218,45 +218,10 @@ func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 
 // GetDocument returns the document
 func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
-	query := req.Query[0]
-	tcols, err := d.getCollectionSchema(ctx, req.Collection)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: modify this check for multiple queries
-	isFieldValue := false
-	var fieldType string
-	for _, col := range tcols {
-		if col.Name() == query.Field {
-			isFieldValue = true
-			fieldType = col.Type()
-		}
-	}
-	if !isFieldValue {
-		return nil, fmt.Errorf("invalid field name: %v", query.Field)
-	}
-
-	valType, err := valueTypeToExp(fieldType, query.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: replace this with generateBinBoolExp
 	exp, err := d.generateBinBoolExp(ctx, req.Collection, req.Query)
 	if err != nil {
 		return nil, err
 	}
-
-	// op := sql.NewSelectStmt(
-	// 	d.objectEngine.CurrentDatabase(),
-	// 	req.Collection,
-	// 	sql.NewCmpBoolExp(
-	// 		int(query.Operator),
-	// 		sql.NewColSelector(d.objectEngine.CurrentDatabase(), req.Collection, query.GetField(), ""),
-	// 		valType,
-	// 	),
-	// )
 
 	op := sql.NewSelectStmt(
 		d.objectEngine.CurrentDatabase(),
