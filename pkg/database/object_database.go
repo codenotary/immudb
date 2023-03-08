@@ -17,7 +17,7 @@ const (
 
 // Schema to ValueType mapping
 var (
-	SchemaToValueType = map[schemav2.PossibleIndexType]sql.SQLValueType{
+	schemaToValueType = map[schemav2.PossibleIndexType]sql.SQLValueType{
 		schemav2.PossibleIndexType_STRING:  sql.VarcharType,
 		schemav2.PossibleIndexType_INTEGER: sql.IntegerType,
 	}
@@ -68,10 +68,49 @@ var (
 	}
 )
 
-// TODO: make new objectdb to embed object engine commands
 // GetCollection returns the collection schema
-func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionInformation, error) {
-	return nil, nil
+func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (resp *schemav2.CollectionInformation, err error) {
+	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	// check if collection exists
+	table, err := tx.Catalog().GetTableByName(d.name, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("collection %s does not exist", req.Name)
+	}
+
+	// fetch primary and index keys from collection schema
+	indexes := table.GetIndexes()
+	if len(indexes) == 0 {
+		return nil, fmt.Errorf("collection %s does not have a indexes", req.Name)
+	}
+
+	// iterate over indexes and extract primary and index keys
+	for _, idx := range indexes {
+		for _, col := range idx.Cols() {
+			var colType schemav2.PossibleIndexType
+			switch col.Type() {
+			case sql.VarcharType:
+				colType = schemav2.PossibleIndexType_STRING
+			case sql.IntegerType:
+				colType = schemav2.PossibleIndexType_INTEGER
+			case sql.BLOBType:
+				colType = schemav2.PossibleIndexType_STRING
+			}
+
+			// check if primary key
+			if idx.IsPrimary() {
+				resp.PrimaryKeys[col.Name()] = colType
+			} else {
+				resp.IndexKeys[col.Name()] = colType
+			}
+		}
+	}
+
+	return resp, nil
 }
 
 // CreateCollection creates a new collection
@@ -80,8 +119,14 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 	primaryKeys := make([]string, 0)
 	collectionSpec := make([]*sql.ColSpec, 0, len(req.PrimaryKeys))
 
+	// validate collection to contain at least one primary key
+	if len(req.PrimaryKeys) == 0 {
+		return fmt.Errorf("collection must have at least one primary key")
+	}
+
+	// validate primary keys
 	for name, pk := range req.PrimaryKeys {
-		schType, isValid := SchemaToValueType[pk]
+		schType, isValid := schemaToValueType[pk]
 		if !isValid {
 			return fmt.Errorf("invalid primary key type: %v", pk)
 		}
@@ -172,24 +217,6 @@ func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 					values = append(values, valType)
 				}
 			}
-			// if rval, ok := doc.Fields[col.Name()]; ok && col.Name() != "_obj" {
-			// 	valType, err := valueTypeToExp(col.Type(), rval)
-			// 	if err != nil {
-			// 		return "", err
-			// 	}
-			// 	values = append(values, valType)
-			// }
-			// if col.Name() == "_obj" {
-			// 	document, err := object.NewDocumentFrom(doc)
-			// 	if err != nil {
-			// 		return "", err
-			// 	}
-			// 	res, err := document.MarshalJSON()
-			// 	if err != nil {
-			// 		return "", err
-			// 	}
-			// 	values = append(values, sql.NewBlob(res))
-			// }
 		}
 
 		if len(values) > 0 {
@@ -291,39 +318,6 @@ func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchReques
 }
 
 // generateBinBoolExp generates a boolean expression from a list of expressions.
-/*
-	TODO: remove this
-	An example format is below
-		/*
-		where: &BinBoolExp{
-			op: AND,
-			left: &BinBoolExp{
-				op: AND,
-				left: &CmpBoolExp{
-					op: EQ,
-					left: &ColSelector{
-						col: "country",
-					},
-					right: &Varchar{val: "US"},
-				},
-				right: &CmpBoolExp{
-					op: LE,
-					left: &ColSelector{
-						col: "time",
-					},
-					right: &FnCall{fn: "now"},
-				},
-			},
-			right: &CmpBoolExp{
-				op: EQ,
-				left: &ColSelector{
-					col: "name",
-				},
-				right: &Param{id: "pname"},
-			},
-		},
-
-*/
 func (d *db) generateBinBoolExp(ctx context.Context, collection string, expressions []*schemav2.DocumentQuery) (*sql.BinBoolExp, error) {
 	if len(expressions) == 0 {
 		return nil, nil
