@@ -22,8 +22,9 @@ message OpenSessionRequestV2 {
 
 message OpenSessionResponseV2 {
   string token = 1;
-  int32 expirationTimestamp = 2;
-  int32 inactivityTimestamp = 3;
+  string serverUUID = 2;
+  int32 expirationTimestamp = 3;
+  int32 inactivityTimestamp = 4;
 
 }
 

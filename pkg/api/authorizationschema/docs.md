@@ -46,6 +46,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | token | [string](#string) |  |  |
+| serverUUID | [string](#string) |  |  |
 | expirationTimestamp | [int32](#int32) |  |  |
 | inactivityTimestamp | [int32](#int32) |  |  |
 

@@ -67,6 +67,9 @@
         "token": {
           "type": "string"
         },
+        "serverUUID": {
+          "type": "string"
+        },
         "expirationTimestamp": {
           "type": "integer",
           "format": "int32"
