@@ -108,35 +108,26 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-// WrappedServerStream ...
-type WrappedServerStream struct {
-	grpc.ServerStream
-}
-
-// RecvMsg ...
-func (w *WrappedServerStream) RecvMsg(m interface{}) error {
-	return w.ServerStream.RecvMsg(m)
-}
-
-// SendMsg ...
-func (w *WrappedServerStream) SendMsg(m interface{}) error {
-	return w.ServerStream.SendMsg(m)
-}
-
 // UUIDStreamContextSetter set uuid header in a stream
 func (u *uuidContext) UUIDStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.UUID.String())
-	ss.SendHeader(header)
-	return handler(srv, &WrappedServerStream{ss})
+
+	err := ss.SendHeader(header)
+	if err != nil {
+		return err
+	}
+
+	return handler(srv, ss)
 }
 
 // UUIDContextSetter set uuid header
 func (u *uuidContext) UUIDContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.UUID.String())
+
 	err := grpc.SendHeader(ctx, header)
 	if err != nil {
 		return nil, err
 	}
-	m, err := handler(ctx, req)
-	return m, err
+
+	return handler(ctx, req)
 }
