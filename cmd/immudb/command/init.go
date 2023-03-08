@@ -84,7 +84,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Duration("session-timeout", 2*time.Minute, "session timeout is a duration after which an inactive session is forcibly closed by the server")
 	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Minute, "sessions guard check interval")
 	cmd.Flags().MarkHidden("sessions-guard-check-interval")
-	cmd.Flags().Bool("reflection", options.ReflectionServerEnabled, "GRPC relection server enabled")
+	cmd.Flags().Bool("reflection", options.ReflectionServerEnabled, "GRPC reflection server enabled")
 	cmd.Flags().Bool("swaggerui", options.SwaggerUIEnabled, "Swagger UI enabled")
 
 	flagNameMapping := map[string]string{

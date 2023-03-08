@@ -5,8 +5,9 @@ import (
 	"crypto/tls"
 	"net/http"
 
+	"github.com/codenotary/immudb/pkg/api/authorizationschema"
+	"github.com/codenotary/immudb/pkg/api/documentsschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/swagger"
 	"github.com/codenotary/immudb/webconsole"
@@ -21,7 +22,12 @@ func StartWebServer(addr string, tlsConfig *tls.Config, s *ImmuServer, l logger.
 	}
 
 	proxyMuxV2 := runtime.NewServeMux()
-	err = schemav2.RegisterImmuServiceV2HandlerServer(context.Background(), proxyMuxV2, s)
+	err = documentsschema.RegisterDocumentServiceHandlerServer(context.Background(), proxyMuxV2, s)
+	if err != nil {
+		return nil, err
+	}
+
+	err = authorizationschema.RegisterAuthorizationServiceHandlerServer(context.Background(), proxyMuxV2, s)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package immudb.schemav2;
+package immudb.documentsschema;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
@@ -8,12 +8,12 @@ import "google/protobuf/struct.proto";
 import "schema.proto";
 import "protoc-gen-swagger/options/annotations.proto";
 
-option go_package = "github.com/codenotary/immudb/pkg/api/schemav2";
+option go_package = "github.com/codenotary/immudb/pkg/api/documentsschema";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   base_path: "/api/v2",
   info: {
     title: "immudb REST API v2";
-    description: ""
+    description: "Objects storage API"
   };
   security_definitions: {
     security: {
@@ -38,6 +38,10 @@ message DocumentInsertRequest {
   repeated google.protobuf.Struct document = 2;
 }
 
+message DocumentInsertResponse {
+  schema.VerifiableTx proof = 1;
+}
+
 
 enum QueryOperator {
   EQ = 0;
@@ -46,6 +50,15 @@ enum QueryOperator {
   LT = 3;
   LTE = 4;
   LIKE = 5;
+}
+
+message IndexValue {
+  oneof kind {
+    google.protobuf.NullValue null_value = 1;
+    double number_value = 2;
+    string string_value = 3;
+    bool bool_value = 4;
+  }
 }
 
 message DocumentQuery {
@@ -69,19 +82,11 @@ message DocumentSearchResponse {
   uint32 entriesLeft = 4;
 }
 
-message LoginRequest {
-  string username = 1;
-  string password = 2;
-  string database = 3;
+message IndexOption {
+  IndexType type = 1;
 }
 
-message LoginResponseV2 {
-  string token = 1;
-  int32 expirationTimestamp = 2;
-
-}
-
-enum PossibleIndexType {
+enum IndexType {
   DOUBLE = 0;
   INTEGER = 1;
   STRING = 2;
@@ -89,14 +94,22 @@ enum PossibleIndexType {
 
 message CollectionCreateRequest {
   string name = 1;
-  map<string, PossibleIndexType> primaryKeys = 2;
-  map<string, PossibleIndexType>  indexKeys = 3;
+  map<string, IndexOption> primaryKeys = 2;
+  map<string, IndexOption>  indexKeys = 3;
+}
+
+message CollectionCreateResponse {
+  CollectionInformation collection = 1;
 }
 
 message CollectionInformation {
   string name = 1;
-  map<string, PossibleIndexType>  primaryKeys = 2;
-  map<string, PossibleIndexType>  indexKeys = 3;
+  map<string, IndexOption>  primaryKeys = 2;
+  map<string, IndexOption>  indexKeys = 3;
+}
+
+message CollectionGetResponse {
+  CollectionInformation collection = 1;
 }
 
 message CollectionGetRequest {
@@ -114,23 +127,17 @@ message CollectionDeleteRequest {
   string name = 1;
 }
 
+message CollectionDeleteResponse {
+  google.protobuf.Empty response = 1;
+}
+
 message Proof {
   string name = 1;
 }
 
 
-service ImmuServiceV2 {
-  rpc LoginV2(LoginRequest) returns (LoginResponseV2) {
-    option (google.api.http) = {
-      post: "/system/login"
-      body: "*"
-    };
-    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: "authorization";
-    };
-  } 
-
-  rpc DocumentInsert(DocumentInsertRequest) returns (schema.VerifiableTx) {
+service DocumentService {
+  rpc DocumentInsert(DocumentInsertRequest) returns (DocumentInsertResponse) {
     option (google.api.http) = {
       put: "/documents/insert"
       body: "*"
@@ -150,7 +157,7 @@ service ImmuServiceV2 {
     };
   } 
 
-  rpc CollectionCreate(CollectionCreateRequest) returns (CollectionInformation) {
+  rpc CollectionCreate(CollectionCreateRequest) returns (CollectionCreateResponse) {
     option (google.api.http) = {
       put: "/collections/create"
       body: "*"
@@ -160,7 +167,7 @@ service ImmuServiceV2 {
     };
   }
 
-  rpc CollectionGet(CollectionGetRequest) returns (CollectionInformation) {
+  rpc CollectionGet(CollectionGetRequest) returns (CollectionGetResponse) {
     option (google.api.http) = {
       get: "/collections/get"
     };
@@ -179,7 +186,7 @@ service ImmuServiceV2 {
       tags: "collections";
     };
   }
-  rpc CollectionDelete(CollectionDeleteRequest) returns (google.protobuf.Empty) {
+  rpc CollectionDelete(CollectionDeleteRequest) returns (CollectionDeleteResponse) {
     option (google.api.http) = {
       delete: "/collections/delete"
     };

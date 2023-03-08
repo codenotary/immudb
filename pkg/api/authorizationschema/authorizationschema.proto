@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package immudb.authorizationschema;
+
+import "google/api/annotations.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+
+option go_package = "github.com/codenotary/immudb/pkg/api/authorizationschema";
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  base_path: "/api/v2",
+  info: {
+    title: "immudb REST API v2";
+    description: "Authorization API"
+  };
+};
+
+message OpenSessionRequestV2 {
+  string username = 1;
+  string password = 2;
+  string database = 3;
+}
+
+message OpenSessionResponseV2 {
+  string token = 1;
+  int32 expirationTimestamp = 2;
+  int32 inactivityTimestamp = 3;
+
+}
+
+service AuthorizationService {
+  rpc OpenSessionV2(OpenSessionRequestV2) returns (OpenSessionResponseV2) {
+    option (google.api.http) = {
+      post: "/authorization/session/open"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "authorization";
+    };
+  } 
+}

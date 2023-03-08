@@ -189,47 +189,84 @@ build/codegen:
 	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
 	  --plugin=protoc-gen-doc=$(PWD)/scripts/protoc-gen-doc
 
-.PHONY: build/codegenv2
-build/codegenv2:
-	$(PROTOC) -I pkg/api/schemav2/ pkg/api/schemav2/schemav2.proto \
+.PHONY: build/codegendocuments
+build/codegendocuments:
+	$(PROTOC) -I pkg/api/documentsschema/ pkg/api/documentsschema/documentsschema.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-	  --go_out=paths=source_relative:pkg/api/schemav2 \
-	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/schemav2 \
+	  --go_out=paths=source_relative:pkg/api/documentsschema \
+	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/documentsschema \
 	  --plugin=protoc-gen-go=$(PWD)/scripts/protoc-gen-go \
 	  --plugin=protoc-gen-go-grpc=$(PWD)/scripts/protoc-gen-go-grpc
 
-	$(PROTOC) -I pkg/api/schemav2/ pkg/api/schemav2/schemav2.proto \
+	$(PROTOC) -I pkg/api/documentsschema/ pkg/api/documentsschema/documentsschema.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schemav2 \
+	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/documentsschema \
 	  --plugin=protoc-gen-grpc-gateway=$(PWD)/scripts/protoc-gen-grpc-gateway
 
-	$(PROTOC) -I pkg/api/schemav2/ pkg/api/schemav2/schemav2.proto \
+	$(PROTOC) -I pkg/api/documentsschema/ pkg/api/documentsschema/documentsschema.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-	  --swagger_out=logtostderr=true:pkg/api/schemav2 \
+	  --swagger_out=logtostderr=true:pkg/api/documentsschema \
 	  --plugin=protoc-gen-swagger=$(PWD)/scripts/protoc-gen-swagger
 
-	$(PROTOC) -I pkg/api/schemav2/ pkg/api/schemav2/schemav2.proto \
+	$(PROTOC) -I pkg/api/documentsschema/ pkg/api/documentsschema/documentsschema.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-	  --doc_out=pkg/api/schemav2 --doc_opt=markdown,docs.md \
+	  --doc_out=pkg/api/documentsschema --doc_opt=markdown,docs.md \
+	  --plugin=protoc-gen-doc=$(PWD)/scripts/protoc-gen-doc
+
+.PHONY: build/codegenauthorization
+build/codegenauthorization:
+	$(PROTOC) -I pkg/api/authorizationschema/ pkg/api/authorizationschema/authorizationschema.proto \
+	  -I pkg/api/schema/ \
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
+	  --go_out=paths=source_relative:pkg/api/authorizationschema \
+	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/authorizationschema \
+	  --plugin=protoc-gen-go=$(PWD)/scripts/protoc-gen-go \
+	  --plugin=protoc-gen-go-grpc=$(PWD)/scripts/protoc-gen-go-grpc
+
+	$(PROTOC) -I pkg/api/authorizationschema/ pkg/api/authorizationschema/authorizationschema.proto \
+	  -I pkg/api/schema/ \
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
+	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/authorizationschema \
+	  --plugin=protoc-gen-grpc-gateway=$(PWD)/scripts/protoc-gen-grpc-gateway
+
+	$(PROTOC) -I pkg/api/authorizationschema/ pkg/api/authorizationschema/authorizationschema.proto \
+	  -I pkg/api/schema/ \
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
+	  --swagger_out=logtostderr=true:pkg/api/authorizationschema \
+	  --plugin=protoc-gen-swagger=$(PWD)/scripts/protoc-gen-swagger
+
+	$(PROTOC) -I pkg/api/authorizationschema/ pkg/api/authorizationschema/authorizationschema.proto \
+	  -I pkg/api/schema/ \
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
+	  --doc_out=pkg/api/authorizationschema --doc_opt=markdown,docs.md \
 	  --plugin=protoc-gen-doc=$(PWD)/scripts/protoc-gen-doc
 
 ./swagger/dist:
 	rm -rf swagger/dist/
 	curl -L $(SWAGGERUILINK) | tar -xz -C swagger
 	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
-	cp pkg/api/schemav2/schemav2.swagger.json swagger/dist/schemav2.swagger.json
+	cp pkg/api/authorizationschema/authorizationschema.swagger.json swagger/dist/authorizationschema.swagger.json
+	cp pkg/api/documentsschema/documentsschema.swagger.json swagger/dist/documentsschema.swagger.json
 	cp pkg/api/schema/schema.swagger.json swagger/dist/schema.swagger.json
 	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
 

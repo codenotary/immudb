@@ -2,6 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "immudb REST API v2",
+    "description": "Objects storage API",
     "version": "version not set"
   },
   "basePath": "/api/v2",
@@ -14,12 +15,12 @@
   "paths": {
     "/collections/create": {
       "put": {
-        "operationId": "ImmuServiceV2_CollectionCreate",
+        "operationId": "DocumentService_CollectionCreate",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemav2CollectionInformation"
+              "$ref": "#/definitions/documentsschemaCollectionCreateResponse"
             }
           },
           "default": {
@@ -35,7 +36,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemav2CollectionCreateRequest"
+              "$ref": "#/definitions/documentsschemaCollectionCreateRequest"
             }
           }
         ],
@@ -46,12 +47,12 @@
     },
     "/collections/delete": {
       "delete": {
-        "operationId": "ImmuServiceV2_CollectionDelete",
+        "operationId": "DocumentService_CollectionDelete",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "properties": {}
+              "$ref": "#/definitions/documentsschemaCollectionDeleteResponse"
             }
           },
           "default": {
@@ -76,12 +77,12 @@
     },
     "/collections/get": {
       "get": {
-        "operationId": "ImmuServiceV2_CollectionGet",
+        "operationId": "DocumentService_CollectionGet",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemav2CollectionInformation"
+              "$ref": "#/definitions/documentsschemaCollectionGetResponse"
             }
           },
           "default": {
@@ -106,12 +107,12 @@
     },
     "/collections/list": {
       "post": {
-        "operationId": "ImmuServiceV2_CollectionList",
+        "operationId": "DocumentService_CollectionList",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemav2CollectionListResponse"
+              "$ref": "#/definitions/documentsschemaCollectionListResponse"
             }
           },
           "default": {
@@ -127,7 +128,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemav2CollectionListRequest"
+              "$ref": "#/definitions/documentsschemaCollectionListRequest"
             }
           }
         ],
@@ -138,12 +139,12 @@
     },
     "/documents/insert": {
       "put": {
-        "operationId": "ImmuServiceV2_DocumentInsert",
+        "operationId": "DocumentService_DocumentInsert",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaVerifiableTx"
+              "$ref": "#/definitions/documentsschemaDocumentInsertResponse"
             }
           },
           "default": {
@@ -159,7 +160,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemav2DocumentInsertRequest"
+              "$ref": "#/definitions/documentsschemaDocumentInsertRequest"
             }
           }
         ],
@@ -170,12 +171,12 @@
     },
     "/documents/search": {
       "post": {
-        "operationId": "ImmuServiceV2_DocumentSearch",
+        "operationId": "DocumentService_DocumentSearch",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemav2DocumentSearchResponse"
+              "$ref": "#/definitions/documentsschemaDocumentSearchResponse"
             }
           },
           "default": {
@@ -191,7 +192,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemav2DocumentSearchRequest"
+              "$ref": "#/definitions/documentsschemaDocumentSearchRequest"
             }
           }
         ],
@@ -199,54 +200,196 @@
           "documents"
         ]
       }
-    },
-    "/system/login": {
-      "post": {
-        "operationId": "ImmuServiceV2_LoginV2",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemav2LoginResponseV2"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/immudbschemav2LoginRequest"
-            }
-          }
-        ],
-        "tags": [
-          "authorization"
-        ]
-      }
     }
   },
   "definitions": {
-    "immudbschemav2LoginRequest": {
+    "documentsschemaCollectionCreateRequest": {
       "type": "object",
       "properties": {
-        "username": {
+        "name": {
           "type": "string"
         },
-        "password": {
-          "type": "string"
+        "primaryKeys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentsschemaIndexOption"
+          }
         },
-        "database": {
-          "type": "string"
+        "indexKeys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentsschemaIndexOption"
+          }
         }
       }
+    },
+    "documentsschemaCollectionCreateResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/documentsschemaCollectionInformation"
+        }
+      }
+    },
+    "documentsschemaCollectionDeleteResponse": {
+      "type": "object",
+      "properties": {
+        "response": {
+          "properties": {}
+        }
+      }
+    },
+    "documentsschemaCollectionGetResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/documentsschemaCollectionInformation"
+        }
+      }
+    },
+    "documentsschemaCollectionInformation": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "primaryKeys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentsschemaIndexOption"
+          }
+        },
+        "indexKeys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentsschemaIndexOption"
+          }
+        }
+      }
+    },
+    "documentsschemaCollectionListRequest": {
+      "type": "object"
+    },
+    "documentsschemaCollectionListResponse": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/documentsschemaCollectionInformation"
+          }
+        }
+      }
+    },
+    "documentsschemaDocumentInsertRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "document": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "documentsschemaDocumentInsertResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/schemaVerifiableTx"
+        }
+      }
+    },
+    "documentsschemaDocumentQuery": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/definitions/documentsschemaQueryOperator"
+        },
+        "value": {
+          "type": "object"
+        }
+      }
+    },
+    "documentsschemaDocumentSearchRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "query": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/documentsschemaDocumentQuery"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "perPage": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "documentsschemaDocumentSearchResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "perPage": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "entriesLeft": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "documentsschemaIndexOption": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/documentsschemaIndexType"
+        }
+      }
+    },
+    "documentsschemaIndexType": {
+      "type": "string",
+      "enum": [
+        "DOUBLE",
+        "INTEGER",
+        "STRING"
+      ],
+      "default": "DOUBLE"
+    },
+    "documentsschemaQueryOperator": {
+      "type": "string",
+      "enum": [
+        "EQ",
+        "GT",
+        "GTE",
+        "LT",
+        "LTE",
+        "LIKE"
+      ],
+      "default": "EQ"
     },
     "protobufAny": {
       "type": "object",
@@ -681,166 +824,6 @@
           "title": "At which transaction the key is bound,\n0 if reference is not bound and should read the most recent reference"
         }
       }
-    },
-    "schemav2CollectionCreateRequest": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "primaryKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexType"
-          }
-        },
-        "indexKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexType"
-          }
-        }
-      }
-    },
-    "schemav2CollectionInformation": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "primaryKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexType"
-          }
-        },
-        "indexKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/schemav2PossibleIndexType"
-          }
-        }
-      }
-    },
-    "schemav2CollectionListRequest": {
-      "type": "object"
-    },
-    "schemav2CollectionListResponse": {
-      "type": "object",
-      "properties": {
-        "collections": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemav2CollectionInformation"
-          }
-        }
-      }
-    },
-    "schemav2DocumentInsertRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "document": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "schemav2DocumentQuery": {
-      "type": "object",
-      "properties": {
-        "field": {
-          "type": "string"
-        },
-        "operator": {
-          "$ref": "#/definitions/schemav2QueryOperator"
-        },
-        "value": {
-          "type": "object"
-        }
-      }
-    },
-    "schemav2DocumentSearchRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "query": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemav2DocumentQuery"
-          }
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "perPage": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "schemav2DocumentSearchResponse": {
-      "type": "object",
-      "properties": {
-        "results": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "perPage": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "entriesLeft": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "schemav2LoginResponseV2": {
-      "type": "object",
-      "properties": {
-        "token": {
-          "type": "string"
-        },
-        "expirationTimestamp": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "schemav2PossibleIndexType": {
-      "type": "string",
-      "enum": [
-        "DOUBLE",
-        "INTEGER",
-        "STRING"
-      ],
-      "default": "DOUBLE"
-    },
-    "schemav2QueryOperator": {
-      "type": "string",
-      "enum": [
-        "EQ",
-        "GT",
-        "GTE",
-        "LT",
-        "LTE",
-        "LIKE"
-      ],
-      "default": "EQ"
     }
   },
   "securityDefinitions": {
