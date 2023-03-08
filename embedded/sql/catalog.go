@@ -284,6 +284,10 @@ func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) GetIndexes() []*Index {
+	return t.indexes
+}
+
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }
