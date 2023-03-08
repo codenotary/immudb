@@ -104,7 +104,7 @@ type DB interface {
 // ObjectDatabase is the interface for object database
 type ObjectDatabase interface {
 	// GetCollection returns the collection schema
-	GetCollection(ctx context.Context, collection string) (interface{}, error)
+	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionInformation, error)
 	// CreateCollection creates a new collection
 	CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error
 
