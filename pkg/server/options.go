@@ -36,43 +36,43 @@ const DefaultDBName = "defaultdb"
 
 // Options server options list
 type Options struct {
-	Dir                     string
-	Network                 string
-	Address                 string
-	Port                    int
-	Config                  string
-	Pidfile                 string
-	Logfile                 string
-	TLSConfig               *tls.Config
-	auth                    bool
-	MaxRecvMsgSize          int
-	NoHistograms            bool
-	Detached                bool
-	MetricsServer           bool
-	MetricsServerPort       int
-	WebServer               bool
-	WebServerPort           int
-	DevMode                 bool
-	AdminPassword           string `json:"-"`
-	ForceAdminPassword      bool
-	systemAdminDBName       string
-	defaultDBName           string
-	listener                net.Listener
-	usingCustomListener     bool
-	maintenance             bool
-	SigningKey              string
-	synced                  bool
-	RemoteStorageOptions    *RemoteStorageOptions
-	StreamChunkSize         int
-	TokenExpiryTimeMin      int
-	PgsqlServer             bool
-	PgsqlServerPort         int
-	ReplicationOptions      *ReplicationOptions
-	SessionsOptions         *sessions.Options
-	PProf                   bool
-	LogFormat               string
-	ReflectionServerEnabled bool
-	SwaggerUIEnabled        bool
+	Dir                         string
+	Network                     string
+	Address                     string
+	Port                        int
+	Config                      string
+	Pidfile                     string
+	Logfile                     string
+	TLSConfig                   *tls.Config
+	auth                        bool
+	MaxRecvMsgSize              int
+	NoHistograms                bool
+	Detached                    bool
+	MetricsServer               bool
+	MetricsServerPort           int
+	WebServer                   bool
+	WebServerPort               int
+	DevMode                     bool
+	AdminPassword               string `json:"-"`
+	ForceAdminPassword          bool
+	systemAdminDBName           string
+	defaultDBName               string
+	listener                    net.Listener
+	usingCustomListener         bool
+	maintenance                 bool
+	SigningKey                  string
+	synced                      bool
+	RemoteStorageOptions        *RemoteStorageOptions
+	StreamChunkSize             int
+	TokenExpiryTimeMin          int
+	PgsqlServer                 bool
+	PgsqlServerPort             int
+	ReplicationOptions          *ReplicationOptions
+	SessionsOptions             *sessions.Options
+	PProf                       bool
+	LogFormat                   string
+	GRPCReflectionServerEnabled bool
+	SwaggerUIEnabled            bool
 }
 
 type RemoteStorageOptions struct {
@@ -103,40 +103,40 @@ type ReplicationOptions struct {
 // DefaultOptions returns default server options
 func DefaultOptions() *Options {
 	return &Options{
-		Dir:                     "./data",
-		Network:                 "tcp",
-		Address:                 "0.0.0.0",
-		Port:                    3322,
-		Config:                  "configs/immudb.toml",
-		Pidfile:                 "",
-		Logfile:                 "",
-		TLSConfig:               nil,
-		auth:                    true,
-		MaxRecvMsgSize:          1024 * 1024 * 32, // 32Mb
-		NoHistograms:            false,
-		Detached:                false,
-		MetricsServer:           true,
-		MetricsServerPort:       9497,
-		WebServer:               true,
-		WebServerPort:           8080,
-		DevMode:                 false,
-		AdminPassword:           auth.SysAdminPassword,
-		ForceAdminPassword:      false,
-		systemAdminDBName:       SystemDBName,
-		defaultDBName:           DefaultDBName,
-		usingCustomListener:     false,
-		maintenance:             false,
-		synced:                  true,
-		RemoteStorageOptions:    DefaultRemoteStorageOptions(),
-		StreamChunkSize:         stream.DefaultChunkSize,
-		TokenExpiryTimeMin:      1440,
-		PgsqlServer:             false,
-		PgsqlServerPort:         5432,
-		ReplicationOptions:      &ReplicationOptions{IsReplica: false, SyncAcks: 0},
-		SessionsOptions:         sessions.DefaultOptions(),
-		PProf:                   false,
-		ReflectionServerEnabled: true,
-		SwaggerUIEnabled:        true,
+		Dir:                         "./data",
+		Network:                     "tcp",
+		Address:                     "0.0.0.0",
+		Port:                        3322,
+		Config:                      "configs/immudb.toml",
+		Pidfile:                     "",
+		Logfile:                     "",
+		TLSConfig:                   nil,
+		auth:                        true,
+		MaxRecvMsgSize:              1024 * 1024 * 32, // 32Mb
+		NoHistograms:                false,
+		Detached:                    false,
+		MetricsServer:               true,
+		MetricsServerPort:           9497,
+		WebServer:                   true,
+		WebServerPort:               8080,
+		DevMode:                     false,
+		AdminPassword:               auth.SysAdminPassword,
+		ForceAdminPassword:          false,
+		systemAdminDBName:           SystemDBName,
+		defaultDBName:               DefaultDBName,
+		usingCustomListener:         false,
+		maintenance:                 false,
+		synced:                      true,
+		RemoteStorageOptions:        DefaultRemoteStorageOptions(),
+		StreamChunkSize:             stream.DefaultChunkSize,
+		TokenExpiryTimeMin:          1440,
+		PgsqlServer:                 false,
+		PgsqlServerPort:             5432,
+		ReplicationOptions:          &ReplicationOptions{IsReplica: false, SyncAcks: 0},
+		SessionsOptions:             sessions.DefaultOptions(),
+		PProf:                       false,
+		GRPCReflectionServerEnabled: true,
+		SwaggerUIEnabled:            true,
 	}
 }
 
@@ -456,8 +456,8 @@ func (o *Options) WithPProf(pprof bool) *Options {
 	return o
 }
 
-func (o *Options) WithReflectionServerEnabled(enabled bool) *Options {
-	o.ReflectionServerEnabled = enabled
+func (o *Options) WithGRPCReflectionServerEnabled(enabled bool) *Options {
+	o.GRPCReflectionServerEnabled = enabled
 	return o
 }
 

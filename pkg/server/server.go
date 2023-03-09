@@ -242,7 +242,7 @@ func (s *ImmuServer) Initialize() error {
 	)
 
 	s.GrpcServer = grpc.NewServer(grpcSrvOpts...)
-	if s.Options.ReflectionServerEnabled {
+	if s.Options.GRPCReflectionServerEnabled {
 		reflection.Register(s.GrpcServer)
 	}
 

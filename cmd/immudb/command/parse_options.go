@@ -82,7 +82,7 @@ func parseOptions() (options *server.Options, err error) {
 
 	pprof := viper.GetBool("pprof")
 
-	reflectionServerEnabled := viper.GetBool("reflection")
+	grpcReflectionServerEnabled := viper.GetBool("grpc-reflection")
 	swaggerUIEnabled := viper.GetBool("swaggerui")
 
 	s3Storage := viper.GetBool("s3-storage")
@@ -145,7 +145,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithPProf(pprof).
 		WithLogFormat(logFormat).
 		WithSwaggerUIEnabled(swaggerUIEnabled).
-		WithReflectionServerEnabled(reflectionServerEnabled)
+		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled)
 
 	return options, nil
 }
