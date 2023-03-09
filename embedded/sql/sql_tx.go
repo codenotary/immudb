@@ -24,18 +24,6 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-func NewSQLTx(engine *Engine, opts *TxOptions, tx *store.OngoingTx, catalog *Catalog, currentDB *Database) *SQLTx {
-	return &SQLTx{
-		engine:           engine,
-		opts:             opts,
-		tx:               tx,
-		catalog:          catalog,
-		currentDB:        currentDB,
-		lastInsertedPKs:  make(map[string]int64),
-		firstInsertedPKs: make(map[string]int64),
-	}
-}
-
 // SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
 	engine *Engine

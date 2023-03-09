@@ -1,4 +1,4 @@
-package object
+package document
 
 import (
 	"context"
@@ -22,13 +22,7 @@ func TestCreateCollection(t *testing.T) {
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
-	opts := sql.DefaultOptions().
-		WithPrefix(ObjectPrefix).
-		WithDatabasePrefix(catalogDatabasePrefix).
-		WithTablePrefix(catalogCollectionPrefix).
-		WithColumnPrefix(catalogColumnPrefix).
-		WithIndexPrefix(catalogIndexPrefix)
-
+	opts := DefaultOptions()
 	engine, err := sql.NewEngine(st, opts)
 	require.NoError(t, err)
 
