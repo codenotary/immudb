@@ -298,12 +298,7 @@
       }
     },
     "documentschemaCollectionDeleteResponse": {
-      "type": "object",
-      "properties": {
-        "response": {
-          "properties": {}
-        }
-      }
+      "type": "object"
     },
     "documentschemaCollectionGetResponse": {
       "type": "object",

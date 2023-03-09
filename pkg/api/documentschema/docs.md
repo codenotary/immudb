@@ -134,11 +134,6 @@
 
 
 
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| response | [google.protobuf.Empty](#google.protobuf.Empty) |  |  |
-
-
 
 
 

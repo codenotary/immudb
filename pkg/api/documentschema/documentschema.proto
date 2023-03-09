@@ -162,7 +162,6 @@ message CollectionDeleteRequest {
 }
 
 message CollectionDeleteResponse {
-  google.protobuf.Empty response = 1;
 }
 
 message Proof {
