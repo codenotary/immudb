@@ -3,53 +3,53 @@
 
 ## Table of Contents
 
-- [documentsschema.proto](#documentsschema.proto)
-    - [CollectionCreateRequest](#immudb.documentsschema.CollectionCreateRequest)
-    - [CollectionCreateRequest.IndexKeysEntry](#immudb.documentsschema.CollectionCreateRequest.IndexKeysEntry)
-    - [CollectionCreateRequest.PrimaryKeysEntry](#immudb.documentsschema.CollectionCreateRequest.PrimaryKeysEntry)
-    - [CollectionCreateResponse](#immudb.documentsschema.CollectionCreateResponse)
-    - [CollectionDeleteRequest](#immudb.documentsschema.CollectionDeleteRequest)
-    - [CollectionDeleteResponse](#immudb.documentsschema.CollectionDeleteResponse)
-    - [CollectionGetRequest](#immudb.documentsschema.CollectionGetRequest)
-    - [CollectionGetResponse](#immudb.documentsschema.CollectionGetResponse)
-    - [CollectionInformation](#immudb.documentsschema.CollectionInformation)
-    - [CollectionInformation.IndexKeysEntry](#immudb.documentsschema.CollectionInformation.IndexKeysEntry)
-    - [CollectionInformation.PrimaryKeysEntry](#immudb.documentsschema.CollectionInformation.PrimaryKeysEntry)
-    - [CollectionListRequest](#immudb.documentsschema.CollectionListRequest)
-    - [CollectionListResponse](#immudb.documentsschema.CollectionListResponse)
-    - [DocumentAudit](#immudb.documentsschema.DocumentAudit)
-    - [DocumentAuditRequest](#immudb.documentsschema.DocumentAuditRequest)
-    - [DocumentAuditRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentAuditRequest.PrimaryKeysEntry)
-    - [DocumentAuditResponse](#immudb.documentsschema.DocumentAuditResponse)
-    - [DocumentInsertRequest](#immudb.documentsschema.DocumentInsertRequest)
-    - [DocumentInsertResponse](#immudb.documentsschema.DocumentInsertResponse)
-    - [DocumentProofRequest](#immudb.documentsschema.DocumentProofRequest)
-    - [DocumentProofRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentProofRequest.PrimaryKeysEntry)
-    - [DocumentProofResponse](#immudb.documentsschema.DocumentProofResponse)
-    - [DocumentQuery](#immudb.documentsschema.DocumentQuery)
-    - [DocumentSearchRequest](#immudb.documentsschema.DocumentSearchRequest)
-    - [DocumentSearchResponse](#immudb.documentsschema.DocumentSearchResponse)
-    - [IndexOption](#immudb.documentsschema.IndexOption)
-    - [IndexValue](#immudb.documentsschema.IndexValue)
-    - [Proof](#immudb.documentsschema.Proof)
+- [documentschema.proto](#documentschema.proto)
+    - [CollectionCreateRequest](#immudb.documentschema.CollectionCreateRequest)
+    - [CollectionCreateRequest.IndexKeysEntry](#immudb.documentschema.CollectionCreateRequest.IndexKeysEntry)
+    - [CollectionCreateRequest.PrimaryKeysEntry](#immudb.documentschema.CollectionCreateRequest.PrimaryKeysEntry)
+    - [CollectionCreateResponse](#immudb.documentschema.CollectionCreateResponse)
+    - [CollectionDeleteRequest](#immudb.documentschema.CollectionDeleteRequest)
+    - [CollectionDeleteResponse](#immudb.documentschema.CollectionDeleteResponse)
+    - [CollectionGetRequest](#immudb.documentschema.CollectionGetRequest)
+    - [CollectionGetResponse](#immudb.documentschema.CollectionGetResponse)
+    - [CollectionInformation](#immudb.documentschema.CollectionInformation)
+    - [CollectionInformation.IndexKeysEntry](#immudb.documentschema.CollectionInformation.IndexKeysEntry)
+    - [CollectionInformation.PrimaryKeysEntry](#immudb.documentschema.CollectionInformation.PrimaryKeysEntry)
+    - [CollectionListRequest](#immudb.documentschema.CollectionListRequest)
+    - [CollectionListResponse](#immudb.documentschema.CollectionListResponse)
+    - [DocumentAudit](#immudb.documentschema.DocumentAudit)
+    - [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest)
+    - [DocumentAuditRequest.PrimaryKeysEntry](#immudb.documentschema.DocumentAuditRequest.PrimaryKeysEntry)
+    - [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse)
+    - [DocumentInsertRequest](#immudb.documentschema.DocumentInsertRequest)
+    - [DocumentInsertResponse](#immudb.documentschema.DocumentInsertResponse)
+    - [DocumentProofRequest](#immudb.documentschema.DocumentProofRequest)
+    - [DocumentProofRequest.PrimaryKeysEntry](#immudb.documentschema.DocumentProofRequest.PrimaryKeysEntry)
+    - [DocumentProofResponse](#immudb.documentschema.DocumentProofResponse)
+    - [DocumentQuery](#immudb.documentschema.DocumentQuery)
+    - [DocumentSearchRequest](#immudb.documentschema.DocumentSearchRequest)
+    - [DocumentSearchResponse](#immudb.documentschema.DocumentSearchResponse)
+    - [IndexOption](#immudb.documentschema.IndexOption)
+    - [IndexValue](#immudb.documentschema.IndexValue)
+    - [Proof](#immudb.documentschema.Proof)
   
-    - [IndexType](#immudb.documentsschema.IndexType)
-    - [QueryOperator](#immudb.documentsschema.QueryOperator)
+    - [IndexType](#immudb.documentschema.IndexType)
+    - [QueryOperator](#immudb.documentschema.QueryOperator)
   
-    - [DocumentService](#immudb.documentsschema.DocumentService)
+    - [DocumentService](#immudb.documentschema.DocumentService)
   
 - [Scalar Value Types](#scalar-value-types)
 
 
 
-<a name="documentsschema.proto"></a>
+<a name="documentschema.proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
-## documentsschema.proto
+## documentschema.proto
 
 
 
-<a name="immudb.documentsschema.CollectionCreateRequest"></a>
+<a name="immudb.documentschema.CollectionCreateRequest"></a>
 
 ### CollectionCreateRequest
 
@@ -58,15 +58,15 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| primaryKeys | [CollectionCreateRequest.PrimaryKeysEntry](#immudb.documentsschema.CollectionCreateRequest.PrimaryKeysEntry) | repeated |  |
-| indexKeys | [CollectionCreateRequest.IndexKeysEntry](#immudb.documentsschema.CollectionCreateRequest.IndexKeysEntry) | repeated |  |
+| primaryKeys | [CollectionCreateRequest.PrimaryKeysEntry](#immudb.documentschema.CollectionCreateRequest.PrimaryKeysEntry) | repeated |  |
+| indexKeys | [CollectionCreateRequest.IndexKeysEntry](#immudb.documentschema.CollectionCreateRequest.IndexKeysEntry) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionCreateRequest.IndexKeysEntry"></a>
+<a name="immudb.documentschema.CollectionCreateRequest.IndexKeysEntry"></a>
 
 ### CollectionCreateRequest.IndexKeysEntry
 
@@ -75,14 +75,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [IndexOption](#immudb.documentsschema.IndexOption) |  |  |
+| value | [IndexOption](#immudb.documentschema.IndexOption) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionCreateRequest.PrimaryKeysEntry"></a>
+<a name="immudb.documentschema.CollectionCreateRequest.PrimaryKeysEntry"></a>
 
 ### CollectionCreateRequest.PrimaryKeysEntry
 
@@ -91,14 +91,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [IndexOption](#immudb.documentsschema.IndexOption) |  |  |
+| value | [IndexOption](#immudb.documentschema.IndexOption) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionCreateResponse"></a>
+<a name="immudb.documentschema.CollectionCreateResponse"></a>
 
 ### CollectionCreateResponse
 
@@ -106,14 +106,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [CollectionInformation](#immudb.documentsschema.CollectionInformation) |  |  |
+| collection | [CollectionInformation](#immudb.documentschema.CollectionInformation) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionDeleteRequest"></a>
+<a name="immudb.documentschema.CollectionDeleteRequest"></a>
 
 ### CollectionDeleteRequest
 
@@ -128,7 +128,7 @@
 
 
 
-<a name="immudb.documentsschema.CollectionDeleteResponse"></a>
+<a name="immudb.documentschema.CollectionDeleteResponse"></a>
 
 ### CollectionDeleteResponse
 
@@ -143,7 +143,7 @@
 
 
 
-<a name="immudb.documentsschema.CollectionGetRequest"></a>
+<a name="immudb.documentschema.CollectionGetRequest"></a>
 
 ### CollectionGetRequest
 
@@ -158,7 +158,7 @@
 
 
 
-<a name="immudb.documentsschema.CollectionGetResponse"></a>
+<a name="immudb.documentschema.CollectionGetResponse"></a>
 
 ### CollectionGetResponse
 
@@ -166,14 +166,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [CollectionInformation](#immudb.documentsschema.CollectionInformation) |  |  |
+| collection | [CollectionInformation](#immudb.documentschema.CollectionInformation) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionInformation"></a>
+<a name="immudb.documentschema.CollectionInformation"></a>
 
 ### CollectionInformation
 
@@ -182,15 +182,15 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| primaryKeys | [CollectionInformation.PrimaryKeysEntry](#immudb.documentsschema.CollectionInformation.PrimaryKeysEntry) | repeated |  |
-| indexKeys | [CollectionInformation.IndexKeysEntry](#immudb.documentsschema.CollectionInformation.IndexKeysEntry) | repeated |  |
+| primaryKeys | [CollectionInformation.PrimaryKeysEntry](#immudb.documentschema.CollectionInformation.PrimaryKeysEntry) | repeated |  |
+| indexKeys | [CollectionInformation.IndexKeysEntry](#immudb.documentschema.CollectionInformation.IndexKeysEntry) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionInformation.IndexKeysEntry"></a>
+<a name="immudb.documentschema.CollectionInformation.IndexKeysEntry"></a>
 
 ### CollectionInformation.IndexKeysEntry
 
@@ -199,14 +199,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [IndexOption](#immudb.documentsschema.IndexOption) |  |  |
+| value | [IndexOption](#immudb.documentschema.IndexOption) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionInformation.PrimaryKeysEntry"></a>
+<a name="immudb.documentschema.CollectionInformation.PrimaryKeysEntry"></a>
 
 ### CollectionInformation.PrimaryKeysEntry
 
@@ -215,14 +215,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [IndexOption](#immudb.documentsschema.IndexOption) |  |  |
+| value | [IndexOption](#immudb.documentschema.IndexOption) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.CollectionListRequest"></a>
+<a name="immudb.documentschema.CollectionListRequest"></a>
 
 ### CollectionListRequest
 
@@ -232,7 +232,7 @@
 
 
 
-<a name="immudb.documentsschema.CollectionListResponse"></a>
+<a name="immudb.documentschema.CollectionListResponse"></a>
 
 ### CollectionListResponse
 
@@ -240,14 +240,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collections | [CollectionInformation](#immudb.documentsschema.CollectionInformation) | repeated |  |
+| collections | [CollectionInformation](#immudb.documentschema.CollectionInformation) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.DocumentAudit"></a>
+<a name="immudb.documentschema.DocumentAudit"></a>
 
 ### DocumentAudit
 
@@ -263,7 +263,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentAuditRequest"></a>
+<a name="immudb.documentschema.DocumentAuditRequest"></a>
 
 ### DocumentAuditRequest
 
@@ -272,7 +272,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| primaryKeys | [DocumentAuditRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentAuditRequest.PrimaryKeysEntry) | repeated |  |
+| primaryKeys | [DocumentAuditRequest.PrimaryKeysEntry](#immudb.documentschema.DocumentAuditRequest.PrimaryKeysEntry) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
 
@@ -281,7 +281,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentAuditRequest.PrimaryKeysEntry"></a>
+<a name="immudb.documentschema.DocumentAuditRequest.PrimaryKeysEntry"></a>
 
 ### DocumentAuditRequest.PrimaryKeysEntry
 
@@ -290,14 +290,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [IndexValue](#immudb.documentsschema.IndexValue) |  |  |
+| value | [IndexValue](#immudb.documentschema.IndexValue) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.DocumentAuditResponse"></a>
+<a name="immudb.documentschema.DocumentAuditResponse"></a>
 
 ### DocumentAuditResponse
 
@@ -305,7 +305,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| results | [DocumentAudit](#immudb.documentsschema.DocumentAudit) | repeated |  |
+| results | [DocumentAudit](#immudb.documentschema.DocumentAudit) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
 | entriesLeft | [uint32](#uint32) |  |  |
@@ -315,7 +315,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentInsertRequest"></a>
+<a name="immudb.documentschema.DocumentInsertRequest"></a>
 
 ### DocumentInsertRequest
 
@@ -331,7 +331,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentInsertResponse"></a>
+<a name="immudb.documentschema.DocumentInsertResponse"></a>
 
 ### DocumentInsertResponse
 
@@ -346,7 +346,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentProofRequest"></a>
+<a name="immudb.documentschema.DocumentProofRequest"></a>
 
 ### DocumentProofRequest
 
@@ -355,7 +355,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| primaryKeys | [DocumentProofRequest.PrimaryKeysEntry](#immudb.documentsschema.DocumentProofRequest.PrimaryKeysEntry) | repeated |  |
+| primaryKeys | [DocumentProofRequest.PrimaryKeysEntry](#immudb.documentschema.DocumentProofRequest.PrimaryKeysEntry) | repeated |  |
 | atRevision | [int64](#int64) |  |  |
 
 
@@ -363,7 +363,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentProofRequest.PrimaryKeysEntry"></a>
+<a name="immudb.documentschema.DocumentProofRequest.PrimaryKeysEntry"></a>
 
 ### DocumentProofRequest.PrimaryKeysEntry
 
@@ -372,14 +372,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [IndexValue](#immudb.documentsschema.IndexValue) |  |  |
+| value | [IndexValue](#immudb.documentschema.IndexValue) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.DocumentProofResponse"></a>
+<a name="immudb.documentschema.DocumentProofResponse"></a>
 
 ### DocumentProofResponse
 
@@ -394,7 +394,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentQuery"></a>
+<a name="immudb.documentschema.DocumentQuery"></a>
 
 ### DocumentQuery
 
@@ -403,7 +403,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | field | [string](#string) |  |  |
-| operator | [QueryOperator](#immudb.documentsschema.QueryOperator) |  |  |
+| operator | [QueryOperator](#immudb.documentschema.QueryOperator) |  |  |
 | value | [google.protobuf.Value](#google.protobuf.Value) |  |  |
 
 
@@ -411,7 +411,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentSearchRequest"></a>
+<a name="immudb.documentschema.DocumentSearchRequest"></a>
 
 ### DocumentSearchRequest
 
@@ -420,7 +420,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| query | [DocumentQuery](#immudb.documentsschema.DocumentQuery) | repeated |  |
+| query | [DocumentQuery](#immudb.documentschema.DocumentQuery) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
 
@@ -429,7 +429,7 @@
 
 
 
-<a name="immudb.documentsschema.DocumentSearchResponse"></a>
+<a name="immudb.documentschema.DocumentSearchResponse"></a>
 
 ### DocumentSearchResponse
 
@@ -447,7 +447,7 @@
 
 
 
-<a name="immudb.documentsschema.IndexOption"></a>
+<a name="immudb.documentschema.IndexOption"></a>
 
 ### IndexOption
 
@@ -455,14 +455,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| type | [IndexType](#immudb.documentsschema.IndexType) |  |  |
+| type | [IndexType](#immudb.documentschema.IndexType) |  |  |
 
 
 
 
 
 
-<a name="immudb.documentsschema.IndexValue"></a>
+<a name="immudb.documentschema.IndexValue"></a>
 
 ### IndexValue
 
@@ -480,7 +480,7 @@
 
 
 
-<a name="immudb.documentsschema.Proof"></a>
+<a name="immudb.documentschema.Proof"></a>
 
 ### Proof
 
@@ -497,7 +497,7 @@
  
 
 
-<a name="immudb.documentsschema.IndexType"></a>
+<a name="immudb.documentschema.IndexType"></a>
 
 ### IndexType
 
@@ -510,7 +510,7 @@
 
 
 
-<a name="immudb.documentsschema.QueryOperator"></a>
+<a name="immudb.documentschema.QueryOperator"></a>
 
 ### QueryOperator
 
@@ -530,21 +530,21 @@
  
 
 
-<a name="immudb.documentsschema.DocumentService"></a>
+<a name="immudb.documentschema.DocumentService"></a>
 
 ### DocumentService
 
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| DocumentInsert | [DocumentInsertRequest](#immudb.documentsschema.DocumentInsertRequest) | [DocumentInsertResponse](#immudb.documentsschema.DocumentInsertResponse) |  |
-| DocumentSearch | [DocumentSearchRequest](#immudb.documentsschema.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.documentsschema.DocumentSearchResponse) |  |
-| DocumentAudit | [DocumentAuditRequest](#immudb.documentsschema.DocumentAuditRequest) | [DocumentAuditResponse](#immudb.documentsschema.DocumentAuditResponse) |  |
-| DocumentProof | [DocumentProofRequest](#immudb.documentsschema.DocumentProofRequest) | [DocumentProofResponse](#immudb.documentsschema.DocumentProofResponse) |  |
-| CollectionCreate | [CollectionCreateRequest](#immudb.documentsschema.CollectionCreateRequest) | [CollectionCreateResponse](#immudb.documentsschema.CollectionCreateResponse) |  |
-| CollectionGet | [CollectionGetRequest](#immudb.documentsschema.CollectionGetRequest) | [CollectionGetResponse](#immudb.documentsschema.CollectionGetResponse) |  |
-| CollectionList | [CollectionListRequest](#immudb.documentsschema.CollectionListRequest) | [CollectionListResponse](#immudb.documentsschema.CollectionListResponse) |  |
-| CollectionDelete | [CollectionDeleteRequest](#immudb.documentsschema.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.documentsschema.CollectionDeleteResponse) |  |
+| DocumentInsert | [DocumentInsertRequest](#immudb.documentschema.DocumentInsertRequest) | [DocumentInsertResponse](#immudb.documentschema.DocumentInsertResponse) |  |
+| DocumentSearch | [DocumentSearchRequest](#immudb.documentschema.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.documentschema.DocumentSearchResponse) |  |
+| DocumentAudit | [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest) | [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse) |  |
+| DocumentProof | [DocumentProofRequest](#immudb.documentschema.DocumentProofRequest) | [DocumentProofResponse](#immudb.documentschema.DocumentProofResponse) |  |
+| CollectionCreate | [CollectionCreateRequest](#immudb.documentschema.CollectionCreateRequest) | [CollectionCreateResponse](#immudb.documentschema.CollectionCreateResponse) |  |
+| CollectionGet | [CollectionGetRequest](#immudb.documentschema.CollectionGetRequest) | [CollectionGetResponse](#immudb.documentschema.CollectionGetResponse) |  |
+| CollectionList | [CollectionListRequest](#immudb.documentschema.CollectionListRequest) | [CollectionListResponse](#immudb.documentschema.CollectionListResponse) |  |
+| CollectionDelete | [CollectionDeleteRequest](#immudb.documentschema.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.documentschema.CollectionDeleteResponse) |  |
 
  
 

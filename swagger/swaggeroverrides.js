@@ -5,7 +5,7 @@ window.onload = function() {
     window.ui = SwaggerUIBundle({
       urls: [
         {"url": "/api/docs/authorizationschema.swagger.json", "name": "Authorization API"},
-        {"url": "/api/docs/documentsschema.swagger.json", "name": "Documents API"},
+        {"url": "/api/docs/documentschema.swagger.json", "name": "Documents API"},
         {"url": "/api/docs/schema.swagger.json", "name": "KV and SQL API"}
       ],
       dom_id: '#swagger-ui',

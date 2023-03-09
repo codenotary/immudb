@@ -50,7 +50,7 @@ import (
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
-	"github.com/codenotary/immudb/pkg/api/documentsschema"
+	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -247,7 +247,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
-	documentsschema.RegisterDocumentServiceServer(s.GrpcServer, s)
+	documentschema.RegisterDocumentServiceServer(s.GrpcServer, s)
 	authorizationschema.RegisterAuthorizationServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 

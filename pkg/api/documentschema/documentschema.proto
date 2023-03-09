@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package immudb.documentsschema;
+package immudb.documentschema;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
@@ -8,7 +8,7 @@ import "google/protobuf/struct.proto";
 import "schema.proto";
 import "protoc-gen-swagger/options/annotations.proto";
 
-option go_package = "github.com/codenotary/immudb/pkg/api/documentsschema";
+option go_package = "github.com/codenotary/immudb/pkg/api/documentschema";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   base_path: "/api/v2",
   info: {

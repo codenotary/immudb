@@ -20,7 +20,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaCollectionCreateResponse"
+              "$ref": "#/definitions/documentschemaCollectionCreateResponse"
             }
           },
           "default": {
@@ -36,7 +36,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentsschemaCollectionCreateRequest"
+              "$ref": "#/definitions/documentschemaCollectionCreateRequest"
             }
           }
         ],
@@ -52,7 +52,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaCollectionDeleteResponse"
+              "$ref": "#/definitions/documentschemaCollectionDeleteResponse"
             }
           },
           "default": {
@@ -82,7 +82,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaCollectionGetResponse"
+              "$ref": "#/definitions/documentschemaCollectionGetResponse"
             }
           },
           "default": {
@@ -112,7 +112,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaCollectionListResponse"
+              "$ref": "#/definitions/documentschemaCollectionListResponse"
             }
           },
           "default": {
@@ -128,7 +128,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentsschemaCollectionListRequest"
+              "$ref": "#/definitions/documentschemaCollectionListRequest"
             }
           }
         ],
@@ -144,7 +144,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentAuditResponse"
+              "$ref": "#/definitions/documentschemaDocumentAuditResponse"
             }
           },
           "default": {
@@ -160,7 +160,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentAuditRequest"
+              "$ref": "#/definitions/documentschemaDocumentAuditRequest"
             }
           }
         ],
@@ -177,7 +177,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentInsertResponse"
+              "$ref": "#/definitions/documentschemaDocumentInsertResponse"
             }
           },
           "default": {
@@ -193,7 +193,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentInsertRequest"
+              "$ref": "#/definitions/documentschemaDocumentInsertRequest"
             }
           }
         ],
@@ -209,7 +209,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentProofResponse"
+              "$ref": "#/definitions/documentschemaDocumentProofResponse"
             }
           },
           "default": {
@@ -225,7 +225,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentProofRequest"
+              "$ref": "#/definitions/documentschemaDocumentProofRequest"
             }
           }
         ],
@@ -242,7 +242,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentSearchResponse"
+              "$ref": "#/definitions/documentschemaDocumentSearchResponse"
             }
           },
           "default": {
@@ -258,7 +258,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentsschemaDocumentSearchRequest"
+              "$ref": "#/definitions/documentschemaDocumentSearchRequest"
             }
           }
         ],
@@ -269,7 +269,7 @@
     }
   },
   "definitions": {
-    "documentsschemaCollectionCreateRequest": {
+    "documentschemaCollectionCreateRequest": {
       "type": "object",
       "properties": {
         "name": {
@@ -278,26 +278,26 @@
         "primaryKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/documentsschemaIndexOption"
+            "$ref": "#/definitions/documentschemaIndexOption"
           }
         },
         "indexKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/documentsschemaIndexOption"
+            "$ref": "#/definitions/documentschemaIndexOption"
           }
         }
       }
     },
-    "documentsschemaCollectionCreateResponse": {
+    "documentschemaCollectionCreateResponse": {
       "type": "object",
       "properties": {
         "collection": {
-          "$ref": "#/definitions/documentsschemaCollectionInformation"
+          "$ref": "#/definitions/documentschemaCollectionInformation"
         }
       }
     },
-    "documentsschemaCollectionDeleteResponse": {
+    "documentschemaCollectionDeleteResponse": {
       "type": "object",
       "properties": {
         "response": {
@@ -305,15 +305,15 @@
         }
       }
     },
-    "documentsschemaCollectionGetResponse": {
+    "documentschemaCollectionGetResponse": {
       "type": "object",
       "properties": {
         "collection": {
-          "$ref": "#/definitions/documentsschemaCollectionInformation"
+          "$ref": "#/definitions/documentschemaCollectionInformation"
         }
       }
     },
-    "documentsschemaCollectionInformation": {
+    "documentschemaCollectionInformation": {
       "type": "object",
       "properties": {
         "name": {
@@ -322,32 +322,32 @@
         "primaryKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/documentsschemaIndexOption"
+            "$ref": "#/definitions/documentschemaIndexOption"
           }
         },
         "indexKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/documentsschemaIndexOption"
+            "$ref": "#/definitions/documentschemaIndexOption"
           }
         }
       }
     },
-    "documentsschemaCollectionListRequest": {
+    "documentschemaCollectionListRequest": {
       "type": "object"
     },
-    "documentsschemaCollectionListResponse": {
+    "documentschemaCollectionListResponse": {
       "type": "object",
       "properties": {
         "collections": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/documentsschemaCollectionInformation"
+            "$ref": "#/definitions/documentschemaCollectionInformation"
           }
         }
       }
     },
-    "documentsschemaDocumentAudit": {
+    "documentschemaDocumentAudit": {
       "type": "object",
       "properties": {
         "value": {
@@ -359,7 +359,7 @@
         }
       }
     },
-    "documentsschemaDocumentAuditRequest": {
+    "documentschemaDocumentAuditRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -368,7 +368,7 @@
         "primaryKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/documentsschemaIndexValue"
+            "$ref": "#/definitions/documentschemaIndexValue"
           }
         },
         "page": {
@@ -381,13 +381,13 @@
         }
       }
     },
-    "documentsschemaDocumentAuditResponse": {
+    "documentschemaDocumentAuditResponse": {
       "type": "object",
       "properties": {
         "results": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/documentsschemaDocumentAudit"
+            "$ref": "#/definitions/documentschemaDocumentAudit"
           }
         },
         "page": {
@@ -404,7 +404,7 @@
         }
       }
     },
-    "documentsschemaDocumentInsertRequest": {
+    "documentschemaDocumentInsertRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -418,7 +418,7 @@
         }
       }
     },
-    "documentsschemaDocumentInsertResponse": {
+    "documentschemaDocumentInsertResponse": {
       "type": "object",
       "properties": {
         "proof": {
@@ -426,7 +426,7 @@
         }
       }
     },
-    "documentsschemaDocumentProofRequest": {
+    "documentschemaDocumentProofRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -435,7 +435,7 @@
         "primaryKeys": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/documentsschemaIndexValue"
+            "$ref": "#/definitions/documentschemaIndexValue"
           }
         },
         "atRevision": {
@@ -444,7 +444,7 @@
         }
       }
     },
-    "documentsschemaDocumentProofResponse": {
+    "documentschemaDocumentProofResponse": {
       "type": "object",
       "properties": {
         "proof": {
@@ -452,21 +452,21 @@
         }
       }
     },
-    "documentsschemaDocumentQuery": {
+    "documentschemaDocumentQuery": {
       "type": "object",
       "properties": {
         "field": {
           "type": "string"
         },
         "operator": {
-          "$ref": "#/definitions/documentsschemaQueryOperator"
+          "$ref": "#/definitions/documentschemaQueryOperator"
         },
         "value": {
           "type": "object"
         }
       }
     },
-    "documentsschemaDocumentSearchRequest": {
+    "documentschemaDocumentSearchRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -475,7 +475,7 @@
         "query": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/documentsschemaDocumentQuery"
+            "$ref": "#/definitions/documentschemaDocumentQuery"
           }
         },
         "page": {
@@ -488,7 +488,7 @@
         }
       }
     },
-    "documentsschemaDocumentSearchResponse": {
+    "documentschemaDocumentSearchResponse": {
       "type": "object",
       "properties": {
         "results": {
@@ -511,15 +511,15 @@
         }
       }
     },
-    "documentsschemaIndexOption": {
+    "documentschemaIndexOption": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/definitions/documentsschemaIndexType"
+          "$ref": "#/definitions/documentschemaIndexType"
         }
       }
     },
-    "documentsschemaIndexType": {
+    "documentschemaIndexType": {
       "type": "string",
       "enum": [
         "DOUBLE",
@@ -528,7 +528,7 @@
       ],
       "default": "DOUBLE"
     },
-    "documentsschemaIndexValue": {
+    "documentschemaIndexValue": {
       "type": "object",
       "properties": {
         "null_value": {
@@ -546,7 +546,7 @@
         }
       }
     },
-    "documentsschemaQueryOperator": {
+    "documentschemaQueryOperator": {
       "type": "string",
       "enum": [
         "EQ",
