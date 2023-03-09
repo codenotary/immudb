@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/codenotary/immudb/embedded/object"
+	object "github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	schemav2 "github.com/codenotary/immudb/pkg/api/schemav2"
@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	defaultObjectBLOBField = "_obj"
+	defaultDocumentBLOBField = "_obj"
 )
 
 // Schema to ValueType mapping
@@ -68,9 +68,22 @@ var (
 	}
 )
 
+// ObjectDatabase is the interface for object database
+type ObjectDatabase interface {
+	// GetCollection returns the collection schema
+	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionInformation, error)
+	// CreateCollection creates a new collection
+	CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error
+
+	// GetDocument returns the document
+	GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
+	// CreateDocument creates a new document
+	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (string, error)
+}
+
 // GetCollection returns the collection schema
 func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (resp *schemav2.CollectionInformation, err error) {
-	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	tx, err := d.documentEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
@@ -132,16 +145,15 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 		}
 		primaryKeys = append(primaryKeys, name)
 		// TODO: add support for other types
-		// TODO: add support for max length
 		// TODO: add support for auto increment
 		collectionSpec = append(collectionSpec, sql.NewColSpec(name, schType, 0, false, false))
 	}
 
 	// add support for blob
 	// TODO: add support for max length for blob storage
-	collectionSpec = append(collectionSpec, sql.NewColSpec(defaultObjectBLOBField, sql.BLOBType, 10000, false, false))
+	collectionSpec = append(collectionSpec, sql.NewColSpec(defaultDocumentBLOBField, sql.BLOBType, 0, false, false))
 
-	_, _, err := d.objectEngine.ExecPreparedStmts(
+	_, _, err := d.documentEngine.ExecPreparedStmts(
 		context.Background(),
 		nil,
 		[]sql.SQLStmt{sql.NewCreateTableStmt(
@@ -156,14 +168,14 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 }
 
 func (d *db) getCollectionSchema(ctx context.Context, collection string) (map[string]*sql.Column, error) {
-	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	tx, err := d.documentEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Cancel()
 
 	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(d.objectEngine.CurrentDatabase(), collection)
+	table, err := tx.Catalog().GetTableByName(d.documentEngine.CurrentDatabase(), collection)
 	if err != nil {
 		return nil, err
 	}
@@ -173,14 +185,14 @@ func (d *db) getCollectionSchema(ctx context.Context, collection string) (map[st
 
 // CreateDocument creates a new document
 func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (string, error) {
-	tx, err := d.objectEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	tx, err := d.documentEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return "", err
 	}
 	defer tx.Cancel()
 
 	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(d.objectEngine.CurrentDatabase(), req.Collection)
+	table, err := tx.Catalog().GetTableByName(d.documentEngine.CurrentDatabase(), req.Collection)
 	if err != nil {
 		return "", err
 	}
@@ -198,7 +210,7 @@ func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 		values := make([]sql.ValueExp, 0)
 		for _, col := range tcolumns {
 			switch col.Name() {
-			case defaultObjectBLOBField:
+			case defaultDocumentBLOBField:
 				document, err := object.NewDocumentFrom(doc)
 				if err != nil {
 					return "", err
@@ -225,12 +237,12 @@ func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 	}
 
 	// add documents to collection
-	_, _, err = d.objectEngine.ExecPreparedStmts(
+	_, _, err = d.documentEngine.ExecPreparedStmts(
 		ctx,
 		nil,
 		[]sql.SQLStmt{
 			sql.NewUpserIntoStmt(
-				d.objectEngine.CurrentDatabase(),
+				d.documentEngine.CurrentDatabase(),
 				req.Collection,
 				cols,
 				rows,
@@ -251,12 +263,12 @@ func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchReques
 	}
 
 	op := sql.NewSelectStmt(
-		d.objectEngine.CurrentDatabase(),
+		d.documentEngine.CurrentDatabase(),
 		req.Collection,
 		exp,
 	)
 
-	r, err := d.objectEngine.QueryPreparedStmt(ctx, nil, op, nil)
+	r, err := d.documentEngine.QueryPreparedStmt(ctx, nil, op, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +320,7 @@ func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchReques
 		resp.Results = append(resp.Results, document)
 
 		if l == d.maxResultSize {
-			return nil, fmt.Errorf("%w: found at least %d rows (the maximum limit). "+
+			return nil, fmt.Errorf("%w: found at least %d documents (the maximum limit). "+
 				"Query constraints can be applied using the LIMIT clause",
 				ErrResultSizeLimitReached, d.maxResultSize)
 		}
@@ -340,7 +352,7 @@ func (d *db) generateBinBoolExp(ctx context.Context, collection string, expressi
 			return nil, err
 		}
 
-		colSelector := sql.NewColSelector(d.objectEngine.CurrentDatabase(), collection, exp.GetField(), "")
+		colSelector := sql.NewColSelector(d.documentEngine.CurrentDatabase(), collection, exp.GetField(), "")
 
 		boolExps[i] = sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
 	}

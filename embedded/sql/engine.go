@@ -513,8 +513,8 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 }
 
 // addSchemaToTx adds the schema to the ongoing transaction.
-func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx, indexPrefix string) error {
-	initialKey := mapKey(sqlPrefix, indexPrefix, EncodeID(t.db.id), EncodeID(t.id))
+func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(t.db.id), EncodeID(t.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -536,7 +536,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx, indexPrefi
 			return err
 		}
 
-		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey, indexPrefix)
+		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -565,7 +565,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx, indexPrefi
 // addSchemaToTx adds the schema of the catalog to the given transaction.
 func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, d.tablePrefix, EncodeID(d.id)),
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(d.id)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -584,7 +584,7 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(sqlPrefix, mkey, d.tablePrefix)
+		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -594,7 +594,7 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 		}
 
 		// read col specs into tx
-		colSpecs, err := addColSpecsToTx(d.id, tableID, tx, sqlPrefix, d.columnPrefix)
+		colSpecs, err := addColSpecsToTx(d.id, tableID, tx, sqlPrefix)
 		if err != nil {
 			return err
 		}
@@ -622,7 +622,7 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 		}
 
 		// read index specs into tx
-		err = table.addIndexesToTx(sqlPrefix, tx, d.indexPrefix)
+		err = table.addIndexesToTx(sqlPrefix, tx)
 		if err != nil {
 			return err
 		}
@@ -635,7 +635,7 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 // addSchemaToTx adds the schema of the catalog to the given transaction.
 func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, c.databasePrefix),
+		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -655,7 +655,7 @@ func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		id, err := unmapDatabaseID(sqlPrefix, mkey, c.databasePrefix)
+		id, err := unmapDatabaseID(sqlPrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -690,8 +690,8 @@ func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 }
 
 // addColSpecsToTx adds the column specs of the given table to the given transaction.
-func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte, columnPrefix string) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, columnPrefix, EncodeID(dbID), EncodeID(tableID))
+func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -715,7 +715,7 @@ func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte
 			return nil, err
 		}
 
-		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey, columnPrefix)
+		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
 		if err != nil {
 			return nil, err
 		}
