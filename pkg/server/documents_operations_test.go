@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
-	"github.com/codenotary/immudb/pkg/api/documentsschema"
+	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
@@ -43,22 +43,22 @@ func TestV2Authentication(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := s.DocumentInsert(ctx, &documentsschema.DocumentInsertRequest{})
+	_, err := s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.DocumentSearch(ctx, &documentsschema.DocumentSearchRequest{})
+	_, err = s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionCreate(ctx, &documentsschema.CollectionCreateRequest{})
+	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionDelete(ctx, &documentsschema.CollectionDeleteRequest{})
+	_, err = s.CollectionDelete(ctx, &documentschema.CollectionDeleteRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionList(ctx, &documentsschema.CollectionListRequest{})
+	_, err = s.CollectionList(ctx, &documentschema.CollectionListRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionGet(ctx, &documentsschema.CollectionGetRequest{})
+	_, err = s.CollectionGet(ctx, &documentschema.CollectionGetRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
 	logged, err := s.OpenSessionV2(ctx, &authorizationschema.OpenSessionRequestV2{
@@ -75,22 +75,22 @@ func TestV2Authentication(t *testing.T) {
 
 	md := metadata.Pairs("sessionid", logged.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
-	_, err = s.DocumentInsert(ctx, &documentsschema.DocumentInsertRequest{})
+	_, err = s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.DocumentSearch(ctx, &documentsschema.DocumentSearchRequest{})
+	_, err = s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionCreate(ctx, &documentsschema.CollectionCreateRequest{})
+	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionDelete(ctx, &documentsschema.CollectionDeleteRequest{})
+	_, err = s.CollectionDelete(ctx, &documentschema.CollectionDeleteRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionList(ctx, &documentsschema.CollectionListRequest{})
+	_, err = s.CollectionList(ctx, &documentschema.CollectionListRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionGet(ctx, &documentsschema.CollectionGetRequest{})
+	_, err = s.CollectionGet(ctx, &documentschema.CollectionGetRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
 }
