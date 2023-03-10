@@ -16,12 +16,20 @@ limitations under the License.
 
 package runner
 
-import "time"
+import (
+	"time"
+
+	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
+)
 
 type Duration time.Duration
 
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + time.Duration(d).String() + "\""), nil
+}
+
+func (d Duration) Seconds() float64 {
+	return time.Duration(d).Seconds()
 }
 
 type BenchmarkTimelineEntry struct {
@@ -37,7 +45,7 @@ type BenchmarkRunResult struct {
 	EndTime           time.Time                `json:"endTime"`
 	Duration          Duration                 `json:"duration"`
 	RequestedDuration Duration                 `json:"requestedDuration"`
-	Results           interface{}              `json:"results"`
+	Results           *writetxs.Result         `json:"results"`
 	Timeline          []BenchmarkTimelineEntry `json:"timeline"`
 }
 

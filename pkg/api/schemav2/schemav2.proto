@@ -1,0 +1,190 @@
+syntax = "proto3";
+
+package immudb.schemav2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "schema.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+
+option go_package = "github.com/codenotary/immudb/pkg/api/schemav2";
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  base_path: "/api/v2",
+  info: {
+    title: "immudb REST API v2";
+    description: ""
+  };
+  security_definitions: {
+    security: {
+      key: "bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Authentication token, prefixed by Bearer: Bearer <token>"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "bearer"
+    }
+  }
+};
+
+message DocumentInsertRequest {
+  string collection = 1;
+  repeated google.protobuf.Struct document = 2;
+}
+
+
+enum QueryOperator {
+  EQ = 0;
+  GT = 1;
+  GTE = 2;
+  LT = 3;
+  LTE = 4;
+  LIKE = 5;
+}
+
+message DocumentQuery {
+  string field = 1;
+  QueryOperator operator = 2;
+  google.protobuf.Value value = 3;
+}
+
+
+message DocumentSearchRequest {
+  string collection = 1;
+  repeated DocumentQuery query = 2;
+  uint32 page = 3;
+  uint32 perPage = 4;
+}
+
+message DocumentSearchResponse {
+  repeated google.protobuf.Struct results = 1;
+  uint32 page = 2;
+  uint32 perPage = 3;
+  uint32 entriesLeft = 4;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+  string database = 3;
+}
+
+message LoginResponseV2 {
+  string token = 1;
+  int32 expirationTimestamp = 2;
+
+}
+
+enum PossibleIndexType {
+  DOUBLE = 0;
+  INTEGER = 1;
+  STRING = 2;
+}
+
+message CollectionCreateRequest {
+  string name = 1;
+  map<string, PossibleIndexType> primaryKeys = 2;
+  map<string, PossibleIndexType>  indexKeys = 3;
+}
+
+message CollectionInformation {
+  string name = 1;
+  map<string, PossibleIndexType>  primaryKeys = 2;
+  map<string, PossibleIndexType>  indexKeys = 3;
+}
+
+message CollectionGetRequest {
+  string name = 1;
+}
+
+message CollectionListRequest {
+}
+
+message CollectionListResponse {
+  repeated CollectionInformation collections = 1;
+}
+
+message CollectionDeleteRequest {
+  string name = 1;
+}
+
+message Proof {
+  string name = 1;
+}
+
+
+service ImmuServiceV2 {
+  rpc LoginV2(LoginRequest) returns (LoginResponseV2) {
+    option (google.api.http) = {
+      post: "/system/login"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "authorization";
+    };
+  } 
+
+  rpc DocumentInsert(DocumentInsertRequest) returns (schema.VerifiableTx) {
+    option (google.api.http) = {
+      put: "/documents/insert"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  } 
+ 
+  rpc DocumentSearch(DocumentSearchRequest) returns (DocumentSearchResponse) {
+    option (google.api.http) = {
+      post: "/documents/search"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  } 
+
+  rpc CollectionCreate(CollectionCreateRequest) returns (CollectionInformation) {
+    option (google.api.http) = {
+      put: "/collections/create"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  rpc CollectionGet(CollectionGetRequest) returns (CollectionInformation) {
+    option (google.api.http) = {
+      get: "/collections/get"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  
+  rpc CollectionList(CollectionListRequest) returns (CollectionListResponse) {
+    option (google.api.http) = {
+      post: "/collections/list"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+  rpc CollectionDelete(CollectionDeleteRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/collections/delete"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+}

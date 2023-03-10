@@ -458,6 +458,7 @@ func (o *Options) WithPProf(pprof bool) *Options {
 
 func (o *Options) WithGRPCReflectionServerEnabled(enabled bool) *Options {
 	o.GRPCReflectionServerEnabled = enabled
+
 	return o
 }
 

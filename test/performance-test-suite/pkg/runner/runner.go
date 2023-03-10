@@ -21,6 +21,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, error) {
@@ -98,12 +100,14 @@ func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, erro
 		result.EndTime = time.Now()
 		result.Duration = Duration(result.EndTime.Sub(result.StartTime))
 		result.RequestedDuration = Duration(d)
-		result.Results = res
+		result.Results = res.(*writetxs.Result)
 
 		ret.Benchmarks = append(ret.Benchmarks, result)
 
 		log.Printf("Benchmark %s finished", b.Name())
 		log.Printf("Results: %s", res)
+
+		b.Cleanup()
 	}
 
 	ret.EndTime = time.Now()

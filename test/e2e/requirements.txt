@@ -1,0 +1,8 @@
+certifi==2022.12.7
+influxdb-client==1.36.0
+pkg-resources==0.0.0
+python-dateutil==2.8.2
+reactivex==4.0.4
+six==1.16.0
+typing-extensions==4.5.0
+urllib3==1.26.14

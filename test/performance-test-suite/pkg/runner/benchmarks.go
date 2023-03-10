@@ -24,7 +24,7 @@ import (
 func getBenchmarksToRun() []benchmarks.Benchmark {
 	return []benchmarks.Benchmark{
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write TX/s - no replicas",
+			Name:       "Write TX/s async - no replicas",
 			Workers:    30,
 			BatchSize:  1,
 			KeySize:    32,
@@ -34,7 +34,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write KV/s - no replicas",
+			Name:       "Write KV/s async - no replicas",
 			Workers:    30,
 			BatchSize:  1000,
 			KeySize:    32,
@@ -44,7 +44,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write TX/s - one async replica",
+			Name:       "Write TX/s async - one async replica",
 			Workers:    30,
 			BatchSize:  1,
 			KeySize:    32,
@@ -54,7 +54,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write KV/s - one async replica",
+			Name:       "Write KV/s async - one async replica",
 			Workers:    30,
 			BatchSize:  1000,
 			KeySize:    32,
@@ -64,7 +64,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write TX/s - one sync replica",
+			Name:       "Write TX/s async - one sync replica",
 			Workers:    30,
 			BatchSize:  1,
 			KeySize:    32,
@@ -74,12 +74,72 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write KV/s - one sync replica",
+			Name:       "Write KV/s async - one sync replica",
 			Workers:    30,
 			BatchSize:  1000,
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
+			Replica:    "sync",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write TX/s sync - no replicas",
+			Workers:    30,
+			BatchSize:  1,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: false,
+			Replica:    "",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write KV/s sync - no replicas",
+			Workers:    30,
+			BatchSize:  1000,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: false,
+			Replica:    "",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write TX/s sync - one async replica",
+			Workers:    30,
+			BatchSize:  1,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: false,
+			Replica:    "async",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write KV/s sync - one async replica",
+			Workers:    30,
+			BatchSize:  1000,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: false,
+			Replica:    "async",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write TX/s sync - one sync replica",
+			Workers:    30,
+			BatchSize:  1,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: false,
+			Replica:    "sync",
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write KV/s sync - one sync replica",
+			Workers:    30,
+			BatchSize:  1000,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: false,
 			Replica:    "sync",
 		}),
 	}

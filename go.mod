@@ -16,6 +16,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
+	github.com/influxdata/influxdb-client-go/v2 v2.12.2
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/jaswdr/faker v1.4.3
 	github.com/lib/pq v1.10.2
@@ -26,7 +27,6 @@ require (
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/o1egl/paseto v1.0.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/ory/dockertest/v3 v3.9.1
 	github.com/ory/go-acc v0.2.8
 	github.com/peterh/liner v1.2.1
 	github.com/prometheus/client_golang v1.12.2
@@ -42,7 +42,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.8.0
 	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20220708220712-1185a9018129
@@ -53,7 +53,6 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/ini.v1 v1.66.6 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace github.com/takama/daemon v0.12.0 => github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4

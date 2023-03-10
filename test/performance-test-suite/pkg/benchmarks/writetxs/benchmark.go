@@ -234,7 +234,10 @@ func (b *benchmark) Cleanup() error {
 	}
 
 	b.primaryServer.Stop()
-	b.replicaServer.Stop()
+
+	if b.replicaServer != nil {
+		b.replicaServer.Stop()
+	}
 
 	return nil
 }

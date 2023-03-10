@@ -33,6 +33,11 @@ func main() {
 	flDuration := flag.Duration("d", time.Second*10, "duration of each test run")
 	flSeed := flag.Uint64("s", 0, "seed for data generators")
 	flRandomSeed := flag.Bool("random-seed", false, "if set to true, use random seed for test runs")
+	flInfluxDbHost := flag.String("host", "", "url for influxdb")
+	flInfluxToken := flag.String("token", "", "token for influxdb")
+	flInfluxBucket := flag.String("bucket", "immudb-tests-results", "bucket for influxdb")
+	flInfluxRunner := flag.String("runner", "", "github runner for influxdb")
+	flInfluxVersion := flag.String("version", "", "immudb version for influxdb")
 
 	flag.Parse()
 
@@ -56,4 +61,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if *flInfluxDbHost != "" && *flInfluxToken != "" && *flInfluxRunner != "" && *flInfluxVersion != "" {
+		runner.SendResultsToInfluxDb(*flInfluxDbHost, *flInfluxToken, *flInfluxBucket, *flInfluxRunner, *flInfluxVersion, results)
+	}
+
 }
