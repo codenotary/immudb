@@ -8,8 +8,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            go: "1.15"
+          # - os: ubuntu-latest
+          #   go: "1.15"
 
           - os: ubuntu-latest
             go: "1.16"
