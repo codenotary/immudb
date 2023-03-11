@@ -72,6 +72,10 @@ const (
 	AnyType       SQLValueType = "ANY"
 )
 
+func IsNumericType(t SQLValueType) bool {
+	return t == IntegerType || t == Float64Type
+}
+
 type AggregateFn = string
 
 const (
