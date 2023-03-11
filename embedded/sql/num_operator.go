@@ -19,12 +19,7 @@ package sql
 import "fmt"
 
 func applyNumOperator(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-
-	if _, lf := vl.Value().(float64); lf {
-		return applyNumOperatorFloat64(op, vl, vr)
-	}
-
-	if _, rf := vr.Value().(float64); rf {
+	if vl.Type() == Float64Type || vr.Type() == Float64Type {
 		return applyNumOperatorFloat64(op, vl, vr)
 	}
 
@@ -32,7 +27,6 @@ func applyNumOperator(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
 }
 
 func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-
 	nl, isNumber := vl.Value().(int64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
@@ -70,7 +64,6 @@ func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, err
 }
 
 func applyNumOperatorFloat64(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-
 	nl, isNumber := applyImplicitConversion(vl, Float64Type).(float64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
