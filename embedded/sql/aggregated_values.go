@@ -138,13 +138,16 @@ func (v *SumValue) Compare(val TypedValue) (int, error) {
 }
 
 func (v *SumValue) updateWith(val TypedValue) error {
-
-	if val.Value() == nil {
+	if val.IsNull() {
 		// Skip NULL values
 		return nil
 	}
 
-	if v.val.Value() == nil {
+	if !IsNumericType(val.Type()) {
+		return ErrNumericTypeExpected
+	}
+
+	if v.val.IsNull() {
 		// First non-null value
 		v.val = val
 		return nil
@@ -156,6 +159,7 @@ func (v *SumValue) updateWith(val TypedValue) error {
 	}
 
 	v.val = newVal
+
 	return nil
 }
 
@@ -227,10 +231,12 @@ func (v *MinValue) Compare(val TypedValue) (int, error) {
 
 func (v *MinValue) updateWith(val TypedValue) error {
 	if val.IsNull() {
+		// Skip NULL values
 		return nil
 	}
 
 	if v.val.IsNull() {
+		// First non-null value
 		v.val = val
 		return nil
 	}
@@ -324,10 +330,12 @@ func (v *MaxValue) Compare(val TypedValue) (int, error) {
 
 func (v *MaxValue) updateWith(val TypedValue) error {
 	if val.IsNull() {
+		// Skip NULL values
 		return nil
 	}
 
 	if v.val.IsNull() {
+		// First non-null value
 		v.val = val
 		return nil
 	}
@@ -434,16 +442,17 @@ func (v *AVGValue) Compare(val TypedValue) (int, error) {
 }
 
 func (v *AVGValue) updateWith(val TypedValue) error {
-	if val.Type() != IntegerType && val.Type() != Float64Type {
-		return ErrNotComparableValues
-	}
-
 	if val.IsNull() {
-		// Skip NULLs
+		// Skip NULL values
 		return nil
 	}
 
+	if !IsNumericType(val.Type()) {
+		return ErrNumericTypeExpected
+	}
+
 	if v.s.IsNull() {
+		// First non-null value
 		v.s = val
 		v.c++
 		return nil

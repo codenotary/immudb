@@ -17,7 +17,6 @@ limitations under the License.
 package sql
 
 func applyImplicitConversion(val TypedValue, requiredColumnType SQLValueType) interface{} {
-
 	switch requiredColumnType {
 	case Float64Type:
 		switch value := val.Value().(type) {

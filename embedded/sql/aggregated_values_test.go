@@ -101,7 +101,7 @@ func TestSumValue(t *testing.T) {
 	require.Equal(t, 0, cmp)
 
 	err = cval.updateWith(&Bool{val: true})
-	require.ErrorIs(t, err, ErrInvalidValue)
+	require.ErrorIs(t, err, ErrNumericTypeExpected)
 
 	err = cval.updateWith(&Integer{val: 10})
 	require.NoError(t, err)
@@ -167,10 +167,10 @@ func TestMinValue(t *testing.T) {
 	require.Equal(t, 0, cmp)
 
 	_, err = cval.Compare(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = cval.updateWith(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = cval.updateWith(&Integer{val: 2})
 	require.NoError(t, err)
@@ -236,10 +236,10 @@ func TestMaxValue(t *testing.T) {
 	require.Equal(t, 0, cmp)
 
 	_, err = cval.Compare(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = cval.updateWith(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = cval.updateWith(&Integer{val: 2})
 	require.NoError(t, err)
@@ -299,10 +299,10 @@ func TestAVGValue(t *testing.T) {
 	require.Equal(t, 0, cmp)
 
 	_, err = cval.Compare(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = cval.updateWith(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNumericTypeExpected)
 
 	err = cval.updateWith(&Integer{val: 2})
 	require.NoError(t, err)
