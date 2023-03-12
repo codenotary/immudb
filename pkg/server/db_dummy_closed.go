@@ -24,8 +24,8 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/api/schemav2"
 	"github.com/codenotary/immudb/pkg/database"
 )
 

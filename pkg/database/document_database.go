@@ -6,8 +6,8 @@ import (
 
 	object "github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
+	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	schemav2 "github.com/codenotary/immudb/pkg/api/schemav2"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -17,9 +17,9 @@ const (
 
 // Schema to ValueType mapping
 var (
-	schemaToValueType = map[schemav2.PossibleIndexType]sql.SQLValueType{
-		schemav2.PossibleIndexType_STRING:  sql.VarcharType,
-		schemav2.PossibleIndexType_INTEGER: sql.IntegerType,
+	schemaToValueType = map[schemav2.IndexType]sql.SQLValueType{
+		schemav2.IndexType_STRING:  sql.VarcharType,
+		schemav2.IndexType_INTEGER: sql.IntegerType,
 	}
 
 	// ValueType to ValueExp conversion
@@ -104,21 +104,21 @@ func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetReque
 	// iterate over indexes and extract primary and index keys
 	for _, idx := range indexes {
 		for _, col := range idx.Cols() {
-			var colType schemav2.PossibleIndexType
+			var colType schemav2.IndexType
 			switch col.Type() {
 			case sql.VarcharType:
-				colType = schemav2.PossibleIndexType_STRING
+				colType = schemav2.IndexType_STRING
 			case sql.IntegerType:
-				colType = schemav2.PossibleIndexType_INTEGER
+				colType = schemav2.IndexType_INTEGER
 			case sql.BLOBType:
-				colType = schemav2.PossibleIndexType_STRING
+				colType = schemav2.IndexType_STRING
 			}
 
 			// check if primary key
 			if idx.IsPrimary() {
-				resp.PrimaryKeys[col.Name()] = colType
+				resp.PrimaryKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
 			} else {
-				resp.IndexKeys[col.Name()] = colType
+				resp.IndexKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 
 	// validate primary keys
 	for name, pk := range req.PrimaryKeys {
-		schType, isValid := schemaToValueType[pk]
+		schType, isValid := schemaToValueType[pk.Type]
 		if !isValid {
 			return fmt.Errorf("invalid primary key type: %v", pk)
 		}
