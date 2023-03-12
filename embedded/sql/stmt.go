@@ -213,7 +213,7 @@ func (stmt *CreateDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params ma
 		return nil, err
 	}
 
-	err = tx.set(mapKey(tx.sqlPrefix(), tx.engine.databasePrefix, EncodeID(db.id)), nil, []byte(stmt.DB))
+	err = tx.set(mapKey(tx.sqlPrefix(), catalogDatabasePrefix, EncodeID(db.id)), nil, []byte(stmt.DB))
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func persistColumn(col *Column, tx *SQLTx) error {
 
 	mappedKey := mapKey(
 		tx.sqlPrefix(),
-		tx.engine.columnPrefix,
+		catalogColumnPrefix,
 		EncodeID(col.table.db.id),
 		EncodeID(col.table.id),
 		EncodeID(col.id),
@@ -342,7 +342,7 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), tx.engine.tablePrefix, EncodeID(tx.currentDB.id), EncodeID(table.id))
+	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(tx.currentDB.id), EncodeID(table.id))
 
 	err = tx.set(mappedKey, nil, []byte(table.name))
 	if err != nil {
@@ -448,7 +448,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		copy(encodedValues[1+i*colSpecLen:], EncodeID(col.id))
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), tx.engine.indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(index.id))
+	mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(index.id))
 
 	err = tx.set(mappedKey, nil, encodedValues)
 	if err != nil {

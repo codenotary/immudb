@@ -28,21 +28,11 @@ type Options struct {
 	prefix        []byte
 	distinctLimit int
 	autocommit    bool
-
-	// prefixes
-	databasePrefix string
-	tablePrefix    string
-	columnPrefix   string
-	indexPrefix    string
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		distinctLimit:  defaultDistinctLimit,
-		databasePrefix: catalogDatabasePrefix,
-		tablePrefix:    catalogTablePrefix,
-		columnPrefix:   catalogColumnPrefix,
-		indexPrefix:    catalogIndexPrefix,
+		distinctLimit: defaultDistinctLimit,
 	}
 }
 
@@ -70,37 +60,5 @@ func (opts *Options) WithDistinctLimit(distinctLimit int) *Options {
 
 func (opts *Options) WithAutocommit(autocommit bool) *Options {
 	opts.autocommit = autocommit
-	return opts
-}
-
-func (opts *Options) GetPrefix() []byte {
-	return opts.prefix
-}
-
-func (opts *Options) GetDistinctLimit() int {
-	return opts.distinctLimit
-}
-
-func (opts *Options) GetAutoCommit() bool {
-	return opts.autocommit
-}
-
-func (opts *Options) WithDatabasePrefix(databasePrefix string) *Options {
-	opts.databasePrefix = databasePrefix
-	return opts
-}
-
-func (opts *Options) WithTablePrefix(tablePrefix string) *Options {
-	opts.tablePrefix = tablePrefix
-	return opts
-}
-
-func (opts *Options) WithColumnPrefix(columnPrefix string) *Options {
-	opts.columnPrefix = columnPrefix
-	return opts
-}
-
-func (opts *Options) WithIndexPrefix(indexPrefix string) *Options {
-	opts.indexPrefix = indexPrefix
 	return opts
 }

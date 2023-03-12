@@ -102,12 +102,6 @@ type Engine struct {
 	distinctLimit int
 	autocommit    bool
 
-	// prefixes
-	databasePrefix string
-	tablePrefix    string
-	columnPrefix   string
-	indexPrefix    string
-
 	currentDatabase string
 
 	multidbHandler MultiDBHandler
@@ -137,11 +131,6 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		prefix:        make([]byte, len(opts.prefix)),
 		distinctLimit: opts.distinctLimit,
 		autocommit:    opts.autocommit,
-
-		databasePrefix: opts.databasePrefix,
-		tablePrefix:    opts.tablePrefix,
-		columnPrefix:   opts.columnPrefix,
-		indexPrefix:    opts.indexPrefix,
 	}
 
 	copy(e.prefix, opts.prefix)
@@ -213,7 +202,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		return nil, err
 	}
 
-	catalog := NewCatalog(e.databasePrefix, e.tablePrefix, e.columnPrefix, e.indexPrefix)
+	catalog := newCatalog()
 
 	err = catalog.load(e.prefix, tx)
 	if err != nil {
@@ -503,7 +492,7 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	catalog := NewCatalog(e.databasePrefix, e.tablePrefix, e.columnPrefix, e.indexPrefix)
+	catalog := newCatalog()
 	err := catalog.addSchemaToTx(e.prefix, tx)
 	if err != nil {
 		return err
