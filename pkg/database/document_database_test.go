@@ -125,7 +125,7 @@ func TestGenerateBinBoolExp(t *testing.T) {
 	// 	},
 	// }
 
-	_, err = db.generateBinBoolExp(context.Background(), "mycollection", expressions)
+	_, err = db.documentEngine.GenerateBinBoolExp(context.Background(), "mycollection", expressions)
 	require.NoError(t, err)
 	// if !reflect.DeepEqual(actual, expected) {
 	// 	t.Errorf("GenerateBinBoolExp() = %v, want %v", actual, expected)
