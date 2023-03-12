@@ -4,10 +4,14 @@ import (
 	"context"
 	"testing"
 
-	schemav2 "github.com/codenotary/immudb/pkg/api/schemav2"
+	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
+	return &schemav2.IndexOption{Type: indexType}
+}
 
 func Test_db_CreateCollection(t *testing.T) {
 	db := makeDb(t)
@@ -16,8 +20,8 @@ func Test_db_CreateCollection(t *testing.T) {
 	collectionName := "mycollection"
 	err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
 		Name: collectionName,
-		PrimaryKeys: map[string]schemav2.PossibleIndexType{
-			"id": schemav2.PossibleIndexType_INTEGER,
+		PrimaryKeys: map[string]*schemav2.IndexOption{
+			"id": newIndexOption(schemav2.IndexType_INTEGER),
 		},
 	})
 	require.NoError(t, err)
@@ -61,10 +65,10 @@ func TestGenerateBinBoolExp(t *testing.T) {
 	collectionName := "mycollection"
 	err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
 		Name: collectionName,
-		PrimaryKeys: map[string]schemav2.PossibleIndexType{
-			"id":         schemav2.PossibleIndexType_INTEGER,
-			"country_id": schemav2.PossibleIndexType_INTEGER,
-			"pincode":    schemav2.PossibleIndexType_INTEGER,
+		PrimaryKeys: map[string]*schemav2.IndexOption{
+			"id":         newIndexOption(schemav2.IndexType_INTEGER),
+			"country_id": newIndexOption(schemav2.IndexType_INTEGER),
+			"pincode":    newIndexOption(schemav2.IndexType_INTEGER),
 		},
 	})
 	require.NoError(t, err)
