@@ -35,7 +35,7 @@ func TestApplyImplicitConversion(t *testing.T) {
 		{&Varchar{val: "hello world"}, IntegerType, "hello world"},
 	} {
 		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
-			converted := applyImplicitConversion(d.val, d.requiredType)
+			converted := applyImplicitConversion(d.val.RawValue(), d.requiredType)
 			require.Equal(t, d.result, converted)
 		})
 	}

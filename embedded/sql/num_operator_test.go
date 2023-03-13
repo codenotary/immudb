@@ -55,7 +55,7 @@ func TestNumOperator(t *testing.T) {
 			t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
 				result, err := applyNumOperator(d.op, d.lv, d.rv)
 				require.NoError(t, err)
-				require.Equal(t, d.ev, result.Value())
+				require.Equal(t, d.ev, result.RawValue())
 			})
 		}
 	})
