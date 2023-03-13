@@ -2,9 +2,12 @@ package database
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -13,8 +16,35 @@ func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
 	return &schemav2.IndexOption{Type: indexType}
 }
 
+func makeDocumentDb(t *testing.T) *db {
+	rootPath := t.TempDir()
+
+	dbName := "doc_test_db"
+	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2))
+	d, err := NewDB(dbName, nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		err := d.Close()
+		if !t.Failed() {
+			require.NoError(t, err)
+		}
+	})
+
+	db := d.(*db)
+
+	_, _, err = db.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbName}}, nil)
+	require.NoError(t, err)
+
+	err = db.documentEngine.SetCurrentDatabase(context.Background(), dbName)
+	require.NoError(t, err)
+
+	return db
+}
+
 func TestObjectDB_Collection(t *testing.T) {
-	db := makeDb(t)
+	db := makeDocumentDb(t)
 
 	// create collection
 	collectionName := "mycollection"

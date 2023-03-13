@@ -154,8 +154,9 @@ type db struct {
 
 	sqlEngine      *sql.Engine
 	documentEngine *document.Engine
-	sqlInitCancel  chan (struct{})
-	sqlInit        sync.WaitGroup
+
+	engineInitCancel chan (struct{})
+	engineInit       sync.WaitGroup
 
 	mutex        *instrumentedRWMutex
 	closingMutex sync.Mutex
@@ -235,11 +236,11 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return dbi, nil
 	}
 
-	dbi.sqlInitCancel = make(chan struct{})
-	dbi.sqlInit.Add(1)
+	dbi.engineInitCancel = make(chan struct{})
+	dbi.engineInit.Add(1)
 
 	go func() {
-		defer dbi.sqlInit.Done()
+		defer dbi.engineInit.Done()
 
 		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
 
@@ -390,15 +391,15 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 
-		_, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
+		// _, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
+		// if err != nil {
+		// 	return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		// }
 
-		err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
+		// err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
+		// if err != nil {
+		// 	return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		// }
 	}
 
 	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
@@ -1662,12 +1663,12 @@ func (d *db) Close() (err error) {
 		}
 	}()
 
-	if d.sqlInitCancel != nil {
-		close(d.sqlInitCancel)
-		d.sqlInitCancel = nil
+	if d.engineInitCancel != nil {
+		close(d.engineInitCancel)
+		d.engineInitCancel = nil
 	}
 
-	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
+	d.engineInit.Wait() // Wait for SQL Engine initialization to conclude
 
 	return d.st.Close()
 }

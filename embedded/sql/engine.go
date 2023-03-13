@@ -262,6 +262,7 @@ func (e *Engine) ExecPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 		}
 
 		ntx, hctxs, err := e.multidbHandler.ExecPreparedStmts(ctx, opts, pendingStmts, params)
+
 		return ntx, append(ctxs, hctxs...), err
 	}
 
