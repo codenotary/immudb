@@ -84,36 +84,61 @@ type Engine struct {
 // TODO: Add support for index creation
 func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pkeys map[string]sql.SQLValueType, idxKeys map[string]sql.SQLValueType) error {
 	primaryKeys := make([]string, 0)
-	collectionSpec := make([]*sql.ColSpec, 0, len(pkeys))
+	indexKeys := make([]string, 0)
+	columns := make([]*sql.ColSpec, 0, len(pkeys))
 
 	// validate collection to contain at least one primary key
 	if len(pkeys) == 0 {
 		return fmt.Errorf("collection must have at least one primary key")
 	}
 
-	// validate primary keys
+	// add primary keys
 	for name, schType := range pkeys {
 		primaryKeys = append(primaryKeys, name)
 		// TODO: add support for other types
 		// TODO: add support for auto increment
-		collectionSpec = append(collectionSpec, sql.NewColSpec(name, schType, 0, false, false))
+		columns = append(columns, sql.NewColSpec(name, schType, 0, false, false))
 	}
 
 	// add columnn for blob, which stores the document as a whole
-	collectionSpec = append(collectionSpec, sql.NewColSpec(defaultDocumentBLOBField, sql.BLOBType, 0, false, false))
+	columns = append(columns, sql.NewColSpec(defaultDocumentBLOBField, sql.BLOBType, 0, false, false))
 
+	// add index keys
+	for name, schType := range idxKeys {
+		indexKeys = append(indexKeys, name)
+		columns = append(columns, sql.NewColSpec(name, schType, 0, false, false))
+	}
+
+	// add columns to collection
 	_, _, err := d.ExecPreparedStmts(
 		context.Background(),
 		nil,
 		[]sql.SQLStmt{sql.NewCreateTableStmt(
 			collectionName,
 			false,
-			collectionSpec,
+			columns,
 			primaryKeys,
 		)},
 		nil,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if len(indexKeys) > 0 {
+		// add indexes to collection
+		_, _, err = d.ExecPreparedStmts(
+			context.Background(),
+			nil,
+			[]sql.SQLStmt{sql.NewCreateIndexStmt(collectionName, indexKeys)},
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (d *Engine) CreateDocument(ctx context.Context, collectionName string, documents []*structpb.Struct) error {
@@ -266,7 +291,7 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName string, queries []*Query, maxResultSize int) ([]*structpb.Struct, error) {
+func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries []*Query, maxResultSize int) ([]*structpb.Struct, error) {
 	exp, err := d.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err

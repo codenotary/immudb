@@ -27,10 +27,11 @@ func TestObjectDB_Collection(t *testing.T) {
 	require.NoError(t, err)
 
 	// get collection
-	resp, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
+	cinfo, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
 		Name: collectionName,
 	})
 	require.NoError(t, err)
+	resp := cinfo.Collection
 	require.Equal(t, 0, len(resp.IndexKeys))
 	require.Equal(t, 1, len(resp.PrimaryKeys))
 	require.Contains(t, resp.PrimaryKeys, "id")

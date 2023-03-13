@@ -43,10 +43,17 @@ func TestCreateCollection(t *testing.T) {
 	engine := makeEngine(t)
 
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"id":     sql.IntegerType,
-		"number": sql.IntegerType,
-	}, nil)
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		map[string]sql.SQLValueType{
+			"id":     sql.IntegerType,
+			"number": sql.IntegerType,
+		},
+		map[string]sql.SQLValueType{
+			"pin": sql.IntegerType,
+		},
+	)
 	require.NoError(t, err)
 
 	catalog, err := engine.Catalog(context.Background(), nil)
@@ -56,6 +63,7 @@ func TestCreateCollection(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, collectionName, table.Name())
+
 	c, err := table.GetColumnByName("id")
 	require.NoError(t, err)
 	require.Equal(t, c.Name(), "id")
@@ -64,10 +72,14 @@ func TestCreateCollection(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, c.Name(), "number")
 
+	c, err = table.GetColumnByName("pin")
+	require.NoError(t, err)
+	require.Equal(t, c.Name(), "pin")
+
 	// get collection
 	indexes, err := engine.GetCollection(context.Background(), collectionName)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(indexes))
+	require.Equal(t, 2, len(indexes))
 
 	primaryKeyCount := 0
 	indexKeyCount := 0
@@ -80,14 +92,14 @@ func TestCreateCollection(t *testing.T) {
 		}
 	}
 	require.Equal(t, 2, primaryKeyCount)
-	require.Equal(t, 0, indexKeyCount)
+	require.Equal(t, 1, indexKeyCount)
 }
 
 func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
 	return &schemav2.IndexOption{Type: indexType}
 }
 
-func TestGetCollection(t *testing.T) {
+func TestGetDocument(t *testing.T) {
 	engine := makeEngine(t)
 
 	// create collection
@@ -136,7 +148,7 @@ func TestGetCollection(t *testing.T) {
 		},
 	}
 
-	doc, err := engine.GetDocument(context.Background(), "db1", collectionName, expressions, 10)
+	doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(doc))
 }
