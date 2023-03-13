@@ -230,7 +230,7 @@ func main() {
 					panic(err)
 				}
 				r.Close()
-				n := ret.ValuesBySelector["(defaultdb.entries.col0)"].Value().(uint64)
+				n := ret.ValuesBySelector["(defaultdb.entries.col0)"].RawValue().(uint64)
 				if n != uint64(i) {
 					log.Printf("Reader %d read %d vs %d", id, n, i)
 				}
@@ -254,7 +254,7 @@ func main() {
 		panic(err)
 	}
 
-	count := row.ValuesBySelector["(defaultdb.entries.col0)"].Value().(uint64)
+	count := row.ValuesBySelector["(defaultdb.entries.col0)"].RawValue().(uint64)
 	log.Printf("- Counted %d entries\n", count)
 	defer func() {
 		err := r.Close()

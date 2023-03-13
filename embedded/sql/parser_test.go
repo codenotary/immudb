@@ -1625,7 +1625,6 @@ func TestMultiLineStmts(t *testing.T) {
 }
 
 func TestFloatCornerCases(t *testing.T) {
-
 	for _, d := range []struct {
 		s       string
 		invalid bool

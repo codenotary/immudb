@@ -663,7 +663,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 			if col.autoIncrement {
 				// validate specified value
-				nl, isNumber := rval.Value().(int64)
+				nl, isNumber := rval.RawValue().(int64)
 				if !isNumber {
 					return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 				}
@@ -775,9 +775,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 			return err
 		}
 
-		convertedValue := applyImplicitConversion(rval, col.colType)
-
-		encVal, err := EncodeValue(convertedValue, col.colType, col.MaxLen())
+		encVal, err := EncodeValue(rval, col.colType, col.MaxLen())
 		if err != nil {
 			return err
 		}
@@ -830,7 +828,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 				rval = &NullValue{t: col.colType}
 			}
 
-			encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
+			encVal, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 			if err != nil {
 				return err
 			}
@@ -871,7 +869,7 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 			return nil, ErrPKCanNotBeNull
 		}
 
-		encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
+		encVal, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 		if err != nil {
 			return nil, err
 		}
@@ -964,7 +962,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 
 			sameIndexKey = sameIndexKey && r == 0
 
-			encVal, _ := EncodeAsKey(currVal.Value(), col.colType, col.MaxLen())
+			encVal, _ := EncodeValueAsKey(currVal, col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
 		}
@@ -1254,7 +1252,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 				val = &NullValue{t: col.colType}
 			}
 
-			encVal, _ := EncodeAsKey(val.Value(), col.colType, col.MaxLen())
+			encVal, _ := EncodeValueAsKey(val, col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
 		}
@@ -1387,7 +1385,7 @@ func minSemiRange(or1, or2 *typedValueSemiRange) (*typedValueSemiRange, error) {
 type TypedValue interface {
 	ValueExp
 	Type() SQLValueType
-	Value() interface{}
+	RawValue() interface{}
 	Compare(val TypedValue) (int, error)
 	IsNull() bool
 }
@@ -1400,7 +1398,7 @@ func (n *NullValue) Type() SQLValueType {
 	return n.t
 }
 
-func (n *NullValue) Value() interface{} {
+func (n *NullValue) RawValue() interface{} {
 	return nil
 }
 
@@ -1413,7 +1411,7 @@ func (n *NullValue) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	if val.Value() == nil {
+	if val.RawValue() == nil {
 		return 0, nil
 	}
 
@@ -1502,7 +1500,7 @@ func (v *Integer) selectorRanges(table *Table, asTable string, params map[string
 	return nil
 }
 
-func (v *Integer) Value() interface{} {
+func (v *Integer) RawValue() interface{} {
 	return v.val
 }
 
@@ -1511,11 +1509,16 @@ func (v *Integer) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
+	if val.Type() == Float64Type {
+		r, err := val.Compare(v)
+		return r * -1, err
+	}
+
 	if val.Type() != IntegerType {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(int64)
+	rval := val.RawValue().(int64)
 
 	if v.val == rval {
 		return 0, nil
@@ -1572,7 +1575,7 @@ func (v *Timestamp) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
-func (v *Timestamp) Value() interface{} {
+func (v *Timestamp) RawValue() interface{} {
 	return v.val
 }
 
@@ -1585,7 +1588,7 @@ func (v *Timestamp) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(time.Time)
+	rval := val.RawValue().(time.Time)
 
 	if v.val.Before(rval) {
 		return -1, nil
@@ -1642,7 +1645,7 @@ func (v *Varchar) selectorRanges(table *Table, asTable string, params map[string
 	return nil
 }
 
-func (v *Varchar) Value() interface{} {
+func (v *Varchar) RawValue() interface{} {
 	return v.val
 }
 
@@ -1655,7 +1658,7 @@ func (v *Varchar) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(string)
+	rval := val.RawValue().(string)
 
 	return bytes.Compare([]byte(v.val), []byte(rval)), nil
 }
@@ -1704,7 +1707,7 @@ func (v *Bool) selectorRanges(table *Table, asTable string, params map[string]in
 	return nil
 }
 
-func (v *Bool) Value() interface{} {
+func (v *Bool) RawValue() interface{} {
 	return v.val
 }
 
@@ -1717,7 +1720,7 @@ func (v *Bool) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(bool)
+	rval := val.RawValue().(bool)
 
 	if v.val == rval {
 		return 0, nil
@@ -1774,7 +1777,7 @@ func (v *Blob) selectorRanges(table *Table, asTable string, params map[string]in
 	return nil
 }
 
-func (v *Blob) Value() interface{} {
+func (v *Blob) RawValue() interface{} {
 	return v.val
 }
 
@@ -1787,7 +1790,7 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().([]byte)
+	rval := val.RawValue().([]byte)
 
 	return bytes.Compare(v.val, rval), nil
 }
@@ -1836,7 +1839,7 @@ func (v *Float64) selectorRanges(table *Table, asTable string, params map[string
 	return nil
 }
 
-func (v *Float64) Value() interface{} {
+func (v *Float64) RawValue() interface{} {
 	return v.val
 }
 
@@ -1845,7 +1848,9 @@ func (v *Float64) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	rval, ok := val.Value().(float64)
+	convVal := applyImplicitConversion(val.RawValue(), Float64Type)
+
+	rval, ok := convVal.(float64)
 	if !ok {
 		return 0, ErrNotComparableValues
 	}
@@ -1933,24 +1938,30 @@ type Cast struct {
 type converterFunc func(TypedValue) (TypedValue, error)
 
 func getConverter(src, dst SQLValueType) (converterFunc, error) {
+	if src == dst {
+		return func(tv TypedValue) (TypedValue, error) {
+			return tv, nil
+		}, nil
+	}
+
 	if dst == TimestampType {
 
 		if src == IntegerType {
 			return func(val TypedValue) (TypedValue, error) {
-				if val.Value() == nil {
+				if val.RawValue() == nil {
 					return &NullValue{t: TimestampType}, nil
 				}
-				return &Timestamp{val: time.Unix(val.Value().(int64), 0).Truncate(time.Microsecond).UTC()}, nil
+				return &Timestamp{val: time.Unix(val.RawValue().(int64), 0).Truncate(time.Microsecond).UTC()}, nil
 			}, nil
 		}
 
 		if src == VarcharType {
 			return func(val TypedValue) (TypedValue, error) {
-				if val.Value() == nil {
+				if val.RawValue() == nil {
 					return &NullValue{t: TimestampType}, nil
 				}
 
-				str := val.Value().(string)
+				str := val.RawValue().(string)
 				for _, layout := range []string{
 					"2006-01-02 15:04:05.999999",
 					"2006-01-02 15:04",
@@ -1968,7 +1979,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 
 				return nil, fmt.Errorf(
 					"%w: can not cast string '%s' as a TIMESTAMP",
-					ErrIllegalArguments,
+					ErrUnsupportedCast,
 					str,
 				)
 			}, nil
@@ -1984,25 +1995,25 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 
 		if src == IntegerType {
 			return func(val TypedValue) (TypedValue, error) {
-				if val.Value() == nil {
+				if val.RawValue() == nil {
 					return &NullValue{t: Float64Type}, nil
 				}
-				return &Float64{val: float64(val.Value().(int64))}, nil
+				return &Float64{val: float64(val.RawValue().(int64))}, nil
 			}, nil
 		}
 
 		if src == VarcharType {
 			return func(val TypedValue) (TypedValue, error) {
-				if val.Value() == nil {
+				if val.RawValue() == nil {
 					return &NullValue{t: Float64Type}, nil
 				}
 
-				s, err := strconv.ParseFloat(val.Value().(string), 64)
+				s, err := strconv.ParseFloat(val.RawValue().(string), 64)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"%w: can not cast string '%s' as a FLOAT",
-						ErrIllegalArguments,
-						val.Value().(string),
+						ErrUnsupportedCast,
+						val.RawValue().(string),
 					)
 				}
 				return &Float64{val: s}, nil
@@ -2010,7 +2021,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 		}
 
 		return nil, fmt.Errorf(
-			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
+			"%w: only INTEGER and VARCHAR types can be cast as FLOAT",
 			ErrUnsupportedCast,
 		)
 	}
@@ -2561,7 +2572,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 	}
 
 	if i.instantType == txInstant {
-		txID, ok := instantVal.Value().(int64)
+		txID, ok := instantVal.RawValue().(int64)
 		if !ok {
 			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be a positive integer, %s given", ErrIllegalArguments, instantVal.Type())
 		}
@@ -2588,7 +2599,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 		var ts time.Time
 
 		if instantVal.Type() == TimestampType {
-			ts = instantVal.Value().(time.Time)
+			ts = instantVal.RawValue().(time.Time)
 		} else {
 			conv, err := getConverter(instantVal.Type(), TimestampType)
 			if err != nil {
@@ -2600,7 +2611,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 				return 0, err
 			}
 
-			ts = tval.Value().(time.Time)
+			ts = tval.RawValue().(time.Time)
 		}
 
 		sts := ts
@@ -3078,7 +3089,7 @@ func (bexp *NotBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable st
 		return nil, err
 	}
 
-	r, isBool := v.Value().(bool)
+	r, isBool := v.RawValue().(bool)
 	if !isBool {
 		return nil, ErrInvalidCondition
 	}
@@ -3181,7 +3192,7 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable s
 		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
 	}
 
-	matched, err := regexp.MatchString(rpattern.Value().(string), rval.Value().(string))
+	matched, err := regexp.MatchString(rpattern.RawValue().(string), rval.RawValue().(string))
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
@@ -3931,7 +3942,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 		return nil, fmt.Errorf("%w: expected '%s' for table name but type '%s' given instead", ErrIllegalArguments, VarcharType, tableName.Type())
 	}
 
-	table, err := tx.currentDB.GetTableByName(tableName.Value().(string))
+	table, err := tx.currentDB.GetTableByName(tableName.RawValue().(string))
 	if err != nil {
 		return nil, err
 	}
@@ -4006,7 +4017,7 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 		return nil, fmt.Errorf("%w: expected '%s' for table name but type '%s' given instead", ErrIllegalArguments, VarcharType, tableName.Type())
 	}
 
-	table, err := tx.currentDB.GetTableByName(tableName.Value().(string))
+	table, err := tx.currentDB.GetTableByName(tableName.RawValue().(string))
 	if err != nil {
 		return nil, err
 	}

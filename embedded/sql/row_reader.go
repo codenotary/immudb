@@ -94,7 +94,7 @@ func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 			continue
 		}
 
-		encVal, err := EncodeValue(v.Value(), v.Type(), 0)
+		encVal, err := EncodeValue(v, v.Type(), 0)
 		if err != nil {
 			return d, err
 		}
@@ -222,7 +222,7 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 			if colRange.hRange == nil {
 				hiKeyReady = true
 			} else {
-				encVal, err := EncodeAsKey(colRange.hRange.val.Value(), col.colType, col.MaxLen())
+				encVal, err := EncodeValueAsKey(colRange.hRange.val, col.colType, col.MaxLen())
 				if err != nil {
 					return nil, err
 				}
@@ -234,7 +234,7 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 			if colRange.lRange == nil {
 				loKeyReady = true
 			} else {
-				encVal, err := EncodeAsKey(colRange.lRange.val.Value(), col.colType, col.MaxLen())
+				encVal, err := EncodeValueAsKey(colRange.lRange.val, col.colType, col.MaxLen())
 				if err != nil {
 					return nil, err
 				}

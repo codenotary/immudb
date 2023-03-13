@@ -185,8 +185,8 @@ func TestTimestampType(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, TimestampType, row.ValuesBySelector[sel].Type())
-		require.False(t, tsBefore.After(row.ValuesBySelector[sel].Value().(time.Time)))
-		require.False(t, tsAfter.Before(row.ValuesBySelector[sel].Value().(time.Time)))
+		require.False(t, tsBefore.After(row.ValuesBySelector[sel].RawValue().(time.Time)))
+		require.False(t, tsAfter.Before(row.ValuesBySelector[sel].RawValue().(time.Time)))
 
 		require.Len(t, row.ValuesByPosition, 1)
 		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
@@ -207,7 +207,7 @@ func TestTimestampType(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, TimestampType, row.ValuesBySelector[sel].Type())
-		require.Equal(t, time.Date(2021, 12, 1, 18, 06, 14, 0, time.UTC), row.ValuesBySelector[sel].Value())
+		require.Equal(t, time.Date(2021, 12, 1, 18, 06, 14, 0, time.UTC), row.ValuesBySelector[sel].RawValue())
 	})
 
 	t.Run("must correctly validate timestamp equality", func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestTimestampType(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, TimestampType, row.ValuesBySelector[sel].Type())
-		require.Equal(t, time.Date(2021, 12, 6, 10, 14, 0, 0, time.UTC), row.ValuesBySelector[sel].Value())
+		require.Equal(t, time.Date(2021, 12, 6, 10, 14, 0, 0, time.UTC), row.ValuesBySelector[sel].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -270,7 +270,7 @@ func TestTimestampIndex(t *testing.T) {
 	for i := 100; i > 0; i-- {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "timestamp_index", "id")].Value())
+		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "timestamp_index", "id")].RawValue())
 	}
 
 	_, err = r.Read(context.Background())
@@ -306,7 +306,7 @@ func TestTimestampCasts(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, TimestampType, row.ValuesBySelector[sel].Type())
-			require.Equal(t, d.t, row.ValuesBySelector[sel].Value())
+			require.Equal(t, d.t, row.ValuesBySelector[sel].RawValue())
 		})
 	}
 
@@ -323,7 +323,7 @@ func TestTimestampCasts(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, TimestampType, row.ValuesBySelector[sel].Type())
-		require.Equal(t, time.Unix(123456, 0).UTC(), row.ValuesBySelector[sel].Value())
+		require.Equal(t, time.Unix(123456, 0).UTC(), row.ValuesBySelector[sel].RawValue())
 	})
 
 	t.Run("test casting from null values", func(t *testing.T) {
@@ -352,18 +352,14 @@ func TestTimestampCasts(t *testing.T) {
 
 	t.Run("test casting invalid string", func(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO timestamp_table(ts) VALUES(CAST('not a datetime' AS TIMESTAMP))", nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
-		require.Contains(t, err.Error(), "can not cast")
+		require.ErrorIs(t, err, ErrUnsupportedCast)
 
 		_, _, err = engine.Exec(
 			context.Background(), nil,
 			"INSERT INTO timestamp_table(ts) VALUES(CAST(@ts AS TIMESTAMP))", map[string]interface{}{
 				"ts": strings.Repeat("long string ", 1000),
 			})
-		require.ErrorIs(t, err, ErrIllegalArguments)
-		require.Less(t, len(err.Error()), 100)
-		require.Contains(t, err.Error(), "can not cast")
-		require.Contains(t, err.Error(), "...")
+		require.ErrorIs(t, err, ErrUnsupportedCast)
 	})
 
 	t.Run("test casting unsupported type", func(t *testing.T) {
@@ -425,7 +421,7 @@ func TestFloatType(t *testing.T) {
 				row, err := r.Read(context.Background())
 				require.NoError(t, err)
 				require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-				require.Equal(t, d.valFloat, row.ValuesByPosition[0].Value())
+				require.Equal(t, d.valFloat, row.ValuesByPosition[0].RawValue())
 			})
 		}
 
@@ -458,7 +454,7 @@ func TestFloatType(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-		require.Equal(t, -0.4, row.ValuesByPosition[0].Value())
+		require.Equal(t, -0.4, row.ValuesByPosition[0].RawValue())
 	})
 
 	t.Run("must correctly validate float equality", func(t *testing.T) {
@@ -484,7 +480,7 @@ func TestFloatType(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-		require.Equal(t, 0.78, row.ValuesByPosition[0].Value())
+		require.Equal(t, 0.78, row.ValuesByPosition[0].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -547,7 +543,7 @@ func TestFloatType(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Len(t, row.ValuesByPosition, 1)
-				require.EqualValues(t, 0.0, row.ValuesByPosition[0].Value())
+				require.EqualValues(t, 0.0, row.ValuesByPosition[0].RawValue())
 			})
 		}
 
@@ -576,7 +572,7 @@ func TestFloatType(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Len(t, row.ValuesByPosition, 1)
-				require.EqualValues(t, d.result, row.ValuesByPosition[0].Value())
+				require.EqualValues(t, d.result, row.ValuesByPosition[0].RawValue())
 			})
 		}
 	})
@@ -632,9 +628,9 @@ func TestFloatIndex(t *testing.T) {
 	for i := 100; i > 0; i-- {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "id")].Value())
+		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "id")].RawValue())
 
-		currf := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value().(float64)
+		currf := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].RawValue().(float64)
 		require.Less(t, prevf, currf)
 		prevf = currf
 	}
@@ -703,7 +699,7 @@ func TestFloatIndexOnNegatives(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 
-		val := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value()
+		val := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].RawValue()
 		if i == 0 {
 			require.True(t, math.IsNaN(val.(float64)))
 			continue
@@ -768,7 +764,7 @@ func TestFloatCasts(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-			require.Equal(t, d.f, row.ValuesByPosition[0].Value())
+			require.Equal(t, d.f, row.ValuesByPosition[0].RawValue())
 		})
 	}
 
@@ -792,7 +788,7 @@ func TestFloatCasts(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-		require.Equal(t, float64(123456), row.ValuesByPosition[0].Value())
+		require.Equal(t, float64(123456), row.ValuesByPosition[0].RawValue())
 	})
 
 	t.Run("test casting from null values", func(t *testing.T) {
@@ -832,8 +828,7 @@ func TestFloatCasts(t *testing.T) {
 			nil,
 			"INSERT INTO float_table(ft) VALUES(CAST('not a float' AS FLOAT))",
 			nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
-		require.Contains(t, err.Error(), "can not cast")
+		require.ErrorIs(t, err, ErrUnsupportedCast)
 
 		_, _, err = engine.Exec(
 			context.Background(),
@@ -842,8 +837,7 @@ func TestFloatCasts(t *testing.T) {
 			map[string]interface{}{
 				"ft": strings.Repeat("long string ", 1000),
 			})
-		require.ErrorIs(t, err, ErrIllegalArguments)
-		require.Contains(t, err.Error(), "can not cast")
+		require.ErrorIs(t, err, ErrUnsupportedCast)
 	})
 
 }
@@ -880,7 +874,7 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
-			require.EqualValues(t, tx.Timestamp(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].Value())
+			require.EqualValues(t, tx.Timestamp(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -949,9 +943,9 @@ func TestAddColumn(t *testing.T) {
 		row, err := res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
-		require.EqualValues(t, "Smith", row.ValuesByPosition[2].Value())
+		require.EqualValues(t, 1, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "John", row.ValuesByPosition[1].RawValue())
+		require.EqualValues(t, "Smith", row.ValuesByPosition[2].RawValue())
 
 		_, err = res.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -977,9 +971,9 @@ func TestAddColumn(t *testing.T) {
 		row, err := res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
-		require.EqualValues(t, "Smith", row.ValuesByPosition[2].Value())
+		require.EqualValues(t, 1, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "John", row.ValuesByPosition[1].RawValue())
+		require.EqualValues(t, "Smith", row.ValuesByPosition[2].RawValue())
 
 		_, err = res.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -1039,20 +1033,20 @@ func TestRenameColumn(t *testing.T) {
 		row, err := res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
+		require.EqualValues(t, 1, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "John", row.ValuesByPosition[1].RawValue())
 
 		row, err = res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 3, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "Robocop", row.ValuesByPosition[1].Value())
+		require.EqualValues(t, 3, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "Robocop", row.ValuesByPosition[1].RawValue())
 
 		row, err = res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].Value())
+		require.EqualValues(t, 2, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].RawValue())
 
 		_, err = res.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -1078,20 +1072,20 @@ func TestRenameColumn(t *testing.T) {
 		row, err := res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
+		require.EqualValues(t, 1, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "John", row.ValuesByPosition[1].RawValue())
 
 		row, err = res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 3, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "Robocop", row.ValuesByPosition[1].Value())
+		require.EqualValues(t, 3, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "Robocop", row.ValuesByPosition[1].RawValue())
 
 		row, err = res.Read(context.Background())
 		require.NoError(t, err)
 
-		require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
-		require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].Value())
+		require.EqualValues(t, 2, row.ValuesByPosition[0].RawValue())
+		require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].RawValue())
 
 		_, err = res.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -1234,8 +1228,8 @@ func TestUpsertInto(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 2)
-		require.Equal(t, int64(20), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "amount")].Value())
-		require.False(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
+		require.Equal(t, int64(20), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "amount")].RawValue())
+		require.False(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].RawValue().(bool))
 		require.Len(t, row.ValuesByPosition, 2)
 		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[EncodeSelector("", "db1", "table1", "amount")])
 		require.Equal(t, row.ValuesByPosition[1], row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")])
@@ -1257,8 +1251,8 @@ func TestUpsertInto(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 2)
-		require.Equal(t, int64(10), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "amount")].Value())
-		require.True(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
+		require.Equal(t, int64(10), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "amount")].RawValue())
+		require.True(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].RawValue().(bool))
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -1539,7 +1533,7 @@ func TestDelete(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Len(t, row.ValuesBySelector, 1)
-		require.Equal(t, int64(rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].Value())
+		require.Equal(t, int64(rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].RawValue())
 		require.Len(t, row.ValuesByPosition, 1)
 		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")])
 
@@ -1551,7 +1545,7 @@ func TestDelete(t *testing.T) {
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].Value())
+		require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].RawValue())
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -1656,7 +1650,7 @@ func TestUpdate(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].RawValue())
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -1666,7 +1660,7 @@ func TestUpdate(t *testing.T) {
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, int64(rowCount/2+1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].Value())
+		require.Equal(t, int64(rowCount/2+1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].RawValue())
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -1810,154 +1804,152 @@ func TestUseSnapshot(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEncodeRawValue(t *testing.T) {
-	b, err := EncodeValue(int64(1), IntegerType, 0)
+func TestEncodeValue(t *testing.T) {
+	b, err := EncodeValue(&Integer{val: int64(1)}, IntegerType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue(true, IntegerType, 0)
+	b, err = EncodeValue(&Integer{val: int64(1)}, BooleanType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(true, BooleanType, 0)
+	b, err = EncodeValue(&Integer{val: int64(1)}, VarcharType, 0)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Integer{val: int64(1)}, BLOBType, 0)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Integer{val: int64(1)}, "invalid type", 0)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Bool{val: true}, BooleanType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue(uint64(1), BooleanType, 0)
+	b, err = EncodeValue(&Bool{val: true}, IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue("title", VarcharType, 0)
+	b, err = EncodeValue(&Varchar{val: "title"}, VarcharType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue(uint64(1), VarcharType, 0)
-	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Nil(t, b)
-
-	b, err = EncodeValue([]byte{}, BLOBType, 0)
+	b, err = EncodeValue(&Blob{val: []byte{}}, BLOBType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue(nil, BLOBType, 0)
+	b, err = EncodeValue(&Blob{val: nil}, BLOBType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
-
-	b, err = EncodeValue(uint64(1), BLOBType, 0)
-	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Nil(t, b)
-
-	b, err = EncodeValue(uint64(1), "invalid type", 0)
-	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Nil(t, b)
 
 	// Max allowed key size is 32 bytes
-	b, err = EncodeValue("012345678901234567890123456789012", VarcharType, 32)
+	b, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, 32)
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue("01234567890123456789012345678902", VarcharType, 0)
+	_, err = EncodeValue(&Varchar{val: "01234567890123456789012345678902"}, VarcharType, 0)
 	require.NoError(t, err)
 
-	_, err = EncodeValue("012345678901234567890123456789012", VarcharType, 0)
+	_, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, 0)
 	require.NoError(t, err)
 
-	b, err = EncodeValue([]byte{
+	b, err = EncodeValue(&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
 	}, BLOBType, 32)
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue([]byte{
+	_, err = EncodeValue(&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1},
 	}, BLOBType, 0)
 	require.NoError(t, err)
 
-	_, err = EncodeValue([]byte{
+	_, err = EncodeValue(&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
 	}, BLOBType, 0)
 	require.NoError(t, err)
-}
 
-func TestEncodeValue(t *testing.T) {
-	b, err := EncodeValue((&Integer{val: 1}).Value(), IntegerType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), IntegerType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue((&Bool{val: true}).Value(), IntegerType, 0)
+	b, err = EncodeValue((&Bool{val: true}), IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Bool{val: true}).Value(), BooleanType, 0)
+	b, err = EncodeValue((&Bool{val: true}), BooleanType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}).Value(), BooleanType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), BooleanType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Varchar{val: "title"}).Value(), VarcharType, 0)
+	b, err = EncodeValue((&Varchar{val: "title"}), VarcharType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}).Value(), VarcharType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), VarcharType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Blob{val: []byte{}}).Value(), BLOBType, 50)
+	b, err = EncodeValue((&Blob{val: []byte{}}), BLOBType, 50)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue((&Blob{val: nil}).Value(), BLOBType, 50)
+	b, err = EncodeValue((&Blob{val: nil}), BLOBType, 50)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}).Value(), BLOBType, 50)
+	b, err = EncodeValue((&Integer{val: 1}), BLOBType, 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Integer{val: 1}).Value(), "invalid type", 50)
+	b, err = EncodeValue((&Integer{val: 1}), "invalid type", 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
 	// Max allowed key size is 32 bytes
-	b, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}).Value(), VarcharType, 32)
+	b, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}), VarcharType, 32)
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue((&Varchar{val: "01234567890123456789012345678902"}).Value(), VarcharType, 256)
+	_, err = EncodeValue((&Varchar{val: "01234567890123456789012345678902"}), VarcharType, 256)
 	require.NoError(t, err)
 
-	_, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}).Value(), VarcharType, 256)
+	_, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}), VarcharType, 256)
 	require.NoError(t, err)
 
 	b, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}}).Value(), BLOBType, 32)
+	}}), BLOBType, 32)
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
 	_, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
-	}}).Value(), BLOBType, 256)
+	}}), BLOBType, 256)
 	require.NoError(t, err)
 
 	_, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}}).Value(), BLOBType, 256)
+	}}), BLOBType, 256)
 	require.NoError(t, err)
 
-	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1000)}).Value(), TimestampType, 0)
+	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1000)}), TimestampType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}).Value(), TimestampType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), TimestampType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 }
@@ -2063,13 +2055,13 @@ func TestQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.Len(t, row.ValuesBySelector, 5)
-			require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "table1", "ts")].Value().(time.Time)))
-			require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value())
+			require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "table1", "ts")].RawValue().(time.Time)))
+			require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].RawValue())
 
 			encPayload := []byte(fmt.Sprintf("blob%d", i))
-			require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "payload")].Value())
+			require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "payload")].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2115,13 +2107,13 @@ func TestQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.Len(t, row.ValuesBySelector, 5)
-			require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "ts")].Value().(time.Time)))
-			require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "id")].Value())
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "title")].Value())
-			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "active")].Value())
+			require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "ts")].RawValue().(time.Time)))
+			require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "id")].RawValue())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "title")].RawValue())
+			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "active")].RawValue())
 
 			encPayload := []byte(fmt.Sprintf("blob%d", i))
-			require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "payload")].Value())
+			require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "payload")].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2155,13 +2147,13 @@ func TestQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.Len(t, row.ValuesBySelector, 5)
-			require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "ts")].Value().(time.Time)))
-			require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "d")].Value())
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "title")].Value())
-			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "active")].Value())
+			require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "ts")].RawValue().(time.Time)))
+			require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "d")].RawValue())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "title")].RawValue())
+			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "active")].RawValue())
 
 			encPayload := []byte(fmt.Sprintf("blob%d", i))
-			require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "payload")].Value())
+			require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "mytable1", "payload")].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2184,12 +2176,12 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 4)
 
-		require.Equal(t, int64(rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, (rowCount-1-i)%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value())
+		require.Equal(t, int64(rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+		require.Equal(t, (rowCount-1-i)%2 == 0, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].RawValue())
 
 		encPayload := []byte(fmt.Sprintf("blob%d", rowCount-1-i))
-		require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "payload")].Value())
+		require.Equal(t, []byte(encPayload), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "payload")].RawValue())
 	}
 
 	err = r.Close()
@@ -2217,7 +2209,7 @@ func TestQuery(t *testing.T) {
 
 	row, err := r.Read(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2241,9 +2233,9 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 3)
 
-		require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, params["some_param"], row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value())
+		require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+		require.Equal(t, params["some_param"], row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].RawValue())
 	}
 
 	err = r.Close()
@@ -2467,7 +2459,7 @@ func TestQueryDistinct(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.Len(t, row.ValuesBySelector, 1)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2495,7 +2487,7 @@ func TestQueryDistinct(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.Len(t, row.ValuesBySelector, 1)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2523,7 +2515,7 @@ func TestQueryDistinct(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.Len(t, row.ValuesBySelector, 1)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2549,7 +2541,7 @@ func TestQueryDistinct(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.Len(t, row.ValuesBySelector, 1)
-			require.Equal(t, int64(i*100), row.ValuesBySelector["(db1.table1.amount)"].Value())
+			require.Equal(t, int64(i*100), row.ValuesBySelector["(db1.table1.amount)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2577,11 +2569,11 @@ func TestQueryDistinct(t *testing.T) {
 			require.Len(t, row.ValuesBySelector, 1)
 
 			if i == 0 {
-				require.Nil(t, row.ValuesBySelector["(db1.table1.active)"].Value())
+				require.Nil(t, row.ValuesBySelector["(db1.table1.active)"].RawValue())
 				continue
 			}
 
-			require.Equal(t, i == 2, row.ValuesBySelector["(db1.table1.active)"].Value())
+			require.Equal(t, i == 2, row.ValuesBySelector["(db1.table1.active)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2610,13 +2602,13 @@ func TestQueryDistinct(t *testing.T) {
 			require.Len(t, row.ValuesBySelector, 2)
 
 			if i == 0 {
-				require.Equal(t, int64(100), row.ValuesBySelector["(db1.table1.amount)"].Value())
-				require.Nil(t, row.ValuesBySelector["(db1.table1.active)"].Value())
+				require.Equal(t, int64(100), row.ValuesBySelector["(db1.table1.amount)"].RawValue())
+				require.Nil(t, row.ValuesBySelector["(db1.table1.active)"].RawValue())
 				continue
 			}
 
-			require.Equal(t, int64(200), row.ValuesBySelector["(db1.table1.amount)"].Value())
-			require.Equal(t, i == 2, row.ValuesBySelector["(db1.table1.active)"].Value())
+			require.Equal(t, int64(200), row.ValuesBySelector["(db1.table1.amount)"].RawValue())
+			require.Equal(t, i == 2, row.ValuesBySelector["(db1.table1.active)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2640,7 +2632,7 @@ func TestQueryDistinct(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, row.ValuesBySelector, 1)
 
-			require.Equal(t, int64(i+1), row.ValuesBySelector["(db1.table1.id)"].Value())
+			require.Equal(t, int64(i+1), row.ValuesBySelector["(db1.table1.id)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -2792,7 +2784,7 @@ func TestIndexing(t *testing.T) {
 		require.Nil(t, tsRange.lRange)
 		require.NotNil(t, tsRange.hRange)
 		require.False(t, tsRange.hRange.inclusive)
-		require.Equal(t, int64(1629902963), tsRange.hRange.val.Value())
+		require.Equal(t, int64(1629902963), tsRange.hRange.val.RawValue())
 
 		require.False(t, scanSpecs.DescOrder)
 
@@ -2820,10 +2812,10 @@ func TestIndexing(t *testing.T) {
 		tsRange := scanSpecs.rangesByColID[2]
 		require.NotNil(t, tsRange.lRange)
 		require.True(t, tsRange.lRange.inclusive)
-		require.Equal(t, int64(1629902963), tsRange.lRange.val.Value())
+		require.Equal(t, int64(1629902963), tsRange.lRange.val.RawValue())
 		require.NotNil(t, tsRange.hRange)
 		require.True(t, tsRange.hRange.inclusive)
-		require.Equal(t, int64(1629902962), tsRange.hRange.val.Value())
+		require.Equal(t, int64(1629902962), tsRange.hRange.val.RawValue())
 
 		require.False(t, scanSpecs.DescOrder)
 
@@ -2851,10 +2843,10 @@ func TestIndexing(t *testing.T) {
 		tsRange := scanSpecs.rangesByColID[2]
 		require.NotNil(t, tsRange.lRange)
 		require.False(t, tsRange.lRange.inclusive)
-		require.Equal(t, int64(1629902962), tsRange.lRange.val.Value())
+		require.Equal(t, int64(1629902962), tsRange.lRange.val.RawValue())
 		require.NotNil(t, tsRange.hRange)
 		require.False(t, tsRange.hRange.inclusive)
-		require.Equal(t, int64(1629902963), tsRange.hRange.val.Value())
+		require.Equal(t, int64(1629902963), tsRange.hRange.val.RawValue())
 
 		require.False(t, scanSpecs.DescOrder)
 
@@ -2955,7 +2947,7 @@ func TestIndexing(t *testing.T) {
 		require.Nil(t, titleRange.lRange)
 		require.NotNil(t, titleRange.hRange)
 		require.False(t, titleRange.hRange.inclusive)
-		require.Equal(t, "title10", titleRange.hRange.val.Value())
+		require.Equal(t, "title10", titleRange.hRange.val.RawValue())
 
 		require.True(t, scanSpecs.DescOrder)
 
@@ -2984,10 +2976,10 @@ func TestIndexing(t *testing.T) {
 		titleRange := scanSpecs.rangesByColID[3]
 		require.NotNil(t, titleRange.lRange)
 		require.True(t, titleRange.lRange.inclusive)
-		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Equal(t, "title1", titleRange.lRange.val.RawValue())
 		require.NotNil(t, titleRange.hRange)
 		require.True(t, titleRange.hRange.inclusive)
-		require.Equal(t, "title1", titleRange.hRange.val.Value())
+		require.Equal(t, "title1", titleRange.hRange.val.RawValue())
 
 		require.True(t, scanSpecs.DescOrder)
 
@@ -3015,7 +3007,7 @@ func TestIndexing(t *testing.T) {
 		titleRange := scanSpecs.rangesByColID[3]
 		require.NotNil(t, titleRange.lRange)
 		require.False(t, titleRange.lRange.inclusive)
-		require.Equal(t, "title10", titleRange.lRange.val.Value())
+		require.Equal(t, "title10", titleRange.lRange.val.RawValue())
 		require.Nil(t, titleRange.hRange)
 
 		require.False(t, scanSpecs.DescOrder)
@@ -3044,7 +3036,7 @@ func TestIndexing(t *testing.T) {
 		titleRange := scanSpecs.rangesByColID[3]
 		require.NotNil(t, titleRange.lRange)
 		require.True(t, titleRange.lRange.inclusive)
-		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Equal(t, "title1", titleRange.lRange.val.RawValue())
 		require.Nil(t, titleRange.hRange)
 
 		require.True(t, scanSpecs.DescOrder)
@@ -3074,7 +3066,7 @@ func TestIndexing(t *testing.T) {
 		titleRange := scanSpecs.rangesByColID[3]
 		require.NotNil(t, titleRange.lRange)
 		require.True(t, titleRange.lRange.inclusive)
-		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Equal(t, "title1", titleRange.lRange.val.RawValue())
 		require.Nil(t, titleRange.hRange)
 
 		require.True(t, scanSpecs.DescOrder)
@@ -3103,7 +3095,7 @@ func TestIndexing(t *testing.T) {
 		titleRange := scanSpecs.rangesByColID[3]
 		require.NotNil(t, titleRange.lRange)
 		require.True(t, titleRange.lRange.inclusive)
-		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Equal(t, "title1", titleRange.lRange.val.RawValue())
 		require.Nil(t, titleRange.hRange)
 
 		require.False(t, scanSpecs.DescOrder)
@@ -3133,7 +3125,7 @@ func TestIndexing(t *testing.T) {
 		require.Nil(t, titleRange.lRange)
 		require.NotNil(t, titleRange.hRange)
 		require.False(t, titleRange.hRange.inclusive)
-		require.Equal(t, "title10", titleRange.hRange.val.Value())
+		require.Equal(t, "title10", titleRange.hRange.val.RawValue())
 
 		require.False(t, scanSpecs.DescOrder)
 
@@ -3161,10 +3153,10 @@ func TestIndexing(t *testing.T) {
 		titleRange := scanSpecs.rangesByColID[3]
 		require.NotNil(t, titleRange.lRange)
 		require.True(t, titleRange.lRange.inclusive)
-		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Equal(t, "title1", titleRange.lRange.val.RawValue())
 		require.NotNil(t, titleRange.hRange)
 		require.True(t, titleRange.hRange.inclusive)
-		require.Equal(t, "title1", titleRange.hRange.val.Value())
+		require.Equal(t, "title1", titleRange.hRange.val.RawValue())
 
 		require.True(t, scanSpecs.DescOrder)
 
@@ -3217,9 +3209,9 @@ func TestQueryWithNullables(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 4)
-		require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "table1", "ts")].Value().(time.Time)))
-		require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.False(t, start.After(row.ValuesBySelector[EncodeSelector("", "db1", "table1", "ts")].RawValue().(time.Time)))
+		require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
 		require.Equal(t, &NullValue{t: BooleanType}, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")])
 	}
 
@@ -3305,17 +3297,17 @@ func TestOrderBy(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, row.ValuesBySelector, 3)
 
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 
 	row, err = r.Read(context.Background())
 	require.NoError(t, err)
 	require.Len(t, row.ValuesBySelector, 3)
 
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read(context.Background())
@@ -3323,9 +3315,9 @@ func TestOrderBy(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 3)
 
-		require.Equal(t, int64(i+3), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, int64(40+i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+		require.Equal(t, int64(i+3), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+		require.Equal(t, int64(40+i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 	}
 
 	err = r.Close()
@@ -3338,17 +3330,17 @@ func TestOrderBy(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, row.ValuesBySelector, 3)
 
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 
 	row, err = r.Read(context.Background())
 	require.NoError(t, err)
 	require.Len(t, row.ValuesBySelector, 3)
 
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read(context.Background())
@@ -3356,9 +3348,9 @@ func TestOrderBy(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 3)
 
-		require.Equal(t, int64(i+3), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, int64(40+i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+		require.Equal(t, int64(i+3), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+		require.Equal(t, int64(40+i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 	}
 
 	err = r.Close()
@@ -3373,26 +3365,26 @@ func TestOrderBy(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 3)
 
-		require.Equal(t, int64(rowCount-1-i+3), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, int64(40-(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+		require.Equal(t, int64(rowCount-1-i+3), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+		require.Equal(t, int64(40-(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 	}
 
 	row, err = r.Read(context.Background())
 	require.NoError(t, err)
 	require.Len(t, row.ValuesBySelector, 3)
 
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 
 	row, err = r.Read(context.Background())
 	require.NoError(t, err)
 	require.Len(t, row.ValuesBySelector, 3)
 
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].Value())
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "age")].RawValue())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3601,7 +3593,7 @@ func TestQueryWithInClause(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
 		}
 
 		err = r.Close()
@@ -3627,7 +3619,7 @@ func TestQueryWithInClause(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
 		}
 
 		err = r.Close()
@@ -3642,7 +3634,7 @@ func TestQueryWithInClause(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "title")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "title")].RawValue())
 		}
 
 		err = r.Close()
@@ -3726,11 +3718,11 @@ func TestAggregations(t *testing.T) {
 
 	row, err = r.Read(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].Value())
-	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col1")].Value())
-	require.Equal(t, "", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col2")].Value())
-	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col3")].Value())
-	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col4")].Value())
+	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col0")].RawValue())
+	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col1")].RawValue())
+	require.Equal(t, "", row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col2")].RawValue())
+	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col3")].RawValue())
+	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col4")].RawValue())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3747,15 +3739,15 @@ func TestAggregations(t *testing.T) {
 	require.NotNil(t, row)
 	require.Len(t, row.ValuesBySelector, 5)
 
-	require.Equal(t, int64(rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "c")].Value())
+	require.Equal(t, int64(rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "c")].RawValue())
 
-	require.Equal(t, int64(ageSum), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col1")].Value())
+	require.Equal(t, int64(ageSum), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col1")].RawValue())
 
-	require.Equal(t, int64(1+base), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col2")].Value())
+	require.Equal(t, int64(1+base), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col2")].RawValue())
 
-	require.Equal(t, int64(base+rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col3")].Value())
+	require.Equal(t, int64(base+rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col3")].RawValue())
 
-	require.Equal(t, int64(ageSum/(rowCount-len(nullRows))), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col4")].Value())
+	require.Equal(t, int64(ageSum/(rowCount-len(nullRows))), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col4")].RawValue())
 
 	_, err = r.Read(context.Background())
 	require.Equal(t, ErrNoMoreRows, err)
@@ -3785,7 +3777,7 @@ func TestCount(t *testing.T) {
 
 	row, err := r.Read(context.Background())
 	require.NoError(t, err)
-	require.EqualValues(t, uint64(30), row.ValuesBySelector["(db1.t1.c)"].Value())
+	require.EqualValues(t, uint64(30), row.ValuesBySelector["(db1.t1.c)"].RawValue())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3799,7 +3791,7 @@ func TestCount(t *testing.T) {
 	for j := 0; j < 3; j++ {
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.EqualValues(t, uint64(10), row.ValuesBySelector["(db1.t1.c)"].Value())
+		require.EqualValues(t, uint64(10), row.ValuesBySelector["(db1.t1.c)"].RawValue())
 	}
 
 	_, err = r.Read(context.Background())
@@ -3909,16 +3901,16 @@ func TestGroupByHaving(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 6)
 
-		require.Equal(t, i == 0, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value())
+		require.Equal(t, i == 0, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].RawValue())
 
-		require.Equal(t, int64(rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "c")].Value())
+		require.Equal(t, int64(rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "c")].RawValue())
 
 		if i%2 == 0 {
-			require.Equal(t, int64(base), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col2")].Value())
-			require.Equal(t, int64(base+rowCount-2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col3")].Value())
+			require.Equal(t, int64(base), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col2")].RawValue())
+			require.Equal(t, int64(base+rowCount-2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col3")].RawValue())
 		} else {
-			require.Equal(t, int64(base+1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col2")].Value())
-			require.Equal(t, int64(base+rowCount-1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col3")].Value())
+			require.Equal(t, int64(base+1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col2")].RawValue())
+			require.Equal(t, int64(base+rowCount-1), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "col3")].RawValue())
 		}
 	}
 
@@ -4007,10 +3999,10 @@ func TestJoins(t *testing.T) {
 			require.NotNil(t, row)
 			require.Len(t, row.ValuesBySelector, 4)
 
-			require.Equal(t, int64(rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
-			require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].Value())
-			require.Equal(t, int64((rowCount-1-i)*(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "table2", "amount")].Value())
-			require.Equal(t, int64(30+(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "table3", "age")].Value())
+			require.Equal(t, int64(rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].RawValue())
+			require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "title")].RawValue())
+			require.Equal(t, int64((rowCount-1-i)*(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "table2", "amount")].RawValue())
+			require.Equal(t, int64(30+(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "table3", "age")].RawValue())
 		}
 
 		err = r.Close()
@@ -4059,13 +4051,13 @@ func TestJoinsWithNullIndexes(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, row)
 	require.Len(t, row.ValuesBySelector, 1)
-	require.EqualValues(t, 100, row.ValuesBySelector[EncodeSelector("", "db1", "table2", "val")].Value())
+	require.EqualValues(t, 100, row.ValuesBySelector[EncodeSelector("", "db1", "table2", "val")].RawValue())
 
 	row, err = r.Read(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, row)
 	require.Len(t, row.ValuesBySelector, 1)
-	require.EqualValues(t, 200, row.ValuesBySelector[EncodeSelector("", "db1", "table2", "val")].Value())
+	require.EqualValues(t, 200, row.ValuesBySelector[EncodeSelector("", "db1", "table2", "val")].RawValue())
 
 	_, err = r.Read(context.Background())
 	require.ErrorIs(t, err, ErrNoMoreRows)
@@ -4119,9 +4111,9 @@ func TestJoinsWithJointTable(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 3)
 
-		require.Equal(t, "name1", row.ValuesBySelector[EncodeSelector("", "db1", "q", "name")].Value())
-		require.Equal(t, int64(20+i*10), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "amount")].Value())
-		require.Equal(t, true, row.ValuesBySelector[EncodeSelector("", "db1", "t12", "active")].Value())
+		require.Equal(t, "name1", row.ValuesBySelector[EncodeSelector("", "db1", "q", "name")].RawValue())
+		require.Equal(t, int64(20+i*10), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "amount")].RawValue())
+		require.Equal(t, true, row.ValuesBySelector[EncodeSelector("", "db1", "t12", "active")].RawValue())
 	}
 
 	err = r.Close()
@@ -4171,10 +4163,10 @@ func TestNestedJoins(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 4)
 
-		require.Equal(t, int64(rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "title")].Value())
-		require.Equal(t, int64((rowCount-1-i)*(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "total_amount")].Value())
-		require.Equal(t, int64(30+(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "t3", "age")].Value())
+		require.Equal(t, int64(rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "title")].RawValue())
+		require.Equal(t, int64((rowCount-1-i)*(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "total_amount")].RawValue())
+		require.Equal(t, int64(30+(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "db1", "t3", "age")].RawValue())
 	}
 
 	err = r.Close()
@@ -4246,8 +4238,8 @@ func TestSubQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.ValuesBySelector, 2)
 
-		require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "t")].Value())
+		require.Equal(t, int64(i), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "id")].RawValue())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "db1", "t2", "t")].RawValue())
 	}
 
 	err = r.Close()
@@ -4351,11 +4343,11 @@ func TestJoinsWithSubquery(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, row.ValuesBySelector, 5)
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "c", "id")].Value())
-	require.Equal(t, "Isidro Behnen", row.ValuesBySelector[EncodeSelector("", "db1", "c", "customer_name")].Value())
-	require.Equal(t, int64(24), row.ValuesBySelector[EncodeSelector("", "db1", "c", "age")].Value())
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "r", "customerid")].Value())
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "r", "review_count")].Value())
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "c", "id")].RawValue())
+	require.Equal(t, "Isidro Behnen", row.ValuesBySelector[EncodeSelector("", "db1", "c", "customer_name")].RawValue())
+	require.Equal(t, int64(24), row.ValuesBySelector[EncodeSelector("", "db1", "c", "age")].RawValue())
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "r", "customerid")].RawValue())
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "db1", "r", "review_count")].RawValue())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -4984,52 +4976,52 @@ func TestUnmapIndexEntry(t *testing.T) {
 }
 
 func TestEncodeAsKeyEdgeCases(t *testing.T) {
-	_, err := EncodeAsKey(nil, IntegerType, 0)
+	_, err := EncodeValueAsKey(&NullValue{}, IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 
-	_, err = EncodeAsKey("a", VarcharType, maxKeyLen+1)
+	_, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, maxKeyLen+1)
 	require.ErrorIs(t, err, ErrMaxKeyLengthExceeded)
 
-	_, err = EncodeAsKey("a", "NOTATYPE", maxKeyLen)
+	_, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", maxKeyLen)
 	require.ErrorIs(t, err, ErrInvalidValue)
 
 	t.Run("varchar cases", func(t *testing.T) {
-		_, err = EncodeAsKey(true, VarcharType, 10)
+		_, err = EncodeValueAsKey(&Bool{val: true}, VarcharType, 10)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeAsKey("abc", VarcharType, 1)
+		_, err = EncodeValueAsKey(&Varchar{val: "abc"}, VarcharType, 1)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
 
 	t.Run("integer cases", func(t *testing.T) {
-		_, err = EncodeAsKey(true, IntegerType, 8)
+		_, err = EncodeValueAsKey(&Bool{val: true}, IntegerType, 8)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeAsKey(int64(10), IntegerType, 4)
+		_, err = EncodeValueAsKey(&Integer{val: int64(10)}, IntegerType, 4)
 		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 
 	t.Run("boolean cases", func(t *testing.T) {
-		_, err = EncodeAsKey("abc", BooleanType, 1)
+		_, err = EncodeValueAsKey(&Varchar{val: "abc"}, BooleanType, 1)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeAsKey(true, BooleanType, 2)
+		_, err = EncodeValueAsKey(&Bool{val: true}, BooleanType, 2)
 		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 
 	t.Run("blob cases", func(t *testing.T) {
-		_, err = EncodeAsKey("abc", BLOBType, 3)
+		_, err = EncodeValueAsKey(&Varchar{val: "abc"}, BLOBType, 3)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeAsKey([]byte{1, 2, 3}, BLOBType, 2)
+		_, err = EncodeValueAsKey(&Blob{val: []byte{1, 2, 3}}, BLOBType, 2)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
 
 	t.Run("timestamp cases", func(t *testing.T) {
-		_, err = EncodeAsKey(true, TimestampType, 8)
+		_, err = EncodeValueAsKey(&Bool{val: true}, TimestampType, 8)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeAsKey(int64(10), TimestampType, 4)
+		_, err = EncodeValueAsKey(&Integer{val: int64(10)}, TimestampType, 4)
 		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 }
@@ -5305,7 +5297,7 @@ func TestTemporalQueries(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, int64(i+1), row.ValuesBySelector["(db1.table1.id)"].Value())
+			require.Equal(t, int64(i+1), row.ValuesBySelector["(db1.table1.id)"].RawValue())
 
 			err = r.Close()
 			require.NoError(t, err)
@@ -5318,7 +5310,7 @@ func TestTemporalQueries(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, int64(i+1), row.ValuesBySelector["(db1.table1.id)"].Value())
+			require.Equal(t, int64(i+1), row.ValuesBySelector["(db1.table1.id)"].RawValue())
 
 			err = r.Close()
 			require.NoError(t, err)
@@ -5331,7 +5323,7 @@ func TestTemporalQueries(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, int64(1), row.ValuesBySelector["(db1.table1.id)"].Value())
+			require.Equal(t, int64(1), row.ValuesBySelector["(db1.table1.id)"].RawValue())
 
 			err = r.Close()
 			require.NoError(t, err)
@@ -5347,7 +5339,7 @@ func TestTemporalQueries(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].RawValue())
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -5360,7 +5352,7 @@ func TestTemporalQueries(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].RawValue())
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -5373,7 +5365,7 @@ func TestTemporalQueries(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].RawValue())
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -5432,7 +5424,7 @@ func TestUnionOperator(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5448,12 +5440,12 @@ func TestUnionOperator(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].RawValue())
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].Value())
+		require.Equal(t, int64(rowCount), row.ValuesBySelector["(db1.table1.c)"].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5470,7 +5462,7 @@ func TestUnionOperator(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, fmt.Sprintf("title%d", rowCount-i-1), row.ValuesBySelector["(db1.table1.title)"].Value())
+			require.Equal(t, fmt.Sprintf("title%d", rowCount-i-1), row.ValuesBySelector["(db1.table1.title)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -5488,14 +5480,14 @@ func TestUnionOperator(t *testing.T) {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].RawValue())
 		}
 
 		for i := 0; i < rowCount; i++ {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, row)
-			require.Equal(t, fmt.Sprintf("name%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+			require.Equal(t, fmt.Sprintf("name%d", i), row.ValuesBySelector["(db1.table1.title)"].RawValue())
 		}
 
 		_, err = r.Read(context.Background())
@@ -5673,11 +5665,11 @@ func TestTemporalQueriesDeletedRows(t *testing.T) {
 
 	row, err := res.Read(context.Background())
 	require.NoError(t, err)
-	require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, 2, row.ValuesByPosition[0].RawValue())
 
 	row, err = res.Read(context.Background())
 	require.NoError(t, err)
-	require.EqualValues(t, 8, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, 8, row.ValuesByPosition[0].RawValue())
 
 	_, err = res.Read(context.Background())
 	require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5707,7 +5699,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, "db1", row.ValuesBySelector["(*.databases.name)"].Value())
+		require.Equal(t, "db1", row.ValuesBySelector["(*.databases.name)"].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5757,7 +5749,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, row)
 				require.NotNil(t, row)
-				require.Equal(t, db, row.ValuesBySelector["(*.databases.name)"].Value())
+				require.Equal(t, db, row.ValuesBySelector["(*.databases.name)"].RawValue())
 			}
 
 			_, err = r.Read(context.Background())
@@ -5776,7 +5768,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, row)
 				require.NotNil(t, row)
-				require.Equal(t, db, row.ValuesBySelector["(*.dbs.dbname)"].Value())
+				require.Equal(t, db, row.ValuesBySelector["(*.dbs.dbname)"].RawValue())
 			}
 
 			_, err = r.Read(context.Background())
@@ -5872,11 +5864,11 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.tables.name)"].Value())
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.tables.name)"].RawValue())
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].Value())
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5890,7 +5882,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].Value())
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5907,17 +5899,17 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.indexes.table)"].Value())
-		require.Equal(t, "mytable1[id]", row.ValuesBySelector["(db1.indexes.name)"].Value())
-		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.indexes.table)"].RawValue())
+		require.Equal(t, "mytable1[id]", row.ValuesBySelector["(db1.indexes.name)"].RawValue())
+		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.indexes.primary)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.indexes.table)"].Value())
-		require.Equal(t, "mytable1[title]", row.ValuesBySelector["(db1.indexes.name)"].Value())
-		require.False(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.indexes.table)"].RawValue())
+		require.Equal(t, "mytable1[title]", row.ValuesBySelector["(db1.indexes.name)"].RawValue())
+		require.False(t, row.ValuesBySelector["(db1.indexes.unique)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].RawValue().(bool))
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5931,24 +5923,24 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].Value())
-		require.Equal(t, "mytable2[id]", row.ValuesBySelector["(db1.indexes.name)"].Value())
-		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].RawValue())
+		require.Equal(t, "mytable2[id]", row.ValuesBySelector["(db1.indexes.name)"].RawValue())
+		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.indexes.primary)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].Value())
-		require.Equal(t, "mytable2[name]", row.ValuesBySelector["(db1.indexes.name)"].Value())
-		require.False(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].RawValue())
+		require.Equal(t, "mytable2[name]", row.ValuesBySelector["(db1.indexes.name)"].RawValue())
+		require.False(t, row.ValuesBySelector["(db1.indexes.unique)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].Value())
-		require.Equal(t, "mytable2[name,active]", row.ValuesBySelector["(db1.indexes.name)"].Value())
-		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].RawValue())
+		require.Equal(t, "mytable2[name,active]", row.ValuesBySelector["(db1.indexes.name)"].RawValue())
+		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].RawValue().(bool))
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -5966,27 +5958,27 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.columns.table)"].Value())
-		require.Equal(t, "id", row.ValuesBySelector["(db1.columns.name)"].Value())
-		require.Equal(t, IntegerType, row.ValuesBySelector["(db1.columns.type)"].Value())
-		require.Equal(t, int64(8), row.ValuesBySelector["(db1.columns.max_length)"].Value())
-		require.False(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.columns.table)"].RawValue())
+		require.Equal(t, "id", row.ValuesBySelector["(db1.columns.name)"].RawValue())
+		require.Equal(t, IntegerType, row.ValuesBySelector["(db1.columns.type)"].RawValue())
+		require.Equal(t, int64(8), row.ValuesBySelector["(db1.columns.max_length)"].RawValue())
+		require.False(t, row.ValuesBySelector["(db1.columns.nullable)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.auto_increment)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.primary)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.unique)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.columns.table)"].Value())
-		require.Equal(t, "title", row.ValuesBySelector["(db1.columns.name)"].Value())
-		require.Equal(t, VarcharType, row.ValuesBySelector["(db1.columns.type)"].Value())
-		require.Equal(t, int64(256), row.ValuesBySelector["(db1.columns.max_length)"].Value())
-		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.columns.table)"].RawValue())
+		require.Equal(t, "title", row.ValuesBySelector["(db1.columns.name)"].RawValue())
+		require.Equal(t, VarcharType, row.ValuesBySelector["(db1.columns.type)"].RawValue())
+		require.Equal(t, int64(256), row.ValuesBySelector["(db1.columns.max_length)"].RawValue())
+		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].RawValue().(bool))
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -6000,39 +5992,39 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].Value())
-		require.Equal(t, "id", row.ValuesBySelector["(db1.columns.name)"].Value())
-		require.Equal(t, IntegerType, row.ValuesBySelector["(db1.columns.type)"].Value())
-		require.Equal(t, int64(8), row.ValuesBySelector["(db1.columns.max_length)"].Value())
-		require.False(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].RawValue())
+		require.Equal(t, "id", row.ValuesBySelector["(db1.columns.name)"].RawValue())
+		require.Equal(t, IntegerType, row.ValuesBySelector["(db1.columns.type)"].RawValue())
+		require.Equal(t, int64(8), row.ValuesBySelector["(db1.columns.max_length)"].RawValue())
+		require.False(t, row.ValuesBySelector["(db1.columns.nullable)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.primary)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.unique)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].Value())
-		require.Equal(t, "name", row.ValuesBySelector["(db1.columns.name)"].Value())
-		require.Equal(t, VarcharType, row.ValuesBySelector["(db1.columns.type)"].Value())
-		require.Equal(t, int64(100), row.ValuesBySelector["(db1.columns.max_length)"].Value())
-		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].RawValue())
+		require.Equal(t, "name", row.ValuesBySelector["(db1.columns.name)"].RawValue())
+		require.Equal(t, VarcharType, row.ValuesBySelector["(db1.columns.type)"].RawValue())
+		require.Equal(t, int64(100), row.ValuesBySelector["(db1.columns.max_length)"].RawValue())
+		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].Value())
-		require.Equal(t, "active", row.ValuesBySelector["(db1.columns.name)"].Value())
-		require.Equal(t, BooleanType, row.ValuesBySelector["(db1.columns.type)"].Value())
-		require.Equal(t, int64(1), row.ValuesBySelector["(db1.columns.max_length)"].Value())
-		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
-		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
-		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].RawValue())
+		require.Equal(t, "active", row.ValuesBySelector["(db1.columns.name)"].RawValue())
+		require.Equal(t, BooleanType, row.ValuesBySelector["(db1.columns.type)"].RawValue())
+		require.Equal(t, int64(1), row.ValuesBySelector["(db1.columns.max_length)"].RawValue())
+		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].RawValue().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].RawValue().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].RawValue().(bool))
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
