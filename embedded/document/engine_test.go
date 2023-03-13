@@ -6,21 +6,21 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func closeStore(t *testing.T, st *store.ImmuStore) {
-	err := st.Close()
-	if !t.Failed() {
-		// Do not pollute error output if test has already failed
-		require.NoError(t, err)
-	}
-}
-
-func TestCreateCollection(t *testing.T) {
+func makeEngine(t *testing.T) *Engine {
 	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
-	defer closeStore(t, st)
+	t.Cleanup(func() {
+		err := st.Close()
+		if !t.Failed() {
+			// Do not pollute error output if test has already failed
+			require.NoError(t, err)
+		}
+	})
 
 	opts := DefaultOptions()
 	engine, err := NewEngine(st, opts)
@@ -36,36 +36,107 @@ func TestCreateCollection(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
-	engine.CreateCollection(context.Background(), "collection1", nil, nil)
-	_, _, err = engine.ExecPreparedStmts(
-		context.Background(),
-		nil,
-		[]sql.SQLStmt{sql.NewCreateTableStmt(
-			"collection1",
-			false, []*sql.ColSpec{
-				sql.NewColSpec("id", sql.IntegerType, 0, false, false),
-				sql.NewColSpec("name", sql.VarcharType, 50, false, false),
-				sql.NewColSpec("encoded_obj", sql.BLOBType, 0, false, false),
-			},
-			[]string{"id", "name"},
-		)},
-		nil,
-	)
+	return engine
+}
+
+func TestCreateCollection(t *testing.T) {
+	engine := makeEngine(t)
+
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+		"id":     sql.IntegerType,
+		"number": sql.IntegerType,
+	}, nil)
 	require.NoError(t, err)
 
 	catalog, err := engine.Catalog(context.Background(), nil)
 	require.NoError(t, err)
 
-	table, err := catalog.GetTableByName("db1", "collection1")
+	table, err := catalog.GetTableByName("db1", collectionName)
 	require.NoError(t, err)
 
-	require.Equal(t, "collection1", table.Name())
-	c, err := table.GetColumnByID(1)
+	require.Equal(t, collectionName, table.Name())
+	c, err := table.GetColumnByName("id")
 	require.NoError(t, err)
 	require.Equal(t, c.Name(), "id")
 
-	c, err = table.GetColumnByID(2)
+	c, err = table.GetColumnByName("number")
 	require.NoError(t, err)
-	require.Equal(t, c.Name(), "name")
+	require.Equal(t, c.Name(), "number")
 
+	// get collection
+	indexes, err := engine.GetCollection(context.Background(), collectionName)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(indexes))
+
+	primaryKeyCount := 0
+	indexKeyCount := 0
+	for _, idx := range indexes {
+		// check if primary key
+		if idx.IsPrimary() {
+			primaryKeyCount += len(idx.Cols())
+		} else {
+			indexKeyCount += len(idx.Cols())
+		}
+	}
+	require.Equal(t, 2, primaryKeyCount)
+	require.Equal(t, 0, indexKeyCount)
+}
+
+func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
+	return &schemav2.IndexOption{Type: indexType}
+}
+
+func TestGetCollection(t *testing.T) {
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+		"id":         sql.IntegerType,
+		"pincode":    sql.IntegerType,
+		"country_id": sql.IntegerType,
+	}, nil)
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// add document to collection
+	err = engine.CreateDocument(context.Background(), collectionName, []*structpb.Struct{
+		{
+			Fields: map[string]*structpb.Value{
+				"id": {
+					Kind: &structpb.Value_NumberValue{NumberValue: 1},
+				},
+				"pincode": {
+					Kind: &structpb.Value_NumberValue{NumberValue: 2},
+				},
+				"country_id": {
+					Kind: &structpb.Value_NumberValue{NumberValue: 3},
+				},
+			},
+		},
+	},
+	)
+	require.NoError(t, err)
+
+	expressions := []*Query{
+		{
+			Field:    "country_id",
+			Operator: 0, // EQ
+			Value: &structpb.Value{
+				Kind: &structpb.Value_NumberValue{NumberValue: 3},
+			},
+		},
+		{
+			Field:    "pincode",
+			Operator: 0, // EQ
+			Value: &structpb.Value{
+				Kind: &structpb.Value_NumberValue{NumberValue: 2},
+			},
+		},
+	}
+
+	doc, err := engine.GetDocument(context.Background(), "db1", collectionName, expressions, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(doc))
 }
