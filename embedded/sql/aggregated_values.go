@@ -44,7 +44,7 @@ func (v *CountValue) IsNull() bool {
 	return false
 }
 
-func (v *CountValue) Value() interface{} {
+func (v *CountValue) RawValue() interface{} {
 	return v.c
 }
 
@@ -53,7 +53,7 @@ func (v *CountValue) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	nv := val.Value().(int64)
+	nv := val.RawValue().(int64)
 
 	if v.c == nv {
 		return 0, nil
@@ -129,8 +129,8 @@ func (v *SumValue) IsNull() bool {
 	return v.val.IsNull()
 }
 
-func (v *SumValue) Value() interface{} {
-	return v.val.Value()
+func (v *SumValue) RawValue() interface{} {
+	return v.val.RawValue()
 }
 
 func (v *SumValue) Compare(val TypedValue) (int, error) {
@@ -221,8 +221,8 @@ func (v *MinValue) IsNull() bool {
 	return v.val.IsNull()
 }
 
-func (v *MinValue) Value() interface{} {
-	return v.val.Value()
+func (v *MinValue) RawValue() interface{} {
+	return v.val.RawValue()
 }
 
 func (v *MinValue) Compare(val TypedValue) (int, error) {
@@ -320,8 +320,8 @@ func (v *MaxValue) IsNull() bool {
 	return v.val.IsNull()
 }
 
-func (v *MaxValue) Value() interface{} {
-	return v.val.Value()
+func (v *MaxValue) RawValue() interface{} {
+	return v.val.RawValue()
 }
 
 func (v *MaxValue) Compare(val TypedValue) (int, error) {
@@ -433,8 +433,8 @@ func (v *AVGValue) calculate() TypedValue {
 	return val
 }
 
-func (v *AVGValue) Value() interface{} {
-	return v.calculate().Value()
+func (v *AVGValue) RawValue() interface{} {
+	return v.calculate().RawValue()
 }
 
 func (v *AVGValue) Compare(val TypedValue) (int, error) {

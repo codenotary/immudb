@@ -16,15 +16,15 @@ limitations under the License.
 
 package sql
 
-func applyImplicitConversion(val TypedValue, requiredColumnType SQLValueType) interface{} {
+func applyImplicitConversion(val interface{}, requiredColumnType SQLValueType) interface{} {
 	switch requiredColumnType {
 	case Float64Type:
-		switch value := val.Value().(type) {
+		switch value := val.(type) {
 		case int64:
 			return float64(value)
 		}
 	}
 
 	// No implicit conversion rule found, do not convert at all
-	return val.Value()
+	return val
 }

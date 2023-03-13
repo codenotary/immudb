@@ -27,12 +27,12 @@ func applyNumOperator(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
 }
 
 func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-	nl, isNumber := vl.Value().(int64)
+	nl, isNumber := vl.RawValue().(int64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
 
-	nr, isNumber := vr.Value().(int64)
+	nr, isNumber := vr.RawValue().(int64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
@@ -64,12 +64,12 @@ func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, err
 }
 
 func applyNumOperatorFloat64(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-	nl, isNumber := applyImplicitConversion(vl, Float64Type).(float64)
+	nl, isNumber := applyImplicitConversion(vl.RawValue(), Float64Type).(float64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
 
-	nr, isNumber := applyImplicitConversion(vr, Float64Type).(float64)
+	nr, isNumber := applyImplicitConversion(vr.RawValue(), Float64Type).(float64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}

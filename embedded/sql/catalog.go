@@ -992,134 +992,18 @@ func EncodeID(id uint32) []byte {
 	return encID[:]
 }
 
-// EncodeValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
-func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
-	switch colType {
-	case VarcharType:
-		{
-			strVal, ok := val.(string)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a string: %w", ErrInvalidValue,
-				)
-			}
-
-			if maxLen > 0 && len(strVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
-			}
-
-			// len(v) + v
-			encv := make([]byte, EncLenLen+len(strVal))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
-			copy(encv[EncLenLen:], []byte(strVal))
-
-			return encv, nil
-		}
-	case IntegerType:
-		{
-			intVal, ok := val.(int64)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not an integer: %w", ErrInvalidValue,
-				)
-			}
-
-			// map to unsigned integer space
-			// len(v) + v
-			var encv [EncLenLen + 8]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal))
-
-			return encv[:], nil
-		}
-	case BooleanType:
-		{
-			boolVal, ok := val.(bool)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a boolean: %w", ErrInvalidValue,
-				)
-			}
-
-			// len(v) + v
-			var encv [EncLenLen + 1]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(1))
-			if boolVal {
-				encv[EncLenLen] = 1
-			}
-
-			return encv[:], nil
-		}
-	case BLOBType:
-		{
-			var blobVal []byte
-
-			if val != nil {
-				v, ok := val.([]byte)
-				if !ok {
-					return nil, fmt.Errorf(
-						"value is not a blob: %w", ErrInvalidValue,
-					)
-				}
-				blobVal = v
-			}
-
-			if maxLen > 0 && len(blobVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
-			}
-
-			// len(v) + v
-			encv := make([]byte, EncLenLen+len(blobVal))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal)))
-			copy(encv[EncLenLen:], blobVal)
-
-			return encv[:], nil
-		}
-	case TimestampType:
-		{
-			timeVal, ok := val.(time.Time)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a timestamp: %w", ErrInvalidValue,
-				)
-			}
-
-			// len(v) + v
-			var encv [EncLenLen + 8]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(TimeToInt64(timeVal)))
-
-			return encv[:], nil
-		}
-	case Float64Type:
-		{
-			floatVal, ok := val.(float64)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a float: %w", ErrInvalidValue,
-				)
-			}
-
-			var encv [EncLenLen + 8]byte
-			floatBits := math.Float64bits(floatVal)
-			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], floatBits)
-
-			return encv[:], nil
-		}
-	}
-
-	return nil, ErrInvalidValue
-}
-
 const (
 	KeyValPrefixNull       byte = 0x20
 	KeyValPrefixNotNull    byte = 0x80
 	KeyValPrefixUpperBound byte = 0xFF
 )
 
-// EncodeAsKey encodes a value in a b-tree meaningful way.
-func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeValueAsKey(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+	return EncodeRawValueAsKey(val.RawValue(), colType, maxLen)
+}
+
+// EncodeRawValueAsKey encodes a value in a b-tree meaningful way.
+func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	if maxLen <= 0 {
 		return nil, ErrInvalidValue
 	}
@@ -1131,10 +1015,12 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		return []byte{KeyValPrefixNull}, nil
 	}
 
+	convertedValue := applyImplicitConversion(val, colType)
+
 	switch colType {
 	case VarcharType:
 		{
-			strVal, ok := val.(string)
+			strVal, ok := convertedValue.(string)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a string: %w", ErrInvalidValue,
@@ -1159,7 +1045,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			intVal, ok := val.(int64)
+			intVal, ok := convertedValue.(int64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not an integer: %w", ErrInvalidValue,
@@ -1181,7 +1067,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			boolVal, ok := val.(bool)
+			boolVal, ok := convertedValue.(bool)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a boolean: %w", ErrInvalidValue,
@@ -1199,7 +1085,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case BLOBType:
 		{
-			blobVal, ok := val.([]byte)
+			blobVal, ok := convertedValue.([]byte)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a blob: %w", ErrInvalidValue,
@@ -1224,7 +1110,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			timeVal, ok := val.(time.Time)
+			timeVal, ok := convertedValue.(time.Time)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a timestamp: %w", ErrInvalidValue,
@@ -1242,7 +1128,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case Float64Type:
 		{
-			floatVal, ok := val.(float64)
+			floatVal, ok := convertedValue.(float64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a float: %w", ErrInvalidValue,
@@ -1270,6 +1156,132 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				// positive numbers end in the larger half of values
 				encv[1] ^= 0x80
 			}
+
+			return encv[:], nil
+		}
+	}
+
+	return nil, ErrInvalidValue
+}
+
+func EncodeValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+	return EncodeRawValue(val.RawValue(), colType, maxLen)
+}
+
+// EncodeRawValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
+func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+	convertedValue := applyImplicitConversion(val, colType)
+
+	switch colType {
+	case VarcharType:
+		{
+			strVal, ok := convertedValue.(string)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a string: %w", ErrInvalidValue,
+				)
+			}
+
+			if maxLen > 0 && len(strVal) > maxLen {
+				return nil, ErrMaxLengthExceeded
+			}
+
+			// len(v) + v
+			encv := make([]byte, EncLenLen+len(strVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
+			copy(encv[EncLenLen:], []byte(strVal))
+
+			return encv, nil
+		}
+	case IntegerType:
+		{
+			intVal, ok := convertedValue.(int64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not an integer: %w", ErrInvalidValue,
+				)
+			}
+
+			// map to unsigned integer space
+			// len(v) + v
+			var encv [EncLenLen + 8]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal))
+
+			return encv[:], nil
+		}
+	case BooleanType:
+		{
+			boolVal, ok := convertedValue.(bool)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a boolean: %w", ErrInvalidValue,
+				)
+			}
+
+			// len(v) + v
+			var encv [EncLenLen + 1]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(1))
+			if boolVal {
+				encv[EncLenLen] = 1
+			}
+
+			return encv[:], nil
+		}
+	case BLOBType:
+		{
+			var blobVal []byte
+
+			if val != nil {
+				v, ok := convertedValue.([]byte)
+				if !ok {
+					return nil, fmt.Errorf(
+						"value is not a blob: %w", ErrInvalidValue,
+					)
+				}
+				blobVal = v
+			}
+
+			if maxLen > 0 && len(blobVal) > maxLen {
+				return nil, ErrMaxLengthExceeded
+			}
+
+			// len(v) + v
+			encv := make([]byte, EncLenLen+len(blobVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal)))
+			copy(encv[EncLenLen:], blobVal)
+
+			return encv[:], nil
+		}
+	case TimestampType:
+		{
+			timeVal, ok := convertedValue.(time.Time)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a timestamp: %w", ErrInvalidValue,
+				)
+			}
+
+			// len(v) + v
+			var encv [EncLenLen + 8]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(TimeToInt64(timeVal)))
+
+			return encv[:], nil
+		}
+	case Float64Type:
+		{
+			floatVal, ok := convertedValue.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
+
+			var encv [EncLenLen + 8]byte
+			floatBits := math.Float64bits(floatVal)
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], floatBits)
 
 			return encv[:], nil
 		}
