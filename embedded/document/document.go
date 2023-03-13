@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/tidwall/gjson"
 )
@@ -82,33 +81,6 @@ func (d *Document) Bytes() []byte {
 func (d *Document) Get(field string) interface{} {
 	if d.result.Get(field).Exists() {
 		return d.result.Get(field).Value()
-	}
-	return nil
-}
-
-// FieldPaths returns the paths to fields & nested fields in dot notation format
-func (d *Document) FieldPaths() []string {
-	paths := &[]string{}
-	d.paths(d.result, paths)
-	return *paths
-}
-
-func (d *Document) paths(result gjson.Result, pathValues *[]string) {
-	result.ForEach(func(key, value gjson.Result) bool {
-		if value.IsObject() {
-			d.paths(value, pathValues)
-		} else {
-			*pathValues = append(*pathValues, value.Path(d.result.Raw))
-		}
-		return true
-	})
-}
-
-// Encode encodes the json document to the io writer
-func (d *Document) Encode(w io.Writer) error {
-	_, err := w.Write(d.Bytes())
-	if err != nil {
-		return fmt.Errorf("failed to write document: %w", err)
 	}
 	return nil
 }
