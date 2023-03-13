@@ -122,21 +122,21 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pk
 	return err
 }
 
-func (d *Engine) CreateDocument(ctx context.Context, collectionName string, documents []*structpb.Struct) (string, error) {
+func (d *Engine) CreateDocument(ctx context.Context, collectionName string, documents []*structpb.Struct) error {
 	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer tx.Cancel()
 
 	// check if collection exists
 	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collectionName)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	cols := make([]string, 0)
-	tcolumns := table.ColsByName()
+	tcolumns := table.Cols()
 	rows := make([]*sql.RowSpec, 0)
 
 	for _, col := range tcolumns {
@@ -151,18 +151,18 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, docu
 			case defaultDocumentBLOBField:
 				document, err := NewDocumentFrom(doc)
 				if err != nil {
-					return "", err
+					return err
 				}
 				res, err := document.MarshalJSON()
 				if err != nil {
-					return "", err
+					return err
 				}
 				values = append(values, sql.NewBlob(res))
 			default:
 				if rval, ok := doc.Fields[col.Name()]; ok {
 					valType, err := valueTypeToExp(col.Type(), rval)
 					if err != nil {
-						return "", err
+						return err
 					}
 					values = append(values, valType)
 				}
@@ -190,11 +190,11 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, docu
 		nil,
 	)
 
-	return "", err
+	return err
 }
 
 // TODO: remove schema response from this function
-func (d *Engine) GetCollection(ctx context.Context, collectionName string) (resp *schemav2.CollectionInformation, err error) {
+func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*sql.Index, error) {
 	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
@@ -213,33 +213,11 @@ func (d *Engine) GetCollection(ctx context.Context, collectionName string) (resp
 		return nil, fmt.Errorf("collection %s does not have a indexes", collectionName)
 	}
 
-	// iterate over indexes and extract primary and index keys
-	for _, idx := range indexes {
-		for _, col := range idx.Cols() {
-			var colType schemav2.IndexType
-			switch col.Type() {
-			case sql.VarcharType:
-				colType = schemav2.IndexType_STRING
-			case sql.IntegerType:
-				colType = schemav2.IndexType_INTEGER
-			case sql.BLOBType:
-				colType = schemav2.IndexType_STRING
-			}
-
-			// check if primary key
-			if idx.IsPrimary() {
-				resp.PrimaryKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
-			} else {
-				resp.IndexKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
-			}
-		}
-	}
-
-	return resp, nil
+	return indexes, nil
 }
 
-// GenerateBinBoolExp generates a boolean expression from a list of expressions.
-func (d *Engine) GenerateBinBoolExp(ctx context.Context, collection string, expressions []*schemav2.DocumentQuery) (*sql.BinBoolExp, error) {
+// GenerateExp generates a boolean expression from a list of expressions.
+func (d *Engine) GenerateExp(ctx context.Context, collection string, expressions []*schemav2.DocumentQuery) (*sql.CmpBoolExp, error) {
 	if len(expressions) == 0 {
 		return nil, nil
 	}
@@ -267,10 +245,10 @@ func (d *Engine) GenerateBinBoolExp(ctx context.Context, collection string, expr
 	}
 
 	// Combine boolean expressions using AND operator.
-	result := sql.NewBinBoolExp(sql.AND, boolExps[0].Left(), boolExps[0].Right())
+	result := sql.NewCmpBoolExp(sql.AND, boolExps[0].Left(), boolExps[0].Right())
 
 	for _, exp := range boolExps[1:] {
-		result = sql.NewBinBoolExp(sql.AND, result, exp)
+		result = sql.NewCmpBoolExp(sql.AND, result, exp)
 	}
 
 	return result, nil
@@ -292,8 +270,8 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries []*schemav2.DocumentQuery, maxResultSize int) (*schemav2.DocumentSearchResponse, error) {
-	exp, err := d.GenerateBinBoolExp(ctx, collectionName, queries)
+func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName string, queries []*schemav2.DocumentQuery, maxResultSize int) ([]*structpb.Struct, error) {
+	exp, err := d.GenerateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
 	}
@@ -320,9 +298,9 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 	for i, c := range colDescriptors {
 		dbname := c.Database
 		if c.Database == "dbinstance" {
-			// TODO: Check what the db name is
+			// TODO: Check what the db name to provide
 			// dbname = d.name
-			dbname = d.CurrentDatabase()
+			dbname = dbName
 		}
 
 		des := &sql.ColDescriptor{
@@ -335,7 +313,7 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 		cols[i] = &schema.Column{Name: des.Column, Type: des.Type}
 	}
 
-	resp := &schemav2.DocumentSearchResponse{Results: []*structpb.Struct{}}
+	results := []*structpb.Struct{}
 
 	for l := 1; ; l++ {
 		row, err := r.Read(ctx)
@@ -355,7 +333,7 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 			}
 			document.Fields[cols[i].Name] = vtype
 		}
-		resp.Results = append(resp.Results, document)
+		results = append(results, document)
 
 		if l == maxResultSize {
 			return nil, fmt.Errorf("%w: found at least %d documents (the maximum limit). "+
@@ -364,5 +342,5 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 		}
 	}
 
-	return resp, nil
+	return results, nil
 }

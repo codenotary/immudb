@@ -13,7 +13,7 @@ func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
 	return &schemav2.IndexOption{Type: indexType}
 }
 
-func Test_db_CreateCollection(t *testing.T) {
+func Test_object_db_Collection(t *testing.T) {
 	db := makeDb(t)
 
 	// create collection
@@ -25,6 +25,16 @@ func Test_db_CreateCollection(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
+	// get collection
+	resp, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
+		Name: collectionName,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(resp.IndexKeys))
+	require.Equal(t, 1, len(resp.PrimaryKeys))
+	require.Contains(t, resp.PrimaryKeys, "id")
+	require.Equal(t, schemav2.IndexType_INTEGER, resp.PrimaryKeys["id"].Type)
 
 	// add document to collection
 	_, err = db.CreateDocument(context.Background(), &schemav2.DocumentInsertRequest{
@@ -42,7 +52,7 @@ func Test_db_CreateCollection(t *testing.T) {
 	require.NoError(t, err)
 
 	// query collection for document
-	resp, err := db.GetDocument(context.Background(), &schemav2.DocumentSearchRequest{
+	docs, err := db.GetDocument(context.Background(), &schemav2.DocumentSearchRequest{
 		Collection: collectionName,
 		Query: []*schemav2.DocumentQuery{
 			{
@@ -55,10 +65,12 @@ func Test_db_CreateCollection(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(resp.Results))
+	require.Equal(t, 1, len(docs.Results))
+	res := docs.Results[0]
+	require.Equal(t, 123, int(res.Fields["id"].GetNumberValue()))
 }
 
-func TestGenerateBinBoolExp(t *testing.T) {
+func Test_object_db_GenerateExp(t *testing.T) {
 	db := makeDb(t)
 
 	// create collection
@@ -125,7 +137,7 @@ func TestGenerateBinBoolExp(t *testing.T) {
 	// 	},
 	// }
 
-	_, err = db.documentEngine.GenerateBinBoolExp(context.Background(), "mycollection", expressions)
+	_, err = db.documentEngine.GenerateExp(context.Background(), "mycollection", expressions)
 	require.NoError(t, err)
 	// if !reflect.DeepEqual(actual, expected) {
 	// 	t.Errorf("GenerateBinBoolExp() = %v, want %v", actual, expected)
