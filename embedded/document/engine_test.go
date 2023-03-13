@@ -23,7 +23,7 @@ func TestCreateCollection(t *testing.T) {
 	defer closeStore(t, st)
 
 	opts := DefaultOptions()
-	engine, err := sql.NewEngine(st, opts)
+	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
@@ -36,6 +36,7 @@ func TestCreateCollection(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
+	engine.CreateCollection(context.Background(), "collection1", nil, nil)
 	_, _, err = engine.ExecPreparedStmts(
 		context.Background(),
 		nil,
