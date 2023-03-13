@@ -19,10 +19,9 @@ var (
 // ObjectDatabase is the interface for object database
 type ObjectDatabase interface {
 	// GetCollection returns the collection schema
-	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionInformation, error)
+	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error)
 	// CreateCollection creates a new collection
 	CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error
-
 	// GetDocument returns the document
 	GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
 	// CreateDocument creates a new document
@@ -30,13 +29,13 @@ type ObjectDatabase interface {
 }
 
 // GetCollection returns the collection schema
-func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionInformation, error) {
+func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error) {
 	indexes, err := d.documentEngine.GetCollection(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &schemav2.CollectionInformation{
+	cinfo := &schemav2.CollectionInformation{
 		Name:        req.Name,
 		PrimaryKeys: make(map[string]*schemav2.IndexOption),
 		IndexKeys:   make(map[string]*schemav2.IndexOption),
@@ -57,14 +56,14 @@ func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetReque
 
 			// check if primary key
 			if idx.IsPrimary() {
-				resp.PrimaryKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
+				cinfo.PrimaryKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
 			} else {
-				resp.IndexKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
+				cinfo.IndexKeys[col.Name()] = &schemav2.IndexOption{Type: colType}
 			}
 		}
 	}
 
-	return resp, nil
+	return &schemav2.CollectionGetResponse{Collection: cinfo}, nil
 }
 
 // CreateCollection creates a new collection
@@ -117,7 +116,7 @@ func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchReques
 			Value:    q.Value,
 		})
 	}
-	results, err := d.documentEngine.GetDocument(ctx, d.name, req.Collection, queries, d.maxResultSize)
+	results, err := d.documentEngine.GetDocument(ctx, req.Collection, queries, d.maxResultSize)
 	if err != nil {
 		return nil, err
 	}
