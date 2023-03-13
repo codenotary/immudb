@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/document"
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -106,7 +107,7 @@ func Test_object_db_GenerateExp(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	expressions := []*schemav2.DocumentQuery{
+	expressions := []*document.Query{
 		{
 			Field:    "country_id",
 			Operator: 0, // EQ

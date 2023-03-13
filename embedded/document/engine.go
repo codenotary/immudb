@@ -7,8 +7,6 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -18,11 +16,6 @@ const (
 
 // Schema to ValueType mapping
 var (
-	schemaToValueType = map[schemav2.IndexType]sql.SQLValueType{
-		schemav2.IndexType_STRING:  sql.VarcharType,
-		schemav2.IndexType_INTEGER: sql.IntegerType,
-	}
-
 	// ValueType to ValueExp conversion
 	valueTypeToExp = func(stype sql.SQLValueType, value *structpb.Value) (sql.ValueExp, error) {
 		errType := fmt.Errorf("unsupported type %v", stype)
@@ -69,6 +62,12 @@ var (
 	}
 )
 
+type Query struct {
+	Field    string
+	Operator int
+	Value    *structpb.Value
+}
+
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
 	engine, err := sql.NewEngine(store, opts)
 	if err != nil {
@@ -83,7 +82,7 @@ type Engine struct {
 }
 
 // TODO: Add support for index creation
-func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pkeys map[string]*schemav2.IndexOption, idxKeys map[string]*schemav2.IndexOption) error {
+func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pkeys map[string]sql.SQLValueType, idxKeys map[string]sql.SQLValueType) error {
 	primaryKeys := make([]string, 0)
 	collectionSpec := make([]*sql.ColSpec, 0, len(pkeys))
 
@@ -93,19 +92,14 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pk
 	}
 
 	// validate primary keys
-	for name, pk := range pkeys {
-		schType, isValid := schemaToValueType[pk.Type]
-		if !isValid {
-			return fmt.Errorf("invalid primary key type: %v", pk)
-		}
+	for name, schType := range pkeys {
 		primaryKeys = append(primaryKeys, name)
 		// TODO: add support for other types
 		// TODO: add support for auto increment
 		collectionSpec = append(collectionSpec, sql.NewColSpec(name, schType, 0, false, false))
 	}
 
-	// add support for blob
-	// TODO: add support for max length for blob storage
+	// add columnn for blob, which stores the document as a whole
 	collectionSpec = append(collectionSpec, sql.NewColSpec(defaultDocumentBLOBField, sql.BLOBType, 0, false, false))
 
 	_, _, err := d.ExecPreparedStmts(
@@ -217,7 +211,7 @@ func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*s
 }
 
 // GenerateExp generates a boolean expression from a list of expressions.
-func (d *Engine) GenerateExp(ctx context.Context, collection string, expressions []*schemav2.DocumentQuery) (*sql.CmpBoolExp, error) {
+func (d *Engine) GenerateExp(ctx context.Context, collection string, expressions []*Query) (*sql.CmpBoolExp, error) {
 	if len(expressions) == 0 {
 		return nil, nil
 	}
@@ -239,8 +233,7 @@ func (d *Engine) GenerateExp(ctx context.Context, collection string, expressions
 			return nil, err
 		}
 
-		colSelector := sql.NewColSelector(d.CurrentDatabase(), collection, exp.GetField(), "")
-
+		colSelector := sql.NewColSelector(d.CurrentDatabase(), collection, exp.Field, "")
 		boolExps[i] = sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
 	}
 
@@ -270,7 +263,7 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName string, queries []*schemav2.DocumentQuery, maxResultSize int) ([]*structpb.Struct, error) {
+func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName string, queries []*Query, maxResultSize int) ([]*structpb.Struct, error) {
 	exp, err := d.GenerateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
@@ -293,26 +286,6 @@ func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName 
 		return nil, err
 	}
 
-	cols := make([]*schema.Column, len(colDescriptors))
-
-	for i, c := range colDescriptors {
-		dbname := c.Database
-		if c.Database == "dbinstance" {
-			// TODO: Check what the db name to provide
-			// dbname = d.name
-			dbname = dbName
-		}
-
-		des := &sql.ColDescriptor{
-			AggFn:    c.AggFn,
-			Database: dbname,
-			Table:    c.Table,
-			Column:   c.Column,
-			Type:     c.Type,
-		}
-		cols[i] = &schema.Column{Name: des.Column, Type: des.Type}
-	}
-
 	results := []*structpb.Struct{}
 
 	for l := 1; ; l++ {
@@ -331,7 +304,7 @@ func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName 
 			if err != nil {
 				return nil, err
 			}
-			document.Fields[cols[i].Name] = vtype
+			document.Fields[colDescriptors[i].Column] = vtype
 		}
 		results = append(results, document)
 
