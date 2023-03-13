@@ -202,16 +202,19 @@ func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*s
 	}
 
 	// fetch primary and index keys from collection schema
-	indexes := table.GetIndexes()
-	if len(indexes) == 0 {
-		return nil, fmt.Errorf("collection %s does not have a indexes", collectionName)
+	cols := table.Cols()
+	if len(cols) == 0 {
+		return nil, fmt.Errorf("collection %s does not have a field", collectionName)
 	}
+
+	indexes := make([]*sql.Index, 0)
+	indexes = append(indexes, table.GetIndexes()...)
 
 	return indexes, nil
 }
 
-// GenerateExp generates a boolean expression from a list of expressions.
-func (d *Engine) GenerateExp(ctx context.Context, collection string, expressions []*Query) (*sql.CmpBoolExp, error) {
+// generateExp generates a boolean expression from a list of expressions.
+func (d *Engine) generateExp(ctx context.Context, collection string, expressions []*Query) (*sql.CmpBoolExp, error) {
 	if len(expressions) == 0 {
 		return nil, nil
 	}
@@ -264,7 +267,7 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 }
 
 func (d *Engine) GetDocument(ctx context.Context, dbName string, collectionName string, queries []*Query, maxResultSize int) ([]*structpb.Struct, error) {
-	exp, err := d.GenerateExp(ctx, collectionName, queries)
+	exp, err := d.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
 	}
