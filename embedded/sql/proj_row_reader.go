@@ -182,10 +182,6 @@ func (pr *projectedRowReader) Parameters() map[string]interface{} {
 	return pr.rowReader.Parameters()
 }
 
-func (pr *projectedRowReader) SetParameters(params map[string]interface{}) error {
-	return pr.rowReader.SetParameters(params)
-}
-
 func (pr *projectedRowReader) Read(ctx context.Context) (*Row, error) {
 	row, err := pr.rowReader.Read(ctx)
 	if err != nil {

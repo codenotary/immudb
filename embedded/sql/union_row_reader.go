@@ -80,17 +80,6 @@ func (ur *unionRowReader) TableAlias() string {
 	return ""
 }
 
-func (ur *unionRowReader) SetParameters(params map[string]interface{}) error {
-	for _, r := range ur.rowReaders {
-		err := r.SetParameters(params)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (ur *unionRowReader) Parameters() map[string]interface{} {
 	return ur.rowReaders[0].Parameters()
 }

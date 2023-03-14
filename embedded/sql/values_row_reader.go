@@ -38,7 +38,7 @@ type valuesRowReader struct {
 	closed          bool
 }
 
-func newValuesRowReader(ctx context.Context, tx *SQLTx, cols []ColDescriptor, dbAlias, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
+func newValuesRowReader(tx *SQLTx, params map[string]interface{}, cols []ColDescriptor, dbAlias, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
 	if len(cols) == 0 {
 		return nil, fmt.Errorf("%w: empty column list", ErrIllegalArguments)
 	}
@@ -78,6 +78,7 @@ func newValuesRowReader(ctx context.Context, tx *SQLTx, cols []ColDescriptor, db
 
 	return &valuesRowReader{
 		tx:         tx,
+		params:     params,
 		colsByPos:  colsByPos,
 		colsBySel:  colsBySel,
 		dbAlias:    dbAlias,
@@ -104,17 +105,6 @@ func (vr *valuesRowReader) Database() string {
 
 func (vr *valuesRowReader) TableAlias() string {
 	return vr.tableAlias
-}
-
-func (vr *valuesRowReader) SetParameters(params map[string]interface{}) error {
-	params, err := normalizeParams(params)
-	if err != nil {
-		return err
-	}
-
-	vr.params = params
-
-	return nil
 }
 
 func (vr *valuesRowReader) Parameters() map[string]interface{} {

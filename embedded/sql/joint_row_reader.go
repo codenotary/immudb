@@ -180,10 +180,6 @@ func (jointr *jointRowReader) Parameters() map[string]interface{} {
 	return jointr.rowReader.Parameters()
 }
 
-func (jointr *jointRowReader) SetParameters(params map[string]interface{}) error {
-	return jointr.rowReader.SetParameters(params)
-}
-
 func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 	for {
 		row := &Row{
