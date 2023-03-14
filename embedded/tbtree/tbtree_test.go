@@ -1528,3 +1528,54 @@ func TestMultiTimedBulkInsertion(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 }
+
+func TestGetWithPrefix(t *testing.T) {
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+
+	defer tbtree.Close()
+
+	key1 := []byte{1, 82, 46, 0, 0, 0, 1}
+	key2 := []byte{2, 82, 46, 0, 0, 0, 1}
+
+	err = tbtree.Insert(key1, []byte("value"))
+	require.NoError(t, err)
+
+	err = tbtree.Insert(key2, []byte("value"))
+	require.NoError(t, err)
+
+	t.Run("get with prefix over tbtree", func(t *testing.T) {
+		_, _, _, _, err = tbtree.GetWithPrefix(key1, key1)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		k, _, _, _, err := tbtree.GetWithPrefix(key1, nil)
+		require.NoError(t, err)
+		require.Equal(t, key1, k)
+
+		_, _, _, _, err = tbtree.GetWithPrefix(key2, key2)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		k, _, _, _, err = tbtree.GetWithPrefix(key2, nil)
+		require.NoError(t, err)
+		require.Equal(t, key2, k)
+	})
+
+	t.Run("get with prefix over a snapshot", func(t *testing.T) {
+		snap, err := tbtree.Snapshot()
+		require.NoError(t, err)
+
+		_, _, _, _, err = snap.GetWithPrefix(key1, key1)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		k, _, _, _, err := snap.GetWithPrefix(key1, nil)
+		require.NoError(t, err)
+		require.Equal(t, key1, k)
+
+		_, _, _, _, err = snap.GetWithPrefix(key2, key2)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		k, _, _, _, err = snap.GetWithPrefix(key2, nil)
+		require.NoError(t, err)
+		require.Equal(t, key2, k)
+	})
+}
