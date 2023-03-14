@@ -48,7 +48,7 @@ func TestObjectDB_Collection(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
+	_, err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
 		Name: collectionName,
 		PrimaryKeys: map[string]*schemav2.IndexOption{
 			"id": newIndexOption(schemav2.IndexType_INTEGER),

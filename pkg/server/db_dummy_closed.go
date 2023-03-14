@@ -251,8 +251,8 @@ func (d *closedDB) GetCollection(ctx context.Context, req *schemav2.CollectionGe
 }
 
 // CreateCollection creates a new collection
-func (d *closedDB) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) error {
-	return store.ErrAlreadyClosed
+func (d *closedDB) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error) {
+	return nil, store.ErrAlreadyClosed
 }
 
 // GetDocument returns the document
@@ -262,5 +262,9 @@ func (d *closedDB) GetDocument(ctx context.Context, req *schemav2.DocumentSearch
 
 // CreateDocument creates a new document
 func (d *closedDB) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
