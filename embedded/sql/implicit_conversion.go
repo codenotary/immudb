@@ -16,15 +16,56 @@ limitations under the License.
 
 package sql
 
-func applyImplicitConversion(val interface{}, requiredColumnType SQLValueType) interface{} {
+// mayApplyImplicitConversion may do an implicit type conversion
+// implicit conversion is currently done in a subset of possible explicit conversions i.e. CAST
+func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType) (interface{}, error) {
+	if val == nil {
+		return nil, nil
+	}
+
+	var converter converterFunc
+	var typedVal TypedValue
+	var err error
+
 	switch requiredColumnType {
 	case Float64Type:
 		switch value := val.(type) {
+		case float64:
+			return val, nil
 		case int64:
-			return float64(value)
+			converter, err = getConverter(IntegerType, Float64Type)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Integer{val: value}
 		}
+	case IntegerType:
+		switch value := val.(type) {
+		case int64:
+			return val, nil
+		case float64:
+			converter, err = getConverter(Float64Type, IntegerType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Float64{val: value}
+		}
+	default:
+		// No implicit conversion rule found, do not convert at all
+		return val, nil
 	}
 
-	// No implicit conversion rule found, do not convert at all
-	return val
+	if typedVal == nil {
+		// No implicit conversion rule found, do not convert at all
+		return val, nil
+	}
+
+	convVal, err := converter(typedVal)
+	if err != nil {
+		return nil, err
+	}
+
+	return convVal.RawValue(), nil
 }
