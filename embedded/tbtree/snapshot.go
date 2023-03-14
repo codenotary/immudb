@@ -138,7 +138,15 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value [
 
 	leafValue := leaf.values[off]
 
-	return leafValue.key, cp(leafValue.value), leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+	if len(prefix) > len(leafValue.key) {
+		return nil, nil, 0, 0, ErrKeyNotFound
+	}
+
+	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
+		return leafValue.key, cp(leafValue.value), leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+	}
+
+	return nil, nil, 0, 0, ErrKeyNotFound
 }
 
 func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
