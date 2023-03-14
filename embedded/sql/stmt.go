@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1845,11 +1844,14 @@ func (v *Float64) RawValue() interface{} {
 }
 
 func (v *Float64) Compare(val TypedValue) (int, error) {
-	if val.IsNull() {
-		return 1, nil
+	convVal, err := mayApplyImplicitConversion(val.RawValue(), Float64Type)
+	if err != nil {
+		return 0, err
 	}
 
-	convVal := applyImplicitConversion(val.RawValue(), Float64Type)
+	if convVal == nil {
+		return 1, nil
+	}
 
 	rval, ok := convVal.(float64)
 	if !ok {
@@ -1934,104 +1936,6 @@ func (v *FnCall) selectorRanges(table *Table, asTable string, params map[string]
 type Cast struct {
 	val ValueExp
 	t   SQLValueType
-}
-
-type converterFunc func(TypedValue) (TypedValue, error)
-
-func getConverter(src, dst SQLValueType) (converterFunc, error) {
-	if src == dst {
-		return func(tv TypedValue) (TypedValue, error) {
-			return tv, nil
-		}, nil
-	}
-
-	if dst == TimestampType {
-
-		if src == IntegerType {
-			return func(val TypedValue) (TypedValue, error) {
-				if val.RawValue() == nil {
-					return &NullValue{t: TimestampType}, nil
-				}
-				return &Timestamp{val: time.Unix(val.RawValue().(int64), 0).Truncate(time.Microsecond).UTC()}, nil
-			}, nil
-		}
-
-		if src == VarcharType {
-			return func(val TypedValue) (TypedValue, error) {
-				if val.RawValue() == nil {
-					return &NullValue{t: TimestampType}, nil
-				}
-
-				str := val.RawValue().(string)
-				for _, layout := range []string{
-					"2006-01-02 15:04:05.999999",
-					"2006-01-02 15:04",
-					"2006-01-02",
-				} {
-					t, err := time.ParseInLocation(layout, str, time.UTC)
-					if err == nil {
-						return &Timestamp{val: t.Truncate(time.Microsecond).UTC()}, nil
-					}
-				}
-
-				if len(str) > 30 {
-					str = str[:30] + "..."
-				}
-
-				return nil, fmt.Errorf(
-					"%w: can not cast string '%s' as a TIMESTAMP",
-					ErrUnsupportedCast,
-					str,
-				)
-			}, nil
-		}
-
-		return nil, fmt.Errorf(
-			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
-			ErrUnsupportedCast,
-		)
-	}
-
-	if dst == Float64Type {
-
-		if src == IntegerType {
-			return func(val TypedValue) (TypedValue, error) {
-				if val.RawValue() == nil {
-					return &NullValue{t: Float64Type}, nil
-				}
-				return &Float64{val: float64(val.RawValue().(int64))}, nil
-			}, nil
-		}
-
-		if src == VarcharType {
-			return func(val TypedValue) (TypedValue, error) {
-				if val.RawValue() == nil {
-					return &NullValue{t: Float64Type}, nil
-				}
-
-				s, err := strconv.ParseFloat(val.RawValue().(string), 64)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"%w: can not cast string '%s' as a FLOAT",
-						ErrUnsupportedCast,
-						val.RawValue().(string),
-					)
-				}
-				return &Float64{val: s}, nil
-			}, nil
-		}
-
-		return nil, fmt.Errorf(
-			"%w: only INTEGER and VARCHAR types can be cast as FLOAT",
-			ErrUnsupportedCast,
-		)
-	}
-
-	return nil, fmt.Errorf(
-		"%w: can not cast %s value as %s",
-		ErrUnsupportedCast,
-		src, dst,
-	)
 }
 
 func (c *Cast) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {

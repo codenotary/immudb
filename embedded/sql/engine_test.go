@@ -847,6 +847,81 @@ func TestFloatCasts(t *testing.T) {
 
 }
 
+func TestNumericCasts(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(
+		context.Background(),
+		nil,
+		`
+			CREATE TABLE IF NOT EXISTS numeric_table (id INTEGER AUTO_INCREMENT, quantity INTEGER, price FLOAT, PRIMARY KEY id);
+			CREATE INDEX ON numeric_table(quantity);
+			CREATE INDEX ON numeric_table(price);
+			CREATE INDEX ON numeric_table(quantity, price);
+		`,
+		nil)
+	require.NoError(t, err)
+
+	for _, d := range []struct {
+		q interface{}
+		p interface{}
+	}{
+		{10, 0.5},
+		{1.5, 7},
+		{nil, nil},
+	} {
+		params := make(map[string]interface{})
+		params["q"] = d.q
+		params["p"] = d.p
+
+		t.Run("insert row with numeric casting", func(t *testing.T) {
+			_, _, err = engine.Exec(
+				context.Background(),
+				nil,
+				"INSERT INTO numeric_table(quantity, price) VALUES(CAST(@q AS INTEGER), CAST(@p AS FLOAT))",
+				params,
+			)
+			require.NoError(t, err)
+
+			r, err := engine.Query(
+				context.Background(),
+				nil,
+				"SELECT quantity, price FROM numeric_table ORDER BY id DESC LIMIT 1",
+				nil)
+			require.NoError(t, err)
+			defer r.Close()
+
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, IntegerType, row.ValuesByPosition[0].Type())
+			require.Equal(t, Float64Type, row.ValuesByPosition[1].Type())
+		})
+
+		t.Run("insert row with implicit numeric casting", func(t *testing.T) {
+			_, _, err = engine.Exec(
+				context.Background(),
+				nil,
+				"INSERT INTO numeric_table(quantity, price) VALUES(@q, @p)",
+				params,
+			)
+			require.NoError(t, err)
+
+			r, err := engine.Query(
+				context.Background(),
+				nil,
+				"SELECT quantity, price FROM numeric_table ORDER BY id DESC LIMIT 1",
+				nil)
+			require.NoError(t, err)
+			defer r.Close()
+
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, IntegerType, row.ValuesByPosition[0].Type())
+			require.Equal(t, Float64Type, row.ValuesByPosition[1].Type())
+		})
+	}
+}
+
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	engine := setupCommonTest(t)
 
