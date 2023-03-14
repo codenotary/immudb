@@ -43,6 +43,14 @@ var maintenanceMethods = map[string]struct{}{
 	"ListTables":          {},
 	"DescribeTable":       {},
 	"VerifiableSQLGet":    {},
+	"DocumentInsert":      {},
+	"DocumentSearch":      {},
+	"CollectionCreate":    {},
+	"CollectionGet":       {},
+	"CollectionList":      {},
+	"CollectionDelete":    {},
+	"DocumentAudit":       {},
+	"DocumentProof":       {},
 
 	// admin methods
 	"ListUsers":    {},
@@ -104,6 +112,14 @@ var methodsPermissions = map[string][]uint32{
 	"ListTables":             {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DescribeTable":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"VerifiableSQLGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DocumentInsert":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"DocumentSearch":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CollectionCreate":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"CollectionGet":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CollectionList":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CollectionDelete":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"DocumentAudit":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DocumentProof":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 
 	// admin methods
 	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},
@@ -125,7 +141,7 @@ var methodsPermissions = map[string][]uint32{
 	"ReplicateTx":      {PermissionSysAdmin, PermissionAdmin},
 }
 
-//HasPermissionForMethod checks if userPermission can access method name
+// HasPermissionForMethod checks if userPermission can access method name
 func HasPermissionForMethod(userPermission uint32, method string) bool {
 	methodPermissions, ok := methodsPermissions[method]
 	if !ok {
