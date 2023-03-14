@@ -391,15 +391,17 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 
-		// _, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
-		// if err != nil {
-		// 	return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		// }
+		if dbName != "systemdb" && dbName != "defaultdb" {
+			_, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
+			if err != nil {
+				return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+			}
+			err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
+			if err != nil {
+				return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+			}
+		}
 
-		// err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
-		// if err != nil {
-		// 	return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		// }
 	}
 
 	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)

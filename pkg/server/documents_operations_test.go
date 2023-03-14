@@ -23,8 +23,10 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -93,4 +95,45 @@ func TestV2Authentication(t *testing.T) {
 	_, err = s.CollectionGet(ctx, &documentschema.CollectionGetRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
+}
+
+func TestDocumentOperations(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
+
+	ctx := context.Background()
+
+	resp, err := s.OpenSession(ctx, &schema.OpenSessionRequest{
+		Username:     []byte(auth.SysAdminUsername),
+		Password:     []byte(auth.SysAdminPassword),
+		DatabaseName: DefaultDBName,
+	})
+	require.NoError(t, err)
+
+	ctx = metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
+
+	_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+		Name: "db1",
+	})
+	require.NoError(t, err)
+
+	_, err = s.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
+	require.NoError(t, err)
+
+	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{
+		Name: "collection1",
+		PrimaryKeys: map[string]*documentschema.IndexOption{
+			"key1": {
+				Type: documentschema.IndexType_STRING,
+			},
+		},
+	})
+	assert.NoError(t, err)
 }
