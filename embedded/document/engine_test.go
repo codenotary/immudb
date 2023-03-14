@@ -50,7 +50,7 @@ func TestListCollections(t *testing.T) {
 			map[string]sql.SQLValueType{
 				"id":     sql.IntegerType,
 				"number": sql.IntegerType,
-				"name":   sql.VarcharType,
+				"name":   sql.BLOBType,
 			},
 			map[string]sql.SQLValueType{
 				"pin":     sql.IntegerType,
@@ -151,6 +151,7 @@ func TestGetDocument(t *testing.T) {
 		"id":      sql.IntegerType,
 		"pincode": sql.IntegerType,
 		"country": sql.VarcharType,
+		"data":    sql.BLOBType,
 	}, nil)
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -167,6 +168,13 @@ func TestGetDocument(t *testing.T) {
 				},
 				"country": {
 					Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+				},
+				"data": {
+					Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"key1": {Kind: &structpb.Value_StringValue{StringValue: "value1"}},
+						},
+					}},
 				},
 			},
 		},
