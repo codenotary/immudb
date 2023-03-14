@@ -1011,16 +1011,19 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		return nil, ErrMaxKeyLengthExceeded
 	}
 
-	if val == nil {
-		return []byte{KeyValPrefixNull}, nil
+	convVal, err := mayApplyImplicitConversion(val, colType)
+	if err != nil {
+		return nil, err
 	}
 
-	convertedValue := applyImplicitConversion(val, colType)
+	if convVal == nil {
+		return []byte{KeyValPrefixNull}, nil
+	}
 
 	switch colType {
 	case VarcharType:
 		{
-			strVal, ok := convertedValue.(string)
+			strVal, ok := convVal.(string)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a string: %w", ErrInvalidValue,
@@ -1045,7 +1048,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 				return nil, ErrCorruptedData
 			}
 
-			intVal, ok := convertedValue.(int64)
+			intVal, ok := convVal.(int64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not an integer: %w", ErrInvalidValue,
@@ -1067,7 +1070,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 				return nil, ErrCorruptedData
 			}
 
-			boolVal, ok := convertedValue.(bool)
+			boolVal, ok := convVal.(bool)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a boolean: %w", ErrInvalidValue,
@@ -1085,7 +1088,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		}
 	case BLOBType:
 		{
-			blobVal, ok := convertedValue.([]byte)
+			blobVal, ok := convVal.([]byte)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a blob: %w", ErrInvalidValue,
@@ -1110,7 +1113,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 				return nil, ErrCorruptedData
 			}
 
-			timeVal, ok := convertedValue.(time.Time)
+			timeVal, ok := convVal.(time.Time)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a timestamp: %w", ErrInvalidValue,
@@ -1128,7 +1131,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		}
 	case Float64Type:
 		{
-			floatVal, ok := convertedValue.(float64)
+			floatVal, ok := convVal.(float64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a float: %w", ErrInvalidValue,
@@ -1170,12 +1173,19 @@ func EncodeValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, erro
 
 // EncodeRawValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
 func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
-	convertedValue := applyImplicitConversion(val, colType)
+	convVal, err := mayApplyImplicitConversion(val, colType)
+	if err != nil {
+		return nil, err
+	}
+
+	if convVal == nil {
+		return nil, ErrInvalidValue
+	}
 
 	switch colType {
 	case VarcharType:
 		{
-			strVal, ok := convertedValue.(string)
+			strVal, ok := convVal.(string)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a string: %w", ErrInvalidValue,
@@ -1195,7 +1205,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		}
 	case IntegerType:
 		{
-			intVal, ok := convertedValue.(int64)
+			intVal, ok := convVal.(int64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not an integer: %w", ErrInvalidValue,
@@ -1212,7 +1222,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		}
 	case BooleanType:
 		{
-			boolVal, ok := convertedValue.(bool)
+			boolVal, ok := convVal.(bool)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a boolean: %w", ErrInvalidValue,
@@ -1233,7 +1243,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 			var blobVal []byte
 
 			if val != nil {
-				v, ok := convertedValue.([]byte)
+				v, ok := convVal.([]byte)
 				if !ok {
 					return nil, fmt.Errorf(
 						"value is not a blob: %w", ErrInvalidValue,
@@ -1255,7 +1265,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		}
 	case TimestampType:
 		{
-			timeVal, ok := convertedValue.(time.Time)
+			timeVal, ok := convVal.(time.Time)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a timestamp: %w", ErrInvalidValue,
@@ -1271,7 +1281,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		}
 	case Float64Type:
 		{
-			floatVal, ok := convertedValue.(float64)
+			floatVal, ok := convVal.(float64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a float: %w", ErrInvalidValue,

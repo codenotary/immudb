@@ -27,12 +27,22 @@ func applyNumOperator(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
 }
 
 func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-	nl, isNumber := vl.RawValue().(int64)
+	convl, err := mayApplyImplicitConversion(vl.RawValue(), IntegerType)
+	if err != nil {
+		return nil, fmt.Errorf("%w (expecting numeric value)", err)
+	}
+
+	nl, isNumber := convl.(int64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
 
-	nr, isNumber := vr.RawValue().(int64)
+	convr, err := mayApplyImplicitConversion(vr.RawValue(), IntegerType)
+	if err != nil {
+		return nil, fmt.Errorf("%w (expecting numeric value)", err)
+	}
+
+	nr, isNumber := convr.(int64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
@@ -64,12 +74,22 @@ func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, err
 }
 
 func applyNumOperatorFloat64(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
-	nl, isNumber := applyImplicitConversion(vl.RawValue(), Float64Type).(float64)
+	convl, err := mayApplyImplicitConversion(vl.RawValue(), Float64Type)
+	if err != nil {
+		return nil, fmt.Errorf("%w (expecting numeric value)", err)
+	}
+
+	nl, isNumber := convl.(float64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
 
-	nr, isNumber := applyImplicitConversion(vr.RawValue(), Float64Type).(float64)
+	convr, err := mayApplyImplicitConversion(vr.RawValue(), Float64Type)
+	if err != nil {
+		return nil, fmt.Errorf("%w (expecting numeric value)", err)
+	}
+
+	nr, isNumber := convr.(float64)
 	if !isNumber {
 		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
