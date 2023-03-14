@@ -39,6 +39,42 @@ func makeEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestListCollections(t *testing.T) {
+	engine := makeEngine(t)
+
+	collections := []string{"mycollection1", "mycollection2", "mycollection3"}
+	for _, collectionName := range collections {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			map[string]sql.SQLValueType{
+				"id":     sql.IntegerType,
+				"number": sql.IntegerType,
+				"name":   sql.VarcharType,
+			},
+			map[string]sql.SQLValueType{
+				"pin":     sql.IntegerType,
+				"country": sql.VarcharType,
+			},
+		)
+		require.NoError(t, err)
+	}
+
+	collectionList, err := engine.ListCollections(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, len(collections), len(collectionList))
+
+	for _, indexes := range collectionList {
+		for _, index := range indexes {
+			if index.IsPrimary() {
+				require.Equal(t, 3, len(index.Cols()))
+			} else {
+				require.Equal(t, 2, len(index.Cols()))
+			}
+		}
+	}
+}
+
 func TestCreateCollection(t *testing.T) {
 	engine := makeEngine(t)
 
@@ -49,9 +85,11 @@ func TestCreateCollection(t *testing.T) {
 		map[string]sql.SQLValueType{
 			"id":     sql.IntegerType,
 			"number": sql.IntegerType,
+			"name":   sql.VarcharType,
 		},
 		map[string]sql.SQLValueType{
-			"pin": sql.IntegerType,
+			"pin":     sql.IntegerType,
+			"country": sql.VarcharType,
 		},
 	)
 	require.NoError(t, err)
@@ -64,17 +102,22 @@ func TestCreateCollection(t *testing.T) {
 
 	require.Equal(t, collectionName, table.Name())
 
-	c, err := table.GetColumnByName("id")
-	require.NoError(t, err)
-	require.Equal(t, c.Name(), "id")
+	pcols := []string{"id", "number", "name"}
+	idxcols := []string{"pin", "country"}
 
-	c, err = table.GetColumnByName("number")
-	require.NoError(t, err)
-	require.Equal(t, c.Name(), "number")
+	// verify primary keys
+	for _, col := range pcols {
+		c, err := table.GetColumnByName(col)
+		require.NoError(t, err)
+		require.Equal(t, c.Name(), col)
+	}
 
-	c, err = table.GetColumnByName("pin")
-	require.NoError(t, err)
-	require.Equal(t, c.Name(), "pin")
+	// verify index keys
+	for _, col := range idxcols {
+		c, err := table.GetColumnByName(col)
+		require.NoError(t, err)
+		require.Equal(t, c.Name(), col)
+	}
 
 	// get collection
 	indexes, err := engine.GetCollection(context.Background(), collectionName)
@@ -91,8 +134,8 @@ func TestCreateCollection(t *testing.T) {
 			indexKeyCount += len(idx.Cols())
 		}
 	}
-	require.Equal(t, 2, primaryKeyCount)
-	require.Equal(t, 1, indexKeyCount)
+	require.Equal(t, 3, primaryKeyCount)
+	require.Equal(t, 2, indexKeyCount)
 }
 
 func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
@@ -105,9 +148,9 @@ func TestGetDocument(t *testing.T) {
 	// create collection
 	collectionName := "mycollection"
 	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"id":         sql.IntegerType,
-		"pincode":    sql.IntegerType,
-		"country_id": sql.IntegerType,
+		"id":      sql.IntegerType,
+		"pincode": sql.IntegerType,
+		"country": sql.VarcharType,
 	}, nil)
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -122,8 +165,8 @@ func TestGetDocument(t *testing.T) {
 				"pincode": {
 					Kind: &structpb.Value_NumberValue{NumberValue: 2},
 				},
-				"country_id": {
-					Kind: &structpb.Value_NumberValue{NumberValue: 3},
+				"country": {
+					Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
 				},
 			},
 		},
@@ -133,10 +176,10 @@ func TestGetDocument(t *testing.T) {
 
 	expressions := []*Query{
 		{
-			Field:    "country_id",
+			Field:    "country",
 			Operator: 0, // EQ
 			Value: &structpb.Value{
-				Kind: &structpb.Value_NumberValue{NumberValue: 3},
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
 			},
 		},
 		{

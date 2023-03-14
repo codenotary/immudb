@@ -60,6 +60,20 @@ var (
 
 		return nil, errType
 	}
+
+	valueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
+		errType := fmt.Errorf("unsupported type %v", stype)
+		switch stype {
+		case sql.VarcharType:
+			return 256, nil
+		case sql.IntegerType:
+			return 0, nil
+		case sql.BLOBType:
+			return 256, nil
+		}
+
+		return 0, errType
+	}
 )
 
 type Query struct {
@@ -97,7 +111,11 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pk
 		primaryKeys = append(primaryKeys, name)
 		// TODO: add support for other types
 		// TODO: add support for auto increment
-		columns = append(columns, sql.NewColSpec(name, schType, 0, false, false))
+		colLen, err := valueTypeDefaultLength(schType)
+		if err != nil {
+			return fmt.Errorf("primary key specified is not supported: %v", schType)
+		}
+		columns = append(columns, sql.NewColSpec(name, schType, colLen, false, false))
 	}
 
 	// add columnn for blob, which stores the document as a whole
@@ -106,7 +124,11 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pk
 	// add index keys
 	for name, schType := range idxKeys {
 		indexKeys = append(indexKeys, name)
-		columns = append(columns, sql.NewColSpec(name, schType, 0, false, false))
+		colLen, err := valueTypeDefaultLength(schType)
+		if err != nil {
+			return fmt.Errorf("index key specified is not supported: %v", schType)
+		}
+		columns = append(columns, sql.NewColSpec(name, schType, colLen, false, false))
 	}
 
 	// add columns to collection
@@ -212,7 +234,30 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, docu
 	return err
 }
 
-// TODO: remove schema response from this function
+func (d *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, error) {
+	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	database, err := tx.Catalog().GetDatabaseByName(d.CurrentDatabase())
+	if err != nil {
+		return nil, err
+	}
+
+	collectionMap := make(map[string][]*sql.Index)
+	for _, table := range database.GetTables() {
+		_, ok := collectionMap[table.Name()]
+		if !ok {
+			collectionMap[table.Name()] = make([]*sql.Index, 0)
+		}
+		collectionMap[table.Name()] = append(collectionMap[table.Name()], table.GetIndexes()...)
+	}
+
+	return collectionMap, nil
+}
+
 func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*sql.Index, error) {
 	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
