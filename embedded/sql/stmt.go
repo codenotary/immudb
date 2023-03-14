@@ -3703,7 +3703,7 @@ func (stmt *FnDataSourceStmt) resolveListDatabases(ctx context.Context, tx *SQLT
 		values[i] = []ValueExp{&Varchar{val: db}}
 	}
 
-	return newValuesRowReader(ctx, tx, cols, "*", stmt.Alias(), values)
+	return newValuesRowReader(tx, params, cols, "*", stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
@@ -3727,7 +3727,7 @@ func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, 
 		values[i] = []ValueExp{&Varchar{val: t.name}}
 	}
 
-	return newValuesRowReader(ctx, tx, cols, db.name, stmt.Alias(), values)
+	return newValuesRowReader(tx, params, cols, db.name, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
@@ -3822,7 +3822,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 		}
 	}
 
-	return newValuesRowReader(ctx, tx, cols, table.db.name, stmt.Alias(), values)
+	return newValuesRowReader(tx, params, cols, table.db.name, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
@@ -3879,5 +3879,5 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 		}
 	}
 
-	return newValuesRowReader(ctx, tx, cols, table.db.name, stmt.Alias(), values)
+	return newValuesRowReader(tx, params, cols, table.db.name, stmt.Alias(), values)
 }

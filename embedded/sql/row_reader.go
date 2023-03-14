@@ -30,7 +30,6 @@ type RowReader interface {
 	Database() string
 	TableAlias() string
 	Parameters() map[string]interface{}
-	SetParameters(params map[string]interface{}) error
 	Read(ctx context.Context) (*Row, error)
 	Close() error
 	Columns(ctx context.Context) ([]ColDescriptor, error)
@@ -335,11 +334,6 @@ func (r *rawRowReader) InferParameters(ctx context.Context, params map[string]SQ
 	}
 
 	return nil
-}
-
-func (r *rawRowReader) SetParameters(params map[string]interface{}) (err error) {
-	r.params, err = normalizeParams(params)
-	return err
 }
 
 func (r *rawRowReader) Parameters() map[string]interface{} {

@@ -52,10 +52,6 @@ func (r *offsetRowReader) Parameters() map[string]interface{} {
 	return r.rowReader.Parameters()
 }
 
-func (r *offsetRowReader) SetParameters(params map[string]interface{}) error {
-	return r.rowReader.SetParameters(params)
-}
-
 func (r *offsetRowReader) OrderBy() []ColDescriptor {
 	return r.rowReader.OrderBy()
 }

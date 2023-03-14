@@ -89,11 +89,6 @@ func (r *dummyRowReader) Parameters() map[string]interface{} {
 	return r.params
 }
 
-func (r *dummyRowReader) SetParameters(params map[string]interface{}) error {
-	r.params = params
-	return nil
-}
-
 func (r *dummyRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
 	if r.failInferringParams {
 		return errDummy

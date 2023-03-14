@@ -1744,17 +1744,12 @@ func TestQuery(t *testing.T) {
 	params = make(map[string]interface{})
 	params["some_param1"] = true
 
-	r, err = engine.Query(context.Background(), nil, "SELECT id FROM table1 WHERE active = @some_param1", nil)
+	r, err = engine.Query(context.Background(), nil, "SELECT id FROM table1 WHERE active = @some_param1", params)
 	require.NoError(t, err)
-
-	_, err = r.Read(context.Background())
-	require.ErrorIs(t, err, ErrMissingParameter)
-
-	r.SetParameters(params)
 
 	row, err := r.Read(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, int64(0), row.ValuesBySelector[EncodeSelector("", "db1", "table1", "id")].Value())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -1953,10 +1948,8 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.Query(context.Background(), nil, "SELECT DISTINCT title FROM table1 WHERE id <= @id", nil)
+		r, err := engine.Query(context.Background(), nil, "SELECT DISTINCT title FROM table1 WHERE id <= @id", params)
 		require.NoError(t, err)
-
-		r.SetParameters(params)
 
 		cols, err := r.Columns(context.Background())
 		require.NoError(t, err)
@@ -1981,10 +1974,8 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.Query(context.Background(), nil, "SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2", nil)
+		r, err := engine.Query(context.Background(), nil, "SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2", params)
 		require.NoError(t, err)
-
-		r.SetParameters(params)
 
 		cols, err := r.Columns(context.Background())
 		require.NoError(t, err)
@@ -2009,10 +2000,8 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.Query(context.Background(), nil, "SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2 OFFSET 1", nil)
+		r, err := engine.Query(context.Background(), nil, "SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2 OFFSET 1", params)
 		require.NoError(t, err)
-
-		r.SetParameters(params)
 
 		cols, err := r.Columns(context.Background())
 		require.NoError(t, err)
@@ -3316,8 +3305,6 @@ func TestGroupByHaving(t *testing.T) {
 		ORDER BY active`, nil)
 	require.NoError(t, err)
 
-	r.SetParameters(nil)
-
 	_, err = r.Read(context.Background())
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
@@ -3466,8 +3453,6 @@ func TestJoins(t *testing.T) {
 			WHERE table1.id >= 0 AND table3.age >= 30
 			ORDER BY id DESC`, nil)
 		require.NoError(t, err)
-
-		r.SetParameters(nil)
 
 		cols, err := r.Columns(context.Background())
 		require.NoError(t, err)
@@ -5350,6 +5335,23 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 	t.Run("querying tables with name equality comparison should return only one table", func(t *testing.T) {
 		r, err := engine.Query(context.Background(), tx, "SELECT * FROM TABLES() WHERE name = 'mytable2'", nil)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].Value())
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("querying tables with name equality comparison using parameters should return only one table", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["name"] = "mytable2"
+
+		r, err := engine.Query(context.Background(), tx, "SELECT * FROM TABLES() WHERE name = @name", params)
 		require.NoError(t, err)
 
 		defer r.Close()

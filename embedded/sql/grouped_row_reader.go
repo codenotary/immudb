@@ -180,10 +180,6 @@ func (gr *groupedRowReader) Parameters() map[string]interface{} {
 	return gr.rowReader.Parameters()
 }
 
-func (gr *groupedRowReader) SetParameters(params map[string]interface{}) error {
-	return gr.rowReader.SetParameters(params)
-}
-
 func (gr *groupedRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
 		row, err := gr.rowReader.Read(ctx)
