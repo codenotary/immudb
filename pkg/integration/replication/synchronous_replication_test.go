@@ -389,7 +389,7 @@ func (suite *SyncTestRecoverySpeedSuite) TestReplicaRecoverySpeed() {
 
 		state, err := client.CurrentState(ctx)
 		suite.Require().NoError(err)
-		suite.Require().Greater(state.TxId, txWritten, "Ensure enough TXs were written")
+		suite.Require().Equal(state.TxId, txWritten, "Ensure enough TXs were written")
 
 		// Check if we can recover the cluster and perform write within a reasonable amount of time
 		// that was needed for initial sampling. The replica that was initially stopped and now
@@ -509,7 +509,7 @@ func (suite *SyncTestWithAsyncReplicaSuite) TestSyncReplicationAlongWithAsyncRep
 
 		state, err := client.CurrentState(ctx)
 		suite.Require().NoError(err)
-		suite.Require().Greater(state.TxId, txWritten, "Ensure enough TXs were written")
+		suite.Require().Equal(state.TxId, txWritten, "Ensure enough TXs were written")
 
 		for i := 0; i < suite.GetReplicasCount(); i++ {
 			suite.Run(fmt.Sprintf("replica %d", i), func() {

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -102,8 +101,6 @@ type Engine struct {
 	autocommit    bool
 
 	multidbHandler MultiDBHandler
-
-	mutex sync.RWMutex
 }
 
 type MultiDBHandler interface {
@@ -124,10 +121,11 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	e := &Engine{
-		store:         store,
-		prefix:        make([]byte, len(opts.prefix)),
-		distinctLimit: opts.distinctLimit,
-		autocommit:    opts.autocommit,
+		store:          store,
+		prefix:         make([]byte, len(opts.prefix)),
+		distinctLimit:  opts.distinctLimit,
+		autocommit:     opts.autocommit,
+		multidbHandler: opts.multidbHandler,
 	}
 
 	copy(e.prefix, opts.prefix)
@@ -136,13 +134,6 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	yyErrorVerbose = true
 
 	return e, nil
-}
-
-func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	e.multidbHandler = handler
 }
 
 func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
@@ -164,9 +155,6 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		SnapshotRenewalPeriod:   opts.SnapshotRenewalPeriod,
 		UnsafeMVCC:              opts.UnsafeMVCC,
 	}
-
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
 
 	tx, err := e.store.NewTx(ctx, txOpts)
 	if err != nil {
@@ -449,9 +437,6 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 
 // CopyCatalogToTx copies the current sql catalog to the ongoing transaction.
 func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
 	catalog := newCatalog(e.prefix)
 
 	err := catalog.addSchemaToTx(e.prefix, tx)

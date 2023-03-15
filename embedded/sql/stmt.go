@@ -30,13 +30,13 @@ import (
 )
 
 const (
-	catalogDatabasePrefix = "CTL.DATABASE." // (key=CTL.DATABASE.{dbID}, value={dbNAME})
-	catalogTablePrefix    = "CTL.TABLE."    // (key=CTL.TABLE.{dbID}{tableID}, value={tableNAME})
-	catalogColumnPrefix   = "CTL.COLUMN."   // (key=CTL.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
-	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
-	PIndexPrefix          = "R."            // (key=R.{dbID}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
-	SIndexPrefix          = "E."            // (key=E.{dbID}{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+, value={})
-	UIndexPrefix          = "N."            // (key=N.{dbID}{tableID}{indexID}({null}({val}{padding}{valLen})?)+, value={({pkVal}{padding}{pkValLen})+})
+	//catalogDatabasePrefix = "CTL.DATABASE." // (key=CTL.DATABASE.{1}, value={dbNAME}) // deprecated entries
+	catalogTablePrefix  = "CTL.TABLE."  // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
+	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
+	PIndexPrefix        = "R."          // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
+	SIndexPrefix        = "E."          // (key=E.{1}{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+, value={})
+	UIndexPrefix        = "N."          // (key=N.{1}{tableID}{indexID}({null}({val}{padding}{valLen})?)+, value={({pkVal}{padding}{pkValLen})+})
 
 	// Old prefixes that must not be reused:
 	//  `CATALOG.DATABASE.`

@@ -112,7 +112,7 @@ func TestDefaultDbCreation(t *testing.T) {
 
 	n, err := db.Size()
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), n)
+	require.Zero(t, n)
 
 	_, err = db.Count(context.Background(), nil)
 	require.Error(t, err)
@@ -228,12 +228,12 @@ func TestDbSetGet(t *testing.T) {
 	for i, kv := range kvs[:1] {
 		txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+2), txhdr.Id)
+		require.Equal(t, uint64(i+1), txhdr.Id)
 
 		if i == 0 {
 			alh := schema.TxHeaderFromProto(txhdr).Alh()
 			copy(trustedAlh[:], alh[:])
-			trustedIndex = 2
+			trustedIndex = 1
 		}
 
 		keyReq := &schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id}
@@ -385,13 +385,13 @@ func TestCurrentState(t *testing.T) {
 	for ind, val := range kvs {
 		txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), txhdr.Id)
+		require.Equal(t, uint64(ind+1), txhdr.Id)
 
 		time.Sleep(1 * time.Second)
 
 		state, err := db.CurrentState()
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), state.TxId)
+		require.Equal(t, uint64(ind+1), state.TxId)
 	}
 }
 
@@ -413,7 +413,7 @@ func TestSafeSetGet(t *testing.T) {
 				},
 			},
 		},
-		ProveSinceTx: 2,
+		ProveSinceTx: 1,
 	})
 	require.Equal(t, ErrIllegalState, err)
 
@@ -465,7 +465,7 @@ func TestSafeSetGet(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), vit.Entry.Tx)
+		require.Equal(t, uint64(ind+1), vit.Entry.Tx)
 	}
 }
 
@@ -489,7 +489,7 @@ func TestSetGetAll(t *testing.T) {
 
 	txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: kvs})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), txhdr.Id)
+	require.Equal(t, uint64(1), txhdr.Id)
 
 	itList, err := db.GetAll(context.Background(), &schema.KeyListRequest{
 		Keys: [][]byte{
@@ -2171,7 +2171,7 @@ func Test_database_truncate(t *testing.T) {
 	rootPath := t.TempDir()
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(256)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
 

@@ -21,6 +21,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -42,7 +43,7 @@ func TestReadOnlyReplica(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = replica.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.ExecAll(context.Background(), &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -56,7 +57,7 @@ func TestReadOnlyReplica(t *testing.T) {
 			},
 		}},
 	)
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.SetReference(context.Background(), &schema.ReferenceRequest{
 		Key:           []byte("key"),
@@ -69,19 +70,20 @@ func TestReadOnlyReplica(t *testing.T) {
 		Score: 1,
 		Key:   []byte("key"),
 	})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, _, err = replica.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
-	require.Equal(t, ErrSQLNotReady, err)
-
-	_, err = replica.ListTables(context.Background(), nil)
-	require.Equal(t, ErrSQLNotReady, err)
+	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 
 	_, err = replica.DescribeTable(context.Background(), nil, "mytable")
-	require.Equal(t, ErrSQLNotReady, err)
+	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
+
+	res, err := replica.ListTables(context.Background(), nil)
+	require.NoError(t, err)
+	require.Empty(t, res.Rows)
 
 	_, err = replica.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
@@ -89,7 +91,7 @@ func TestReadOnlyReplica(t *testing.T) {
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
 	})
-	require.Equal(t, ErrSQLNotReady, err)
+	require.Error(t, err)
 }
 
 func TestSwitchToReplica(t *testing.T) {

@@ -80,6 +80,11 @@ func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "USE DATABASE db1", nil)
 	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	t.Run("without a handler, multi database stmts are not resolved", func(t *testing.T) {
+		_, err := engine.Query(context.Background(), nil, "SELECT * FROM DATABASES()", nil)
+		require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+	})
 }
 
 func TestCreateTable(t *testing.T) {
@@ -5583,23 +5588,20 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	dbs := []string{"db1", "db2"}
+	handler := &multidbHandlerMock{}
+
+	opts := DefaultOptions().
+		WithPrefix(sqlPrefix).
+		WithMultiDBHandler(handler)
+
+	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
-	t.Run("without a handler, multi database stmts are not resolved", func(t *testing.T) {
-		_, err := engine.Query(context.Background(), nil, "SELECT * FROM DATABASES()", nil)
-		require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
-	})
+	handler.dbs = dbs
+	handler.engine = engine
 
 	t.Run("with a handler, multi database stmts are delegated to the handler", func(t *testing.T) {
-		dbs := []string{"db1", "db2"}
-
-		handler := &multidbHandlerMock{
-			dbs:    dbs,
-			engine: engine,
-		}
-		engine.SetMultiDBHandler(handler)
-
 		_, _, err = engine.Exec(context.Background(), nil, `
 			BEGIN TRANSACTION;
 				CREATE DATABASE db1;

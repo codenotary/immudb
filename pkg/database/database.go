@@ -38,8 +38,6 @@ import (
 const MaxKeyResolutionLimit = 1
 const MaxKeyScanLimit = 1000
 
-const dbInstanceName = "dbinstance"
-
 var ErrKeyResolutionLimitReached = errors.New("key resolution limit reached. It may be due to cyclic references")
 var ErrResultSizeLimitExceeded = errors.New("result size limit exceeded")
 var ErrResultSizeLimitReached = errors.New("result size limit reached")
@@ -149,9 +147,7 @@ type replicaState struct {
 type db struct {
 	st *store.ImmuStore
 
-	sqlEngine     *sql.Engine
-	sqlInitCancel chan (struct{})
-	sqlInit       sync.WaitGroup
+	sqlEngine *sql.Engine
 
 	mutex        *instrumentedRWMutex
 	closingMutex sync.Mutex
@@ -207,10 +203,19 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
+
+	sqlOpts := sql.DefaultOptions().
+		WithPrefix([]byte{SQLPrefix}).
+		WithMultiDBHandler(multidbHandler)
+
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
+		dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
 		return nil, err
 	}
+
+	dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
 	if err != nil {
@@ -219,30 +224,9 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 	dbi.txPool = txPool
 
 	if op.replica {
-		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-
 		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 		return dbi, nil
 	}
-
-	dbi.sqlInitCancel = make(chan struct{})
-	dbi.sqlInit.Add(1)
-
-	go func() {
-		defer dbi.sqlInit.Done()
-
-		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
-
-		err := dbi.initSQLEngine(context.Background())
-		if err != nil {
-			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
-			return
-		}
-
-		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-
-		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
-	}()
 
 	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 
@@ -263,20 +247,6 @@ func (d *db) allocTx() (*store.Tx, error) {
 
 func (d *db) releaseTx(tx *store.Tx) {
 	d.txPool.Release(tx)
-}
-
-func (d *db) initSQLEngine(ctx context.Context) error {
-	err := d.sqlEngine.SetCurrentDatabase(ctx, dbInstanceName)
-	if err != nil && err != sql.ErrDatabaseDoesNotExist {
-		return err
-	}
-
-	if err == sql.ErrDatabaseDoesNotExist {
-		return fmt.Errorf("automatic SQL initialization of databases created with older versions is now disabled. " +
-			"Please reach out to the immudb maintainers at the Discord channel if you need any assistance")
-	}
-
-	return nil
 }
 
 // NewDB Creates a new Database along with it's directories and files
@@ -313,19 +283,14 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	stOpts := op.GetStoreOptions().WithLogger(log)
-	// TODO: it's not currently possible to set:
-	// WithExternalCommitAllowance(op.syncReplication) due to sql init steps
+	stOpts := op.GetStoreOptions().
+		WithExternalCommitAllowance(op.syncReplication).
+		WithLogger(log)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
-
-	// TODO: may be moved to store opts once sql init steps are removed
-	defer func() {
-		dbi.st.SetExternalCommitAllowance(op.syncReplication)
-	}()
 
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
 	if err != nil {
@@ -333,27 +298,22 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	}
 	dbi.txPool = txPool
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	sqlOpts := sql.DefaultOptions().
+		WithPrefix([]byte{SQLPrefix}).
+		WithMultiDBHandler(multidbHandler)
+
+	dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
+
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+		return nil, err
 	}
 
-	if !op.replica {
-		// TODO: get rid off this sql initialization
-		_, _, err = dbi.sqlEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
-
-		err = dbi.sqlEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
-	}
-
-	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
+	dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 
 	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", dbName, op.replica)
+
 	return dbi, nil
 }
 
@@ -1610,13 +1570,6 @@ func (d *db) Close() (err error) {
 			d.Logger.Infof("%v: while closing database '%s'", err, d.name)
 		}
 	}()
-
-	if d.sqlInitCancel != nil {
-		close(d.sqlInitCancel)
-		d.sqlInitCancel = nil
-	}
-
-	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
 
 	return d.st.Close()
 }
