@@ -24,23 +24,23 @@ import (
 )
 
 func TestValuesRowReader(t *testing.T) {
-	_, err := newValuesRowReader(nil, nil, nil, "", "", nil)
+	_, err := newValuesRowReader(nil, nil, nil, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	cols := []ColDescriptor{
 		{Column: "col1"},
 	}
 
-	_, err = newValuesRowReader(nil, nil, cols, "", "", nil)
+	_, err = newValuesRowReader(nil, nil, cols, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(nil, nil, cols, "db1", "", nil)
+	_, err = newValuesRowReader(nil, nil, cols, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(nil, nil, cols, "db1", "table1", nil)
+	_, err = newValuesRowReader(nil, nil, cols, "table1", nil)
 	require.NoError(t, err)
 
-	_, err = newValuesRowReader(nil, nil, cols, "db1", "table1",
+	_, err = newValuesRowReader(nil, nil, cols, "table1",
 		[][]ValueExp{
 			{
 				&Bool{val: true},
@@ -52,7 +52,7 @@ func TestValuesRowReader(t *testing.T) {
 	_, err = newValuesRowReader(nil, nil,
 		[]ColDescriptor{
 			{Table: "table1", Column: "col1"},
-		}, "", "", nil)
+		}, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	values := [][]ValueExp{
@@ -65,10 +65,8 @@ func TestValuesRowReader(t *testing.T) {
 		"param1": 1,
 	}
 
-	rowReader, err := newValuesRowReader(nil, params, cols, "db1", "table1", values)
+	rowReader, err := newValuesRowReader(nil, params, cols, "table1", values)
 	require.NoError(t, err)
-
-	require.Equal(t, "db1", rowReader.Database())
 	require.Nil(t, rowReader.OrderBy())
 	require.Nil(t, rowReader.ScanSpecs())
 

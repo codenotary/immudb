@@ -77,7 +77,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	)
 	rctx := metadata.NewOutgoingContext(context.Background(), rmd)
 
-	for i := uint64(1); i <= 2; i++ {
+	for i := uint64(1); i <= hdr.Id; i++ {
 		exportTxStream, err := client.ExportTx(context.Background(), &schema.ExportTxRequest{
 			Tx:                 i,
 			SkipIntegrityCheck: true,

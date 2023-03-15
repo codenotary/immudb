@@ -568,7 +568,7 @@ selector:
 |
     AGGREGATE_FUNC '(' col ')'
     {
-        $$ = &AggColSelector{aggFn: $1, db: $3.db, table: $3.table, col: $3.col}
+        $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col}
     }
 
 col:

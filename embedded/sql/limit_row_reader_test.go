@@ -27,8 +27,6 @@ func TestLimitRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
 	rowReader := newLimitRowReader(dummyr, 1)
-
-	require.Equal(t, dummyr.Database(), rowReader.Database())
 	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())

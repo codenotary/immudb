@@ -30,21 +30,15 @@ import (
 )
 
 type Catalog struct {
-	dbsByID   map[uint32]*Database
-	dbsByName map[string]*Database
-}
+	prefix []byte
 
-type Database struct {
-	id           uint32
-	catalog      *Catalog
-	name         string
 	tables       []*Table
 	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
 }
 
 type Table struct {
-	db              *Database
+	catalog         *Catalog
 	id              uint32
 	name            string
 	cols            []*Column
@@ -76,101 +70,34 @@ type Column struct {
 	notNull       bool
 }
 
-func newCatalog() *Catalog {
+func newCatalog(prefix []byte) *Catalog {
 	return &Catalog{
-		dbsByID:   map[uint32]*Database{},
-		dbsByName: map[string]*Database{},
+		prefix:       prefix,
+		tables:       make([]*Table, 0),
+		tablesByID:   make(map[uint32]*Table),
+		tablesByName: make(map[string]*Table),
 	}
 }
 
-func (c *Catalog) ExistDatabase(db string) bool {
-	_, exists := c.dbsByName[db]
+func (catlg *Catalog) ExistTable(table string) bool {
+	_, exists := catlg.tablesByName[table]
 	return exists
 }
 
-func (c *Catalog) newDatabase(id uint32, name string) (*Database, error) {
-	exists := c.ExistDatabase(name)
-	if exists {
-		return nil, ErrDatabaseAlreadyExists
-	}
-
-	db := &Database{
-		id:           id,
-		catalog:      c,
-		name:         name,
-		tablesByID:   map[uint32]*Table{},
-		tablesByName: map[string]*Table{},
-	}
-
-	c.dbsByID[db.id] = db
-	c.dbsByName[db.name] = db
-
-	return db, nil
+func (catlg *Catalog) GetTables() []*Table {
+	return catlg.tables
 }
 
-func (c *Catalog) Databases() []*Database {
-	dbs := make([]*Database, len(c.dbsByID))
-
-	i := 0
-	for _, db := range c.dbsByID {
-		dbs[i] = db
-		i++
-	}
-
-	return dbs
-}
-
-func (c *Catalog) GetDatabaseByName(name string) (*Database, error) {
-	db, exists := c.dbsByName[name]
-	if !exists {
-		return nil, ErrDatabaseDoesNotExist
-	}
-	return db, nil
-}
-
-func (c *Catalog) GetDatabaseByID(id uint32) (*Database, error) {
-	db, exists := c.dbsByID[id]
-	if !exists {
-		return nil, ErrDatabaseDoesNotExist
-	}
-	return db, nil
-}
-
-func (db *Database) ID() uint32 {
-	return db.id
-}
-
-func (db *Database) Name() string {
-	return db.name
-}
-
-func (db *Database) ExistTable(table string) bool {
-	_, exists := db.tablesByName[table]
-	return exists
-}
-
-func (c *Catalog) GetTableByName(dbName, tableName string) (*Table, error) {
-	db, err := c.GetDatabaseByName(dbName)
-	if err != nil {
-		return nil, err
-	}
-	return db.GetTableByName(tableName)
-}
-
-func (db *Database) GetTables() []*Table {
-	return db.tables
-}
-
-func (db *Database) GetTableByName(name string) (*Table, error) {
-	table, exists := db.tablesByName[name]
+func (catlg *Catalog) GetTableByName(name string) (*Table, error) {
+	table, exists := catlg.tablesByName[name]
 	if !exists {
 		return nil, fmt.Errorf("%w (%s)", ErrTableDoesNotExist, name)
 	}
 	return table, nil
 }
 
-func (db *Database) GetTableByID(id uint32) (*Table, error) {
-	table, exists := db.tablesByID[id]
+func (catlg *Catalog) GetTableByID(id uint32) (*Table, error) {
+	table, exists := catlg.tablesByID[id]
 	if !exists {
 		return nil, ErrTableDoesNotExist
 	}
@@ -181,8 +108,8 @@ func (t *Table) ID() uint32 {
 	return t.id
 }
 
-func (t *Table) Database() *Database {
-	return t.db
+func (t *Table) Database() *Catalog {
+	return t.catalog
 }
 
 func (t *Table) Cols() []*Column {
@@ -302,21 +229,21 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
-func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
+func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	exists := db.ExistTable(name)
+	exists := catlg.ExistTable(name)
 	if exists {
 		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, name)
 	}
 
-	id := len(db.tables) + 1
+	id := len(catlg.tables) + 1
 
 	table = &Table{
 		id:             uint32(id),
-		db:             db,
+		catalog:        catlg,
 		name:           name,
 		cols:           make([]*Column, len(colsSpec)),
 		colsByID:       make(map[uint32]*Column),
@@ -356,9 +283,9 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		table.colsByName[col.colName] = col
 	}
 
-	db.tables = append(db.tables, table)
-	db.tablesByID[table.id] = table
-	db.tablesByName[table.name] = table
+	catlg.tables = append(catlg.tables, table)
+	catlg.tablesByID[table.id] = table
+	catlg.tablesByName[table.name] = table
 
 	return table, nil
 }
@@ -525,54 +452,9 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 	return maxLen >= 0
 }
 
-func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	dbReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer dbReader.Close()
-
-	for {
-		mkey, vref, err := dbReader.Read()
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		id, err := unmapDatabaseID(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		v, err := vref.Resolve()
-		if err != nil {
-			return err
-		}
-
-		db, err := c.newDatabase(id, string(v))
-		if err != nil {
-			return err
-		}
-
-		err = db.loadTables(sqlPrefix, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
+		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -591,16 +473,16 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
+		dbID, tableID, err := unmapTableID(catlg.prefix, mkey)
 		if err != nil {
 			return err
 		}
 
-		if dbID != db.id {
+		if dbID != 1 {
 			return ErrCorruptedData
 		}
 
-		colSpecs, err := loadColSpecs(db.id, tableID, tx, sqlPrefix)
+		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.prefix)
 		if err != nil {
 			return err
 		}
@@ -610,7 +492,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		table, err := db.newTable(string(v), colSpecs)
+		table, err := catlg.newTable(string(v), colSpecs)
 		if err != nil {
 			return err
 		}
@@ -619,13 +501,13 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(sqlPrefix, tx)
+		err = table.loadIndexes(catlg.prefix, tx)
 		if err != nil {
 			return err
 		}
 
 		if table.autoIncrementPK {
-			encMaxPK, err := loadMaxPK(sqlPrefix, tx, table)
+			encMaxPK, err := loadMaxPK(catlg.prefix, tx, table)
 			if errors.Is(err, store.ErrNoMoreEntries) {
 				continue
 			}
@@ -653,7 +535,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
 
@@ -732,7 +614,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 }
 
 func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -759,7 +641,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if table.id != tableID || table.db.id != dbID {
+		if table.id != tableID || dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -809,19 +691,6 @@ func trimPrefix(prefix, mkey []byte, mappingPrefix []byte) ([]byte, error) {
 	}
 
 	return mkey[len(prefix)+len(mappingPrefix):], nil
-}
-
-func unmapDatabaseID(prefix, mkey []byte) (dbID uint32, err error) {
-	encID, err := trimPrefix(prefix, mkey, []byte(catalogDatabasePrefix))
-	if err != nil {
-		return 0, err
-	}
-
-	if len(encID) != EncIDLen {
-		return 0, ErrCorruptedData
-	}
-
-	return binary.BigEndian.Uint32(encID), nil
 }
 
 func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
@@ -917,7 +786,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 	indexID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	if dbID != index.table.db.id || tableID != index.table.id || indexID != index.id {
+	if dbID != 1 || tableID != index.table.id || indexID != index.id {
 		return nil, ErrCorruptedData
 	}
 
@@ -1376,7 +1245,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 // addSchemaToTx adds the schema to the ongoing transaction.
 func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(t.db.id), EncodeID(t.id))
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -1403,7 +1272,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if t.id != tableID || t.db.id != dbID {
+		if t.id != tableID || dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -1425,9 +1294,9 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 }
 
 // addSchemaToTx adds the schema of the catalog to the given transaction.
-func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(d.id)),
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -1451,12 +1320,12 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if dbID != d.id {
+		if dbID != 1 {
 			return ErrCorruptedData
 		}
 
 		// read col specs into tx
-		colSpecs, err := addColSpecsToTx(d.id, tableID, tx, sqlPrefix)
+		colSpecs, err := addColSpecsToTx(tx, sqlPrefix, tableID)
 		if err != nil {
 			return err
 		}
@@ -1474,7 +1343,7 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		table, err := d.newTable(string(v), colSpecs)
+		table, err := catlg.newTable(string(v), colSpecs)
 		if err != nil {
 			return err
 		}
@@ -1494,66 +1363,9 @@ func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	return nil
 }
 
-// addSchemaToTx adds the schema of the catalog to the given transaction.
-func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	dbReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer dbReader.Close()
-
-	for {
-		mkey, vref, err := dbReader.Read()
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
-
-		if err != nil {
-			return err
-		}
-
-		id, err := unmapDatabaseID(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		v, err := vref.Resolve()
-		if err == io.EOF {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return err
-		}
-
-		db, err := c.newDatabase(id, string(v))
-		if err != nil {
-			return err
-		}
-
-		// read tables and indexes into tx
-		err = db.addTablesToTx(sqlPrefix, tx)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
-
 // addColSpecsToTx adds the column specs of the given table to the given transaction.
-func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -1582,7 +1394,7 @@ func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte
 			return nil, err
 		}
 
-		if dbID != mdbID || tableID != mtableID {
+		if mdbID != 1 || tableID != mtableID {
 			return nil, ErrCorruptedData
 		}
 

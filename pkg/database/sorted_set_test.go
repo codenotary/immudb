@@ -43,7 +43,7 @@ func TestStoreIndexExists(t *testing.T) {
 
 	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 	require.NoError(t, err1)
-	require.Exactly(t, uint64(5), reference1.Id)
+	require.Exactly(t, uint64(4), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
@@ -54,7 +54,7 @@ func TestStoreIndexExists(t *testing.T) {
 
 	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 	require.NoError(t, err2)
-	require.Exactly(t, uint64(6), reference2.Id)
+	require.Exactly(t, uint64(5), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts2 = &schema.ZAddRequest{
@@ -75,7 +75,7 @@ func TestStoreIndexExists(t *testing.T) {
 
 	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 	require.NoError(t, err3)
-	require.Exactly(t, uint64(7), reference3.Id)
+	require.Exactly(t, uint64(6), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts := &schema.ZScanRequest{
@@ -147,7 +147,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 
 	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 	require.NoError(t, err1)
-	require.Exactly(t, uint64(6), reference1.Id)
+	require.Exactly(t, uint64(5), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
@@ -160,7 +160,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 
 	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 	require.NoError(t, err2)
-	require.Exactly(t, uint64(7), reference2.Id)
+	require.Exactly(t, uint64(6), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
@@ -173,7 +173,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 
 	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 	require.NoError(t, err3)
-	require.Exactly(t, uint64(8), reference3.Id)
+	require.Exactly(t, uint64(7), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
@@ -210,7 +210,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 
 	require.NoError(t, err1)
-	require.Exactly(t, uint64(5), reference1.Id)
+	require.Exactly(t, uint64(4), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
@@ -224,7 +224,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 
 	require.NoError(t, err2)
-	require.Exactly(t, uint64(6), reference2.Id)
+	require.Exactly(t, uint64(5), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
@@ -238,7 +238,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 
 	require.NoError(t, err3)
-	require.Exactly(t, uint64(7), reference3.Id)
+	require.Exactly(t, uint64(6), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
@@ -604,7 +604,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 
 	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 	require.NoError(t, err1)
-	require.Exactly(t, uint64(5), reference1.Id)
+	require.Exactly(t, uint64(4), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
@@ -617,7 +617,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 
 	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 	require.NoError(t, err2)
-	require.Exactly(t, uint64(6), reference2.Id)
+	require.Exactly(t, uint64(5), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
@@ -630,7 +630,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 
 	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 	require.NoError(t, err3)
-	require.Exactly(t, uint64(7), reference3.Id)
+	require.Exactly(t, uint64(6), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
@@ -658,7 +658,7 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 
 	_, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  nil,
-		ProveSinceTx: i1.Id + 1,
+		ProveSinceTx: i1.Id,
 	})
 	require.Equal(t, store.ErrIllegalArguments, err)
 
@@ -681,7 +681,7 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		ProveSinceTx: i1.Id,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), vtx.Tx.Header.Id)
+	require.Equal(t, uint64(2), vtx.Tx.Header.Id)
 
 	ekv := EncodeZAdd(req.Set, req.Score, EncodeKey(req.Key), req.AtTx)
 	require.Equal(t, ekv.Key, vtx.Tx.Entries[0].Key)
