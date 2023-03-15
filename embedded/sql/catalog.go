@@ -693,19 +693,6 @@ func trimPrefix(prefix, mkey []byte, mappingPrefix []byte) ([]byte, error) {
 	return mkey[len(prefix)+len(mappingPrefix):], nil
 }
 
-func unmapDatabaseID(prefix, mkey []byte) (dbID uint32, err error) {
-	encID, err := trimPrefix(prefix, mkey, []byte(catalogDatabasePrefix))
-	if err != nil {
-		return 0, err
-	}
-
-	if len(encID) != EncIDLen {
-		return 0, ErrCorruptedData
-	}
-
-	return binary.BigEndian.Uint32(encID), nil
-}
-
 func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
 	encID, err := trimPrefix(prefix, mkey, []byte(catalogTablePrefix))
 	if err != nil {

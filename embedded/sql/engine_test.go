@@ -4695,39 +4695,6 @@ func TestTrimPrefix(t *testing.T) {
 	}
 }
 
-func TestUnmapDatabaseId(t *testing.T) {
-	e := Engine{prefix: []byte("e-prefix.")}
-
-	id, err := unmapDatabaseID(e.prefix, nil)
-	require.ErrorIs(t, err, ErrIllegalMappedKey)
-	require.Zero(t, id)
-
-	id, err = unmapDatabaseID(e.prefix, []byte{})
-	require.ErrorIs(t, err, ErrIllegalMappedKey)
-	require.Zero(t, id)
-
-	id, err = unmapDatabaseID(e.prefix, []byte("pref"))
-	require.ErrorIs(t, err, ErrIllegalMappedKey)
-	require.Zero(t, id)
-
-	id, err = unmapDatabaseID(e.prefix, []byte("e-prefix.a"))
-	require.ErrorIs(t, err, ErrIllegalMappedKey)
-	require.Zero(t, id)
-
-	id, err = unmapDatabaseID(e.prefix, []byte(
-		"e-prefix.CTL.DATABASE.a",
-	))
-	require.ErrorIs(t, err, ErrCorruptedData)
-	require.Zero(t, id)
-
-	id, err = unmapDatabaseID(e.prefix, append(
-		[]byte("e-prefix.CTL.DATABASE."),
-		1, 2, 3, 4,
-	))
-	require.NoError(t, err)
-	require.EqualValues(t, 0x01020304, id)
-}
-
 func TestUnmapTableId(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
