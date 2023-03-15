@@ -118,7 +118,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
-		ProveSinceTx: 4,
+		ProveSinceTx: 5,
 	})
 	require.Equal(t, store.ErrIllegalState, err)
 

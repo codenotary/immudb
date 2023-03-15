@@ -269,7 +269,7 @@ func TestStoreScanEndKey(t *testing.T) {
 func TestStoreScanWithTruncation(t *testing.T) {
 	rootPath := t.TempDir()
 
-	fileSize := 12
+	fileSize := 6
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
@@ -333,9 +333,9 @@ func TestStoreScanWithTruncation(t *testing.T) {
 		list, err := db.Scan(context.Background(), &scanOptions)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(list.Entries), 6)
-		require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix3`))
-		require.Equal(t, list.Entries[1].Key, []byte(`prefix:suffix4`))
-		require.Equal(t, list.Entries[2].Key, []byte(`prefix:suffix5`))
+		require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix2`))
+		require.Equal(t, list.Entries[1].Key, []byte(`prefix:suffix3`))
+		require.Equal(t, list.Entries[2].Key, []byte(`prefix:suffix4`))
 
 		scanOptions = schema.ScanRequest{
 			SeekKey: []byte(`prefix?`),

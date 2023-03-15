@@ -70,7 +70,7 @@ func TestStoreReference(t *testing.T) {
 	}
 	txhdr, err = db.SetReference(context.Background(), refOpts)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), txhdr.Id)
+	require.Equal(t, uint64(4), txhdr.Id)
 
 	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: txhdr.Id}
 
@@ -171,7 +171,7 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 
 		ref, err := db.SetReference(context.Background(), refOpts)
 		require.NoError(t, err, "n=%d", n)
-		require.Equal(t, n+2+2, ref.Id, "n=%d", n)
+		require.Equal(t, n+3+2, ref.Id, "n=%d", n)
 	}
 
 	for n := uint64(0); n <= 64; n++ {
@@ -215,7 +215,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 
 	reference1, err := db.SetReference(context.Background(), refOpts1)
 	require.NoError(t, err)
-	require.Exactly(t, uint64(4), reference1.Id)
+	require.Exactly(t, uint64(5), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	refOpts2 := &schema.ReferenceRequest{
@@ -226,7 +226,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 	}
 	reference2, err := db.SetReference(context.Background(), refOpts2)
 	require.NoError(t, err)
-	require.Exactly(t, uint64(5), reference2.Id)
+	require.Exactly(t, uint64(6), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	refOpts3 := &schema.ReferenceRequest{
@@ -237,7 +237,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 	}
 	reference3, err := db.SetReference(context.Background(), refOpts3)
 	require.NoError(t, err)
-	require.Exactly(t, uint64(6), reference3.Id)
+	require.Exactly(t, uint64(7), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	firstTagRet, err := db.Get(context.Background(), &schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: reference3.Id})
