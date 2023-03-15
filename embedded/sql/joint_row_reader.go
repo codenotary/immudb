@@ -61,10 +61,6 @@ func (jointr *jointRowReader) Tx() *SQLTx {
 	return jointr.rowReader.Tx()
 }
 
-func (jointr *jointRowReader) Database() string {
-	return jointr.rowReader.Database()
-}
-
 func (jointr *jointRowReader) TableAlias() string {
 	return jointr.rowReader.TableAlias()
 }
@@ -167,7 +163,7 @@ func (jointr *jointRowReader) InferParameters(ctx context.Context, params map[st
 			return err
 		}
 
-		_, err = join.cond.inferType(cols, params, jointr.Database(), jointr.TableAlias())
+		_, err = join.cond.inferType(cols, params, jointr.TableAlias())
 		if err != nil {
 			return err
 		}
@@ -237,7 +233,7 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 
 			jointq := &SelectStmt{
 				ds:      jspec.ds,
-				where:   jspec.cond.reduceSelectors(row, jointr.Database(), jointr.TableAlias()),
+				where:   jspec.cond.reduceSelectors(row, jointr.TableAlias()),
 				indexOn: jspec.indexOn,
 			}
 

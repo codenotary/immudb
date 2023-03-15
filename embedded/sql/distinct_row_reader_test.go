@@ -34,8 +34,6 @@ func TestDistinctRowReader(t *testing.T) {
 
 	rowReader, err := newDistinctRowReader(context.Background(), dummyr)
 	require.NoError(t, err)
-
-	require.Equal(t, dummyr.Database(), rowReader.Database())
 	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())

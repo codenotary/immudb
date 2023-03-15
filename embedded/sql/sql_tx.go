@@ -32,8 +32,7 @@ type SQLTx struct {
 
 	tx *store.OngoingTx
 
-	currentDB *Database
-	catalog   *Catalog // in-mem catalog
+	catalog *Catalog // in-mem catalog
 
 	mutatedCatalog bool // set when a DDL stmt was executed within the current tx
 
@@ -63,21 +62,6 @@ func (sqlTx *SQLTx) RequireExplicitClose() error {
 	sqlTx.opts.ExplicitClose = true
 
 	return nil
-}
-
-func (sqlTx *SQLTx) useDatabase(dbName string) error {
-	db, err := sqlTx.catalog.GetDatabaseByName(dbName)
-	if err != nil {
-		return err
-	}
-
-	sqlTx.currentDB = db
-
-	return nil
-}
-
-func (sqlTx *SQLTx) Database() *Database {
-	return sqlTx.currentDB
 }
 
 func (sqlTx *SQLTx) Timestamp() time.Time {

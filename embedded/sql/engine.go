@@ -30,9 +30,9 @@ var ErrNoSupported = errors.New("not supported")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrParsingError = errors.New("parsing error")
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
+var ErrUnspecifiedMultiDBHandler = fmt.Errorf("%w: unspecified multidbHanlder", store.ErrIllegalState)
 var ErrDatabaseDoesNotExist = errors.New("database does not exist")
 var ErrDatabaseAlreadyExists = errors.New("database already exists")
-var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
@@ -101,8 +101,6 @@ type Engine struct {
 	distinctLimit int
 	autocommit    bool
 
-	currentDatabase string
-
 	multidbHandler MultiDBHandler
 
 	mutex sync.RWMutex
@@ -147,33 +145,6 @@ func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
 	e.multidbHandler = handler
 }
 
-func (e *Engine) SetCurrentDatabase(ctx context.Context, dbName string) error {
-	tx, err := e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
-	if err != nil {
-		return err
-	}
-	defer tx.Cancel()
-
-	db, exists := tx.catalog.dbsByName[dbName]
-	if !exists {
-		return ErrDatabaseDoesNotExist
-	}
-
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	e.currentDatabase = db.name
-
-	return nil
-}
-
-func (e *Engine) CurrentDatabase() string {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	return e.currentDatabase
-}
-
 func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	err := opts.Validate()
 	if err != nil {
@@ -202,22 +173,11 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		return nil, err
 	}
 
-	catalog := newCatalog()
+	catalog := newCatalog(e.prefix)
 
-	err = catalog.load(e.prefix, tx)
+	err = catalog.load(tx)
 	if err != nil {
 		return nil, err
-	}
-
-	var currentDB *Database
-
-	if e.currentDatabase != "" {
-		db, exists := catalog.dbsByName[e.currentDatabase]
-		if !exists {
-			return nil, ErrDatabaseDoesNotExist
-		}
-
-		currentDB = db
 	}
 
 	return &SQLTx{
@@ -225,7 +185,6 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		opts:             opts,
 		tx:               tx,
 		catalog:          catalog,
-		currentDB:        currentDB,
 		lastInsertedPKs:  make(map[string]int64),
 		firstInsertedPKs: make(map[string]int64),
 	}, nil
@@ -493,7 +452,8 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	catalog := newCatalog()
+	catalog := newCatalog(e.prefix)
+
 	err := catalog.addSchemaToTx(e.prefix, tx)
 	if err != nil {
 		return err

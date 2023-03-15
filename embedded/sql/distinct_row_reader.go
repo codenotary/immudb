@@ -49,10 +49,6 @@ func (dr *distinctRowReader) Tx() *SQLTx {
 	return dr.rowReader.Tx()
 }
 
-func (dr *distinctRowReader) Database() string {
-	return dr.rowReader.Database()
-}
-
 func (dr *distinctRowReader) TableAlias() string {
 	return dr.rowReader.TableAlias()
 }

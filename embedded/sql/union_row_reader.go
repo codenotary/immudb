@@ -73,10 +73,6 @@ func (ur *unionRowReader) Tx() *SQLTx {
 	return ur.rowReaders[0].Tx()
 }
 
-func (ur *unionRowReader) Database() string {
-	return ur.rowReaders[0].Database()
-}
-
 func (ur *unionRowReader) TableAlias() string {
 	return ""
 }

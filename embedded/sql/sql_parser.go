@@ -1206,7 +1206,7 @@ yydefault:
 	case 82:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyVAL.sel = &AggColSelector{aggFn: yyDollar[1].aggFn, db: yyDollar[3].col.db, table: yyDollar[3].col.table, col: yyDollar[3].col.col}
+			yyVAL.sel = &AggColSelector{aggFn: yyDollar[1].aggFn, table: yyDollar[3].col.table, col: yyDollar[3].col.col}
 		}
 	case 83:
 		yyDollar = yyS[yypt-1 : yypt+1]

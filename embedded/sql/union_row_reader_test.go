@@ -41,9 +41,6 @@ func TestUnionRowReader(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rowReader)
 
-	require.NotNil(t, rowReader.Database())
-	require.Equal(t, "db1", rowReader.Database())
-
 	require.Equal(t, "", rowReader.TableAlias())
 
 	require.Nil(t, rowReader.OrderBy())

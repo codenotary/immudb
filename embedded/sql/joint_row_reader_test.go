@@ -38,13 +38,7 @@ func TestJointRowReader(t *testing.T) {
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
 
-	db, err := tx.catalog.newDatabase(1, "db1")
-	require.NoError(t, err)
-
-	err = tx.useDatabase("db1")
-	require.NoError(t, err)
-
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "number", colType: IntegerType}})
+	table, err := tx.catalog.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "number", colType: IntegerType}})
 	require.NoError(t, err)
 
 	index, err := table.newIndex(true, []uint32{1})
