@@ -426,7 +426,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	db := makeDbWith(t, "db", options)
 
-	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
+	require.Equal(t, uint64(2), db.st.LastCommittedTxID())
 
 	deletePointTx := uint64(1)
 
@@ -437,18 +437,19 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
 
+	expectedCommitTx := uint64(3)
 	// ensure that a transaction is added for the sql catalog commit
-	require.Equal(t, uint64(2), db.st.LastCommittedTxID())
+	require.Equal(t, expectedCommitTx, db.st.LastCommittedTxID())
 
 	// verify that the transaction added for the sql catalog commit has the truncation header
-	hdr, err = db.st.ReadTxHeader(2, false, false)
+	hdr, err = db.st.ReadTxHeader(expectedCommitTx, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, hdr.Metadata)
 	require.True(t, hdr.Metadata.HasTruncatedTxID())
 
 	// verify using the ReadTx API that the transaction added for the sql catalog commit has the truncation header
 	ptx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
-	err = db.st.ReadTx(2, false, ptx)
+	err = db.st.ReadTx(expectedCommitTx, false, ptx)
 	require.NoError(t, err)
 	require.True(t, ptx.Header().Metadata.HasTruncatedTxID())
 }
@@ -617,7 +618,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
-	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
+	require.Equal(t, uint64(2), db.st.LastCommittedTxID())
 
 	for i := 1; i <= 10; i++ {
 		kv := &schema.KeyValue{

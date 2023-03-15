@@ -22,7 +22,7 @@ func makeEngine(t *testing.T) *Engine {
 		}
 	})
 
-	opts := DefaultOptions()
+	opts := sql.DefaultOptions()
 	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
