@@ -454,7 +454,7 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 
 func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(0)),
+		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -478,7 +478,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return err
 		}
 
-		if dbID != 0 {
+		if dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -535,7 +535,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(0), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
 
@@ -614,7 +614,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 }
 
 func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(0), EncodeID(table.id))
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -641,7 +641,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if table.id != tableID || dbID != 0 {
+		if table.id != tableID || dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -799,7 +799,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 	indexID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	if dbID != 0 || tableID != index.table.id || indexID != index.id {
+	if dbID != 1 || tableID != index.table.id || indexID != index.id {
 		return nil, ErrCorruptedData
 	}
 
@@ -1258,7 +1258,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 // addSchemaToTx adds the schema to the ongoing transaction.
 func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(0), EncodeID(t.id))
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -1285,7 +1285,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if t.id != tableID || dbID != 0 {
+		if t.id != tableID || dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -1309,7 +1309,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 // addSchemaToTx adds the schema of the catalog to the given transaction.
 func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(0)),
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -1333,7 +1333,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 			return err
 		}
 
-		if dbID != 0 {
+		if dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -1378,7 +1378,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 
 // addColSpecsToTx adds the column specs of the given table to the given transaction.
 func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(0), EncodeID(tableID))
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -1407,7 +1407,7 @@ func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (spe
 			return nil, err
 		}
 
-		if mdbID != 0 || tableID != mtableID {
+		if mdbID != 1 || tableID != mtableID {
 			return nil, ErrCorruptedData
 		}
 

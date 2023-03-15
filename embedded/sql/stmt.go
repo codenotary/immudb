@@ -266,7 +266,7 @@ func persistColumn(col *Column, tx *SQLTx) error {
 	mappedKey := mapKey(
 		tx.sqlPrefix(),
 		catalogColumnPrefix,
-		EncodeID(0),
+		EncodeID(1),
 		EncodeID(col.table.id),
 		EncodeID(col.id),
 		[]byte(col.colType),
@@ -315,7 +315,7 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(0), EncodeID(table.id))
+	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
 
 	err = tx.set(mappedKey, nil, []byte(table.name))
 	if err != nil {
@@ -385,7 +385,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 	// check table is empty
 	{
-		pkPrefix := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(0), EncodeID(table.id), EncodeID(PKIndexID))
+		pkPrefix := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID))
 		existKey, err := tx.existKeyWith(pkPrefix, pkPrefix)
 		if err != nil {
 			return nil, err
@@ -409,7 +409,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		copy(encodedValues[1+i*colSpecLen:], EncodeID(col.id))
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(0), EncodeID(table.id), EncodeID(index.id))
+	mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
 
 	err = tx.set(mappedKey, nil, encodedValues)
 	if err != nil {
@@ -634,7 +634,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		}
 
 		// primary index entry
-		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(0), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 		_, err = tx.get(mkey)
 		if err != nil && err != store.ErrKeyNotFound {
@@ -690,7 +690,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 	}
 
 	// primary index entry
-	mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(0), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+	mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 	valbuf := bytes.Buffer{}
 
@@ -767,7 +767,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 			encodedValues[len(encodedValues)-1] = pkEncVals
 		}
 
-		encodedValues[0] = EncodeID(0)
+		encodedValues[0] = EncodeID(1)
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
@@ -886,7 +886,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 			encodedValues[len(encodedValues)-1] = pkEncVals
 		}
 
-		encodedValues[0] = EncodeID(0)
+		encodedValues[0] = EncodeID(1)
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
@@ -1078,7 +1078,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		}
 
 		// primary index entry
-		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(0), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 		// mkey must exist
 		_, err = tx.get(mkey)
@@ -1179,7 +1179,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 			encodedValues[len(encodedValues)-1] = pkEncVals
 		}
 
-		encodedValues[0] = EncodeID(0)
+		encodedValues[0] = EncodeID(1)
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
