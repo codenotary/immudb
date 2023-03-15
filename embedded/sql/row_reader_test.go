@@ -24,12 +24,8 @@ import (
 
 func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 	prefix := []byte("key.prefix.")
-	db := &Database{
-		id: 1,
-	}
 	table := &Table{
 		id: 2,
-		db: db,
 	}
 	index := &Index{
 		table: table,

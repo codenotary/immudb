@@ -40,10 +40,6 @@ func (lr *limitRowReader) Tx() *SQLTx {
 	return lr.rowReader.Tx()
 }
 
-func (lr *limitRowReader) Database() string {
-	return lr.rowReader.Database()
-}
-
 func (lr *limitRowReader) TableAlias() string {
 	return lr.rowReader.TableAlias()
 }

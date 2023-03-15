@@ -19,7 +19,6 @@ package database
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -28,17 +27,6 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
-
-var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
-
-func (d *db) reloadSQLCatalog(ctx context.Context) error {
-	err := d.sqlEngine.SetCurrentDatabase(ctx, dbInstanceName)
-	if err == sql.ErrDatabaseDoesNotExist {
-		return ErrSQLNotReady
-	}
-
-	return err
-}
 
 func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	if req == nil || req.SqlGetRequest == nil {
@@ -53,20 +41,13 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if d.isReplica() {
-		err := d.reloadSQLCatalog(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	sqlTx, err := d.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
 	defer sqlTx.Cancel()
 
-	table, err := sqlTx.Catalog().GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
+	table, err := sqlTx.Catalog().GetTableByName(req.SqlGetRequest.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +79,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
 		sql.PIndexPrefix,
-		sql.EncodeID(table.Database().ID()),
+		sql.EncodeID(1),
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(sql.PKIndexID),
 		valbuf.Bytes())
@@ -163,7 +144,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 
 	for _, col := range table.Cols() {
 		colNamesByID[col.ID()] = col.Name()
-		colIdsByName[sql.EncodeSelector("", d.GetName(), table.Name(), col.Name())] = col.ID()
+		colIdsByName[sql.EncodeSelector("", table.Name(), col.Name())] = col.ID()
 		colTypesByID[col.ID()] = col.Type()
 		colLenByID[col.ID()] = int32(col.MaxLen())
 	}
@@ -178,7 +159,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		SqlEntry:       e,
 		VerifiableTx:   verifiableTx,
 		InclusionProof: schema.InclusionProofToProto(inclusionProof),
-		DatabaseId:     table.Database().ID(),
+		DatabaseId:     1,
 		TableId:        table.ID(),
 		PKIDs:          pkIDs,
 		ColNamesById:   colNamesByID,
@@ -228,26 +209,14 @@ func (d *db) ListTables(ctx context.Context, tx *sql.SQLTx) (*schema.SQLQueryRes
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.isReplica() {
-		err := d.reloadSQLCatalog(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	catalog, err := d.sqlEngine.Catalog(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := catalog.GetDatabaseByName(dbInstanceName)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &schema.SQLQueryResult{Columns: []*schema.Column{{Name: "TABLE", Type: sql.VarcharType}}}
 
-	for _, t := range db.GetTables() {
+	for _, t := range catalog.GetTables() {
 		res.Rows = append(res.Rows, &schema.Row{Values: []*schema.SQLValue{{Value: &schema.SQLValue_S{S: t.Name()}}}})
 	}
 
@@ -258,19 +227,12 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.isReplica() {
-		err := d.reloadSQLCatalog(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	catalog, err := d.sqlEngine.Catalog(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	table, err := catalog.GetTableByName(dbInstanceName, tableName)
+	table, err := catalog.GetTableByName(tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -438,17 +400,11 @@ func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataS
 	cols := make([]*schema.Column, len(colDescriptors))
 
 	for i, c := range colDescriptors {
-		dbname := c.Database
-		if c.Database == dbInstanceName {
-			dbname = d.name
-		}
-
 		des := &sql.ColDescriptor{
-			AggFn:    c.AggFn,
-			Database: dbname,
-			Table:    c.Table,
-			Column:   c.Column,
-			Type:     c.Type,
+			AggFn:  c.AggFn,
+			Table:  c.Table,
+			Column: c.Column,
+			Type:   c.Type,
 		}
 		cols[i] = &schema.Column{Name: des.Selector(), Type: des.Type}
 	}
@@ -502,13 +458,6 @@ func (d *db) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.Data
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.isReplica() {
-		err := d.reloadSQLCatalog(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return d.sqlEngine.QueryPreparedStmt(ctx, tx, stmt, params)
 }
 
@@ -516,26 +465,12 @@ func (d *db) InferParameters(ctx context.Context, tx *sql.SQLTx, sql string) (ma
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.isReplica() {
-		err := d.reloadSQLCatalog(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return d.sqlEngine.InferParameters(ctx, tx, sql)
 }
 
 func (d *db) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.SQLStmt) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
-
-	if d.isReplica() {
-		err := d.reloadSQLCatalog(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return d.sqlEngine.InferParametersPreparedStmts(ctx, tx, []sql.SQLStmt{stmt})
 }
