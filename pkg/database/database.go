@@ -217,7 +217,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
-	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions())
+	dbi.documentEngine, err = document.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +374,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions())
+	dbi.documentEngine, err = document.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -391,15 +391,15 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 
-		// _, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
-		// if err != nil {
-		// 	return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		// }
+		_, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		}
 
-		// err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
-		// if err != nil {
-		// 	return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		// }
+		err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		}
 	}
 
 	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)

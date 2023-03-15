@@ -27,6 +27,7 @@ const (
 	SetKeyPrefix byte = iota
 	SortedSetKeyPrefix
 	SQLPrefix
+	DocumentPrefix
 )
 
 const (
