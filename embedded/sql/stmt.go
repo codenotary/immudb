@@ -2257,7 +2257,7 @@ func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, 
 
 	}
 
-	if num > math.MaxInt {
+	if num > math.MaxInt32 {
 		return 0, ErrInvalidValue
 	}
 
