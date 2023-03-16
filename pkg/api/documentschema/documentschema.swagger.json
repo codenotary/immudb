@@ -275,12 +275,6 @@
         "name": {
           "type": "string"
         },
-        "primaryKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexOption"
-          }
-        },
         "indexKeys": {
           "type": "object",
           "additionalProperties": {
@@ -313,12 +307,6 @@
       "properties": {
         "name": {
           "type": "string"
-        },
-        "primaryKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexOption"
-          }
         },
         "indexKeys": {
           "type": "object",
@@ -360,11 +348,8 @@
         "collection": {
           "type": "string"
         },
-        "primaryKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexValue"
-          }
+        "documentId": {
+          "type": "string"
         },
         "page": {
           "type": "integer",
@@ -427,11 +412,8 @@
         "collection": {
           "type": "string"
         },
-        "primaryKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexValue"
-          }
+        "documentId": {
+          "type": "string"
         },
         "atRevision": {
           "type": "string",
@@ -522,24 +504,6 @@
         "STRING"
       ],
       "default": "DOUBLE"
-    },
-    "documentschemaIndexValue": {
-      "type": "object",
-      "properties": {
-        "null_value": {
-          "type": "string"
-        },
-        "number_value": {
-          "type": "number",
-          "format": "double"
-        },
-        "string_value": {
-          "type": "string"
-        },
-        "bool_value": {
-          "type": "boolean"
-        }
-      }
     },
     "documentschemaQueryOperator": {
       "type": "string",
