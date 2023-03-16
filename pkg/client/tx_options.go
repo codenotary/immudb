@@ -41,7 +41,7 @@ func UnsafeMVCC() TxOption {
 }
 
 // An existing snapshot may be reused as long as it includes the specified transaction
-func SnapshotMustInclude(txID uint64) TxOption {
+func SnapshotMustIncludeTxID(txID uint64) TxOption {
 	return func(req *schema.NewTxRequest) error {
 		req.SnapshotMustIncludeTxID = &schema.NullableUint64{Value: txID}
 		return nil
