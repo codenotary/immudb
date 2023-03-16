@@ -126,7 +126,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
-%type <number> opt_limit opt_offset opt_max_len
+%type <exp> opt_limit opt_offset
+%type <number> opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -261,12 +262,12 @@ dmlstmt:
 |
     DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset
     {
-        $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: int($6), offset: int($7)}
+        $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: $6, offset: $7}
     }
 |
     UPDATE tableRef SET updates opt_where opt_indexon opt_limit opt_offset
     {
-        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: int($7), offset: int($8)}
+        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: $7, offset: $8}
     }
 
 opt_on_conflict:
@@ -497,8 +498,8 @@ select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt
                 groupBy: $9,
                 having: $10,
                 orderBy: $11,
-                limit: int($12),
-                offset: int($13),
+                limit: $12,
+                offset: $13,
             }
     }
 
@@ -714,20 +715,20 @@ opt_having:
 
 opt_limit:
     {
-        $$ = 0
+        $$ = nil
     }
 |
-    LIMIT NUMBER
+    LIMIT exp
     {
         $$ = $2
     }
 
 opt_offset:
     {
-        $$ = 0
+        $$ = nil
     }
 |
-    OFFSET NUMBER
+    OFFSET exp
     {
         $$ = $2
     }

@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -984,8 +985,8 @@ type UpdateStmt struct {
 	where    ValueExp
 	updates  []*colUpdate
 	indexOn  []string
-	limit    int
-	offset   int
+	limit    ValueExp
+	offset   ValueExp
 }
 
 type colUpdate struct {
@@ -1152,8 +1153,8 @@ type DeleteFromStmt struct {
 	tableRef *tableRef
 	where    ValueExp
 	indexOn  []string
-	limit    int
-	offset   int
+	limit    ValueExp
+	offset   ValueExp
 }
 
 func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -2087,18 +2088,10 @@ type SelectStmt struct {
 	where     ValueExp
 	groupBy   []*ColSelector
 	having    ValueExp
-	limit     int
-	offset    int
+	limit     ValueExp
+	offset    ValueExp
 	orderBy   []*OrdCol
 	as        string
-}
-
-func (stmt *SelectStmt) Limit() int {
-	return stmt.limit
-}
-
-func (stmt *SelectStmt) Offset() int {
-	return stmt.offset
 }
 
 func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -2226,15 +2219,49 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		rowReader = distinctRowReader
 	}
 
-	if stmt.offset > 0 {
-		rowReader = newOffsetRowReader(rowReader, stmt.offset)
+	if stmt.offset != nil {
+		offset, err := evalExpAsInt(tx, stmt.offset, params)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid offset", err)
+		}
+
+		rowReader = newOffsetRowReader(rowReader, offset)
 	}
 
-	if stmt.limit > 0 {
-		rowReader = newLimitRowReader(rowReader, stmt.limit)
+	if stmt.limit != nil {
+		limit, err := evalExpAsInt(tx, stmt.limit, params)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid limit", err)
+		}
+
+		rowReader = newLimitRowReader(rowReader, limit)
 	}
 
 	return rowReader, nil
+}
+
+func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, error) {
+	offset, err := exp.substitute(params)
+	if err != nil {
+		return 0, err
+	}
+
+	texp, err := offset.reduce(tx, nil, "", "")
+	if err != nil {
+		return 0, err
+	}
+
+	num, ok := texp.Value().(int64)
+	if !ok {
+		return 0, ErrInvalidValue
+
+	}
+
+	if num > math.MaxInt {
+		return 0, ErrInvalidValue
+	}
+
+	return int(num), nil
 }
 
 func (stmt *SelectStmt) Alias() string {
