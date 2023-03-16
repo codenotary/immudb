@@ -176,7 +176,12 @@ func TestTimestampType(t *testing.T) {
 		_, err := engine.InferParameters(context.Background(), nil, "SELECT ts FROM timestamp_table WHERE ts < 1 + NOW()")
 		require.ErrorIs(t, err, ErrInvalidTypes)
 
-		r, err := engine.Query(context.Background(), nil, "SELECT ts FROM timestamp_table WHERE ts < NOW() ORDER BY id DESC LIMIT 1", nil)
+		params := map[string]interface{}{
+			"limit":  1,
+			"offset": 0,
+		}
+
+		r, err := engine.Query(context.Background(), nil, "SELECT ts FROM timestamp_table WHERE ts < NOW() ORDER BY id DESC LIMIT @limit+0 OFFSET @offset", params)
 		require.NoError(t, err)
 		defer r.Close()
 
