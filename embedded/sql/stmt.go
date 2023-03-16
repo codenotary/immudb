@@ -2282,10 +2282,14 @@ func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, 
 		return 0, err
 	}
 
-	num, ok := texp.Value().(int64)
+	convVal, err := mayApplyImplicitConversion(texp.RawValue(), IntegerType)
+	if err != nil {
+		return 0, ErrInvalidValue
+	}
+
+	num, ok := convVal.(int64)
 	if !ok {
 		return 0, ErrInvalidValue
-
 	}
 
 	if num > math.MaxInt32 {
