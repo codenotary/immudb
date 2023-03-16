@@ -36,6 +36,14 @@ func (d *db) reloadSQLCatalog(ctx context.Context) error {
 	if err == sql.ErrDatabaseDoesNotExist {
 		return ErrSQLNotReady
 	}
+	if err != nil {
+		return err
+	}
+
+	err = d.documentEngine.SetCurrentDatabase(ctx, dbInstanceName)
+	if err == sql.ErrDatabaseDoesNotExist {
+		return ErrSQLNotReady
+	}
 
 	return err
 }
