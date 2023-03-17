@@ -138,3 +138,29 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
 }
+
+func TestEncodeRawValueAsKey(t *testing.T) {
+	t.Run("encoded int keys should preserve lex order", func(t *testing.T) {
+		var prevEncKey []byte
+
+		for i := 0; i < 10; i++ {
+			encKey, err := EncodeRawValueAsKey(int64(i), IntegerType, 8)
+			require.NoError(t, err)
+			require.Greater(t, encKey, prevEncKey)
+
+			prevEncKey = encKey
+		}
+	})
+
+	t.Run("encoded varchar keys should preserve lex order", func(t *testing.T) {
+		var prevEncKey []byte
+
+		for _, v := range []string{"key1", "key11", "key2", "key3"} {
+			encKey, err := EncodeRawValueAsKey(v, VarcharType, 10)
+			require.NoError(t, err)
+			require.Greater(t, encKey, prevEncKey)
+
+			prevEncKey = encKey
+		}
+	})
+}

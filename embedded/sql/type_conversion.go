@@ -58,11 +58,14 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				}
 
 				str := val.RawValue().(string)
-				for _, layout := range []string{
+
+				var supportedTimeFormats = []string{
 					"2006-01-02 15:04:05.999999",
 					"2006-01-02 15:04",
 					"2006-01-02",
-				} {
+				}
+
+				for _, layout := range supportedTimeFormats {
 					t, err := time.ParseInLocation(layout, str, time.UTC)
 					if err == nil {
 						return &Timestamp{val: t.Truncate(time.Microsecond).UTC()}, nil
