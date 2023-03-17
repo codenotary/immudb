@@ -2,7 +2,7 @@ module linear-fake
 
 go 1.19
 
-require github.com/codenotary/immudb v1.3.2
+require github.com/codenotary/immudb v1.4.1
 
 require (
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
