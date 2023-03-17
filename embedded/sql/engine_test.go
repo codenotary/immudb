@@ -5709,7 +5709,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].RawValue())
+		require.Equal(t, "mytable2", row.ValuesBySelector["(tables.name)"].RawValue())
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
