@@ -767,9 +767,6 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	t.Run("validateEntries", func(t *testing.T) {
-		err = immuStore.validateEntries(nil)
-		require.ErrorIs(t, err, ErrNoEntriesProvided)
-
 		err = immuStore.validateEntries(make([]*EntrySpec, immuStore.maxTxEntries+1))
 		require.ErrorIs(t, err, ErrMaxTxEntriesLimitExceeded)
 
@@ -4835,4 +4832,29 @@ func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
+}
+
+func TestCommitOfEmptyTxWithMetadata(t *testing.T) {
+	st, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+	require.NotNil(t, st)
+
+	defer immustoreClose(t, st)
+
+	tx, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	tx.WithMetadata(NewTxMetadata().WithTruncatedTxID(1))
+
+	hdr, err := tx.Commit(context.Background())
+	require.NoError(t, err)
+
+	txholder, err := st.fetchAllocTx()
+	require.NoError(t, err)
+
+	defer st.releaseAllocTx(txholder)
+
+	err = st.readTx(hdr.ID, false, true, txholder)
+	require.NoError(t, err)
+	require.Empty(t, txholder.Entries())
 }
