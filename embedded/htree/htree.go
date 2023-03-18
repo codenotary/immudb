@@ -71,7 +71,9 @@ func (t *HTree) BuildWith(digests [][sha256.Size]byte) error {
 	}
 
 	if len(digests) == 0 {
-		return ErrIllegalArguments
+		t.width = 0
+		t.root = sha256.Sum256(nil)
+		return nil
 	}
 
 	for i, d := range digests {
@@ -110,12 +112,8 @@ func (t *HTree) BuildWith(digests [][sha256.Size]byte) error {
 	return nil
 }
 
-func (t *HTree) Root() (root [sha256.Size]byte, err error) {
-	if t.width == 0 {
-		err = ErrIllegalState
-		return
-	}
-	return t.root, nil
+func (t *HTree) Root() [sha256.Size]byte {
+	return t.root
 }
 
 // InclusionProof returns the shortest list of additional nodes required to compute the root

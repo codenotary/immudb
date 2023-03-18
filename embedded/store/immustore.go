@@ -1141,6 +1141,10 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		return nil, fmt.Errorf("%w: transaction does not validate against header", err)
 	}
 
+	if len(otx.entries) == 0 && otx.metadata.IsEmpty() {
+		return nil, ErrNoEntriesProvided
+	}
+
 	err = s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
@@ -1729,6 +1733,10 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	otx.entries, otx.preconditions, err = callback(lastPreCommittedTxID+1, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
+	}
+
+	if len(otx.entries) == 0 {
+		return nil, ErrNoEntriesProvided
 	}
 
 	err = s.validateEntries(otx.entries)
@@ -2664,9 +2672,6 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 }
 
 func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
-	if len(entries) == 0 {
-		return ErrNoEntriesProvided
-	}
 	if len(entries) > s.maxTxEntries {
 		return ErrMaxTxEntriesLimitExceeded
 	}
@@ -2691,6 +2696,7 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 		}
 		m[b64k] = struct{}{}
 	}
+
 	return nil
 }
 

@@ -88,6 +88,10 @@ func NewTxMetadata() *TxMetadata {
 	}
 }
 
+func (md *TxMetadata) IsEmpty() bool {
+	return md == nil || len(md.attributes) == 0
+}
+
 func (md *TxMetadata) Equal(amd *TxMetadata) bool {
 	if amd == nil || md == nil {
 		return false

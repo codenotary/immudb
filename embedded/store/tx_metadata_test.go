@@ -22,6 +22,8 @@ import (
 func TestTxMetadata(t *testing.T) {
 	md := NewTxMetadata()
 
+	require.True(t, md.IsEmpty())
+
 	bs := md.Bytes()
 	require.Nil(t, bs)
 
@@ -36,6 +38,7 @@ func TestTxMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, md.Equal(desmd))
+	require.True(t, desmd.IsEmpty())
 }
 
 func TestTxMetadataWithAttributes(t *testing.T) {
@@ -53,12 +56,13 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	err = desmd.ReadFrom(nil)
 	require.NoError(t, err)
 
-	v, err := desmd.GetTruncatedTxID()
+	_, err = desmd.GetTruncatedTxID()
 	require.ErrorIs(t, err, ErrTxNotPresentInMetadata)
 
 	desmd.WithTruncatedTxID(1)
 	require.True(t, desmd.HasTruncatedTxID())
-	v, err = desmd.GetTruncatedTxID()
+
+	v, err := desmd.GetTruncatedTxID()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), v)
 
@@ -66,6 +70,8 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	v, err = desmd.GetTruncatedTxID()
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), v)
+
+	require.False(t, desmd.IsEmpty())
 
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
