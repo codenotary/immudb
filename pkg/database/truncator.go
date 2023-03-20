@@ -35,15 +35,15 @@ var (
 // Truncator provides truncation against an underlying storage
 // of appendable data.
 type Truncator interface {
-	// Plan returns the transaction upto which the log can be truncated.
+	// Plan returns the latest transaction upto which the log can be truncated.
 	// When resulting transaction before specified time does not exists
 	//  * No transaction header is returned.
 	//  * Returns nil TxHeader, and an error.
-	Plan(time.Time) (*store.TxHeader, error)
+	Plan(truncationUntil time.Time) (*store.TxHeader, error)
 
 	// Truncate runs truncation against the relevant appendable logs. Must
 	// be called after result of Plan().
-	Truncate(context.Context, uint64) error
+	Truncate(ctx context.Context, txID uint64) error
 }
 
 func NewVlogTruncator(d DB) Truncator {
@@ -61,23 +61,24 @@ type vlogTruncator struct {
 
 // Plan returns the transaction upto which the value log can be truncated.
 // When resulting transaction before specified time does not exists
-//  * No transaction header is returned.
-//  * Returns nil TxHeader, and an error.
-// ts time is truncated to the start of the day.
-func (v *vlogTruncator) Plan(ts time.Time) (*store.TxHeader, error) {
-	hdr, err := v.db.st.FirstTxSince(ts)
+//   - No transaction header is returned.
+//   - Returns nil TxHeader, and an error.
+func (v *vlogTruncator) Plan(truncationUntil time.Time) (*store.TxHeader, error) {
+	hdr, err := v.db.st.LastTxUntil(truncationUntil)
 	if err != nil {
 		return nil, err
 	}
 
-	// if the transaction is on or before the retention period, then we can truncate upto this
-	// transaction otherwise, we cannot truncate since the retention period has not been reached
-	// and truncation would otherwise add an extra transaction to the log for sql catalogue.
-	err = v.isRetentionPeriodReached(ts, time.Unix(hdr.Ts, 0))
-	if err != nil {
-		return nil, err
+	// look for the newst transaction with entries
+	for err == nil {
+		if hdr.NEntries > 0 {
+			break
+		}
+
+		hdr, err = v.db.st.ReadTxHeader(hdr.ID-1, false, false)
 	}
-	return hdr, nil
+
+	return hdr, err
 }
 
 // isRetentionPeriodReached returns an error if the retention period has not been reached.
@@ -117,7 +118,9 @@ func (v *vlogTruncator) Truncate(ctx context.Context, txID uint64) error {
 		v.metrics.ran.Inc()
 		v.metrics.duration.Observe(time.Since(t).Seconds())
 	}(time.Now())
+
 	v.db.Logger.Infof("copying sql catalog before truncation for database '%s' at tx %d", v.db.name, txID)
+
 	// copy sql catalogue
 	sqlCommitHdr, err := v.commitCatalog(ctx, txID)
 	if err != nil {
