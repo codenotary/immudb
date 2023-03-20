@@ -66,6 +66,7 @@ var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded"
 var ErrPathIsNotADirectory = errors.New("path is not a directory")
 var ErrCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedTxDataMaxTxEntriesExceeded = fmt.Errorf("%w: maximum number of TX entries exceeded", ErrCorruptedTxData)
+var ErrTxEntryIndexOutOfRange = errors.New("tx entry index out of range")
 var ErrCorruptedTxDataUnknownHeaderVersion = fmt.Errorf("%w: unknown TX header version", ErrCorruptedTxData)
 var ErrCorruptedTxDataMaxKeyLenExceeded = fmt.Errorf("%w: maximum key length exceeded", ErrCorruptedTxData)
 var ErrCorruptedTxDataDuplicateKey = fmt.Errorf("%w: duplicate key in a single TX", ErrCorruptedTxData)
@@ -2953,7 +2954,7 @@ func (s *ImmuStore) readTxOffsetAt(txID uint64, allowPrecommitted bool, index in
 	}
 
 	if hdr.NEntries < index {
-		return nil, ErrCorruptedTxDataMaxTxEntriesExceeded
+		return nil, ErrTxEntryIndexOutOfRange
 	}
 
 	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
@@ -3000,7 +3001,6 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 
 	s.logger.Infof("running truncation up to transaction '%d'", minTxID)
 
-	var err error
 	// tombstones maintain the minimum offset for each value log file that can be safely deleted.
 	tombstones := make(map[byte]int64)
 
@@ -3044,8 +3044,9 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	{
 		var i uint64 = minTxID
 		for i > 0 && len(tombstones) != s.MaxIOConcurrency() {
-			err = back(i)
-			if err != nil { // if there is an error reading a transaction, stop the traversal and return the error.
+			err := back(i)
+			if err != nil && !errors.Is(err, ErrTxEntryIndexOutOfRange) /* tx has entries*/ {
+				// if there is an error reading a transaction, stop the traversal and return the error.
 				s.logger.Errorf("failed to fetch transaction %d {traversal=back, err = %v}", i, err)
 				return err
 			}
@@ -3062,8 +3063,8 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 		// TODO: add more integration tests
 		// Iterate over all future transactions to check if any offset lies before past transaction(s) offset.
 		for j := minTxID; j <= maxTxID; j++ {
-			err = front(j)
-			if err != nil {
+			err := front(j)
+			if err != nil && !errors.Is(err, ErrTxEntryIndexOutOfRange) /* tx has entries*/ {
 				s.logger.Errorf("failed to fetch transaction %d {traversal=front, err = %v}", j, err)
 				return err
 			}
