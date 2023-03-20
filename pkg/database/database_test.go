@@ -2170,14 +2170,14 @@ db := makeDb(t)
 func Test_database_truncate(t *testing.T) {
 	options := DefaultOption().WithDBRootPath(t.TempDir())
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).
-		WithFileSize(6).
+		WithFileSize(16).
 		WithVLogCacheSize(0)
 
 	db := makeDbWith(t, "db", options)
 
 	var queryTime time.Time
 
-	for i := 2; i <= 20; i++ {
+	for i := 0; i <= 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
 			Value: []byte(fmt.Sprintf("val_%d", i)),
