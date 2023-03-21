@@ -74,7 +74,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
-%token AUTO_INCREMENT NULL CAST
+%token AUTO_INCREMENT NULL CAST SCAST
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -857,6 +857,11 @@ boundexp:
     '(' exp ')'
     {
         $$ = $2
+    }
+|
+    boundexp SCAST TYPE
+    {
+        $$ = &Cast{val: $1, t: $3}
     }
 
 opt_not:

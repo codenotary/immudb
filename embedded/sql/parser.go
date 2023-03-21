@@ -88,6 +88,7 @@ var reservedWords = map[string]int{
 	"IF":             IF,
 	"IS":             IS,
 	"CAST":           CAST,
+	"::":             SCAST,
 }
 
 var joinTypes = map[string]JoinType{
@@ -414,6 +415,21 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return VARCHAR
 	}
 
+	if ch == ':' {
+		ch, err := l.r.ReadByte()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		if ch != ':' {
+			lval.err = fmt.Errorf("colon expected")
+			return ERROR
+		}
+
+		return SCAST
+	}
+
 	if ch == '@' {
 		if l.namedParamsType == UnnamedParamType {
 			lval.err = ErrEitherNamedOrUnnamedParams
@@ -532,10 +548,6 @@ func (l *lexer) readNumber() (string, error) {
 	return l.readWhile(isNumber)
 }
 
-func (l *lexer) readDot() (string, error) {
-	return l.readWhile(isDot)
-}
-
 func (l *lexer) readString() (string, error) {
 	var b bytes.Buffer
 
@@ -627,5 +639,5 @@ func isDoubleQuote(ch byte) bool {
 }
 
 func isDot(ch byte) bool {
-	return '.' == ch
+	return ch == '.'
 }
