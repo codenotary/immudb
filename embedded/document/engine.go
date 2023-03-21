@@ -1,7 +1,9 @@
 package document
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -11,6 +13,8 @@ import (
 )
 
 const (
+	// Default fields for document store
+	defaultDocumentIDField   = "_id"
 	defaultDocumentBLOBField = "_obj"
 )
 
@@ -96,27 +100,13 @@ type Engine struct {
 }
 
 // TODO: Add support for index creation
-func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pkeys map[string]sql.SQLValueType, idxKeys map[string]sql.SQLValueType) error {
-	primaryKeys := make([]string, 0)
+func (d *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]sql.SQLValueType) error {
+	primaryKeys := []string{defaultDocumentIDField}
 	indexKeys := make([]string, 0)
-	columns := make([]*sql.ColSpec, 0, len(pkeys))
+	columns := make([]*sql.ColSpec, 0)
 
-	// validate collection to contain at least one primary key
-	if len(pkeys) == 0 {
-		return fmt.Errorf("collection must have at least one primary key")
-	}
-
-	// add primary keys
-	for name, schType := range pkeys {
-		primaryKeys = append(primaryKeys, name)
-		// TODO: add support for other types
-		// TODO: add support for auto increment
-		colLen, err := valueTypeDefaultLength(schType)
-		if err != nil {
-			return fmt.Errorf("primary key specified is not supported: %v", schType)
-		}
-		columns = append(columns, sql.NewColSpec(name, schType, colLen, false, false))
-	}
+	// add primary key for document id
+	columns = append(columns, sql.NewColSpec(defaultDocumentIDField, sql.BLOBType, 32, false, true))
 
 	// add columnn for blob, which stores the document as a whole
 	columns = append(columns, sql.NewColSpec(defaultDocumentBLOBField, sql.BLOBType, 0, false, false))
@@ -163,17 +153,17 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, pk
 	return nil
 }
 
-func (d *Engine) CreateDocument(ctx context.Context, collectionName string, documents []*structpb.Struct) error {
+func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (DocumentID, error) {
 	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
-		return err
+		return NilDocumentID, err
 	}
 	defer tx.Cancel()
 
 	// check if collection exists
 	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collectionName)
 	if err != nil {
-		return err
+		return NilDocumentID, err
 	}
 
 	cols := make([]string, 0)
@@ -184,38 +174,48 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, docu
 		cols = append(cols, col.Name())
 	}
 
-	// TODO: should be able to send only a single document
-	for _, doc := range documents {
-		values := make([]sql.ValueExp, 0)
-		for _, col := range tcolumns {
-			switch col.Name() {
-			case defaultDocumentBLOBField:
-				document, err := NewDocumentFrom(doc)
-				if err != nil {
-					return err
-				}
-				res, err := document.MarshalJSON()
-				if err != nil {
-					return err
-				}
-				values = append(values, sql.NewBlob(res))
-			default:
-				if rval, ok := doc.Fields[col.Name()]; ok {
-					valType, err := valueTypeToExp(col.Type(), rval)
-					if err != nil {
-						return err
-					}
-					values = append(values, valType)
-				}
-			}
-		}
+	// check if document id is already present
+	_, ok := doc.Fields[defaultDocumentIDField]
+	if ok {
+		return NilDocumentID, fmt.Errorf("_id field is not allowed to be set")
+	}
 
-		if len(values) > 0 {
-			rows = append(rows, sql.NewRowSpec(values))
+	// generate document id
+	lastPrecommittedTxID := d.GetStore().LastPrecommittedTxID()
+	docID := NewDocumentIDFromTx(lastPrecommittedTxID)
+
+	values := make([]sql.ValueExp, 0)
+	for _, col := range tcolumns {
+		switch col.Name() {
+		case defaultDocumentIDField:
+			// add document id to document
+			values = append(values, sql.NewBlob(docID[:]))
+		case defaultDocumentBLOBField:
+			document, err := NewDocumentFrom(doc)
+			if err != nil {
+				return NilDocumentID, err
+			}
+			res, err := document.MarshalJSON()
+			if err != nil {
+				return NilDocumentID, err
+			}
+			values = append(values, sql.NewBlob(res))
+		default:
+			if rval, ok := doc.Fields[col.Name()]; ok {
+				valType, err := valueTypeToExp(col.Type(), rval)
+				if err != nil {
+					return NilDocumentID, err
+				}
+				values = append(values, valType)
+			}
 		}
 	}
 
-	// add documents to collection
+	if len(values) > 0 {
+		rows = append(rows, sql.NewRowSpec(values))
+	}
+
+	// add document to collection
 	_, _, err = d.ExecPreparedStmts(
 		ctx,
 		nil,
@@ -230,8 +230,11 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, docu
 		},
 		nil,
 	)
+	if err != nil {
+		return NilDocumentID, err
+	}
 
-	return err
+	return docID, nil
 }
 
 func (d *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, error) {
@@ -389,4 +392,135 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 	}
 
 	return results, nil
+}
+
+type Audit struct {
+	Value []byte
+	TxID  uint64
+}
+
+// DocumentAudit returns the audit history of a document.
+func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, maxCount int) ([]*Audit, error) {
+	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	var searchKey []byte
+
+	valbuf := bytes.Buffer{}
+	for _, col := range table.PrimaryIndex().Cols() {
+		if col.Name() == defaultDocumentIDField {
+			rval := sql.NewBlob(documentID[:])
+			encVal, err := sql.EncodeAsKey(rval.Value(), col.Type(), col.MaxLen())
+			if err != nil {
+				return nil, err
+			}
+			_, err = valbuf.Write(encVal)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	pkEncVals := valbuf.Bytes()
+
+	searchKey = sql.MapKey(
+		d.GetPrefix(),
+		sql.PIndexPrefix,
+		sql.EncodeID(table.Database().ID()),
+		sql.EncodeID(table.ID()),
+		sql.EncodeID(table.PrimaryIndex().ID()),
+		pkEncVals,
+	)
+
+	txs, _, err := d.GetStore().History(searchKey, 0, false, maxCount)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]*Audit, 0)
+	for _, txID := range txs {
+		res, err := d.getValueAt(searchKey, txID, d.GetStore(), false)
+		if err != nil {
+			return nil, err
+		}
+
+		v := res.Value
+		voff := 0
+
+		cols := int(binary.BigEndian.Uint32(v[voff:]))
+		voff += sql.EncLenLen
+
+		for i := 0; i < cols; i++ {
+			colID := binary.BigEndian.Uint32(v[voff:])
+			voff += sql.EncIDLen
+
+			col, err := table.GetColumnByID(colID)
+			if err != nil {
+				return nil, err
+			}
+
+			val, n, err := sql.DecodeValue(v[voff:], sql.BLOBType)
+			if col.Name() == defaultDocumentBLOBField {
+				res.Value = val.Value().([]byte)
+				break
+			}
+			voff += n
+		}
+
+		results = append(results, res)
+	}
+
+	return results, nil
+}
+
+func (d *Engine) getValueAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *Audit, err error) {
+	var txID uint64
+	var val []byte
+
+	if atTx == 0 {
+		valRef, err := index.Get(key)
+		if err != nil {
+			return nil, err
+		}
+
+		txID = valRef.Tx()
+
+		val, err = valRef.Resolve()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		txID = atTx
+		_, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &Audit{
+		TxID:  txID,
+		Value: val,
+	}, err
+}
+
+func (d *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
+	store := d.GetStore()
+	entry, _, err := store.ReadTxEntry(atTx, key, skipIntegrityCheck)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	v, err := store.ReadValue(entry)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return entry.Metadata(), v, nil
 }

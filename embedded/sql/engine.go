@@ -502,6 +502,14 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	return nil
 }
 
+func (e *Engine) GetStore() *store.ImmuStore {
+	return e.store
+}
+
+func (e *Engine) GetPrefix() []byte {
+	return e.prefix
+}
+
 // addSchemaToTx adds the schema to the ongoing transaction.
 func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(t.db.id), EncodeID(t.id))

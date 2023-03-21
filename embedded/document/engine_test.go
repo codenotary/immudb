@@ -48,11 +48,8 @@ func TestListCollections(t *testing.T) {
 			context.Background(),
 			collectionName,
 			map[string]sql.SQLValueType{
-				"id":     sql.IntegerType,
-				"number": sql.IntegerType,
-				"name":   sql.BLOBType,
-			},
-			map[string]sql.SQLValueType{
+				"number":  sql.IntegerType,
+				"name":    sql.BLOBType,
 				"pin":     sql.IntegerType,
 				"country": sql.VarcharType,
 			},
@@ -67,9 +64,9 @@ func TestListCollections(t *testing.T) {
 	for _, indexes := range collectionList {
 		for _, index := range indexes {
 			if index.IsPrimary() {
-				require.Equal(t, 3, len(index.Cols()))
+				require.Equal(t, 1, len(index.Cols()))
 			} else {
-				require.Equal(t, 2, len(index.Cols()))
+				require.Equal(t, 4, len(index.Cols()))
 			}
 		}
 	}
@@ -83,11 +80,8 @@ func TestCreateCollection(t *testing.T) {
 		context.Background(),
 		collectionName,
 		map[string]sql.SQLValueType{
-			"id":     sql.IntegerType,
-			"number": sql.IntegerType,
-			"name":   sql.VarcharType,
-		},
-		map[string]sql.SQLValueType{
+			"number":  sql.IntegerType,
+			"name":    sql.VarcharType,
 			"pin":     sql.IntegerType,
 			"country": sql.VarcharType,
 		},
@@ -102,8 +96,8 @@ func TestCreateCollection(t *testing.T) {
 
 	require.Equal(t, collectionName, table.Name())
 
-	pcols := []string{"id", "number", "name"}
-	idxcols := []string{"pin", "country"}
+	pcols := []string{"_id"}
+	idxcols := []string{"pin", "country", "number", "name"}
 
 	// verify primary keys
 	for _, col := range pcols {
@@ -134,8 +128,8 @@ func TestCreateCollection(t *testing.T) {
 			indexKeyCount += len(idx.Cols())
 		}
 	}
-	require.Equal(t, 3, primaryKeyCount)
-	require.Equal(t, 2, indexKeyCount)
+	require.Equal(t, 1, primaryKeyCount)
+	require.Equal(t, 4, indexKeyCount)
 }
 
 func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
@@ -148,38 +142,31 @@ func TestGetDocument(t *testing.T) {
 	// create collection
 	collectionName := "mycollection"
 	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"id":      sql.IntegerType,
 		"pincode": sql.IntegerType,
 		"country": sql.VarcharType,
 		"data":    sql.BLOBType,
-	}, nil)
+	})
 	require.NoError(t, err)
 	require.NoError(t, err)
 
 	// add document to collection
-	err = engine.CreateDocument(context.Background(), collectionName, []*structpb.Struct{
-		{
-			Fields: map[string]*structpb.Value{
-				"id": {
-					Kind: &structpb.Value_NumberValue{NumberValue: 1},
-				},
-				"pincode": {
-					Kind: &structpb.Value_NumberValue{NumberValue: 2},
-				},
-				"country": {
-					Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-				},
-				"data": {
-					Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"key1": {Kind: &structpb.Value_StringValue{StringValue: "value1"}},
-						},
-					}},
-				},
+	_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"pincode": {
+				Kind: &structpb.Value_NumberValue{NumberValue: 2},
+			},
+			"country": {
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+			"data": {
+				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value1"}},
+					},
+				}},
 			},
 		},
-	},
-	)
+	})
 	require.NoError(t, err)
 
 	expressions := []*Query{
@@ -202,4 +189,40 @@ func TestGetDocument(t *testing.T) {
 	doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(doc))
+}
+
+func TestDocumentAudit(t *testing.T) {
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+		"pincode": sql.IntegerType,
+		"country": sql.VarcharType,
+	})
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// add document to collection
+	docID, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"pincode": {
+				Kind: &structpb.Value_NumberValue{NumberValue: 2},
+			},
+			"country": {
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// get document audit
+	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(res))
+
+	// verify audit result
+	val := string(res[0].Value)
+	require.Contains(t, val, "pincode")
+	require.Contains(t, val, "country")
 }

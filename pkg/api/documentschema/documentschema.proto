@@ -51,11 +51,12 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 message DocumentInsertRequest {
   string collection = 1;
-  repeated google.protobuf.Struct document = 2;
+  google.protobuf.Struct document = 2;
 }
 
 message DocumentInsertResponse {
   schema.VerifiableTx proof = 1;
+  string documentId = 2;
 }
 
 
@@ -101,7 +102,7 @@ message DocumentSearchResponse {
 
 message DocumentProofRequest {
   string collection = 1;
-  map<string, IndexValue> primaryKeys = 2;
+  string documentId = 2;
   int64 atRevision = 3;
 }
 
@@ -113,7 +114,7 @@ message DocumentProofResponse {
 
 message DocumentAuditRequest {
   string collection = 1;
-  map<string, IndexValue> primaryKeys = 2;
+  string documentId = 2;
   uint32 page = 3;
   uint32 perPage = 4;
 }
@@ -144,8 +145,7 @@ enum IndexType {
 
 message CollectionCreateRequest {
   string name = 1;
-  map<string, IndexOption> primaryKeys = 2;
-  map<string, IndexOption>  indexKeys = 3;
+  map<string, IndexOption>  indexKeys = 2;
 }
 
 message CollectionCreateResponse {
@@ -154,8 +154,7 @@ message CollectionCreateResponse {
 
 message CollectionInformation {
   string name = 1;
-  map<string, IndexOption>  primaryKeys = 2;
-  map<string, IndexOption>  indexKeys = 3;
+  map<string, IndexOption>  indexKeys = 2;
 }
 
 message CollectionGetResponse {

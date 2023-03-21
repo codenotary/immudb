@@ -878,6 +878,10 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 	return nil
 }
 
+func EncodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error) {
+	return encodedPK(table, valuesByColID)
+}
+
 func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 

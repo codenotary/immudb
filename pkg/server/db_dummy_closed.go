@@ -268,3 +268,7 @@ func (d *closedDB) CreateDocument(ctx context.Context, req *schemav2.DocumentIns
 func (d *closedDB) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
+
+func (d *closedDB) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
