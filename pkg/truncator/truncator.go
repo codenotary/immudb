@@ -40,7 +40,6 @@ func NewTruncator(
 	t := &Truncator{
 		db:                  db,
 		logger:              logger,
-		retentionPeriodF:    getRetentionPeriod,
 		truncators:          make([]database.Truncator, 0),
 		donech:              make(chan struct{}),
 		stopch:              make(chan struct{}),
@@ -56,15 +55,15 @@ type Truncator struct {
 
 	truncators []database.Truncator // specifies truncators for multiple appendable logs
 
-	hasStarted bool
+	hasStarted      bool
+	truncationMutex sync.Mutex
 
 	db database.DB
 
 	retentionPeriod     time.Duration
 	truncationFrequency time.Duration
 
-	logger           logger.Logger
-	retentionPeriodF func(ts time.Time, retentionPeriod time.Duration) time.Time
+	logger logger.Logger
 
 	donech chan struct{}
 	stopch chan struct{}
@@ -84,6 +83,7 @@ func (t *Truncator) Start() error {
 
 	go func() {
 		ticker := time.NewTicker(t.truncationFrequency)
+
 		for {
 			select {
 			case <-t.stopch:
@@ -91,68 +91,12 @@ func (t *Truncator) Start() error {
 				t.donech <- struct{}{}
 				return
 			case <-ticker.C:
-				// The timestamp ts is used to determine which transaction onwards the data
-				// may be deleted from the value-log.
-				//
-				// Subtracting a duration from ts will add a buffer for when transactions are
-				// considered safe for deletion.
-
-				// Truncate time to the beginning of the day.
-				ts := t.retentionPeriodF(time.Now(), t.retentionPeriod)
-				t.logger.Infof("start truncating database '%s' {ts = %v}", t.db.GetName(), ts)
-				if err := t.truncate(context.Background(), ts); err != nil {
-					if errors.Is(err, database.ErrRetentionPeriodNotReached) {
-						t.logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", t.db.GetName(), ts.String())
-					} else if errors.Is(err, store.ErrTxNotFound) {
-						t.logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {err = %v}", t.db.GetName(), err)
-					} else {
-						t.logger.Errorf("failed to truncate database '%s' {ts = %v}", t.db.GetName(), err)
-					}
-				} else {
-					t.logger.Infof("finished truncating database '%s' {ts = %v}", t.db.GetName(), ts)
+				if err := t.Truncate(context.Background(), t.retentionPeriod); err != nil {
+					t.logger.Errorf("failed to truncate database '%s' {ts = %v}", t.db.GetName(), err)
 				}
 			}
 		}
 	}()
-	return nil
-}
-
-// truncate discards an appendable log upto a given offset
-// before time ts. First, the transaction is fetched which lies
-// before the specified time period, and then the values are
-// discarded upto the specified offset.
-//
-//	  discard point
-//			|
-//			|
-//			v
-//
-// --------+-------+--------+----------
-//
-//		|       |        |
-//	tn-1:vx  tn:vx   tn+1:vx
-func (t *Truncator) truncate(ctx context.Context, ts time.Time) error {
-	for _, c := range t.truncators {
-		// Plan determines the transaction header before time period ts. If a
-		// transaction is not found, or if an error occurs fetching the transaction,
-		// then truncation does not run for the specified appendable.
-		hdr, err := c.Plan(ts)
-		if err != nil {
-			if err != database.ErrRetentionPeriodNotReached && err != store.ErrTxNotFound {
-				t.logger.Errorf("failed to plan truncation for database '%s' {err = %v}", t.db.GetName(), err)
-			}
-			// If no transaction is found, or if an error occurs, then continue
-			return err
-		}
-
-		// Truncate discards the appendable log upto the offset
-		// specified in the transaction hdr
-		err = c.Truncate(ctx, hdr.ID)
-		if err != nil {
-			t.logger.Errorf("failed to truncate database '%s' {err = %v}", t.db.GetName(), err)
-			return err
-		}
-	}
 
 	return nil
 }
@@ -175,26 +119,72 @@ func (t *Truncator) Stop() error {
 }
 
 // Truncate discards all data from the database that is older than the retention period.
+// Truncation discards an appendable log upto a given offset
+// before time ts. First, the transaction is fetched which lies
+// before the specified time period, and then the values are
+// discarded upto the specified offset.
+//
+//	  discard point
+//			|
+//			|
+//			v
+//
+// --------+-------+--------+----------
+//
+//		|       |        |
+//	tn-1:vx  tn:vx   tn+1:vx
 func (t *Truncator) Truncate(ctx context.Context, retentionPeriod time.Duration) error {
-	ts := t.retentionPeriodF(time.Now(), retentionPeriod)
-	t.logger.Infof("start truncating database '%s' {ts = %v}", t.db.GetName(), ts)
-	if err := t.truncate(ctx, ts); err != nil {
+	t.truncationMutex.Lock()
+	defer t.truncationMutex.Unlock()
+
+	// The timestamp ts is used to determine which transaction onwards the data
+	// may be deleted from the value-log.
+	//
+	// Subtracting a duration from ts will add a buffer for when transactions are
+	// considered safe for deletion.
+
+	// Truncate time to the beginning of the day.
+	truncationTime := getTruncationTime(time.Now(), retentionPeriod)
+
+	t.logger.Infof("start truncating database '%s' {ts = %v}", t.db.GetName(), truncationTime)
+
+	for _, c := range t.truncators {
+		// Plan determines the transaction header before time period ts. If a
+		// transaction is not found, or if an error occurs fetching the transaction,
+		// then truncation does not run for the specified appendable.
+		hdr, err := c.Plan(ctx, truncationTime)
 		if errors.Is(err, database.ErrRetentionPeriodNotReached) {
-			t.logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", t.db.GetName(), ts.String())
-		} else if errors.Is(err, store.ErrTxNotFound) {
-			t.logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {reason = %v}", t.db.GetName(), err)
-		} else {
-			t.logger.Errorf("failed truncating database '%s' {ts = %v}", t.db.GetName(), err)
+			t.logger.Infof("retention period not reached for truncating database '%s' at {ts = %v}", t.db.GetName(), truncationTime)
+			continue
 		}
-		return err
+		if errors.Is(err, store.ErrTxNotFound) {
+			t.logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {reason = %v}", t.db.GetName(), err)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		// Truncate discards the appendable log upto the offset
+		// specified in the transaction hdr
+		err = c.Truncate(ctx, hdr.ID)
+		if err != nil {
+			return err
+		}
 	}
 
-	t.logger.Infof("finished truncating database '%s' {ts = %v}", t.db.GetName(), ts)
+	t.logger.Infof("finished truncating database '%s' {ts = %v}", t.db.GetName(), truncationTime)
+
 	return nil
 }
 
-// getRetentionPeriod returns the timestamp that is used to determine
-// which database.transaction up to which the data may be deleted from the value-log.
-func getRetentionPeriod(ts time.Time, retentionPeriod time.Duration) time.Time {
-	return database.TruncateToDay(ts.Add(-1 * retentionPeriod))
+// getTruncationTime returns the timestamp that is used to determine
+// which database transaction up to which the data may be deleted from the value-log.
+func getTruncationTime(t time.Time, retentionPeriod time.Duration) time.Time {
+	return truncateToDay(t.Add(-1 * retentionPeriod))
+}
+
+// TruncateToDay truncates the time to the beginning of the day.
+func truncateToDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

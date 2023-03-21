@@ -27,9 +27,8 @@ import (
 )
 
 var (
-	// ErrNoTxBeforeTime is returned when retention period is not reached.
-	ErrRetentionPeriodNotReached = errors.New("retention period has not been reached")
 	ErrTruncatorAlreadyRunning   = errors.New("truncator already running")
+	ErrRetentionPeriodNotReached = errors.New("retention period has not been reached")
 )
 
 // Truncator provides truncation against an underlying storage
@@ -39,7 +38,7 @@ type Truncator interface {
 	// When resulting transaction before specified time does not exists
 	//  * No transaction header is returned.
 	//  * Returns nil TxHeader, and an error.
-	Plan(truncationUntil time.Time) (*store.TxHeader, error)
+	Plan(ctx context.Context, truncationUntil time.Time) (*store.TxHeader, error)
 
 	// Truncate runs truncation against the relevant appendable logs. Must
 	// be called after result of Plan().
@@ -63,8 +62,11 @@ type vlogTruncator struct {
 // When resulting transaction before specified time does not exists
 //   - No transaction header is returned.
 //   - Returns nil TxHeader, and an error.
-func (v *vlogTruncator) Plan(truncationUntil time.Time) (*store.TxHeader, error) {
+func (v *vlogTruncator) Plan(ctx context.Context, truncationUntil time.Time) (*store.TxHeader, error) {
 	hdr, err := v.db.st.LastTxUntil(truncationUntil)
+	if errors.Is(err, store.ErrTxNotFound) {
+		return nil, ErrRetentionPeriodNotReached
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -75,19 +77,14 @@ func (v *vlogTruncator) Plan(truncationUntil time.Time) (*store.TxHeader, error)
 			break
 		}
 
+		if ctx.Err() != nil {
+			return nil, err
+		}
+
 		hdr, err = v.db.st.ReadTxHeader(hdr.ID-1, false, false)
 	}
 
 	return hdr, err
-}
-
-// isRetentionPeriodReached returns an error if the retention period has not been reached.
-func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTimestamp time.Time) error {
-	txTime := TruncateToDay(txTimestamp)
-	if txTime.Unix() <= retentionPeriod.Unix() {
-		return nil
-	}
-	return ErrRetentionPeriodNotReached
 }
 
 // commitCatalog commits the current sql catalogue as a new transaction.
@@ -165,9 +162,4 @@ func newTruncatorMetrics(db string) *truncatorMetrics {
 	).WithLabelValues(db)
 
 	return m
-}
-
-// TruncateToDay truncates the time to the beginning of the day.
-func TruncateToDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

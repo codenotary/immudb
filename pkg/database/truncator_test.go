@@ -19,7 +19,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 	"testing"
@@ -74,7 +73,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
@@ -119,7 +118,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -176,7 +175,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -269,7 +268,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
@@ -290,7 +289,8 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 	}
 
 	c := NewVlogTruncator(db)
-	hdr, err := c.Plan(queryTime)
+
+	hdr, err := c.Plan(context.Background(), queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 }
@@ -298,7 +298,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 func setupCommonTest(t *testing.T) *db {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(1024)
 	options.storeOpts.VLogCacheSize = 0
 
@@ -419,7 +419,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
@@ -546,73 +546,12 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 	})
 }
 
-func Test_vlogTruncator_isRetentionPeriodReached(t *testing.T) {
-	type args struct {
-		retentionPeriod time.Time
-		txTs            time.Time
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "retention period not reached",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now().Add(-24 * time.Hour)),
-				txTs:            TruncateToDay(time.Now()),
-			},
-			wantErr: true,
-		},
-		{
-			name: "retention period reached",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now().Add(-1 * time.Hour)),
-				txTs:            TruncateToDay(time.Now().Add(-2 * time.Hour)),
-			},
-			wantErr: false,
-		},
-		{
-			name: "tx period before retention",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now()),
-				txTs:            TruncateToDay(time.Now().Add(-48 * time.Hour)),
-			},
-			wantErr: false,
-		},
-		{
-			name: "tx period after retention",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now()),
-				txTs:            TruncateToDay(time.Now().Add(48 * time.Hour)),
-			},
-			wantErr: true,
-		},
-		{
-			name: "tx period equal to retention",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now().Add(48 * time.Hour)),
-				txTs:            TruncateToDay(time.Now().Add(48 * time.Hour)),
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &vlogTruncator{}
-			if err := v.isRetentionPeriodReached(tt.args.retentionPeriod, tt.args.txTs); (err != nil) != tt.wantErr {
-				t.Errorf("vlogTruncator.isRetentionPeriodReached() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	rootPath := t.TempDir()
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithFileSize(fileSize)
 	options.storeOpts.VLogCacheSize = 0
 
@@ -664,27 +603,4 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 	<-doneWritesCh
 	<-doneTruncateCh
-}
-
-func Test_TruncateToDay(t *testing.T) {
-	type args struct {
-		t time.Time
-	}
-	tests := []struct {
-		name string
-		args args
-		want time.Time
-	}{
-		{
-			args: args{t: time.Date(2020, 1, 1, 10, 20, 30, 40, time.UTC)},
-			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := TruncateToDay(tt.args.t); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("TruncateToDay() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

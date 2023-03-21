@@ -2168,12 +2168,10 @@ db := makeDb(t)
 */
 
 func Test_database_truncate(t *testing.T) {
-	rootPath := t.TempDir()
-
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	options.storeOpts.MaxIOConcurrency = 1
-	options.storeOpts.VLogCacheSize = 0
+	options := DefaultOption().WithDBRootPath(t.TempDir())
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).
+		WithFileSize(6).
+		WithVLogCacheSize(0)
 
 	db := makeDbWith(t, "db", options)
 
@@ -2194,7 +2192,7 @@ func Test_database_truncate(t *testing.T) {
 
 	c := NewVlogTruncator(db)
 
-	hdr, err := c.Plan(queryTime)
+	hdr, err := c.Plan(context.Background(), queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 

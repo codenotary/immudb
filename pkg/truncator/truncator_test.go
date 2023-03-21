@@ -46,21 +46,19 @@ func makeDbWith(t *testing.T, dbName string, opts *database.Options) database.DB
 }
 
 func TestDatabase_truncate_with_duration(t *testing.T) {
-	rootPath := t.TempDir()
+	options := database.DefaultOption().WithDBRootPath(t.TempDir())
 
-	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	so := options.GetStoreOptions()
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	so.MaxIOConcurrency = 1
-	so.VLogCacheSize = 0
+
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).
+		WithFileSize(6).
+		WithVLogCacheSize(0).
+		WithSynced(false)
 	options.WithStoreOptions(so)
 
 	ctx := context.Background()
+
 	db := makeDbWith(t, "db", options)
-	tr := NewTruncator(db, 0, 0, logger.NewSimpleLogger("immudb ", os.Stderr))
-	tr.retentionPeriodF = func(ts time.Time, retentionPeriod time.Duration) time.Time {
-		return ts.Add(-1 * retentionPeriod)
-	}
 
 	t.Run("truncate with duration", func(t *testing.T) {
 		var queryTime time.Time
@@ -77,12 +75,15 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 		}
 
 		c := database.NewVlogTruncator(db)
-		hdr, err := c.Plan(queryTime)
+
+		_, err := c.Plan(ctx, getTruncationTime(queryTime, time.Duration(1*time.Hour)))
+		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
+
+		hdr, err := c.Plan(ctx, queryTime)
 		require.NoError(t, err)
 		require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-		dur := time.Since(queryTime)
-		err = tr.Truncate(ctx, dur)
+		err = c.Truncate(ctx, hdr.ID)
 		require.NoError(t, err)
 
 		for i := uint64(1); i < hdr.ID-1; i++ {
@@ -107,30 +108,13 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 			require.Equal(t, kv.Value, item.Value)
 		}
 	})
-
-	t.Run("truncate with retention period in the past", func(t *testing.T) {
-		ts := time.Now().Add(-24 * time.Hour)
-		dur := time.Since(ts)
-		err := tr.Truncate(ctx, dur)
-		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
-	})
-
-	t.Run("truncate with retention period in the future", func(t *testing.T) {
-		ts := time.Now().Add(24 * time.Hour)
-		dur := time.Since(ts)
-		err := tr.Truncate(ctx, dur)
-		require.ErrorIs(t, err, store.ErrTxNotFound)
-	})
-
 }
 
 func TestTruncator(t *testing.T) {
-	rootPath := t.TempDir()
-
-	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := database.DefaultOption().WithDBRootPath(t.TempDir())
 	so := options.GetStoreOptions()
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	so.MaxIOConcurrency = 1
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).
+		WithFileSize(6)
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
@@ -150,12 +134,9 @@ func TestTruncator(t *testing.T) {
 }
 
 func TestTruncator_with_truncation_frequency(t *testing.T) {
-	rootPath := t.TempDir()
-
-	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := database.DefaultOption().WithDBRootPath(t.TempDir()).WithCorruptionChecker(false)
 	so := options.GetStoreOptions()
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	so.MaxIOConcurrency = 1
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
@@ -170,7 +151,7 @@ func TestTruncator_with_truncation_frequency(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_GetRetentionPeriod(t *testing.T) {
+func Test_getTruncationTime(t *testing.T) {
 	type args struct {
 		ts              time.Time
 		retentionPeriod time.Duration
@@ -204,7 +185,7 @@ func Test_GetRetentionPeriod(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getRetentionPeriod(tt.args.ts, tt.args.retentionPeriod); !reflect.DeepEqual(got, tt.want) {
+			if got := getTruncationTime(tt.args.ts, tt.args.retentionPeriod); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetRetentionPeriod() = %v, want %v", got, tt.want)
 			}
 		})
@@ -212,12 +193,9 @@ func Test_GetRetentionPeriod(t *testing.T) {
 }
 
 func TestTruncator_with_retention_period(t *testing.T) {
-	rootPath := t.TempDir()
-
-	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := database.DefaultOption().WithDBRootPath(t.TempDir())
 	so := options.GetStoreOptions()
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	so.MaxIOConcurrency = 1
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
@@ -228,8 +206,8 @@ func TestTruncator_with_retention_period(t *testing.T) {
 
 	time.Sleep(15 * time.Millisecond)
 
-	err = tr.truncate(context.Background(), getRetentionPeriod(time.Now(), 25*time.Hour))
-	require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
+	err = tr.Truncate(context.Background(), time.Duration(25*time.Hour))
+	require.NoError(t, err)
 
 	err = tr.Stop()
 	require.NoError(t, err)
@@ -239,7 +217,7 @@ type mockTruncator struct {
 	err error
 }
 
-func (m *mockTruncator) Plan(time.Time) (*store.TxHeader, error) {
+func (m *mockTruncator) Plan(context.Context, time.Time) (*store.TxHeader, error) {
 	return nil, m.err
 }
 
@@ -249,13 +227,10 @@ func (m *mockTruncator) Truncate(context.Context, uint64) error {
 	return m.err
 }
 
-func TestTruncator_with_invalid_transaction_id(t *testing.T) {
-	rootPath := t.TempDir()
-
-	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+func TestTruncator_with_nothing_to_truncate(t *testing.T) {
+	options := database.DefaultOption().WithDBRootPath(t.TempDir())
 	so := options.GetStoreOptions()
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	so.MaxIOConcurrency = 1
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
@@ -268,8 +243,8 @@ func TestTruncator_with_invalid_transaction_id(t *testing.T) {
 
 	time.Sleep(15 * time.Millisecond)
 
-	err = tr.truncate(context.Background(), getRetentionPeriod(time.Now(), 2*time.Hour))
-	require.ErrorIs(t, err, store.ErrTxNotFound)
+	err = tr.Truncate(context.Background(), time.Duration(2*time.Hour))
+	require.NoError(t, err)
 
 	err = tr.Stop()
 	require.NoError(t, err)
