@@ -543,16 +543,14 @@ opt_selectors:
     }
 
 selectors:
-    selector opt_as
+    exp opt_as
     {
-        $1.setAlias($2)
-        $$ = []Selector{$1}
+        $$ = []Selector{{exp: $1, as: $2}}
     }
 |
     selectors ',' selector opt_as
     {
-        $3.setAlias($4)
-        $$ = append($1, $3)
+        $$ = append($1, &Selector{exp: $3, as: $4})
     }
 
 selector:

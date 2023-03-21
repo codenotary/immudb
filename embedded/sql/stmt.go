@@ -2638,18 +2638,31 @@ type OrdCol struct {
 	descOrder bool
 }
 
-type Selector interface {
-	ValueExp
-	resolve(implicitDB, implicitTable string) (aggFn, db, table, col string)
-	alias() string
-	setAlias(alias string)
+type Selector struct {
+	exp ValueExp
+	as  string
+}
+
+func (sel *Selector) alias() string {
+	if sel.as == "" {
+		return sel.col
+	}
+
+	return sel.as
+}
+
+func (sel *Selector) setAlias(alias string) {
+	sel.alias = alias
+}
+
+func (sel *Selector) resolve(implicitDB, implicitTable string) (aggFn, db, table, col string) {
+
 }
 
 type ColSelector struct {
 	db    string
 	table string
 	col   string
-	as    string
 }
 
 func (sel *ColSelector) resolve(implicitDB, implicitTable string) (aggFn, db, table, col string) {
@@ -2664,18 +2677,6 @@ func (sel *ColSelector) resolve(implicitDB, implicitTable string) (aggFn, db, ta
 	}
 
 	return "", db, table, sel.col
-}
-
-func (sel *ColSelector) alias() string {
-	if sel.as == "" {
-		return sel.col
-	}
-
-	return sel.as
-}
-
-func (sel *ColSelector) setAlias(alias string) {
-	sel.as = alias
 }
 
 func (sel *ColSelector) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
