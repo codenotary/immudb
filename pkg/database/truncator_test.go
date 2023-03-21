@@ -426,6 +426,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	db := makeDbWith(t, "db", options)
 
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1")}}})
 	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
 
 	deletePointTx := uint64(1)
@@ -556,7 +557,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
-	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
+	require.Equal(t, uint64(0), db.st.LastCommittedTxID())
 
 	for i := 1; i <= 10; i++ {
 		kv := &schema.KeyValue{
