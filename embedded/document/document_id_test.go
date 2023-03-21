@@ -1,8 +1,10 @@
 package document
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,8 +13,8 @@ import (
 
 func TestDocumentID_WithTimestamp(t *testing.T) {
 	tests := []struct {
-		time     string
-		Expected string
+		time            string
+		expectedTimeHex string
 	}{
 		{
 			"1970-01-01T00:00:00.000Z",
@@ -41,7 +43,7 @@ func TestDocumentID_WithTimestamp(t *testing.T) {
 		fmt.Println(test.time, id.Hex())
 		timeStr := hex.EncodeToString(id[0:4])
 
-		require.Equal(t, test.Expected, timeStr)
+		require.Equal(t, test.expectedTimeHex, timeStr)
 	}
 }
 
@@ -74,6 +76,16 @@ func TestDocumentID_FromDocumentHex(t *testing.T) {
 
 		genTime := id.Timestamp()
 		require.Equal(t, test.Expected, genTime.String())
+	}
+}
+
+func TestDocumentID_IncrementalCounter(t *testing.T) {
+	id := NewDocumentIDFromTx(0)
+	counter := binary.BigEndian.Uint32(id[12:16])
+	for i := 0; i < 10; i++ {
+		id = NewDocumentIDFromTx(0)
+		newCounter := binary.BigEndian.Uint32(id[12:16])
+		require.Equal(t, atomic.AddUint32(&counter, 1), newCounter)
 	}
 }
 
