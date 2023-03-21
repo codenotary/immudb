@@ -43,20 +43,20 @@ type InclusionProof struct {
 }
 
 func New(maxWidth int) (*HTree, error) {
-	if maxWidth < 1 {
-		return nil, ErrIllegalArguments
-	}
+	var levels [][][sha256.Size]byte
 
-	lw := 1
-	for lw < maxWidth {
-		lw = lw << 1
-	}
+	if maxWidth > 0 {
+		lw := 1
+		for lw < maxWidth {
+			lw = lw << 1
+		}
 
-	height := bits.Len64(uint64(maxWidth-1)) + 1
+		height := bits.Len64(uint64(maxWidth-1)) + 1
 
-	levels := make([][][sha256.Size]byte, height)
-	for l := 0; l < height; l++ {
-		levels[l] = make([][sha256.Size]byte, lw>>l)
+		levels = make([][][sha256.Size]byte, height)
+		for l := 0; l < height; l++ {
+			levels[l] = make([][sha256.Size]byte, lw>>l)
+		}
 	}
 
 	return &HTree{
