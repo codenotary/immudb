@@ -169,7 +169,7 @@ func (t *Truncator) Truncate(ctx context.Context, retentionPeriod time.Duration)
 
 		// Truncate discards the appendable log upto the offset
 		// specified in the transaction hdr
-		err = c.Truncate(ctx, hdr.ID)
+		err = c.TruncateUptoTx(ctx, hdr.ID)
 		if err != nil {
 			return err
 		}

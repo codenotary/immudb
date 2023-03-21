@@ -40,9 +40,9 @@ type Truncator interface {
 	//  * Returns nil TxHeader, and an error.
 	Plan(ctx context.Context, truncationUntil time.Time) (*store.TxHeader, error)
 
-	// Truncate runs truncation against the relevant appendable logs. Must
+	// TruncateUptoTx runs truncation against the relevant appendable logs. Must
 	// be called after result of Plan().
-	Truncate(ctx context.Context, txID uint64) error
+	TruncateUptoTx(ctx context.Context, txID uint64) error
 }
 
 func NewVlogTruncator(d DB) Truncator {
@@ -109,8 +109,8 @@ func (v *vlogTruncator) commitCatalog(ctx context.Context, txID uint64) (*store.
 	return tx.Commit(ctx)
 }
 
-// Truncate runs truncation against the relevant appendable logs upto the specified transaction offset.
-func (v *vlogTruncator) Truncate(ctx context.Context, txID uint64) error {
+// TruncateUpTo runs truncation against the relevant appendable logs upto the specified transaction offset.
+func (v *vlogTruncator) TruncateUptoTx(ctx context.Context, txID uint64) error {
 	defer func(t time.Time) {
 		v.metrics.ran.Inc()
 		v.metrics.duration.Observe(time.Since(t).Seconds())

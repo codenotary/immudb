@@ -83,7 +83,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 		require.NoError(t, err)
 		require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-		err = c.Truncate(ctx, hdr.ID)
+		err = c.TruncateUptoTx(ctx, hdr.ID)
 		require.NoError(t, err)
 
 		for i := uint64(1); i < hdr.ID-1; i++ {
@@ -221,9 +221,9 @@ func (m *mockTruncator) Plan(context.Context, time.Time) (*store.TxHeader, error
 	return nil, m.err
 }
 
-// Truncate runs truncation against the relevant appendable logs. Must
+// TruncateUptoTx runs truncation against the relevant appendable logs. Must
 // be called after result of Plan().
-func (m *mockTruncator) Truncate(context.Context, uint64) error {
+func (m *mockTruncator) TruncateUptoTx(context.Context, uint64) error {
 	return m.err
 }
 
