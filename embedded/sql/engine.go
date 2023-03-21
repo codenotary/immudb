@@ -84,7 +84,7 @@ var ErrLimitedIndexCreation = errors.New("index creation is only supported on em
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
-var ErrUnsupportedCast = errors.New("unsupported cast")
+var ErrUnsupportedCast = fmt.Errorf("%w: unsupported cast", ErrInvalidValue)
 var ErrColumnMismatchInUnionStmt = errors.New("column mismatch in union statement")
 
 var maxKeyLen = 256
