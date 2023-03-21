@@ -207,7 +207,7 @@ func TestTruncator_with_retention_period(t *testing.T) {
 	time.Sleep(15 * time.Millisecond)
 
 	err = tr.Truncate(context.Background(), time.Duration(25*time.Hour))
-	require.NoError(t, err)
+	require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
 
 	err = tr.Stop()
 	require.NoError(t, err)
@@ -235,8 +235,7 @@ func TestTruncator_with_nothing_to_truncate(t *testing.T) {
 
 	db := makeDbWith(t, "db", options)
 	tr := NewTruncator(db, 25*time.Hour, 5*time.Millisecond, logger.NewSimpleLogger("immudb ", os.Stderr))
-	tr.truncators = make([]database.Truncator, 0)
-	tr.truncators = append(tr.truncators, &mockTruncator{err: store.ErrTxNotFound})
+	tr.truncators = []database.Truncator{&mockTruncator{err: store.ErrTxNotFound}}
 
 	err := tr.Start()
 	require.NoError(t, err)
@@ -244,7 +243,7 @@ func TestTruncator_with_nothing_to_truncate(t *testing.T) {
 	time.Sleep(15 * time.Millisecond)
 
 	err = tr.Truncate(context.Background(), time.Duration(2*time.Hour))
-	require.NoError(t, err)
+	require.ErrorIs(t, err, store.ErrTxNotFound)
 
 	err = tr.Stop()
 	require.NoError(t, err)

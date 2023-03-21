@@ -32,24 +32,6 @@ var (
 	ErrTruncatorAlreadyStopped = errors.New("truncator already stopped")
 )
 
-func NewTruncator(
-	db database.DB,
-	retentionPeriod time.Duration,
-	truncationFrequency time.Duration,
-	logger logger.Logger) *Truncator {
-	t := &Truncator{
-		db:                  db,
-		logger:              logger,
-		truncators:          make([]database.Truncator, 0),
-		donech:              make(chan struct{}),
-		stopch:              make(chan struct{}),
-		retentionPeriod:     retentionPeriod,
-		truncationFrequency: truncationFrequency,
-	}
-	t.truncators = append(t.truncators, database.NewVlogTruncator(db))
-	return t
-}
-
 type Truncator struct {
 	mu sync.Mutex
 
@@ -69,6 +51,23 @@ type Truncator struct {
 	stopch chan struct{}
 }
 
+func NewTruncator(
+	db database.DB,
+	retentionPeriod time.Duration,
+	truncationFrequency time.Duration,
+	logger logger.Logger) *Truncator {
+
+	return &Truncator{
+		db:                  db,
+		logger:              logger,
+		truncators:          []database.Truncator{database.NewVlogTruncator(db)},
+		donech:              make(chan struct{}),
+		stopch:              make(chan struct{}),
+		retentionPeriod:     retentionPeriod,
+		truncationFrequency: truncationFrequency,
+	}
+}
+
 // runTruncator triggers periodically to truncate multiple appendable logs
 func (t *Truncator) Start() error {
 	t.mu.Lock()
@@ -79,6 +78,7 @@ func (t *Truncator) Start() error {
 	}
 
 	t.hasStarted = true
+
 	t.logger.Infof("starting truncator for database '%s' with retention period '%vs' and truncation frequency '%vs'", t.db.GetName(), t.retentionPeriod.Seconds(), t.truncationFrequency.Seconds())
 
 	go func() {
@@ -91,7 +91,8 @@ func (t *Truncator) Start() error {
 				t.donech <- struct{}{}
 				return
 			case <-ticker.C:
-				if err := t.Truncate(context.Background(), t.retentionPeriod); err != nil {
+				err := t.Truncate(context.Background(), t.retentionPeriod)
+				if err != nil {
 					t.logger.Errorf("failed to truncate database '%s' {ts = %v}", t.db.GetName(), err)
 				}
 			}
@@ -110,9 +111,12 @@ func (t *Truncator) Stop() error {
 	}
 
 	t.logger.Infof("Stopping truncator of database '%s'...", t.db.GetName())
+
 	t.stopch <- struct{}{}
 	<-t.donech
+
 	t.hasStarted = false
+
 	t.logger.Infof("Truncator for database '%s' successfully stopped", t.db.GetName())
 
 	return nil
@@ -155,11 +159,9 @@ func (t *Truncator) Truncate(ctx context.Context, retentionPeriod time.Duration)
 		hdr, err := c.Plan(ctx, truncationTime)
 		if errors.Is(err, database.ErrRetentionPeriodNotReached) {
 			t.logger.Infof("retention period not reached for truncating database '%s' at {ts = %v}", t.db.GetName(), truncationTime)
-			continue
 		}
 		if errors.Is(err, store.ErrTxNotFound) {
 			t.logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {reason = %v}", t.db.GetName(), err)
-			continue
 		}
 		if err != nil {
 			return err
