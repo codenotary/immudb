@@ -50,8 +50,8 @@ func TestObjectDB_Collection(t *testing.T) {
 	collectionName := "mycollection"
 	_, err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
 		Name: collectionName,
-		PrimaryKeys: map[string]*schemav2.IndexOption{
-			"id": newIndexOption(schemav2.IndexType_INTEGER),
+		IndexKeys: map[string]*schemav2.IndexOption{
+			"pincode": newIndexOption(schemav2.IndexType_INTEGER),
 		},
 	})
 	require.NoError(t, err)
@@ -62,20 +62,18 @@ func TestObjectDB_Collection(t *testing.T) {
 	})
 	require.NoError(t, err)
 	resp := cinfo.Collection
-	require.Equal(t, 0, len(resp.IndexKeys))
-	require.Equal(t, 1, len(resp.PrimaryKeys))
-	require.Contains(t, resp.PrimaryKeys, "id")
-	require.Equal(t, schemav2.IndexType_INTEGER, resp.PrimaryKeys["id"].Type)
+	require.Equal(t, 2, len(resp.IndexKeys))
+	require.Contains(t, resp.IndexKeys, "_id")
+	require.Contains(t, resp.IndexKeys, "pincode")
+	require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
 
 	// add document to collection
 	_, err = db.CreateDocument(context.Background(), &schemav2.DocumentInsertRequest{
 		Collection: collectionName,
-		Document: []*structpb.Struct{
-			{
-				Fields: map[string]*structpb.Value{
-					"id": {
-						Kind: &structpb.Value_NumberValue{NumberValue: 123},
-					},
+		Document: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"pincode": {
+					Kind: &structpb.Value_NumberValue{NumberValue: 123},
 				},
 			},
 		},
@@ -87,7 +85,7 @@ func TestObjectDB_Collection(t *testing.T) {
 		Collection: collectionName,
 		Query: []*schemav2.DocumentQuery{
 			{
-				Field: "id",
+				Field: "pincode",
 				Value: &structpb.Value{
 					Kind: &structpb.Value_NumberValue{NumberValue: 123},
 				},
@@ -98,5 +96,5 @@ func TestObjectDB_Collection(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs.Results))
 	res := docs.Results[0]
-	require.Equal(t, 123, int(res.Fields["id"].GetNumberValue()))
+	require.Equal(t, 123, int(res.Fields["pincode"].GetNumberValue()))
 }

@@ -229,6 +229,10 @@ func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) ColumnsByID() map[uint32]*Column {
+	return t.colsByID
+}
+
 func (t *Table) GetIndexes() []*Index {
 	return t.indexes
 }
@@ -281,6 +285,10 @@ func (i *Index) prefix() string {
 
 func (i *Index) Name() string {
 	return indexName(i.table.name, i.cols)
+}
+
+func (i *Index) ID() uint32 {
+	return i.id
 }
 
 func indexName(tableName string, cols []*Column) string {
