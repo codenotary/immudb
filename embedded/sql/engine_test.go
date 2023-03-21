@@ -463,7 +463,7 @@ func TestFloatType(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = r.Read(context.Background())
-		require.ErrorIs(t, err, ErrNotComparableValues)
+		require.ErrorIs(t, err, ErrUnsupportedCast)
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -1278,9 +1278,9 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, id) VALUES (1, 2)", nil)
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
-	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, active) VALUES ('1', true)", nil)
+	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, active) VALUES ('1a', true)", nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Contains(t, err.Error(), "is not an integer")
+	require.ErrorIs(t, err, ErrUnsupportedCast)
 
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, active) VALUES (NULL, false)", nil)
 	require.Equal(t, ErrPKCanNotBeNull, err)

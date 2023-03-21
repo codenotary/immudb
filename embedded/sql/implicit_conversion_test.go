@@ -25,19 +25,20 @@ import (
 
 func TestApplyImplicitConversion(t *testing.T) {
 	for _, d := range []struct {
-		val          TypedValue
+		val          interface{}
 		requiredType SQLValueType
-		result       interface{}
+		expected     interface{}
 	}{
-		{&Integer{val: 1}, IntegerType, int64(1)},
-		{&Integer{val: 1}, Float64Type, float64(1)},
-		{&Float64{val: 1}, Float64Type, float64(1)},
-		{&Varchar{val: "hello world"}, IntegerType, "hello world"},
+		{1, IntegerType, int64(1)},
+		{1, Float64Type, float64(1)},
+		{1.0, Float64Type, float64(1)},
+		{"1", IntegerType, int64(1)},
+		{"4.2", Float64Type, float64(4.2)},
 	} {
 		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
-			convVal, err := mayApplyImplicitConversion(d.val.RawValue(), d.requiredType)
+			convVal, err := mayApplyImplicitConversion(d.val, d.requiredType)
 			require.NoError(t, err)
-			require.Equal(t, d.result, convVal)
+			require.EqualValues(t, d.expected, convVal)
 		})
 	}
 }

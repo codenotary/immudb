@@ -32,6 +32,13 @@ func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType
 		switch value := val.(type) {
 		case float64:
 			return val, nil
+		case int:
+			converter, err = getConverter(IntegerType, Float64Type)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Integer{val: int64(value)}
 		case int64:
 			converter, err = getConverter(IntegerType, Float64Type)
 			if err != nil {
@@ -39,6 +46,13 @@ func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType
 			}
 
 			typedVal = &Integer{val: value}
+		case string:
+			converter, err = getConverter(VarcharType, Float64Type)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Varchar{val: value}
 		}
 	case IntegerType:
 		switch value := val.(type) {
@@ -51,6 +65,13 @@ func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType
 			}
 
 			typedVal = &Float64{val: value}
+		case string:
+			converter, err = getConverter(VarcharType, IntegerType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Varchar{val: value}
 		}
 	default:
 		// No implicit conversion rule found, do not convert at all
