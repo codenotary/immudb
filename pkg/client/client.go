@@ -43,7 +43,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
-	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/database"
@@ -516,6 +515,8 @@ type ImmuClient interface {
 	TruncateDatabase(ctx context.Context, db string, retentionPeriod time.Duration) error
 }
 
+type ErrorHandler func(sessionID string, err error)
+
 const DefaultDB = "defaultdb"
 
 type immuClient struct {
@@ -529,8 +530,8 @@ type immuClient struct {
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
-	HeartBeater          heartbeater.HeartBeater
-	errorHandler         heartbeater.ErrorHandler
+	HeartBeater          HeartBeater
+	errorHandler         ErrorHandler
 }
 
 // Ensure immuClient implements the ImmuClient interface

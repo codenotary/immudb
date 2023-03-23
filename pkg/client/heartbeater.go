@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package heartbeater
+package client
 
 import (
 	"context"
@@ -25,8 +25,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 )
-
-type ErrorHandler func(sessionID string, err error)
 
 type heartBeater struct {
 	sessionID     string
