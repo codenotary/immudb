@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -339,16 +338,24 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries []*Query, maxResultSize int) ([]*structpb.Struct, error) {
+func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
 	exp, err := d.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
+	}
+
+	offset := (pageNum - 1) * itemsPerPage
+	limit := itemsPerPage
+	if offset < 0 || limit < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
 	op := sql.NewSelectStmt(
 		d.CurrentDatabase(),
 		collectionName,
 		exp,
+		limit,
+		offset,
 	)
 
 	r, err := d.QueryPreparedStmt(ctx, nil, op, nil)
@@ -383,12 +390,6 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 			document.Fields[colDescriptors[i].Column] = vtype
 		}
 		results = append(results, document)
-
-		if l == maxResultSize {
-			return nil, fmt.Errorf("%w: found at least %d documents (the maximum limit). "+
-				"Query constraints can be applied using the LIMIT clause",
-				errors.New("result size limit reached"), maxResultSize)
-		}
 	}
 
 	return results, nil
@@ -400,7 +401,13 @@ type Audit struct {
 }
 
 // DocumentAudit returns the audit history of a document.
-func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, maxCount int) ([]*Audit, error) {
+func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*Audit, error) {
+	offset := (pageNum - 1) * itemsPerPage
+	limit := itemsPerPage
+	if offset < 0 || limit < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
+	}
+
 	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
@@ -439,7 +446,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 		pkEncVals,
 	)
 
-	txs, _, err := d.GetStore().History(searchKey, 0, false, maxCount)
+	txs, _, err := d.GetStore().History(searchKey, uint64(offset), false, limit)
 	if err != nil {
 		return nil, err
 	}

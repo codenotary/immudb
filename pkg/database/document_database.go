@@ -115,7 +115,11 @@ func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchReques
 			Value:    q.Value,
 		})
 	}
-	results, err := d.documentEngine.GetDocument(ctx, req.Collection, queries, d.maxResultSize)
+	if req.Page < 1 || req.PerPage < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
+	}
+
+	results, err := d.documentEngine.GetDocument(ctx, req.Collection, queries, int(req.Page), int(req.PerPage))
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +162,12 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}
-	historyLogs, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.PerPage))
+
+	if req.Page < 1 || req.PerPage < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
+	}
+
+	historyLogs, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.Page), int(req.PerPage))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching document history: %v", err)
 	}

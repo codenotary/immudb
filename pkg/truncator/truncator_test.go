@@ -86,7 +86,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 		require.NoError(t, err)
 
 		// TODO: hard to determine the actual transaction up to which the database was truncated.
-		for i := uint64(1); i < hdr.ID-2; i++ {
+		for i := uint64(1); i < 5; i++ {
 			kv := &schema.KeyValue{
 				Key:   []byte(fmt.Sprintf("key_%d", i)),
 				Value: []byte(fmt.Sprintf("val_%d", i)),
