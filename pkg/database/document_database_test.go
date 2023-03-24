@@ -83,6 +83,8 @@ func TestObjectDB_Collection(t *testing.T) {
 	// query collection for document
 	docs, err := db.GetDocument(context.Background(), &schemav2.DocumentSearchRequest{
 		Collection: collectionName,
+		Page:       1,
+		PerPage:    10,
 		Query: []*schemav2.DocumentQuery{
 			{
 				Field: "pincode",

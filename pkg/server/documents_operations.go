@@ -93,11 +93,16 @@ func (s *ImmuServer) CollectionDelete(ctx context.Context, req *documentschema.C
 
 // TODO: implement
 func (s *ImmuServer) DocumentAudit(ctx context.Context, req *documentschema.DocumentAuditRequest) (*documentschema.DocumentAuditResponse, error) {
-	_, err := s.getDBFromCtx(ctx, "DocumentAudit")
+	db, err := s.getDBFromCtx(ctx, "DocumentAudit")
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	resp, err := db.DocumentAudit(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 // TODO: implement

@@ -2118,11 +2118,13 @@ type DataSource interface {
 	Alias() string
 }
 
-func NewSelectStmt(db string, table string, where ValueExp) *SelectStmt {
+func NewSelectStmt(db string, table string, where ValueExp, limit int, offset int) *SelectStmt {
 	tableref := newTableRef(db, table, "")
 	return &SelectStmt{
-		ds:    tableref,
-		where: where,
+		ds:     tableref,
+		where:  where,
+		limit:  limit,
+		offset: offset,
 	}
 }
 

@@ -186,7 +186,15 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
-	doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 10)
+	// invalid page number
+	_, err = engine.GetDocument(context.Background(), collectionName, expressions, 0, 10)
+	require.Error(t, err)
+
+	// invalid page limit
+	_, err = engine.GetDocument(context.Background(), collectionName, expressions, 1, 0)
+	require.Error(t, err)
+
+	doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(doc))
 }
@@ -217,7 +225,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	// get document audit
-	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, 10)
+	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, 1, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(res))
 
