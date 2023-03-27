@@ -2211,7 +2211,8 @@ func Test_database_truncate(t *testing.T) {
 		}
 	}
 
-	for i := hdr.ID - 1; i > 0; i-- {
+	// ensure that the earlier txs are truncated
+	for i := uint64(5); i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)

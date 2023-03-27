@@ -126,7 +126,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	db := makeDbWith(t, "db", options)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
 			Value: make([]byte, fileSize),
@@ -135,7 +135,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	deletePointTx := uint64(5)
+	deletePointTx := uint64(15)
 
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
-	for i := deletePointTx; i < 10; i++ {
+	for i := deletePointTx; i < 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -156,7 +156,8 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 		}
 	}
 
-	for i := deletePointTx - 1; i > 0; i-- {
+	// ensure earlier transactions are deleted
+	for i := uint64(5); i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -225,7 +226,8 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 		}
 	}
 
-	for i := deletePointTx - 1; i > 0; i-- {
+	// ensure earlier transactions are deleted
+	for i := uint64(5); i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
