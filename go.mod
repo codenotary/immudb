@@ -17,7 +17,7 @@ require (
 	github.com/o1egl/paseto v1.0.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/ory/go-acc v0.2.8
-	github.com/peterh/liner v1.2.1
+	github.com/peterh/liner v1.2.2
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
