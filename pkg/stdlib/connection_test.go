@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -109,7 +108,7 @@ func TestConn_QueryContextErr(t *testing.T) {
 	defer db.Close()
 
 	_, err := db.QueryContext(context.Background(), "query", 10.5)
-	require.ErrorIs(t, err, sql.ErrInvalidValue)
+	require.ErrorContains(t, err, "syntax error: unexpected IDENTIFIER")
 
 	_, err = db.ExecContext(context.Background(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
 	require.ErrorContains(t, err, "table does not exist (mytable)")
