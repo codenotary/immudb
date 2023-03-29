@@ -34,7 +34,7 @@ var (
 			if !ok {
 				return nil, errType
 			}
-			return sql.NewNumber(int64(value.GetNumberValue())), nil
+			return sql.NewInteger(int64(value.GetNumberValue())), nil
 		case sql.BLOBType:
 			_, ok := value.GetKind().(*structpb.Value_StructValue)
 			if !ok {
@@ -51,13 +51,13 @@ var (
 		value := &structpb.Value{}
 		switch tv.Type() {
 		case sql.VarcharType:
-			value.Kind = &structpb.Value_StringValue{StringValue: tv.Value().(string)}
+			value.Kind = &structpb.Value_StringValue{StringValue: tv.RawValue().(string)}
 			return value, nil
 		case sql.IntegerType:
-			value.Kind = &structpb.Value_NumberValue{NumberValue: float64(tv.Value().(int64))}
+			value.Kind = &structpb.Value_NumberValue{NumberValue: float64(tv.RawValue().(int64))}
 			return value, nil
 		case sql.BLOBType:
-			value.Kind = &structpb.Value_StringValue{StringValue: string(tv.Value().([]byte))}
+			value.Kind = &structpb.Value_StringValue{StringValue: string(tv.RawValue().([]byte))}
 			return value, nil
 		}
 
@@ -160,7 +160,7 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	defer tx.Cancel()
 
 	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collectionName)
+	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		return NilDocumentID, err
 	}
@@ -220,7 +220,6 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		nil,
 		[]sql.SQLStmt{
 			sql.NewUpserIntoStmt(
-				d.CurrentDatabase(),
 				collectionName,
 				cols,
 				rows,
@@ -243,13 +242,8 @@ func (d *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, 
 	}
 	defer tx.Cancel()
 
-	database, err := tx.Catalog().GetDatabaseByName(d.CurrentDatabase())
-	if err != nil {
-		return nil, err
-	}
-
 	collectionMap := make(map[string][]*sql.Index)
-	for _, table := range database.GetTables() {
+	for _, table := range tx.Catalog().GetTables() {
 		_, ok := collectionMap[table.Name()]
 		if !ok {
 			collectionMap[table.Name()] = make([]*sql.Index, 0)
@@ -268,7 +262,7 @@ func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*s
 	defer tx.Cancel()
 
 	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collectionName)
+	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		return nil, fmt.Errorf("collection %s does not exist", collectionName)
 	}
@@ -308,7 +302,7 @@ func (d *Engine) generateExp(ctx context.Context, collection string, expressions
 			return nil, err
 		}
 
-		colSelector := sql.NewColSelector(d.CurrentDatabase(), collection, exp.Field, "")
+		colSelector := sql.NewColSelector(collection, exp.Field, "")
 		boolExps[i] = sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
 	}
 
@@ -330,7 +324,7 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	defer tx.Cancel()
 
 	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collection)
+	table, err := tx.Catalog().GetTableByName(collection)
 	if err != nil {
 		return nil, err
 	}
@@ -351,11 +345,10 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 	}
 
 	op := sql.NewSelectStmt(
-		d.CurrentDatabase(),
 		collectionName,
 		exp,
-		limit,
-		offset,
+		sql.NewInteger(int64(limit)),
+		sql.NewInteger(int64(offset)),
 	)
 
 	r, err := d.QueryPreparedStmt(ctx, nil, op, nil)
@@ -414,7 +407,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	}
 	defer tx.Cancel()
 
-	table, err := tx.Catalog().GetTableByName(d.CurrentDatabase(), collectionName)
+	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +418,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	for _, col := range table.PrimaryIndex().Cols() {
 		if col.Name() == defaultDocumentIDField {
 			rval := sql.NewBlob(documentID[:])
-			encVal, err := sql.EncodeAsKey(rval.Value(), col.Type(), col.MaxLen())
+			encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), col.Type(), col.MaxLen())
 			if err != nil {
 				return nil, err
 			}
@@ -440,7 +433,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	searchKey = sql.MapKey(
 		d.GetPrefix(),
 		sql.PIndexPrefix,
-		sql.EncodeID(table.Database().ID()),
+		sql.EncodeID(1),
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(table.PrimaryIndex().ID()),
 		pkEncVals,
@@ -475,7 +468,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 
 			val, n, err := sql.DecodeValue(v[voff:], sql.BLOBType)
 			if col.Name() == defaultDocumentBLOBField {
-				res.Value = val.Value().([]byte)
+				res.Value = val.RawValue().([]byte)
 				break
 			}
 			voff += n

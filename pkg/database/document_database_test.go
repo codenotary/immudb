@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/sql"
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
@@ -34,11 +33,8 @@ func makeDocumentDb(t *testing.T) *db {
 
 	db := d.(*db)
 
-	_, _, err = db.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbName}}, nil)
-	require.NoError(t, err)
-
-	err = db.documentEngine.SetCurrentDatabase(context.Background(), dbName)
-	require.NoError(t, err)
+	// _, _, err = db.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbName}}, nil)
+	// require.NoError(t, err)
 
 	return db
 }

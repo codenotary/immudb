@@ -231,9 +231,6 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 	dbi.txPool = txPool
 
 	if op.replica {
-		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-		dbi.documentEngine.SetMultiDBHandler(multidbHandler)
-
 		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 		return dbi, nil
 	}

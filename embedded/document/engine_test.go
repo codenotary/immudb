@@ -12,6 +12,7 @@ import (
 )
 
 func makeEngine(t *testing.T) *Engine {
+
 	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -26,15 +27,15 @@ func makeEngine(t *testing.T) *Engine {
 	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
-		&sql.CreateDatabaseStmt{DB: "db1"},
-	}, nil)
-	require.NoError(t, err)
+	// _, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
+	// 	&sql.CreateDatabaseStmt{DB: "db1"},
+	// }, nil)
+	// require.NoError(t, err)
 
-	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
-		&sql.UseDatabaseStmt{DB: "db1"},
-	}, nil)
-	require.NoError(t, err)
+	// _, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
+	// 	&sql.UseDatabaseStmt{DB: "db1"},
+	// }, nil)
+	// require.NoError(t, err)
 
 	return engine
 }
@@ -91,7 +92,7 @@ func TestCreateCollection(t *testing.T) {
 	catalog, err := engine.Catalog(context.Background(), nil)
 	require.NoError(t, err)
 
-	table, err := catalog.GetTableByName("db1", collectionName)
+	table, err := catalog.GetTableByName(collectionName)
 	require.NoError(t, err)
 
 	require.Equal(t, collectionName, table.Name())
