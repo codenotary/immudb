@@ -21,21 +21,21 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	ic "github.com/codenotary/immudb/pkg/client"
+	immudb "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 )
 
-func setupTest(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient) {
+func setupTest(t *testing.T) (*servertest.BufconnServer, immudb.ImmuClient) {
 	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	t.Cleanup(func() { bs.Stop() })
 
-	cliOpts := ic.DefaultOptions().WithDir(t.TempDir())
+	cliOpts := immudb.DefaultOptions().WithDir(t.TempDir())
 	client, err := bs.NewAuthenticatedClient(cliOpts)
 	require.NoError(t, err)
 
@@ -48,7 +48,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	_, client := setupTest(t)
 
 	// tx mode
-	tx, err := client.NewTx(context.Background())
+	tx, err := client.NewTx(context.Background(), immudb.UnsafeMVCC())
 	require.NoError(t, err)
 
 	err = tx.SQLExec(context.Background(), `CREATE TABLE table1(
@@ -148,7 +148,7 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 	err = txDefaultDB.SQLExec(context.Background(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
 
-	client2, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	client2, err := bs.NewAuthenticatedClient(immudb.DefaultOptions().WithDir(t.TempDir()))
 	require.NoError(t, err)
 
 	err = client2.CreateDatabase(context.Background(), &schema.DatabaseSettings{DatabaseName: "db2"})

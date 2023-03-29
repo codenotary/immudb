@@ -40,20 +40,12 @@ func (lr *limitRowReader) Tx() *SQLTx {
 	return lr.rowReader.Tx()
 }
 
-func (lr *limitRowReader) Database() string {
-	return lr.rowReader.Database()
-}
-
 func (lr *limitRowReader) TableAlias() string {
 	return lr.rowReader.TableAlias()
 }
 
 func (lr *limitRowReader) Parameters() map[string]interface{} {
 	return lr.rowReader.Parameters()
-}
-
-func (lr *limitRowReader) SetParameters(params map[string]interface{}) error {
-	return lr.rowReader.SetParameters(params)
 }
 
 func (lr *limitRowReader) OrderBy() []ColDescriptor {

@@ -59,14 +59,23 @@ func (c *tx) Rollback(ctx context.Context) error {
 	return errors.FromError(err)
 }
 
-func (c *immuClient) NewTx(ctx context.Context) (Tx, error) {
+func (c *immuClient) NewTx(ctx context.Context, opts ...TxOption) (Tx, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	r, err := c.ServiceClient.NewTx(ctx, &schema.NewTxRequest{
+	req := &schema.NewTxRequest{
 		Mode: schema.TxMode_ReadWrite,
-	})
+	}
+
+	for _, opt := range opts {
+		err := opt(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	r, err := c.ServiceClient.NewTx(ctx, req)
 	if err != nil {
 		return nil, errors.FromError(err)
 	}

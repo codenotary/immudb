@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package heartbeater
+package client
 
 import (
 	"context"
@@ -32,6 +32,7 @@ type heartBeater struct {
 	serviceClient schema.ImmuServiceClient
 	done          chan struct{}
 	t             *time.Ticker
+	errorHandler  ErrorHandler
 }
 
 type HeartBeater interface {
@@ -39,13 +40,14 @@ type HeartBeater interface {
 	Stop()
 }
 
-func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration) *heartBeater {
+func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, errhandler ErrorHandler) *heartBeater {
 	return &heartBeater{
 		sessionID:     sessionID,
 		logger:        logger.NewSimpleLogger("immuclient", stdos.Stdout),
 		serviceClient: sc,
 		done:          make(chan struct{}),
 		t:             time.NewTicker(keepAliveInterval),
+		errorHandler:  errhandler,
 	}
 }
 
@@ -61,6 +63,9 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 				err := hb.keepAliveRequest(ctx)
 				if err != nil {
 					hb.logger.Errorf("an error occurred on keep alive %s at %s: %v\n", hb.sessionID, t.String(), err)
+					if hb.errorHandler != nil {
+						hb.errorHandler(hb.sessionID, err)
+					}
 				}
 			}
 		}

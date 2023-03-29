@@ -19,7 +19,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 	"testing"
@@ -74,7 +73,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
@@ -98,7 +97,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 
 	c := NewVlogTruncator(db)
 
-	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 	for i := deletePointTx; i < 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
@@ -119,7 +118,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -127,7 +126,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	db := makeDbWith(t, "db", options)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
 			Value: make([]byte, fileSize),
@@ -136,16 +135,16 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	deletePointTx := uint64(5)
+	deletePointTx := uint64(15)
 
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
 	c := NewVlogTruncator(db)
 
-	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
-	for i := deletePointTx; i < 10; i++ {
+	for i := deletePointTx; i < 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -157,7 +156,8 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 		}
 	}
 
-	for i := deletePointTx - 1; i > 0; i-- {
+	// ensure earlier transactions are deleted
+	for i := uint64(5); i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -176,7 +176,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -212,7 +212,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 
 	c := NewVlogTruncator(db)
 
-	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 	for i := deletePointTx; i <= 30; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
@@ -226,7 +226,8 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 		}
 	}
 
-	for i := deletePointTx - 1; i > 0; i-- {
+	// ensure earlier transactions are deleted
+	for i := uint64(5); i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)
@@ -269,7 +270,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
@@ -290,7 +291,8 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 	}
 
 	c := NewVlogTruncator(db)
-	hdr, err := c.Plan(queryTime)
+
+	hdr, err := c.Plan(context.Background(), queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 }
@@ -298,7 +300,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 func setupCommonTest(t *testing.T) *db {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(1024)
 	options.storeOpts.VLogCacheSize = 0
 
@@ -354,7 +356,7 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 
 		c := NewVlogTruncator(db)
 
-		require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -419,14 +421,15 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
-	require.Equal(t, uint64(2), db.st.LastCommittedTxID())
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1")}}})
+	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
 
 	deletePointTx := uint64(1)
 
@@ -435,7 +438,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	c := NewVlogTruncator(db)
 
-	require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 	expectedCommitTx := uint64(3)
 	// ensure that a transaction is added for the sql catalog commit
@@ -497,7 +500,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 
 		c := NewVlogTruncator(db)
 
-		require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -529,7 +532,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 
 		c := NewVlogTruncator(db)
 
-		require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -547,78 +550,17 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 	})
 }
 
-func Test_vlogTruncator_isRetentionPeriodReached(t *testing.T) {
-	type args struct {
-		retentionPeriod time.Time
-		txTs            time.Time
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "retention period not reached",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now().Add(-24 * time.Hour)),
-				txTs:            TruncateToDay(time.Now()),
-			},
-			wantErr: true,
-		},
-		{
-			name: "retention period reached",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now().Add(-1 * time.Hour)),
-				txTs:            TruncateToDay(time.Now().Add(-2 * time.Hour)),
-			},
-			wantErr: false,
-		},
-		{
-			name: "tx period before retention",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now()),
-				txTs:            TruncateToDay(time.Now().Add(-48 * time.Hour)),
-			},
-			wantErr: false,
-		},
-		{
-			name: "tx period after retention",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now()),
-				txTs:            TruncateToDay(time.Now().Add(48 * time.Hour)),
-			},
-			wantErr: true,
-		},
-		{
-			name: "tx period equal to retention",
-			args: args{
-				retentionPeriod: TruncateToDay(time.Now().Add(48 * time.Hour)),
-				txTs:            TruncateToDay(time.Now().Add(48 * time.Hour)),
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &vlogTruncator{}
-			if err := v.isRetentionPeriodReached(tt.args.retentionPeriod, tt.args.txTs); (err != nil) != tt.wantErr {
-				t.Errorf("vlogTruncator.isRetentionPeriodReached() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	rootPath := t.TempDir()
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithFileSize(fileSize)
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
-	require.Equal(t, uint64(2), db.st.LastCommittedTxID())
+	require.Equal(t, uint64(0), db.st.LastCommittedTxID())
 
 	for i := 1; i <= 10; i++ {
 		kv := &schema.KeyValue{
@@ -658,34 +600,11 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 		c := NewVlogTruncator(db)
 
-		require.NoError(t, c.Truncate(context.Background(), hdr.ID))
+		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		close(doneTruncateCh)
 	}()
 
 	<-doneWritesCh
 	<-doneTruncateCh
-}
-
-func Test_TruncateToDay(t *testing.T) {
-	type args struct {
-		t time.Time
-	}
-	tests := []struct {
-		name string
-		args args
-		want time.Time
-	}{
-		{
-			args: args{t: time.Date(2020, 1, 1, 10, 20, 30, 40, time.UTC)},
-			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := TruncateToDay(tt.args.t); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("TruncateToDay() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

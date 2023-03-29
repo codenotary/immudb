@@ -24,23 +24,23 @@ import (
 )
 
 func TestValuesRowReader(t *testing.T) {
-	_, err := newValuesRowReader(context.Background(), nil, nil, "", "", nil)
+	_, err := newValuesRowReader(nil, nil, nil, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	cols := []ColDescriptor{
 		{Column: "col1"},
 	}
 
-	_, err = newValuesRowReader(context.Background(), nil, cols, "", "", nil)
+	_, err = newValuesRowReader(nil, nil, cols, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(context.Background(), nil, cols, "db1", "", nil)
+	_, err = newValuesRowReader(nil, nil, cols, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(context.Background(), nil, cols, "db1", "table1", nil)
+	_, err = newValuesRowReader(nil, nil, cols, "table1", nil)
 	require.NoError(t, err)
 
-	_, err = newValuesRowReader(context.Background(), nil, cols, "db1", "table1",
+	_, err = newValuesRowReader(nil, nil, cols, "table1",
 		[][]ValueExp{
 			{
 				&Bool{val: true},
@@ -49,10 +49,10 @@ func TestValuesRowReader(t *testing.T) {
 		})
 	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
 
-	_, err = newValuesRowReader(context.Background(), nil,
+	_, err = newValuesRowReader(nil, nil,
 		[]ColDescriptor{
 			{Table: "table1", Column: "col1"},
-		}, "", "", nil)
+		}, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	values := [][]ValueExp{
@@ -61,27 +61,14 @@ func TestValuesRowReader(t *testing.T) {
 		},
 	}
 
-	rowReader, err := newValuesRowReader(context.Background(), nil, cols, "db1", "table1", values)
-	require.NoError(t, err)
-
-	require.Equal(t, "db1", rowReader.Database())
-	require.Nil(t, rowReader.OrderBy())
-	require.Nil(t, rowReader.ScanSpecs())
-
-	duplicatedParams := map[string]interface{}{
-		"param1": 1,
-		"Param1": true,
-	}
-
-	err = rowReader.SetParameters(duplicatedParams)
-	require.ErrorIs(t, err, ErrDuplicatedParameters)
-
 	params := map[string]interface{}{
 		"param1": 1,
 	}
 
-	err = rowReader.SetParameters(params)
+	rowReader, err := newValuesRowReader(nil, params, cols, "table1", values)
 	require.NoError(t, err)
+	require.Nil(t, rowReader.OrderBy())
+	require.Nil(t, rowReader.ScanSpecs())
 
 	require.Equal(t, params, rowReader.Parameters())
 

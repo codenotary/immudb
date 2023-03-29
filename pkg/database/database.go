@@ -39,8 +39,6 @@ import (
 const MaxKeyResolutionLimit = 1
 const MaxKeyScanLimit = 1000
 
-const dbInstanceName = "dbinstance"
-
 var ErrKeyResolutionLimitReached = errors.New("key resolution limit reached. It may be due to cyclic references")
 var ErrResultSizeLimitExceeded = errors.New("result size limit exceeded")
 var ErrResultSizeLimitReached = errors.New("result size limit reached")
@@ -155,9 +153,6 @@ type db struct {
 	sqlEngine      *sql.Engine
 	documentEngine *document.Engine
 
-	engineInitCancel chan (struct{})
-	engineInit       sync.WaitGroup
-
 	mutex        *instrumentedRWMutex
 	closingMutex sync.Mutex
 
@@ -212,8 +207,15 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
+
+	sqlOpts := sql.DefaultOptions().
+		WithPrefix([]byte{SQLPrefix}).
+		WithMultiDBHandler(multidbHandler)
+
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
+		dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
 		return nil, err
 	}
 
@@ -236,36 +238,6 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return dbi, nil
 	}
 
-	dbi.engineInitCancel = make(chan struct{})
-	dbi.engineInit.Add(1)
-
-	go func() {
-		defer dbi.engineInit.Done()
-
-		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
-
-		err := dbi.initSQLEngine(context.Background())
-		if err != nil {
-			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
-			return
-		}
-
-		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-
-		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
-
-		dbi.Logger.Infof("Loading document Engine for database '%s' {replica = %v}...", dbName, op.replica)
-
-		err = dbi.initdocumentEngine(context.Background())
-		if err != nil {
-			dbi.Logger.Errorf("Unable to load document Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
-			return
-		}
-
-		dbi.documentEngine.SetMultiDBHandler(multidbHandler)
-
-	}()
-
 	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 
 	return dbi, nil
@@ -285,34 +257,6 @@ func (d *db) allocTx() (*store.Tx, error) {
 
 func (d *db) releaseTx(tx *store.Tx) {
 	d.txPool.Release(tx)
-}
-
-func (d *db) initSQLEngine(ctx context.Context) error {
-	err := d.sqlEngine.SetCurrentDatabase(ctx, dbInstanceName)
-	if err != nil && err != sql.ErrDatabaseDoesNotExist {
-		return err
-	}
-
-	if err == sql.ErrDatabaseDoesNotExist {
-		return fmt.Errorf("automatic SQL initialization of databases created with older versions is now disabled. " +
-			"Please reach out to the immudb maintainers at the Discord channel if you need any assistance")
-	}
-
-	return nil
-}
-
-func (d *db) initdocumentEngine(ctx context.Context) error {
-	err := d.documentEngine.SetCurrentDatabase(ctx, dbInstanceName)
-	if err != nil && err != sql.ErrDatabaseDoesNotExist {
-		return err
-	}
-
-	if err == sql.ErrDatabaseDoesNotExist {
-		return fmt.Errorf("automatic SQL initialization of databases created with older versions is now disabled. " +
-			"Please reach out to the immudb maintainers at the Discord channel if you need any assistance")
-	}
-
-	return nil
 }
 
 // NewDB Creates a new Database along with it's directories and files
@@ -349,19 +293,14 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	stOpts := op.GetStoreOptions().WithLogger(log)
-	// TODO: it's not currently possible to set:
-	// WithExternalCommitAllowance(op.syncReplication) due to sql init steps
+	stOpts := op.GetStoreOptions().
+		WithExternalCommitAllowance(op.syncReplication).
+		WithLogger(log)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
-
-	// TODO: may be moved to store opts once sql init steps are removed
-	defer func() {
-		dbi.st.SetExternalCommitAllowance(op.syncReplication)
-	}()
 
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
 	if err != nil {
@@ -369,9 +308,16 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	}
 	dbi.txPool = txPool
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	sqlOpts := sql.DefaultOptions().
+		WithPrefix([]byte{SQLPrefix}).
+		WithMultiDBHandler(multidbHandler)
+
+	dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
+
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
+		dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+		return nil, err
 	}
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
@@ -379,33 +325,10 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	if !op.replica {
-		// TODO: get rid off this sql initialization
-		_, _, err = dbi.sqlEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
-
-		err = dbi.sqlEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
-
-		_, _, err = dbi.documentEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
-
-		err = dbi.documentEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
-		}
-	}
-
-	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-	dbi.documentEngine.SetMultiDBHandler(multidbHandler)
+	dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 
 	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", dbName, op.replica)
+
 	return dbi, nil
 }
 
@@ -963,7 +886,7 @@ func (d *db) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.En
 
 	for _, key := range req.Keys {
 		e, err := d.get(EncodeKey(key), snap, true)
-		if err == nil || err == store.ErrKeyNotFound {
+		if err == nil || errors.Is(err, store.ErrKeyNotFound) {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
 			}
@@ -1060,7 +983,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				}
 
 				v, err := d.st.ReadValue(e)
-				if err == store.ErrExpiredEntry {
+				if errors.Is(err, store.ErrExpiredEntry) {
 					break
 				}
 				if err != nil {
@@ -1081,7 +1004,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				}
 
 				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0, skipIntegrityCheck)
-				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
+				if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrExpiredEntry) {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
 				}
@@ -1104,7 +1027,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
-					if err == store.ErrExpiredEntry {
+					if errors.Is(err, store.ErrExpiredEntry) {
 						break
 					}
 					if err != nil {
@@ -1139,7 +1062,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				if snap != nil {
 					entry, err = d.getAtTx(key, atTx, 1, snap, 0, skipIntegrityCheck)
-					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
+					if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrExpiredEntry) {
 						// ignore deleted ones (referenced key may have been deleted)
 						break
 					}
@@ -1171,7 +1094,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
-					if err == store.ErrExpiredEntry {
+					if errors.Is(err, store.ErrExpiredEntry) {
 						break
 					}
 					if err != nil {
@@ -1527,7 +1450,7 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 
 	for l := 1; l <= limit; l++ {
 		tx, err := txReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -1620,7 +1543,7 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 			Key:      req.Key,
 			Metadata: schema.KVMetadataToProto(entry.Metadata()),
 			Value:    val,
-			Expired:  err == store.ErrExpiredEntry,
+			Expired:  errors.Is(err, store.ErrExpiredEntry),
 			Revision: revision,
 		}
 
@@ -1662,13 +1585,6 @@ func (d *db) Close() (err error) {
 			d.Logger.Infof("%v: while closing database '%s'", err, d.name)
 		}
 	}()
-
-	if d.engineInitCancel != nil {
-		close(d.engineInitCancel)
-		d.engineInitCancel = nil
-	}
-
-	d.engineInit.Wait() // Wait for SQL Engine initialization to conclude
 
 	return d.st.Close()
 }

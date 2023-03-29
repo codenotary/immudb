@@ -19,6 +19,7 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -74,5 +75,5 @@ func TestCurrentState(t *testing.T) {
 	require.NoError(t, err)
 	rsp := string(msg)
 
-	require.Contains(t, rsp, "txID:")
+	require.True(t, strings.Contains(rsp, "is empty") || strings.Contains(rsp, "txID:"))
 }

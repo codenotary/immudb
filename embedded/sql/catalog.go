@@ -19,7 +19,10 @@ package sql
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
+	"math"
 	"strings"
 	"time"
 
@@ -27,21 +30,15 @@ import (
 )
 
 type Catalog struct {
-	dbsByID   map[uint32]*Database
-	dbsByName map[string]*Database
-}
+	prefix []byte
 
-type Database struct {
-	id           uint32
-	catalog      *Catalog
-	name         string
 	tables       []*Table
 	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
 }
 
 type Table struct {
-	db              *Database
+	catalog         *Catalog
 	id              uint32
 	name            string
 	cols            []*Column
@@ -73,101 +70,34 @@ type Column struct {
 	notNull       bool
 }
 
-func newCatalog() *Catalog {
+func newCatalog(prefix []byte) *Catalog {
 	return &Catalog{
-		dbsByID:   map[uint32]*Database{},
-		dbsByName: map[string]*Database{},
+		prefix:       prefix,
+		tables:       make([]*Table, 0),
+		tablesByID:   make(map[uint32]*Table),
+		tablesByName: make(map[string]*Table),
 	}
 }
 
-func (c *Catalog) ExistDatabase(db string) bool {
-	_, exists := c.dbsByName[db]
+func (catlg *Catalog) ExistTable(table string) bool {
+	_, exists := catlg.tablesByName[table]
 	return exists
 }
 
-func (c *Catalog) newDatabase(id uint32, name string) (*Database, error) {
-	exists := c.ExistDatabase(name)
-	if exists {
-		return nil, ErrDatabaseAlreadyExists
-	}
-
-	db := &Database{
-		id:           id,
-		catalog:      c,
-		name:         name,
-		tablesByID:   map[uint32]*Table{},
-		tablesByName: map[string]*Table{},
-	}
-
-	c.dbsByID[db.id] = db
-	c.dbsByName[db.name] = db
-
-	return db, nil
+func (catlg *Catalog) GetTables() []*Table {
+	return catlg.tables
 }
 
-func (c *Catalog) Databases() []*Database {
-	dbs := make([]*Database, len(c.dbsByID))
-
-	i := 0
-	for _, db := range c.dbsByID {
-		dbs[i] = db
-		i++
-	}
-
-	return dbs
-}
-
-func (c *Catalog) GetDatabaseByName(name string) (*Database, error) {
-	db, exists := c.dbsByName[name]
-	if !exists {
-		return nil, ErrDatabaseDoesNotExist
-	}
-	return db, nil
-}
-
-func (c *Catalog) GetDatabaseByID(id uint32) (*Database, error) {
-	db, exists := c.dbsByID[id]
-	if !exists {
-		return nil, ErrDatabaseDoesNotExist
-	}
-	return db, nil
-}
-
-func (db *Database) ID() uint32 {
-	return db.id
-}
-
-func (db *Database) Name() string {
-	return db.name
-}
-
-func (db *Database) ExistTable(table string) bool {
-	_, exists := db.tablesByName[table]
-	return exists
-}
-
-func (c *Catalog) GetTableByName(dbName, tableName string) (*Table, error) {
-	db, err := c.GetDatabaseByName(dbName)
-	if err != nil {
-		return nil, err
-	}
-	return db.GetTableByName(tableName)
-}
-
-func (db *Database) GetTables() []*Table {
-	return db.tables
-}
-
-func (db *Database) GetTableByName(name string) (*Table, error) {
-	table, exists := db.tablesByName[name]
+func (catlg *Catalog) GetTableByName(name string) (*Table, error) {
+	table, exists := catlg.tablesByName[name]
 	if !exists {
 		return nil, fmt.Errorf("%w (%s)", ErrTableDoesNotExist, name)
 	}
 	return table, nil
 }
 
-func (db *Database) GetTableByID(id uint32) (*Table, error) {
-	table, exists := db.tablesByID[id]
+func (catlg *Catalog) GetTableByID(id uint32) (*Table, error) {
+	table, exists := catlg.tablesByID[id]
 	if !exists {
 		return nil, ErrTableDoesNotExist
 	}
@@ -178,8 +108,8 @@ func (t *Table) ID() uint32 {
 	return t.id
 }
 
-func (t *Table) Database() *Database {
-	return t.db
+func (t *Table) Database() *Catalog {
+	return t.catalog
 }
 
 func (t *Table) Cols() []*Column {
@@ -311,21 +241,21 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
-func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
+func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	exists := db.ExistTable(name)
+	exists := catlg.ExistTable(name)
 	if exists {
 		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, name)
 	}
 
-	id := len(db.tables) + 1
+	id := len(catlg.tables) + 1
 
 	table = &Table{
 		id:             uint32(id),
-		db:             db,
+		catalog:        catlg,
 		name:           name,
 		cols:           make([]*Column, len(colsSpec)),
 		colsByID:       make(map[uint32]*Column),
@@ -365,9 +295,9 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		table.colsByName[col.colName] = col
 	}
 
-	db.tables = append(db.tables, table)
-	db.tablesByID[table.id] = table
-	db.tablesByName[table.name] = table
+	catlg.tables = append(catlg.tables, table)
+	catlg.tablesByID[table.id] = table
+	catlg.tablesByName[table.name] = table
 
 	return table, nil
 }
@@ -505,6 +435,8 @@ func (c *Column) MaxLen() int {
 		return 8
 	case TimestampType:
 		return 8
+	case Float64Type:
+		return 8
 	}
 	return c.maxLen
 }
@@ -523,6 +455,8 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 		return maxLen <= 1
 	case IntegerType:
 		return maxLen == 0 || maxLen == 8
+	case Float64Type:
+		return maxLen == 0 || maxLen == 8
 	case TimestampType:
 		return maxLen == 0 || maxLen == 8
 	}
@@ -530,54 +464,9 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 	return maxLen >= 0
 }
 
-func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	dbReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer dbReader.Close()
-
-	for {
-		mkey, vref, err := dbReader.Read()
-		if err == store.ErrNoMoreEntries {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		id, err := unmapDatabaseID(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		v, err := vref.Resolve()
-		if err != nil {
-			return err
-		}
-
-		db, err := c.newDatabase(id, string(v))
-		if err != nil {
-			return err
-		}
-
-		err = db.loadTables(sqlPrefix, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
+		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -589,23 +478,23 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	for {
 		mkey, vref, err := tableReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
+		dbID, tableID, err := unmapTableID(catlg.prefix, mkey)
 		if err != nil {
 			return err
 		}
 
-		if dbID != db.id {
+		if dbID != 1 {
 			return ErrCorruptedData
 		}
 
-		colSpecs, err := loadColSpecs(db.id, tableID, tx, sqlPrefix)
+		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.prefix)
 		if err != nil {
 			return err
 		}
@@ -615,7 +504,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		table, err := db.newTable(string(v), colSpecs)
+		table, err := catlg.newTable(string(v), colSpecs)
 		if err != nil {
 			return err
 		}
@@ -624,14 +513,14 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(sqlPrefix, tx)
+		err = table.loadIndexes(catlg.prefix, tx)
 		if err != nil {
 			return err
 		}
 
 		if table.autoIncrementPK {
-			encMaxPK, err := loadMaxPK(sqlPrefix, tx, table)
-			if err == store.ErrNoMoreEntries {
+			encMaxPK, err := loadMaxPK(catlg.prefix, tx, table)
+			if errors.Is(err, store.ErrNoMoreEntries) {
 				continue
 			}
 			if err != nil {
@@ -658,7 +547,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
 
@@ -694,7 +583,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 
 	for {
 		mkey, vref, err := colSpecReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -737,7 +626,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 }
 
 func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -752,7 +641,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	for {
 		mkey, vref, err := idxSpecReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -764,7 +653,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if table.id != tableID || table.db.id != dbID {
+		if table.id != tableID || dbID != 1 {
 			return ErrCorruptedData
 		}
 
@@ -816,19 +705,6 @@ func trimPrefix(prefix, mkey []byte, mappingPrefix []byte) ([]byte, error) {
 	return mkey[len(prefix)+len(mappingPrefix):], nil
 }
 
-func unmapDatabaseID(prefix, mkey []byte) (dbID uint32, err error) {
-	encID, err := trimPrefix(prefix, mkey, []byte(catalogDatabasePrefix))
-	if err != nil {
-		return 0, err
-	}
-
-	if len(encID) != EncIDLen {
-		return 0, ErrCorruptedData
-	}
-
-	return binary.BigEndian.Uint32(encID), nil
-}
-
 func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
 	encID, err := trimPrefix(prefix, mkey, []byte(catalogTablePrefix))
 	if err != nil {
@@ -869,6 +745,7 @@ func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQL
 
 func asType(t string) (SQLValueType, error) {
 	if t == IntegerType ||
+		t == Float64Type ||
 		t == BooleanType ||
 		t == VarcharType ||
 		t == BLOBType ||
@@ -921,7 +798,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 	indexID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	if dbID != index.table.db.id || tableID != index.table.id || indexID != index.id {
+	if dbID != 1 || tableID != index.table.id || indexID != index.id {
 		return nil, ErrCorruptedData
 	}
 
@@ -996,116 +873,18 @@ func EncodeID(id uint32) []byte {
 	return encID[:]
 }
 
-func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
-	switch colType {
-	case VarcharType:
-		{
-			strVal, ok := val.(string)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a string: %w", ErrInvalidValue,
-				)
-			}
-
-			if maxLen > 0 && len(strVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
-			}
-
-			// len(v) + v
-			encv := make([]byte, EncLenLen+len(strVal))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
-			copy(encv[EncLenLen:], []byte(strVal))
-
-			return encv, nil
-		}
-	case IntegerType:
-		{
-			intVal, ok := val.(int64)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not an integer: %w", ErrInvalidValue,
-				)
-			}
-
-			// map to unsigned integer space
-			// len(v) + v
-			var encv [EncLenLen + 8]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal))
-
-			return encv[:], nil
-		}
-	case BooleanType:
-		{
-			boolVal, ok := val.(bool)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a boolean: %w", ErrInvalidValue,
-				)
-			}
-
-			// len(v) + v
-			var encv [EncLenLen + 1]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(1))
-			if boolVal {
-				encv[EncLenLen] = 1
-			}
-
-			return encv[:], nil
-		}
-	case BLOBType:
-		{
-			var blobVal []byte
-
-			if val != nil {
-				v, ok := val.([]byte)
-				if !ok {
-					return nil, fmt.Errorf(
-						"value is not a blob: %w", ErrInvalidValue,
-					)
-				}
-				blobVal = v
-			}
-
-			if maxLen > 0 && len(blobVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
-			}
-
-			// len(v) + v
-			encv := make([]byte, EncLenLen+len(blobVal))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal)))
-			copy(encv[EncLenLen:], blobVal)
-
-			return encv[:], nil
-		}
-	case TimestampType:
-		{
-			timeVal, ok := val.(time.Time)
-			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a timestamp: %w", ErrInvalidValue,
-				)
-			}
-
-			// len(v) + v
-			var encv [EncLenLen + 8]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(TimeToInt64(timeVal)))
-
-			return encv[:], nil
-		}
-	}
-
-	return nil, ErrInvalidValue
-}
-
 const (
 	KeyValPrefixNull       byte = 0x20
 	KeyValPrefixNotNull    byte = 0x80
 	KeyValPrefixUpperBound byte = 0xFF
 )
 
-func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeValueAsKey(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+	return EncodeRawValueAsKey(val.RawValue(), colType, maxLen)
+}
+
+// EncodeRawValueAsKey encodes a value in a b-tree meaningful way.
+func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	if maxLen <= 0 {
 		return nil, ErrInvalidValue
 	}
@@ -1113,14 +892,19 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		return nil, ErrMaxKeyLengthExceeded
 	}
 
-	if val == nil {
+	convVal, err := mayApplyImplicitConversion(val, colType)
+	if err != nil {
+		return nil, err
+	}
+
+	if convVal == nil {
 		return []byte{KeyValPrefixNull}, nil
 	}
 
 	switch colType {
 	case VarcharType:
 		{
-			strVal, ok := val.(string)
+			strVal, ok := convVal.(string)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a string: %w", ErrInvalidValue,
@@ -1145,7 +929,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			intVal, ok := val.(int64)
+			intVal, ok := convVal.(int64)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not an integer: %w", ErrInvalidValue,
@@ -1167,7 +951,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			boolVal, ok := val.(bool)
+			boolVal, ok := convVal.(bool)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a boolean: %w", ErrInvalidValue,
@@ -1185,7 +969,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case BLOBType:
 		{
-			blobVal, ok := val.([]byte)
+			blobVal, ok := convVal.([]byte)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a blob: %w", ErrInvalidValue,
@@ -1210,7 +994,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			timeVal, ok := val.(time.Time)
+			timeVal, ok := convVal.(time.Time)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a timestamp: %w", ErrInvalidValue,
@@ -1226,7 +1010,172 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
+	case Float64Type:
+		{
+			floatVal, ok := convVal.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
 
+			// Apart form the sign bit, bit representation of float64
+			// can be sorted lexicographically
+			floatBits := math.Float64bits(floatVal)
+
+			var encv [9]byte
+			encv[0] = KeyValPrefixNotNull
+			binary.BigEndian.PutUint64(encv[1:], floatBits)
+
+			if encv[1]&0x80 != 0 {
+				// For negative numbers, the order must be reversed,
+				// we also negate the sign bit so that all negative
+				// numbers end up in the smaller half of values
+				for i := 1; i < 9; i++ {
+					encv[i] = ^encv[i]
+				}
+			} else {
+				// For positive numbers, the order is already correct,
+				// we only have to set the sign bit to 1 to ensure that
+				// positive numbers end in the larger half of values
+				encv[1] ^= 0x80
+			}
+
+			return encv[:], nil
+		}
+	}
+
+	return nil, ErrInvalidValue
+}
+
+func EncodeValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+	return EncodeRawValue(val.RawValue(), colType, maxLen)
+}
+
+// EncodeRawValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
+func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+	convVal, err := mayApplyImplicitConversion(val, colType)
+	if err != nil {
+		return nil, err
+	}
+
+	if convVal == nil {
+		return nil, ErrInvalidValue
+	}
+
+	switch colType {
+	case VarcharType:
+		{
+			strVal, ok := convVal.(string)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a string: %w", ErrInvalidValue,
+				)
+			}
+
+			if maxLen > 0 && len(strVal) > maxLen {
+				return nil, ErrMaxLengthExceeded
+			}
+
+			// len(v) + v
+			encv := make([]byte, EncLenLen+len(strVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
+			copy(encv[EncLenLen:], []byte(strVal))
+
+			return encv, nil
+		}
+	case IntegerType:
+		{
+			intVal, ok := convVal.(int64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not an integer: %w", ErrInvalidValue,
+				)
+			}
+
+			// map to unsigned integer space
+			// len(v) + v
+			var encv [EncLenLen + 8]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal))
+
+			return encv[:], nil
+		}
+	case BooleanType:
+		{
+			boolVal, ok := convVal.(bool)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a boolean: %w", ErrInvalidValue,
+				)
+			}
+
+			// len(v) + v
+			var encv [EncLenLen + 1]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(1))
+			if boolVal {
+				encv[EncLenLen] = 1
+			}
+
+			return encv[:], nil
+		}
+	case BLOBType:
+		{
+			var blobVal []byte
+
+			if val != nil {
+				v, ok := convVal.([]byte)
+				if !ok {
+					return nil, fmt.Errorf(
+						"value is not a blob: %w", ErrInvalidValue,
+					)
+				}
+				blobVal = v
+			}
+
+			if maxLen > 0 && len(blobVal) > maxLen {
+				return nil, ErrMaxLengthExceeded
+			}
+
+			// len(v) + v
+			encv := make([]byte, EncLenLen+len(blobVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal)))
+			copy(encv[EncLenLen:], blobVal)
+
+			return encv[:], nil
+		}
+	case TimestampType:
+		{
+			timeVal, ok := convVal.(time.Time)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a timestamp: %w", ErrInvalidValue,
+				)
+			}
+
+			// len(v) + v
+			var encv [EncLenLen + 8]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(TimeToInt64(timeVal)))
+
+			return encv[:], nil
+		}
+	case Float64Type:
+		{
+			floatVal, ok := convVal.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
+
+			var encv [EncLenLen + 8]byte
+			floatBits := math.Float64bits(floatVal)
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], floatBits)
+
+			return encv[:], nil
+		}
 	}
 
 	return nil, ErrInvalidValue
@@ -1261,7 +1210,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
-			return &Number{val: int64(v)}, voff, nil
+			return &Integer{val: int64(v)}, voff, nil
 		}
 	case BooleanType:
 		{
@@ -1292,7 +1241,202 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 			return &Timestamp{val: TimeFromInt64(int64(v))}, voff, nil
 		}
+	case Float64Type:
+		{
+			if vlen != 8 {
+				return nil, 0, ErrCorruptedData
+			}
+			v := binary.BigEndian.Uint64(b[voff:])
+			voff += vlen
+			return &Float64{val: math.Float64frombits(v)}, voff, nil
+		}
 	}
 
 	return nil, 0, ErrCorruptedData
+}
+
+// addSchemaToTx adds the schema to the ongoing transaction.
+func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
+
+	idxReaderSpec := store.KeyReaderSpec{
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer idxSpecReader.Close()
+
+	for {
+		mkey, vref, err := idxSpecReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		if t.id != tableID || dbID != 1 {
+			return ErrCorruptedData
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// addSchemaToTx adds the schema of the catalog to the given transaction.
+func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	tableReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer tableReader.Close()
+
+	for {
+		mkey, vref, err := tableReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		if dbID != 1 {
+			return ErrCorruptedData
+		}
+
+		// read col specs into tx
+		colSpecs, err := addColSpecsToTx(tx, sqlPrefix, tableID)
+		if err != nil {
+			return err
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+
+		table, err := catlg.newTable(string(v), colSpecs)
+		if err != nil {
+			return err
+		}
+
+		if tableID != table.id {
+			return ErrCorruptedData
+		}
+
+		// read index specs into tx
+		err = table.addIndexesToTx(sqlPrefix, tx)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// addColSpecsToTx adds the column specs of the given table to the given transaction.
+func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
+
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return nil, err
+	}
+	defer colSpecReader.Close()
+
+	specs = make([]*ColSpec, 0)
+
+	for {
+		mkey, vref, err := colSpecReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
+		if err != nil {
+			return nil, err
+		}
+
+		if mdbID != 1 || tableID != mtableID {
+			return nil, ErrCorruptedData
+		}
+
+		v, err := vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
+		if len(v) < 6 {
+			return nil, ErrCorruptedData
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return nil, err
+		}
+
+		spec := &ColSpec{
+			colName:       string(v[5:]),
+			colType:       colType,
+			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
+			autoIncrement: v[0]&autoIncrementFlag != 0,
+			notNull:       v[0]&nullableFlag != 0,
+		}
+
+		specs = append(specs, spec)
+
+		if int(colID) != len(specs) {
+			return nil, ErrCorruptedData
+		}
+	}
+
+	return
 }

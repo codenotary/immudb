@@ -1419,6 +1419,7 @@ message SQLValue {
     bool b = 4;
     bytes bs = 5;
     int64 ts = 6;
+    double f = 7;
   }
 }
 
@@ -1441,6 +1442,8 @@ message NewTxRequest {
   NullableUint64 snapshotMustIncludeTxID = 2;
   // An existing snapshot may be reused as long as it is not older than the specified timeframe
   NullableMilliseconds snapshotRenewalPeriod = 3;
+  // Indexing may not be up to date when doing MVCC
+  bool unsafeMVCC = 4;
 }
 
 message NewTxResponse {

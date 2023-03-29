@@ -157,7 +157,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 			return sql.ErrCorruptedData
 		}
 
-		pkEncVal, err := sql.EncodeAsKey(schema.RawValue(pkVal), pkType, int(pkLen))
+		pkEncVal, err := sql.EncodeRawValueAsKey(schema.RawValue(pkVal), pkType, int(pkLen))
 		if err != nil {
 			return err
 		}
@@ -330,23 +330,27 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	switch tv.Type() {
 	case sql.IntegerType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.Value().(int64)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.RawValue().(int64)}}
 		}
 	case sql.VarcharType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.Value().(string)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
 		}
 	case sql.BooleanType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.Value().(bool)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.RawValue().(bool)}}
 		}
 	case sql.BLOBType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.Value().([]byte)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.RawValue().([]byte)}}
 		}
 	case sql.TimestampType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.Value().(time.Time))}}
+			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.RawValue().(time.Time))}}
+		}
+	case sql.Float64Type:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_F{F: tv.RawValue().(float64)}}
 		}
 	}
 	return nil

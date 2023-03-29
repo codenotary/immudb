@@ -348,12 +348,7 @@ func (tx *Tx) BuildHashTree() error {
 		return err
 	}
 
-	root, err := tx.htree.Root()
-	if err != nil {
-		return err
-	}
-
-	tx.header.Eh = root
+	tx.header.Eh = tx.htree.Root()
 
 	return nil
 }
@@ -619,15 +614,10 @@ func (t *txDataReader) buildAndValidateHtree(htree *htree.HTree) error {
 		return err
 	}
 
-	root, err := htree.Root()
-	if err != nil {
-		return err
-	}
-
-	t.h.Eh = root
+	t.h.Eh = htree.Root()
 
 	if t.h.Alh() != alh {
-		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, t.h.ID)
+		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrCorruptedTxData, t.h.ID)
 	}
 
 	return nil

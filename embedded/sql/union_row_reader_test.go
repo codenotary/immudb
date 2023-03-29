@@ -27,9 +27,14 @@ func TestUnionRowReader(t *testing.T) {
 	_, err := newUnionRowReader(context.Background(), nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
+	params := map[string]interface{}{
+		"param1": 1,
+	}
+
 	dummyr := &dummyRowReader{
 		database:             "db1",
 		failReturningColumns: true,
+		params:               params,
 	}
 
 	_, err = newUnionRowReader(context.Background(), []RowReader{dummyr})
@@ -41,21 +46,11 @@ func TestUnionRowReader(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rowReader)
 
-	require.NotNil(t, rowReader.Database())
-	require.Equal(t, "db1", rowReader.Database())
-
 	require.Equal(t, "", rowReader.TableAlias())
 
 	require.Nil(t, rowReader.OrderBy())
 
 	require.Nil(t, rowReader.ScanSpecs())
-
-	params := map[string]interface{}{
-		"param1": 1,
-	}
-
-	err = rowReader.SetParameters(params)
-	require.NoError(t, err)
 
 	require.Equal(t, params, rowReader.Parameters())
 

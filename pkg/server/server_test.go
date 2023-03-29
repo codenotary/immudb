@@ -874,9 +874,6 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err = s.FlushIndex(ctx, &schema.FlushIndexRequest{CleanupPercentage: 1})
 	require.NoError(t, err)
 
-	_, err = s.CompactIndex(ctx, nil)
-	require.NoError(t, err)
-
 	_, err = s.CompactIndex(ctx, &emptypb.Empty{})
 	require.ErrorIs(t, err, tbtree.ErrCompactionThresholdNotReached)
 

@@ -49,26 +49,27 @@ var ErrIllegalArguments = embedded.ErrIllegalArguments
 var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
 var ErrAlreadyClosed = embedded.ErrAlreadyClosed
 var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linear and binary linking")
-var ErrorNoEntriesProvided = errors.New("no entries provided")
+var ErrNoEntriesProvided = errors.New("no entries provided")
 var ErrWriteOnlyTx = errors.New("write-only transaction")
 var ErrReadOnlyTx = errors.New("read-only transaction")
 var ErrTxReadConflict = errors.New("tx read conflict")
 var ErrTxAlreadyCommitted = errors.New("tx already committed")
-var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
+var ErrMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrNullKey = errors.New("null key")
-var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
-var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
+var ErrMaxKeyLenExceeded = errors.New("max key length exceeded")
+var ErrMaxValueLenExceeded = errors.New("max value length exceeded")
 var ErrPreconditionFailed = errors.New("precondition failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxActiveTransactionsLimitExceeded = errors.New("max active transactions limit exceeded")
 var ErrMVCCReadSetLimitExceeded = errors.New("MVCC read-set limit exceeded")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
-var ErrorPathIsNotADirectory = errors.New("path is not a directory")
-var ErrorCorruptedTxData = errors.New("tx data is corrupted")
-var ErrCorruptedTxDataMaxTxEntriesExceeded = fmt.Errorf("%w: maximum number of TX entries exceeded", ErrorCorruptedTxData)
-var ErrCorruptedTxDataUnknownHeaderVersion = fmt.Errorf("%w: unknown TX header version", ErrorCorruptedTxData)
-var ErrCorruptedTxDataMaxKeyLenExceeded = fmt.Errorf("%w: maximum key length exceeded", ErrorCorruptedTxData)
-var ErrCorruptedTxDataDuplicateKey = fmt.Errorf("%w: duplicate key in a single TX", ErrorCorruptedTxData)
+var ErrPathIsNotADirectory = errors.New("path is not a directory")
+var ErrCorruptedTxData = errors.New("tx data is corrupted")
+var ErrCorruptedTxDataMaxTxEntriesExceeded = fmt.Errorf("%w: maximum number of TX entries exceeded", ErrCorruptedTxData)
+var ErrTxEntryIndexOutOfRange = errors.New("tx entry index out of range")
+var ErrCorruptedTxDataUnknownHeaderVersion = fmt.Errorf("%w: unknown TX header version", ErrCorruptedTxData)
+var ErrCorruptedTxDataMaxKeyLenExceeded = fmt.Errorf("%w: maximum key length exceeded", ErrCorruptedTxData)
+var ErrCorruptedTxDataDuplicateKey = fmt.Errorf("%w: duplicate key in a single TX", ErrCorruptedTxData)
 var ErrCorruptedData = errors.New("data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrCorruptedIndex = errors.New("corrupted index")
@@ -90,7 +91,7 @@ var ErrInvalidPrecondition = errors.New("invalid precondition")
 var ErrInvalidPreconditionTooMany = fmt.Errorf("%w: too many preconditions", ErrInvalidPrecondition)
 var ErrInvalidPreconditionNull = fmt.Errorf("%w: null", ErrInvalidPrecondition)
 var ErrInvalidPreconditionNullKey = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrNullKey)
-var ErrInvalidPreconditionMaxKeyLenExceeded = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrorMaxKeyLenExceeded)
+var ErrInvalidPreconditionMaxKeyLenExceeded = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrMaxKeyLenExceeded)
 var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidPrecondition)
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
@@ -159,6 +160,8 @@ type ImmuStore struct {
 
 	precommittedTxLogSize int64
 
+	mandatoryMVCCUpToTxID uint64
+
 	commitStateRWMutex sync.RWMutex
 
 	readOnly              bool
@@ -225,7 +228,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 			return nil, err
 		}
 	} else if !finfo.IsDir() {
-		return nil, ErrorPathIsNotADirectory
+		return nil, ErrPathIsNotADirectory
 	}
 
 	metadata := appendable.NewMetadata(nil)
@@ -357,7 +360,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		}
 
 		if txLogFileSize < committedTxLogSize {
-			return nil, fmt.Errorf("corrupted transaction log: size is too small: %w", ErrorCorruptedTxData)
+			return nil, fmt.Errorf("corrupted transaction log: size is too small: %w", ErrCorruptedTxData)
 		}
 	}
 
@@ -1139,6 +1142,10 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		return nil, fmt.Errorf("%w: transaction does not validate against header", err)
 	}
 
+	if len(otx.entries) == 0 && otx.metadata.IsEmpty() {
+		return nil, ErrNoEntriesProvided
+	}
+
 	err = s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
@@ -1268,8 +1275,16 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	}
 
 	if otx.hasPreconditions() {
-		// Preconditions must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(ctx, currPrecomittedTxID)
+		var waitForIndexingUpto uint64
+
+		if otx.unsafeMVCC && s.mandatoryMVCCUpToTxID > 0 {
+			waitForIndexingUpto = s.mandatoryMVCCUpToTxID
+		} else {
+			// Preconditions must be executed with up-to-date tree
+			waitForIndexingUpto = currPrecomittedTxID
+		}
+
+		err = s.WaitForIndexingUpto(ctx, waitForIndexingUpto)
 		if err != nil {
 			return nil, err
 		}
@@ -1287,6 +1302,10 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	err = s.performPrecommit(tx, ts, blTxID)
 	if err != nil {
 		return nil, err
+	}
+
+	if otx.requireMVCCOnFollowingTxs {
+		s.mandatoryMVCCUpToTxID = tx.header.ID
 	}
 
 	return tx.Header(), err
@@ -1721,6 +1740,10 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 		return nil, err
 	}
 
+	if len(otx.entries) == 0 {
+		return nil, ErrNoEntriesProvided
+	}
+
 	err = s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
@@ -1831,7 +1854,7 @@ func (s *ImmuStore) DualProof(sourceTxHdr, targetTxHdr *TxHeader) (proof *DualPr
 	}
 
 	if sourceTxHdr.BlTxID > targetTxHdr.BlTxID {
-		return nil, fmt.Errorf("%w: binary linking mismatch at tx %d", ErrorCorruptedTxData, sourceTxHdr.ID)
+		return nil, fmt.Errorf("%w: binary linking mismatch at tx %d", ErrCorruptedTxData, sourceTxHdr.ID)
 	}
 
 	if sourceTxHdr.BlTxID > 0 {
@@ -2459,7 +2482,7 @@ func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, skipIntegrityChe
 
 	err = tx.readFrom(r, skipIntegrityCheck)
 	if err == io.EOF {
-		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrorCorruptedTxData, txID)
+		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrCorruptedTxData, txID)
 	}
 
 	return err
@@ -2654,11 +2677,8 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 }
 
 func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
-	if len(entries) == 0 {
-		return ErrorNoEntriesProvided
-	}
 	if len(entries) > s.maxTxEntries {
-		return ErrorMaxTxEntriesLimitExceeded
+		return ErrMaxTxEntriesLimitExceeded
 	}
 
 	m := make(map[string]struct{}, len(entries))
@@ -2669,10 +2689,10 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 		}
 
 		if len(kv.Key) > s.maxKeyLen {
-			return ErrorMaxKeyLenExceeded
+			return ErrMaxKeyLenExceeded
 		}
 		if len(kv.Value) > s.maxValueLen {
-			return ErrorMaxValueLenExceeded
+			return ErrMaxValueLenExceeded
 		}
 
 		b64k := base64.StdEncoding.EncodeToString(kv.Key)
@@ -2681,6 +2701,7 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 		}
 		m[b64k] = struct{}{}
 	}
+
 	return nil
 }
 
@@ -2937,7 +2958,7 @@ func (s *ImmuStore) readTxOffsetAt(txID uint64, allowPrecommitted bool, index in
 	}
 
 	if hdr.NEntries < index {
-		return nil, ErrCorruptedTxDataMaxTxEntriesExceeded
+		return nil, ErrTxEntryIndexOutOfRange
 	}
 
 	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
@@ -2984,7 +3005,6 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 
 	s.logger.Infof("running truncation up to transaction '%d'", minTxID)
 
-	var err error
 	// tombstones maintain the minimum offset for each value log file that can be safely deleted.
 	tombstones := make(map[byte]int64)
 
@@ -3028,8 +3048,9 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	{
 		var i uint64 = minTxID
 		for i > 0 && len(tombstones) != s.MaxIOConcurrency() {
-			err = back(i)
-			if err != nil { // if there is an error reading a transaction, stop the traversal and return the error.
+			err := back(i)
+			if err != nil && !errors.Is(err, ErrTxEntryIndexOutOfRange) /* tx has entries*/ {
+				// if there is an error reading a transaction, stop the traversal and return the error.
 				s.logger.Errorf("failed to fetch transaction %d {traversal=back, err = %v}", i, err)
 				return err
 			}
@@ -3046,8 +3067,8 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 		// TODO: add more integration tests
 		// Iterate over all future transactions to check if any offset lies before past transaction(s) offset.
 		for j := minTxID; j <= maxTxID; j++ {
-			err = front(j)
-			if err != nil {
+			err := front(j)
+			if err != nil && !errors.Is(err, ErrTxEntryIndexOutOfRange) /* tx has entries*/ {
 				s.logger.Errorf("failed to fetch transaction %d {traversal=front, err = %v}", j, err)
 				return err
 			}

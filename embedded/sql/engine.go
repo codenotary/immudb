@@ -18,12 +18,9 @@ package sql
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
-	"sync"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -32,9 +29,9 @@ var ErrNoSupported = errors.New("not supported")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrParsingError = errors.New("parsing error")
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
+var ErrUnspecifiedMultiDBHandler = fmt.Errorf("%w: unspecified multidbHanlder", store.ErrIllegalState)
 var ErrDatabaseDoesNotExist = errors.New("database does not exist")
 var ErrDatabaseAlreadyExists = errors.New("database already exists")
-var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
@@ -68,6 +65,7 @@ var ErrUnsupportedJoinType = errors.New("unsupported join type")
 var ErrInvalidCondition = errors.New("invalid condition")
 var ErrHavingClauseRequiresGroupClause = errors.New("having clause requires group clause")
 var ErrNotComparableValues = errors.New("values are not comparable")
+var ErrNumericTypeExpected = errors.New("numeric type expected")
 var ErrUnexpected = errors.New("unexpected error")
 var ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
 var ErrMaxLengthExceeded = errors.New("max length exceeded")
@@ -85,7 +83,7 @@ var ErrLimitedIndexCreation = errors.New("index creation is only supported on em
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
-var ErrUnsupportedCast = errors.New("unsupported cast")
+var ErrUnsupportedCast = fmt.Errorf("%w: unsupported cast", ErrInvalidValue)
 var ErrColumnMismatchInUnionStmt = errors.New("column mismatch in union statement")
 
 var maxKeyLen = 256
@@ -102,11 +100,7 @@ type Engine struct {
 	distinctLimit int
 	autocommit    bool
 
-	currentDatabase string
-
 	multidbHandler MultiDBHandler
-
-	mutex sync.RWMutex
 }
 
 type MultiDBHandler interface {
@@ -127,10 +121,11 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	e := &Engine{
-		store:         store,
-		prefix:        make([]byte, len(opts.prefix)),
-		distinctLimit: opts.distinctLimit,
-		autocommit:    opts.autocommit,
+		store:          store,
+		prefix:         make([]byte, len(opts.prefix)),
+		distinctLimit:  opts.distinctLimit,
+		autocommit:     opts.autocommit,
+		multidbHandler: opts.multidbHandler,
 	}
 
 	copy(e.prefix, opts.prefix)
@@ -139,40 +134,6 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	yyErrorVerbose = true
 
 	return e, nil
-}
-
-func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	e.multidbHandler = handler
-}
-
-func (e *Engine) SetCurrentDatabase(ctx context.Context, dbName string) error {
-	tx, err := e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
-	if err != nil {
-		return err
-	}
-	defer tx.Cancel()
-
-	db, exists := tx.catalog.dbsByName[dbName]
-	if !exists {
-		return ErrDatabaseDoesNotExist
-	}
-
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	e.currentDatabase = db.name
-
-	return nil
-}
-
-func (e *Engine) CurrentDatabase() string {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	return e.currentDatabase
 }
 
 func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
@@ -192,32 +153,19 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		Mode:                    mode,
 		SnapshotMustIncludeTxID: opts.SnapshotMustIncludeTxID,
 		SnapshotRenewalPeriod:   opts.SnapshotRenewalPeriod,
+		UnsafeMVCC:              opts.UnsafeMVCC,
 	}
-
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
 
 	tx, err := e.store.NewTx(ctx, txOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	catalog := newCatalog()
+	catalog := newCatalog(e.prefix)
 
-	err = catalog.load(e.prefix, tx)
+	err = catalog.load(tx)
 	if err != nil {
 		return nil, err
-	}
-
-	var currentDB *Database
-
-	if e.currentDatabase != "" {
-		db, exists := catalog.dbsByName[e.currentDatabase]
-		if !exists {
-			return nil, ErrDatabaseDoesNotExist
-		}
-
-		currentDB = db
 	}
 
 	return &SQLTx{
@@ -225,7 +173,6 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		opts:             opts,
 		tx:               tx,
 		catalog:          catalog,
-		currentDB:        currentDB,
 		lastInsertedPKs:  make(map[string]int64),
 		firstInsertedPKs: make(map[string]int64),
 	}, nil
@@ -490,10 +437,8 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 
 // CopyCatalogToTx copies the current sql catalog to the ongoing transaction.
 func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
+	catalog := newCatalog(e.prefix)
 
-	catalog := newCatalog()
 	err := catalog.addSchemaToTx(e.prefix, tx)
 	if err != nil {
 		return err
@@ -508,247 +453,4 @@ func (e *Engine) GetStore() *store.ImmuStore {
 
 func (e *Engine) GetPrefix() []byte {
 	return e.prefix
-}
-
-// addSchemaToTx adds the schema to the ongoing transaction.
-func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(t.db.id), EncodeID(t.id))
-
-	idxReaderSpec := store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer idxSpecReader.Close()
-
-	for {
-		mkey, vref, err := idxSpecReader.Read()
-		if err == store.ErrNoMoreEntries {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		if t.id != tableID || t.db.id != dbID {
-			return ErrCorruptedData
-		}
-
-		v, err := vref.Resolve()
-		if err == io.EOF {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// addSchemaToTx adds the schema of the catalog to the given transaction.
-func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(d.id)),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	tableReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer tableReader.Close()
-
-	for {
-		mkey, vref, err := tableReader.Read()
-		if err == store.ErrNoMoreEntries {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		if dbID != d.id {
-			return ErrCorruptedData
-		}
-
-		// read col specs into tx
-		colSpecs, err := addColSpecsToTx(d.id, tableID, tx, sqlPrefix)
-		if err != nil {
-			return err
-		}
-
-		v, err := vref.Resolve()
-		if err == io.EOF {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return err
-		}
-
-		table, err := d.newTable(string(v), colSpecs)
-		if err != nil {
-			return err
-		}
-
-		if tableID != table.id {
-			return ErrCorruptedData
-		}
-
-		// read index specs into tx
-		err = table.addIndexesToTx(sqlPrefix, tx)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
-
-// addSchemaToTx adds the schema of the catalog to the given transaction.
-func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	dbReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer dbReader.Close()
-
-	for {
-		mkey, vref, err := dbReader.Read()
-		if err == store.ErrNoMoreEntries {
-			break
-		}
-
-		if err != nil {
-			return err
-		}
-
-		id, err := unmapDatabaseID(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		v, err := vref.Resolve()
-		if err == io.EOF {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return err
-		}
-
-		db, err := c.newDatabase(id, string(v))
-		if err != nil {
-			return err
-		}
-
-		// read tables and indexes into tx
-		err = db.addTablesToTx(sqlPrefix, tx)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
-
-// addColSpecsToTx adds the column specs of the given table to the given transaction.
-func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
-
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
-	}
-
-	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return nil, err
-	}
-	defer colSpecReader.Close()
-
-	specs = make([]*ColSpec, 0)
-
-	for {
-		mkey, vref, err := colSpecReader.Read()
-		if err == store.ErrNoMoreEntries {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
-		if err != nil {
-			return nil, err
-		}
-
-		if dbID != mdbID || tableID != mtableID {
-			return nil, ErrCorruptedData
-		}
-
-		v, err := vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
-		if len(v) < 6 {
-			return nil, ErrCorruptedData
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return nil, err
-		}
-
-		spec := &ColSpec{
-			colName:       string(v[5:]),
-			colType:       colType,
-			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
-			autoIncrement: v[0]&autoIncrementFlag != 0,
-			notNull:       v[0]&nullableFlag != 0,
-		}
-
-		specs = append(specs, spec)
-
-		if int(colID) != len(specs) {
-			return nil, ErrCorruptedData
-		}
-	}
-
-	return
 }

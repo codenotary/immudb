@@ -112,7 +112,7 @@ func TestDefaultDbCreation(t *testing.T) {
 
 	n, err := db.Size()
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), n)
+	require.Zero(t, n)
 
 	_, err = db.Count(context.Background(), nil)
 	require.Error(t, err)
@@ -228,12 +228,12 @@ func TestDbSetGet(t *testing.T) {
 	for i, kv := range kvs[:1] {
 		txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+3), txhdr.Id)
+		require.Equal(t, uint64(i+1), txhdr.Id)
 
 		if i == 0 {
 			alh := schema.TxHeaderFromProto(txhdr).Alh()
 			copy(trustedAlh[:], alh[:])
-			trustedIndex = 3
+			trustedIndex = 1
 		}
 
 		keyReq := &schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id}
@@ -385,13 +385,13 @@ func TestCurrentState(t *testing.T) {
 	for ind, val := range kvs {
 		txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+3), txhdr.Id)
+		require.Equal(t, uint64(ind+1), txhdr.Id)
 
 		time.Sleep(1 * time.Second)
 
 		state, err := db.CurrentState()
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+3), state.TxId)
+		require.Equal(t, uint64(ind+1), state.TxId)
 	}
 }
 
@@ -413,7 +413,7 @@ func TestSafeSetGet(t *testing.T) {
 				},
 			},
 		},
-		ProveSinceTx: 3,
+		ProveSinceTx: 1,
 	})
 	require.Equal(t, ErrIllegalState, err)
 
@@ -465,7 +465,7 @@ func TestSafeSetGet(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+3), vit.Entry.Tx)
+		require.Equal(t, uint64(ind+1), vit.Entry.Tx)
 	}
 }
 
@@ -489,7 +489,7 @@ func TestSetGetAll(t *testing.T) {
 
 	txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: kvs})
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), txhdr.Id)
+	require.Equal(t, uint64(1), txhdr.Id)
 
 	itList, err := db.GetAll(context.Background(), &schema.KeyListRequest{
 		Keys: [][]byte{
@@ -2168,18 +2168,16 @@ db := makeDb(t)
 */
 
 func Test_database_truncate(t *testing.T) {
-	rootPath := t.TempDir()
-
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
-	options.storeOpts.MaxIOConcurrency = 1
-	options.storeOpts.VLogCacheSize = 0
+	options := DefaultOption().WithDBRootPath(t.TempDir())
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).
+		WithFileSize(8).
+		WithVLogCacheSize(0)
 
 	db := makeDbWith(t, "db", options)
 
 	var queryTime time.Time
 
-	for i := 2; i <= 20; i++ {
+	for i := 0; i <= 20; i++ {
 		kv := &schema.KeyValue{
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
 			Value: []byte(fmt.Sprintf("val_%d", i)),
@@ -2194,11 +2192,11 @@ func Test_database_truncate(t *testing.T) {
 
 	c := NewVlogTruncator(db)
 
-	hdr, err := c.Plan(queryTime)
+	hdr, err := c.Plan(context.Background(), queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-	err = c.Truncate(context.Background(), hdr.ID)
+	err = c.TruncateUptoTx(context.Background(), hdr.ID)
 	require.NoError(t, err)
 
 	for i := hdr.ID; i <= 20; i++ {
@@ -2213,7 +2211,8 @@ func Test_database_truncate(t *testing.T) {
 		}
 	}
 
-	for i := hdr.ID - 1; i > 0; i-- {
+	// ensure that the earlier txs are truncated
+	for i := uint64(5); i > 0; i-- {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)

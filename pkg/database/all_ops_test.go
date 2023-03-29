@@ -153,7 +153,7 @@ func TestSetBatch(t *testing.T) {
 
 		txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: kvList})
 		require.NoError(t, err)
-		require.Equal(t, uint64(b+3), txhdr.Id)
+		require.Equal(t, uint64(b+1), txhdr.Id)
 
 		for i := 0; i < batchSize; i++ {
 			key := []byte(strconv.FormatUint(uint64(i), 10))
@@ -161,7 +161,7 @@ func TestSetBatch(t *testing.T) {
 			entry, err := db.Get(context.Background(), &schema.KeyRequest{Key: key, SinceTx: txhdr.Id})
 			require.NoError(t, err)
 			require.Equal(t, value, entry.Value)
-			require.Equal(t, uint64(b+3), entry.Tx)
+			require.Equal(t, uint64(b+1), entry.Tx)
 
 			vitem, err := db.VerifiableGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: key}}) //no prev root
 			require.NoError(t, err)
@@ -272,7 +272,7 @@ func TestExecAllOps(t *testing.T) {
 
 		idx, err := db.ExecAll(context.Background(), &schema.ExecAllRequest{Operations: atomicOps})
 		require.NoError(t, err)
-		require.Equal(t, uint64(b+3), idx.Id)
+		require.Equal(t, uint64(b+1), idx.Id)
 	}
 
 	zScanOpt := &schema.ZScanRequest{
@@ -332,7 +332,7 @@ func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 
 	index, err := db.ExecAll(context.Background(), aOps)
 	require.NoError(t, err)
-	require.Equal(t, uint64(4), index.Id)
+	require.Equal(t, uint64(2), index.Id)
 
 	list, err := db.ZScan(context.Background(), &schema.ZScanRequest{
 		Set:     []byte(`mySet`),
@@ -639,7 +639,7 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 
 		zList, err := db.ZScan(context.Background(), &schema.ZScanRequest{
 			Set:     []byte(set),
-			SinceTx: 11,
+			SinceTx: 10,
 		})
 		require.NoError(t, err)
 		require.Len(t, zList.Entries, 10)

@@ -28,6 +28,8 @@ type Options struct {
 	prefix        []byte
 	distinctLimit int
 	autocommit    bool
+
+	multidbHandler MultiDBHandler
 }
 
 func DefaultOptions() *Options {
@@ -60,5 +62,10 @@ func (opts *Options) WithDistinctLimit(distinctLimit int) *Options {
 
 func (opts *Options) WithAutocommit(autocommit bool) *Options {
 	opts.autocommit = autocommit
+	return opts
+}
+
+func (opts *Options) WithMultiDBHandler(multidbHandler MultiDBHandler) *Options {
+	opts.multidbHandler = multidbHandler
 	return opts
 }

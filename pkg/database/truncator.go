@@ -27,23 +27,22 @@ import (
 )
 
 var (
-	// ErrNoTxBeforeTime is returned when retention period is not reached.
-	ErrRetentionPeriodNotReached = errors.New("retention period has not been reached")
 	ErrTruncatorAlreadyRunning   = errors.New("truncator already running")
+	ErrRetentionPeriodNotReached = errors.New("retention period has not been reached")
 )
 
 // Truncator provides truncation against an underlying storage
 // of appendable data.
 type Truncator interface {
-	// Plan returns the transaction upto which the log can be truncated.
+	// Plan returns the latest transaction upto which the log can be truncated.
 	// When resulting transaction before specified time does not exists
 	//  * No transaction header is returned.
 	//  * Returns nil TxHeader, and an error.
-	Plan(time.Time) (*store.TxHeader, error)
+	Plan(ctx context.Context, truncationUntil time.Time) (*store.TxHeader, error)
 
-	// Truncate runs truncation against the relevant appendable logs. Must
+	// TruncateUptoTx runs truncation against the relevant appendable logs. Must
 	// be called after result of Plan().
-	Truncate(context.Context, uint64) error
+	TruncateUptoTx(ctx context.Context, txID uint64) error
 }
 
 func NewVlogTruncator(d DB) Truncator {
@@ -61,32 +60,31 @@ type vlogTruncator struct {
 
 // Plan returns the transaction upto which the value log can be truncated.
 // When resulting transaction before specified time does not exists
-//  * No transaction header is returned.
-//  * Returns nil TxHeader, and an error.
-// ts time is truncated to the start of the day.
-func (v *vlogTruncator) Plan(ts time.Time) (*store.TxHeader, error) {
-	hdr, err := v.db.st.FirstTxSince(ts)
+//   - No transaction header is returned.
+//   - Returns nil TxHeader, and an error.
+func (v *vlogTruncator) Plan(ctx context.Context, truncationUntil time.Time) (*store.TxHeader, error) {
+	hdr, err := v.db.st.LastTxUntil(truncationUntil)
+	if errors.Is(err, store.ErrTxNotFound) {
+		return nil, ErrRetentionPeriodNotReached
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	// if the transaction is on or before the retention period, then we can truncate upto this
-	// transaction otherwise, we cannot truncate since the retention period has not been reached
-	// and truncation would otherwise add an extra transaction to the log for sql catalogue.
-	err = v.isRetentionPeriodReached(ts, time.Unix(hdr.Ts, 0))
-	if err != nil {
-		return nil, err
-	}
-	return hdr, nil
-}
+	// look for the newst transaction with entries
+	for err == nil {
+		if hdr.NEntries > 0 {
+			break
+		}
 
-// isRetentionPeriodReached returns an error if the retention period has not been reached.
-func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTimestamp time.Time) error {
-	txTime := TruncateToDay(txTimestamp)
-	if txTime.Unix() <= retentionPeriod.Unix() {
-		return nil
+		if ctx.Err() != nil {
+			return nil, err
+		}
+
+		hdr, err = v.db.st.ReadTxHeader(hdr.ID-1, false, false)
 	}
-	return ErrRetentionPeriodNotReached
+
+	return hdr, err
 }
 
 // commitCatalog commits the current sql catalogue as a new transaction.
@@ -111,13 +109,15 @@ func (v *vlogTruncator) commitCatalog(ctx context.Context, txID uint64) (*store.
 	return tx.Commit(ctx)
 }
 
-// Truncate runs truncation against the relevant appendable logs upto the specified transaction offset.
-func (v *vlogTruncator) Truncate(ctx context.Context, txID uint64) error {
+// TruncateUpTo runs truncation against the relevant appendable logs upto the specified transaction offset.
+func (v *vlogTruncator) TruncateUptoTx(ctx context.Context, txID uint64) error {
 	defer func(t time.Time) {
 		v.metrics.ran.Inc()
 		v.metrics.duration.Observe(time.Since(t).Seconds())
 	}(time.Now())
+
 	v.db.Logger.Infof("copying sql catalog before truncation for database '%s' at tx %d", v.db.name, txID)
+
 	// copy sql catalogue
 	sqlCommitHdr, err := v.commitCatalog(ctx, txID)
 	if err != nil {
@@ -162,9 +162,4 @@ func newTruncatorMetrics(db string) *truncatorMetrics {
 	).WithLabelValues(db)
 
 	return m
-}
-
-// TruncateToDay truncates the time to the beginning of the day.
-func TruncateToDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

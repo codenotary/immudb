@@ -75,3 +75,8 @@ func (c *immuClient) WithOptions(options *Options) *immuClient {
 	c.Options = options
 	return c
 }
+
+func (c *immuClient) WithErrorHandler(handler ErrorHandler) *immuClient {
+	c.errorHandler = handler
+	return c
+}

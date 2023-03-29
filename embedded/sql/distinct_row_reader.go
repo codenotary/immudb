@@ -49,20 +49,12 @@ func (dr *distinctRowReader) Tx() *SQLTx {
 	return dr.rowReader.Tx()
 }
 
-func (dr *distinctRowReader) Database() string {
-	return dr.rowReader.Database()
-}
-
 func (dr *distinctRowReader) TableAlias() string {
 	return dr.rowReader.TableAlias()
 }
 
 func (dr *distinctRowReader) Parameters() map[string]interface{} {
 	return dr.rowReader.Parameters()
-}
-
-func (dr *distinctRowReader) SetParameters(params map[string]interface{}) error {
-	return dr.rowReader.SetParameters(params)
 }
 
 func (dr *distinctRowReader) OrderBy() []ColDescriptor {

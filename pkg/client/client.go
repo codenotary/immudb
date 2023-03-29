@@ -43,7 +43,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
-	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/database"
@@ -507,7 +506,7 @@ type ImmuClient interface {
 	// NewTx starts a new transaction.
 	//
 	// Note: Currently such transaction can only be used for SQL operations.
-	NewTx(ctx context.Context) (Tx, error)
+	NewTx(ctx context.Context, opts ...TxOption) (Tx, error)
 
 	// TruncateDatabase truncates a database.
 	// This truncates the locally stored value log files used by the database.
@@ -515,6 +514,8 @@ type ImmuClient interface {
 	// This call requires SysAdmin permission level or admin permission to the database.
 	TruncateDatabase(ctx context.Context, db string, retentionPeriod time.Duration) error
 }
+
+type ErrorHandler func(sessionID string, err error)
 
 const DefaultDB = "defaultdb"
 
@@ -529,7 +530,8 @@ type immuClient struct {
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
-	HeartBeater          heartbeater.HeartBeater
+	HeartBeater          HeartBeater
+	errorHandler         ErrorHandler
 }
 
 // Ensure immuClient implements the ImmuClient interface

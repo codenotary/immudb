@@ -927,9 +927,6 @@ func TestImmuClient_SetAll(t *testing.T) {
 	_, err = client.FlushIndex(ctx, 1, false)
 	require.NoError(t, err)
 
-	err = client.CompactIndex(ctx, &emptypb.Empty{})
-	require.NoError(t, err)
-
 	for _, kv := range setRequest.KVs {
 		i, err := client.Get(ctx, kv.Key)
 
@@ -1058,14 +1055,14 @@ func TestImmuClient_TxScan(t *testing.T) {
 	require.NoError(t, err)
 
 	txls, err := client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 2,
+		InitialTx: 1,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
 	require.NoError(t, err)
 	require.Len(t, txls.Txs, 4)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 4,
+		InitialTx: 3,
 		Limit:     3,
 		Desc:      true,
 	})
@@ -1074,7 +1071,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 3,
+		InitialTx: 2,
 		Limit:     1,
 		Desc:      true,
 	})

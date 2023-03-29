@@ -40,20 +40,12 @@ func (r *offsetRowReader) Tx() *SQLTx {
 	return r.rowReader.Tx()
 }
 
-func (r *offsetRowReader) Database() string {
-	return r.rowReader.Database()
-}
-
 func (r *offsetRowReader) TableAlias() string {
 	return r.rowReader.TableAlias()
 }
 
 func (r *offsetRowReader) Parameters() map[string]interface{} {
 	return r.rowReader.Parameters()
-}
-
-func (r *offsetRowReader) SetParameters(params map[string]interface{}) error {
-	return r.rowReader.SetParameters(params)
 }
 
 func (r *offsetRowReader) OrderBy() []ColDescriptor {

@@ -14,31 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package errors
+package sql
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestMapPgError(t *testing.T) {
-	err := ErrUnknowMessageType
-	be := MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrMaxStmtNumberExceeded
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrNoStatementFound
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrParametersValueSizeTooLarge
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrNegativeParameterValueLen
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrMalformedMessage
-	be = MapPgError(err)
-	require.NotNil(t, be)
+func TestApplyImplicitConversion(t *testing.T) {
+	for _, d := range []struct {
+		val          interface{}
+		requiredType SQLValueType
+		expected     interface{}
+	}{
+		{1, IntegerType, int64(1)},
+		{1, Float64Type, float64(1)},
+		{1.0, Float64Type, float64(1)},
+		{"1", IntegerType, int64(1)},
+		{"4.2", Float64Type, float64(4.2)},
+	} {
+		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
+			convVal, err := mayApplyImplicitConversion(d.val, d.requiredType)
+			require.NoError(t, err)
+			require.EqualValues(t, d.expected, convVal)
+		})
+	}
 }

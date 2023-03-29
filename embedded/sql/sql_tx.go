@@ -32,8 +32,9 @@ type SQLTx struct {
 
 	tx *store.OngoingTx
 
-	currentDB *Database
-	catalog   *Catalog // in-mem catalog
+	catalog *Catalog // in-mem catalog
+
+	mutatedCatalog bool // set when a DDL stmt was executed within the current tx
 
 	updatedRows      int
 	lastInsertedPKs  map[string]int64 // last inserted PK by table name
@@ -61,21 +62,6 @@ func (sqlTx *SQLTx) RequireExplicitClose() error {
 	sqlTx.opts.ExplicitClose = true
 
 	return nil
-}
-
-func (sqlTx *SQLTx) useDatabase(dbName string) error {
-	db, err := sqlTx.catalog.GetDatabaseByName(dbName)
-	if err != nil {
-		return err
-	}
-
-	sqlTx.currentDB = db
-
-	return nil
-}
-
-func (sqlTx *SQLTx) Database() *Database {
-	return sqlTx.currentDB
 }
 
 func (sqlTx *SQLTx) Timestamp() time.Time {
@@ -137,17 +123,17 @@ func (sqlTx *SQLTx) Cancel() error {
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) Commit(ctx context.Context) error {
+func (sqlTx *SQLTx) Commit(ctx context.Context) (err error) {
 	sqlTx.committed = true
 	sqlTx.closed = true
 
+	sqlTx.tx.RequireMVCCOnFollowingTxs(sqlTx.mutatedCatalog)
+
 	// no need to wait for indexing to be up to date during commit phase
-	hdr, err := sqlTx.tx.AsyncCommit(ctx)
-	if err != nil && err != store.ErrorNoEntriesProvided {
+	sqlTx.txHeader, err = sqlTx.tx.AsyncCommit(ctx)
+	if err != nil && !errors.Is(err, store.ErrNoEntriesProvided) {
 		return err
 	}
-
-	sqlTx.txHeader = hdr
 
 	return nil
 }
