@@ -11,7 +11,40 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+type multidbHandlerMock struct {
+	dbs    []string
+	engine *Engine
+}
+
+func (h *multidbHandlerMock) ListDatabases(ctx context.Context) ([]string, error) {
+	return h.dbs, nil
+}
+
+func (h *multidbHandlerMock) CreateDatabase(ctx context.Context, db string, ifNotExists bool) error {
+	_, _, err := h.engine.ExecPreparedStmts(ctx, nil, []sql.SQLStmt{
+		&sql.CreateDatabaseStmt{DB: db},
+	}, nil)
+	return err
+}
+
+func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
+	_, _, err := h.engine.ExecPreparedStmts(ctx, nil, []sql.SQLStmt{
+		&sql.UseDatabaseStmt{DB: db},
+	}, nil)
+	return err
+}
+
+func (h *multidbHandlerMock) ExecPreparedStmts(
+	ctx context.Context,
+	opts *sql.TxOptions,
+	stmts []sql.SQLStmt,
+	params map[string]interface{},
+) (ntx *sql.SQLTx, committedTxs []*sql.SQLTx, err error) {
+	return h.engine.ExecPreparedStmts(ctx, nil, stmts, params)
+}
+
 func makeEngine(t *testing.T) *Engine {
+
 	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -22,19 +55,20 @@ func makeEngine(t *testing.T) *Engine {
 		}
 	})
 
-	opts := sql.DefaultOptions()
+	handler := &multidbHandlerMock{}
+	opts := sql.DefaultOptions().WithMultiDBHandler(handler)
 	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
-		&sql.CreateDatabaseStmt{DB: "db1"},
-	}, nil)
-	require.NoError(t, err)
+	// _, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
+	// 	&sql.CreateDatabaseStmt{DB: "db1"},
+	// }, nil)
+	// require.NoError(t, err)
 
-	_, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
-		&sql.UseDatabaseStmt{DB: "db1"},
-	}, nil)
-	require.NoError(t, err)
+	// _, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
+	// 	&sql.UseDatabaseStmt{DB: "db1"},
+	// }, nil)
+	// require.NoError(t, err)
 
 	return engine
 }
@@ -91,7 +125,7 @@ func TestCreateCollection(t *testing.T) {
 	catalog, err := engine.Catalog(context.Background(), nil)
 	require.NoError(t, err)
 
-	table, err := catalog.GetTableByName("db1", collectionName)
+	table, err := catalog.GetTableByName(collectionName)
 	require.NoError(t, err)
 
 	require.Equal(t, collectionName, table.Name())

@@ -1432,6 +1432,10 @@ func (v *NullValue) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
+func NewInteger(val int64) *Integer {
+	return &Integer{val: val}
+}
+
 type Integer struct {
 	val int64
 }
@@ -3138,6 +3142,14 @@ func NewCmpBoolExp(op CmpOperator, left, right ValueExp) *CmpBoolExp {
 type CmpBoolExp struct {
 	op          CmpOperator
 	left, right ValueExp
+}
+
+func (bexp *CmpBoolExp) Left() ValueExp {
+	return bexp.left
+}
+
+func (bexp *CmpBoolExp) Right() ValueExp {
+	return bexp.right
 }
 
 func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
