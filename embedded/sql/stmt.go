@@ -3152,6 +3152,10 @@ func (bexp *CmpBoolExp) Right() ValueExp {
 	return bexp.right
 }
 
+func (bexp *CmpBoolExp) OP() CmpOperator {
+	return bexp.op
+}
+
 func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	tleft, err := bexp.left.inferType(cols, params, implicitTable)
 	if err != nil {
