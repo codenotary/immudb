@@ -59,6 +59,16 @@ message DocumentInsertResponse {
   string documentId = 2;
 }
 
+message DocumentUpdateRequest {
+  string collection = 1;
+  google.protobuf.Struct document = 2;
+}
+
+message DocumentUpdateResponse {
+  schema.VerifiableTx proof = 1;
+  uint64 revision = 2;
+}
+
 
 enum QueryOperator {
   EQ = 0;
@@ -135,6 +145,7 @@ message DocumentAudit {
 
 message IndexOption {
   IndexType type = 1;
+  bool unique = 2;
 }
 
 enum IndexType {
@@ -192,6 +203,16 @@ service DocumentService {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";
+    };
+  } 
+
+  rpc DocumentUpdate(DocumentUpdateRequest) returns (DocumentUpdateResponse) {
+    option (google.api.http) = {
+      post: "/documents/update"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: ["documents"];
     };
   } 
  
