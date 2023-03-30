@@ -86,11 +86,11 @@ webconsole/default:
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
 immudb: webconsole swagger
@@ -98,11 +98,11 @@ immudb: webconsole swagger
 
 .PHONY: immutest
 immutest:
-	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immutest
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immutest
 
 .PHONY: immuclient-static
 immuclient-static:
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
+	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
 
 .PHONY: immuclient-fips
 immuclient-fips:
@@ -111,7 +111,7 @@ immuclient-fips:
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
+	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
 
 .PHONY: immuadmin-fips
 immuadmin-fips:
@@ -120,7 +120,7 @@ immuadmin-fips:
 
 .PHONY: immudb-static
 immudb-static: webconsole
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
+	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
 
 .PHONY: immudb-fips
 immudb-fips: webconsole
@@ -129,7 +129,7 @@ immudb-fips: webconsole
 
 .PHONY: immutest-static
 immutest-static:
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immutest
+	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immutest
 
 .PHONY: vendor
 vendor:

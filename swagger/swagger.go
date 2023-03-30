@@ -3,24 +3,23 @@
 
 package swagger
 
-//go:generate go run github.com/rakyll/statik -f -src=./dist -p=swaggerembedded -dest=. -tags=swagger
-
 import (
+	"embed"
+	"io/fs"
 	"net/http"
 
-	_ "github.com/codenotary/immudb/swagger/swaggerembedded"
-
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/rakyll/statik/fs"
 )
 
-var statikFS, err = fs.New()
+//go:embed dist/*
+var content embed.FS
 
 func SetupSwaggerUI(mux *http.ServeMux, l logger.Logger, addr string) error {
+	fSys, err := fs.Sub(content, "dist")
 	if err != nil {
 		return err
 	}
 	l.Infof("Swagger UI enabled: %s", addr)
-	mux.Handle("/api/docs/", http.StripPrefix("/api/docs", http.FileServer(statikFS)))
+	mux.Handle("/api/docs/", http.StripPrefix("/api/docs", http.FileServer(http.FS(fSys))))
 	return nil
 }
