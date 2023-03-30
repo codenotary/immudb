@@ -23,7 +23,6 @@ require (
 	github.com/prometheus/common v0.32.1
 	github.com/prometheus/procfs v0.7.3
 	github.com/pseudomuto/protoc-gen-doc v1.4.1
-	github.com/rakyll/statik v0.1.7
 	github.com/rogpeppe/go-internal v1.9.0
 	github.com/rs/xid v1.3.0
 	github.com/schollz/progressbar/v2 v2.15.0

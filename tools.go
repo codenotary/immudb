@@ -9,7 +9,6 @@ import (
 	_ "github.com/mattn/goveralls"
 	_ "github.com/ory/go-acc"
 	_ "github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc"
-	_ "github.com/rakyll/statik"
 	_ "golang.org/x/tools/cmd/cover"
 	_ "google.golang.org/grpc"
 	_ "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
