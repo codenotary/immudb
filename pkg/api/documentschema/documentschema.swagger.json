@@ -526,6 +526,9 @@
         "collection": {
           "type": "string"
         },
+        "documentId": {
+          "type": "string"
+        },
         "document": {
           "type": "object"
         }
@@ -549,7 +552,7 @@
         "type": {
           "$ref": "#/definitions/documentschemaIndexType"
         },
-        "unique": {
+        "isUnique": {
           "type": "boolean"
         }
       }

@@ -384,6 +384,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
+| documentId | [string](#string) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 
 
@@ -416,7 +417,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | type | [IndexType](#immudb.documentschema.IndexType) |  |  |
-| unique | [bool](#bool) |  |  |
+| isUnique | [bool](#bool) |  |  |
 
 
 

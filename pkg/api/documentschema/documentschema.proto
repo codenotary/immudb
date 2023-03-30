@@ -61,7 +61,8 @@ message DocumentInsertResponse {
 
 message DocumentUpdateRequest {
   string collection = 1;
-  google.protobuf.Struct document = 2;
+  string documentId = 2;
+  google.protobuf.Struct document = 3;
 }
 
 message DocumentUpdateResponse {
@@ -145,7 +146,7 @@ message DocumentAudit {
 
 message IndexOption {
   IndexType type = 1;
-  bool unique = 2;
+  bool isUnique = 2;
 }
 
 enum IndexType {
