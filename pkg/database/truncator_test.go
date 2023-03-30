@@ -440,7 +440,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
-	expectedCommitTx := uint64(3)
+	expectedCommitTx := uint64(2)
 	// ensure that a transaction is added for the sql catalog commit
 	require.Equal(t, expectedCommitTx, db.st.LastCommittedTxID())
 

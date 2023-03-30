@@ -280,7 +280,7 @@ func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*s
 }
 
 // generateExp generates a boolean expression from a list of expressions.
-func (d *Engine) generateExp(ctx context.Context, collection string, expressions []*Query) (*sql.CmpBoolExp, error) {
+func (d *Engine) generateExp(ctx context.Context, collection string, expressions []*Query) (sql.ValueExp, error) {
 	if len(expressions) == 0 {
 		return nil, nil
 	}
@@ -307,10 +307,11 @@ func (d *Engine) generateExp(ctx context.Context, collection string, expressions
 	}
 
 	// Combine boolean expressions using AND operator.
-	result := sql.NewCmpBoolExp(sql.AND, boolExps[0].Left(), boolExps[0].Right())
+	var result sql.ValueExp
+	result = sql.NewCmpBoolExp(boolExps[0].OP(), boolExps[0].Left(), boolExps[0].Right())
 
 	for _, exp := range boolExps[1:] {
-		result = sql.NewCmpBoolExp(sql.AND, result, exp)
+		result = sql.NewBinBoolExp(sql.AND, result, exp)
 	}
 
 	return result, nil

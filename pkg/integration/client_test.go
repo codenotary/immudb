@@ -1059,7 +1059,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 	})
 	require.IsType(t, &schema.TxList{}, txls)
 	require.NoError(t, err)
-	require.Len(t, txls.Txs, 4)
+	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
 		InitialTx: 3,

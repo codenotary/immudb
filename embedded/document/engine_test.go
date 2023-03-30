@@ -2,6 +2,7 @@ package document
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -26,16 +27,6 @@ func makeEngine(t *testing.T) *Engine {
 	opts := sql.DefaultOptions()
 	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
-
-	// _, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
-	// 	&sql.CreateDatabaseStmt{DB: "db1"},
-	// }, nil)
-	// require.NoError(t, err)
-
-	// _, _, err = engine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{
-	// 	&sql.UseDatabaseStmt{DB: "db1"},
-	// }, nil)
-	// require.NoError(t, err)
 
 	return engine
 }
@@ -234,4 +225,186 @@ func TestDocumentAudit(t *testing.T) {
 	val := string(res[0].Value)
 	require.Contains(t, val, "pincode")
 	require.Contains(t, val, "country")
+}
+
+func TestQueryDocument(t *testing.T) {
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+		"pincode": sql.IntegerType,
+		"country": sql.VarcharType,
+		"idx":     sql.IntegerType,
+	})
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 10; i++ {
+		_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"pincode": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+				"country": {
+					Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+				},
+				"idx": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("test query with != operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.NE,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 5},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 9, len(doc))
+	})
+
+	t.Run("test query with < operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.LT,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 11},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 10, len(doc))
+	})
+
+	t.Run("test query with <= operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.LE,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 9},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 9, len(doc))
+	})
+
+	t.Run("test query with > operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.GT,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 5},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 5, len(doc))
+	})
+
+	t.Run("test query with >= operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.GE,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 10},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(doc))
+	})
+
+	t.Run("test group query with != operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.NE,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 5},
+				},
+			},
+			{
+				Field:    "country",
+				Operator: sql.NE,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_StringValue{StringValue: "country-6"},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 8, len(doc))
+	})
+
+	t.Run("test group query with < operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.LT,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 11},
+				},
+			},
+			{
+				Field:    "idx",
+				Operator: sql.LT,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 5},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(doc))
+	})
+
+	t.Run("test group query with > operator", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "idx",
+				Operator: sql.GT,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 7},
+				},
+			},
+			{
+				Field:    "pincode",
+				Operator: sql.GT,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 5},
+				},
+			},
+		}
+
+		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(doc))
+	})
+
 }

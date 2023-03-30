@@ -181,7 +181,7 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 			TransactionID: log.TxID,
 			Value: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"obj": {
+					"_obj": {
 						Kind: &structpb.Value_StringValue{StringValue: string(log.Value)},
 					},
 				},
