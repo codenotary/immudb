@@ -25,6 +25,8 @@
     - [DocumentQuery](#immudb.documentschema.DocumentQuery)
     - [DocumentSearchRequest](#immudb.documentschema.DocumentSearchRequest)
     - [DocumentSearchResponse](#immudb.documentschema.DocumentSearchResponse)
+    - [DocumentUpdateRequest](#immudb.documentschema.DocumentUpdateRequest)
+    - [DocumentUpdateResponse](#immudb.documentschema.DocumentUpdateResponse)
     - [IndexOption](#immudb.documentschema.IndexOption)
     - [IndexValue](#immudb.documentschema.IndexValue)
     - [Proof](#immudb.documentschema.Proof)
@@ -373,6 +375,38 @@
 
 
 
+<a name="immudb.documentschema.DocumentUpdateRequest"></a>
+
+### DocumentUpdateRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentschema.DocumentUpdateResponse"></a>
+
+### DocumentUpdateResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| proof | [immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
+| revision | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.documentschema.IndexOption"></a>
 
 ### IndexOption
@@ -382,6 +416,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | type | [IndexType](#immudb.documentschema.IndexType) |  |  |
+| unique | [bool](#bool) |  |  |
 
 
 
@@ -464,6 +499,7 @@
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | DocumentInsert | [DocumentInsertRequest](#immudb.documentschema.DocumentInsertRequest) | [DocumentInsertResponse](#immudb.documentschema.DocumentInsertResponse) |  |
+| DocumentUpdate | [DocumentUpdateRequest](#immudb.documentschema.DocumentUpdateRequest) | [DocumentUpdateResponse](#immudb.documentschema.DocumentUpdateResponse) |  |
 | DocumentSearch | [DocumentSearchRequest](#immudb.documentschema.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.documentschema.DocumentSearchResponse) |  |
 | DocumentAudit | [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest) | [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse) |  |
 | DocumentProof | [DocumentProofRequest](#immudb.documentschema.DocumentProofRequest) | [DocumentProofResponse](#immudb.documentschema.DocumentProofResponse) |  |

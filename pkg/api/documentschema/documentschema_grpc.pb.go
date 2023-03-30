@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DocumentServiceClient interface {
 	DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*DocumentInsertResponse, error)
+	DocumentUpdate(ctx context.Context, in *DocumentUpdateRequest, opts ...grpc.CallOption) (*DocumentUpdateResponse, error)
 	DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error)
 	DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error)
 	DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*DocumentProofResponse, error)
@@ -39,6 +40,15 @@ func NewDocumentServiceClient(cc grpc.ClientConnInterface) DocumentServiceClient
 func (c *documentServiceClient) DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*DocumentInsertResponse, error) {
 	out := new(DocumentInsertResponse)
 	err := c.cc.Invoke(ctx, "/immudb.documentschema.DocumentService/DocumentInsert", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) DocumentUpdate(ctx context.Context, in *DocumentUpdateRequest, opts ...grpc.CallOption) (*DocumentUpdateResponse, error) {
+	out := new(DocumentUpdateResponse)
+	err := c.cc.Invoke(ctx, "/immudb.documentschema.DocumentService/DocumentUpdate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +123,7 @@ func (c *documentServiceClient) CollectionDelete(ctx context.Context, in *Collec
 // for forward compatibility
 type DocumentServiceServer interface {
 	DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error)
+	DocumentUpdate(context.Context, *DocumentUpdateRequest) (*DocumentUpdateResponse, error)
 	DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error)
 	DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error)
 	DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error)
@@ -128,6 +139,9 @@ type UnimplementedDocumentServiceServer struct {
 
 func (UnimplementedDocumentServiceServer) DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsert not implemented")
+}
+func (UnimplementedDocumentServiceServer) DocumentUpdate(context.Context, *DocumentUpdateRequest) (*DocumentUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentUpdate not implemented")
 }
 func (UnimplementedDocumentServiceServer) DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentSearch not implemented")
@@ -176,6 +190,24 @@ func _DocumentService_DocumentInsert_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).DocumentInsert(ctx, req.(*DocumentInsertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_DocumentUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DocumentUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.documentschema.DocumentService/DocumentUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DocumentUpdate(ctx, req.(*DocumentUpdateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -316,6 +348,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DocumentInsert",
 			Handler:    _DocumentService_DocumentInsert_Handler,
+		},
+		{
+			MethodName: "DocumentUpdate",
+			Handler:    _DocumentService_DocumentUpdate_Handler,
 		},
 		{
 			MethodName: "DocumentSearch",
