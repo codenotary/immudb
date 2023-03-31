@@ -5,11 +5,12 @@ go 1.17
 require (
 	github.com/fatih/color v1.13.0
 	github.com/gizak/termui/v3 v3.1.0
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/influxdata/influxdb-client-go/v2 v2.12.2
+	github.com/influxdata/influxdb-client-go/v2 v2.12.3
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/jaswdr/faker v1.16.0
 	github.com/lib/pq v1.10.7
@@ -59,7 +60,6 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v0.3.0-java // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
