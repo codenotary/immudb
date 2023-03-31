@@ -13,6 +13,7 @@ LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /src/immuclient /usr/local/bin/
 COPY --from=build "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certificates.crt"
+COPY tools/user_db/create_user_db.sh /usr/local/bin/create_user_db.sh
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
@@ -29,6 +30,9 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DEVMODE="true" \
     IMMUDB_MAINTENANCE="false" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
+    IMMUDB_USER="" \
+    IMMUDB_PASSWORD="" \
+    IMMUDB_DATABASE="" \
     IMMUDB_PGSQL_SERVER="true" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
 
@@ -38,7 +42,15 @@ RUN addgroup --system --gid $IMMU_GID immu && \
     mkdir -p "$IMMUDB_DIR" && \
     chown -R immu:immu "$IMMUDB_HOME" "$IMMUDB_DIR" && \
     chmod -R 777 "$IMMUDB_HOME" "$IMMUDB_DIR" && \
-    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin /usr/local/bin/immuclient
+    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin /usr/local/bin/immuclient && \
+    mkdir -p /var/run/immudb && \
+    chown immu:immu /var/run/immudb && \
+    chmod 775 /var/run/immudb && \
+    chmod 555 /usr/local/bin/create_user_db.sh
+
+RUN apt-get update && \
+    apt-get install -y expect && \
+    apt-get clean
 
 EXPOSE 3322
 EXPOSE 9497
@@ -47,4 +59,4 @@ EXPOSE 5432
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/usr/local/bin/immuadmin", "status" ]
 USER immu
-ENTRYPOINT ["/usr/sbin/immudb"]
+ENTRYPOINT ["/usr/local/bin/create_user_db.sh", "/usr/sbin/immudb"]
