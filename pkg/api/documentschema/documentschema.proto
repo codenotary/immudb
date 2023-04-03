@@ -73,11 +73,12 @@ message DocumentUpdateResponse {
 
 enum QueryOperator {
   EQ = 0;
-  GT = 1;
-  GTE = 2;
-  LT = 3;
-  LTE = 4;
-  LIKE = 5;
+  NE = 1;
+  LT = 2;
+  LE = 3;
+  GT = 4;
+  GE = 5;
+  LIKE = 6;
 }
 
 message IndexValue {

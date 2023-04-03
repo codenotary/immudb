@@ -570,10 +570,11 @@
       "type": "string",
       "enum": [
         "EQ",
-        "GT",
-        "GTE",
+        "NE",
         "LT",
-        "LTE",
+        "LE",
+        "GT",
+        "GE",
         "LIKE"
       ],
       "default": "EQ"
