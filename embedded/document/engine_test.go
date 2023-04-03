@@ -2,6 +2,7 @@ package document
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -13,7 +14,6 @@ import (
 )
 
 func makeEngine(t *testing.T) *Engine {
-
 	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -201,7 +201,6 @@ func TestDocumentAudit(t *testing.T) {
 		"country": sql.VarcharType,
 	})
 	require.NoError(t, err)
-	require.NoError(t, err)
 
 	// add document to collection
 	docID, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
@@ -212,19 +211,49 @@ func TestDocumentAudit(t *testing.T) {
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
 			},
+			"data": {
+				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value1"}},
+					},
+				}},
+			},
 		},
 	})
 	require.NoError(t, err)
 
+	revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"pincode": {
+				Kind: &structpb.Value_NumberValue{NumberValue: 2},
+			},
+			"country": {
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+			"data": {
+				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value2"}},
+					},
+				}},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), revision)
+
 	// get document audit
 	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, 1, 10)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(res))
+	require.Equal(t, 2, len(res))
 
-	// verify audit result
-	val := string(res[0].Value)
-	require.Contains(t, val, "pincode")
-	require.Contains(t, val, "country")
+	for i, record := range res {
+		// verify audit result
+		val := string(record.Value)
+		require.Contains(t, val, "pincode")
+		require.Contains(t, val, "country")
+		require.Equal(t, uint64(i+1), record.Revision)
+	}
 }
 
 func TestQueryDocument(t *testing.T) {
@@ -407,4 +436,75 @@ func TestQueryDocument(t *testing.T) {
 		require.Equal(t, 3, len(doc))
 	})
 
+}
+
+func TestDocumentUpdate(t *testing.T) {
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+		"country": sql.VarcharType,
+	})
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// add document to collection
+	docID, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"country": {
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+			"data": {
+				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value1"}},
+					},
+				}},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"country": {
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+			"data": {
+				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value2"}},
+					},
+				}},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), revision)
+
+	expressions := []*Query{
+		{
+			Field:    "country",
+			Operator: sql.EQ,
+			Value: &structpb.Value{
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+		},
+	}
+
+	// check if document is updated
+	docs, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(docs))
+
+	// retrieve document
+	doc := docs[0]
+	require.Equal(t, "wonderland", doc.Fields["country"].GetStringValue())
+
+	// check if data is updated
+	data := map[string]interface{}{}
+	err = json.Unmarshal([]byte(doc.Fields["_obj"].GetStringValue()), &data)
+	require.NoError(t, err)
+	require.Equal(t, "value2", data["data"].(map[string]interface{})["key1"])
 }

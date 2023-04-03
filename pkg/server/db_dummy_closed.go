@@ -272,3 +272,7 @@ func (d *closedDB) ListCollections(ctx context.Context, req *schemav2.Collection
 func (d *closedDB) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
+
+func (d *closedDB) DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}

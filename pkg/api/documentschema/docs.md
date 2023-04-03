@@ -216,6 +216,7 @@
 | ----- | ---- | ----- | ----------- |
 | value | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 | transactionID | [uint64](#uint64) |  |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 
