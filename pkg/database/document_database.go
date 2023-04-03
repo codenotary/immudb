@@ -31,6 +31,8 @@ type ObjectDatabase interface {
 	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
 	// DocumentAudit returns the document audit history
 	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
+	// DocumentUpdate updates a document
+	DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
 }
 
 func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
@@ -179,6 +181,7 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 	for _, log := range historyLogs {
 		resp.Results = append(resp.Results, &schemav2.DocumentAudit{
 			TransactionID: log.TxID,
+			Revision:      log.Revision,
 			Value: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"_obj": {
@@ -190,4 +193,20 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 	}
 
 	return resp, nil
+}
+
+// DocumentUpdate updates a document
+func (d *db) DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+	// verify if document id is valid
+	docID, err := document.DocumentIDFromHex(req.DocumentId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid document id: %v", err)
+	}
+
+	revision, err := d.documentEngine.UpdateDocument(ctx, req.Collection, docID, req.Document)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.DocumentUpdateResponse{Revision: revision}, nil
 }

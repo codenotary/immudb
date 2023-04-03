@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -390,24 +391,12 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 }
 
 type Audit struct {
-	Value []byte
-	TxID  uint64
+	Value    []byte
+	TxID     uint64
+	Revision uint64
 }
 
-// DocumentAudit returns the audit history of a document.
-func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*Audit, error) {
-	offset := (pageNum - 1) * itemsPerPage
-	limit := itemsPerPage
-	if offset < 0 || limit < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Cancel()
-
+func (d *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		return nil, err
@@ -440,14 +429,41 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 		pkEncVals,
 	)
 
+	return searchKey, nil
+}
+
+// DocumentAudit returns the audit history of a document.
+func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*Audit, error) {
+	offset := (pageNum - 1) * itemsPerPage
+	limit := itemsPerPage
+	if offset < 0 || limit < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
+	}
+
+	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	searchKey, err := d.getKeyForDocument(ctx, tx, collectionName, documentID)
+	if err != nil {
+		return nil, err
+	}
+
 	txs, _, err := d.GetStore().History(searchKey, uint64(offset), false, limit)
 	if err != nil {
 		return nil, err
 	}
 
+	table, err := tx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		return nil, err
+	}
+
 	results := make([]*Audit, 0)
-	for _, txID := range txs {
-		res, err := d.getValueAt(searchKey, txID, d.GetStore(), false)
+	for i, txID := range txs {
+		res, err := d.getValueAt(searchKey, txID, false, uint64(i)+1)
 		if err != nil {
 			return nil, err
 		}
@@ -481,10 +497,16 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	return results, nil
 }
 
-func (d *Engine) getValueAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *Audit, err error) {
+func (d *Engine) getValueAt(
+	key []byte,
+	atTx uint64,
+	skipIntegrityCheck bool,
+	revision uint64,
+) (entry *Audit, err error) {
 	var txID uint64
 	var val []byte
 
+	index := d.GetStore()
 	if atTx == 0 {
 		valRef, err := index.Get(key)
 		if err != nil {
@@ -497,6 +519,9 @@ func (d *Engine) getValueAt(key []byte, atTx uint64, index store.KeyIndex, skipI
 		if err != nil {
 			return nil, err
 		}
+
+		// Revision can be calculated from the history count
+		revision = valRef.HC()
 	} else {
 		txID = atTx
 		_, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
@@ -506,8 +531,9 @@ func (d *Engine) getValueAt(key []byte, atTx uint64, index store.KeyIndex, skipI
 	}
 
 	return &Audit{
-		TxID:  txID,
-		Value: val,
+		TxID:     txID,
+		Value:    val,
+		Revision: revision,
 	}, err
 }
 
@@ -524,4 +550,62 @@ func (d *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	}
 
 	return entry.Metadata(), v, nil
+}
+
+func (d *Engine) UpdateDocument(ctx context.Context, collectionName string, docID DocumentID, doc *structpb.Struct) (uint64, error) {
+	document, err := NewDocumentFrom(doc)
+	if err != nil {
+		return 0, err
+	}
+	res, err := document.MarshalJSON()
+	if err != nil {
+		return 0, err
+	}
+
+	tx, err := d.NewTx(ctx, sql.DefaultTxOptions())
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Cancel()
+
+	// update document in collection
+	_, b, err := d.ExecPreparedStmts(
+		ctx,
+		tx,
+		[]sql.SQLStmt{
+			sql.NewUpdateStmt(
+				collectionName,
+				sql.NewCmpBoolExp(
+					sql.EQ,
+					sql.NewColSelector(collectionName, defaultDocumentIDField, ""),
+					sql.NewBlob(docID[:]),
+				),
+				sql.NewColUpdate(defaultDocumentBLOBField, sql.EQ, sql.NewBlob(res))),
+		},
+		nil,
+	)
+	if err != nil {
+		return 0, err
+	}
+	if len(b) == 0 {
+		return 0, errors.New("transaction failed during docuent update")
+	}
+
+	committedTx := b[0]
+	err = d.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
+	if err != nil {
+		return 0, err
+	}
+
+	searchKey, err := d.getKeyForDocument(ctx, tx, collectionName, docID)
+	if err != nil {
+		return 0, err
+	}
+
+	auditLog, err := d.getValueAt(searchKey, 0, false, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return auditLog.Revision, nil
 }

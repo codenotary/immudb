@@ -973,6 +973,14 @@ func (tx *SQLTx) deprecateIndexEntries(
 	return reusableIndexEntries, nil
 }
 
+func NewUpdateStmt(table string, where ValueExp, update *colUpdate) *UpdateStmt {
+	return &UpdateStmt{
+		tableRef: newTableRef(table, ""),
+		where:    where,
+		updates:  []*colUpdate{update},
+	}
+}
+
 type UpdateStmt struct {
 	tableRef *tableRef
 	where    ValueExp
@@ -980,6 +988,14 @@ type UpdateStmt struct {
 	indexOn  []string
 	limit    ValueExp
 	offset   ValueExp
+}
+
+func NewColUpdate(col string, op CmpOperator, val ValueExp) *colUpdate {
+	return &colUpdate{
+		col: col,
+		op:  op,
+		val: val,
+	}
 }
 
 type colUpdate struct {

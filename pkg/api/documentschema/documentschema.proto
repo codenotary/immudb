@@ -141,6 +141,7 @@ message DocumentAuditResponse {
 message DocumentAudit {
   google.protobuf.Struct value = 1;
   uint64 transactionID = 2;
+  uint64 revision = 3;
 }
 
 

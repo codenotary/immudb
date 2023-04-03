@@ -34,13 +34,16 @@ func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.Doc
 	return resp, nil
 }
 
-// TODO: implement
 func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *documentschema.DocumentUpdateRequest) (*documentschema.DocumentUpdateResponse, error) {
-	_, err := s.getDBFromCtx(ctx, "DocumentUpdate")
+	db, err := s.getDBFromCtx(ctx, "DocumentUpdate")
 	if err != nil {
 		return nil, err
 	}
-	panic("Not implemented")
+	resp, err := db.DocumentUpdate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.DocumentSearchRequest) (*documentschema.DocumentSearchResponse, error) {
