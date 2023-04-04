@@ -43,6 +43,14 @@ func NewDocumentIDFromTx(txID uint64) DocumentID {
 	return NewDocumentIDFromTimestamp(time.Now(), txID)
 }
 
+// NewDocumentIDFromBytes generates a new DocumentID from a byte slice.
+func NewDocumentIDFromBytes(b []byte) DocumentID {
+	// copy from bytes to DocumentID
+	var id DocumentID
+	copy(id[:], b)
+	return id
+}
+
 // NewDocumentIDFromTimestamp generates a new DocumentID from a timestamp.
 func NewDocumentIDFromTimestamp(timestamp time.Time, txID uint64) DocumentID {
 	var b [DocumentIDLength]byte

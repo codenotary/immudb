@@ -72,7 +72,7 @@ func TestCreateCollection(t *testing.T) {
 		context.Background(),
 		collectionName,
 		map[string]sql.SQLValueType{
-			"number":  sql.IntegerType,
+			"number":  sql.Float64Type,
 			"name":    sql.VarcharType,
 			"pin":     sql.IntegerType,
 			"country": sql.VarcharType,
@@ -507,4 +507,59 @@ func TestDocumentUpdate(t *testing.T) {
 	err = json.Unmarshal([]byte(doc.Fields["_obj"].GetStringValue()), &data)
 	require.NoError(t, err)
 	require.Equal(t, "value2", data["data"].(map[string]interface{})["key1"])
+}
+
+func TestFloatSupport(t *testing.T) {
+	engine := makeEngine(t)
+
+	collectionName := "mycollection"
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		map[string]sql.SQLValueType{
+			"number": sql.Float64Type,
+		},
+	)
+	require.NoError(t, err)
+
+	catalog, err := engine.Catalog(context.Background(), nil)
+	require.NoError(t, err)
+
+	table, err := catalog.GetTableByName(collectionName)
+	require.NoError(t, err)
+	require.Equal(t, collectionName, table.Name())
+
+	col, err := table.GetColumnByName("number")
+	require.NoError(t, err)
+	require.Equal(t, sql.Float64Type, col.Type())
+
+	// add document to collection
+	_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"number": {
+				Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// query document
+	expressions := []*Query{
+		{
+			Field:    "number",
+			Operator: sql.EQ,
+			Value: &structpb.Value{
+				Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
+			},
+		},
+	}
+
+	// check if document is updated
+	docs, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(docs))
+
+	// retrieve document
+	doc := docs[0]
+	require.Equal(t, 3.1, doc.Fields["number"].GetNumberValue())
 }
