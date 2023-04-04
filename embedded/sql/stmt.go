@@ -1799,6 +1799,10 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	return bytes.Compare(v.val, rval), nil
 }
 
+func NewFloat64(val float64) *Float64 {
+	return &Float64{val: val}
+}
+
 type Float64 struct {
 	val float64
 }
