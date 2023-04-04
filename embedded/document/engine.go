@@ -42,6 +42,12 @@ var (
 				return nil, errType
 			}
 			return sql.NewBlob([]byte(value.GetStructValue().String())), nil
+		case sql.Float64Type:
+			_, ok := value.GetKind().(*structpb.Value_NumberValue)
+			if !ok {
+				return nil, errType
+			}
+			return sql.NewFloat64(value.GetNumberValue()), nil
 		}
 
 		return nil, errType
@@ -60,6 +66,9 @@ var (
 		case sql.BLOBType:
 			value.Kind = &structpb.Value_StringValue{StringValue: string(tv.RawValue().([]byte))}
 			return value, nil
+		case sql.Float64Type:
+			value.Kind = &structpb.Value_NumberValue{NumberValue: tv.RawValue().(float64)}
+			return value, nil
 		}
 
 		return nil, errType
@@ -74,9 +83,21 @@ var (
 			return 0, nil
 		case sql.BLOBType:
 			return 256, nil
+		case sql.Float64Type:
+			return 0, nil
 		}
 
 		return 0, errType
+	}
+
+	// transform value type based on column name
+	transformTypedValue = func(colName string, value sql.TypedValue) sql.TypedValue {
+		switch colName {
+		case defaultDocumentIDField:
+			docID := NewDocumentIDFromBytes(value.RawValue().([]byte))
+			return sql.NewVarchar(docID.Hex())
+		}
+		return value
 	}
 )
 
@@ -377,12 +398,14 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 
 		document := &structpb.Struct{Fields: map[string]*structpb.Value{}}
 		for i := range colDescriptors {
-			v := row.ValuesByPosition[i]
-			vtype, err := valueTypeToFieldValue(v)
+			colName := colDescriptors[i].Column
+			tv := row.ValuesByPosition[i]
+			transformedTV := transformTypedValue(colName, tv)
+			vtype, err := valueTypeToFieldValue(transformedTV)
 			if err != nil {
 				return nil, err
 			}
-			document.Fields[colDescriptors[i].Column] = vtype
+			document.Fields[colName] = vtype
 		}
 		results = append(results, document)
 	}

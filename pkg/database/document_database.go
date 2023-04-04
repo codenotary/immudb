@@ -12,6 +12,7 @@ import (
 
 var (
 	schemaToValueType = map[schemav2.IndexType]sql.SQLValueType{
+		schemav2.IndexType_DOUBLE:  sql.Float64Type,
 		schemav2.IndexType_STRING:  sql.VarcharType,
 		schemav2.IndexType_INTEGER: sql.IntegerType,
 	}
@@ -78,8 +79,6 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 		if !isValid {
 			return nil, fmt.Errorf("invalid index key type: %v", pk)
 		}
-		// TODO: add support for other types
-		// TODO: add support for auto increment
 		indexKeys[name] = schType
 	}
 
