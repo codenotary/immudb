@@ -94,7 +94,7 @@ var ErrInvalidPreconditionNullKey = fmt.Errorf("%w: %v", ErrInvalidPrecondition,
 var ErrInvalidPreconditionMaxKeyLenExceeded = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrMaxKeyLenExceeded)
 var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidPrecondition)
 
-var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
+var ErrSourceTxNewerThanTargetTx = fmt.Errorf("%w: source tx is newer than target tx", ErrIllegalArguments)
 
 var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
 
@@ -1815,6 +1815,13 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	return tx.Header(), nil
 }
 
+type DualProofV2 struct {
+	SourceTxHeader   *TxHeader
+	TargetTxHeader   *TxHeader
+	InclusionProof   [][sha256.Size]byte
+	ConsistencyProof [][sha256.Size]byte
+}
+
 type DualProof struct {
 	SourceTxHeader     *TxHeader
 	TargetTxHeader     *TxHeader
@@ -1824,6 +1831,39 @@ type DualProof struct {
 	LastInclusionProof [][sha256.Size]byte
 	LinearProof        *LinearProof
 	LinearAdvanceProof *LinearAdvanceProof
+}
+
+func (s *ImmuStore) DualProofV2(sourceTxHdr, targetTxHdr *TxHeader) (proof *DualProofV2, err error) {
+	if sourceTxHdr == nil || targetTxHdr == nil || sourceTxHdr.ID == 0 {
+		return nil, ErrIllegalArguments
+	}
+
+	if sourceTxHdr.ID > targetTxHdr.ID {
+		return nil, ErrSourceTxNewerThanTargetTx
+	}
+
+	if sourceTxHdr.ID-1 != sourceTxHdr.BlTxID || targetTxHdr.ID-1 != targetTxHdr.BlTxID {
+		return nil, ErrUnexpectedLinkingError
+	}
+
+	proof = &DualProofV2{
+		SourceTxHeader: sourceTxHdr,
+		TargetTxHeader: targetTxHdr,
+	}
+
+	if sourceTxHdr.ID < targetTxHdr.ID {
+		proof.InclusionProof, err = s.aht.InclusionProof(sourceTxHdr.ID, targetTxHdr.BlTxID)
+		if err != nil {
+			return nil, err
+		}
+
+		proof.ConsistencyProof, err = s.aht.ConsistencyProof(maxUint64(1, sourceTxHdr.BlTxID), targetTxHdr.BlTxID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return proof, nil
 }
 
 // DualProof combines linear cryptographic linking i.e. transactions include the linear accumulative hash up to the previous one,

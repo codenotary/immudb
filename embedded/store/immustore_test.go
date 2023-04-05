@@ -753,11 +753,18 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = immuStore.DualProof(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
+	_, err = immuStore.DualProofV2(nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	sourceTx := NewTx(1, 1)
 	sourceTx.header.ID = 2
 	targetTx := NewTx(1, 1)
 	targetTx.header.ID = 1
+
 	_, err = immuStore.DualProof(sourceTx.Header(), targetTx.Header())
+	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
+
+	_, err = immuStore.DualProofV2(sourceTx.Header(), targetTx.Header())
 	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
 
 	_, err = immuStore.LinearProof(2, 1)
@@ -1996,6 +2003,12 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 
 			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 			require.True(t, verifies)
+
+			dproofV2, err := immuStore.DualProofV2(sourceTx.Header(), targetTx.Header())
+			require.NoError(t, err)
+
+			verifiesV2 := VerifyDualProofV2(dproofV2, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
+			require.NoError(t, verifiesV2)
 		}
 	}
 }
@@ -2052,6 +2065,12 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 
 		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 		require.True(t, verifies)
+
+		dproofV2, err := immuStore.DualProofV2(sourceTx.Header(), targetTx.Header())
+		require.NoError(t, err)
+
+		verifiesV2 := VerifyDualProofV2(dproofV2, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
+		require.NoError(t, verifiesV2)
 	}
 }
 
@@ -2148,6 +2167,12 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 
 			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 			require.True(t, verifies)
+
+			dproofV2, err := immuStore.DualProofV2(sourceTx.Header(), targetTx.Header())
+			require.NoError(t, err)
+
+			verifiesV2 := VerifyDualProofV2(dproofV2, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
+			require.NoError(t, verifiesV2)
 		}
 	}
 
@@ -3388,6 +3413,12 @@ func TestBlTXOrdering(t *testing.T) {
 
 			verifies := VerifyDualProof(proof, i, i+1, srcTxHeader.Alh(), dstTxHeader.Alh())
 			require.True(t, verifies)
+
+			dproofV2, err := immuStore.DualProofV2(srcTxHeader, dstTxHeader)
+			require.NoError(t, err)
+
+			verifiesV2 := VerifyDualProofV2(dproofV2, i, i+1, srcTxHeader.Alh(), dstTxHeader.Alh())
+			require.NoError(t, verifiesV2)
 		}
 
 	})
