@@ -18,7 +18,6 @@ package stream
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"testing"
 
@@ -35,10 +34,10 @@ func TestParseKV(t *testing.T) {
 
 func TestParseErr(t *testing.T) {
 	b := &streamtest.ErrReader{ReadF: func(i []byte) (int, error) {
-		return 0, errors.New("custom one")
+		return 0, errCustom
 	}}
 	entry, err := ReadValue(b, 4096)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 	require.Nil(t, entry)
 }
 
@@ -47,13 +46,13 @@ func TestParseEof(t *testing.T) {
 		return 0, io.EOF
 	}}
 	entry, err := ReadValue(b, 4096)
-	require.Equal(t, io.EOF, err)
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, entry)
 }
 
 func TestParseEmptyContent(t *testing.T) {
 	content := []byte{}
 	value, err := ReadValue(bytes.NewBuffer(content), 4096)
-	require.Equal(t, io.EOF, err)
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, value)
 }

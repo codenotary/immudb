@@ -65,7 +65,7 @@ func TestStoreIndexExists(t *testing.T) {
 		BoundRef: true,
 	}
 	_, err2 = db.ZAdd(context.Background(), zaddOpts2)
-	require.Equal(t, ErrIllegalArguments, err2)
+	require.ErrorIs(t, err2, ErrIllegalArguments)
 
 	zaddOpts3 := &schema.ZAddRequest{
 		Key:   []byte(`myThirdElementKey`),
@@ -117,7 +117,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	db := makeDb(t)
 
 	_, err := db.ZAdd(context.Background(), nil)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 	i2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
@@ -275,7 +275,7 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 
 	_, err := db.ZAdd(context.Background(), zaddOpts1)
 
-	require.Equal(t, store.ErrKeyNotFound, err)
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
 }
 
 // TestStore_ZScanMinMax
@@ -528,7 +528,7 @@ func TestStore_ZScanInvalidSet(t *testing.T) {
 		Set: nil,
 	}
 	_, err := db.ZScan(context.Background(), opt)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 }
 
 func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T) {
@@ -652,7 +652,7 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 	db := makeDb(t)
 
 	_, err := db.VerifiableZAdd(context.Background(), nil)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`value1`)}}})
 
@@ -660,13 +660,13 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		ZAddRequest:  nil,
 		ProveSinceTx: i1.Id,
 	})
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	_, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  nil,
 		ProveSinceTx: i1.Id,
 	})
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	req := &schema.ZAddRequest{
 		Set:      []byte(`set1`),

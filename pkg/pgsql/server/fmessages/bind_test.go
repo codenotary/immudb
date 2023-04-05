@@ -142,7 +142,7 @@ func TestParseBindMsg(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_bind", i), func(t *testing.T) {
 			s, err := ParseBindMsg(tt.in)
 			require.Equal(t, tt.out, s)
-			require.Equal(t, tt.e, err)
+			require.ErrorIs(t, err, tt.e)
 		})
 	}
 

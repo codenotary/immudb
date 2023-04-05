@@ -17,7 +17,6 @@ limitations under the License.
 package stream
 
 import (
-	"errors"
 	"io"
 	"testing"
 
@@ -83,7 +82,7 @@ func TestKvStreamSender_SendErr(t *testing.T) {
 
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
 	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
-		return errors.New("custom one")
+		return errCustom
 	}
 
 	kvss := NewKvStreamSender(s)
@@ -100,5 +99,5 @@ func TestKvStreamSender_SendErr(t *testing.T) {
 
 	err := kvss.Send(kv)
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }

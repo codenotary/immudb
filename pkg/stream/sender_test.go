@@ -18,7 +18,6 @@ package stream
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"testing"
 
@@ -56,11 +55,11 @@ func TestMsgSender_SendErrReader(t *testing.T) {
 	s := NewMsgSender(sm, 4096)
 	r := &streamtest.ErrReader{
 		ReadF: func([]byte) (int, error) {
-			return 0, errors.New("custom one")
+			return 0, errCustom
 		},
 	}
 	err := s.Send(r, 5000, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }
 
 func TestMsgSender_SendEmptyReader(t *testing.T) {

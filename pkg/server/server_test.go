@@ -31,6 +31,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/stream"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -84,7 +85,7 @@ func TestLogErr(t *testing.T) {
 	require.Nil(t, logErr(logger, "error: %v", nil))
 
 	err := fmt.Errorf("expected error")
-	require.Error(t, logErr(logger, "error: %v", err))
+	require.ErrorIs(t, logErr(logger, "error: %v", err), err)
 }
 
 func TestServerDefaultDatabaseLoad(t *testing.T) {
@@ -341,7 +342,7 @@ func TestServerWithInvalidAdminPassword(t *testing.T) {
 	defer closer()
 
 	err := s.Initialize()
-	require.Error(t, err)
+	require.ErrorContains(t, err, "error decoding password from base64 string")
 }
 
 func TestServerErrChunkSizeTooSmall(t *testing.T) {
@@ -381,7 +382,7 @@ func TestServerCreateDatabase(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	_, err = s.CreateDatabase(ctx, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	dbSettings := &schema.DatabaseSettings{
 		DatabaseName:    "lisbon",
@@ -502,7 +503,7 @@ func TestServerUpdateDatabaseAuthDisabled(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.UpdateDatabase(context.Background(), &schema.DatabaseSettings{})
-	require.Equal(t, ErrAuthMustBeEnabled, err)
+	require.ErrorIs(t, err, ErrAuthMustBeEnabled)
 }
 
 func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
@@ -532,19 +533,19 @@ func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	_, err = s.UpdateDatabase(ctx, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	dbSettings := &schema.DatabaseSettings{
 		DatabaseName: serverOptions.defaultDBName,
 	}
 	_, err = s.UpdateDatabase(ctx, dbSettings)
-	require.Equal(t, ErrReservedDatabase, err)
+	require.ErrorIs(t, err, ErrReservedDatabase)
 
 	dbSettings = &schema.DatabaseSettings{
 		DatabaseName: fmt.Sprintf("nodb%v", time.Now()),
 	}
 	_, err = s.UpdateDatabase(ctx, dbSettings)
-	require.Equal(t, database.ErrDatabaseNotExists, err)
+	require.ErrorIs(t, err, database.ErrDatabaseNotExists)
 
 	newdb := &schema.DatabaseSettings{
 		DatabaseName:    "lisbon",
@@ -610,19 +611,19 @@ func TestServerUpdateDatabaseV2AuthEnabled(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	_, err = s.UpdateDatabaseV2(ctx, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	dbSettings := &schema.UpdateDatabaseRequest{
 		Database: serverOptions.defaultDBName,
 	}
 	_, err = s.UpdateDatabaseV2(ctx, dbSettings)
-	require.Equal(t, ErrReservedDatabase, err)
+	require.ErrorIs(t, err, ErrReservedDatabase)
 
 	dbSettings = &schema.UpdateDatabaseRequest{
 		Database: fmt.Sprintf("nodb%v", time.Now()),
 	}
 	_, err = s.UpdateDatabaseV2(ctx, dbSettings)
-	require.Equal(t, database.ErrDatabaseNotExists, err)
+	require.ErrorIs(t, err, database.ErrDatabaseNotExists)
 
 	newdb := &schema.CreateDatabaseRequest{
 		Name: "lisbon",
@@ -762,12 +763,12 @@ func testServerSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
 			},
 		},
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.Get(context.Background(), &schema.KeyRequest{
 		Key: testKey,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -845,7 +846,7 @@ func testServerCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerCurrentRootError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.CurrentState(context.Background(), &emptypb.Empty{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -878,7 +879,7 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	require.ErrorIs(t, err, tbtree.ErrCompactionThresholdNotReached)
 
 	_, err = s.GetAll(ctx, nil)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	itList, err := s.GetAll(ctx, &schema.KeyListRequest{
 		Keys: [][]byte{
@@ -909,14 +910,14 @@ func testServerSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T
 			},
 		},
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.GetAll(context.Background(), &schema.KeyListRequest{
 		Keys: [][]byte{
 			[]byte("Alberto"),
 		},
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func testServerByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -950,7 +951,7 @@ func testServerByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerByIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.TxById(context.Background(), &schema.TxRequest{Tx: 0})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func testServerBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -977,7 +978,7 @@ func testServerBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerBySafeIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.VerifiableTxById(context.Background(), &schema.VerifiableTxRequest{Tx: 0})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 }
 
@@ -998,7 +999,7 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.History(context.Background(), &schema.HistoryRequest{
 		Key: testKey,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 }
 
@@ -1096,7 +1097,7 @@ func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Score: 1,
 		Set:   kvs[0].Value,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.ZScan(context.Background(), &schema.ZScanRequest{
 		Set:     kvs[0].Value,
@@ -1104,7 +1105,7 @@ func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Limit:   3,
 		Desc:    false,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 }
 
@@ -1148,7 +1149,7 @@ func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Limit:   1,
 		Prefix:  kvs[0].Key,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 }
 
@@ -1214,7 +1215,7 @@ func testServerSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing
 		},
 		ProveSinceTx: 0,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -1276,10 +1277,10 @@ func TestServerDbOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Count(ctx, nil)
-	require.Equal(t, ErrNotSupported, err)
+	require.ErrorIs(t, err, ErrNotSupported)
 
 	_, err = s.CountAll(ctx, nil)
-	require.Equal(t, ErrNotSupported, err)
+	require.ErrorIs(t, err, ErrNotSupported)
 
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)
@@ -1319,8 +1320,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	// Config file path empty
 	s.Options.Config = ""
 	err := s.updateConfigItem("key", "key = value", func(string) bool { return false })
-	require.Error(t, err)
-	require.Equal(t, errors.New("config file does not exist"), err)
+	require.ErrorContains(t, err, "config file does not exist")
 	s.Options.Config = configFile
 
 	// ReadFile error
@@ -1330,16 +1330,14 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	immuOS.ReadFileF = func(filename string) ([]byte, error) {
 		return nil, errors.New(errReadFile)
 	}
-	expectedErr :=
-		fmt.Errorf("error reading config file '%s'. Reason: %s", configFile, errReadFile)
 	err = s.updateConfigItem("key", "key = value", func(string) bool { return false })
-	require.Equal(t, expectedErr, err)
+	require.ErrorContains(t, err, fmt.Sprintf("error reading config file '%s'. Reason: %s", configFile, errReadFile))
 	immuOS.ReadFileF = readFileOK
 
 	// Config already having the specified item
 	ioutil.WriteFile(configFile, []byte("key = value"), 0644)
 	err = s.updateConfigItem("key", "key = value", func(string) bool { return true })
-	require.Equal(t, errors.New("Server config already has 'key = value'"), err)
+	require.ErrorContains(t, err, "Server config already has 'key = value'")
 
 	// Add new config item
 	err = s.updateConfigItem("key2", "key2 = value2", func(string) bool { return false })
@@ -1392,29 +1390,23 @@ func TestServerErrors(t *testing.T) {
 
 	// insertNewUser errors
 	_, _, err = s.insertNewUser(context.Background(), []byte("%"), nil, 1, DefaultDBName, true, auth.SysAdminUsername)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "username can only contain letters, digits and underscores")
+	require.ErrorContains(t, err, "username can only contain letters, digits and underscores")
 
 	username := "someusername"
 	usernameBytes := []byte(username)
 	password := "$omePassword1"
 	passwordBytes := []byte(password)
 	_, _, err = s.insertNewUser(context.Background(), usernameBytes, []byte("a"), 1, DefaultDBName, true, auth.SysAdminUsername)
-	require.Error(t, err)
-	require.Contains(
-		t,
-		err.Error(),
-		"password must have between 8 and 32 letters, digits and special characters "+
-			"of which at least 1 uppercase letter, 1 digit and 1 special character")
+	require.ErrorContains(t, err, auth.PasswordRequirementsMsg)
 
 	_, _, err = s.insertNewUser(context.Background(), usernameBytes, passwordBytes, 99, DefaultDBName, false, auth.SysAdminUsername)
-	require.Equal(t, errors.New("unknown permission"), err)
+	require.ErrorContains(t, err, "unknown permission")
 
 	// getLoggedInUserDataFromUsername errors
 	userdata := s.userdata.Userdata[username]
 	delete(s.userdata.Userdata, username)
 	_, err = s.getLoggedInUserDataFromUsername(username)
-	require.Equal(t, ErrNotLoggedIn, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.Userdata[username] = userdata
 
 	// getDBFromCtx errors
@@ -1422,26 +1414,26 @@ func TestServerErrors(t *testing.T) {
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
 	s.Options.maintenance = true
 	_, err = s.getDBFromCtx(adminCtx, "ListUsers")
-	require.Equal(t, ErrNotLoggedIn, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 	s.Options.maintenance = false
 
 	// SetActiveUser errors
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: "", Active: false})
-	require.Equal(t, errors.New("username can not be empty"), err)
+	require.ErrorContains(t, err, "username can not be empty")
 
 	s.Options.auth = false
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: username, Active: false})
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: username, Active: false})
-	require.Equal(t, ErrNotLoggedIn, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
-	require.Equal(t, errors.New("changing your own status is not allowed"), err)
+	require.ErrorContains(t, err, "changing your own status is not allowed")
 
 	_, err = s.CreateUser(adminCtx, &schema.CreateUserRequest{
 		User:       usernameBytes,
@@ -1460,10 +1452,10 @@ func TestServerErrors(t *testing.T) {
 	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	_, err = s.SetActiveUser(userCtx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
-	require.Equal(t, errors.New("user is not system admin nor admin in any of the databases"), err)
+	require.ErrorContains(t, err, "user is not system admin nor admin in any of the databases")
 
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: "nonexistentuser", Active: false})
-	require.Equal(t, errors.New("user nonexistentuser not found"), err)
+	require.ErrorContains(t, err, "user nonexistentuser not found")
 
 	// ChangePermission errors
 	cpr := &schema.ChangePermissionRequest{
@@ -1473,7 +1465,7 @@ func TestServerErrors(t *testing.T) {
 		Permission: 2,
 	}
 	_, err = s.ChangePermission(adminCtx, cpr)
-	require.Equal(t, ErrPermissionDenied, err)
+	require.ErrorIs(t, err, ErrPermissionDenied)
 
 	_, err = s.Logout(userCtx, &emptypb.Empty{})
 	require.NoError(t, err)
@@ -1481,12 +1473,12 @@ func TestServerErrors(t *testing.T) {
 	cpr.Database = DefaultDBName
 	s.Options.auth = false
 	_, err = s.ChangePermission(userCtx, cpr)
-	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.Options.auth = true
 
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
 	_, err = s.ChangePermission(userCtx, cpr)
-	require.Equal(t, ErrNotLoggedIn, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 
 	cpr.Username = ""
@@ -1564,7 +1556,7 @@ func TestServerErrors(t *testing.T) {
 	// UseDatabase errors
 	s.Options.auth = false
 	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: DefaultDBName})
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
 	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultDBName})
@@ -1608,11 +1600,11 @@ func TestServerErrors(t *testing.T) {
 	// DatabaseList errors
 	s.Options.auth = false
 	_, err = s.DatabaseList(userCtx, new(emptypb.Empty))
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
 	_, err = s.DatabaseList(context.Background(), new(emptypb.Empty))
-	require.Equal(t, errors.New("please login"), err)
+	require.ErrorContains(t, err, "please login")
 
 	cpr = &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
@@ -1636,11 +1628,11 @@ func TestServerErrors(t *testing.T) {
 	// ListUsers errors
 	s.Options.auth = false
 	_, err = s.ListUsers(userCtx, new(emptypb.Empty))
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
 	_, err = s.ListUsers(context.Background(), new(emptypb.Empty))
-	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	// CreateUser errors
 	username2 := "someusername2"
@@ -1656,41 +1648,41 @@ func TestServerErrors(t *testing.T) {
 
 	s.Options.auth = false
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
 	_, err = s.CreateUser(context.Background(), createUser2Req)
-	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("username can not be empty"), err)
+	require.ErrorContains(t, err, "username can not be empty")
 
 	createUser2Req.User = username2Bytes
 	createUser2Req.Database = ""
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("database name can not be empty when there are multiple databases"), err)
+	require.ErrorContains(t, err, "database name can not be empty when there are multiple databases")
 
 	createUser2Req.Database = "nonexistentdb"
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("database nonexistentdb does not exist"), err)
+	require.ErrorContains(t, err, "database nonexistentdb does not exist")
 
 	createUser2Req.Database = someDb1
 	createUser2Req.Permission = auth.PermissionNone
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("unrecognized permission"), err)
+	require.ErrorContains(t, err, "unrecognized permission")
 
 	createUser2Req.Permission = auth.PermissionRW
 	_, err = s.CreateUser(userCtx, createUser2Req)
-	require.Equal(t, errors.New("you do not have permission on this database"), err)
+	require.ErrorContains(t, err, "you do not have permission on this database")
 
 	createUser2Req.Permission = auth.PermissionSysAdmin
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("can not create another system admin"), err)
+	require.ErrorContains(t, err, "can not create another system admin")
 
 	createUser2Req.Permission = auth.PermissionRW
 	createUser2Req.User = usernameBytes
 	_, err = s.CreateUser(adminCtx, createUser2Req)
-	require.Equal(t, errors.New("user already exists"), err)
+	require.ErrorContains(t, err, "user already exists")
 
 	// CreateDatabase errors
 	someDb2 := "somedatabase2"
@@ -1704,10 +1696,10 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = s.CreateDatabaseWith(context.Background(), createDbReq)
-	require.Equal(t, errors.New("could not get loggedin user data"), err)
+	require.ErrorContains(t, err, "could not get loggedin user data")
 
 	_, err = s.CreateDatabaseWith(userCtx, createDbReq)
-	require.Equal(t, errors.New("loggedin user does not have permissions for this operation"), err)
+	require.ErrorContains(t, err, "loggedin user does not have permissions for this operation")
 
 	createDbReq.DatabaseName = SystemDBName
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
@@ -1716,7 +1708,7 @@ func TestServerErrors(t *testing.T) {
 
 	createDbReq.DatabaseName = ""
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
-	require.Equal(t, errors.New("database name length outside of limits"), err)
+	require.ErrorContains(t, err, "database name length outside of limits")
 
 	createDbReq.DatabaseName = someDb1
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
@@ -1730,30 +1722,29 @@ func TestServerErrors(t *testing.T) {
 		NewPassword: password2Bytes,
 	}
 	_, err = s.ChangePassword(adminCtx, changePassReq)
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
 	_, err = s.ChangePassword(context.Background(), changePassReq)
-	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	changePassReq.User = []byte(auth.SysAdminUsername)
 	changePassReq.OldPassword = []byte("incorrect")
 	_, err = s.ChangePassword(adminCtx, changePassReq)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "old password is incorrect")
+	require.ErrorContains(t, err, "old password is incorrect")
 
 	changePassReq.User = usernameBytes
 	changePassReq.OldPassword = passwordBytes
 	_, err = s.ChangePassword(userCtx, changePassReq)
-	require.Equal(t, errors.New("user is not system admin nor admin in any of the databases"), err)
+	require.ErrorContains(t, err, "user is not system admin nor admin in any of the databases")
 
 	changePassReq.User = nil
 	_, err = s.ChangePassword(adminCtx, changePassReq)
-	require.Equal(t, errors.New("username can not be empty"), err)
+	require.ErrorContains(t, err, "username can not be empty")
 
 	changePassReq.User = []byte("nonexistent")
 	_, err = s.ChangePassword(adminCtx, changePassReq)
-	require.Equal(t, fmt.Errorf("user %s was not found or it was not created by you", changePassReq.User), err)
+	require.ErrorContains(t, err, fmt.Sprintf("user %s was not found or it was not created by you", changePassReq.User))
 
 	_, err = s.ChangePermission(adminCtx, &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
@@ -1785,34 +1776,33 @@ func TestServerErrors(t *testing.T) {
 	password2NewBytes := []byte(password2New)
 	changePassReq.NewPassword = password2NewBytes
 	_, err = s.ChangePassword(userCtx, changePassReq)
-	require.Equal(t, fmt.Errorf("user %s was not found or it was not created by you", changePassReq.User), err)
+	require.ErrorContains(t, err, fmt.Sprintf("user %s was not found or it was not created by you", changePassReq.User))
 
 	// Not logged in errors on DB operations
 	emptyCtx := context.Background()
 	_, err = s.VerifiableZAdd(emptyCtx, &schema.VerifiableZAddRequest{})
-	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	_, err = s.SetReference(emptyCtx, &schema.ReferenceRequest{})
-	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 	_, err = s.UpdateMTLSConfig(emptyCtx, &schema.MTLSConfig{})
-	require.Equal(t, ErrNotSupported.Error(), err.Error())
+	require.ErrorIs(t, err, ErrNotSupported)
 	_, err = s.UpdateAuthConfig(emptyCtx, &schema.AuthConfig{})
-	require.Equal(t, ErrNotSupported.Error(), err.Error())
+	require.ErrorIs(t, err, ErrNotSupported)
 
 	// Login errors
 	s.Options.auth = false
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{})
-	require.Equal(t, "server is running with authentication disabled, please enable authentication to login", err.Error())
+	require.ErrorContains(t, err, "server is running with authentication disabled, please enable authentication to login")
 	s.Options.auth = true
 
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: []byte("nonexistent")})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid user name or password")
+	require.ErrorContains(t, err, "invalid user name or password")
 
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Active: false, Username: username})
 	require.NoError(t, err)
 
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
-	require.Equal(t, "user is not active", err.Error())
+	require.ErrorContains(t, err, "user is not active")
 
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
@@ -1831,7 +1821,7 @@ func TestServerErrors(t *testing.T) {
 	}
 	s.Options.Pidfile = "pidfile"
 	defer os.Remove(s.Options.Pidfile)
-	require.Equal(t, fmt.Errorf("Pid filename is invalid: %s", s.Options.Pidfile), s.setupPidFile())
+	require.ErrorContains(t, s.setupPidFile(), fmt.Sprintf("Pid filename is invalid: %s", s.Options.Pidfile))
 	OS.BaseF = baseFOK
 
 	// print usage call-to-action
@@ -1875,30 +1865,27 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.getValidatedUser(context.Background(), []byte(username), []byte("wrongpass"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
+	require.ErrorIs(t, err, bcrypt.ErrMismatchedHashAndPassword)
 
 	_, err = s.getValidatedUser(context.Background(), []byte(username), nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
+	require.ErrorIs(t, err, bcrypt.ErrMismatchedHashAndPassword)
 
 	_, err = s.getValidatedUser(context.Background(), []byte(username), []byte{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
+	require.ErrorIs(t, err, bcrypt.ErrMismatchedHashAndPassword)
 }
 
 func TestServerIsValidDBName(t *testing.T) {
 	err := isValidDBName("")
-	require.Equal(t, errors.New("database name length outside of limits"), err)
+	require.ErrorContains(t, err, "database name length outside of limits")
 
 	err = isValidDBName(strings.Repeat("a", 129))
-	require.Equal(t, errors.New("database name length outside of limits"), err)
+	require.ErrorContains(t, err, "database name length outside of limits")
 
 	err = isValidDBName(" ")
-	require.Equal(t, errors.New("unrecognized character in database name"), err)
+	require.ErrorContains(t, err, "unrecognized character in database name")
 
 	err = isValidDBName("-")
-	require.Equal(t, errors.New("punctuation marks and symbols are not allowed in database name"), err)
+	require.ErrorContains(t, err, "punctuation marks and symbols are not allowed in database name")
 
 	err = isValidDBName(strings.Repeat("a", 32))
 	require.NoError(t, err)

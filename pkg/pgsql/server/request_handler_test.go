@@ -37,8 +37,9 @@ func TestHandleRequestNil(t *testing.T) {
 
 func TestHandleRequestInitializeError(t *testing.T) {
 	s := NewSessionMock()
+	errInit := errors.New("init error")
 	s.InitializeSessionF = func() error {
-		return errors.New("init error")
+		return errInit
 	}
 	sf := NewSessionFactoryMock(s)
 	srv := New(SessFactory(sf))
@@ -46,5 +47,5 @@ func TestHandleRequestInitializeError(t *testing.T) {
 	c, _ := net.Pipe()
 	err := srv.handleRequest(c)
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, errInit)
 }

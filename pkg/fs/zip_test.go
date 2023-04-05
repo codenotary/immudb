@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"archive/zip"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -120,7 +121,8 @@ func TestUnZipSrcNotZipArchive(t *testing.T) {
 	dst := filepath.Join(t.TempDir(), "dst")
 	require.NoError(t, ioutil.WriteFile(src, []byte("content"), 0644))
 	zipper := NewStandardZiper()
-	require.Error(t, zipper.UnZipIt(src, dst))
+	err := zipper.UnZipIt(src, dst)
+	require.ErrorIs(t, err, zip.ErrFormat)
 }
 
 func TestUnZipEntryMkdirAllError(t *testing.T) {
@@ -159,5 +161,6 @@ func TestUnZipEntryOpenFileError(t *testing.T) {
 		return nil, errOpenFile
 	}
 	dstUnZip := filepath.Join(t.TempDir(), "unzip-dst")
-	require.Equal(t, errOpenFile, ziper.UnZipIt(dst, dstUnZip))
+	err := ziper.UnZipIt(dst, dstUnZip)
+	require.ErrorIs(t, err, errOpenFile)
 }

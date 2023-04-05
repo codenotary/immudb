@@ -50,15 +50,15 @@ func TestInMemoryCache(t *testing.T) {
 	require.Equal(t, []byte{21}, root.GetTxHash())
 
 	_, err = imc.Get("unknownServer", "db11")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "no roots found for server")
 	_, err = imc.Get("server1", "unknownDb")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "no state found for server")
 
 	err = imc.Lock("server1")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotImplemented)
 
 	err = imc.Unlock()
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotImplemented)
 
 	err = imc.ServerIdentityCheck("server1", "identity1")
 	require.NoError(t, err)

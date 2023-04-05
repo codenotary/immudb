@@ -159,6 +159,8 @@ coverage:
 
 .PHONY: build/codegen
 build/codegen:
+	$(PWD)/scripts/buf format -w
+
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \

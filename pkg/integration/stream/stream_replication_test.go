@@ -112,11 +112,11 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.ExportTx(context.Background(), &schema.ExportTxRequest{Tx: 1})
-	require.Equal(t, ic.ErrNotConnected, err)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	err = rclient.CloseSession(context.Background())
 	require.NoError(t, err)
 
 	_, err = rclient.ReplicateTx(rctx)
-	require.Equal(t, ic.ErrNotConnected, err)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }

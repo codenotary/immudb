@@ -2,9 +2,6 @@ package runner
 
 import (
 	"context"
-	"net/http"
-	"net/url"
-	"os"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 )
@@ -12,13 +9,7 @@ import (
 func SendResultsToInfluxDb(host string, token string, bucket string, runner string, version string, r *BenchmarkSuiteResult) {
 	var client influxdb2.Client
 
-	if runner == "benchmark" {
-		proxyUrl, _ := url.Parse(os.Getenv("HTTPS_PROXY"))
-		httpClient := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
-		client = influxdb2.NewClientWithOptions(host, token, influxdb2.DefaultOptions().SetHTTPClient(httpClient))
-	} else {
-		client = influxdb2.NewClient(host, token)
-	}
+	client = influxdb2.NewClient(host, token)
 
 	writer := client.WriteAPIBlocking("Codenotary", bucket)
 

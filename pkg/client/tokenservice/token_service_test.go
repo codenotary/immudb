@@ -30,7 +30,7 @@ func TestTokenSevice_setToken(t *testing.T) {
 	fn := filepath.Join(t.TempDir(), "token")
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "")
-	require.Equal(t, ErrEmptyTokenProvided, err)
+	require.ErrorIs(t, err, ErrEmptyTokenProvided)
 	err = ts.SetToken("db1", "toooooken")
 	require.NoError(t, err)
 	database, err := ts.GetDatabase()

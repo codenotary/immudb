@@ -63,7 +63,7 @@ func TestReadOnlyReplica(t *testing.T) {
 		Key:           []byte("key"),
 		ReferencedKey: []byte("refkey"),
 	})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:   []byte("set"),

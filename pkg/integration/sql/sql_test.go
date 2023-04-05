@@ -88,13 +88,13 @@ func TestImmuClient_SQL(t *testing.T) {
 
 		for _, row := range res.Rows {
 			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
-			require.Equal(t, sql.ErrColumnDoesNotExist, err)
+			require.ErrorIs(t, err, sql.ErrColumnDoesNotExist)
 		}
 
 		for i := len(res.Rows); i > 0; i-- {
 			row := res.Rows[i-1]
 			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
-			require.Equal(t, sql.ErrColumnDoesNotExist, err)
+			require.ErrorIs(t, err, sql.ErrColumnDoesNotExist)
 		}
 
 		res, err = client.SQLQuery(ctx, `
@@ -112,7 +112,7 @@ func TestImmuClient_SQL(t *testing.T) {
 			row.Values[1].Value = &schema.SQLValue_S{S: "tampered title"}
 
 			err = client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
-			require.Equal(t, sql.ErrCorruptedData, err)
+			require.ErrorIs(t, err, sql.ErrCorruptedData)
 		}
 
 		res, err = client.SQLQuery(ctx, "SELECT id, active FROM table1", nil, true)

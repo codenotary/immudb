@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -102,7 +103,7 @@ func TestHistoryFileCache_SetError(t *testing.T) {
 	fc := NewHistoryFileCache(dir)
 
 	err := fc.Set("uuid", "dbName", nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, proto.ErrNil)
 }
 
 func TestHistoryFileCache_GetError(t *testing.T) {
@@ -115,8 +116,7 @@ func TestHistoryFileCache_GetError(t *testing.T) {
 	err := ioutil.WriteFile(filepath.Join(dir, "exists"), []byte("data"), 0644)
 	require.NoError(t, err)
 	_, err = fc.Get("exists", "dbName")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "exists")
+	require.ErrorContains(t, err, "exists")
 }
 
 func TestHistoryFileCache_SetMissingFolder(t *testing.T) {
@@ -125,7 +125,7 @@ func TestHistoryFileCache_SetMissingFolder(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	err := fc.Set("uuid", "dbName", nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "error ensuring states dir")
 }
 
 func TestHistoryFileCache_WalkFolderNotExistsCreated(t *testing.T) {
@@ -152,7 +152,7 @@ func TestHistoryFileCache_getStatesFileInfosError(t *testing.T) {
 func TestHistoryFileCache_unmarshalRootErr(t *testing.T) {
 	fc := &historyFileCache{}
 	_, err := fc.unmarshalRoot("path", "db")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "error reading state from")
 }
 
 func TestHistoryFileCache_unmarshalRootSingleLineErr(t *testing.T) {
@@ -165,7 +165,7 @@ func TestHistoryFileCache_unmarshalRootSingleLineErr(t *testing.T) {
 	}
 	fc := &historyFileCache{}
 	_, err = fc.unmarshalRoot(tmpFile.Name(), dbName)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPrevStateNotFound)
 }
 
 func TestHistoryFileCache_unmarshalRootUnableToDecodeErr(t *testing.T) {
@@ -178,7 +178,7 @@ func TestHistoryFileCache_unmarshalRootUnableToDecodeErr(t *testing.T) {
 	}
 	fc := &historyFileCache{}
 	_, err = fc.unmarshalRoot(tmpFile.Name(), dbName)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPrevStateNotFound)
 }
 
 func TestHistoryFileCache_unmarshalRootUnmarshalErr(t *testing.T) {
@@ -191,7 +191,7 @@ func TestHistoryFileCache_unmarshalRootUnmarshalErr(t *testing.T) {
 	}
 	fc := &historyFileCache{}
 	_, err = fc.unmarshalRoot(tmpFile.Name(), dbName)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "error unmarshaling state from")
 }
 
 func TestHistoryFileCache_unmarshalRootEmptyFile(t *testing.T) {

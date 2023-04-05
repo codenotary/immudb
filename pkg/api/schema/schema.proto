@@ -162,14 +162,14 @@ message OpenSessionResponse {
 message Precondition {
   // Only succeed if given key exists
   message KeyMustExistPrecondition {
-	// key to check
-    bytes key = 1; 
+    // key to check
+    bytes key = 1;
   }
 
   // Only succeed if given key does not exists
   message KeyMustNotExistPrecondition {
-	// key to check
-    bytes key = 1; 
+    // key to check
+    bytes key = 1;
   }
 
   // Only succeed if given key was not modified after given transaction

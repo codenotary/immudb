@@ -65,25 +65,25 @@ func TestConnErr(t *testing.T) {
 	}
 
 	_, err := c.Prepare("")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotImplemented)
 
 	_, err = c.PrepareContext(context.Background(), "")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotImplemented)
 
 	_, err = c.Begin()
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	_, err = c.BeginTx(context.Background(), driver.TxOptions{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	_, err = c.ExecContext(context.Background(), "", nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	_, err = c.QueryContext(context.Background(), "", nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	err = c.ResetSession(context.Background())
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	ris := c.CheckNamedValue(nil)
 	require.Nil(t, ris)
@@ -108,13 +108,13 @@ func TestConn_QueryContextErr(t *testing.T) {
 	defer db.Close()
 
 	_, err := db.QueryContext(context.Background(), "query", 10.5)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "syntax error: unexpected IDENTIFIER")
 
 	_, err = db.ExecContext(context.Background(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "table does not exist (mytable)")
 
 	_, err = db.QueryContext(context.Background(), "SELECT * FROM myTable")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "table does not exist (mytable)")
 }
 
 func TestConn_QueryContext(t *testing.T) {

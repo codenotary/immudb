@@ -25,9 +25,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	ic "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/stream"
@@ -163,8 +165,7 @@ func TestReplication(t *testing.T) {
 
 	t.Run("key1 should not exist", func(t *testing.T) {
 		_, err = replicaClient.Get(context.Background(), []byte("key1"))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not found")
+		require.ErrorContains(t, err, embedded.ErrKeyNotFound.Error())
 	})
 
 	_, err = primaryClient.Set(context.Background(), []byte("key1"), []byte("value1"))
@@ -188,7 +189,7 @@ func TestReplication(t *testing.T) {
 
 	t.Run("key1 should not exist in defaultdb@replica", func(t *testing.T) {
 		_, err = replicaClient.Get(context.Background(), []byte("key1"))
-		require.Contains(t, err.Error(), "key not found")
+		require.ErrorContains(t, err, embedded.ErrKeyNotFound.Error())
 	})
 
 	err = replicaClient.CloseSession(context.Background())
@@ -285,8 +286,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	t.Run("key1 should not exist", func(t *testing.T) {
 		_, err = replicaClient.Get(context.Background(), []byte("key1"))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not found")
+		require.ErrorContains(t, err, embedded.ErrKeyNotFound.Error())
 	})
 
 	_, err = primaryClient.Set(context.Background(), []byte("key1"), []byte("value1"))
@@ -300,7 +300,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	})
 
 	_, err = replicaClient.Set(context.Background(), []byte("key2"), []byte("value2"))
-	require.Contains(t, err.Error(), "database is read-only because it's a replica")
+	require.ErrorContains(t, err, database.ErrIsReplica.Error())
 }
 
 func BenchmarkExportTx(b *testing.B) {

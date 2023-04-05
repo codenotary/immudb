@@ -18,6 +18,7 @@ package server
 
 import (
 	"crypto/tls"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -34,7 +35,7 @@ func TestSession_handshakeNotSupported(t *testing.T) {
 	}
 	err := s.handshake()
 
-	require.Equal(t, pserr.ErrSSLNotSupported, err)
+	require.ErrorIs(t, err, pserr.ErrSSLNotSupported)
 }
 
 func TestSession_handshakeErr(t *testing.T) {
@@ -74,5 +75,5 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 
 	err = s.handshake()
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, io.ErrClosedPipe)
 }

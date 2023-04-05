@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
@@ -258,7 +259,7 @@ func TestInitializeRemoteStorageDownloadIdentifierErrorOnStore(t *testing.T) {
 	m := memory.Open()
 	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
 	err := s.initializeRemoteStorage(m)
-	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOENT)
 }
 
 type errReader struct {
@@ -308,7 +309,7 @@ func TestInitializeRemoteStorageIdentifierMismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	err = s.initializeRemoteStorage(m)
-	require.Equal(t, ErrRemoteStorageDoesNotMatch, err)
+	require.ErrorIs(t, err, ErrRemoteStorageDoesNotMatch)
 }
 
 func TestInitializeRemoteStorageCreateLocalDirs(t *testing.T) {
@@ -353,7 +354,7 @@ func TestInitializeRemoteStorageCreateLocalDirsError(t *testing.T) {
 	require.NoError(t, err)
 
 	err = s.initializeRemoteStorage(m)
-	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOTDIR)
 }
 
 func TestUpdateRemoteUUID(t *testing.T) {

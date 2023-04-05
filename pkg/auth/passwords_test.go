@@ -54,5 +54,5 @@ func TestDecodeBase64Password(t *testing.T) {
 	require.Equal(t, "password", decodedPass)
 
 	_, err = DecodeBase64Password(strings.TrimSuffix(pass, "="))
-	require.Error(t, err)
+	require.ErrorContains(t, err, "error decoding password from base64 string")
 }

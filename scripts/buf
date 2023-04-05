@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+go run github.com/bufbuild/buf/cmd/buf@v1.8.0 "${@}"

@@ -115,10 +115,10 @@ func TestDefaultDbCreation(t *testing.T) {
 	require.Zero(t, n)
 
 	_, err = db.Count(context.Background(), nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "Functionality not yet supported: Count")
 
 	_, err = db.CountAll(context.Background())
-	require.Error(t, err)
+	require.ErrorContains(t, err, "Functionality not yet supported: Count")
 
 	dbPath := path.Join(options.GetDBRootPath(), db.GetName())
 	require.DirExists(t, dbPath)
@@ -155,7 +155,7 @@ func TestDbCreation(t *testing.T) {
 func TestOpenWithMissingDBDirectories(t *testing.T) {
 	options := DefaultOption().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
 	_, err := OpenDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
-	require.Error(t, err)
+	require.ErrorContains(t, err, "missing database directories")
 }
 
 func TestOpenWithIllegalDBName(t *testing.T) {
@@ -220,10 +220,10 @@ func TestDbSetGet(t *testing.T) {
 	var trustedIndex uint64
 
 	_, err := db.Set(context.Background(), nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.VerifiableGet(context.Background(), nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	for i, kv := range kvs[:1] {
 		txhdr, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
@@ -302,7 +302,7 @@ func TestDbSetGet(t *testing.T) {
 	}
 
 	_, err = db.Get(context.Background(), &schema.KeyRequest{Key: []byte{}})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
 func TestDelete(t *testing.T) {
@@ -402,7 +402,7 @@ func TestSafeSetGet(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = db.VerifiableSet(context.Background(), nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.VerifiableSet(context.Background(), &schema.VerifiableSetRequest{
 		SetRequest: &schema.SetRequest{
@@ -415,7 +415,7 @@ func TestSafeSetGet(t *testing.T) {
 		},
 		ProveSinceTx: 1,
 	})
-	require.Equal(t, ErrIllegalState, err)
+	require.ErrorIs(t, err, ErrIllegalState)
 
 	kv := []*schema.VerifiableSetRequest{
 		{
@@ -510,7 +510,7 @@ func TestTxByID(t *testing.T) {
 	db := makeDb(t)
 
 	_, err := db.TxByID(context.Background(), nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	txhdr1, err := db.Set(context.Background(), &schema.SetRequest{
 		KVs: []*schema.KeyValue{
@@ -822,7 +822,7 @@ func TestVerifiableTxByID(t *testing.T) {
 	db := makeDb(t)
 
 	_, err := db.VerifiableTxByID(context.Background(), nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	var txhdr *schema.TxHeader
 
@@ -875,12 +875,12 @@ func TestTxScan(t *testing.T) {
 	}
 
 	_, err = db.TxScan(context.Background(), nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.TxScan(context.Background(), &schema.TxScanRequest{
 		InitialTx: 0,
 	})
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.TxScan(context.Background(), &schema.TxScanRequest{
 		InitialTx: 1,
@@ -978,7 +978,7 @@ func TestHistory(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	_, err = db.History(context.Background(), nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.History(context.Background(), &schema.HistoryRequest{
 		Key:     kvs[0].Key,

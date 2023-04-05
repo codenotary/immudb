@@ -40,7 +40,7 @@ func TestStandardFilepath(t *testing.T) {
 		return "", errAbs
 	}
 	_, err = fp.Abs(relPath)
-	require.Equal(t, errAbs, err)
+	require.ErrorIs(t, err, errAbs)
 	fp.AbsF = absFOK
 
 	// Base
@@ -83,11 +83,8 @@ func TestStandardFilepath(t *testing.T) {
 	fp.WalkF = func(root string, walkFn filepath.WalkFunc) error {
 		return errWalk
 	}
-	require.Equal(t,
-		errWalk,
-		fp.Walk(
-			"root",
-			func(path string, info os.FileInfo, err error) error { return nil }))
+	err = fp.Walk("root", func(path string, info os.FileInfo, err error) error { return nil })
+	require.ErrorIs(t, err, errWalk)
 	fp.WalkF = walkFOK
 
 	// FromSlash ...
