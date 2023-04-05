@@ -19,6 +19,7 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/htree"
@@ -295,4 +296,74 @@ func EntrySpecDigest_v1(kv *EntrySpec) [sha256.Size]byte {
 	i += sha256.Size
 
 	return sha256.Sum256(b[:i])
+}
+
+func VerifyDualProofV2(proof *DualProofV2, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) error {
+	if proof == nil ||
+		proof.SourceTxHeader == nil ||
+		proof.TargetTxHeader == nil ||
+		proof.SourceTxHeader.ID == 0 ||
+		proof.SourceTxHeader.ID != sourceTxID ||
+		proof.TargetTxHeader.ID != targetTxID {
+		return ErrIllegalArguments
+	}
+
+	if sourceTxID > targetTxID {
+		return ErrSourceTxNewerThanTargetTx
+	}
+
+	cSourceAlh := proof.SourceTxHeader.Alh()
+	if sourceAlh != cSourceAlh {
+		return ErrIllegalArguments
+	}
+
+	cTargetAlh := proof.TargetTxHeader.Alh()
+	if targetAlh != cTargetAlh {
+		return ErrIllegalArguments
+	}
+
+	if proof.SourceTxHeader.ID-1 != proof.SourceTxHeader.BlTxID || proof.TargetTxHeader.ID-1 != proof.TargetTxHeader.BlTxID {
+		return ErrUnexpectedLinkingError
+	}
+
+	if sourceTxID == targetTxID {
+		return nil
+	}
+
+	verifies := ahtree.VerifyInclusion(
+		proof.InclusionProof,
+		sourceTxID,
+		proof.TargetTxHeader.BlTxID,
+		leafFor(sourceAlh),
+		proof.TargetTxHeader.BlRoot,
+	)
+
+	if !verifies {
+		return fmt.Errorf("inclusion proof does NOT validate")
+	}
+
+	if sourceTxID == 1 {
+		// corner case to validate the first transaction
+		// alh is empty when the digest of the first transaction is calculated
+		verifies = ahtree.VerifyConsistency(
+			proof.ConsistencyProof,
+			sourceTxID,
+			proof.TargetTxHeader.BlTxID,
+			leafFor(sourceAlh),
+			proof.TargetTxHeader.BlRoot,
+		)
+	} else {
+		verifies = ahtree.VerifyConsistency(
+			proof.ConsistencyProof,
+			proof.SourceTxHeader.BlTxID,
+			proof.TargetTxHeader.BlTxID,
+			proof.SourceTxHeader.BlRoot,
+			proof.TargetTxHeader.BlRoot,
+		)
+	}
+	if !verifies {
+		return fmt.Errorf("consistency proof does NOT validate")
+	}
+
+	return nil
 }
