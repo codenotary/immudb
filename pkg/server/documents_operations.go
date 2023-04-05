@@ -39,7 +39,7 @@ func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *documentschema.Doc
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.DocumentUpdate(ctx, req)
+	resp, err := db.UpdateDocument(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +96,15 @@ func (s *ImmuServer) CollectionList(ctx context.Context, req *documentschema.Col
 
 // TODO: implement
 func (s *ImmuServer) CollectionDelete(ctx context.Context, req *documentschema.CollectionDeleteRequest) (*documentschema.CollectionDeleteResponse, error) {
-	_, err := s.getDBFromCtx(ctx, "CollectionDelete")
+	db, err := s.getDBFromCtx(ctx, "CollectionDelete")
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	resp, err := db.DeleteCollection(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // TODO: implement

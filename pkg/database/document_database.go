@@ -18,8 +18,8 @@ var (
 	}
 )
 
-// ObjectDatabase is the interface for object database
-type ObjectDatabase interface {
+// DocumentDatabase is the interface for object database
+type DocumentDatabase interface {
 	// GetCollection returns the collection schema
 	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error)
 	// CreateCollection creates a new collection
@@ -32,8 +32,10 @@ type ObjectDatabase interface {
 	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
 	// DocumentAudit returns the document audit history
 	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
-	// DocumentUpdate updates a document
-	DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
+	// UpdateDocument updates a document
+	UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
+	// DeleteCollection deletes a collection
+	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
 }
 
 func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
@@ -194,8 +196,8 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 	return resp, nil
 }
 
-// DocumentUpdate updates a document
-func (d *db) DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+// UpdateDocument updates a document
+func (d *db) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
 	// verify if document id is valid
 	docID, err := document.DocumentIDFromHex(req.DocumentId)
 	if err != nil {
@@ -208,4 +210,14 @@ func (d *db) DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateReq
 	}
 
 	return &schemav2.DocumentUpdateResponse{Revision: revision}, nil
+}
+
+// DeleteCollection deletes a collection
+func (d *db) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
+	err := d.documentEngine.DeleteCollection(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.CollectionDeleteResponse{}, nil
 }

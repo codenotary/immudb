@@ -136,7 +136,7 @@ type DB interface {
 	IsClosed() bool
 	Close() error
 
-	ObjectDatabase
+	DocumentDatabase
 }
 
 type uuid = string

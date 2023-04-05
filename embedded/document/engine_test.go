@@ -563,3 +563,39 @@ func TestFloatSupport(t *testing.T) {
 	doc := docs[0]
 	require.Equal(t, 3.1, doc.Fields["number"].GetNumberValue())
 }
+
+func TestDeleteCollection(t *testing.T) {
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+		"idx": sql.IntegerType,
+	})
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 10; i++ {
+		_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"idx": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("delete collection and check if it is empty", func(t *testing.T) {
+		err = engine.DeleteCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+
+		_, err := engine.Query(context.Background(), nil, "SELECT COUNT(*) FROM mycollection", nil)
+		require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
+
+		collectionList, err := engine.ListCollections(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, 0, len(collectionList))
+	})
+}

@@ -273,6 +273,10 @@ func (d *closedDB) DocumentAudit(ctx context.Context, req *schemav2.DocumentAudi
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentUpdate(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+func (d *closedDB) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

@@ -1150,6 +1150,13 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	return tx, nil
 }
 
+func NewDeleteFromStmt(table string, where ValueExp) *DeleteFromStmt {
+	return &DeleteFromStmt{
+		tableRef: newTableRef(table, ""),
+		where:    where,
+	}
+}
+
 type DeleteFromStmt struct {
 	tableRef *tableRef
 	where    ValueExp
@@ -3998,4 +4005,60 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 	}
 
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
+}
+
+func NewDeleteTableStmt(table string) *DeleteTableStmt {
+	return &DeleteTableStmt{table: table}
+}
+
+// DeleteTableStmt represents a statement to delete a table.
+type DeleteTableStmt struct {
+	table string
+}
+
+func (stmt *DeleteTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+/*
+	Exec executes the delete table statement.
+	It the table exists, if not it does nothing.
+	If the table exists, it deletes all the indexes and the table itself.
+	Note that this is a soft delete of the index and table key,
+	the data is not deleted, but the metadata is updated.
+*/
+func (stmt *DeleteTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.catalog.ExistTable(stmt.table) {
+		return tx, nil
+	}
+
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	// metadata for deleted keys
+	md := store.NewKVMetadata()
+	md.AsDeleted(true)
+
+	// delete indexes
+	indexes := table.GetIndexes()
+	for _, index := range indexes {
+		mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
+		err = tx.set(mappedKey, md, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// delete table
+	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
+	err = tx.set(mappedKey, md, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	tx.mutatedCatalog = true
+
+	return tx, nil
 }
