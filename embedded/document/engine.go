@@ -101,6 +101,12 @@ var (
 	}
 )
 
+type Audit struct {
+	Value    []byte
+	TxID     uint64
+	Revision uint64
+}
+
 type Query struct {
 	Field    string
 	Operator int
@@ -413,13 +419,7 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 	return results, nil
 }
 
-type Audit struct {
-	Value    []byte
-	TxID     uint64
-	Revision uint64
-}
-
-func (d *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {
+func (d *Engine) getKey(ctx context.Context, tx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		return nil, err
@@ -469,7 +469,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	}
 	defer tx.Cancel()
 
-	searchKey, err := d.getKeyForDocument(ctx, tx, collectionName, documentID)
+	searchKey, err := d.getKey(ctx, tx, collectionName, documentID)
 	if err != nil {
 		return nil, err
 	}
@@ -592,7 +592,7 @@ func (d *Engine) UpdateDocument(ctx context.Context, collectionName string, docI
 	defer tx.Cancel()
 
 	// update document in collection
-	_, b, err := d.ExecPreparedStmts(
+	_, ctxs, err := d.ExecPreparedStmts(
 		ctx,
 		tx,
 		[]sql.SQLStmt{
@@ -610,17 +610,18 @@ func (d *Engine) UpdateDocument(ctx context.Context, collectionName string, docI
 	if err != nil {
 		return 0, err
 	}
-	if len(b) == 0 {
+	if len(ctxs) == 0 {
 		return 0, errors.New("transaction failed during document update")
 	}
 
-	committedTx := b[0]
+	// wait for indexing to catch up to ensure we can read the document from the index
+	committedTx := ctxs[0]
 	err = d.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
 	if err != nil {
 		return 0, err
 	}
 
-	searchKey, err := d.getKeyForDocument(ctx, tx, collectionName, docID)
+	searchKey, err := d.getKey(ctx, tx, collectionName, docID)
 	if err != nil {
 		return 0, err
 	}
@@ -631,4 +632,30 @@ func (d *Engine) UpdateDocument(ctx context.Context, collectionName string, docI
 	}
 
 	return auditLog.Revision, nil
+}
+
+// DeleteCollection deletes a collection.
+func (d *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
+	// delete collection from catalog
+	_, ctxs, err := d.ExecPreparedStmts(
+		ctx,
+		nil,
+		[]sql.SQLStmt{
+			sql.NewDeleteFromStmt(collectionName, nil), // delete all documents from collection
+			sql.NewDeleteTableStmt(collectionName),     // delete collection from catalog
+		},
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	// wait for the transaction to be committed to ensure the collection is deleted from the catalog
+	committedTx := ctxs[0]
+	err = d.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
