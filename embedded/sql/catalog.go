@@ -32,9 +32,16 @@ import (
 type Catalog struct {
 	prefix []byte
 
-	tables       []*Table
-	tablesByID   map[uint32]*Table
-	tablesByName map[string]*Table
+	tables        []*Table
+	tablesByID    map[uint32]*Table
+	tablesByName  map[string]*Table
+	deletedTables map[string]*Table
+}
+
+type TableOptions struct {
+	name      string
+	colsSpec  []*ColSpec
+	isDeleted bool
 }
 
 type Table struct {
@@ -50,6 +57,7 @@ type Table struct {
 	primaryIndex    *Index
 	autoIncrementPK bool
 	maxPK           int64
+	isDeleted       bool
 }
 
 type Index struct {
@@ -72,16 +80,18 @@ type Column struct {
 
 func newCatalog(prefix []byte) *Catalog {
 	return &Catalog{
-		prefix:       prefix,
-		tables:       make([]*Table, 0),
-		tablesByID:   make(map[uint32]*Table),
-		tablesByName: make(map[string]*Table),
+		prefix:        prefix,
+		tables:        make([]*Table, 0),
+		tablesByID:    make(map[uint32]*Table),
+		tablesByName:  make(map[string]*Table),
+		deletedTables: make(map[string]*Table),
 	}
 }
 
 func (catlg *Catalog) ExistTable(table string) bool {
 	_, exists := catlg.tablesByName[table]
-	return exists
+	_, existsInDeleted := catlg.deletedTables[table]
+	return exists || existsInDeleted
 }
 
 func (catlg *Catalog) GetTables() []*Table {
@@ -167,6 +177,10 @@ func (t *Table) GetIndexes() []*Index {
 	return t.indexes
 }
 
+func (t *Table) IsDeleted() bool {
+	return t.isDeleted
+}
+
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }
@@ -241,14 +255,14 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
-func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
-	if len(name) == 0 || len(colsSpec) == 0 {
+func (catlg *Catalog) newTable(opts *TableOptions) (table *Table, err error) {
+	if opts == nil || len(opts.name) == 0 || len(opts.colsSpec) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	exists := catlg.ExistTable(name)
+	exists := catlg.ExistTable(opts.name)
 	if exists {
-		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, name)
+		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, opts.name)
 	}
 
 	id := len(catlg.tables) + 1
@@ -256,15 +270,16 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 	table = &Table{
 		id:             uint32(id),
 		catalog:        catlg,
-		name:           name,
-		cols:           make([]*Column, len(colsSpec)),
+		name:           opts.name,
+		cols:           make([]*Column, len(opts.colsSpec)),
 		colsByID:       make(map[uint32]*Column),
 		colsByName:     make(map[string]*Column),
 		indexesByName:  make(map[string]*Index),
 		indexesByColID: make(map[uint32][]*Index),
+		isDeleted:      opts.isDeleted,
 	}
 
-	for i, cs := range colsSpec {
+	for i, cs := range opts.colsSpec {
 		_, colExists := table.colsByName[cs.colName]
 		if colExists {
 			return nil, ErrDuplicatedColumn
@@ -295,9 +310,13 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 		table.colsByName[col.colName] = col
 	}
 
-	catlg.tables = append(catlg.tables, table)
-	catlg.tablesByID[table.id] = table
-	catlg.tablesByName[table.name] = table
+	if opts.isDeleted {
+		catlg.deletedTables[table.name] = table
+	} else {
+		catlg.tables = append(catlg.tables, table)
+		catlg.tablesByID[table.id] = table
+		catlg.tablesByName[table.name] = table
+	}
 
 	return table, nil
 }
@@ -467,7 +486,7 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Filters: []store.FilterFn{store.IgnoreExpired},
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -504,7 +523,14 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return err
 		}
 
-		table, err := catlg.newTable(string(v), colSpecs)
+		var isTableDeleted bool
+		md := vref.KVMetadata()
+		if md != nil && md.Deleted() {
+			isTableDeleted = true
+		}
+
+		tableOpts := &TableOptions{name: string(v), isDeleted: isTableDeleted, colsSpec: colSpecs}
+		table, err := catlg.newTable(tableOpts)
 		if err != nil {
 			return err
 		}
@@ -1355,7 +1381,8 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 			return err
 		}
 
-		table, err := catlg.newTable(string(v), colSpecs)
+		tableOpts := &TableOptions{name: string(v), colsSpec: colSpecs}
+		table, err := catlg.newTable(tableOpts)
 		if err != nil {
 			return err
 		}

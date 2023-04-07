@@ -296,7 +296,8 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return tx, nil
 	}
 
-	table, err := tx.catalog.newTable(stmt.table, stmt.colsSpec)
+	tableOpts := &TableOptions{name: stmt.table, colsSpec: stmt.colsSpec}
+	table, err := tx.catalog.newTable(tableOpts)
 	if err != nil {
 		return nil, err
 	}

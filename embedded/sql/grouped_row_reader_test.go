@@ -37,7 +37,7 @@ func TestGroupedRowReader(t *testing.T) {
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
 
-	table, err := tx.catalog.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}})
+	table, err := tx.catalog.newTable(&TableOptions{name: "table1", colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}}})
 	require.NoError(t, err)
 
 	index, err := table.newIndex(true, []uint32{1})

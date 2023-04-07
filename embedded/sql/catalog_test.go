@@ -37,19 +37,19 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByName("table1")
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("", nil)
+	_, err = db.newTable(&TableOptions{})
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", nil)
+	_, err = db.newTable(&TableOptions{name: "table1"})
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", []*ColSpec{})
+	_, err = db.newTable(&TableOptions{name: "table1", colsSpec: []*ColSpec{}})
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "id", colType: IntegerType}})
+	_, err = db.newTable(&TableOptions{name: "table1", colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "id", colType: IntegerType}}})
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
+	table, err := db.newTable(&TableOptions{name: "table1", colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}}})
 	require.NoError(t, err)
 	require.Equal(t, "table1", table.Name())
 
@@ -70,7 +70,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByID(2)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
+	_, err = db.newTable(&TableOptions{name: "table1", colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}}})
 	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	indexed, err := table.IsIndexed("id")
@@ -103,6 +103,17 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = table.newIndex(true, []uint32{1, 2, 1})
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
+	t.Run("check for deleted table", func(t *testing.T) {
+		_, err = db.newTable(&TableOptions{name: "tableA", colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}}, isDeleted: true})
+		require.NoError(t, err)
+
+		exists := db.ExistTable("tableA")
+		require.True(t, exists)
+
+		// tableA is deleted, so it should not be returned by GetTables
+		_, err := db.GetTableByName("tableA")
+		require.ErrorIs(t, err, ErrTableDoesNotExist)
+	})
 }
 
 func TestEncodeRawValueAsKey(t *testing.T) {
