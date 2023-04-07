@@ -405,13 +405,16 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 		document := &structpb.Struct{Fields: map[string]*structpb.Value{}}
 		for i := range colDescriptors {
 			colName := colDescriptors[i].Column
-			tv := row.ValuesByPosition[i]
-			transformedTV := transformTypedValue(colName, tv)
-			vtype, err := valueTypeToFieldValue(transformedTV)
-			if err != nil {
-				return nil, err
+			switch colName {
+			case defaultDocumentIDField, defaultDocumentBLOBField:
+				tv := row.ValuesByPosition[i]
+				transformedTV := transformTypedValue(colName, tv)
+				vtype, err := valueTypeToFieldValue(transformedTV)
+				if err != nil {
+					return nil, err
+				}
+				document.Fields[colName] = vtype
 			}
-			document.Fields[colName] = vtype
 		}
 		results = append(results, document)
 	}
@@ -642,7 +645,7 @@ func (d *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 		nil,
 		[]sql.SQLStmt{
 			sql.NewDeleteFromStmt(collectionName, nil), // delete all documents from collection
-			sql.NewDeleteTableStmt(collectionName),     // delete collection from catalog
+			sql.NewDropTableStmt(collectionName),       // delete collection from catalog
 		},
 		nil,
 	)
