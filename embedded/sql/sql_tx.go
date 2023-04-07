@@ -141,3 +141,7 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) (err error) {
 func (sqlTx *SQLTx) Closed() bool {
 	return sqlTx.closed
 }
+
+func (sqlTx *SQLTx) delete(key []byte) error {
+	return sqlTx.tx.Delete(key)
+}

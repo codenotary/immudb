@@ -4007,16 +4007,16 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
 }
 
-func NewDeleteTableStmt(table string) *DeleteTableStmt {
-	return &DeleteTableStmt{table: table}
+func NewDropTableStmt(table string) *DropTableStmt {
+	return &DropTableStmt{table: table}
 }
 
-// DeleteTableStmt represents a statement to delete a table.
-type DeleteTableStmt struct {
+// DropTableStmt represents a statement to delete a table.
+type DropTableStmt struct {
 	table string
 }
 
-func (stmt *DeleteTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *DropTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
@@ -4027,9 +4027,9 @@ func (stmt *DeleteTableStmt) inferParameters(ctx context.Context, tx *SQLTx, par
 	Note that this is a soft delete of the index and table key,
 	the data is not deleted, but the metadata is updated.
 */
-func (stmt *DeleteTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.catalog.ExistTable(stmt.table) {
-		return tx, nil
+		return nil, ErrTableDoesNotExist
 	}
 
 	table, err := tx.catalog.GetTableByName(stmt.table)
@@ -4037,15 +4037,11 @@ func (stmt *DeleteTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, err
 	}
 
-	// metadata for deleted keys
-	md := store.NewKVMetadata()
-	md.AsDeleted(true)
-
 	// delete indexes
 	indexes := table.GetIndexes()
 	for _, index := range indexes {
 		mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
-		err = tx.set(mappedKey, md, nil)
+		err = tx.delete(mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4053,7 +4049,7 @@ func (stmt *DeleteTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 	// delete table
 	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
-	err = tx.set(mappedKey, md, nil)
+	err = tx.delete(mappedKey)
 	if err != nil {
 		return nil, err
 	}
