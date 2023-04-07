@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -94,5 +95,8 @@ func TestObjectDB_Collection(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs.Results))
 	res := docs.Results[0]
-	require.Equal(t, 123, int(res.Fields["pincode"].GetNumberValue()))
+	data := map[string]interface{}{}
+	err = json.Unmarshal([]byte(res.Fields["_obj"].GetStringValue()), &data)
+	require.NoError(t, err)
+	require.Equal(t, 123.0, data["pincode"])
 }
