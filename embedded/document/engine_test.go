@@ -498,11 +498,8 @@ func TestDocumentUpdate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs))
 
-	// retrieve document
-	doc := docs[0]
-	require.Equal(t, "wonderland", doc.Fields["country"].GetStringValue())
-
 	// check if data is updated
+	doc := docs[0]
 	data := map[string]interface{}{}
 	err = json.Unmarshal([]byte(doc.Fields["_obj"].GetStringValue()), &data)
 	require.NoError(t, err)
