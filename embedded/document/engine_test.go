@@ -558,7 +558,10 @@ func TestFloatSupport(t *testing.T) {
 
 	// retrieve document
 	doc := docs[0]
-	require.Equal(t, 3.1, doc.Fields["number"].GetNumberValue())
+	data := map[string]interface{}{}
+	err = json.Unmarshal([]byte(doc.Fields["_obj"].GetStringValue()), &data)
+	require.NoError(t, err)
+	require.Equal(t, 3.1, data["number"])
 }
 
 func TestDeleteCollection(t *testing.T) {
