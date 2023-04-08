@@ -32,7 +32,6 @@
     - [DocumentUpdateResponse](#immudb.documentschema.DocumentUpdateResponse)
     - [IndexOption](#immudb.documentschema.IndexOption)
     - [IndexValue](#immudb.documentschema.IndexValue)
-    - [Proof](#immudb.documentschema.Proof)
   
     - [IndexType](#immudb.documentschema.IndexType)
     - [QueryOperator](#immudb.documentschema.QueryOperator)
@@ -266,7 +265,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | value | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
-| transactionID | [uint64](#uint64) |  |  |
+| transactionId | [uint64](#uint64) |  |  |
 | revision | [uint64](#uint64) |  |  |
 
 
@@ -334,8 +333,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| proof | [immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
 | documentId | [string](#string) |  |  |
+| transactionId | [uint64](#uint64) |  |  |
 
 
 
@@ -452,8 +451,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| proof | [immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
 | revision | [uint64](#uint64) |  |  |
+| transactionId | [uint64](#uint64) |  |  |
 
 
 
@@ -488,21 +487,6 @@
 | number_value | [double](#double) |  |  |
 | string_value | [string](#string) |  |  |
 | bool_value | [bool](#bool) |  |  |
-
-
-
-
-
-
-<a name="immudb.documentschema.Proof"></a>
-
-### Proof
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
 
 
 

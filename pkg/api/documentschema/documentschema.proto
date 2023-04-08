@@ -19,7 +19,6 @@ syntax = "proto3";
 package immudb.documentschema;
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "schema.proto";
 import "protoc-gen-swagger/options/annotations.proto";
@@ -55,8 +54,8 @@ message DocumentInsertRequest {
 }
 
 message DocumentInsertResponse {
-  schema.VerifiableTx proof = 1;
-  string documentId = 2;
+  string documentId = 1;
+  uint64 transactionId = 2;
 }
 
 message DocumentUpdateRequest {
@@ -66,10 +65,9 @@ message DocumentUpdateRequest {
 }
 
 message DocumentUpdateResponse {
-  schema.VerifiableTx proof = 1;
-  uint64 revision = 2;
+  uint64 revision = 1;
+  uint64 transactionId = 2;
 }
-
 
 enum QueryOperator {
   EQ = 0;
@@ -96,7 +94,6 @@ message DocumentQuery {
   google.protobuf.Value value = 3;
 }
 
-
 message DocumentSearchRequest {
   string collection = 1;
   repeated DocumentQuery query = 2;
@@ -111,18 +108,15 @@ message DocumentSearchResponse {
   uint32 entriesLeft = 4;
 }
 
-
 message DocumentProofRequest {
   string collection = 1;
   string documentId = 2;
   int64 atRevision = 3;
 }
 
-
 message DocumentProofResponse {
   schema.VerifiableTx proof = 1;
 }
-
 
 message DocumentAuditRequest {
   string collection = 1;
@@ -130,7 +124,6 @@ message DocumentAuditRequest {
   uint32 page = 3;
   uint32 perPage = 4;
 }
-
 
 message DocumentAuditResponse {
   repeated DocumentAudit results = 1;
@@ -141,10 +134,9 @@ message DocumentAuditResponse {
 
 message DocumentAudit {
   google.protobuf.Struct value = 1;
-  uint64 transactionID = 2;
+  uint64 transactionId = 2;
   uint64 revision = 3;
 }
-
 
 message IndexOption {
   IndexType type = 1;
@@ -193,10 +185,6 @@ message CollectionDeleteRequest {
 message CollectionDeleteResponse {
 }
 
-message Proof {
-  string name = 1;
-}
-
 message CollectionUpdateRequest {
   string name = 1;
   map<string, IndexOption>  addIndexes = 2;
@@ -237,7 +225,6 @@ service DocumentService {
       tags: "documents";
     };
   } 
-
  
   rpc DocumentAudit(DocumentAuditRequest) returns (DocumentAuditResponse) {
     option (google.api.http) = {
@@ -278,7 +265,6 @@ service DocumentService {
     };
   }
 
-  
   rpc CollectionList(CollectionListRequest) returns (CollectionListResponse) {
     option (google.api.http) = {
       post: "/collections/list"
@@ -288,6 +274,7 @@ service DocumentService {
       tags: "collections";
     };
   }
+
   rpc CollectionDelete(CollectionDeleteRequest) returns (CollectionDeleteResponse) {
     option (google.api.http) = {
       delete: "/collections/delete"

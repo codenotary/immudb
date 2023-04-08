@@ -1,3 +1,18 @@
+/*
+Copyright 2023 Codenotary Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package document
 
 import (
@@ -8,7 +23,6 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -93,7 +107,7 @@ func TestCreateCollection(t *testing.T) {
 	)
 	require.ErrorIs(t, err, sql.ErrTableAlreadyExists)
 
-	catalog, err := engine.Catalog(context.Background(), nil)
+	catalog, err := engine.sqlEngine.Catalog(context.Background(), nil)
 	require.NoError(t, err)
 
 	table, err := catalog.GetTableByName(collectionName)
@@ -137,10 +151,6 @@ func TestCreateCollection(t *testing.T) {
 	require.Equal(t, 4, indexKeyCount)
 }
 
-func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
-	return &schemav2.IndexOption{Type: indexType}
-}
-
 func TestGetDocument(t *testing.T) {
 	engine := makeEngine(t)
 
@@ -155,7 +165,7 @@ func TestGetDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"pincode": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 2},
@@ -216,7 +226,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	docID, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	docID, _, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"pincode": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 2},
@@ -235,7 +245,7 @@ func TestDocumentAudit(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"pincode": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 2},
@@ -284,7 +294,7 @@ func TestQueryDocument(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
-		_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"pincode": {
 					Kind: &structpb.Value_NumberValue{NumberValue: i},
@@ -463,7 +473,7 @@ func TestDocumentUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	docID, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	docID, _, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
@@ -479,7 +489,7 @@ func TestDocumentUpdate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
@@ -532,7 +542,7 @@ func TestFloatSupport(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	catalog, err := engine.Catalog(context.Background(), nil)
+	catalog, err := engine.sqlEngine.Catalog(context.Background(), nil)
 	require.NoError(t, err)
 
 	table, err := catalog.GetTableByName(collectionName)
@@ -544,7 +554,7 @@ func TestFloatSupport(t *testing.T) {
 	require.Equal(t, sql.Float64Type, col.Type())
 
 	// add document to collection
-	_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"number": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
@@ -590,7 +600,7 @@ func TestDeleteCollection(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
-		_, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"idx": {
 					Kind: &structpb.Value_NumberValue{NumberValue: i},
@@ -604,7 +614,7 @@ func TestDeleteCollection(t *testing.T) {
 		err = engine.DeleteCollection(context.Background(), collectionName)
 		require.NoError(t, err)
 
-		_, err := engine.Query(context.Background(), nil, "SELECT COUNT(*) FROM mycollection", nil)
+		_, err := engine.sqlEngine.Query(context.Background(), nil, "SELECT COUNT(*) FROM mycollection", nil)
 		require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 
 		collectionList, err := engine.ListCollections(context.Background())

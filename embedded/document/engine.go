@@ -1,10 +1,24 @@
+/*
+Copyright 2023 Codenotary Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package document
 
 import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -123,10 +137,10 @@ func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
 }
 
 type Engine struct {
-	*sql.Engine
+	sqlEngine *sql.Engine
 }
 
-func (d *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]sql.SQLValueType) error {
+func (e *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]sql.SQLValueType) error {
 	primaryKeys := []string{defaultDocumentIDField}
 	indexKeys := make([]string, 0)
 	columns := make([]*sql.ColSpec, 0)
@@ -148,7 +162,7 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	}
 
 	// add columns to collection
-	_, _, err := d.ExecPreparedStmts(
+	_, _, err := e.sqlEngine.ExecPreparedStmts(
 		context.Background(),
 		nil,
 		[]sql.SQLStmt{sql.NewCreateTableStmt(
@@ -169,7 +183,7 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, id
 		for _, idx := range indexKeys {
 			sqlStmts = append(sqlStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
 		}
-		_, _, err = d.ExecPreparedStmts(
+		_, _, err = e.sqlEngine.ExecPreparedStmts(
 			context.Background(),
 			nil,
 			sqlStmts,
@@ -183,17 +197,17 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	return nil
 }
 
-func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (DocumentID, error) {
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
-		return NilDocumentID, err
+		return NilDocumentID, 0, err
 	}
 	defer tx.Cancel()
 
 	// check if collection exists
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
-		return NilDocumentID, err
+		return NilDocumentID, 0, err
 	}
 
 	cols := make([]string, 0)
@@ -207,12 +221,12 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	// check if document id is already present
 	_, ok := doc.Fields[defaultDocumentIDField]
 	if ok {
-		return NilDocumentID, fmt.Errorf("_id field is not allowed to be set")
+		return NilDocumentID, 0, fmt.Errorf("_id field is not allowed to be set")
 	}
 
 	// generate document id
-	lastPrecommittedTxID := d.GetStore().LastPrecommittedTxID()
-	docID := NewDocumentIDFromTx(lastPrecommittedTxID)
+	lastPrecommittedTxID := e.sqlEngine.GetStore().LastPrecommittedTxID()
+	docID = NewDocumentIDFromTx(lastPrecommittedTxID)
 
 	values := make([]sql.ValueExp, 0)
 	for _, col := range tcolumns {
@@ -223,18 +237,18 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		case defaultDocumentBLOBField:
 			document, err := NewDocumentFrom(doc)
 			if err != nil {
-				return NilDocumentID, err
+				return NilDocumentID, 0, err
 			}
 			res, err := document.MarshalJSON()
 			if err != nil {
-				return NilDocumentID, err
+				return NilDocumentID, 0, err
 			}
 			values = append(values, sql.NewBlob(res))
 		default:
 			if rval, ok := doc.Fields[col.Name()]; ok {
 				valType, err := valueTypeToExp(col.Type(), rval)
 				if err != nil {
-					return NilDocumentID, err
+					return NilDocumentID, 0, err
 				}
 				values = append(values, valType)
 			}
@@ -246,7 +260,7 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	}
 
 	// add document to collection
-	_, _, err = d.ExecPreparedStmts(
+	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		nil,
 		[]sql.SQLStmt{
@@ -260,14 +274,14 @@ func (d *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		nil,
 	)
 	if err != nil {
-		return NilDocumentID, err
+		return NilDocumentID, 0, err
 	}
 
-	return docID, nil
+	return docID, ctxs[0].TxHeader().ID, nil
 }
 
-func (d *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, error) {
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, error) {
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
@@ -285,8 +299,8 @@ func (d *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, 
 	return collectionMap, nil
 }
 
-func (d *Engine) GetCollection(ctx context.Context, collectionName string) ([]*sql.Index, error) {
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) GetCollection(ctx context.Context, collectionName string) ([]*sql.Index, error) {
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
@@ -348,8 +362,8 @@ func (d *Engine) generateExp(ctx context.Context, collection string, expressions
 	return result, nil
 }
 
-func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (map[string]*sql.Column, error) {
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) getCollectionSchema(ctx context.Context, collection string) (map[string]*sql.Column, error) {
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
@@ -364,8 +378,8 @@ func (d *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
-	exp, err := d.generateExp(ctx, collectionName, queries)
+func (e *Engine) GetDocument(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
+	exp, err := e.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +397,7 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 		sql.NewInteger(int64(offset)),
 	)
 
-	r, err := d.QueryPreparedStmt(ctx, nil, op, nil)
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, op, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +439,7 @@ func (d *Engine) GetDocument(ctx context.Context, collectionName string, queries
 	return results, nil
 }
 
-func (d *Engine) getKey(ctx context.Context, tx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {
+func (e *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		return nil, err
@@ -450,7 +464,7 @@ func (d *Engine) getKey(ctx context.Context, tx *sql.SQLTx, collectionName strin
 	pkEncVals := valbuf.Bytes()
 
 	searchKey = sql.MapKey(
-		d.GetPrefix(),
+		e.sqlEngine.GetPrefix(),
 		sql.PIndexPrefix,
 		sql.EncodeID(1),
 		sql.EncodeID(table.ID()),
@@ -462,25 +476,25 @@ func (d *Engine) getKey(ctx context.Context, tx *sql.SQLTx, collectionName strin
 }
 
 // DocumentAudit returns the audit history of a document.
-func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*Audit, error) {
+func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*Audit, error) {
 	offset := (pageNum - 1) * itemsPerPage
 	limit := itemsPerPage
 	if offset < 0 || limit < 1 {
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Cancel()
 
-	searchKey, err := d.getKey(ctx, tx, collectionName, documentID)
+	searchKey, err := e.getKeyForDocument(ctx, tx, collectionName, documentID)
 	if err != nil {
 		return nil, err
 	}
 
-	txs, _, err := d.GetStore().History(searchKey, uint64(offset), false, limit)
+	txs, _, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), false, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +506,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 
 	results := make([]*Audit, 0)
 	for i, txID := range txs {
-		res, err := d.getValueAt(searchKey, txID, false, uint64(i)+1)
+		res, err := e.getValueAt(searchKey, txID, false, uint64(i)+1)
 		if err != nil {
 			return nil, err
 		}
@@ -513,10 +527,15 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 			}
 
 			val, n, err := sql.DecodeValue(v[voff:], sql.BLOBType)
+			if err != nil {
+				return nil, err
+			}
+
 			if col.Name() == defaultDocumentBLOBField {
 				res.Value = val.RawValue().([]byte)
 				break
 			}
+
 			voff += n
 		}
 
@@ -526,7 +545,7 @@ func (d *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	return results, nil
 }
 
-func (d *Engine) getValueAt(
+func (e *Engine) getValueAt(
 	key []byte,
 	atTx uint64,
 	skipIntegrityCheck bool,
@@ -535,7 +554,7 @@ func (d *Engine) getValueAt(
 	var txID uint64
 	var val []byte
 
-	index := d.GetStore()
+	index := e.sqlEngine.GetStore()
 	if atTx == 0 {
 		valRef, err := index.Get(key)
 		if err != nil {
@@ -553,7 +572,7 @@ func (d *Engine) getValueAt(
 		revision = valRef.HC()
 	} else {
 		txID = atTx
-		_, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
+		_, val, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
 		if err != nil {
 			return nil, err
 		}
@@ -566,8 +585,8 @@ func (d *Engine) getValueAt(
 	}, err
 }
 
-func (d *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
-	store := d.GetStore()
+func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
+	store := e.sqlEngine.GetStore()
 	entry, _, err := store.ReadTxEntry(atTx, key, skipIntegrityCheck)
 	if err != nil {
 		return nil, nil, err
@@ -581,24 +600,25 @@ func (d *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	return entry.Metadata(), v, nil
 }
 
-func (d *Engine) UpdateDocument(ctx context.Context, collectionName string, docID DocumentID, doc *structpb.Struct) (uint64, error) {
+func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, docID DocumentID, doc *structpb.Struct) (txID, rev uint64, err error) {
 	document, err := NewDocumentFrom(doc)
 	if err != nil {
-		return 0, err
-	}
-	res, err := document.MarshalJSON()
-	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	tx, err := d.NewTx(ctx, sql.DefaultTxOptions())
+	res, err := document.MarshalJSON()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
+	}
+
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	if err != nil {
+		return 0, 0, err
 	}
 	defer tx.Cancel()
 
 	// update document in collection
-	_, ctxs, err := d.ExecPreparedStmts(
+	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		tx,
 		[]sql.SQLStmt{
@@ -614,36 +634,33 @@ func (d *Engine) UpdateDocument(ctx context.Context, collectionName string, docI
 		nil,
 	)
 	if err != nil {
-		return 0, err
-	}
-	if len(ctxs) == 0 {
-		return 0, errors.New("transaction failed during document update")
+		return 0, 0, err
 	}
 
-	// wait for indexing to catch up to ensure we can read the document from the index
 	committedTx := ctxs[0]
-	err = d.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
+
+	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	searchKey, err := d.getKey(ctx, tx, collectionName, docID)
+	searchKey, err := e.getKeyForDocument(ctx, tx, collectionName, docID)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	auditLog, err := d.getValueAt(searchKey, 0, false, 0)
+	auditLog, err := e.getValueAt(searchKey, 0, false, 0)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return auditLog.Revision, nil
+	return committedTx.TxHeader().ID, auditLog.Revision, nil
 }
 
 // DeleteCollection deletes a collection.
-func (d *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
+func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
 	// delete collection from catalog
-	_, ctxs, err := d.ExecPreparedStmts(
+	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		nil,
 		[]sql.SQLStmt{
@@ -658,7 +675,7 @@ func (d *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 
 	// wait for the transaction to be committed to ensure the collection is deleted from the catalog
 	committedTx := ctxs[0]
-	err = d.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
+	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
 	if err != nil {
 		return err
 	}
@@ -666,7 +683,7 @@ func (d *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
-func (d *Engine) UpdateCollection(ctx context.Context, collectionName string, addIdxKeys map[string]sql.SQLValueType, removeIdxKeys []string) error {
+func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, addIdxKeys map[string]sql.SQLValueType, removeIdxKeys []string) error {
 	indexKeys := make([]string, 0)
 	updateCollectionStmts := make([]sql.SQLStmt, 0)
 
@@ -687,7 +704,7 @@ func (d *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 			updateCollectionStmts = append(updateCollectionStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
 		}
 
-		_, _, err := d.ExecPreparedStmts(
+		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			context.Background(),
 			nil,
 			updateCollectionStmts,
@@ -705,7 +722,7 @@ func (d *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 			deleteIdxStmts = append(deleteIdxStmts, sql.NewDropIndexStmt(collectionName, idx))
 		}
 
-		_, _, err := d.ExecPreparedStmts(
+		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			context.Background(),
 			nil,
 			deleteIdxStmts,
