@@ -102,12 +102,15 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 
 // CreateDocument creates a new document
 func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
-	docID, err := d.documentEngine.CreateDocument(ctx, req.Collection, req.Document)
+	docID, txID, err := d.documentEngine.CreateDocument(ctx, req.Collection, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schemav2.DocumentInsertResponse{DocumentId: docID.Hex()}, nil
+	return &schemav2.DocumentInsertResponse{
+		DocumentId:    docID.Hex(),
+		TransactionId: txID,
+	}, nil
 }
 
 // GetDocument returns the document
@@ -183,7 +186,7 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 
 	for _, log := range historyLogs {
 		resp.Results = append(resp.Results, &schemav2.DocumentAudit{
-			TransactionID: log.TxID,
+			TransactionId: log.TxID,
 			Revision:      log.Revision,
 			Value: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -206,12 +209,15 @@ func (d *db) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateReq
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}
 
-	revision, err := d.documentEngine.UpdateDocument(ctx, req.Collection, docID, req.Document)
+	txID, revision, err := d.documentEngine.UpdateDocument(ctx, req.Collection, docID, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schemav2.DocumentUpdateResponse{Revision: revision}, nil
+	return &schemav2.DocumentUpdateResponse{
+		TransactionId: txID,
+		Revision:      revision,
+	}, nil
 }
 
 // DeleteCollection deletes a collection
