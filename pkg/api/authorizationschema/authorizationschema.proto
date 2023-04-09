@@ -41,7 +41,6 @@ message OpenSessionResponseV2 {
   string serverUUID = 2;
   int32 expirationTimestamp = 3;
   int32 inactivityTimestamp = 4;
-
 }
 
 service AuthorizationService {
@@ -53,5 +52,5 @@ service AuthorizationService {
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "authorization";
     };
-  } 
+  }
 }

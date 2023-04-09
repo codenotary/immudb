@@ -351,7 +351,8 @@
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
 | documentId | [string](#string) |  |  |
-| atRevision | [int64](#int64) |  |  |
+| transactionId | [uint64](#uint64) |  |  |
+| lastValidatedTransactionId | [uint64](#uint64) |  |  |
 
 
 
@@ -366,7 +367,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| proof | [immudb.schema.VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
+| collectionId | [uint32](#uint32) |  |  |
+| verifiableTx | [immudb.schema.VerifiableTxV2](#immudb.schema.VerifiableTxV2) |  |  |
 
 
 

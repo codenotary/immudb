@@ -32,6 +32,7 @@
     - [DeleteDatabaseResponse](#immudb.schema.DeleteDatabaseResponse)
     - [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest)
     - [DualProof](#immudb.schema.DualProof)
+    - [DualProofV2](#immudb.schema.DualProofV2)
     - [Entries](#immudb.schema.Entries)
     - [EntriesSpec](#immudb.schema.EntriesSpec)
     - [Entry](#immudb.schema.Entry)
@@ -130,6 +131,7 @@
     - [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest)
     - [VerifiableTx](#immudb.schema.VerifiableTx)
     - [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest)
+    - [VerifiableTxV2](#immudb.schema.VerifiableTxV2)
     - [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest)
     - [ZAddRequest](#immudb.schema.ZAddRequest)
     - [ZEntries](#immudb.schema.ZEntries)
@@ -624,6 +626,24 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | lastInclusionProof | [bytes](#bytes) | repeated | Inclusion proof of the targetBlTxAlh in the target Merkle Tree |
 | linearProof | [LinearProof](#immudb.schema.LinearProof) |  | Linear proof starting from targetBlTxAlh to the final state value |
 | LinearAdvanceProof | [LinearAdvanceProof](#immudb.schema.LinearAdvanceProof) |  | Proof of consistency between some part of older linear chain and newer Merkle Tree |
+
+
+
+
+
+
+<a name="immudb.schema.DualProofV2"></a>
+
+### DualProofV2
+DualProofV2 contains inclusion and consistency proofs
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sourceTxHeader | [TxHeader](#immudb.schema.TxHeader) |  | Header of the source (earlier) transaction |
+| targetTxHeader | [TxHeader](#immudb.schema.TxHeader) |  | Header of the target (latter) transaction |
+| inclusionProof | [bytes](#bytes) | repeated | Inclusion proof of the source transaction hash in the main Merkle Tree |
+| consistencyProof | [bytes](#bytes) | repeated | Consistency proof between Merkle Trees in the source and target transactions |
 
 
 
@@ -2276,6 +2296,23 @@ Reserved to reply with more advanced response later
 | sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
 | noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for the indexer to be up to date |
 | keepReferencesUnresolved | [bool](#bool) |  | If set to true, do not resolve references (avoid looking up final values if not needed) |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableTxV2"></a>
+
+### VerifiableTxV2
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tx | [Tx](#immudb.schema.Tx) |  | Transaction to verify |
+| dualProof | [DualProofV2](#immudb.schema.DualProofV2) |  | Proof for the transaction |
+| signature | [Signature](#immudb.schema.Signature) |  | Signature for the new state value |
 
 
 

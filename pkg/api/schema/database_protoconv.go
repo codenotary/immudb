@@ -141,6 +141,15 @@ func DualProofToProto(dualProof *store.DualProof) *DualProof {
 	}
 }
 
+func DualProofV2ToProto(dualProof *store.DualProofV2) *DualProofV2 {
+	return &DualProofV2{
+		SourceTxHeader:   TxHeaderToProto(dualProof.SourceTxHeader),
+		TargetTxHeader:   TxHeaderToProto(dualProof.TargetTxHeader),
+		InclusionProof:   DigestsToProto(dualProof.InclusionProof),
+		ConsistencyProof: DigestsToProto(dualProof.ConsistencyProof),
+	}
+}
+
 func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
 	if hdr == nil {
 		return nil
