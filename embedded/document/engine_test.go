@@ -524,7 +524,7 @@ func TestDocumentUpdate(t *testing.T) {
 	// check if data is updated
 	doc := docs[0]
 	data := map[string]interface{}{}
-	err = json.Unmarshal([]byte(doc.Fields["_obj"].GetStringValue()), &data)
+	err = json.Unmarshal([]byte(doc.Fields[DocumentBLOBField].GetStringValue()), &data)
 	require.NoError(t, err)
 	require.Equal(t, "value2", data["data"].(map[string]interface{})["key1"])
 }

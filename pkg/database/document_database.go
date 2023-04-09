@@ -20,7 +20,7 @@ var (
 	}
 )
 
-// DocumentDatabase is the interface for object database
+// DocumentDatabase is the interface for document database
 type DocumentDatabase interface {
 	// GetCollection returns the collection schema
 	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error)
@@ -204,7 +204,7 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 			Revision:      log.Revision,
 			Value: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"_obj": {
+					document.DocumentBLOBField: {
 						Kind: &structpb.Value_StringValue{StringValue: string(log.Value)},
 					},
 				},
