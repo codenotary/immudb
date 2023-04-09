@@ -512,17 +512,25 @@
         "documentId": {
           "type": "string"
         },
-        "atRevision": {
+        "transactionId": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
+        },
+        "lastValidatedTransactionId": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
     "documentschemaDocumentProofResponse": {
       "type": "object",
       "properties": {
-        "proof": {
-          "$ref": "#/definitions/schemaVerifiableTx"
+        "collectionId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "verifiableTx": {
+          "$ref": "#/definitions/schemaVerifiableTxV2"
         }
       }
     },
@@ -689,7 +697,7 @@
         }
       }
     },
-    "schemaDualProof": {
+    "schemaDualProofV2": {
       "type": "object",
       "properties": {
         "sourceTxHeader": {
@@ -715,30 +723,9 @@
             "format": "byte"
           },
           "title": "Consistency proof between Merkle Trees in the source and target transactions"
-        },
-        "targetBlTxAlh": {
-          "type": "string",
-          "format": "byte",
-          "title": "Accumulative hash (Alh) of the last transaction that's part of the target Merkle Tree"
-        },
-        "lastInclusionProof": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          },
-          "title": "Inclusion proof of the targetBlTxAlh in the target Merkle Tree"
-        },
-        "linearProof": {
-          "$ref": "#/definitions/schemaLinearProof",
-          "title": "Linear proof starting from targetBlTxAlh to the final state value"
-        },
-        "LinearAdvanceProof": {
-          "$ref": "#/definitions/schemaLinearAdvanceProof",
-          "title": "Proof of consistency between some part of older linear chain and newer Merkle Tree"
         }
       },
-      "title": "DualProof contains inclusion and consistency proofs for dual Merkle-Tree + Linear proofs"
+      "title": "DualProofV2 contains inclusion and consistency proofs"
     },
     "schemaEntry": {
       "type": "object",
@@ -787,29 +774,6 @@
         }
       }
     },
-    "schemaInclusionProof": {
-      "type": "object",
-      "properties": {
-        "leaf": {
-          "type": "integer",
-          "format": "int32",
-          "title": "Index of the leaf for which the proof is generated"
-        },
-        "width": {
-          "type": "integer",
-          "format": "int32",
-          "title": "Width of the tree at the leaf level"
-        },
-        "terms": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          },
-          "title": "Proof terms (selected hashes from the tree)"
-        }
-      }
-    },
     "schemaKVMetadata": {
       "type": "object",
       "properties": {
@@ -826,51 +790,6 @@
           "title": "If set to true, this entry will not be indexed and will only be accessed through GetAt calls"
         }
       }
-    },
-    "schemaLinearAdvanceProof": {
-      "type": "object",
-      "properties": {
-        "linearProofTerms": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          },
-          "title": "terms for the linear chain"
-        },
-        "inclusionProofs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaInclusionProof"
-          },
-          "title": "inclusion proofs for steps on the linear chain"
-        }
-      },
-      "title": "LinearAdvanceProof contains the proof of consistency between the consumed part of the older linear chain\nand the new Merkle Tree"
-    },
-    "schemaLinearProof": {
-      "type": "object",
-      "properties": {
-        "sourceTxId": {
-          "type": "string",
-          "format": "uint64",
-          "title": "Starting transaction of the proof"
-        },
-        "TargetTxId": {
-          "type": "string",
-          "format": "uint64",
-          "title": "End transaction of the proof"
-        },
-        "terms": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          },
-          "title": "List of terms (inner hashes of transaction entries)"
-        }
-      },
-      "title": "LinearProof contains the linear part of the proof (outside the main Merkle Tree)"
     },
     "schemaReference": {
       "type": "object",
@@ -1033,7 +952,7 @@
       },
       "title": "TxMetadata contains metadata set to whole transaction"
     },
-    "schemaVerifiableTx": {
+    "schemaVerifiableTxV2": {
       "type": "object",
       "properties": {
         "tx": {
@@ -1041,7 +960,7 @@
           "title": "Transaction to verify"
         },
         "dualProof": {
-          "$ref": "#/definitions/schemaDualProof",
+          "$ref": "#/definitions/schemaDualProofV2",
           "title": "Proof for the transaction"
         },
         "signature": {

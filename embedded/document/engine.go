@@ -378,7 +378,7 @@ func (e *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (e *Engine) GetDocument(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
+func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
 	exp, err := e.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
@@ -655,6 +655,31 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, docI
 	}
 
 	return committedTx.TxHeader().ID, auditLog.Revision, nil
+}
+
+func (e *Engine) GetDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *Audit, err error) {
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return 0, nil, err
+	}
+	defer sqlTx.Cancel()
+
+	table, err := sqlTx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	docAudit, err = e.getValueAt(searchKey, txID, false, 0)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return table.ID(), docAudit, nil
 }
 
 // DeleteCollection deletes a collection.

@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.DocumentInsertRequest) (*documentschema.DocumentInsertResponse, error) {
@@ -121,13 +122,36 @@ func (s *ImmuServer) DocumentAudit(ctx context.Context, req *documentschema.Docu
 	return resp, nil
 }
 
-// TODO: implement
 func (s *ImmuServer) DocumentProof(ctx context.Context, req *documentschema.DocumentProofRequest) (*documentschema.DocumentProofResponse, error) {
-	_, err := s.getDBFromCtx(ctx, "DocumentProof")
+	db, err := s.getDBFromCtx(ctx, "DocumentProof")
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+
+	res, err := db.DocumentProof(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.StateSigner != nil {
+		hdr := schema.TxHeaderFromProto(res.VerifiableTx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     db.GetName(),
+			TxId:   hdr.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		res.VerifiableTx.Signature = newState.Signature
+	}
+
+	return res, nil
 }
 
 func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *documentschema.CollectionUpdateRequest) (*documentschema.CollectionUpdateResponse, error) {

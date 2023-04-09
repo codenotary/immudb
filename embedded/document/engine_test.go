@@ -202,14 +202,14 @@ func TestGetDocument(t *testing.T) {
 	}
 
 	// invalid page number
-	_, err = engine.GetDocument(context.Background(), collectionName, expressions, 0, 10)
+	_, err = engine.GetDocuments(context.Background(), collectionName, expressions, 0, 10)
 	require.Error(t, err)
 
 	// invalid page limit
-	_, err = engine.GetDocument(context.Background(), collectionName, expressions, 1, 0)
+	_, err = engine.GetDocuments(context.Background(), collectionName, expressions, 1, 0)
 	require.Error(t, err)
 
-	doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 10)
+	doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(doc))
 }
@@ -321,7 +321,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 9, len(doc))
 	})
@@ -337,7 +337,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 10, len(doc))
 	})
@@ -353,7 +353,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 9, len(doc))
 	})
@@ -369,7 +369,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 5, len(doc))
 	})
@@ -385,7 +385,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(doc))
 	})
@@ -408,7 +408,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 8, len(doc))
 	})
@@ -431,7 +431,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(doc))
 	})
@@ -454,7 +454,7 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 20)
+		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(doc))
 	})
@@ -517,7 +517,7 @@ func TestDocumentUpdate(t *testing.T) {
 	}
 
 	// check if document is updated
-	docs, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 10)
+	docs, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs))
 
@@ -575,7 +575,7 @@ func TestFloatSupport(t *testing.T) {
 	}
 
 	// check if document is updated
-	docs, err := engine.GetDocument(context.Background(), collectionName, expressions, 1, 10)
+	docs, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs))
 

@@ -20,8 +20,8 @@ package immudb.documentschema;
 
 import "google/api/annotations.proto";
 import "google/protobuf/struct.proto";
-import "schema.proto";
 import "protoc-gen-swagger/options/annotations.proto";
+import "schema.proto";
 
 option go_package = "github.com/codenotary/immudb/pkg/api/documentschema";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
@@ -111,11 +111,13 @@ message DocumentSearchResponse {
 message DocumentProofRequest {
   string collection = 1;
   string documentId = 2;
-  int64 atRevision = 3;
+  uint64 transactionId = 3;
+  uint64 lastValidatedTransactionId = 4;
 }
 
 message DocumentProofResponse {
-  schema.VerifiableTx proof = 1;
+  uint32 collectionId = 1;
+  schema.VerifiableTxV2 verifiableTx = 2;
 }
 
 message DocumentAuditRequest {
@@ -151,7 +153,7 @@ enum IndexType {
 
 message CollectionCreateRequest {
   string name = 1;
-  map<string, IndexOption>  indexKeys = 2;
+  map<string, IndexOption> indexKeys = 2;
 }
 
 message CollectionCreateResponse {
@@ -160,7 +162,7 @@ message CollectionCreateResponse {
 
 message CollectionInformation {
   string name = 1;
-  map<string, IndexOption>  indexKeys = 2;
+  map<string, IndexOption> indexKeys = 2;
 }
 
 message CollectionGetResponse {
@@ -171,8 +173,7 @@ message CollectionGetRequest {
   string name = 1;
 }
 
-message CollectionListRequest {
-}
+message CollectionListRequest {}
 
 message CollectionListResponse {
   repeated CollectionInformation collections = 1;
@@ -182,8 +183,7 @@ message CollectionDeleteRequest {
   string name = 1;
 }
 
-message CollectionDeleteResponse {
-}
+message CollectionDeleteResponse {}
 
 message CollectionUpdateRequest {
   string name = 1;
@@ -204,7 +204,7 @@ service DocumentService {
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";
     };
-  } 
+  }
 
   rpc DocumentUpdate(DocumentUpdateRequest) returns (DocumentUpdateResponse) {
     option (google.api.http) = {
@@ -212,10 +212,12 @@ service DocumentService {
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: ["documents"];
+      tags: [
+        "documents"
+      ];
     };
-  } 
- 
+  }
+
   rpc DocumentSearch(DocumentSearchRequest) returns (DocumentSearchResponse) {
     option (google.api.http) = {
       post: "/documents/search"
@@ -224,27 +226,33 @@ service DocumentService {
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";
     };
-  } 
- 
+  }
+
   rpc DocumentAudit(DocumentAuditRequest) returns (DocumentAuditResponse) {
     option (google.api.http) = {
       post: "/documents/audit"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: ["documents", "audit"];
+      tags: [
+        "documents",
+        "audit"
+      ];
     };
-  } 
- 
+  }
+
   rpc DocumentProof(DocumentProofRequest) returns (DocumentProofResponse) {
     option (google.api.http) = {
       post: "/documents/proof"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: ["documents", "audit"];
+      tags: [
+        "documents",
+        "audit"
+      ];
     };
-  } 
+  }
 
   rpc CollectionCreate(CollectionCreateRequest) returns (CollectionCreateResponse) {
     option (google.api.http) = {
@@ -283,7 +291,6 @@ service DocumentService {
       tags: "collections";
     };
   }
-
 
   rpc CollectionUpdate(CollectionUpdateRequest) returns (CollectionUpdateResponse) {
     option (google.api.http) = {

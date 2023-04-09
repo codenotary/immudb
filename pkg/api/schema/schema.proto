@@ -420,6 +420,21 @@ message DualProof {
   LinearAdvanceProof LinearAdvanceProof = 8;
 }
 
+// DualProofV2 contains inclusion and consistency proofs
+message DualProofV2 {
+  // Header of the source (earlier) transaction
+  TxHeader sourceTxHeader = 1;
+
+  // Header of the target (latter) transaction
+  TxHeader targetTxHeader = 2;
+
+  // Inclusion proof of the source transaction hash in the main Merkle Tree
+  repeated bytes inclusionProof = 3;
+
+  // Consistency proof between Merkle Trees in the source and target transactions
+  repeated bytes consistencyProof = 4;
+}
+
 message Tx {
   // Transaction header
   TxHeader header = 1;
@@ -474,6 +489,17 @@ message VerifiableTx {
 
   // Proof for the transaction
   DualProof dualProof = 2;
+
+  // Signature for the new state value
+  Signature signature = 3;
+}
+
+message VerifiableTxV2 {
+  // Transaction to verify
+  Tx tx = 1;
+
+  // Proof for the transaction
+  DualProofV2 dualProof = 2;
 
   // Signature for the new state value
   Signature signature = 3;
@@ -607,14 +633,14 @@ message ImmutableState {
 
   // Signature of the hash
   Signature signature = 4;
-	
+
   // following fields are not part of the signature
 
   // Id of the most recent precommitted transaction
-	uint64 precommittedTxId = 5;
+  uint64 precommittedTxId = 5;
 
   // State of the most recent precommitted transaction
-	bytes precommittedTxHash = 6;
+  bytes precommittedTxHash = 6;
 }
 
 message ReferenceRequest {
@@ -838,21 +864,21 @@ message TxList {
 
 message ExportTxRequest {
   // Id of transaction to export
-	uint64 tx = 1;
+  uint64 tx = 1;
   // If set to true, non-committed transactions can be exported
-	bool allowPreCommitted = 2;
+  bool allowPreCommitted = 2;
   // Used on synchronous replication to notify the primary about replica state
-	ReplicaState replicaState = 3;
+  ReplicaState replicaState = 3;
   // If set to true, integrity checks are skipped when reading data
   bool skipIntegrityCheck = 4;
 }
 
 message ReplicaState {
-	string UUID = 1;
-	uint64 committedTxID = 2;
-	bytes  committedAlh = 3;
-	uint64 precommittedTxID = 4;
-	bytes  precommittedAlh = 5;
+  string UUID = 1;
+  uint64 committedTxID = 2;
+  bytes committedAlh = 3;
+  uint64 precommittedTxID = 4;
+  bytes precommittedAlh = 5;
 }
 
 message Database {

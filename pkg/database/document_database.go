@@ -6,7 +6,9 @@ import (
 
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -26,6 +28,10 @@ type DocumentDatabase interface {
 	CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error)
 	// ListCollections returns the list of collection schemas
 	ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error)
+	// UpdateCollection updates an existing collection
+	UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error)
+	// DeleteCollection deletes a collection
+	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
 	// GetDocument returns the document
 	GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
 	// CreateDocument creates a new document
@@ -34,10 +40,8 @@ type DocumentDatabase interface {
 	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
 	// UpdateDocument updates a document
 	UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
-	// DeleteCollection deletes a collection
-	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
-	// UpdateCollection updates an existing collection
-	UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error)
+	// DocumentProof returns the proofs for a document
+	DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error)
 }
 
 func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
@@ -100,6 +104,16 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 	return &schemav2.CollectionCreateResponse{Collection: cinfo}, nil
 }
 
+// DeleteCollection deletes a collection
+func (d *db) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
+	err := d.documentEngine.DeleteCollection(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.CollectionDeleteResponse{}, nil
+}
+
 // CreateDocument creates a new document
 func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
 	docID, txID, err := d.documentEngine.CreateDocument(ctx, req.Collection, req.Document)
@@ -127,7 +141,7 @@ func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchReques
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
-	results, err := d.documentEngine.GetDocument(ctx, req.Collection, queries, int(req.Page), int(req.PerPage))
+	results, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries, int(req.Page), int(req.PerPage))
 	if err != nil {
 		return nil, err
 	}
@@ -220,14 +234,57 @@ func (d *db) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateReq
 	}, nil
 }
 
-// DeleteCollection deletes a collection
-func (d *db) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
-	err := d.documentEngine.DeleteCollection(ctx, req.Name)
+// DocumentProof returns the proofs for a documenta
+func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error) {
+	docID, err := document.DocumentIDFromHex(req.DocumentId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid document id: %v", err)
+	}
+
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
+
+	collectionID, docAudit, err := d.documentEngine.GetDocument(ctx, req.Collection, docID, req.TransactionId)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schemav2.CollectionDeleteResponse{}, nil
+	err = d.st.ReadTx(docAudit.TxID, false, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	var sourceHdr, targetHdr *store.TxHeader
+
+	if tx.Header().ID < req.LastValidatedTransactionId {
+		sourceHdr = tx.Header()
+		targetHdr, err = d.st.ReadTxHeader(req.LastValidatedTransactionId, false, false)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		sourceHdr, err = d.st.ReadTxHeader(req.LastValidatedTransactionId, false, false)
+		if err != nil {
+			return nil, err
+		}
+		targetHdr = tx.Header()
+	}
+
+	dualProof, err := d.st.DualProofV2(sourceHdr, targetHdr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.DocumentProofResponse{
+		CollectionId: collectionID,
+		VerifiableTx: &schema.VerifiableTxV2{
+			Tx:        schema.TxToProto(tx),
+			DualProof: schema.DualProofV2ToProto(dualProof),
+		},
+	}, nil
 }
 
 // UpdateCollection updates an existing collection
