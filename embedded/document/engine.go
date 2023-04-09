@@ -27,9 +27,8 @@ import (
 )
 
 const (
-	// Default fields for document store
-	defaultDocumentIDField   = "_id"
-	defaultDocumentBLOBField = "_obj"
+	DocumentIDField   = "_id"
+	DocumentBLOBField = "_doc"
 )
 
 // Schema to ValueType mapping
@@ -107,7 +106,7 @@ var (
 	// transform value type based on column name
 	transformTypedValue = func(colName string, value sql.TypedValue) sql.TypedValue {
 		switch colName {
-		case defaultDocumentIDField:
+		case DocumentIDField:
 			docID := NewDocumentIDFromBytes(value.RawValue().([]byte))
 			return sql.NewVarchar(docID.Hex())
 		}
@@ -141,15 +140,15 @@ type Engine struct {
 }
 
 func (e *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]sql.SQLValueType) error {
-	primaryKeys := []string{defaultDocumentIDField}
+	primaryKeys := []string{DocumentIDField}
 	indexKeys := make([]string, 0)
 	columns := make([]*sql.ColSpec, 0)
 
 	// add primary key for document id
-	columns = append(columns, sql.NewColSpec(defaultDocumentIDField, sql.BLOBType, 32, false, true))
+	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, 32, false, true))
 
 	// add columnn for blob, which stores the document as a whole
-	columns = append(columns, sql.NewColSpec(defaultDocumentBLOBField, sql.BLOBType, 0, false, false))
+	columns = append(columns, sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false))
 
 	// add index keys
 	for name, schType := range idxKeys {
@@ -219,7 +218,7 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	}
 
 	// check if document id is already present
-	_, ok := doc.Fields[defaultDocumentIDField]
+	_, ok := doc.Fields[DocumentIDField]
 	if ok {
 		return NilDocumentID, 0, fmt.Errorf("_id field is not allowed to be set")
 	}
@@ -231,10 +230,10 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	values := make([]sql.ValueExp, 0)
 	for _, col := range tcolumns {
 		switch col.Name() {
-		case defaultDocumentIDField:
+		case DocumentIDField:
 			// add document id to document
 			values = append(values, sql.NewBlob(docID[:]))
-		case defaultDocumentBLOBField:
+		case DocumentBLOBField:
 			document, err := NewDocumentFrom(doc)
 			if err != nil {
 				return NilDocumentID, 0, err
@@ -449,7 +448,7 @@ func (e *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectio
 
 	valbuf := bytes.Buffer{}
 	for _, col := range table.PrimaryIndex().Cols() {
-		if col.Name() == defaultDocumentIDField {
+		if col.Name() == DocumentIDField {
 			rval := sql.NewBlob(documentID[:])
 			encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), col.Type(), col.MaxLen())
 			if err != nil {
@@ -531,7 +530,7 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 				return nil, err
 			}
 
-			if col.Name() == defaultDocumentBLOBField {
+			if col.Name() == DocumentBLOBField {
 				res.Value = val.RawValue().([]byte)
 				break
 			}
@@ -626,10 +625,10 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, docI
 				collectionName,
 				sql.NewCmpBoolExp(
 					sql.EQ,
-					sql.NewColSelector(collectionName, defaultDocumentIDField, ""),
+					sql.NewColSelector(collectionName, DocumentIDField, ""),
 					sql.NewBlob(docID[:]),
 				),
-				sql.NewColUpdate(defaultDocumentBLOBField, sql.EQ, sql.NewBlob(res))),
+				sql.NewColUpdate(DocumentBLOBField, sql.EQ, sql.NewBlob(res))),
 		},
 		nil,
 	)
