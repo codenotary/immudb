@@ -29,12 +29,14 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
+// Catalog represents a database catalog containing metadata for all tables in the database.
 type Catalog struct {
 	prefix []byte
 
 	tables       []*Table
 	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
+	tableCount   uint32 // The tableCount variable is used to assign unique ids to new tables as they are created.
 }
 
 type Table struct {
@@ -251,10 +253,19 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, name)
 	}
 
-	id := len(catlg.tables) + 1
+	// Generate a new ID for the table by incrementing the 'tableCount' variable of the 'catalog' instance.
+	id := (catlg.tableCount + 1)
+
+	// This code is attempting to check if a table with the given id already exists in the Catalog.
+	// If the function returns nil for err, it means that the table already exists and the function
+	// should return an error indicating that the table cannot be created again.
+	_, err = catlg.GetTableByID(id)
+	if err == nil {
+		return nil, fmt.Errorf("%w (%d)", ErrTableAlreadyExists, id)
+	}
 
 	table = &Table{
-		id:             uint32(id),
+		id:             id,
 		catalog:        catlg,
 		name:           name,
 		cols:           make([]*Column, len(colsSpec)),
@@ -298,6 +309,11 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 	catlg.tables = append(catlg.tables, table)
 	catlg.tablesByID[table.id] = table
 	catlg.tablesByName[table.name] = table
+
+	// increment table count on successfull table creation.
+	// This ensures that each new table is assigned a unique ID
+	// that has not been used before.
+	catlg.tableCount += 1
 
 	return table, nil
 }
@@ -467,7 +483,7 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Filters: []store.FilterFn{store.IgnoreExpired},
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -492,6 +508,16 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 
 		if dbID != 1 {
 			return ErrCorruptedData
+		}
+
+		// Retrieve the key-value metadata (KVMetadata) of the current version reference (vref).
+		// If the metadata is not nil and the "Deleted" flag of the metadata is set to true,
+		// increment the catalog's table count by 1 and continue to the next iteration.
+		// This implies this is a deleted table and we should not load it.
+		md := vref.KVMetadata()
+		if md != nil && md.Deleted() {
+			catlg.tableCount += 1
+			continue
 		}
 
 		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.prefix)
