@@ -259,17 +259,20 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 
 	var sourceHdr, targetHdr *store.TxHeader
 
+	if req.LastValidatedTransactionId == 0 {
+		req.LastValidatedTransactionId = 1
+	}
+
+	lastValidatedHdr, err := d.st.ReadTxHeader(req.LastValidatedTransactionId, false, false)
+	if err != nil {
+		return nil, err
+	}
+
 	if tx.Header().ID < req.LastValidatedTransactionId {
 		sourceHdr = tx.Header()
-		targetHdr, err = d.st.ReadTxHeader(req.LastValidatedTransactionId, false, false)
-		if err != nil {
-			return nil, err
-		}
+		targetHdr = lastValidatedHdr
 	} else {
-		sourceHdr, err = d.st.ReadTxHeader(req.LastValidatedTransactionId, false, false)
-		if err != nil {
-			return nil, err
-		}
+		sourceHdr = lastValidatedHdr
 		targetHdr = tx.Header()
 	}
 
