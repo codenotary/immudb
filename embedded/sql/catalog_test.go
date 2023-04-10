@@ -17,8 +17,10 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,4 +131,139 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 			prevEncKey = encKey
 		}
 	})
+}
+
+func TestCatalogTableLength(t *testing.T) {
+	// db := newCatalog(nil)
+
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	totalTablesCount := uint32(0)
+
+	for _, v := range []string{"table1", "table2", "table3"} {
+		_, _, err = engine.Exec(
+			context.Background(), nil,
+			`
+			CREATE TABLE `+v+` (
+				id INTEGER AUTO_INCREMENT,
+				PRIMARY KEY(id)
+			)`, nil)
+		require.NoError(t, err)
+		totalTablesCount++
+	}
+
+	t.Run("table count should be 3 on catalog reload", func(t *testing.T) {
+		for i := 0; i < 3; i++ {
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+			require.NoError(t, err)
+			defer tx.Cancel()
+
+			require.Equal(t, totalTablesCount, tx.catalog.tableCount)
+		}
+	})
+
+	t.Run("table count should not increase on adding existing table", func(t *testing.T) {
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+		require.NoError(t, err)
+		defer tx.Cancel()
+		catlog := tx.catalog
+
+		for _, v := range []string{"table1", "table2", "table3"} {
+			_, err := catlog.newTable(v, []*ColSpec{{colName: "id", colType: IntegerType}})
+			require.ErrorIs(t, err, ErrTableAlreadyExists)
+		}
+		require.Equal(t, totalTablesCount, catlog.tableCount)
+	})
+
+	t.Run("table count should increase on using newTable function on catalog", func(t *testing.T) {
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+		require.NoError(t, err)
+		defer tx.Cancel()
+		catlog := tx.catalog
+
+		for _, v := range []string{"table4", "table5", "table6"} {
+			_, err := catlog.newTable(v, []*ColSpec{{colName: "id", colType: IntegerType}})
+			require.NoError(t, err)
+		}
+		require.Equal(t, totalTablesCount+3, catlog.tableCount)
+	})
+
+	t.Run("table count should increase on adding new table", func(t *testing.T) {
+		for _, v := range []string{"table4", "table5", "table6"} {
+			_, _, err = engine.Exec(
+				context.Background(), nil,
+				`
+				CREATE TABLE `+v+` (
+					id INTEGER AUTO_INCREMENT,
+					PRIMARY KEY(id)
+				)`, nil)
+			require.NoError(t, err)
+			totalTablesCount++
+		}
+	})
+
+	t.Run("table count should decrease on dropping table", func(t *testing.T) {
+		deleteTables := []string{"table1", "table2", "table3"}
+		activeTables := []string{"table4", "table5", "table6"}
+		for _, v := range deleteTables {
+			_, _, err := engine.ExecPreparedStmts(
+				context.Background(),
+				nil,
+				[]SQLStmt{
+					NewDropTableStmt(v), // delete collection from catalog
+				},
+				nil,
+			)
+			require.NoError(t, err)
+		}
+
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+		require.NoError(t, err)
+		defer tx.Cancel()
+		catlog := tx.catalog
+
+		// ensure that catalog has been reloaded with deleted table count
+		require.Equal(t, totalTablesCount, catlog.tableCount)
+
+		for _, v := range activeTables {
+			require.True(t, catlog.ExistTable(v))
+		}
+
+		for _, v := range deleteTables {
+			require.False(t, catlog.ExistTable(v))
+		}
+	})
+
+	t.Run("adding new table should not increase table count", func(t *testing.T) {
+		tableName := "table7"
+		_, _, err = engine.Exec(
+			context.Background(), nil,
+			`
+				CREATE TABLE `+tableName+` (
+					id INTEGER AUTO_INCREMENT,
+					PRIMARY KEY(id)
+				)`, nil)
+		require.NoError(t, err)
+		totalTablesCount++
+
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+		require.NoError(t, err)
+		defer tx.Cancel()
+		catlog := tx.catalog
+
+		tab, err := catlog.GetTableByName(tableName)
+		require.NoError(t, err)
+		require.Equal(t, totalTablesCount, tab.id)
+
+		tab, err = catlog.GetTableByID(7)
+		require.NoError(t, err)
+		require.Equal(t, totalTablesCount, tab.id)
+
+	})
+
 }
