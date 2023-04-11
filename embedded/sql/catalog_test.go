@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -207,7 +208,7 @@ func TestCatalogTableLength(t *testing.T) {
 		}
 	})
 
-	t.Run("table count should decrease on dropping table", func(t *testing.T) {
+	t.Run("table count should not decrease on dropping table", func(t *testing.T) {
 		deleteTables := []string{"table1", "table2", "table3"}
 		activeTables := []string{"table4", "table5", "table6"}
 		for _, v := range deleteTables {
@@ -239,7 +240,7 @@ func TestCatalogTableLength(t *testing.T) {
 		}
 	})
 
-	t.Run("adding new table should not increase table count", func(t *testing.T) {
+	t.Run("adding new table should increase table count", func(t *testing.T) {
 		tableName := "table7"
 		_, _, err = engine.Exec(
 			context.Background(), nil,
@@ -264,6 +265,39 @@ func TestCatalogTableLength(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, totalTablesCount, tab.id)
 
+	})
+
+	t.Run("cancelling a transaction should not increase table count", func(t *testing.T) {
+		// create a new transaction
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+		require.NoError(t, err)
+		sql := `
+		CREATE TABLE table10 (
+			id INTEGER AUTO_INCREMENT,
+			PRIMARY KEY(id)
+		)
+		`
+		stmts, err := Parse(strings.NewReader(sql))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(stmts))
+		stmt := stmts[0]
+
+		// execute the create table statement
+		stx, err := stmt.execAt(context.Background(), tx, nil)
+		require.NoError(t, err)
+
+		// cancel the transaction instead of committing it
+		require.Equal(t, totalTablesCount+1, stx.catalog.tableCount)
+		require.NoError(t, stx.Cancel())
+
+		// reload a fresh catalog
+		tx, err = engine.NewTx(context.Background(), DefaultTxOptions())
+		require.NoError(t, err)
+		defer tx.Cancel()
+		catlog := tx.catalog
+
+		// table count should not increase
+		require.Equal(t, totalTablesCount, catlog.tableCount)
 	})
 
 }
