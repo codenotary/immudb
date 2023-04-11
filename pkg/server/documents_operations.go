@@ -129,3 +129,15 @@ func (s *ImmuServer) DocumentProof(ctx context.Context, req *documentschema.Docu
 	}
 	return nil, nil
 }
+
+func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *documentschema.CollectionUpdateRequest) (*documentschema.CollectionUpdateResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "CollectionUpdate")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := db.UpdateCollection(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

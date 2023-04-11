@@ -280,3 +280,7 @@ func (d *closedDB) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpd
 func (d *closedDB) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
+
+func (d *closedDB) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}

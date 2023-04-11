@@ -54,13 +54,18 @@ func TestListCollections(t *testing.T) {
 	require.Equal(t, len(collections), len(collectionList))
 
 	for _, indexes := range collectionList {
-		for _, index := range indexes {
-			if index.IsPrimary() {
-				require.Equal(t, 1, len(index.Cols()))
+		primaryKeyCount := 0
+		indexKeyCount := 0
+		for _, idx := range indexes {
+			// check if primary key
+			if idx.IsPrimary() {
+				primaryKeyCount += len(idx.Cols())
 			} else {
-				require.Equal(t, 4, len(index.Cols()))
+				indexKeyCount += len(idx.Cols())
 			}
 		}
+		require.Equal(t, 1, primaryKeyCount)
+		require.Equal(t, 4, indexKeyCount)
 	}
 }
 
@@ -79,6 +84,14 @@ func TestCreateCollection(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
+	// creating collection with the same name should throw error
+	err = engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		nil,
+	)
+	require.ErrorIs(t, err, sql.ErrTableAlreadyExists)
 
 	catalog, err := engine.Catalog(context.Background(), nil)
 	require.NoError(t, err)
@@ -108,7 +121,7 @@ func TestCreateCollection(t *testing.T) {
 	// get collection
 	indexes, err := engine.GetCollection(context.Background(), collectionName)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(indexes))
+	require.Equal(t, 5, len(indexes))
 
 	primaryKeyCount := 0
 	indexKeyCount := 0
@@ -598,4 +611,88 @@ func TestDeleteCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(collectionList))
 	})
+}
+
+func TestUpdateCollection(t *testing.T) {
+	engine := makeEngine(t)
+
+	collectionName := "mycollection"
+
+	t.Run("create collection and add index", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			map[string]sql.SQLValueType{
+				"number":  sql.Float64Type,
+				"name":    sql.VarcharType,
+				"pin":     sql.IntegerType,
+				"country": sql.VarcharType,
+			},
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("update collection by deleting indexes", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			nil,
+			[]string{"number", "name"},
+		)
+		require.NoError(t, err)
+
+		// get collection
+		indexes, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(indexes))
+
+		primaryKeyCount := 0
+		indexKeyCount := 0
+		for _, idx := range indexes {
+			// check if primary key
+			if idx.IsPrimary() {
+				primaryKeyCount += len(idx.Cols())
+			} else {
+				indexKeyCount += len(idx.Cols())
+			}
+		}
+		require.Equal(t, 1, primaryKeyCount)
+		require.Equal(t, 2, indexKeyCount)
+
+	})
+
+	t.Run("update collection by adding indexes", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			map[string]sql.SQLValueType{
+				"data1": sql.VarcharType,
+				"data2": sql.VarcharType,
+				"data3": sql.VarcharType,
+			},
+			nil,
+		)
+		require.NoError(t, err)
+
+		// get collection
+		indexes, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Equal(t, 6, len(indexes))
+
+		primaryKeyCount := 0
+		indexKeyCount := 0
+		for _, idx := range indexes {
+			// check if primary key
+			if idx.IsPrimary() {
+				primaryKeyCount += len(idx.Cols())
+			} else {
+				indexKeyCount += len(idx.Cols())
+			}
+		}
+		require.Equal(t, 1, primaryKeyCount)
+		require.Equal(t, 5, indexKeyCount)
+	})
+
 }

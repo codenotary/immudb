@@ -36,6 +36,8 @@ type DocumentDatabase interface {
 	UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
+	// UpdateCollection updates an existing collection
+	UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error)
 }
 
 func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
@@ -220,4 +222,31 @@ func (d *db) DeleteCollection(ctx context.Context, req *schemav2.CollectionDelet
 	}
 
 	return &schemav2.CollectionDeleteResponse{}, nil
+}
+
+// UpdateCollection updates an existing collection
+func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
+	indexKeys := make(map[string]sql.SQLValueType)
+
+	// validate index keys
+	for name, pk := range req.AddIndexes {
+		schType, isValid := schemaToValueType[pk.Type]
+		if !isValid {
+			return nil, fmt.Errorf("invalid index key type: %v", pk)
+		}
+		indexKeys[name] = schType
+	}
+
+	err := d.documentEngine.UpdateCollection(ctx, req.Name, indexKeys, req.RemoveIndexes)
+	if err != nil {
+		return nil, err
+	}
+
+	// get collection information
+	cinfo, err := d.getCollection(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.CollectionUpdateResponse{Collection: cinfo}, nil
 }

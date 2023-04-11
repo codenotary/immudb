@@ -440,6 +440,10 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	return tx, nil
 }
 
+func NewAddColumnStmt(table string, colSpec *ColSpec) *AddColumnStmt {
+	return &AddColumnStmt{table: table, colSpec: colSpec}
+}
+
 type AddColumnStmt struct {
 	table   string
 	colSpec *ColSpec
@@ -4049,6 +4053,58 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 
 	// delete table
 	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
+	err = tx.delete(mappedKey)
+	if err != nil {
+		return nil, err
+	}
+
+	tx.mutatedCatalog = true
+
+	return tx, nil
+}
+
+func NewDropIndexStmt(table string, indexName string) *DropIndexStmt {
+	return &DropIndexStmt{table: table, indexName: indexName}
+}
+
+// DropIndexStmt represents a statement to delete a table.
+type DropIndexStmt struct {
+	table     string
+	indexName string
+}
+
+func (stmt *DropIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+/*
+	Exec executes the delete index statement.
+	If the index exists, it deletes it. Note that this is a soft delete of the index
+	the data is not deleted, but the metadata is updated.
+*/
+func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.catalog.ExistTable(stmt.table) {
+		return nil, ErrTableDoesNotExist
+	}
+
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.GetColumnByName(stmt.indexName)
+	if err != nil {
+		return nil, err
+	}
+
+	// index, err := table.indexesByName[indexName(table.name, cols)]
+	index, err := table.GetIndexByName(indexName(table.name, []*Column{col}))
+	if err != nil {
+		return nil, err
+	}
+
+	// delete indexes
+	mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
 	err = tx.delete(mappedKey)
 	if err != nil {
 		return nil, err

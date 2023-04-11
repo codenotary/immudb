@@ -197,6 +197,15 @@ message Proof {
   string name = 1;
 }
 
+message CollectionUpdateRequest {
+  string name = 1;
+  map<string, IndexOption>  addIndexes = 2;
+  repeated string removeIndexes = 3;
+}
+
+message CollectionUpdateResponse {
+  CollectionInformation collection = 1;
+}
 
 service DocumentService {
   rpc DocumentInsert(DocumentInsertRequest) returns (DocumentInsertResponse) {
@@ -287,4 +296,16 @@ service DocumentService {
       tags: "collections";
     };
   }
+
+
+  rpc CollectionUpdate(CollectionUpdateRequest) returns (CollectionUpdateResponse) {
+    option (google.api.http) = {
+      put: "/collections/update"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
 }

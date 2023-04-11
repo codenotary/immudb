@@ -27,6 +27,7 @@ type DocumentServiceClient interface {
 	CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionGetResponse, error)
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
 	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error)
+	CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error)
 }
 
 type documentServiceClient struct {
@@ -118,6 +119,15 @@ func (c *documentServiceClient) CollectionDelete(ctx context.Context, in *Collec
 	return out, nil
 }
 
+func (c *documentServiceClient) CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error) {
+	out := new(CollectionUpdateResponse)
+	err := c.cc.Invoke(ctx, "/immudb.documentschema.DocumentService/CollectionUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DocumentServiceServer is the server API for DocumentService service.
 // All implementations should embed UnimplementedDocumentServiceServer
 // for forward compatibility
@@ -131,6 +141,7 @@ type DocumentServiceServer interface {
 	CollectionGet(context.Context, *CollectionGetRequest) (*CollectionGetResponse, error)
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
 	CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error)
+	CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error)
 }
 
 // UnimplementedDocumentServiceServer should be embedded to have forward compatible implementations.
@@ -163,6 +174,9 @@ func (UnimplementedDocumentServiceServer) CollectionList(context.Context, *Colle
 }
 func (UnimplementedDocumentServiceServer) CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionDelete not implemented")
+}
+func (UnimplementedDocumentServiceServer) CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CollectionUpdate not implemented")
 }
 
 // UnsafeDocumentServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -338,6 +352,24 @@ func _DocumentService_CollectionDelete_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_CollectionUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CollectionUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).CollectionUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.documentschema.DocumentService/CollectionUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).CollectionUpdate(ctx, req.(*CollectionUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DocumentService_ServiceDesc is the grpc.ServiceDesc for DocumentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -380,6 +412,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CollectionDelete",
 			Handler:    _DocumentService_CollectionDelete_Handler,
+		},
+		{
+			MethodName: "CollectionUpdate",
+			Handler:    _DocumentService_CollectionUpdate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
