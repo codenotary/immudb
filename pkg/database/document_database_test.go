@@ -66,15 +66,17 @@ func TestObjectDB_Collection(t *testing.T) {
 	require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
 
 	// add document to collection
-	docRes, err := db.CreateDocument(context.Background(), &schemav2.DocumentInsertRequest{
-		Collection: collectionName,
-		Document: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"pincode": {
-					Kind: &structpb.Value_NumberValue{NumberValue: 123},
-				},
+	rawDoc := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"pincode": {
+				Kind: &structpb.Value_NumberValue{NumberValue: 123},
 			},
 		},
+	}
+
+	docRes, err := db.CreateDocument(context.Background(), &schemav2.DocumentInsertRequest{
+		Collection: collectionName,
+		Document:   rawDoc,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, docRes)
