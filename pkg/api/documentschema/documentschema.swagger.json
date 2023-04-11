@@ -529,6 +529,10 @@
           "type": "integer",
           "format": "int64"
         },
+        "rawEncodedValue": {
+          "type": "string",
+          "format": "byte"
+        },
         "verifiableTx": {
           "$ref": "#/definitions/schemaVerifiableTxV2"
         }

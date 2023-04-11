@@ -117,7 +117,8 @@ message DocumentProofRequest {
 
 message DocumentProofResponse {
   uint32 collectionId = 1;
-  schema.VerifiableTxV2 verifiableTx = 2;
+  bytes rawEncodedValue = 2;
+  schema.VerifiableTxV2 verifiableTx = 3;
 }
 
 message DocumentAuditRequest {

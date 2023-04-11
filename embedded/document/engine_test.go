@@ -582,7 +582,7 @@ func TestFloatSupport(t *testing.T) {
 	// retrieve document
 	doc := docs[0]
 	data := map[string]interface{}{}
-	err = json.Unmarshal([]byte(doc.Fields["_obj"].GetStringValue()), &data)
+	err = json.Unmarshal([]byte(doc.Fields[DocumentBLOBField].GetStringValue()), &data)
 	require.NoError(t, err)
 	require.Equal(t, 3.1, data["number"])
 }

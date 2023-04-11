@@ -145,7 +145,7 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	columns := make([]*sql.ColSpec, 0)
 
 	// add primary key for document id
-	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, 32, false, true))
+	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, 16, false, true))
 
 	// add columnn for blob, which stores the document as a whole
 	columns = append(columns, sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false))
@@ -422,7 +422,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 		for i := range colDescriptors {
 			colName := colDescriptors[i].Column
 			switch colName {
-			case defaultDocumentIDField, defaultDocumentBLOBField:
+			case DocumentIDField, DocumentBLOBField:
 				tv := row.ValuesByPosition[i]
 				transformedTV := transformTypedValue(colName, tv)
 				vtype, err := valueTypeToFieldValue(transformedTV)

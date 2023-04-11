@@ -75,10 +75,10 @@ type EntrySpec struct {
 	// hashValue is the hash of the value
 	// if the actual value is truncated. This is
 	// used during replication.
-	hashValue [sha256.Size]byte
+	HashValue [sha256.Size]byte
 	// isValueTruncated is true if the value is
 	// truncated. This is used during replication.
-	isValueTruncated bool
+	IsValueTruncated bool
 }
 
 func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
@@ -237,8 +237,8 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		Key:              key,
 		Metadata:         md,
 		Value:            value,
-		hashValue:        hashValue,
-		isValueTruncated: isValueTruncated,
+		HashValue:        hashValue,
+		IsValueTruncated: isValueTruncated,
 	}
 
 	if isKeyUpdate {

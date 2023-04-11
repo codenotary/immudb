@@ -35,7 +35,7 @@ const (
 	ReferenceValuePrefix
 )
 
-//WrapWithPrefix ...
+// WrapWithPrefix ...
 func WrapWithPrefix(b []byte, prefix byte) []byte {
 	wb := make([]byte, 1+len(b))
 	wb[0] = prefix

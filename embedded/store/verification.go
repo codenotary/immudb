@@ -291,7 +291,14 @@ func EntrySpecDigest_v1(kv *EntrySpec) [sha256.Size]byte {
 	copy(b[i:], kv.Key)
 	i += len(kv.Key)
 
-	hvalue := sha256.Sum256(kv.Value)
+	var hvalue [sha256.Size]byte
+
+	if kv.IsValueTruncated {
+		hvalue = kv.HashValue
+	} else {
+		hvalue = sha256.Sum256(kv.Value)
+	}
+
 	copy(b[i:], hvalue[:])
 	i += sha256.Size
 
