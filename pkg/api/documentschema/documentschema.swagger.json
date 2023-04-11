@@ -137,6 +137,38 @@
         ]
       }
     },
+    "/collections/update": {
+      "put": {
+        "operationId": "DocumentService_CollectionUpdate",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/documentschemaCollectionUpdateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/documentschemaCollectionUpdateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "collections"
+        ]
+      }
+    },
     "/documents/audit": {
       "post": {
         "operationId": "DocumentService_DocumentAudit",
@@ -359,6 +391,34 @@
           "items": {
             "$ref": "#/definitions/documentschemaCollectionInformation"
           }
+        }
+      }
+    },
+    "documentschemaCollectionUpdateRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "addIndexes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/documentschemaIndexOption"
+          }
+        },
+        "removeIndexes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "documentschemaCollectionUpdateResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/documentschemaCollectionInformation"
         }
       }
     },

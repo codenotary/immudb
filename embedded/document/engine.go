@@ -126,7 +126,6 @@ type Engine struct {
 	*sql.Engine
 }
 
-// TODO: Add support for index creation
 func (d *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]sql.SQLValueType) error {
 	primaryKeys := []string{defaultDocumentIDField}
 	indexKeys := make([]string, 0)
@@ -165,11 +164,15 @@ func (d *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	}
 
 	if len(indexKeys) > 0 {
+		sqlStmts := make([]sql.SQLStmt, 0)
 		// add indexes to collection
+		for _, idx := range indexKeys {
+			sqlStmts = append(sqlStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
+		}
 		_, _, err = d.ExecPreparedStmts(
 			context.Background(),
 			nil,
-			[]sql.SQLStmt{sql.NewCreateIndexStmt(collectionName, indexKeys)},
+			sqlStmts,
 			nil,
 		)
 		if err != nil {
@@ -658,6 +661,59 @@ func (d *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 	err = d.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (d *Engine) UpdateCollection(ctx context.Context, collectionName string, addIdxKeys map[string]sql.SQLValueType, removeIdxKeys []string) error {
+	indexKeys := make([]string, 0)
+	updateCollectionStmts := make([]sql.SQLStmt, 0)
+
+	if len(addIdxKeys) > 0 {
+		// add index keys
+		for name, schType := range addIdxKeys {
+			indexKeys = append(indexKeys, name)
+			colLen, err := valueTypeDefaultLength(schType)
+			if err != nil {
+				return fmt.Errorf("index key specified is not supported: %v", schType)
+			}
+			// add indexes as new columns to collection
+			updateCollectionStmts = append(updateCollectionStmts, sql.NewAddColumnStmt(collectionName, sql.NewColSpec(name, schType, colLen, false, false)))
+		}
+
+		// add indexes to collection
+		for _, idx := range indexKeys {
+			updateCollectionStmts = append(updateCollectionStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
+		}
+
+		_, _, err := d.ExecPreparedStmts(
+			context.Background(),
+			nil,
+			updateCollectionStmts,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(removeIdxKeys) > 0 {
+		// delete indexes from collection
+		deleteIdxStmts := make([]sql.SQLStmt, 0)
+		for _, idx := range removeIdxKeys {
+			deleteIdxStmts = append(deleteIdxStmts, sql.NewDropIndexStmt(collectionName, idx))
+		}
+
+		_, _, err := d.ExecPreparedStmts(
+			context.Background(),
+			nil,
+			deleteIdxStmts,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

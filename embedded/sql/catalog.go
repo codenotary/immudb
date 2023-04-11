@@ -52,6 +52,7 @@ type Table struct {
 	primaryIndex    *Index
 	autoIncrementPK bool
 	maxPK           int64
+	indexCount      uint32
 }
 
 type Index struct {
@@ -223,6 +224,14 @@ func (i *Index) ID() uint32 {
 	return i.id
 }
 
+func (t *Table) GetIndexByName(name string) (*Index, error) {
+	idx, exists := t.indexesByName[name]
+	if !exists {
+		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableIndex, name)
+	}
+	return idx, nil
+}
+
 func indexName(tableName string, cols []*Column) string {
 	var buf strings.Builder
 
@@ -343,7 +352,7 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 	}
 
 	index = &Index{
-		id:       uint32(len(t.indexes)),
+		id:       uint32(t.indexCount),
 		table:    t,
 		unique:   unique,
 		cols:     cols,
@@ -367,6 +376,11 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 		t.primaryIndex = index
 		t.autoIncrementPK = len(index.cols) == 1 && index.cols[0].autoIncrement
 	}
+
+	// increment table count on successfull table creation.
+	// This ensures that each new table is assigned a unique ID
+	// that has not been used before.
+	t.indexCount += 1
 
 	return index, nil
 }
@@ -656,7 +670,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Filters: []store.FilterFn{store.IgnoreExpired},
 	}
 
 	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
@@ -672,6 +686,16 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 		}
 		if err != nil {
 			return err
+		}
+
+		// Retrieve the key-value metadata (KVMetadata) of the current version reference (vref).
+		// If the metadata is not nil and the "Deleted" flag of the metadata is set to true,
+		// increment the catalog's index count by 1 and continue to the next iteration.
+		// This implies this is a deleted index and we should not load it.
+		md := vref.KVMetadata()
+		if md != nil && md.Deleted() {
+			table.indexCount += 1
+			continue
 		}
 
 		dbID, tableID, indexID, err := unmapIndex(sqlPrefix, mkey)

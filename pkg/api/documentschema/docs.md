@@ -15,6 +15,9 @@
     - [CollectionInformation.IndexKeysEntry](#immudb.documentschema.CollectionInformation.IndexKeysEntry)
     - [CollectionListRequest](#immudb.documentschema.CollectionListRequest)
     - [CollectionListResponse](#immudb.documentschema.CollectionListResponse)
+    - [CollectionUpdateRequest](#immudb.documentschema.CollectionUpdateRequest)
+    - [CollectionUpdateRequest.AddIndexesEntry](#immudb.documentschema.CollectionUpdateRequest.AddIndexesEntry)
+    - [CollectionUpdateResponse](#immudb.documentschema.CollectionUpdateResponse)
     - [DocumentAudit](#immudb.documentschema.DocumentAudit)
     - [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest)
     - [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse)
@@ -200,6 +203,54 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collections | [CollectionInformation](#immudb.documentschema.CollectionInformation) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.documentschema.CollectionUpdateRequest"></a>
+
+### CollectionUpdateRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| addIndexes | [CollectionUpdateRequest.AddIndexesEntry](#immudb.documentschema.CollectionUpdateRequest.AddIndexesEntry) | repeated |  |
+| removeIndexes | [string](#string) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.documentschema.CollectionUpdateRequest.AddIndexesEntry"></a>
+
+### CollectionUpdateRequest.AddIndexesEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [IndexOption](#immudb.documentschema.IndexOption) |  |  |
+
+
+
+
+
+
+<a name="immudb.documentschema.CollectionUpdateResponse"></a>
+
+### CollectionUpdateResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [CollectionInformation](#immudb.documentschema.CollectionInformation) |  |  |
 
 
 
@@ -510,6 +561,7 @@
 | CollectionGet | [CollectionGetRequest](#immudb.documentschema.CollectionGetRequest) | [CollectionGetResponse](#immudb.documentschema.CollectionGetResponse) |  |
 | CollectionList | [CollectionListRequest](#immudb.documentschema.CollectionListRequest) | [CollectionListResponse](#immudb.documentschema.CollectionListResponse) |  |
 | CollectionDelete | [CollectionDeleteRequest](#immudb.documentschema.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.documentschema.CollectionDeleteResponse) |  |
+| CollectionUpdate | [CollectionUpdateRequest](#immudb.documentschema.CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb.documentschema.CollectionUpdateResponse) |  |
 
  
 
