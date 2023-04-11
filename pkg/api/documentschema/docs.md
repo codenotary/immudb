@@ -368,6 +368,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collectionId | [uint32](#uint32) |  |  |
+| rawEncodedValue | [bytes](#bytes) |  |  |
 | verifiableTx | [immudb.schema.VerifiableTxV2](#immudb.schema.VerifiableTxV2) |  |  |
 
 

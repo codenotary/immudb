@@ -221,6 +221,15 @@ func DualProofFromProto(dproof *DualProof) *store.DualProof {
 	}
 }
 
+func DualProofV2FromProto(dproof *DualProofV2) *store.DualProofV2 {
+	return &store.DualProofV2{
+		SourceTxHeader:   TxHeaderFromProto(dproof.SourceTxHeader),
+		TargetTxHeader:   TxHeaderFromProto(dproof.TargetTxHeader),
+		InclusionProof:   DigestsFromProto(dproof.InclusionProof),
+		ConsistencyProof: DigestsFromProto(dproof.ConsistencyProof),
+	}
+}
+
 func TxHeaderFromProto(hdr *TxHeader) *store.TxHeader {
 	return &store.TxHeader{
 		ID:       hdr.Id,

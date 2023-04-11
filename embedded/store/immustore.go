@@ -1180,8 +1180,8 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
 		txe.vLen = len(e.Value)
-		if e.isValueTruncated {
-			txe.hVal = e.hashValue
+		if e.IsValueTruncated {
+			txe.hVal = e.HashValue
 		} else {
 			txe.hVal = sha256.Sum256(e.Value)
 		}
@@ -2358,7 +2358,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 		if isTruncated {
 			err = txSpec.set(e.Key, e.Metadata, nil, byte32(e.Value), isTruncated)
 		} else {
-			err = txSpec.set(e.Key, e.Metadata, e.Value, e.hashValue, isTruncated)
+			err = txSpec.set(e.Key, e.Metadata, e.Value, e.HashValue, isTruncated)
 		}
 		if err != nil {
 			return nil, err
