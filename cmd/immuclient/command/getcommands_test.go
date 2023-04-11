@@ -40,7 +40,7 @@ func TestGetByIndex(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
@@ -92,7 +92,7 @@ func TestGetRawBySafeIndex(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
@@ -138,7 +138,7 @@ func TestGetKey(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
@@ -185,7 +185,7 @@ func TestSafeGetKey(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
@@ -237,7 +237,7 @@ func TestRawSafeGetKey(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)

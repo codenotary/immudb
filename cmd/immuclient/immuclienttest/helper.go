@@ -123,6 +123,7 @@ func (c *ClientTest) Connect(dialer servertest.BuffDialer) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	err = ic.Connect([]string{""})
 	if err != nil {
 		log.Fatal(err)

@@ -19,9 +19,11 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/spf13/viper"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
@@ -65,7 +67,6 @@ func NewCommandLine() *commandline {
 	cl.config.Name = "immuadmin"
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
-	//
 	return cl
 }
 
@@ -74,9 +75,18 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		if err = cl.config.LoadConfig(cmd); err != nil {
 			return err
 		}
-		// here all command line options and services need to be configured by options retrieved from viper
-		cl.options = Options()
-		cl.ts = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
+		// options now that config is loaded are availables
+		opt := Options()
+		tfAbsPath := opt.TokenFileName
+		if !viper.IsSet("tokenfile") {
+			tfAbsPath = filepath.Join(c.STATE_FOLDER, client.DefaultTokenFileName)
+		}
+		if !strings.HasSuffix(tfAbsPath, client.AdminTokenFileSuffix) {
+			tfAbsPath += client.AdminTokenFileSuffix
+		}
+		cl.options = opt.WithTokenFileName(tfAbsPath)
+		// token service is needed here because the one in cl.immuClient is not exposed
+		cl.ts = tokenservice.NewFileTokenService().WithTokenFileAbsPath(tfAbsPath)
 		if post != nil {
 			return post(cmd, args)
 		}
@@ -112,7 +122,7 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
 		cl.quit(err)
 	}
-	cl.immuClient.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))
+	cl.immuClient.WithTokenService(cl.ts)
 	return
 
 }

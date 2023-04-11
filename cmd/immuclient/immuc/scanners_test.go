@@ -33,7 +33,7 @@ func TestZScan(t *testing.T) {
 
 	msg, err := ic.Imc.ZScan([]string{"set"})
 	require.NoError(t, err, "ZScan fail")
-	require.Contains(t, msg, "value", "ZScan failed")
+	require.Contains(t, msg, "val", "ZScan failed")
 }
 
 func TestIScan(t *testing.T) {
@@ -51,7 +51,7 @@ func TestScan(t *testing.T) {
 
 	msg, err := ic.Imc.Scan([]string{"k"})
 	require.NoError(t, err, "Scan fail")
-	require.Contains(t, msg, "value", "Scan failed")
+	require.Contains(t, msg, "val", "Scan failed")
 }
 
 func TestCount(t *testing.T) {

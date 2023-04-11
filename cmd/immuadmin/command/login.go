@@ -23,6 +23,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func (cl *commandline) login(cmd *cobra.Command) {
@@ -34,18 +35,33 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
-			userStr := args[0]
+			flagLogin := false
+			var userStr string
+			if len(args) == 0 && !viper.IsSet("username") {
+				return fmt.Errorf("username is required")
+			}
+			if len(args) > 0 {
+				userStr = args[0]
+			} else {
+				userStr = viper.GetString("username")
+			}
 			if userStr != auth.SysAdminUsername {
 				err := fmt.Errorf("Permission denied: user %s has no admin rights", userStr)
 				cl.quit(err)
 				return err
 			}
-
 			user := []byte(userStr)
-			pass, err := cl.passwordReader.Read("Password:")
-			if err != nil {
-				cl.quit(err)
-				return err
+
+			var pass []byte
+			if viper.IsSet("password") {
+				flagLogin = true
+				pass = []byte(viper.GetString("password"))
+			} else {
+				var err error
+				if pass, err = cl.passwordReader.Read("Password:"); err != nil {
+					cl.quit(err)
+					return err
+				}
 			}
 
 			responseWarning, err := cl.loginClient(ctx, user, pass)
@@ -55,6 +71,9 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			}
 
 			c.PrintfColorW(cmd.OutOrStdout(), c.Green, "logged in\n")
+			if flagLogin {
+				return nil
+			}
 
 			if string(responseWarning) == auth.WarnDefaultAdminPassword {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", responseWarning)
@@ -75,7 +94,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(0),
 	}
 	cmd.AddCommand(ccmd)
 }

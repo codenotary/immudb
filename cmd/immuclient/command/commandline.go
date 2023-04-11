@@ -1,10 +1,13 @@
 package immuclient
 
 import (
+	"path/filepath"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 type commandline struct {
@@ -28,11 +31,18 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 			return err
 		}
 		cl.options = immuc.OptionsFromEnv()
-		cl.options.GetImmudbClientOptions().WithTokenFileName("token")
+
+		tfAbsPath := cl.options.GetImmudbClientOptions().TokenFileName
+		if !viper.IsSet("tokenfile") {
+			tfAbsPath = filepath.Join(c.STATE_FOLDER, client.DefaultTokenFileName)
+		}
+		cl.options.GetImmudbClientOptions().WithTokenFileName(tfAbsPath)
+
 		cl.immucl, err = immuc.Init(cl.options)
 		if err != nil {
 			return err
 		}
+
 		if post != nil {
 			return post(cmd, args)
 		}

@@ -40,7 +40,7 @@ func TestConsistency(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
@@ -81,7 +81,7 @@ func TestInclusion(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileAbsPath("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)

@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
@@ -52,13 +51,13 @@ func TestStats_Status(t *testing.T) {
 	cliopt := Options().WithDir(t.TempDir())
 	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
-	tkf := cmdtest.RandString()
+
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
+		ts:             tokenservice.NewFileTokenService().WithTokenFileAbsPath("tokenFileName"),
 	}
 	cmd, _ := cl.NewCmd()
 
@@ -103,13 +102,13 @@ func TestStats_StatsText(t *testing.T) {
 	cliopt.DialOptions = dialOptions
 	cliopt.Address = "127.0.0.1"
 	clientb, _ := client.NewImmuClient(cliopt)
-	tkf := cmdtest.RandString()
+
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
+		ts:             tokenservice.NewFileTokenService().WithTokenFileAbsPath("tokenFileName"),
 	}
 	cmd, _ := cl.NewCmd()
 
@@ -153,13 +152,13 @@ func TestStats_StatsRaw(t *testing.T) {
 	cliopt.DialOptions = dialOptions
 	cliopt.Address = "127.0.0.1"
 	clientb, _ := client.NewImmuClient(cliopt)
-	tkf := cmdtest.RandString()
+
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
+		ts:             tokenservice.NewFileTokenService().WithTokenFileAbsPath("tokenFileName"),
 	}
 	cmd, _ := cl.NewCmd()
 	cl.stats(cmd)

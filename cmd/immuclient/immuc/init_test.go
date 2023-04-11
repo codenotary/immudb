@@ -43,6 +43,7 @@ func TestConnect(t *testing.T) {
 		}).WithDir(t.TempDir())
 	imc, err := Init(opts)
 	require.NoError(t, err)
+
 	err = imc.Connect([]string{""})
 	require.NoError(t, err)
 	imc.WithFileTokenService(tokenservice.NewInmemoryTokenService())

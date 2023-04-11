@@ -18,17 +18,14 @@ package tokenservice
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
-
-	"github.com/codenotary/immudb/pkg/client/homedir"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestTokenSevice_setToken(t *testing.T) {
-	fn := filepath.Join(t.TempDir(), "token")
-	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
+	fn := "deleteme"
+	ts := file{tokenAbsPath: fn}
 	err := ts.SetToken("db1", "")
 	require.ErrorIs(t, err, ErrEmptyTokenProvided)
 	err = ts.SetToken("db1", "toooooken")
@@ -43,8 +40,8 @@ func TestTokenSevice_setToken(t *testing.T) {
 }
 
 func TestTokenService_IsTokenPresent(t *testing.T) {
-	fn := filepath.Join(t.TempDir(), "token")
-	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
+	fn := "deleteme"
+	ts := file{tokenAbsPath: fn}
 	err := ts.SetToken("db1", "toooooken")
 	require.NoError(t, err)
 	ok, err := ts.IsTokenPresent()
@@ -53,8 +50,8 @@ func TestTokenService_IsTokenPresent(t *testing.T) {
 }
 
 func TestTokenService_DeleteToken(t *testing.T) {
-	fn := filepath.Join(t.TempDir(), "token")
-	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
+	fn := "deleteme"
+	ts := file{tokenAbsPath: fn}
 	err := ts.SetToken("db1", "toooooken")
 	require.NoError(t, err)
 	err = ts.DeleteToken()

@@ -91,7 +91,8 @@ func (i *immuc) Connect(args []string) (err error) {
 	if i.ImmuClient, err = client.NewImmuClient(i.options.immudbClientOptions); err != nil {
 		return err
 	}
-	i.WithFileTokenService(tokenservice.NewFileTokenService())
+
+	i.WithFileTokenService(tokenservice.NewFileTokenService().WithTokenFileAbsPath(i.options.immudbClientOptions.TokenFileName))
 	i.options.immudbClientOptions.Auth = true
 
 	return nil
