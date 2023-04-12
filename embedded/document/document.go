@@ -16,11 +16,11 @@ limitations under the License.
 package document
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/tidwall/gjson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Document is a json document
@@ -57,7 +57,10 @@ func NewDocumentFromBytes(json []byte) (*Document, error) {
 		return nil, fmt.Errorf("invalid json: %s", string(json))
 	}
 	d := &Document{
-		result: gjson.ParseBytes(json),
+		result: gjson.Result{
+			Type: gjson.JSON,
+			Raw:  string(json),
+		},
 	}
 	if !d.Valid() {
 		return nil, errors.New("invalid document")
@@ -65,14 +68,14 @@ func NewDocumentFromBytes(json []byte) (*Document, error) {
 	return d, nil
 }
 
-// NewDocumentFrom creates a new document from the given interface
-func NewDocumentFrom(value interface{}) (*Document, error) {
+// NewDocumentFrom creates a new document from the given struct object
+func NewDocumentFrom(value *structpb.Struct) (*Document, error) {
 	var err error
-	bits, err := json.Marshal(value)
+	bytes, err := value.MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to json encode value: %v", value)
 	}
-	return NewDocumentFromBytes(bits)
+	return NewDocumentFromBytes(bytes)
 }
 
 // Valid returns whether the document is valid

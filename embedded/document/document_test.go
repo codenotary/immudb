@@ -19,13 +19,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func newDoc(id, name, cid interface{}) *Document {
-	doc, err := NewDocumentFrom(map[string]interface{}{
-		"id":   id,
-		"name": name,
-		"age":  cid,
+func newDoc(id float64, name string, age float64) *Document {
+	doc, err := NewDocumentFrom(&structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"id":   {Kind: &structpb.Value_NumberValue{NumberValue: id}},
+			"name": {Kind: &structpb.Value_StringValue{StringValue: name}},
+			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: age}},
+		},
 	})
 	if err != nil {
 		panic(err)
@@ -34,20 +38,17 @@ func newDoc(id, name, cid interface{}) *Document {
 }
 
 func TestDocument(t *testing.T) {
-	type user struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		Age  int    `json:"age"`
-	}
-	usr := user{
-		ID:   "1",
-		Name: "foo",
-		Age:  10,
-	}
-	r, err := NewDocumentFrom(&usr)
+	r, err := NewDocumentFrom(&structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"name": {Kind: &structpb.Value_StringValue{StringValue: "foo"}},
+			"id":   {Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 10}},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Run("get", func(t *testing.T) {
 		usr := newDoc(2, "bar", 3)
 		assert.Equal(t, "bar", usr.Get("name"))
@@ -68,5 +69,23 @@ func TestDocument(t *testing.T) {
 		usr2 := NewDocument()
 		assert.NoError(t, usr2.UnmarshalJSON(bits))
 		assert.Equal(t, usr.String(), usr2.String())
+	})
+
+	t.Run("check field ordering", func(t *testing.T) {
+		r1, _ := NewDocumentFrom(&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "foo"}},
+				"id":   {Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 10}},
+			},
+		})
+		r2, _ := NewDocumentFrom(&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 10}},
+				"id":   {Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "foo"}},
+			},
+		})
+		require.Equal(t, r1.Bytes(), r2.Bytes())
 	})
 }
