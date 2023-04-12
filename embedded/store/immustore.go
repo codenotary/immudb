@@ -1331,6 +1331,13 @@ func (s *ImmuStore) LastPrecommittedTxID() uint64 {
 	return s.lastPrecommittedTxID()
 }
 
+func (s *ImmuStore) MandatoryMVCCUpToTxID() uint64 {
+	s.commitStateRWMutex.RLock()
+	defer s.commitStateRWMutex.RUnlock()
+
+	return s.mandatoryMVCCUpToTxID
+}
+
 func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 	s.commitStateRWMutex.Lock()
 	defer s.commitStateRWMutex.Unlock()

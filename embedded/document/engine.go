@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -30,6 +31,8 @@ const (
 	DocumentIDField   = "_id"
 	DocumentBLOBField = "_doc"
 )
+
+var ErrCollectionDoesNotExist = errors.New("collection does not exist")
 
 // Schema to ValueType mapping
 var (
@@ -160,10 +163,16 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 		columns = append(columns, sql.NewColSpec(name, schType, colLen, false, false))
 	}
 
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
+	if err != nil {
+		return err
+	}
+	defer tx.Cancel()
+
 	// add columns to collection
-	_, _, err := e.sqlEngine.ExecPreparedStmts(
-		context.Background(),
-		nil,
+	_, _, err = e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		tx,
 		[]sql.SQLStmt{sql.NewCreateTableStmt(
 			collectionName,
 			false,
@@ -183,8 +192,8 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 			sqlStmts = append(sqlStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
 		}
 		_, _, err = e.sqlEngine.ExecPreparedStmts(
-			context.Background(),
-			nil,
+			ctx,
+			tx,
 			sqlStmts,
 			nil,
 		)
@@ -193,19 +202,46 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 		}
 	}
 
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	// check if document id is already present
+	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
+	if docIDProvisioned {
+		docID, err = DocumentIDFromHex(provisionedDocID.GetStringValue())
+		if err != nil {
+			return NilDocumentID, 0, err
+		}
+	} else {
+		// generate document id
+		docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
+		doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.Hex())
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotRenewalPeriod(0)
+
+	// concurrency validation are not needed when the document id is automatically generated
+	if !docIDProvisioned {
+		// wait for indexing to include latest catalog changes
+		opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+			return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
+		})
+	}
+
+	tx, err := e.sqlEngine.NewTx(ctx, opts)
 	if err != nil {
 		return NilDocumentID, 0, err
 	}
 	defer tx.Cancel()
 
-	// check if collection exists
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
+		if errors.Is(err, sql.ErrTableDoesNotExist) {
+			return NilDocumentID, 0, ErrCollectionDoesNotExist
+		}
 		return NilDocumentID, 0, err
 	}
 
@@ -217,17 +253,8 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		cols = append(cols, col.Name())
 	}
 
-	// check if document id is already present
-	_, ok := doc.Fields[DocumentIDField]
-	if ok {
-		return NilDocumentID, 0, fmt.Errorf("_id field is not allowed to be set")
-	}
-
-	// generate document id
-	lastPrecommittedTxID := e.sqlEngine.GetStore().LastPrecommittedTxID()
-	docID = NewDocumentIDFromTx(lastPrecommittedTxID)
-
 	values := make([]sql.ValueExp, 0)
+
 	for _, col := range tcolumns {
 		switch col.Name() {
 		case DocumentIDField:
@@ -267,6 +294,7 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 				collectionName,
 				cols,
 				rows,
+				true,
 				nil,
 			),
 		},

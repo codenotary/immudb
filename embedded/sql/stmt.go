@@ -505,9 +505,9 @@ func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 	return tx, nil
 }
 
-func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, onConflict *OnConflictDo) *UpsertIntoStmt {
+func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, isInsert bool, onConflict *OnConflictDo) *UpsertIntoStmt {
 	return &UpsertIntoStmt{
-		isInsert:   true,
+		isInsert:   isInsert,
 		tableRef:   newTableRef(table, ""),
 		cols:       cols,
 		rows:       rows,
@@ -4025,11 +4025,11 @@ func (stmt *DropTableStmt) inferParameters(ctx context.Context, tx *SQLTx, param
 }
 
 /*
-	Exec executes the delete table statement.
-	It the table exists, if not it does nothing.
-	If the table exists, it deletes all the indexes and the table itself.
-	Note that this is a soft delete of the index and table key,
-	the data is not deleted, but the metadata is updated.
+Exec executes the delete table statement.
+It the table exists, if not it does nothing.
+If the table exists, it deletes all the indexes and the table itself.
+Note that this is a soft delete of the index and table key,
+the data is not deleted, but the metadata is updated.
 */
 func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.catalog.ExistTable(stmt.table) {
@@ -4078,9 +4078,9 @@ func (stmt *DropIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, param
 }
 
 /*
-	Exec executes the delete index statement.
-	If the index exists, it deletes it. Note that this is a soft delete of the index
-	the data is not deleted, but the metadata is updated.
+Exec executes the delete index statement.
+If the index exists, it deletes it. Note that this is a soft delete of the index
+the data is not deleted, but the metadata is updated.
 */
 func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.catalog.ExistTable(stmt.table) {
