@@ -43,7 +43,7 @@ func makeDocumentDb(t *testing.T) *db {
 	return db
 }
 
-func TestObjectDB_Collection(t *testing.T) {
+func TestDocumentDB_Collection(t *testing.T) {
 	db := makeDocumentDb(t)
 
 	// create collection
@@ -84,7 +84,7 @@ func TestObjectDB_Collection(t *testing.T) {
 	require.NotNil(t, docRes)
 
 	// query collection for document
-	docs, err := db.GetDocument(context.Background(), &schemav2.DocumentSearchRequest{
+	docs, err := db.SearchDocuments(context.Background(), &schemav2.DocumentSearchRequest{
 		Collection: collectionName,
 		Page:       1,
 		PerPage:    10,

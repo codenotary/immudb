@@ -33,7 +33,7 @@ type DocumentDatabase interface {
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
 	// GetDocument returns the document
-	GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
+	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
 	// CreateDocument creates a new document
 	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
 	// DocumentAudit returns the document audit history
@@ -127,8 +127,8 @@ func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 	}, nil
 }
 
-// GetDocument returns the document
-func (d *db) GetDocument(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
+// SearchDocuments returns the documents matching the search request constraints
+func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
 	queries := make([]*document.Query, 0, len(req.Query))
 	for _, q := range req.Query {
 		queries = append(queries, &document.Query{

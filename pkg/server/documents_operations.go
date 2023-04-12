@@ -52,7 +52,7 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.GetDocument(ctx, req)
+	resp, err := db.SearchDocuments(ctx, req)
 	if err != nil {
 		return nil, err
 	}
