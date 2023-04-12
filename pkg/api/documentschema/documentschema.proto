@@ -116,9 +116,10 @@ message DocumentProofRequest {
 }
 
 message DocumentProofResponse {
-  uint32 collectionId = 1;
-  bytes rawEncodedValue = 2;
-  schema.VerifiableTxV2 verifiableTx = 3;
+  string database = 1;
+  uint32 collectionId = 2;
+  bytes rawEncodedValue = 3;
+  schema.VerifiableTxV2 verifiableTx = 4;
 }
 
 message DocumentAuditRequest {
