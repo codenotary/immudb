@@ -28,9 +28,6 @@ type Document struct {
 	result gjson.Result
 }
 
-// Documents is an array of documents
-type Documents []*Document
-
 // UnmarshalJSON satisfies the json Unmarshaler interface
 func (d *Document) UnmarshalJSON(bytes []byte) error {
 	doc, err := NewDocumentFromBytes(bytes)
