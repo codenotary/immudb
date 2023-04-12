@@ -32,6 +32,7 @@ const (
 	DocumentBLOBField = "_doc"
 )
 
+var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrCollectionDoesNotExist = errors.New("collection does not exist")
 
 // Schema to ValueType mapping
@@ -206,6 +207,10 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 }
 
 func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
+	if doc == nil {
+		return NilDocumentID, 0, ErrIllegalArguments
+	}
+
 	// check if document id is already present
 	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
 	if docIDProvisioned {
@@ -219,16 +224,17 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.Hex())
 	}
 
-	opts := sql.DefaultTxOptions().
-		WithUnsafeMVCC(true).
-		WithSnapshotRenewalPeriod(0)
-
 	// concurrency validation are not needed when the document id is automatically generated
+	opts := sql.DefaultTxOptions()
+
 	if !docIDProvisioned {
 		// wait for indexing to include latest catalog changes
-		opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
-			return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
-		})
+		opts.
+			WithUnsafeMVCC(!docIDProvisioned).
+			WithSnapshotRenewalPeriod(0).
+			WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+				return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
+			})
 	}
 
 	tx, err := e.sqlEngine.NewTx(ctx, opts)
