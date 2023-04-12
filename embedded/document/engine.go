@@ -223,15 +223,13 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	// concurrency validation are not needed when the document id is automatically generated
 	opts := sql.DefaultTxOptions()
 
-	if !docIDProvisioned {
-		// wait for indexing to include latest catalog changes
-		opts.
-			WithUnsafeMVCC(!docIDProvisioned).
-			WithSnapshotRenewalPeriod(0).
-			WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
-				return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
-			})
-	}
+	// wait for indexing to include latest catalog changes
+	opts.
+		WithUnsafeMVCC(!docIDProvisioned).
+		WithSnapshotRenewalPeriod(0).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+			return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
+		})
 
 	tx, err := e.sqlEngine.NewTx(ctx, opts)
 	if err != nil {
@@ -247,17 +245,12 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		return NilDocumentID, 0, err
 	}
 
-	cols := make([]string, 0)
-	tcolumns := table.Cols()
-	rows := make([]*sql.RowSpec, 0)
+	var cols []string
+	var values []sql.ValueExp
 
-	for _, col := range tcolumns {
+	for _, col := range table.Cols() {
 		cols = append(cols, col.Name())
-	}
 
-	values := make([]sql.ValueExp, 0)
-
-	for _, col := range tcolumns {
 		switch col.Name() {
 		case DocumentIDField:
 			// add document id to document
@@ -274,18 +267,18 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 			values = append(values, sql.NewBlob(res))
 		default:
 			if rval, ok := doc.Fields[col.Name()]; ok {
-				valType, err := valueTypeToExp(col.Type(), rval)
+				val, err := valueTypeToExp(col.Type(), rval)
 				if err != nil {
 					return NilDocumentID, 0, err
 				}
-				values = append(values, valType)
+				values = append(values, val)
+			} else {
+				values = append(values, &sql.NullValue{})
 			}
 		}
 	}
 
-	if len(values) > 0 {
-		rows = append(rows, sql.NewRowSpec(values))
-	}
+	rows := []*sql.RowSpec{sql.NewRowSpec(values)}
 
 	// add document to collection
 	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
