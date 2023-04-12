@@ -197,7 +197,7 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 }
 
 func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
 	if err != nil {
 		return NilDocumentID, 0, err
 	}
@@ -261,7 +261,7 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 	// add document to collection
 	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
 		ctx,
-		nil,
+		tx,
 		[]sql.SQLStmt{
 			sql.NewUpserIntoStmt(
 				collectionName,
