@@ -105,7 +105,6 @@ message DocumentSearchResponse {
   repeated google.protobuf.Struct results = 1;
   uint32 page = 2;
   uint32 perPage = 3;
-  uint32 entriesLeft = 4;
 }
 
 message DocumentProofRequest {
@@ -133,7 +132,6 @@ message DocumentAuditResponse {
   repeated DocumentAudit results = 1;
   uint32 page = 2;
   uint32 perPage = 3;
-  uint32 entriesLeft = 4;
 }
 
 message DocumentAudit {

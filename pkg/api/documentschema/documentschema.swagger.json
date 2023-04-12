@@ -473,10 +473,6 @@
         "perPage": {
           "type": "integer",
           "format": "int64"
-        },
-        "entriesLeft": {
-          "type": "integer",
-          "format": "int64"
         }
       }
     },
@@ -591,10 +587,6 @@
           "format": "int64"
         },
         "perPage": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "entriesLeft": {
           "type": "integer",
           "format": "int64"
         }
