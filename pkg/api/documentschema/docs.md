@@ -302,7 +302,6 @@
 | results | [DocumentAudit](#immudb.documentschema.DocumentAudit) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
-| entriesLeft | [uint32](#uint32) |  |  |
 
 
 
@@ -423,7 +422,6 @@
 | results | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
-| entriesLeft | [uint32](#uint32) |  |  |
 
 
 
