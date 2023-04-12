@@ -211,18 +211,14 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		return NilDocumentID, 0, ErrIllegalArguments
 	}
 
-	// check if document id is already present
-	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
+	_, docIDProvisioned := doc.Fields[DocumentIDField]
 	if docIDProvisioned {
-		docID, err = DocumentIDFromHex(provisionedDocID.GetStringValue())
-		if err != nil {
-			return NilDocumentID, 0, err
-		}
-	} else {
-		// generate document id
-		docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
-		doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.Hex())
+		return NilDocumentID, 0, fmt.Errorf("_id field is not allowed to be set")
 	}
+
+	// generate document id
+	docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
+	doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.Hex())
 
 	// concurrency validation are not needed when the document id is automatically generated
 	opts := sql.DefaultTxOptions()
@@ -745,6 +741,12 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 	indexKeys := make([]string, 0)
 	updateCollectionStmts := make([]sql.SQLStmt, 0)
 
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
+	if err != nil {
+		return err
+	}
+	defer sqlTx.Cancel()
+
 	if len(addIdxKeys) > 0 {
 		// add index keys
 		for name, schType := range addIdxKeys {
@@ -763,8 +765,8 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 		}
 
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
-			context.Background(),
-			nil,
+			ctx,
+			sqlTx,
 			updateCollectionStmts,
 			nil,
 		)
@@ -781,8 +783,8 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 		}
 
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
-			context.Background(),
-			nil,
+			ctx,
+			sqlTx,
 			deleteIdxStmts,
 			nil,
 		)
@@ -791,5 +793,5 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 		}
 	}
 
-	return nil
+	return sqlTx.Commit(ctx)
 }
