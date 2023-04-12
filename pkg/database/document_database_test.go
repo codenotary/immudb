@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/document"
+
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/verification"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -103,4 +105,15 @@ func TestObjectDB_Collection(t *testing.T) {
 	err = json.Unmarshal([]byte(res.Fields[document.DocumentBLOBField].GetStringValue()), &data)
 	require.NoError(t, err)
 	require.Equal(t, 123.0, data["pincode"])
+
+	proofRes, err := db.DocumentProof(context.Background(), &schemav2.DocumentProofRequest{
+		Collection: collectionName,
+		DocumentId: docRes.DocumentId,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, proofRes)
+
+	newState, err := verification.VerifyDocument(context.Background(), proofRes, docRes.DocumentId, rawDoc, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
 }

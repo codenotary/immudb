@@ -282,6 +282,7 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 	}
 
 	return &schemav2.DocumentProofResponse{
+		Database:        d.name,
 		CollectionId:    collectionID,
 		RawEncodedValue: docAudit.Value,
 		VerifiableTx: &schema.VerifiableTxV2{

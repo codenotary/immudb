@@ -525,6 +525,9 @@
     "documentschemaDocumentProofResponse": {
       "type": "object",
       "properties": {
+        "database": {
+          "type": "string"
+        },
         "collectionId": {
           "type": "integer",
           "format": "int64"

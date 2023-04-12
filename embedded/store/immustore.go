@@ -107,6 +107,8 @@ var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization 
 var ErrIllegalTruncationArgument = fmt.Errorf("%w: invalid truncation info", ErrIllegalArguments)
 var ErrTxNotPresentInMetadata = errors.New("tx not present in metadata")
 
+var ErrInvalidProof = errors.New("invalid proof")
+
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 
