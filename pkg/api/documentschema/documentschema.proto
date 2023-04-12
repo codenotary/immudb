@@ -60,13 +60,12 @@ message DocumentInsertResponse {
 
 message DocumentUpdateRequest {
   string collection = 1;
-  string documentId = 2;
-  google.protobuf.Struct document = 3;
+  google.protobuf.Struct document = 2;
 }
 
 message DocumentUpdateResponse {
-  uint64 revision = 1;
-  uint64 transactionId = 2;
+  uint64 transactionId = 1;
+  uint64 revision = 2;
 }
 
 enum QueryOperator {

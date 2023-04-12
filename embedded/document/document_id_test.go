@@ -55,7 +55,7 @@ func TestDocumentID_WithTimestamp(t *testing.T) {
 		require.NoError(t, err)
 
 		id := NewDocumentIDFromTimestamp(time, 0)
-		fmt.Println(test.time, id.Hex())
+		fmt.Println(test.time, id.EncodeToHexString())
 		timeStr := hex.EncodeToString(id[0:4])
 
 		require.Equal(t, test.expectedTimeHex, timeStr)
@@ -86,7 +86,7 @@ func TestDocumentID_FromDocumentHex(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		id, err := DocumentIDFromHex(test.hex)
+		id, err := NewDocumentIDFromHexEncodedString(test.hex)
 		require.NoError(t, err)
 
 		genTime := id.Timestamp()
@@ -107,6 +107,6 @@ func TestDocumentID_IncrementalCounter(t *testing.T) {
 func BenchmarkHex(b *testing.B) {
 	id := NewDocumentIDFromTx(0)
 	for i := 0; i < b.N; i++ {
-		id.Hex()
+		id.EncodeToHexString()
 	}
 }

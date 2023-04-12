@@ -165,7 +165,7 @@ func TestGetDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"pincode": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 2},
@@ -226,7 +226,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	docID, _, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	docID, _, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"pincode": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 2},
@@ -245,8 +245,11 @@ func TestDocumentAudit(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
+			"_id": {
+				Kind: &structpb.Value_StringValue{StringValue: docID.EncodeToHexString()},
+			},
 			"pincode": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 2},
 			},
@@ -294,7 +297,7 @@ func TestQueryDocument(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
-		_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"pincode": {
 					Kind: &structpb.Value_NumberValue{NumberValue: i},
@@ -473,7 +476,7 @@ func TestDocumentUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	docID, _, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	docID, _, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
@@ -489,8 +492,11 @@ func TestDocumentUpdate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
+			"_id": {
+				Kind: &structpb.Value_StringValue{StringValue: docID.EncodeToHexString()},
+			},
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
 			},
@@ -554,7 +560,7 @@ func TestFloatSupport(t *testing.T) {
 	require.Equal(t, sql.Float64Type, col.Type())
 
 	// add document to collection
-	_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"number": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
@@ -600,7 +606,7 @@ func TestDeleteCollection(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
-		_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"idx": {
 					Kind: &structpb.Value_NumberValue{NumberValue: i},

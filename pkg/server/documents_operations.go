@@ -28,7 +28,7 @@ func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.Doc
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.CreateDocument(ctx, req)
+	resp, err := db.InsertDocument(ctx, req)
 	if err != nil {
 		return nil, err
 	}

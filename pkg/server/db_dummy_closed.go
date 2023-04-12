@@ -260,8 +260,8 @@ func (d *closedDB) SearchDocuments(ctx context.Context, req *schemav2.DocumentSe
 	return nil, store.ErrAlreadyClosed
 }
 
-// CreateDocument creates a new document
-func (d *closedDB) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
+// InsertDocument creates a new document
+func (d *closedDB) InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

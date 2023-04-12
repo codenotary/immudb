@@ -181,7 +181,7 @@ func VerifyDocument(ctx context.Context,
 }
 
 func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, error) {
-	docID, err := document.DocumentIDFromHex(documentID)
+	docID, err := document.NewDocumentIDFromHexEncodedString(documentID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 	valbuf := bytes.Buffer{}
 
 	rval := sql.NewBlob(docID[:])
-	encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, 16)
+	encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, document.MaxDocumentIDLength)
 	if err != nil {
 		return nil, err
 	}

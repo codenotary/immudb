@@ -598,9 +598,6 @@
         "collection": {
           "type": "string"
         },
-        "documentId": {
-          "type": "string"
-        },
         "document": {
           "type": "object"
         }
@@ -609,11 +606,11 @@
     "documentschemaDocumentUpdateResponse": {
       "type": "object",
       "properties": {
-        "revision": {
+        "transactionId": {
           "type": "string",
           "format": "uint64"
         },
-        "transactionId": {
+        "revision": {
           "type": "string",
           "format": "uint64"
         }
