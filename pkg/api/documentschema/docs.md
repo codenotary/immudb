@@ -437,7 +437,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| documentId | [string](#string) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 
 
@@ -453,8 +452,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| revision | [uint64](#uint64) |  |  |
 | transactionId | [uint64](#uint64) |  |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 

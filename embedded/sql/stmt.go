@@ -994,10 +994,10 @@ type UpdateStmt struct {
 	offset   ValueExp
 }
 
-func NewColUpdate(col string, op CmpOperator, val ValueExp) *colUpdate {
+func NewColUpdate(col string, val ValueExp) *colUpdate {
 	return &colUpdate{
 		col: col,
-		op:  op,
+		op:  EQ,
 		val: val,
 	}
 }

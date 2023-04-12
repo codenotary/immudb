@@ -1,3 +1,18 @@
+/*
+Copyright 2023 Codenotary Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package database
 
 import (
@@ -34,8 +49,8 @@ type DocumentDatabase interface {
 	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
 	// GetDocument returns the document
 	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
-	// CreateDocument creates a new document
-	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
+	// InsertDocument creates a new document
+	InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
 	// DocumentAudit returns the document audit history
 	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
 	// UpdateDocument updates a document
@@ -114,15 +129,15 @@ func (d *db) DeleteCollection(ctx context.Context, req *schemav2.CollectionDelet
 	return &schemav2.CollectionDeleteResponse{}, nil
 }
 
-// CreateDocument creates a new document
-func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
-	docID, txID, err := d.documentEngine.CreateDocument(ctx, req.Collection, req.Document)
+// InsertDocument creates a new document
+func (d *db) InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
+	docID, txID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
 	return &schemav2.DocumentInsertResponse{
-		DocumentId:    docID.Hex(),
+		DocumentId:    docID.EncodeToHexString(),
 		TransactionId: txID,
 	}, nil
 }
@@ -180,7 +195,7 @@ func newCollectionInformation(collectionName string, indexes []*sql.Index) *sche
 
 func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
 	// verify if document id is valid
-	docID, err := document.DocumentIDFromHex(req.DocumentId)
+	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}
@@ -217,26 +232,20 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 
 // UpdateDocument updates a document
 func (d *db) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
-	// verify if document id is valid
-	docID, err := document.DocumentIDFromHex(req.DocumentId)
-	if err != nil {
-		return nil, fmt.Errorf("invalid document id: %v", err)
-	}
-
-	txID, revision, err := d.documentEngine.UpdateDocument(ctx, req.Collection, docID, req.Document)
+	txID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Collection, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
 	return &schemav2.DocumentUpdateResponse{
 		TransactionId: txID,
-		Revision:      revision,
+		Revision:      rev,
 	}, nil
 }
 
 // DocumentProof returns the proofs for a documenta
 func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error) {
-	docID, err := document.DocumentIDFromHex(req.DocumentId)
+	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}

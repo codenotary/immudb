@@ -34,6 +34,7 @@ const (
 
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrCollectionDoesNotExist = errors.New("collection does not exist")
+var ErrMaxLengthExceeded = errors.New("max length exceeded")
 
 // Schema to ValueType mapping
 var (
@@ -108,13 +109,16 @@ var (
 	}
 
 	// transform value type based on column name
-	transformTypedValue = func(colName string, value sql.TypedValue) sql.TypedValue {
+	transformTypedValue = func(colName string, value sql.TypedValue) (sql.TypedValue, error) {
 		switch colName {
 		case DocumentIDField:
-			docID := NewDocumentIDFromBytes(value.RawValue().([]byte))
-			return sql.NewVarchar(docID.Hex())
+			docID, err := NewDocumentIDFromRawBytes(value.RawValue().([]byte))
+			if err != nil {
+				return nil, err
+			}
+			return sql.NewVarchar(docID.EncodeToHexString()), nil
 		}
-		return value
+		return value, nil
 	}
 )
 
@@ -149,7 +153,7 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	columns := make([]*sql.ColSpec, 0)
 
 	// add primary key for document id
-	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, 16, false, true))
+	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, MaxDocumentIDLength, false, true))
 
 	// add columnn for blob, which stores the document as a whole
 	columns = append(columns, sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false))
@@ -206,43 +210,62 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	return tx.Commit(ctx)
 }
 
-func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
+func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
+	docID, txID, _, err = e.upsertDocument(ctx, collectionName, doc, true)
+	return
+}
+
+func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID, rev uint64, err error) {
+	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, false)
+	return
+}
+
+func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct, isInsert bool) (docID DocumentID, txID, rev uint64, err error) {
 	if doc == nil {
-		return NilDocumentID, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	_, docIDProvisioned := doc.Fields[DocumentIDField]
+	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
 	if docIDProvisioned {
-		return NilDocumentID, 0, fmt.Errorf("_id field is not allowed to be set")
-	}
+		docID, err = NewDocumentIDFromHexEncodedString(provisionedDocID.GetStringValue())
+		if err != nil {
+			return nil, 0, 0, err
+		}
+	} else {
+		if !isInsert {
+			return nil, 0, 0, fmt.Errorf("_id field is required when updating a document")
+		}
 
-	// generate document id
-	docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
-	doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.Hex())
+		// generate document id
+		docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
+		doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
+	}
 
 	// concurrency validation are not needed when the document id is automatically generated
 	opts := sql.DefaultTxOptions()
 
-	// wait for indexing to include latest catalog changes
-	opts.
-		WithUnsafeMVCC(!docIDProvisioned).
-		WithSnapshotRenewalPeriod(0).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
-			return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
-		})
+	if !docIDProvisioned {
+		// wait for indexing to include latest catalog changes
+		opts.
+			WithUnsafeMVCC(!docIDProvisioned).
+			WithSnapshotRenewalPeriod(0).
+			WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+				return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
+			})
+	}
 
 	tx, err := e.sqlEngine.NewTx(ctx, opts)
 	if err != nil {
-		return NilDocumentID, 0, err
+		return nil, 0, 0, err
 	}
 	defer tx.Cancel()
 
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
 		if errors.Is(err, sql.ErrTableDoesNotExist) {
-			return NilDocumentID, 0, ErrCollectionDoesNotExist
+			return nil, 0, 0, ErrCollectionDoesNotExist
 		}
-		return NilDocumentID, 0, err
+		return nil, 0, 0, err
 	}
 
 	var cols []string
@@ -258,18 +281,18 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 		case DocumentBLOBField:
 			document, err := NewDocumentFrom(doc)
 			if err != nil {
-				return NilDocumentID, 0, err
+				return nil, 0, 0, err
 			}
 			res, err := document.MarshalJSON()
 			if err != nil {
-				return NilDocumentID, 0, err
+				return nil, 0, 0, err
 			}
 			values = append(values, sql.NewBlob(res))
 		default:
 			if rval, ok := doc.Fields[col.Name()]; ok {
 				val, err := valueTypeToExp(col.Type(), rval)
 				if err != nil {
-					return NilDocumentID, 0, err
+					return nil, 0, 0, err
 				}
 				values = append(values, val)
 			} else {
@@ -289,17 +312,38 @@ func (e *Engine) CreateDocument(ctx context.Context, collectionName string, doc 
 				collectionName,
 				cols,
 				rows,
-				true,
+				isInsert,
 				nil,
 			),
 		},
 		nil,
 	)
 	if err != nil {
-		return NilDocumentID, 0, err
+		return nil, 0, 0, err
 	}
 
-	return docID, ctxs[0].TxHeader().ID, nil
+	txID = ctxs[0].TxHeader().ID
+
+	if !isInsert {
+		searchKey, err := e.getKeyForDocument(ctx, tx, collectionName, docID)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+
+		err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
+		if err != nil {
+			return docID, txID, 0, nil
+		}
+
+		auditLog, err := e.getValueAt(searchKey, 0, false, 0)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+
+		rev = auditLog.Revision
+	}
+
+	return docID, txID, rev, nil
 }
 
 func (e *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, error) {
@@ -447,11 +491,17 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 			switch colName {
 			case DocumentIDField, DocumentBLOBField:
 				tv := row.ValuesByPosition[i]
-				transformedTV := transformTypedValue(colName, tv)
+
+				transformedTV, err := transformTypedValue(colName, tv)
+				if err != nil {
+					return nil, err
+				}
+
 				vtype, err := valueTypeToFieldValue(transformedTV)
 				if err != nil {
 					return nil, err
 				}
+
 				document.Fields[colName] = vtype
 			}
 		}
@@ -620,63 +670,6 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	}
 
 	return entry.Metadata(), v, nil
-}
-
-func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, docID DocumentID, doc *structpb.Struct) (txID, rev uint64, err error) {
-	document, err := NewDocumentFrom(doc)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	res, err := document.MarshalJSON()
-	if err != nil {
-		return 0, 0, err
-	}
-
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
-	if err != nil {
-		return 0, 0, err
-	}
-	defer tx.Cancel()
-
-	// update document in collection
-	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
-		ctx,
-		tx,
-		[]sql.SQLStmt{
-			sql.NewUpdateStmt(
-				collectionName,
-				sql.NewCmpBoolExp(
-					sql.EQ,
-					sql.NewColSelector(collectionName, DocumentIDField, ""),
-					sql.NewBlob(docID[:]),
-				),
-				sql.NewColUpdate(DocumentBLOBField, sql.EQ, sql.NewBlob(res))),
-		},
-		nil,
-	)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	committedTx := ctxs[0]
-
-	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	searchKey, err := e.getKeyForDocument(ctx, tx, collectionName, docID)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	auditLog, err := e.getValueAt(searchKey, 0, false, 0)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return committedTx.TxHeader().ID, auditLog.Revision, nil
 }
 
 func (e *Engine) GetDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *Audit, err error) {
