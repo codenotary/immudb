@@ -162,7 +162,6 @@ func TestGetDocument(t *testing.T) {
 		"data":    {Type: sql.BLOBType},
 	})
 	require.NoError(t, err)
-	require.NoError(t, err)
 
 	// add document to collection
 	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
@@ -656,7 +655,6 @@ func TestDeleteCollection(t *testing.T) {
 		"idx": {Type: sql.IntegerType},
 	})
 	require.NoError(t, err)
-	require.NoError(t, err)
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
@@ -919,7 +917,6 @@ func TestPaginationOnReader(t *testing.T) {
 		"country": {Type: sql.VarcharType},
 		"pincode": {Type: sql.IntegerType},
 	})
-	require.NoError(t, err)
 	require.NoError(t, err)
 
 	// add documents to collection
