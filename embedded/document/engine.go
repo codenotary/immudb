@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -71,27 +72,6 @@ var (
 		return nil, errType
 	}
 
-	valueTypeToFieldValue = func(tv sql.TypedValue) (*structpb.Value, error) {
-		errType := fmt.Errorf("unsupported type %v", tv.Type())
-		value := &structpb.Value{}
-		switch tv.Type() {
-		case sql.VarcharType:
-			value.Kind = &structpb.Value_StringValue{StringValue: tv.RawValue().(string)}
-			return value, nil
-		case sql.IntegerType:
-			value.Kind = &structpb.Value_NumberValue{NumberValue: float64(tv.RawValue().(int64))}
-			return value, nil
-		case sql.BLOBType:
-			value.Kind = &structpb.Value_StringValue{StringValue: string(tv.RawValue().([]byte))}
-			return value, nil
-		case sql.Float64Type:
-			value.Kind = &structpb.Value_NumberValue{NumberValue: tv.RawValue().(float64)}
-			return value, nil
-		}
-
-		return nil, errType
-	}
-
 	valueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
 		errType := fmt.Errorf("unsupported type %v", stype)
 		switch stype {
@@ -106,19 +86,6 @@ var (
 		}
 
 		return 0, errType
-	}
-
-	// transform value type based on column name
-	transformTypedValue = func(colName string, value sql.TypedValue) (sql.TypedValue, error) {
-		switch colName {
-		case DocumentIDField:
-			docID, err := NewDocumentIDFromRawBytes(value.RawValue().([]byte))
-			if err != nil {
-				return nil, err
-			}
-			return sql.NewVarchar(docID.EncodeToHexString()), nil
-		}
-		return value, nil
 	}
 )
 
@@ -279,15 +246,12 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 			// add document id to document
 			values = append(values, sql.NewBlob(docID[:]))
 		case DocumentBLOBField:
-			document, err := NewDocumentFrom(doc)
+			bs, err := json.Marshal(doc)
 			if err != nil {
 				return nil, 0, 0, err
 			}
-			res, err := document.MarshalJSON()
-			if err != nil {
-				return nil, 0, 0, err
-			}
-			values = append(values, sql.NewBlob(res))
+
+			values = append(values, sql.NewBlob(bs))
 		default:
 			if rval, ok := doc.Fields[col.Name()]; ok {
 				val, err := valueTypeToExp(col.Type(), rval)
@@ -413,7 +377,7 @@ func (d *Engine) generateExp(ctx context.Context, collection string, expressions
 			return nil, err
 		}
 
-		colSelector := sql.NewColSelector(collection, exp.Field, "")
+		colSelector := sql.NewColSelector(collection, exp.Field)
 		boolExps[i] = sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
 	}
 
@@ -456,25 +420,21 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
-	op := sql.NewSelectStmt(
+	query := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(collectionName, DocumentBLOBField)},
 		collectionName,
 		exp,
 		sql.NewInteger(int64(limit)),
 		sql.NewInteger(int64(offset)),
 	)
 
-	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, op, nil)
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, query, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	colDescriptors, err := r.Columns(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	results := []*structpb.Struct{}
+	var results []*structpb.Struct
 
 	for l := 1; ; l++ {
 		row, err := r.Read(ctx)
@@ -485,27 +445,15 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 			return nil, err
 		}
 
-		document := &structpb.Struct{Fields: map[string]*structpb.Value{}}
-		for i := range colDescriptors {
-			colName := colDescriptors[i].Column
-			switch colName {
-			case DocumentIDField, DocumentBLOBField:
-				tv := row.ValuesByPosition[i]
+		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
 
-				transformedTV, err := transformTypedValue(colName, tv)
-				if err != nil {
-					return nil, err
-				}
-
-				vtype, err := valueTypeToFieldValue(transformedTV)
-				if err != nil {
-					return nil, err
-				}
-
-				document.Fields[colName] = vtype
-			}
+		doc := &structpb.Struct{}
+		err = json.Unmarshal(docBytes, doc)
+		if err != nil {
+			return nil, err
 		}
-		results = append(results, document)
+
+		results = append(results, doc)
 	}
 
 	return results, nil
@@ -533,6 +481,7 @@ func (e *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectio
 			}
 		}
 	}
+
 	pkEncVals := valbuf.Bytes()
 
 	searchKey = sql.MapKey(

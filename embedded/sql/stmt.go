@@ -2129,13 +2129,13 @@ type DataSource interface {
 	Alias() string
 }
 
-func NewSelectStmt(table string, where ValueExp, limit ValueExp, offset ValueExp) *SelectStmt {
-	tableref := newTableRef(table, "")
+func NewSelectStmt(selectors []Selector, table string, where ValueExp, limit ValueExp, offset ValueExp) *SelectStmt {
 	return &SelectStmt{
-		ds:     tableref,
-		where:  where,
-		limit:  limit,
-		offset: offset,
+		selectors: selectors,
+		ds:        newTableRef(table, ""),
+		where:     where,
+		limit:     limit,
+		offset:    offset,
 	}
 }
 
@@ -2664,11 +2664,10 @@ type Selector interface {
 	setAlias(alias string)
 }
 
-func NewColSelector(table, col, as string) *ColSelector {
+func NewColSelector(table, col string) *ColSelector {
 	return &ColSelector{
 		table: table,
 		col:   col,
-		as:    as,
 	}
 }
 
