@@ -18,7 +18,6 @@ package document
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,10 +88,16 @@ var (
 	}
 )
 
-type Audit struct {
-	Value    []byte
+type EncodedDocAudit struct {
+	TxID            uint64
+	Revision        uint64
+	EncodedDocument []byte
+}
+
+type DocAudit struct {
 	TxID     uint64
 	Revision uint64
+	Document *structpb.Struct
 }
 
 type Query struct {
@@ -428,40 +433,15 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 			return docID, txID, 0, nil
 		}
 
-		auditLog, err := e.getValueAt(searchKey, 0, false, 0)
+		docAudit, err := e.getEncodedDocumentAudit(searchKey, 0, false)
 		if err != nil {
 			return nil, 0, 0, err
 		}
 
-		rev = auditLog.Revision
+		rev = docAudit.Revision
 	}
 
 	return docID, txID, rev, nil
-}
-
-func (e *Engine) GetDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *Audit, err error) {
-	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
-	if err != nil {
-		return 0, nil, err
-	}
-	defer sqlTx.Cancel()
-
-	table, err := sqlTx.Catalog().GetTableByName(collectionName)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	docAudit, err = e.getValueAt(searchKey, txID, false, 0)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	return table.ID(), docAudit, nil
 }
 
 func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
@@ -515,8 +495,33 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 	return results, nil
 }
 
+func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *EncodedDocAudit, err error) {
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return 0, nil, err
+	}
+	defer sqlTx.Cancel()
+
+	table, err := sqlTx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	docAudit, err = e.getEncodedDocumentAudit(searchKey, txID, false)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return table.ID(), docAudit, nil
+}
+
 // DocumentAudit returns the audit history of a document.
-func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*Audit, error) {
+func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*DocAudit, error) {
 	offset := (pageNum - 1) * itemsPerPage
 	limit := itemsPerPage
 	if offset < 0 || limit < 1 {
@@ -539,47 +544,17 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 		return nil, err
 	}
 
-	table, err := tx.Catalog().GetTableByName(collectionName)
-	if err != nil {
-		return nil, err
-	}
+	results := make([]*DocAudit, 0)
 
-	results := make([]*Audit, 0)
 	for i, txID := range txs {
-		res, err := e.getValueAt(searchKey, txID, false, uint64(i)+1)
+		audit, err := e.getDocumentAudit(searchKey, txID, false)
 		if err != nil {
 			return nil, err
 		}
 
-		v := res.Value
-		voff := 0
+		audit.Revision = uint64(i) + 1
 
-		cols := int(binary.BigEndian.Uint32(v[voff:]))
-		voff += sql.EncLenLen
-
-		for i := 0; i < cols; i++ {
-			colID := binary.BigEndian.Uint32(v[voff:])
-			voff += sql.EncIDLen
-
-			col, err := table.GetColumnByID(colID)
-			if err != nil {
-				return nil, err
-			}
-
-			val, n, err := sql.DecodeValue(v[voff:], sql.BLOBType)
-			if err != nil {
-				return nil, err
-			}
-
-			if col.Name() == DocumentBLOBField {
-				res.Value = val.RawValue().([]byte)
-				break
-			}
-
-			voff += n
-		}
-
-		results = append(results, res)
+		results = append(results, audit)
 	}
 
 	return results, nil
@@ -676,14 +651,54 @@ func (e *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectio
 	return searchKey, nil
 }
 
-func (e *Engine) getValueAt(
+func (e *Engine) getDocumentAudit(
 	key []byte,
 	atTx uint64,
 	skipIntegrityCheck bool,
-	revision uint64,
-) (entry *Audit, err error) {
+) (docAudit *DocAudit, err error) {
+	encodedDocAudit, err := e.getEncodedDocumentAudit(key, atTx, skipIntegrityCheck)
+	if err != nil {
+		return nil, err
+	}
+
+	voff := sql.EncLenLen + sql.EncIDLen
+
+	_, n, err := sql.DecodeValue(encodedDocAudit.EncodedDocument[voff:], sql.BLOBType)
+	if err != nil {
+		return nil, err
+	}
+
+	voff += n + sql.EncIDLen
+
+	encodedDoc, _, err := sql.DecodeValue(encodedDocAudit.EncodedDocument[voff:], sql.BLOBType)
+	if err != nil {
+		return nil, err
+	}
+
+	docBytes := encodedDoc.RawValue().([]byte)
+
+	doc := &structpb.Struct{}
+	err = json.Unmarshal(docBytes, doc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DocAudit{
+		TxID:     encodedDocAudit.TxID,
+		Revision: encodedDocAudit.Revision,
+		Document: doc,
+	}, err
+}
+
+func (e *Engine) getEncodedDocumentAudit(
+	key []byte,
+	atTx uint64,
+	skipIntegrityCheck bool,
+) (docAudit *EncodedDocAudit, err error) {
+
 	var txID uint64
-	var val []byte
+	var encodedDoc []byte
+	var revision uint64
 
 	index := e.sqlEngine.GetStore()
 	if atTx == 0 {
@@ -694,7 +709,7 @@ func (e *Engine) getValueAt(
 
 		txID = valRef.Tx()
 
-		val, err = valRef.Resolve()
+		encodedDoc, err = valRef.Resolve()
 		if err != nil {
 			return nil, err
 		}
@@ -703,16 +718,16 @@ func (e *Engine) getValueAt(
 		revision = valRef.HC()
 	} else {
 		txID = atTx
-		_, val, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
+		_, encodedDoc, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &Audit{
-		TxID:     txID,
-		Value:    val,
-		Revision: revision,
+	return &EncodedDocAudit{
+		TxID:            txID,
+		Revision:        revision,
+		EncodedDocument: encodedDoc,
 	}, err
 }
 

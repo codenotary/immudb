@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
@@ -244,13 +243,7 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 		resp.Results = append(resp.Results, &schemav2.DocumentAudit{
 			TransactionId: log.TxID,
 			Revision:      log.Revision,
-			Value: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					document.DocumentBLOBField: {
-						Kind: &structpb.Value_StringValue{StringValue: string(log.Value)},
-					},
-				},
-			},
+			Document:      log.Document,
 		})
 	}
 
@@ -283,7 +276,7 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 	}
 	defer d.releaseTx(tx)
 
-	collectionID, docAudit, err := d.documentEngine.GetDocument(ctx, req.Collection, docID, req.TransactionId)
+	collectionID, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.Collection, docID, req.TransactionId)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +313,7 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 	return &schemav2.DocumentProofResponse{
 		Database:        d.name,
 		CollectionId:    collectionID,
-		EncodedDocument: docAudit.Value,
+		EncodedDocument: docAudit.EncodedDocument,
 		VerifiableTx: &schema.VerifiableTxV2{
 			Tx:        schema.TxToProto(tx),
 			DualProof: schema.DualProofV2ToProto(dualProof),

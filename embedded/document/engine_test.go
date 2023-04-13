@@ -272,12 +272,11 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(res))
 
-	for i, record := range res {
-		// verify audit result
-		val := string(record.Value)
-		require.Contains(t, val, "pincode")
-		require.Contains(t, val, "country")
-		require.Equal(t, uint64(i+1), record.Revision)
+	for i, docAudit := range res {
+		require.Contains(t, docAudit.Document.Fields, DocumentIDField)
+		require.Contains(t, docAudit.Document.Fields, "pincode")
+		require.Contains(t, docAudit.Document.Fields, "country")
+		require.Equal(t, uint64(i+1), docAudit.Revision)
 	}
 }
 

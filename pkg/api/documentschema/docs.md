@@ -264,9 +264,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| value | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 | transactionId | [uint64](#uint64) |  |  |
 | revision | [uint64](#uint64) |  |  |
+| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 
 
 
@@ -300,8 +300,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | results | [DocumentAudit](#immudb.documentschema.DocumentAudit) | repeated |  |
-| page | [uint32](#uint32) |  |  |
-| perPage | [uint32](#uint32) |  |  |
 
 
 
@@ -420,8 +418,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | results | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
-| page | [uint32](#uint32) |  |  |
-| perPage | [uint32](#uint32) |  |  |
 
 
 
