@@ -515,55 +515,27 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 	return docID, txID, rev, nil
 }
 
-func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
+func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query) (sql.RowReader, error) {
 	exp, err := e.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
 	}
 
-	offset := (pageNum - 1) * itemsPerPage
-	limit := itemsPerPage
-	if offset < 0 || limit < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
-	query := sql.NewSelectStmt(
+	op := sql.NewSelectStmt(
 		[]sql.Selector{sql.NewColSelector(collectionName, DocumentBLOBField)},
 		collectionName,
 		exp,
-		sql.NewInteger(int64(limit)),
-		sql.NewInteger(int64(offset)),
+		nil,
+		nil,
 	)
 
-	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, query, nil)
+	// returning an open reader here, so that the caller HAS to close it
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, op, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
 
-	var results []*structpb.Struct
-
-	for {
-		row, err := r.Read(ctx)
-		if err == sql.ErrNoMoreRows {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
-
-		doc := &structpb.Struct{}
-		err = json.Unmarshal(docBytes, doc)
-		if err != nil {
-			return nil, err
-		}
-
-		results = append(results, doc)
-	}
-
-	return results, nil
+	return r, nil
 }
 
 func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *EncodedDocAudit, err error) {
@@ -953,4 +925,33 @@ func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string,
 	txID = ctxs[0].TxHeader().ID
 
 	return
+}
+
+// ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
+func ReadStructMessagesFromReader(ctx context.Context, reader sql.RowReader, count int) ([]*structpb.Struct, error) {
+	var err error
+	results := make([]*structpb.Struct, 0)
+
+	for l := 0; l < count; l++ {
+		var row *sql.Row
+		row, err = reader.Read(ctx)
+		if err == sql.ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
+
+		doc := &structpb.Struct{}
+		err = json.Unmarshal(docBytes, doc)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, doc)
+	}
+
+	return results, err
 }
