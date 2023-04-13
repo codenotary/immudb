@@ -46,10 +46,10 @@ type DocumentDatabase interface {
 	UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error)
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
-	// GetDocument returns the document
-	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
 	// InsertDocument creates a new document
 	InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
+	// SearchDocuments queries the document
+	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error)
 	// DocumentAudit returns the document audit history
 	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
 	// UpdateDocument updates a document
@@ -121,6 +121,27 @@ func (d *db) getCollection(ctx context.Context, collectionName string) (*schemav
 	}
 
 	return newCollectionInformation(collectionName, indexes), nil
+}
+
+// SearchDocuments returns the documents matching the search request constraints
+func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error) {
+	queries := make([]*document.Query, 0, len(req.Query))
+	for _, q := range req.Query {
+		queries = append(queries, &document.Query{
+			Operator: int(q.Operator),
+			Field:    q.Field,
+			Value:    q.Value,
+		})
+	}
+	if req.Page < 1 || req.PerPage < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
+	}
+
+	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries)
+	if err != nil {
+		return nil, err
+	}
+	return reader, nil
 }
 
 // helper function to create a collection information
@@ -204,27 +225,6 @@ func (d *db) InsertDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 		DocumentId:    docID.EncodeToHexString(),
 		TransactionId: txID,
 	}, nil
-}
-
-// SearchDocuments returns the documents matching the search request constraints
-func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
-	queries := make([]*document.Query, 0, len(req.Query))
-	for _, q := range req.Query {
-		queries = append(queries, &document.Query{
-			Operator: int(q.Operator),
-			Field:    q.Field,
-			Value:    q.Value,
-		})
-	}
-	if req.Page < 1 || req.PerPage < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
-	results, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries, int(req.Page), int(req.PerPage))
-	if err != nil {
-		return nil, err
-	}
-	return &schemav2.DocumentSearchResponse{Results: results}, nil
 }
 
 func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
