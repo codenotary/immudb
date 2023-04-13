@@ -17,7 +17,6 @@ package document
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -529,10 +528,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	// check if data is updated
 	doc := docs[0]
-	data := map[string]interface{}{}
-	err = json.Unmarshal([]byte(doc.Fields[DocumentBLOBField].GetStringValue()), &data)
-	require.NoError(t, err)
-	require.Equal(t, "value2", data["data"].(map[string]interface{})["key1"])
+	require.Equal(t, "value2", doc.Fields["data"].GetStructValue().Fields["key1"].GetStringValue())
 }
 
 func TestFloatSupport(t *testing.T) {
@@ -587,10 +583,7 @@ func TestFloatSupport(t *testing.T) {
 
 	// retrieve document
 	doc := docs[0]
-	data := map[string]interface{}{}
-	err = json.Unmarshal([]byte(doc.Fields[DocumentBLOBField].GetStringValue()), &data)
-	require.NoError(t, err)
-	require.Equal(t, 3.1, data["number"])
+	require.Equal(t, 3.1, doc.Fields["number"].GetNumberValue())
 }
 
 func TestDeleteCollection(t *testing.T) {

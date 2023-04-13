@@ -54,7 +54,7 @@ func NewDocument() *Document {
 // NewDocumentFromBytes creates a new document from the given json bytes
 func NewDocumentFromBytes(json []byte) (*Document, error) {
 	if !gjson.ValidBytes(json) {
-		return nil, errors.New(fmt.Sprintf("invalid json: %s", string(json)))
+		return nil, fmt.Errorf("invalid json: %s", string(json))
 	}
 	d := &Document{
 		result: gjson.ParseBytes(json),
@@ -70,7 +70,7 @@ func NewDocumentFrom(value interface{}) (*Document, error) {
 	var err error
 	bits, err := json.Marshal(value)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to json encode value: %#v", value))
+		return nil, fmt.Errorf("failed to json encode value: %v", value)
 	}
 	return NewDocumentFromBytes(bits)
 }
