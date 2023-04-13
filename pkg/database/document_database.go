@@ -32,8 +32,8 @@ type DocumentDatabase interface {
 	UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error)
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
-	// GetDocument returns the document
-	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error)
+	// SearchDocuments queries the document
+	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error)
 	// CreateDocument creates a new document
 	CreateDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
 	// DocumentAudit returns the document audit history
@@ -128,7 +128,7 @@ func (d *db) CreateDocument(ctx context.Context, req *schemav2.DocumentInsertReq
 }
 
 // SearchDocuments returns the documents matching the search request constraints
-func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
+func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error) {
 	queries := make([]*document.Query, 0, len(req.Query))
 	for _, q := range req.Query {
 		queries = append(queries, &document.Query{
@@ -141,11 +141,11 @@ func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRe
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
-	results, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries, int(req.Page), int(req.PerPage))
+	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries)
 	if err != nil {
 		return nil, err
 	}
-	return &schemav2.DocumentSearchResponse{Results: results}, nil
+	return reader, nil
 }
 
 // helper function to create a collection information

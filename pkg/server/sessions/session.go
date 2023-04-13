@@ -26,10 +26,22 @@ import (
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"google.golang.org/grpc/metadata"
 )
+
+var (
+	ErrPaginatedReaderNotFound = errors.New("paginated reader not found")
+)
+
+type PaginatedReader struct {
+	LastPageNumber uint32        // last read page number
+	LastPageSize   uint32        // number of items per page
+	TotalRead      uint32        // total number of items read
+	Reader         sql.RowReader // reader to read from
+}
 
 type Session struct {
 	mux              sync.RWMutex
@@ -40,6 +52,8 @@ type Session struct {
 	lastActivityTime time.Time
 	transactions     map[string]transactions.Transaction
 	log              logger.Logger
+
+	paginatedReaders map[string]*PaginatedReader // map from query names to sql.RowReader objects
 }
 
 func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
@@ -192,4 +206,46 @@ func (s *Session) GetCreationTime() time.Time {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.creationTime
+}
+
+func (s *Session) SetPaginatedReader(queryName string, reader *PaginatedReader) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	// add the reader to the paginatedReaders map
+	s.paginatedReaders[queryName] = reader
+}
+
+func (s *Session) GetPaginatedReader(queryName string) (*PaginatedReader, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// get the io.Reader object for the specified query name
+	reader, ok := s.paginatedReaders[queryName]
+	if !ok {
+		return nil, ErrPaginatedReaderNotFound
+	}
+
+	return reader, nil
+}
+
+func (s *Session) DeletePaginatedReader(queryName string) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	delete(s.paginatedReaders, queryName)
+}
+
+func (s *Session) UpdatePaginatedReaderCount(queryName string, totalDocsRead int) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	// get the io.Reader object for the specified query name
+	reader, ok := s.paginatedReaders[queryName]
+	if !ok {
+		return ErrPaginatedReaderNotFound
+	}
+	reader.TotalRead = uint32(totalDocsRead)
+
+	return nil
 }

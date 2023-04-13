@@ -18,9 +18,16 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	"github.com/codenotary/immudb/embedded/document"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/server/sessions"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.DocumentInsertRequest) (*documentschema.DocumentInsertResponse, error) {
@@ -41,18 +48,6 @@ func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *documentschema.Doc
 		return nil, err
 	}
 	resp, err := db.UpdateDocument(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.DocumentSearchRequest) (*documentschema.DocumentSearchResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentSearch")
-	if err != nil {
-		return nil, err
-	}
-	resp, err := db.SearchDocuments(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -164,4 +159,81 @@ func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *documentschema.C
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.DocumentSearchRequest) (*documentschema.DocumentSearchResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DocumentSearch")
+	if err != nil {
+		return nil, err
+	}
+
+	// get the session from the context
+	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sess, err := s.SessManager.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// generate a unique query name based on the request parameters
+	queryName := generateQueryName(req)
+
+	// check if the paginated reader for this query has already been created
+	var resultReader sql.RowReader
+	var pgreader *sessions.PaginatedReader
+
+	pgreader, err = sess.GetPaginatedReader(queryName)
+	if err != nil { // paginated reader does not exist, create a new one and add it to the session
+		resultReader, err = db.SearchDocuments(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		// store the reader in the session for future use
+		pgreader = &sessions.PaginatedReader{
+			Reader:         resultReader,
+			LastPageNumber: req.Page,
+			LastPageSize:   req.PerPage,
+		}
+		sess.SetPaginatedReader(queryName, pgreader)
+	} else { // paginated reader already exists, resume reading from the correct offset based on pagination parameters
+		// do validation on the pagination parameters
+		if req.Page < pgreader.LastPageNumber {
+			return nil, status.Errorf(codes.InvalidArgument, "cannot go back to a previous page")
+		}
+		resultReader = pgreader.Reader
+	}
+
+	// read the next page of data from the paginated reader
+	results, err := document.ReadStructMessagesFromReader(ctx, resultReader, int(req.PerPage))
+	if err != nil && err != sql.ErrNoMoreRows {
+		return nil, err
+	}
+	if err == sql.ErrNoMoreRows {
+		// end of data reached, remove the paginated reader and pagination parameters from the session
+		sess.DeletePaginatedReader(queryName)
+	}
+
+	// update the pagination parameters for this query in the session
+	err = sess.UpdatePaginatedReaderCount(queryName, int(pgreader.TotalRead)+len(results))
+	if err != nil {
+		return nil, err
+	}
+
+	return &documentschema.DocumentSearchResponse{
+		Results: results,
+	}, nil
+}
+
+func generateQueryName(req *documentschema.DocumentSearchRequest) string {
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(req.Collection)
+
+	for _, q := range req.Query {
+		queryBuilder.WriteString(fmt.Sprintf("%v%v", q.Field, q.Value))
+	}
+
+	return queryBuilder.String()
 }

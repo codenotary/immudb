@@ -377,65 +377,26 @@ func (e *Engine) getCollectionSchema(ctx context.Context, collection string) (ma
 	return table.ColsByName(), nil
 }
 
-func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query, pageNum int, itemsPerPage int) ([]*structpb.Struct, error) {
+func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query) (sql.RowReader, error) {
 	exp, err := e.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
 	}
 
-	offset := (pageNum - 1) * itemsPerPage
-	limit := itemsPerPage
-	if offset < 0 || limit < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
 	op := sql.NewSelectStmt(
 		collectionName,
 		exp,
-		sql.NewInteger(int64(limit)),
-		sql.NewInteger(int64(offset)),
+		nil,
+		nil,
 	)
 
+	// returning an open reader here, so that the caller HAS to close it
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, op, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
 
-	colDescriptors, err := r.Columns(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	results := []*structpb.Struct{}
-
-	for l := 1; ; l++ {
-		row, err := r.Read(ctx)
-		if err == sql.ErrNoMoreRows {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		document := &structpb.Struct{Fields: map[string]*structpb.Value{}}
-		for i := range colDescriptors {
-			colName := colDescriptors[i].Column
-			switch colName {
-			case DocumentIDField, DocumentBLOBField:
-				tv := row.ValuesByPosition[i]
-				transformedTV := transformTypedValue(colName, tv)
-				vtype, err := valueTypeToFieldValue(transformedTV)
-				if err != nil {
-					return nil, err
-				}
-				document.Fields[colName] = vtype
-			}
-		}
-		results = append(results, document)
-	}
-
-	return results, nil
+	return r, nil
 }
 
 func (e *Engine) getKeyForDocument(ctx context.Context, tx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {
@@ -758,4 +719,45 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 	}
 
 	return nil
+}
+
+// ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
+func ReadStructMessagesFromReader(ctx context.Context, reader sql.RowReader, count int) ([]*structpb.Struct, error) {
+	var err error
+	results := make([]*structpb.Struct, 0)
+
+	var colDescriptors []sql.ColDescriptor
+	colDescriptors, err = reader.Columns(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for l := 0; l < count; l++ {
+		var row *sql.Row
+		row, err = reader.Read(ctx)
+		if err == sql.ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		doc := &structpb.Struct{Fields: map[string]*structpb.Value{}}
+		for i := range colDescriptors {
+			colName := colDescriptors[i].Column
+			switch colName {
+			case DocumentIDField, DocumentBLOBField:
+				tv := row.ValuesByPosition[i]
+				transformedTV := transformTypedValue(colName, tv)
+				vtype, err := valueTypeToFieldValue(transformedTV)
+				if err != nil {
+					return nil, err
+				}
+				doc.Fields[colName] = vtype
+			}
+		}
+		results = append(results, doc)
+	}
+
+	return results, err
 }

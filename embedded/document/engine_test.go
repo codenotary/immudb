@@ -152,8 +152,8 @@ func TestCreateCollection(t *testing.T) {
 }
 
 func TestGetDocument(t *testing.T) {
+	ctx := context.Background()
 	engine := makeEngine(t)
-
 	// create collection
 	collectionName := "mycollection"
 	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
@@ -201,17 +201,13 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
-	// invalid page number
-	_, err = engine.GetDocuments(context.Background(), collectionName, expressions, 0, 10)
-	require.Error(t, err)
-
-	// invalid page limit
-	_, err = engine.GetDocuments(context.Background(), collectionName, expressions, 1, 0)
-	require.Error(t, err)
-
-	doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
+	reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(doc))
+	defer reader.Close()
+	docs, err := ReadStructMessagesFromReader(ctx, reader, 1)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(docs))
 }
 
 func TestDocumentAudit(t *testing.T) {
@@ -280,11 +276,12 @@ func TestDocumentAudit(t *testing.T) {
 }
 
 func TestQueryDocument(t *testing.T) {
+	ctx := context.Background()
 	engine := makeEngine(t)
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+	err := engine.CreateCollection(ctx, collectionName, map[string]sql.SQLValueType{
 		"pincode": sql.IntegerType,
 		"country": sql.VarcharType,
 		"idx":     sql.IntegerType,
@@ -294,7 +291,7 @@ func TestQueryDocument(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
-		_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.CreateDocument(ctx, collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"pincode": {
 					Kind: &structpb.Value_NumberValue{NumberValue: i},
@@ -321,9 +318,12 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 9, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 9, len(docs))
 	})
 
 	t.Run("test query with < operator", func(t *testing.T) {
@@ -337,9 +337,12 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 10, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 10, len(docs))
 	})
 
 	t.Run("test query with <= operator", func(t *testing.T) {
@@ -353,9 +356,12 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 9, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 9, len(docs))
 	})
 
 	t.Run("test query with > operator", func(t *testing.T) {
@@ -368,10 +374,12 @@ func TestQueryDocument(t *testing.T) {
 				},
 			},
 		}
-
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 5, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 5, len(docs))
 	})
 
 	t.Run("test query with >= operator", func(t *testing.T) {
@@ -385,9 +393,12 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 1, len(docs))
 	})
 
 	t.Run("test group query with != operator", func(t *testing.T) {
@@ -408,9 +419,12 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 8, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 8, len(docs))
 	})
 
 	t.Run("test group query with < operator", func(t *testing.T) {
@@ -431,9 +445,12 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 4, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 4, len(docs))
 	})
 
 	t.Run("test group query with > operator", func(t *testing.T) {
@@ -454,26 +471,30 @@ func TestQueryDocument(t *testing.T) {
 			},
 		}
 
-		doc, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 20)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(doc))
+		defer reader.Close()
+		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.Equal(t, 3, len(docs))
 	})
 
 }
 
 func TestDocumentUpdate(t *testing.T) {
+	ctx := context.Background()
 	engine := makeEngine(t)
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
+	err := engine.CreateCollection(ctx, collectionName, map[string]sql.SQLValueType{
 		"country": sql.VarcharType,
 	})
 	require.NoError(t, err)
 	require.NoError(t, err)
 
 	// add document to collection
-	docID, _, err := engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	docID, _, err := engine.CreateDocument(ctx, collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
@@ -489,7 +510,7 @@ func TestDocumentUpdate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, docID, &structpb.Struct{
+	_, revision, err := engine.UpdateDocument(ctx, collectionName, docID, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": {
 				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
@@ -517,8 +538,12 @@ func TestDocumentUpdate(t *testing.T) {
 	}
 
 	// check if document is updated
-	docs, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
+	reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 	require.NoError(t, err)
+	defer reader.Close()
+	docs, err := ReadStructMessagesFromReader(ctx, reader, 1)
+	require.NoError(t, err)
+
 	require.Equal(t, 1, len(docs))
 
 	// check if data is updated
@@ -530,11 +555,12 @@ func TestDocumentUpdate(t *testing.T) {
 }
 
 func TestFloatSupport(t *testing.T) {
+	ctx := context.Background()
 	engine := makeEngine(t)
 
 	collectionName := "mycollection"
 	err := engine.CreateCollection(
-		context.Background(),
+		ctx,
 		collectionName,
 		map[string]sql.SQLValueType{
 			"number": sql.Float64Type,
@@ -542,7 +568,7 @@ func TestFloatSupport(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	catalog, err := engine.sqlEngine.Catalog(context.Background(), nil)
+	catalog, err := engine.sqlEngine.Catalog(ctx, nil)
 	require.NoError(t, err)
 
 	table, err := catalog.GetTableByName(collectionName)
@@ -554,7 +580,7 @@ func TestFloatSupport(t *testing.T) {
 	require.Equal(t, sql.Float64Type, col.Type())
 
 	// add document to collection
-	_, _, err = engine.CreateDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.CreateDocument(ctx, collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"number": {
 				Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
@@ -575,8 +601,12 @@ func TestFloatSupport(t *testing.T) {
 	}
 
 	// check if document is updated
-	docs, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
+	reader, err := engine.GetDocuments(ctx, collectionName, expressions)
 	require.NoError(t, err)
+	defer reader.Close()
+	docs, err := ReadStructMessagesFromReader(ctx, reader, 1)
+	require.NoError(t, err)
+
 	require.Equal(t, 1, len(docs))
 
 	// retrieve document
@@ -705,4 +735,69 @@ func TestUpdateCollection(t *testing.T) {
 		require.Equal(t, 5, indexKeyCount)
 	})
 
+}
+
+func TestPaginationOnReader(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(ctx, collectionName, map[string]sql.SQLValueType{
+		"pincode": sql.IntegerType,
+		"country": sql.VarcharType,
+		"idx":     sql.IntegerType,
+	})
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 20; i++ {
+		_, _, err = engine.CreateDocument(ctx, collectionName, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"pincode": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+				"country": {
+					Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+				},
+				"idx": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("test reader for multiple reads", func(t *testing.T) {
+		expressions := []*Query{
+			{
+				Field:    "pincode",
+				Operator: sql.GE,
+				Value: &structpb.Value{
+					Kind: &structpb.Value_NumberValue{NumberValue: 0},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		results := make([]*structpb.Struct, 0)
+		// use the reader to read paginated documents 5 at a time
+		for i := 0; i < 4; i++ {
+			docs, _ := ReadStructMessagesFromReader(ctx, reader, 5)
+			require.Equal(t, 5, len(docs))
+			results = append(results, docs...)
+		}
+
+		for i := 1.0; i <= 20; i++ {
+			doc := results[int(i-1)]
+			data := map[string]interface{}{}
+			err = json.Unmarshal([]byte(doc.Fields[DocumentBLOBField].GetStringValue()), &data)
+			require.NoError(t, err)
+			require.Equal(t, i, data["idx"])
+		}
+	})
 }

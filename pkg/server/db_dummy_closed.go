@@ -256,7 +256,7 @@ func (d *closedDB) CreateCollection(ctx context.Context, req *schemav2.Collectio
 }
 
 // SearchDocuments returns the document
-func (d *closedDB) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (*schemav2.DocumentSearchResponse, error) {
+func (d *closedDB) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
