@@ -320,7 +320,7 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 	return &schemav2.DocumentProofResponse{
 		Database:        d.name,
 		CollectionId:    collectionID,
-		RawEncodedValue: docAudit.Value,
+		EncodedDocument: docAudit.Value,
 		VerifiableTx: &schema.VerifiableTxV2{
 			Tx:        schema.TxToProto(tx),
 			DualProof: schema.DualProofV2ToProto(dualProof),

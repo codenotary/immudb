@@ -116,7 +116,7 @@ message DocumentProofRequest {
 message DocumentProofResponse {
   string database = 1;
   uint32 collectionId = 2;
-  bytes rawEncodedValue = 3;
+  bytes  encodedDocument = 3;
   schema.VerifiableTxV2 verifiableTx = 4;
 }
 

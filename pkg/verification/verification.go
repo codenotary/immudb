@@ -33,21 +33,25 @@ import (
 )
 
 const documentPrefix byte = 3
-const encodedValuePrefixLen int = 36
+const encodedPrefixLen int = 36
 
 func VerifyDocument(ctx context.Context,
 	proof *schemav2.DocumentProofResponse,
-	docID string,
-	rawDoc *structpb.Struct,
+	doc *structpb.Struct,
 	lastValidatedState *schema.ImmutableState,
 	serverSigningPubKey *ecdsa.PublicKey,
 ) (*schema.ImmutableState, error) {
 
-	if proof == nil || rawDoc == nil {
+	if proof == nil || doc == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	encDocKey, err := encodedKeyForDocument(proof.CollectionId, docID)
+	docID, ok := doc.Fields[document.DocumentIDField]
+	if !ok {
+		return nil, fmt.Errorf("%w: missing field '%s'", store.ErrIllegalArguments, document.DocumentIDField)
+	}
+
+	encDocKey, err := encodedKeyForDocument(proof.CollectionId, docID.GetStringValue())
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +60,7 @@ func VerifyDocument(ctx context.Context,
 
 	for _, txEntry := range proof.VerifiableTx.Tx.Entries {
 		if bytes.Equal(txEntry.Key, encDocKey) {
-			hVal := sha256.Sum256(proof.RawEncodedValue)
+			hVal := sha256.Sum256(proof.EncodedDocument)
 
 			if !bytes.Equal(hVal[:], txEntry.HValue) {
 				return nil, store.ErrInvalidProof
@@ -71,12 +75,12 @@ func VerifyDocument(ctx context.Context,
 	}
 
 	// check encoded value is consistent with raw document
-	rawDocBytes, err := json.Marshal(rawDoc)
+	docBytes, err := json.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
 
-	if !bytes.Equal(rawDocBytes, proof.RawEncodedValue[encodedValuePrefixLen:encodedValuePrefixLen+len(rawDocBytes)]) {
+	if !bytes.Equal(docBytes, proof.EncodedDocument[encodedPrefixLen:encodedPrefixLen+len(docBytes)]) {
 		return nil, store.ErrInvalidProof
 	}
 

@@ -528,7 +528,7 @@
           "type": "integer",
           "format": "int64"
         },
-        "rawEncodedValue": {
+        "encodedDocument": {
           "type": "string",
           "format": "byte"
         },

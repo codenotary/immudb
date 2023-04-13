@@ -80,17 +80,15 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
 
 	// add document to collection
-	rawDoc := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"pincode": {
-				Kind: &structpb.Value_NumberValue{NumberValue: 123},
-			},
-		},
-	}
-
 	docRes, err := db.InsertDocument(context.Background(), &schemav2.DocumentInsertRequest{
 		Collection: collectionName,
-		Document:   rawDoc,
+		Document: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"pincode": {
+					Kind: &structpb.Value_NumberValue{NumberValue: 123},
+				},
+			},
+		},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, docRes)
@@ -112,8 +110,8 @@ func TestDocumentDB_Collection(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs.Results))
-	res := docs.Results[0]
-	require.Equal(t, 123.0, res.Fields["pincode"].GetNumberValue())
+	doc := docs.Results[0]
+	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 
 	proofRes, err := db.DocumentProof(context.Background(), &schemav2.DocumentProofRequest{
 		Collection: collectionName,
@@ -122,7 +120,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, proofRes)
 
-	newState, err := verification.VerifyDocument(context.Background(), proofRes, docRes.DocumentId, rawDoc, nil, nil)
+	newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
 }
