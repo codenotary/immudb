@@ -425,9 +425,6 @@
     "documentschemaDocumentAudit": {
       "type": "object",
       "properties": {
-        "value": {
-          "type": "object"
-        },
         "transactionId": {
           "type": "string",
           "format": "uint64"
@@ -435,6 +432,9 @@
         "revision": {
           "type": "string",
           "format": "uint64"
+        },
+        "document": {
+          "type": "object"
         }
       }
     },
@@ -465,14 +465,6 @@
           "items": {
             "$ref": "#/definitions/documentschemaDocumentAudit"
           }
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "perPage": {
-          "type": "integer",
-          "format": "int64"
         }
       }
     },
@@ -581,14 +573,6 @@
           "items": {
             "type": "object"
           }
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "perPage": {
-          "type": "integer",
-          "format": "int64"
         }
       }
     },
