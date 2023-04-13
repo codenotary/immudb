@@ -59,39 +59,6 @@ type DocumentDatabase interface {
 	DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error)
 }
 
-func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
-	collections, err := d.documentEngine.ListCollections(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	cinfos := make([]*schemav2.CollectionInformation, 0, len(collections))
-	for collectionName, indexes := range collections {
-		cinfos = append(cinfos, newCollectionInformation(collectionName, indexes))
-	}
-
-	return &schemav2.CollectionListResponse{Collections: cinfos}, nil
-}
-
-func (d *db) getCollection(ctx context.Context, collectionName string) (*schemav2.CollectionInformation, error) {
-	indexes, err := d.documentEngine.GetCollection(ctx, collectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	return newCollectionInformation(collectionName, indexes), nil
-}
-
-// GetCollection returns the collection schema
-func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error) {
-	cinfo, err := d.getCollection(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &schemav2.CollectionGetResponse{Collection: cinfo}, nil
-}
-
 // CreateCollection creates a new collection
 func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error) {
 	indexKeys := make(map[string]sql.SQLValueType)
@@ -117,6 +84,96 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 	}
 
 	return &schemav2.CollectionCreateResponse{Collection: cinfo}, nil
+}
+
+func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
+	collections, err := d.documentEngine.ListCollections(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cinfos := make([]*schemav2.CollectionInformation, 0, len(collections))
+	for collectionName, indexes := range collections {
+		cinfos = append(cinfos, newCollectionInformation(collectionName, indexes))
+	}
+
+	return &schemav2.CollectionListResponse{Collections: cinfos}, nil
+}
+
+// GetCollection returns the collection schema
+func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error) {
+	cinfo, err := d.getCollection(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.CollectionGetResponse{Collection: cinfo}, nil
+}
+
+func (d *db) getCollection(ctx context.Context, collectionName string) (*schemav2.CollectionInformation, error) {
+	indexes, err := d.documentEngine.GetCollection(ctx, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	return newCollectionInformation(collectionName, indexes), nil
+}
+
+// helper function to create a collection information
+func newCollectionInformation(collectionName string, indexes []*sql.Index) *schemav2.CollectionInformation {
+	cinfo := &schemav2.CollectionInformation{
+		Name:      collectionName,
+		IndexKeys: make(map[string]*schemav2.IndexOption),
+	}
+
+	// iterate over indexes and extract primary and index keys
+	for _, idx := range indexes {
+		for _, col := range idx.Cols() {
+			var colType schemav2.IndexType
+			switch col.Type() {
+			case sql.VarcharType:
+				colType = schemav2.IndexType_STRING
+			case sql.IntegerType:
+				colType = schemav2.IndexType_INTEGER
+			case sql.BLOBType:
+				colType = schemav2.IndexType_STRING
+			}
+
+			cinfo.IndexKeys[col.Name()] = &schemav2.IndexOption{
+				Type: colType,
+			}
+
+		}
+	}
+
+	return cinfo
+}
+
+// UpdateCollection updates an existing collection
+func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
+	indexKeys := make(map[string]sql.SQLValueType)
+
+	// validate index keys
+	for name, pk := range req.AddIndexes {
+		schType, isValid := schemaToValueType[pk.Type]
+		if !isValid {
+			return nil, fmt.Errorf("invalid index key type: %v", pk)
+		}
+		indexKeys[name] = schType
+	}
+
+	err := d.documentEngine.UpdateCollection(ctx, req.Name, indexKeys, req.RemoveIndexes)
+	if err != nil {
+		return nil, err
+	}
+
+	// get collection information
+	cinfo, err := d.getCollection(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.CollectionUpdateResponse{Collection: cinfo}, nil
 }
 
 // DeleteCollection deletes a collection
@@ -161,36 +218,6 @@ func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRe
 		return nil, err
 	}
 	return &schemav2.DocumentSearchResponse{Results: results}, nil
-}
-
-// helper function to create a collection information
-func newCollectionInformation(collectionName string, indexes []*sql.Index) *schemav2.CollectionInformation {
-	cinfo := &schemav2.CollectionInformation{
-		Name:      collectionName,
-		IndexKeys: make(map[string]*schemav2.IndexOption),
-	}
-
-	// iterate over indexes and extract primary and index keys
-	for _, idx := range indexes {
-		for _, col := range idx.Cols() {
-			var colType schemav2.IndexType
-			switch col.Type() {
-			case sql.VarcharType:
-				colType = schemav2.IndexType_STRING
-			case sql.IntegerType:
-				colType = schemav2.IndexType_INTEGER
-			case sql.BLOBType:
-				colType = schemav2.IndexType_STRING
-			}
-
-			cinfo.IndexKeys[col.Name()] = &schemav2.IndexOption{
-				Type: colType,
-			}
-
-		}
-	}
-
-	return cinfo
 }
 
 func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
@@ -299,31 +326,4 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 			DualProof: schema.DualProofV2ToProto(dualProof),
 		},
 	}, nil
-}
-
-// UpdateCollection updates an existing collection
-func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
-	indexKeys := make(map[string]sql.SQLValueType)
-
-	// validate index keys
-	for name, pk := range req.AddIndexes {
-		schType, isValid := schemaToValueType[pk.Type]
-		if !isValid {
-			return nil, fmt.Errorf("invalid index key type: %v", pk)
-		}
-		indexKeys[name] = schType
-	}
-
-	err := d.documentEngine.UpdateCollection(ctx, req.Name, indexKeys, req.RemoveIndexes)
-	if err != nil {
-		return nil, err
-	}
-
-	// get collection information
-	cinfo, err := d.getCollection(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &schemav2.CollectionUpdateResponse{Collection: cinfo}, nil
 }
