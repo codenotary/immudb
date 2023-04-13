@@ -18,14 +18,19 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/document"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestV2Authentication(t *testing.T) {
@@ -92,5 +97,152 @@ func TestV2Authentication(t *testing.T) {
 
 	_, err = s.CollectionGet(ctx, &documentschema.CollectionGetRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
+
+}
+
+func TestPaginationOnReader(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	logged, err := s.OpenSessionV2(context.Background(), &authorizationschema.OpenSessionRequestV2{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, logged.Token)
+
+	md := metadata.Pairs("sessionid", logged.Token)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	// create collection
+	collectionName := "mycollection"
+	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{
+		Name: collectionName,
+		IndexKeys: map[string]*documentschema.IndexOption{
+			"pincode": {Type: documentschema.IndexType_INTEGER},
+			"country": {Type: documentschema.IndexType_STRING},
+			"idx":     {Type: documentschema.IndexType_INTEGER},
+		},
+	})
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 20; i++ {
+		_, err = s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{
+			Collection: collectionName,
+			Document: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"pincode": {
+						Kind: &structpb.Value_NumberValue{NumberValue: i},
+					},
+					"country": {
+						Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+					},
+					"idx": {
+						Kind: &structpb.Value_NumberValue{NumberValue: i},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("test reader for multiple paginated reads", func(t *testing.T) {
+		results := make([]*structpb.Struct, 0)
+
+		for i := 1; i <= 4; i++ {
+			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: []*documentschema.DocumentQuery{
+					{
+						Field:    "pincode",
+						Operator: documentschema.QueryOperator_GE,
+						Value: &structpb.Value{
+							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+						},
+					},
+				},
+				Page:    uint32(i),
+				PerPage: 5,
+			})
+			require.NoError(t, err)
+			require.Equal(t, 5, len(resp.Results))
+			results = append(results, resp.Results...)
+		}
+
+		for i := 1.0; i <= 20; i++ {
+			doc := results[int(i-1)]
+			data := map[string]interface{}{}
+			err = json.Unmarshal([]byte(doc.Fields[document.DocumentBLOBField].GetStringValue()), &data)
+			require.NoError(t, err)
+			require.Equal(t, i, data["idx"])
+		}
+	})
+
+	t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
+		_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			Collection: collectionName,
+			Query: []*documentschema.DocumentQuery{
+				{
+					Field:    "pincode",
+					Operator: documentschema.QueryOperator_GE,
+					Value: &structpb.Value{
+						Kind: &structpb.Value_NumberValue{NumberValue: 0},
+					},
+				},
+			},
+			Page:    5,
+			PerPage: 5,
+		})
+		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+
+	})
+
+	t.Run("test reader should throw error on reading backwards", func(t *testing.T) {
+		for i := 1; i <= 3; i++ {
+			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: []*documentschema.DocumentQuery{
+					{
+						Field:    "pincode",
+						Operator: documentschema.QueryOperator_GE,
+						Value: &structpb.Value{
+							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+						},
+					},
+				},
+				Page:    uint32(i),
+				PerPage: 5,
+			})
+			require.NoError(t, err)
+			require.Equal(t, 5, len(resp.Results))
+		}
+
+		_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			Collection: collectionName,
+			Query: []*documentschema.DocumentQuery{
+				{
+					Field:    "pincode",
+					Operator: documentschema.QueryOperator_GE,
+					Value: &structpb.Value{
+						Kind: &structpb.Value_NumberValue{NumberValue: 0},
+					},
+				},
+			},
+			Page:    2, // read upto page 3, check if we can read backwards
+			PerPage: 5,
+		})
+
+		require.ErrorIs(t, err, ErrInvalidPreviousPage)
+	})
 
 }

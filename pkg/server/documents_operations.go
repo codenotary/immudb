@@ -30,6 +30,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var (
+	ErrInvalidPreviousPage = status.Errorf(codes.InvalidArgument, "cannot go back to a previous page")
+)
+
 func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.DocumentInsertRequest) (*documentschema.DocumentInsertResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentInsert")
 	if err != nil {
@@ -201,7 +205,7 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	} else { // paginated reader already exists, resume reading from the correct offset based on pagination parameters
 		// do validation on the pagination parameters
 		if req.Page < pgreader.LastPageNumber {
-			return nil, status.Errorf(codes.InvalidArgument, "cannot go back to a previous page")
+			return nil, ErrInvalidPreviousPage
 		}
 		resultReader = pgreader.Reader
 	}
@@ -211,20 +215,18 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	if err != nil && err != sql.ErrNoMoreRows {
 		return nil, err
 	}
+
+	// update the pagination parameters for this query in the session
+	sess.UpdatePaginatedReader(queryName, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
+
 	if err == sql.ErrNoMoreRows {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
 		sess.DeletePaginatedReader(queryName)
 	}
 
-	// update the pagination parameters for this query in the session
-	err = sess.UpdatePaginatedReaderCount(queryName, int(pgreader.TotalRead)+len(results))
-	if err != nil {
-		return nil, err
-	}
-
 	return &documentschema.DocumentSearchResponse{
 		Results: results,
-	}, nil
+	}, err
 }
 
 func generateQueryName(req *documentschema.DocumentSearchRequest) string {
