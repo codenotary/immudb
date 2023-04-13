@@ -51,9 +51,8 @@ type Session struct {
 	creationTime     time.Time
 	lastActivityTime time.Time
 	transactions     map[string]transactions.Transaction
-	log              logger.Logger
-
 	paginatedReaders map[string]*PaginatedReader // map from query names to sql.RowReader objects
+	log              logger.Logger
 }
 
 func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
@@ -66,6 +65,7 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 		lastActivityTime: now,
 		transactions:     make(map[string]transactions.Transaction),
 		log:              log,
+		paginatedReaders: make(map[string]*PaginatedReader),
 	}
 }
 
@@ -236,7 +236,7 @@ func (s *Session) DeletePaginatedReader(queryName string) {
 	delete(s.paginatedReaders, queryName)
 }
 
-func (s *Session) UpdatePaginatedReaderCount(queryName string, totalDocsRead int) error {
+func (s *Session) UpdatePaginatedReader(queryName string, lastPage uint32, lastPageSize uint32, totalDocsRead int) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -245,7 +245,16 @@ func (s *Session) UpdatePaginatedReaderCount(queryName string, totalDocsRead int
 	if !ok {
 		return ErrPaginatedReaderNotFound
 	}
-	reader.TotalRead = uint32(totalDocsRead)
+
+	if lastPage > 0 {
+		reader.LastPageNumber = (lastPage)
+	}
+	if lastPageSize > 0 {
+		reader.LastPageSize = (lastPageSize)
+	}
+	if totalDocsRead > 0 {
+		reader.TotalRead = uint32(totalDocsRead)
+	}
 
 	return nil
 }
