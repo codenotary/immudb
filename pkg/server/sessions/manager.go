@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -143,7 +144,16 @@ func (sm *manager) deleteSession(sessionID string) error {
 		return ErrSessionNotFound
 	}
 
-	err := sess.RollbackTransactions()
+	merr := multierr.NewMultiErr()
+	if err := sess.RollbackTransactions(); err != nil {
+		merr.Append(err)
+	}
+
+	if err := sess.ClosePaginatedReaders(); err != nil {
+		merr.Append(err)
+	}
+
+	err := merr.Reduce()
 	delete(sm.sessions, sessionID)
 	if err != nil {
 		return err

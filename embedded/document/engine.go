@@ -529,7 +529,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 		nil,
 	)
 
-	// returning an open reader here, so that the caller HAS to close it
+	// returning an open reader here, so the caller HAS to close it
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, nil, op, nil)
 	if err != nil {
 		return nil, err
