@@ -221,7 +221,8 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 
 	if err == sql.ErrNoMoreRows {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
-		sess.DeletePaginatedReader(queryName)
+		delErr := sess.DeletePaginatedReader(queryName)
+		s.Logger.Errorf("error deleting paginated reader: %v", delErr)
 	}
 
 	return &documentschema.DocumentSearchResponse{

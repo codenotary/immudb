@@ -97,6 +97,22 @@ func (s *Session) removeTransaction(transactionID string) error {
 	return ErrTransactionNotFound
 }
 
+func (s *Session) ClosePaginatedReaders() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	merr := multierr.NewMultiErr()
+
+	for qname := range s.paginatedReaders {
+		if err := s.DeletePaginatedReader(qname); err != nil {
+			s.log.Errorf("Error while removing paginated reader: %v", err)
+			merr.Append(err)
+		}
+	}
+
+	return merr.Reduce()
+}
+
 func (s *Session) RollbackTransactions() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -229,11 +245,26 @@ func (s *Session) GetPaginatedReader(queryName string) (*PaginatedReader, error)
 	return reader, nil
 }
 
-func (s *Session) DeletePaginatedReader(queryName string) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+func (s *Session) DeletePaginatedReader(queryName string) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	// get the io.Reader object for the specified query name
+	reader, ok := s.paginatedReaders[queryName]
+	if !ok {
+		return ErrPaginatedReaderNotFound
+	}
+
+	// close the reader
+	err := reader.Reader.Close()
 
 	delete(s.paginatedReaders, queryName)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Session) UpdatePaginatedReader(queryName string, lastPage uint32, lastPageSize uint32, totalDocsRead int) error {
