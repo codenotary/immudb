@@ -288,16 +288,16 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 
 	var sourceHdr, targetHdr *store.TxHeader
 
-	if req.LastValidatedTransactionId == 0 {
-		req.LastValidatedTransactionId = 1
+	if req.ProofSinceTransactionId == 0 {
+		req.ProofSinceTransactionId = 1
 	}
 
-	lastValidatedHdr, err := d.st.ReadTxHeader(req.LastValidatedTransactionId, false, false)
+	lastValidatedHdr, err := d.st.ReadTxHeader(req.ProofSinceTransactionId, false, false)
 	if err != nil {
 		return nil, err
 	}
 
-	if tx.Header().ID < req.LastValidatedTransactionId {
+	if tx.Header().ID < req.ProofSinceTransactionId {
 		sourceHdr = tx.Header()
 		targetHdr = lastValidatedHdr
 	} else {

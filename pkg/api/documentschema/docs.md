@@ -349,7 +349,7 @@
 | collection | [string](#string) |  |  |
 | documentId | [string](#string) |  |  |
 | transactionId | [uint64](#uint64) |  |  |
-| lastValidatedTransactionId | [uint64](#uint64) |  |  |
+| proofSinceTransactionId | [uint64](#uint64) |  |  |
 
 
 

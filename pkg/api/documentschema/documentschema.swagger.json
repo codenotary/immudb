@@ -504,7 +504,7 @@
           "type": "string",
           "format": "uint64"
         },
-        "lastValidatedTransactionId": {
+        "proofSinceTransactionId": {
           "type": "string",
           "format": "uint64"
         }
