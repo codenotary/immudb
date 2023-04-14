@@ -35,7 +35,7 @@ import (
 func VerifyDocument(ctx context.Context,
 	proof *schemav2.DocumentProofResponse,
 	doc *structpb.Struct,
-	lastValidatedState *schema.ImmutableState,
+	knownState *schema.ImmutableState,
 	serverSigningPubKey *ecdsa.PublicKey,
 ) (*schema.ImmutableState, error) {
 
@@ -160,21 +160,21 @@ func VerifyDocument(ctx context.Context,
 		return nil, fmt.Errorf("%w: tx must match source or target tx headers", store.ErrInvalidProof)
 	}
 
-	if lastValidatedState == nil || lastValidatedState.TxId == 0 {
+	if knownState == nil || knownState.TxId == 0 {
 		if sourceID != 1 {
 			return nil, fmt.Errorf("%w: proof should start from the first transaction when no previous state was specified", store.ErrInvalidProof)
 		}
 	} else {
-		if lastValidatedState.TxId == sourceID {
-			if !bytes.Equal(lastValidatedState.TxHash, sourceAlh[:]) {
-				return nil, fmt.Errorf("%w: lastValidatedTransactionAlh must match source or target tx alh", store.ErrInvalidProof)
+		if knownState.TxId == sourceID {
+			if !bytes.Equal(knownState.TxHash, sourceAlh[:]) {
+				return nil, fmt.Errorf("%w: knownState alh must match source or target tx alh", store.ErrInvalidProof)
 			}
-		} else if lastValidatedState.TxId == targetID {
-			if !bytes.Equal(lastValidatedState.TxHash, targetAlh[:]) {
-				return nil, fmt.Errorf("%w: lastValidatedTransactionAlh must match source or target tx alh", store.ErrInvalidProof)
+		} else if knownState.TxId == targetID {
+			if !bytes.Equal(knownState.TxHash, targetAlh[:]) {
+				return nil, fmt.Errorf("%w: knownState alh must match source or target tx alh", store.ErrInvalidProof)
 			}
 		} else {
-			return nil, fmt.Errorf("%w: lastValidatedTransactionAlh must match source or target tx alh", store.ErrInvalidProof)
+			return nil, fmt.Errorf("%w: knownState alh must match source or target tx alh", store.ErrInvalidProof)
 		}
 	}
 
