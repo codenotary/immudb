@@ -32,9 +32,6 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
-const documentPrefix byte = 3
-const encodedPrefixLen int = 36
-
 func VerifyDocument(ctx context.Context,
 	proof *schemav2.DocumentProofResponse,
 	doc *structpb.Struct,
@@ -80,8 +77,28 @@ func VerifyDocument(ctx context.Context,
 		return nil, err
 	}
 
-	if !bytes.Equal(docBytes, proof.EncodedDocument[encodedPrefixLen:encodedPrefixLen+len(docBytes)]) {
-		return nil, store.ErrInvalidProof
+	voff := sql.EncLenLen + sql.EncIDLen
+
+	// DocumentIDField
+	_, n, err := sql.DecodeValue(proof.EncodedDocument[voff:], sql.BLOBType)
+	if err != nil {
+		return nil, err
+	}
+
+	if n > document.MaxDocumentIDLength {
+		return nil, fmt.Errorf("%w: the proof contains invalid document data", store.ErrInvalidProof)
+	}
+
+	voff += n + sql.EncIDLen
+
+	// DocumentBLOBField
+	encodedDoc, _, err := sql.DecodeValue(proof.EncodedDocument[voff:], sql.BLOBType)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(docBytes, encodedDoc.RawValue().([]byte)) {
+		return nil, fmt.Errorf("%w: the document does not match the proof provided", store.ErrInvalidProof)
 	}
 
 	entries := proof.VerifiableTx.Tx.Entries
@@ -122,9 +139,13 @@ func VerifyDocument(ctx context.Context,
 	dualProof := schema.DualProofV2FromProto(proof.VerifiableTx.DualProof)
 
 	sourceID := proof.VerifiableTx.DualProof.SourceTxHeader.Id
-	sourceAlh := schema.TxHeaderFromProto(proof.VerifiableTx.DualProof.SourceTxHeader).Alh()
-
 	targetID := proof.VerifiableTx.DualProof.TargetTxHeader.Id
+
+	if targetID < sourceID {
+		return nil, fmt.Errorf("%w: source tx is newer than target tx", store.ErrInvalidProof)
+	}
+
+	sourceAlh := schema.TxHeaderFromProto(proof.VerifiableTx.DualProof.SourceTxHeader).Alh()
 	targetAlh := schema.TxHeaderFromProto(proof.VerifiableTx.DualProof.TargetTxHeader).Alh()
 
 	if txHdr.ID == sourceID {
@@ -139,7 +160,11 @@ func VerifyDocument(ctx context.Context,
 		return nil, fmt.Errorf("%w: tx must match source or target tx headers", store.ErrInvalidProof)
 	}
 
-	if lastValidatedState != nil && lastValidatedState.TxId > 0 {
+	if lastValidatedState == nil || lastValidatedState.TxId == 0 {
+		if sourceID != 1 {
+			return nil, fmt.Errorf("%w: proof should start from the first transaction when no previous state was specified", store.ErrInvalidProof)
+		}
+	} else {
 		if lastValidatedState.TxId == sourceID {
 			if !bytes.Equal(lastValidatedState.TxHash, sourceAlh[:]) {
 				return nil, fmt.Errorf("%w: lastValidatedTransactionAlh must match source or target tx alh", store.ErrInvalidProof)
@@ -205,9 +230,9 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 	pkEncVals := valbuf.Bytes()
 
 	return sql.MapKey(
-		[]byte{documentPrefix},
+		[]byte{3}, // database.DocumentPrefix
 		sql.PIndexPrefix,
-		sql.EncodeID(1),
+		sql.EncodeID(1), // fixed database identifier
 		sql.EncodeID(collectionID),
 		sql.EncodeID(0), // pk index id
 		pkEncVals,

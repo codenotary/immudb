@@ -663,6 +663,7 @@ func (e *Engine) getDocumentAudit(
 
 	voff := sql.EncLenLen + sql.EncIDLen
 
+	// DocumentIDField
 	_, n, err := sql.DecodeValue(encodedDocAudit.EncodedDocument[voff:], sql.BLOBType)
 	if err != nil {
 		return nil, err
@@ -670,6 +671,7 @@ func (e *Engine) getDocumentAudit(
 
 	voff += n + sql.EncIDLen
 
+	// DocumentBLOBField
 	encodedDoc, _, err := sql.DecodeValue(encodedDocAudit.EncodedDocument[voff:], sql.BLOBType)
 	if err != nil {
 		return nil, err
