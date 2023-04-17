@@ -52,11 +52,11 @@ func TestListCollections(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
 			collectionName,
-			map[string]sql.SQLValueType{
-				"number":  sql.IntegerType,
-				"name":    sql.BLOBType,
-				"pin":     sql.IntegerType,
-				"country": sql.VarcharType,
+			map[string]*IndexOption{
+				"number":  {Type: sql.IntegerType},
+				"name":    {Type: sql.BLOBType},
+				"pin":     {Type: sql.IntegerType},
+				"country": {Type: sql.VarcharType},
 			},
 		)
 		require.NoError(t, err)
@@ -89,11 +89,11 @@ func TestCreateCollection(t *testing.T) {
 	err := engine.CreateCollection(
 		context.Background(),
 		collectionName,
-		map[string]sql.SQLValueType{
-			"number":  sql.Float64Type,
-			"name":    sql.VarcharType,
-			"pin":     sql.IntegerType,
-			"country": sql.VarcharType,
+		map[string]*IndexOption{
+			"number":  {Type: sql.Float64Type},
+			"name":    {Type: sql.VarcharType},
+			"pin":     {Type: sql.IntegerType},
+			"country": {Type: sql.VarcharType},
 		},
 	)
 	require.NoError(t, err)
@@ -155,10 +155,10 @@ func TestGetDocument(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"pincode": sql.IntegerType,
-		"country": sql.VarcharType,
-		"data":    sql.BLOBType,
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
+		"pincode": {Type: sql.IntegerType},
+		"country": {Type: sql.VarcharType},
+		"data":    {Type: sql.BLOBType},
 	})
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -218,9 +218,9 @@ func TestDocumentAudit(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"pincode": sql.IntegerType,
-		"country": sql.VarcharType,
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
+		"pincode": {Type: sql.IntegerType},
+		"country": {Type: sql.VarcharType},
 	})
 	require.NoError(t, err)
 
@@ -285,10 +285,10 @@ func TestQueryDocument(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"pincode": sql.IntegerType,
-		"country": sql.VarcharType,
-		"idx":     sql.IntegerType,
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
+		"pincode": {Type: sql.IntegerType},
+		"country": {Type: sql.VarcharType},
+		"idx":     {Type: sql.IntegerType},
 	})
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -467,8 +467,8 @@ func TestDocumentUpdate(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"country": sql.VarcharType,
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
+		"country": {Type: sql.VarcharType},
 	})
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -537,8 +537,8 @@ func TestFloatSupport(t *testing.T) {
 	err := engine.CreateCollection(
 		context.Background(),
 		collectionName,
-		map[string]sql.SQLValueType{
-			"number": sql.Float64Type,
+		map[string]*IndexOption{
+			"number": {Type: sql.Float64Type},
 		},
 	)
 	require.NoError(t, err)
@@ -590,8 +590,8 @@ func TestDeleteCollection(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]sql.SQLValueType{
-		"idx": sql.IntegerType,
+	err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
+		"idx": {Type: sql.IntegerType},
 	})
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -630,11 +630,11 @@ func TestUpdateCollection(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
 			collectionName,
-			map[string]sql.SQLValueType{
-				"number":  sql.Float64Type,
-				"name":    sql.VarcharType,
-				"pin":     sql.IntegerType,
-				"country": sql.VarcharType,
+			map[string]*IndexOption{
+				"number":  {Type: sql.Float64Type},
+				"name":    {Type: sql.VarcharType},
+				"pin":     {Type: sql.IntegerType},
+				"country": {Type: sql.VarcharType},
 			},
 		)
 		require.NoError(t, err)
@@ -675,10 +675,10 @@ func TestUpdateCollection(t *testing.T) {
 		err := engine.UpdateCollection(
 			context.Background(),
 			collectionName,
-			map[string]sql.SQLValueType{
-				"data1": sql.VarcharType,
-				"data2": sql.VarcharType,
-				"data3": sql.VarcharType,
+			map[string]*IndexOption{
+				"data1": {Type: sql.VarcharType},
+				"data2": {Type: sql.VarcharType},
+				"data3": {Type: sql.VarcharType},
 			},
 			nil,
 		)
