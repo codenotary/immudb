@@ -350,8 +350,8 @@ type ColSpec struct {
 	notNull       bool
 }
 
-func NewCreateIndexStmt(table string, cols []string) *CreateIndexStmt {
-	return &CreateIndexStmt{unique: true, table: table, cols: cols}
+func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndexStmt {
+	return &CreateIndexStmt{unique: isUnique, table: table, cols: cols}
 }
 
 type CreateIndexStmt struct {

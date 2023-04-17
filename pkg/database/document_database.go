@@ -60,7 +60,7 @@ type DocumentDatabase interface {
 
 // CreateCollection creates a new collection
 func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error) {
-	indexKeys := make(map[string]sql.SQLValueType)
+	indexKeys := make(map[string]*document.IndexOption)
 
 	// validate index keys
 	for name, pk := range req.IndexKeys {
@@ -68,7 +68,10 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 		if !isValid {
 			return nil, fmt.Errorf("invalid index key type: %v", pk)
 		}
-		indexKeys[name] = schType
+		indexKeys[name] = &document.IndexOption{
+			Type:     schType,
+			IsUnique: pk.IsUnique,
+		}
 	}
 
 	err := d.documentEngine.CreateCollection(ctx, req.Name, indexKeys)
@@ -150,7 +153,7 @@ func newCollectionInformation(collectionName string, indexes []*sql.Index) *sche
 
 // UpdateCollection updates an existing collection
 func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
-	indexKeys := make(map[string]sql.SQLValueType)
+	indexKeys := make(map[string]*document.IndexOption)
 
 	// validate index keys
 	for name, pk := range req.AddIndexes {
@@ -158,7 +161,10 @@ func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdat
 		if !isValid {
 			return nil, fmt.Errorf("invalid index key type: %v", pk)
 		}
-		indexKeys[name] = schType
+		indexKeys[name] = &document.IndexOption{
+			Type:     schType,
+			IsUnique: pk.IsUnique,
+		}
 	}
 
 	err := d.documentEngine.UpdateCollection(ctx, req.Name, indexKeys, req.RemoveIndexes)

@@ -106,6 +106,11 @@ type Query struct {
 	Value    *structpb.Value
 }
 
+type IndexOption struct {
+	Type     sql.SQLValueType
+	IsUnique bool
+}
+
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
 	engine, err := sql.NewEngine(store, opts)
 	if err != nil {
@@ -119,10 +124,10 @@ type Engine struct {
 	sqlEngine *sql.Engine
 }
 
-func (e *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]sql.SQLValueType) error {
+func (e *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]*IndexOption) error {
 	primaryKeys := []string{DocumentIDField}
-	indexKeys := make([]string, 0)
 	columns := make([]*sql.ColSpec, 0)
+	idxStmts := make([]sql.SQLStmt, 0)
 
 	// add primary key for document id
 	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, MaxDocumentIDLength, false, true))
@@ -131,13 +136,13 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 	columns = append(columns, sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false))
 
 	// add index keys
-	for name, schType := range idxKeys {
-		indexKeys = append(indexKeys, name)
-		colLen, err := valueTypeDefaultLength(schType)
+	for name, idx := range idxKeys {
+		colLen, err := valueTypeDefaultLength(idx.Type)
 		if err != nil {
-			return fmt.Errorf("index key specified is not supported: %v", schType)
+			return fmt.Errorf("index key specified is not supported: %v", idx.Type)
 		}
-		columns = append(columns, sql.NewColSpec(name, schType, colLen, false, false))
+		columns = append(columns, sql.NewColSpec(name, idx.Type, colLen, false, false))
+		idxStmts = append(idxStmts, sql.NewCreateIndexStmt(collectionName, []string{name}, idx.IsUnique))
 	}
 
 	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
@@ -162,16 +167,12 @@ func (e *Engine) CreateCollection(ctx context.Context, collectionName string, id
 		return err
 	}
 
-	if len(indexKeys) > 0 {
-		sqlStmts := make([]sql.SQLStmt, 0)
-		// add indexes to collection
-		for _, idx := range indexKeys {
-			sqlStmts = append(sqlStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
-		}
+	// add indexes to collection
+	if len(idxStmts) > 0 {
 		_, _, err = e.sqlEngine.ExecPreparedStmts(
 			ctx,
 			tx,
-			sqlStmts,
+			idxStmts,
 			nil,
 		)
 		if err != nil {
@@ -226,8 +227,7 @@ func (e *Engine) GetCollection(ctx context.Context, collectionName string) ([]*s
 	return indexes, nil
 }
 
-func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, addIdxKeys map[string]sql.SQLValueType, removeIdxKeys []string) error {
-	indexKeys := make([]string, 0)
+func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, addIdxKeys map[string]*IndexOption, removeIdxKeys []string) error {
 	updateCollectionStmts := make([]sql.SQLStmt, 0)
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
@@ -238,19 +238,18 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 
 	if len(addIdxKeys) > 0 {
 		// add index keys
-		for name, schType := range addIdxKeys {
-			indexKeys = append(indexKeys, name)
-			colLen, err := valueTypeDefaultLength(schType)
+		for name, idx := range addIdxKeys {
+			colLen, err := valueTypeDefaultLength(idx.Type)
 			if err != nil {
-				return fmt.Errorf("index key specified is not supported: %v", schType)
+				return fmt.Errorf("index key specified is not supported: %v", idx.Type)
 			}
 			// add indexes as new columns to collection
-			updateCollectionStmts = append(updateCollectionStmts, sql.NewAddColumnStmt(collectionName, sql.NewColSpec(name, schType, colLen, false, false)))
+			updateCollectionStmts = append(updateCollectionStmts, sql.NewAddColumnStmt(collectionName, sql.NewColSpec(name, idx.Type, colLen, false, false)))
 		}
 
 		// add indexes to collection
-		for _, idx := range indexKeys {
-			updateCollectionStmts = append(updateCollectionStmts, sql.NewCreateIndexStmt(collectionName, []string{idx}))
+		for name, idx := range addIdxKeys {
+			updateCollectionStmts = append(updateCollectionStmts, sql.NewCreateIndexStmt(collectionName, []string{name}, idx.IsUnique))
 		}
 
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
