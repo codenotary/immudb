@@ -85,7 +85,13 @@ func TestServerTruncator(t *testing.T) {
 	err = s.startTruncatorFor(db, dbOpts)
 	require.NoError(t, err)
 
+	_, err = s.getTruncatorFor(db.GetName())
+	require.NoError(t, err)
+
 	s.stopTruncation()
+
+	_, err = s.getTruncatorFor("db3")
+	require.ErrorIs(t, ErrTruncatorDoesNotExist, err)
 }
 
 func TestServerLoadDatabaseWithRetention(t *testing.T) {
