@@ -4043,7 +4043,30 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	// delete indexes
 	indexes := table.GetIndexes()
 	for _, index := range indexes {
-		mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
+		mappedKey := mapKey(
+			tx.sqlPrefix(),
+			catalogIndexPrefix,
+			EncodeID(1),
+			EncodeID(table.id),
+			EncodeID(index.id),
+		)
+		err = tx.delete(mappedKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// delete columns
+	cols := table.ColumnsByID()
+	for _, col := range cols {
+		mappedKey := mapKey(
+			tx.sqlPrefix(),
+			catalogColumnPrefix,
+			EncodeID(1),
+			EncodeID(col.table.id),
+			EncodeID(col.id),
+			[]byte(col.colType),
+		)
 		err = tx.delete(mappedKey)
 		if err != nil {
 			return nil, err
@@ -4051,7 +4074,12 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	}
 
 	// delete table
-	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
+	mappedKey := mapKey(
+		tx.sqlPrefix(),
+		catalogTablePrefix,
+		EncodeID(1),
+		EncodeID(table.id),
+	)
 	err = tx.delete(mappedKey)
 	if err != nil {
 		return nil, err
@@ -4096,15 +4124,34 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	// index, err := table.indexesByName[indexName(table.name, cols)]
 	index, err := table.GetIndexByName(indexName(table.name, []*Column{col}))
 	if err != nil {
 		return nil, err
 	}
 
-	// delete indexes
-	mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
-	err = tx.delete(mappedKey)
+	// delete index
+	indexKey := mapKey(
+		tx.sqlPrefix(),
+		catalogIndexPrefix,
+		EncodeID(1),
+		EncodeID(table.id),
+		EncodeID(index.id),
+	)
+	err = tx.delete(indexKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// delete column associated with index
+	columnKey := mapKey(
+		tx.sqlPrefix(),
+		catalogColumnPrefix,
+		EncodeID(1),
+		EncodeID(col.table.id),
+		EncodeID(col.id),
+		[]byte(col.colType),
+	)
+	err = tx.delete(columnKey)
 	if err != nil {
 		return nil, err
 	}
