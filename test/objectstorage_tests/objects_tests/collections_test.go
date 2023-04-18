@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/codenotary/immudb/test/objectstorage_tests/immudbhttpclient/immudbdocuments"
+	"github.com/gavv/httpexpect/v2"
 	"github.com/stretchr/testify/assert"
 )
 
