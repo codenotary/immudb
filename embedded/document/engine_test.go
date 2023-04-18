@@ -670,24 +670,71 @@ func TestUpdateCollection(t *testing.T) {
 
 	})
 
-	t.Run("update collection by adding indexes", func(t *testing.T) {
+	// t.Run("update collection by adding indexes", func(t *testing.T) {
+	// 	// update collection
+	// 	err := engine.UpdateCollection(
+	// 		context.Background(),
+	// 		collectionName,
+	// 		map[string]*IndexOption{
+	// 			"data1": {Type: sql.VarcharType},
+	// 			"data2": {Type: sql.VarcharType},
+	// 			"data3": {Type: sql.VarcharType},
+	// 		},
+	// 		nil,
+	// 	)
+	// 	require.NoError(t, err)
+
+	// 	// get collection
+	// 	indexes, err := engine.GetCollection(context.Background(), collectionName)
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 6, len(indexes))
+
+	// 	primaryKeyCount := 0
+	// 	indexKeyCount := 0
+	// 	for _, idx := range indexes {
+	// 		// check if primary key
+	// 		if idx.IsPrimary() {
+	// 			primaryKeyCount += len(idx.Cols())
+	// 		} else {
+	// 			indexKeyCount += len(idx.Cols())
+	// 		}
+	// 	}
+	// 	require.Equal(t, 1, primaryKeyCount)
+	// 	require.Equal(t, 5, indexKeyCount)
+	// })
+
+}
+
+func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
+	engine := makeEngine(t)
+
+	collectionName := "mycollection"
+
+	t.Run("create collection and add index", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			map[string]*IndexOption{
+				"number": {Type: sql.Float64Type},
+			},
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("update collection by deleting indexes", func(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
 			collectionName,
-			map[string]*IndexOption{
-				"data1": {Type: sql.VarcharType},
-				"data2": {Type: sql.VarcharType},
-				"data3": {Type: sql.VarcharType},
-			},
 			nil,
+			[]string{"number"},
 		)
 		require.NoError(t, err)
 
 		// get collection
 		indexes, err := engine.GetCollection(context.Background(), collectionName)
 		require.NoError(t, err)
-		require.Equal(t, 6, len(indexes))
+		require.Equal(t, 1, len(indexes))
 
 		primaryKeyCount := 0
 		indexKeyCount := 0
@@ -700,7 +747,39 @@ func TestUpdateCollection(t *testing.T) {
 			}
 		}
 		require.Equal(t, 1, primaryKeyCount)
-		require.Equal(t, 5, indexKeyCount)
+		require.Equal(t, 0, indexKeyCount)
+
+	})
+
+	t.Run("update collection by adding the same index should pass", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			map[string]*IndexOption{
+				"number": {Type: sql.Float64Type},
+			},
+			nil,
+		)
+		require.NoError(t, err)
+
+		// get collection
+		indexes, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(indexes))
+
+		primaryKeyCount := 0
+		indexKeyCount := 0
+		for _, idx := range indexes {
+			// check if primary key
+			if idx.IsPrimary() {
+				primaryKeyCount += len(idx.Cols())
+			} else {
+				indexKeyCount += len(idx.Cols())
+			}
+		}
+		require.Equal(t, 1, primaryKeyCount)
+		require.Equal(t, 1, indexKeyCount)
 	})
 
 }

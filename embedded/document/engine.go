@@ -236,6 +236,24 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 	}
 	defer sqlTx.Cancel()
 
+	if len(removeIdxKeys) > 0 {
+		// delete indexes from collection
+		deleteIdxStmts := make([]sql.SQLStmt, 0)
+		for _, idx := range removeIdxKeys {
+			deleteIdxStmts = append(deleteIdxStmts, sql.NewDropIndexStmt(collectionName, idx))
+		}
+
+		_, _, err := e.sqlEngine.ExecPreparedStmts(
+			ctx,
+			sqlTx,
+			deleteIdxStmts,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	if len(addIdxKeys) > 0 {
 		// add index keys
 		for name, idx := range addIdxKeys {
@@ -256,24 +274,6 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 			ctx,
 			sqlTx,
 			updateCollectionStmts,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(removeIdxKeys) > 0 {
-		// delete indexes from collection
-		deleteIdxStmts := make([]sql.SQLStmt, 0)
-		for _, idx := range removeIdxKeys {
-			deleteIdxStmts = append(deleteIdxStmts, sql.NewDropIndexStmt(collectionName, idx))
-		}
-
-		_, _, err := e.sqlEngine.ExecPreparedStmts(
-			ctx,
-			sqlTx,
-			deleteIdxStmts,
 			nil,
 		)
 		if err != nil {
