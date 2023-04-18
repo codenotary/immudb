@@ -4142,20 +4142,6 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	// delete column associated with index
-	columnKey := mapKey(
-		tx.sqlPrefix(),
-		catalogColumnPrefix,
-		EncodeID(1),
-		EncodeID(col.table.id),
-		EncodeID(col.id),
-		[]byte(col.colType),
-	)
-	err = tx.delete(columnKey)
-	if err != nil {
-		return nil, err
-	}
-
 	tx.mutatedCatalog = true
 
 	return tx, nil

@@ -670,39 +670,38 @@ func TestUpdateCollection(t *testing.T) {
 
 	})
 
-	// t.Run("update collection by adding indexes", func(t *testing.T) {
-	// 	// update collection
-	// 	err := engine.UpdateCollection(
-	// 		context.Background(),
-	// 		collectionName,
-	// 		map[string]*IndexOption{
-	// 			"data1": {Type: sql.VarcharType},
-	// 			"data2": {Type: sql.VarcharType},
-	// 			"data3": {Type: sql.VarcharType},
-	// 		},
-	// 		nil,
-	// 	)
-	// 	require.NoError(t, err)
+	t.Run("update collection by adding indexes", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			map[string]*IndexOption{
+				"data1": {Type: sql.VarcharType},
+				"data2": {Type: sql.VarcharType},
+				"data3": {Type: sql.VarcharType},
+			},
+			nil,
+		)
+		require.NoError(t, err)
 
-	// 	// get collection
-	// 	indexes, err := engine.GetCollection(context.Background(), collectionName)
-	// 	require.NoError(t, err)
-	// 	require.Equal(t, 6, len(indexes))
+		// get collection
+		indexes, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Equal(t, 6, len(indexes))
 
-	// 	primaryKeyCount := 0
-	// 	indexKeyCount := 0
-	// 	for _, idx := range indexes {
-	// 		// check if primary key
-	// 		if idx.IsPrimary() {
-	// 			primaryKeyCount += len(idx.Cols())
-	// 		} else {
-	// 			indexKeyCount += len(idx.Cols())
-	// 		}
-	// 	}
-	// 	require.Equal(t, 1, primaryKeyCount)
-	// 	require.Equal(t, 5, indexKeyCount)
-	// })
-
+		primaryKeyCount := 0
+		indexKeyCount := 0
+		for _, idx := range indexes {
+			// check if primary key
+			if idx.IsPrimary() {
+				primaryKeyCount += len(idx.Cols())
+			} else {
+				indexKeyCount += len(idx.Cols())
+			}
+		}
+		require.Equal(t, 1, primaryKeyCount)
+		require.Equal(t, 5, indexKeyCount)
+	})
 }
 
 func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
