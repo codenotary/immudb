@@ -23,7 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/truncator"
 )
 
-func (s *ImmuServer) truncationInProgressFor(db string) bool {
+func (s *ImmuServer) isTruncatorRunningFor(db string) bool {
 	_, ok := s.truncators[db]
 	return ok
 }
@@ -37,7 +37,7 @@ func (s *ImmuServer) startTruncatorFor(db database.DB, dbOpts *dbOptions) error 
 	s.truncatorMutex.Lock()
 	defer s.truncatorMutex.Unlock()
 
-	if s.truncationInProgressFor(db.GetName()) {
+	if s.isTruncatorRunningFor(db.GetName()) {
 		return database.ErrTruncatorAlreadyRunning
 	}
 
@@ -89,4 +89,16 @@ func (s *ImmuServer) stopTruncation() {
 			delete(s.truncators, db)
 		}
 	}
+}
+
+func (s *ImmuServer) getTruncatorFor(db string) (*truncator.Truncator, error) {
+	s.truncatorMutex.Lock()
+	defer s.truncatorMutex.Unlock()
+
+	t, ok := s.truncators[db]
+	if !ok {
+		return nil, ErrTruncatorDoesNotExist
+	}
+
+	return t, nil
 }

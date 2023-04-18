@@ -1679,8 +1679,16 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 	}
 
 	rp := time.Duration(req.RetentionPeriod) * time.Millisecond
-	truncator := truncator.NewTruncator(db, rp, 0, s.Logger)
-	err = truncator.Truncate(ctx, rp)
+
+	// check if truncator already exists for the database
+	var t *truncator.Truncator
+
+	t, err = s.getTruncatorFor(db.GetName())
+	if err == ErrTruncatorDoesNotExist {
+		t = truncator.NewTruncator(db, rp, 0, s.Logger)
+	}
+
+	err = t.Truncate(ctx, rp)
 	if err != nil {
 		return nil, err
 	}
