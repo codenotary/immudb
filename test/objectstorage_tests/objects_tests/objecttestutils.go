@@ -7,6 +7,7 @@ import (
 
 	authorizationClient "github.com/codenotary/immudb/test/objectstorage_tests/immudbhttpclient/immudbauth"
 	documentsClient "github.com/codenotary/immudb/test/objectstorage_tests/immudbhttpclient/immudbdocuments"
+	"github.com/gavv/httpexpect/v2"
 
 	"github.com/google/uuid"
 )
@@ -88,4 +89,23 @@ func CreateAndGetStandardTestCollection(client *documentsClient.ClientWithRespon
 		panic("No 200 response")
 	}
 	return collectionName
+}
+
+func getToken() string {
+	var baseURL = os.Getenv("OBJECTS_TEST_BASEURL")
+	var password = os.Getenv("OBJECTS_TEST_PASSWORD")
+
+	user := map[string]interface{}{
+		"username": "immudb",
+		"password": password,
+		"database": "defaultdb",
+	}
+	e := httpexpect.Default(t, baseURL)
+	obj := e.POST("/authorization/session/open").
+		WithJSON(user).
+		Expect().
+		Status(http.StatusOK).JSON().Object()
+	token := obj.Value("token").Raw().(string)
+
+	return token
 }
