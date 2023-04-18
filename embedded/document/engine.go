@@ -236,6 +236,11 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 	}
 	defer sqlTx.Cancel()
 
+	table, err := sqlTx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		return err
+	}
+
 	if len(removeIdxKeys) > 0 {
 		// delete indexes from collection
 		deleteIdxStmts := make([]sql.SQLStmt, 0)
@@ -261,6 +266,12 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, ad
 			if err != nil {
 				return fmt.Errorf("index key specified is not supported: %v", idx.Type)
 			}
+
+			// check if index column already exists
+			if _, err := table.GetColumnByName(name); err == nil {
+				continue
+			}
+
 			// add indexes as new columns to collection
 			updateCollectionStmts = append(updateCollectionStmts, sql.NewAddColumnStmt(collectionName, sql.NewColSpec(name, idx.Type, colLen, false, false)))
 		}
