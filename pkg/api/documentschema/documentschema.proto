@@ -190,6 +190,17 @@ message CollectionUpdateResponse {
   CollectionInformation collection = 1;
 }
 
+message DocumentBulkInsertRequest {
+  string collection = 1;
+  repeated google.protobuf.Struct document = 2;
+}
+
+message DocumentBulkInsertResponse {
+  repeated string documentIds = 1;
+  uint64 transactionId = 2;
+}
+
+
 service DocumentService {
   rpc DocumentInsert(DocumentInsertRequest) returns (DocumentInsertResponse) {
     option (google.api.http) = {
@@ -297,4 +308,13 @@ service DocumentService {
     };
   }
 
+  rpc DocumentInsertMany(DocumentBulkInsertRequest) returns (DocumentBulkInsertResponse) {
+    option (google.api.http) = {
+      put: "/documents/insertMany"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
 }

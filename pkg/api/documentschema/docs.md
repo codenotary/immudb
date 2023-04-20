@@ -21,6 +21,8 @@
     - [DocumentAudit](#immudb.documentschema.DocumentAudit)
     - [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest)
     - [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse)
+    - [DocumentBulkInsertRequest](#immudb.documentschema.DocumentBulkInsertRequest)
+    - [DocumentBulkInsertResponse](#immudb.documentschema.DocumentBulkInsertResponse)
     - [DocumentInsertRequest](#immudb.documentschema.DocumentInsertRequest)
     - [DocumentInsertResponse](#immudb.documentschema.DocumentInsertResponse)
     - [DocumentProofRequest](#immudb.documentschema.DocumentProofRequest)
@@ -306,6 +308,38 @@
 
 
 
+<a name="immudb.documentschema.DocumentBulkInsertRequest"></a>
+
+### DocumentBulkInsertRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| document | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.documentschema.DocumentBulkInsertResponse"></a>
+
+### DocumentBulkInsertResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| documentIds | [string](#string) | repeated |  |
+| transactionId | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.documentschema.DocumentInsertRequest"></a>
 
 ### DocumentInsertRequest
@@ -543,6 +577,7 @@
 | CollectionList | [CollectionListRequest](#immudb.documentschema.CollectionListRequest) | [CollectionListResponse](#immudb.documentschema.CollectionListResponse) |  |
 | CollectionDelete | [CollectionDeleteRequest](#immudb.documentschema.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.documentschema.CollectionDeleteResponse) |  |
 | CollectionUpdate | [CollectionUpdateRequest](#immudb.documentschema.CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb.documentschema.CollectionUpdateResponse) |  |
+| DocumentInsertMany | [DocumentBulkInsertRequest](#immudb.documentschema.DocumentBulkInsertRequest) | [DocumentBulkInsertResponse](#immudb.documentschema.DocumentBulkInsertResponse) |  |
 
  
 

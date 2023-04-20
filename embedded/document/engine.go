@@ -336,34 +336,14 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
-	if docIDProvisioned {
-		docID, err = NewDocumentIDFromHexEncodedString(provisionedDocID.GetStringValue())
-		if err != nil {
-			return nil, 0, 0, err
-		}
-	} else {
-		if !isInsert {
-			return nil, 0, 0, fmt.Errorf("_id field is required when updating a document")
-		}
-
-		// generate document id
-		docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
-		doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
+	docID, err = e.getDocumentID(doc, isInsert)
+	if err != nil {
+		return nil, 0, 0, err
 	}
 
 	// concurrency validation are not needed when the document id is automatically generated
-	opts := sql.DefaultTxOptions()
-
-	if !docIDProvisioned {
-		// wait for indexing to include latest catalog changes
-		opts.
-			WithUnsafeMVCC(!docIDProvisioned).
-			WithSnapshotRenewalPeriod(0).
-			WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
-				return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
-			})
-	}
+	_, docIDProvisioned := doc.Fields[DocumentIDField]
+	opts := e.configureTxOptions(docIDProvisioned)
 
 	tx, err := e.sqlEngine.NewTx(ctx, opts)
 	if err != nil {
@@ -380,36 +360,16 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 	}
 
 	var cols []string
-	var values []sql.ValueExp
-
 	for _, col := range table.Cols() {
 		cols = append(cols, col.Name())
-
-		switch col.Name() {
-		case DocumentIDField:
-			// add document id to document
-			values = append(values, sql.NewBlob(docID[:]))
-		case DocumentBLOBField:
-			bs, err := json.Marshal(doc)
-			if err != nil {
-				return nil, 0, 0, err
-			}
-
-			values = append(values, sql.NewBlob(bs))
-		default:
-			if rval, ok := doc.Fields[col.Name()]; ok {
-				val, err := valueTypeToExp(col.Type(), rval)
-				if err != nil {
-					return nil, 0, 0, err
-				}
-				values = append(values, val)
-			} else {
-				values = append(values, &sql.NullValue{})
-			}
-		}
 	}
 
-	rows := []*sql.RowSpec{sql.NewRowSpec(values)}
+	rowSpec, err := e.generateRowSpecForDocument(docID, doc, table)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	rows := []*sql.RowSpec{rowSpec}
 
 	// add document to collection
 	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
@@ -756,4 +716,139 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	}
 
 	return entry.Metadata(), v, nil
+}
+
+func (e *Engine) getDocumentID(doc *structpb.Struct, isInsert bool) (DocumentID, error) {
+	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
+	var docID DocumentID
+	var err error
+	if docIDProvisioned {
+		docID, err = NewDocumentIDFromHexEncodedString(provisionedDocID.GetStringValue())
+		if err != nil {
+			return docID, err
+		}
+	} else {
+		if !isInsert {
+			return docID, fmt.Errorf("_id field is required when updating a document")
+		}
+
+		// generate document id
+		docID = NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
+		doc.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
+	}
+
+	return docID, nil
+}
+
+func (e *Engine) configureTxOptions(docIDProvisioned bool) *sql.TxOptions {
+	txOpts := sql.DefaultTxOptions()
+
+	if !docIDProvisioned {
+		// wait for indexing to include latest catalog changes
+		txOpts.
+			WithUnsafeMVCC(!docIDProvisioned).
+			WithSnapshotRenewalPeriod(0).
+			WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+				return e.sqlEngine.GetStore().MandatoryMVCCUpToTxID()
+			})
+	}
+	return txOpts
+}
+
+func (e *Engine) generateRowSpecForDocument(docID DocumentID, doc *structpb.Struct, table *sql.Table) (*sql.RowSpec, error) {
+	var cols []string
+	var values []sql.ValueExp
+
+	for _, col := range table.Cols() {
+		cols = append(cols, col.Name())
+
+		switch col.Name() {
+		case DocumentIDField:
+			// add document id to document
+			values = append(values, sql.NewBlob(docID[:]))
+		case DocumentBLOBField:
+			bs, err := json.Marshal(doc)
+			if err != nil {
+				return nil, err
+			}
+
+			values = append(values, sql.NewBlob(bs))
+		default:
+			if rval, ok := doc.Fields[col.Name()]; ok {
+				val, err := valueTypeToExp(col.Type(), rval)
+				if err != nil {
+					return nil, err
+				}
+				values = append(values, val)
+			} else {
+				values = append(values, &sql.NullValue{})
+			}
+		}
+	}
+
+	return sql.NewRowSpec(values), nil
+
+}
+
+func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (docIDs []DocumentID, txID uint64, err error) {
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	if err != nil {
+		return nil, 0, err
+	}
+	defer tx.Cancel()
+
+	table, err := tx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		if errors.Is(err, sql.ErrTableDoesNotExist) {
+			return nil, 0, ErrCollectionDoesNotExist
+		}
+		return nil, 0, err
+	}
+
+	var cols []string
+	for _, col := range table.Cols() {
+		cols = append(cols, col.Name())
+	}
+
+	rows := make([]*sql.RowSpec, 0, len(docs))
+
+	for _, doc := range docs {
+		var docID DocumentID
+		docID, err = e.getDocumentID(doc, true)
+		if err != nil {
+			return
+		}
+
+		docIDs = append(docIDs, docID)
+
+		rowSpec, err := e.generateRowSpecForDocument(docID, doc, table)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		rows = append(rows, rowSpec)
+	}
+
+	// add documents to collection
+	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		tx,
+		[]sql.SQLStmt{
+			sql.NewUpserIntoStmt(
+				collectionName,
+				cols,
+				rows,
+				true,
+				nil,
+			),
+		},
+		nil,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	txID = ctxs[0].TxHeader().ID
+
+	return
 }

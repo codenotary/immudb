@@ -288,3 +288,7 @@ func (d *closedDB) UpdateCollection(ctx context.Context, req *schemav2.Collectio
 func (d *closedDB) DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
+
+func (d *closedDB) BulkInsertDocuments(ctx context.Context, req *schemav2.DocumentBulkInsertRequest) (*schemav2.DocumentBulkInsertResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
