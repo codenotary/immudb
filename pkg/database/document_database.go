@@ -56,6 +56,8 @@ type DocumentDatabase interface {
 	UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
 	// DocumentProof returns the proofs for a document
 	DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error)
+	// BulkInsertDocuments creates a new document
+	BulkInsertDocuments(ctx context.Context, req *schemav2.DocumentBulkInsertRequest) (*schemav2.DocumentBulkInsertResponse, error)
 }
 
 // CreateCollection creates a new collection
@@ -324,5 +326,18 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 			Tx:        schema.TxToProto(tx),
 			DualProof: schema.DualProofV2ToProto(dualProof),
 		},
+	}, nil
+}
+
+// BulkInsertDocuments inserts multiple documents
+func (d *db) BulkInsertDocuments(ctx context.Context, req *schemav2.DocumentBulkInsertRequest) (*schemav2.DocumentBulkInsertResponse, error) {
+	// docID, txID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	return &schemav2.DocumentBulkInsertResponse{
+		// DocumentId:    docID.EncodeToHexString(),
+		// TransactionId: txID,
 	}, nil
 }

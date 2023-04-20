@@ -165,3 +165,15 @@ func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *documentschema.C
 	}
 	return resp, nil
 }
+
+func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *documentschema.DocumentBulkInsertRequest) (*documentschema.DocumentBulkInsertResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DocumentInsertMany")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := db.BulkInsertDocuments(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

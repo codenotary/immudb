@@ -291,7 +291,6 @@ func TestQueryDocument(t *testing.T) {
 		"idx":     {Type: sql.IntegerType},
 	})
 	require.NoError(t, err)
-	require.NoError(t, err)
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
@@ -780,5 +779,57 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		require.Equal(t, 1, primaryKeyCount)
 		require.Equal(t, 1, indexKeyCount)
 	})
+}
 
+func TestBulkInsert(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(ctx, collectionName, map[string]*IndexOption{
+		"country": {Type: sql.VarcharType},
+		"price":   {Type: sql.Float64Type},
+	})
+	require.NoError(t, err)
+
+	// add documents to collection
+	docs := make([]*structpb.Struct, 0)
+	for i := 1.0; i <= 10; i++ {
+		doc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"country": {
+					Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+				},
+				"price": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+			},
+		}
+		docs = append(docs, doc)
+	}
+
+	docIDs, txID, err := engine.BulkInsertDocuments(ctx, collectionName, docs)
+	require.NoError(t, err)
+
+	require.Equal(t, 10, len(docIDs))
+	require.Equal(t, uint64(2), txID)
+
+	expressions := []*Query{
+		{
+			Field:    "price",
+			Operator: sql.GE, // EQ
+			Value: &structpb.Value{
+				Kind: &structpb.Value_NumberValue{NumberValue: 0},
+			},
+		},
+	}
+
+	docs, err = engine.GetDocuments(ctx, collectionName, expressions, 1, 10)
+	require.NoError(t, err)
+	require.Equal(t, 10, len(docs))
+
+	for i, doc := range docs {
+		require.Equal(t, float64(i+1), doc.Fields["price"].GetNumberValue())
+	}
 }
