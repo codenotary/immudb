@@ -89,12 +89,10 @@ func (c *IndexDeletionChange) IsIndexCreation() bool {
 }
 
 type IndexCreationChange struct {
-	InitialTxID     uint64
-	FinalTxID       uint64
-	InitialTs       int64
-	FinalTs         int64
-	ParentIndexID   uint16
-	PreserveHistory bool
+	InitialTxID uint64
+	FinalTxID   uint64
+	InitialTs   int64
+	FinalTs     int64
 }
 
 func (c *IndexCreationChange) IsIndexDeletion() bool {
@@ -106,7 +104,7 @@ func (c *IndexCreationChange) IsIndexCreation() bool {
 }
 
 const indexChangeSize = indexIDSize + 1 /* index change type */ + indexCreationSize // size of bigger change
-const indexCreationSize = 2*txIDSize + 2*tsSize + indexIDSize + 1
+const indexCreationSize = 2*txIDSize + 2*tsSize
 
 const indexDeletionChange = 0
 const indexCreationChange = 1
@@ -149,16 +147,6 @@ func (a *indexingChangesAttribute) serialize() []byte {
 
 			binary.BigEndian.PutUint64(b[:], uint64(c.FinalTs))
 			i += tsSize
-
-			binary.BigEndian.PutUint16(b[:], uint16(c.ParentIndexID))
-			i += indexIDSize
-
-			if c.PreserveHistory {
-				b[i] = 1
-			} else {
-				b[i] = 0
-			}
-			i++
 		}
 	}
 
@@ -216,12 +204,6 @@ func (a *indexingChangesAttribute) deserialize(b []byte) (int, error) {
 
 			change.FinalTs = int64(binary.BigEndian.Uint64(b[n:]))
 			n += tsSize
-
-			change.ParentIndexID = binary.BigEndian.Uint16(b[n:])
-			n += indexIDSize
-
-			change.PreserveHistory = b[n] == 1
-			n++
 
 			a.changes[IndexID(indexID)] = change
 			continue
