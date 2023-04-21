@@ -30,7 +30,7 @@ func (m *ExecAllRequest) Validate() error {
 	if len(m.GetOperations()) == 0 {
 		return ErrEmptySet
 	}
-	mops := make(map[[32]byte]struct{}, len(m.GetOperations()))
+	mops := make(map[[sha256.Size]byte]struct{}, len(m.GetOperations()))
 
 	for _, op := range m.Operations {
 		if op == nil {

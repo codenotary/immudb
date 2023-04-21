@@ -278,7 +278,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	err = immuStore.Sync()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	err = immuStore.FlushIndex(100, true)
+	err = immuStore.FlushIndex(DefaultIndexID, 100, true)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = immuStore.commit(context.Background(), &OngoingTx{entries: []*EntrySpec{
@@ -1063,10 +1063,10 @@ func TestImmudbStoreIndexing(t *testing.T) {
 		return
 	}
 
-	err = immuStore.FlushIndex(-10, true)
+	err = immuStore.FlushIndex(DefaultIndexID, -10, true)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 
-	err = immuStore.FlushIndex(100, true)
+	err = immuStore.FlushIndex(DefaultIndexID, 100, true)
 	require.NoError(t, err)
 
 	t.Run("latest set value should be committed", func(t *testing.T) {
@@ -1706,7 +1706,9 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	hdr, err := immuStore.CommitWith(context.Background(), callback, true)
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(1), immuStore.IndexInfo())
+	ts, err := immuStore.IndexInfo(DefaultIndexID)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), ts)
 
 	_, err = immuStore.ReadValue(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
@@ -1758,7 +1760,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	err = immuStore.CompactIndex()
+	err = immuStore.CompactIndex(DefaultIndexID)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -1821,7 +1823,7 @@ func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 
 	defer immustoreClose(t, immuStore)
 
-	err = immuStore.CompactIndex()
+	err = immuStore.CompactIndex(DefaultIndexID)
 	require.ErrorIs(t, err, ErrCompactionUnsupported)
 }
 
@@ -5054,4 +5056,51 @@ func TestImmudbStore_ExportTxWithEmptyValues(t *testing.T) {
 
 	_, err = st.ExportTx(hdr.ID, false, false, txholder)
 	require.NoError(t, err)
+}
+
+func TestIndexingChanges(t *testing.T) {
+	st, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+	require.NotNil(t, st)
+
+	defer immustoreClose(t, st)
+
+	tx1, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	indexingChanges1 := make(map[int]IndexChange)
+	indexingChanges1[1] = &IndexCreationChange{}
+	indexingChanges1[2] = &IndexCreationChange{}
+
+	tx1.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges1))
+
+	hdr1, err := tx1.Commit(context.Background())
+	require.NoError(t, err)
+
+	txPool, err := st.NewTxHolderPool(1, true)
+	require.NoError(t, err)
+
+	txholder, err := txPool.Alloc()
+	require.NoError(t, err)
+
+	defer txPool.Release(txholder)
+
+	err = st.ReadTx(hdr1.ID, false, txholder)
+	require.NoError(t, err)
+	require.Empty(t, txholder.Entries())
+
+	require.Len(t, st.metaState.indexes, 2)
+
+	tx2, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	indexingChanges2 := make(map[int]IndexChange)
+	indexingChanges2[1] = &IndexDeletionChange{}
+
+	tx2.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges2))
+
+	_, err = tx2.Commit(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, st.metaState.indexes, 1)
 }

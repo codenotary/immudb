@@ -37,6 +37,10 @@ func TestKVMetadata(t *testing.T) {
 	require.False(t, md.IsExpirable())
 	require.False(t, md.NonIndexable())
 
+	indexID, err := md.Index()
+	require.NoError(t, err)
+	require.Zero(t, indexID)
+
 	_, err = md.ExpirationTime()
 	require.ErrorIs(t, err, ErrNonExpirable)
 
@@ -60,6 +64,9 @@ func TestKVMetadata(t *testing.T) {
 		require.ErrorIs(t, err, ErrReadOnly)
 
 		err = desmd.AsNonIndexable(true)
+		require.ErrorIs(t, err, ErrReadOnly)
+
+		err = desmd.UseIndex(1)
 		require.ErrorIs(t, err, ErrReadOnly)
 	})
 
@@ -92,12 +99,22 @@ func TestKVMetadata(t *testing.T) {
 	desmd.AsNonIndexable(false)
 	require.False(t, desmd.NonIndexable())
 
+	err = desmd.UseIndex(1)
+	require.NoError(t, err)
+
+	indexID, err = desmd.Index()
+	require.NoError(t, err)
+	require.Equal(t, 1, indexID)
+
 	desmd.AsNonIndexable(true)
 	require.True(t, desmd.NonIndexable())
 
+	_, err = desmd.Index()
+	require.ErrorIs(t, err, ErrNonIndexable)
+
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Len(t, bs, maxKVMetadataLen)
+	require.LessOrEqual(t, len(bs), maxKVMetadataLen)
 
 	err = desmd.unsafeReadFrom(bs)
 	require.NoError(t, err)
