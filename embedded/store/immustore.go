@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -107,8 +108,11 @@ var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization 
 var ErrIllegalTruncationArgument = fmt.Errorf("%w: invalid truncation info", ErrIllegalArguments)
 var ErrTxNotPresentInMetadata = errors.New("tx not present in metadata")
 
+var ErrMaxIndexIDExceeded = errors.New("max index id exceeded")
+
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
+const MaxIndexID = math.MaxUint16
 
 const cLogEntrySize = offsetSize + lszSize // tx offset & size
 

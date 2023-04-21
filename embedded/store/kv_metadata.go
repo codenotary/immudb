@@ -26,18 +26,24 @@ import (
 
 var ErrNonExpirable = errors.New("non expirable")
 var ErrReadOnly = errors.New("read-only")
+var ErrNonIndexable = errors.New("non-indexable")
 
 const (
 	deletedAttrCode      attributeCode = 0
 	expiresAtAttrCode    attributeCode = 1
 	nonIndexableAttrCode attributeCode = 2
+	useIndexAttrCode     attributeCode = 3
 )
 
 const deletedAttrSize = 0
 const expiresAtAttrSize = tsSize
 const nonIndexableAttrSize = 0
+const useIndexAttrSize = 0
 
-const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expiresAtAttrSize) + (attrCodeSize + nonIndexableAttrSize)
+const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) +
+	(attrCodeSize + expiresAtAttrSize) +
+	(attrCodeSize + nonIndexableAttrSize) +
+	(attrCodeSize + useIndexAttrSize)
 
 type KVMetadata struct {
 	attributes map[attributeCode]attribute
@@ -96,6 +102,30 @@ func (a *nonIndexableAttribute) serialize() []byte {
 
 func (a *nonIndexableAttribute) deserialize(b []byte) (int, error) {
 	return 0, nil
+}
+
+type useIndexAttribute struct {
+	indexID uint16
+}
+
+func (a *useIndexAttribute) code() attributeCode {
+	return useIndexAttrCode
+}
+
+func (a *useIndexAttribute) serialize() []byte {
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], a.indexID)
+	return b[:]
+}
+
+func (a *useIndexAttribute) deserialize(b []byte) (int, error) {
+	if len(b) < 2 {
+		return 0, ErrCorruptedData
+	}
+
+	a.indexID = binary.BigEndian.Uint16(b)
+
+	return 2, nil
 }
 
 func NewKVMetadata() *KVMetadata {
@@ -183,6 +213,8 @@ func (md *KVMetadata) AsNonIndexable(nonIndexable bool) error {
 		return ErrReadOnly
 	}
 
+	delete(md.attributes, useIndexAttrCode)
+
 	if !nonIndexable {
 		delete(md.attributes, nonIndexableAttrCode)
 		return nil
@@ -199,6 +231,41 @@ func (md *KVMetadata) AsNonIndexable(nonIndexable bool) error {
 func (md *KVMetadata) NonIndexable() bool {
 	_, ok := md.attributes[nonIndexableAttrCode]
 	return ok
+}
+
+func (md *KVMetadata) UseIndex(indexID int) error {
+	if md.readonly {
+		return ErrReadOnly
+	}
+
+	if indexID > MaxIndexID {
+		return ErrMaxIndexIDExceeded
+	}
+
+	delete(md.attributes, nonIndexableAttrCode)
+
+	_, ok := md.attributes[useIndexAttrCode]
+	if !ok {
+		md.attributes[useIndexAttrCode] = &useIndexAttribute{
+			indexID: uint16(indexID),
+		}
+	}
+
+	return nil
+}
+
+func (md *KVMetadata) Index() (int, error) {
+	_, ok := md.attributes[nonIndexableAttrCode]
+	if ok {
+		return 0, ErrNonIndexable
+	}
+
+	useIndexAttr, ok := md.attributes[useIndexAttrCode]
+	if !ok {
+		return 0, nil
+	}
+
+	return int(useIndexAttr.(*useIndexAttribute).indexID), nil
 }
 
 func (md *KVMetadata) Bytes() []byte {
@@ -265,6 +332,10 @@ func newAttribute(attrCode attributeCode) (attribute, error) {
 	case nonIndexableAttrCode:
 		{
 			return &nonIndexableAttribute{}, nil
+		}
+	case useIndexAttrCode:
+		{
+			return &useIndexAttribute{}, nil
 		}
 	default:
 		{
