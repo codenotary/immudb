@@ -206,7 +206,7 @@ type ValueRef interface {
 type valueRef struct {
 	tx     uint64
 	hc     uint64 // version
-	hVal   [32]byte
+	hVal   [sha256.Size]byte
 	vOff   int64
 	valLen uint32
 	txmd   *TxMetadata

@@ -2317,7 +2317,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 	for _, e := range entries {
 		var err error
 		if isTruncated {
-			err = txSpec.set(e.Key, e.Metadata, nil, byte32(e.Value), isTruncated)
+			err = txSpec.set(e.Key, e.Metadata, nil, digest(e.Value), isTruncated)
 		} else {
 			err = txSpec.set(e.Key, e.Metadata, e.Value, e.hashValue, isTruncated)
 		}
@@ -3091,8 +3091,8 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	return merr.Reduce()
 }
 
-func byte32(s []byte) [32]byte {
-	var a [32]byte
+func digest(s []byte) [sha256.Size]byte {
+	var a [sha256.Size]byte
 	copy(a[:], s)
 	return a
 }
