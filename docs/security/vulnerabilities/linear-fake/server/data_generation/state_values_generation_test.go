@@ -67,7 +67,7 @@ func TestVerifyDualProofLongLinearProofWithReplica(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	var alhValuesToInject [][32]byte
+	var alhValuesToInject [][sha256.Size]byte
 
 	t.Run("diverge replica from the primary", func(t *testing.T) {
 		tx, err := immuStoreRep.NewWriteOnlyTx()
@@ -225,7 +225,7 @@ func TestVerifyDualProofLongLinearProofWithReplica(t *testing.T) {
 			return ret.String()
 		}
 
-		dumpDigests := func(digests [][32]byte, indent int) string {
+		dumpDigests := func(digests [][sha256.Size]byte, indent int) string {
 			ret := strings.Builder{}
 
 			ret.WriteString("[][]byte{")

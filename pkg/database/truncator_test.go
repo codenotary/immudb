@@ -18,6 +18,7 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"sync"
@@ -43,13 +44,13 @@ func decodeOffset(offset int64) (byte, int64) {
 func Test_vlogCompactor_Compact(t *testing.T) {
 	entries := []*store.TxEntry{}
 	entries = append(entries,
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(3, 12)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(3, 2)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(2, 1)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(3, 1)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(4, 2)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(1, 3)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(1, 2)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(3, 12)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(3, 2)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(2, 1)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(3, 1)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(4, 2)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(1, 3)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(1, 2)),
 	)
 	sort.Slice(entries, func(i, j int) bool {
 		v1, o1 := decodeOffset(entries[i].VOff())

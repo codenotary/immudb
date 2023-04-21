@@ -1002,7 +1002,7 @@ func BenchmarkAppend(b *testing.B) {
 	tree, err := Open(b.TempDir(), opts)
 	require.NoError(b, err)
 
-	var bs [32]byte
+	var bs [sha256.Size]byte
 
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 1_000_000; j++ {

@@ -89,8 +89,8 @@ func testRun(
 	}
 	defer cl.CloseSession(ctx)
 
-	var seedKey [32]byte
-	var seedVal [32]byte
+	var seedKey [sha256.Size]byte
+	var seedVal [sha256.Size]byte
 
 	s := sha256.Sum256([]byte(fmt.Sprintf("keyseed_%d_%d", seed, instance)))
 	copy(seedKey[:], s[:])
@@ -98,7 +98,7 @@ func testRun(
 	copy(seedVal[:], s[:])
 
 	key := func(i int) []byte {
-		var b [32]byte
+		var b [8]byte
 		copy(b[:], seedKey[:])
 		binary.BigEndian.PutUint64(b[:], uint64(i))
 		k := sha256.Sum256(b[:])
@@ -117,7 +117,7 @@ func testRun(
 	}
 
 	val := func(i int) []byte {
-		var b [32]byte
+		var b [8]byte
 		copy(b[:], seedVal[:])
 		binary.BigEndian.PutUint64(b[:], uint64(i))
 		k := sha256.Sum256(b[:])
