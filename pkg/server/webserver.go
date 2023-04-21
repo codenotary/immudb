@@ -88,17 +88,17 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 	go func() {
 		var err error
 		if tlsConfig != nil && len(tlsConfig.Certificates) > 0 {
-			l.Infof("Web API server enabled on %s/api (https)", httpAddr)
+			l.Infof("web-api server enabled on %s/api (https)", httpAddr)
 			err = httpServer.ListenAndServeTLS("", "")
 		} else {
-			l.Infof("Web API server enabled on %s/api (http)", httpAddr)
+			l.Infof("web-api server enabled on %s/api (http)", httpAddr)
 			err = httpServer.ListenAndServe()
 		}
 
 		if err == http.ErrServerClosed {
-			l.Debugf("Web API/console server closed")
+			l.Debugf("web-api/console server closed")
 		} else {
-			l.Errorf("Web API/console error: %s", err)
+			l.Errorf("web-api/console error: %s", err)
 		}
 	}()
 

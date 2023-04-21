@@ -20,19 +20,23 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sort"
 )
 
 // attributeCode is used to identify the attribute.
 const (
 	truncatedUptoTxAttrCode attributeCode = 0
+	indexingChangesAttrCode attributeCode = 1
 )
 
 // attribute size is the size of the attribute in bytes.
 const (
 	truncatedUptoTxAttrSize = txIDSize
+	indexingChangesAttrSize = sszSize + MaxNumberOfIndexChangesPerTx*indexChangeSize
 )
 
-const maxTxMetadataLen = (attrCodeSize + truncatedUptoTxAttrSize)
+const maxTxMetadataLen = (attrCodeSize + truncatedUptoTxAttrSize) +
+	(attrCodeSize + indexingChangesAttrSize)
 
 // truncatedUptoTxAttribute is used to identify that the transaction
 // stores the information up to which given transaction ID the
@@ -63,11 +67,174 @@ func (a *truncatedUptoTxAttribute) deserialize(b []byte) (int, error) {
 	return txIDSize, nil
 }
 
+type indexingChangesAttribute struct {
+	changes map[int]IndexChange
+}
+
+type IndexChange interface {
+	IsIndexDeletion() bool
+	IsIndexCreation() bool
+}
+
+type IndexDeletionChange struct {
+}
+
+func (c *IndexDeletionChange) IsIndexDeletion() bool {
+	return true
+}
+
+func (c *IndexDeletionChange) IsIndexCreation() bool {
+	return false
+}
+
+type IndexCreationChange struct {
+	InitialTxID uint64
+	FinalTxID   uint64
+	InitialTs   int64
+	FinalTs     int64
+}
+
+func (c *IndexCreationChange) IsIndexDeletion() bool {
+	return false
+}
+
+func (c *IndexCreationChange) IsIndexCreation() bool {
+	return true
+}
+
+const indexChangeSize = indexIDSize + 1 /* index change type */ + indexCreationSize // size of bigger change
+const indexCreationSize = 2*txIDSize + 2*tsSize
+
+const indexDeletionChange = 0
+const indexCreationChange = 1
+
+// code returns the attribute code.
+func (a *indexingChangesAttribute) code() attributeCode {
+	return indexingChangesAttrCode
+}
+
+// serialize returns the serialized attribute.
+func (a *indexingChangesAttribute) serialize() []byte {
+	var b [indexingChangesAttrSize]byte
+	i := 0
+
+	binary.BigEndian.PutUint16(b[i:], uint16(len(a.changes)))
+	i += sszSize
+
+	sortedIds := make([]int, len(a.changes))
+	o := 0
+
+	for id := range a.changes {
+		sortedIds[o] = id
+		o++
+	}
+
+	sort.Ints(sortedIds)
+
+	for _, id := range sortedIds {
+		change := a.changes[id]
+
+		binary.BigEndian.PutUint16(b[i:], uint16(id))
+		i += indexIDSize
+
+		if change.IsIndexDeletion() {
+			b[i] = indexDeletionChange
+			i++
+		}
+		if change.IsIndexCreation() {
+			b[i] = indexCreationChange
+			i++
+
+			c := change.(*IndexCreationChange)
+
+			binary.BigEndian.PutUint64(b[i:], c.InitialTxID)
+			i += txIDSize
+
+			binary.BigEndian.PutUint64(b[i:], c.FinalTxID)
+			i += txIDSize
+
+			binary.BigEndian.PutUint64(b[i:], uint64(c.InitialTs))
+			i += tsSize
+
+			binary.BigEndian.PutUint64(b[i:], uint64(c.FinalTs))
+			i += tsSize
+		}
+	}
+
+	return b[:i]
+}
+
+// deserialize deserializes the attribute.
+func (a *indexingChangesAttribute) deserialize(b []byte) (int, error) {
+	n := 0
+
+	if len(b) < sszSize {
+		return n, ErrCorruptedData
+	}
+
+	changesCount := int(binary.BigEndian.Uint16(b[n:]))
+	n += sszSize
+
+	if changesCount > MaxNumberOfIndexChangesPerTx {
+		return n, ErrCorruptedData
+	}
+
+	a.changes = make(map[int]IndexChange, changesCount)
+
+	for i := 0; i < changesCount; i++ {
+		if len(b) < indexIDSize+1 {
+			return n, ErrCorruptedData
+		}
+
+		indexID := int(binary.BigEndian.Uint16(b[n:]))
+		n += indexIDSize
+
+		changeType := b[n]
+		n++
+
+		if changeType == indexDeletionChange {
+			a.changes[indexID] = &IndexDeletionChange{}
+			continue
+		}
+
+		if changeType == indexCreationChange {
+			if len(b) < indexCreationSize {
+				return n, ErrCorruptedData
+			}
+
+			change := &IndexCreationChange{}
+
+			change.InitialTxID = binary.BigEndian.Uint64(b[n:])
+			n += txIDSize
+
+			change.FinalTxID = binary.BigEndian.Uint64(b[n:])
+			n += txIDSize
+
+			change.InitialTs = int64(binary.BigEndian.Uint64(b[n:]))
+			n += tsSize
+
+			change.FinalTs = int64(binary.BigEndian.Uint64(b[n:]))
+			n += tsSize
+
+			a.changes[indexID] = change
+			continue
+		}
+
+		return n, ErrCorruptedData
+	}
+
+	return n, nil
+}
+
 func getAttributeFrom(attrCode attributeCode) (attribute, error) {
 	switch attrCode {
 	case truncatedUptoTxAttrCode:
 		{
 			return &truncatedUptoTxAttribute{}, nil
+		}
+	case indexingChangesAttrCode:
+		{
+			return &indexingChangesAttribute{}, nil
 		}
 	default:
 		{
@@ -102,7 +269,7 @@ func (md *TxMetadata) Equal(amd *TxMetadata) bool {
 func (md *TxMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	for _, attrCode := range []attributeCode{truncatedUptoTxAttrCode} {
+	for _, attrCode := range []attributeCode{truncatedUptoTxAttrCode, indexingChangesAttrCode} {
 		attr, ok := md.attributes[attrCode]
 		if ok {
 			b.WriteByte(byte(attr.code()))
@@ -114,7 +281,7 @@ func (md *TxMetadata) Bytes() []byte {
 }
 
 func (md *TxMetadata) ReadFrom(b []byte) error {
-	if len(b) > maxKVMetadataLen {
+	if len(b) > maxTxMetadataLen {
 		return ErrCorruptedData
 	}
 
@@ -141,7 +308,6 @@ func (md *TxMetadata) ReadFrom(b []byte) error {
 		if err != nil {
 			return fmt.Errorf("error reading tx metadata attributes: %w", err)
 		}
-
 		i += n
 
 		md.attributes[attr.code()] = attr
@@ -162,7 +328,7 @@ func (md *TxMetadata) HasTruncatedTxID() bool {
 func (md *TxMetadata) GetTruncatedTxID() (uint64, error) {
 	attr, ok := md.attributes[truncatedUptoTxAttrCode]
 	if !ok {
-		return 0, ErrTxNotPresentInMetadata
+		return 0, ErrTruncationInfoNotPresentInMetadata
 	}
 
 	return attr.(*truncatedUptoTxAttribute).txID, nil
@@ -181,4 +347,26 @@ func (md *TxMetadata) WithTruncatedTxID(txID uint64) *TxMetadata {
 
 	attr.(*truncatedUptoTxAttribute).txID = txID
 	return md
+}
+
+func (md *TxMetadata) WithIndexingChanges(indexingChanges map[int]IndexChange) *TxMetadata {
+	if len(indexingChanges) == 0 {
+		delete(md.attributes, indexingChangesAttrCode)
+		return md
+	}
+
+	md.attributes[indexingChangesAttrCode] = &indexingChangesAttribute{
+		changes: indexingChanges,
+	}
+
+	return md
+}
+
+func (md *TxMetadata) GetIndexingChanges() map[int]IndexChange {
+	attr, ok := md.attributes[indexingChangesAttrCode]
+	if !ok {
+		return nil
+	}
+
+	return attr.(*indexingChangesAttribute).changes
 }
