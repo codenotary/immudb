@@ -114,6 +114,8 @@ const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 const MaxIndexID = math.MaxUint16
 
+const MaxNumberOfIndexChangesPerTx = 64
+
 const cLogEntrySize = offsetSize + lszSize // tx offset & size
 
 const txIDSize = 8
