@@ -38,7 +38,7 @@ const (
 const deletedAttrSize = 0
 const expiresAtAttrSize = tsSize
 const nonIndexableAttrSize = 0
-const useIndexAttrSize = 0
+const useIndexAttrSize = indexIDSize
 
 const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) +
 	(attrCodeSize + expiresAtAttrSize) +
@@ -113,19 +113,19 @@ func (a *useIndexAttribute) code() attributeCode {
 }
 
 func (a *useIndexAttribute) serialize() []byte {
-	var b [2]byte
+	var b [indexIDSize]byte
 	binary.BigEndian.PutUint16(b[:], a.indexID)
 	return b[:]
 }
 
 func (a *useIndexAttribute) deserialize(b []byte) (int, error) {
-	if len(b) < 2 {
+	if len(b) < indexIDSize {
 		return 0, ErrCorruptedData
 	}
 
 	a.indexID = binary.BigEndian.Uint16(b)
 
-	return 2, nil
+	return indexIDSize, nil
 }
 
 func NewKVMetadata() *KVMetadata {

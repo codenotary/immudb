@@ -121,6 +121,7 @@ const tsSize = 8
 const lszSize = 4
 const sszSize = 2
 const offsetSize = 8
+const indexIDSize = 2
 
 const Version = 1
 const MaxTxHeaderVersion = 1
