@@ -114,7 +114,7 @@ const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 const MaxIndexID = math.MaxUint16
 
-const MaxNumberOfIndexChangesPerTx = 64
+const MaxNumberOfIndexChangesPerTx = 16
 
 const cLogEntrySize = offsetSize + lszSize // tx offset & size
 
@@ -136,6 +136,7 @@ const (
 	metaFileSize     = "FILE_SIZE"
 )
 
+const metaDirname = "meta"
 const indexDirname = "index"
 const ahtDirname = "aht"
 
@@ -204,7 +205,8 @@ type ImmuStore struct {
 	durablePrecommitWHub *watchers.WatchersHub
 	commitWHub           *watchers.WatchersHub
 
-	indexer *indexer
+	metaState *metaState
+	indexer   *indexer
 
 	closed bool
 
@@ -573,6 +575,25 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	err = store.commitWHub.DoneUpto(committedTxID)
 	if err != nil {
 		return nil, err
+	}
+
+	store.metaState, err = newMetaState(store)
+	if err != nil {
+		store.Close()
+		return nil, fmt.Errorf("could not open meta state: %w", err)
+	}
+
+	if store.metaState.calculatedUpToTxID() > committedTxID {
+		store.Close()
+		return nil, fmt.Errorf("corrupted commit log: meta state size is too large: %w", ErrCorruptedCLog)
+
+		//TODO: if meta state is calculated on pre-committed txs, the meta state may need to be recalculated
+	}
+
+	err = store.metaState.start()
+	if err != nil {
+		store.Close()
+		return nil, fmt.Errorf("could not start meta state: %w", err)
 	}
 
 	indexPath := filepath.Join(store.path, indexDirname)
@@ -2499,6 +2520,10 @@ func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool, skipIntegr
 		return nil, ErrAlreadyClosed
 	}
 
+	return s.readTxHeader(txID, allowPrecommitted, skipIntegrityCheck)
+}
+
+func (s *ImmuStore) readTxHeader(txID uint64, allowPrecommitted bool, skipIntegrityCheck bool) (*TxHeader, error) {
 	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
 	if err != nil {
 		return nil, err
@@ -2859,6 +2884,16 @@ func (s *ImmuStore) Close() error {
 
 	merr := multierr.NewMultiErr()
 
+	if s.indexer != nil {
+		err := s.indexer.Close()
+		merr.Append(err)
+	}
+
+	if s.metaState != nil {
+		err := s.metaState.stop()
+		merr.Append(err)
+	}
+
 	for i := range s.vLogs {
 		vLog := s.fetchVLog(i + 1)
 
@@ -2876,11 +2911,6 @@ func (s *ImmuStore) Close() error {
 
 	err = s.commitWHub.Close()
 	merr.Append(err)
-
-	if s.indexer != nil {
-		err = s.indexer.Close()
-		merr.Append(err)
-	}
 
 	err = s.txLog.Close()
 	merr.Append(err)
