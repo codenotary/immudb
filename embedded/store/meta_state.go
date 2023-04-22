@@ -103,6 +103,26 @@ func (m *metaState) start() error {
 					m.st.notify(Error, false, "%s: while reading transaction metadata", err)
 					continue
 				}
+
+				indexingChanges := txHdr.Metadata.GetIndexingChanges()
+				if len(indexingChanges) > 0 {
+
+					for id, change := range indexingChanges {
+						if change.IsIndexDeletion() {
+							delete(m.indexes, id)
+						}
+						if change.IsIndexCreation() {
+							c := change.(*IndexCreationChange)
+
+							m.indexes[id] = &indexSpec{
+								initialTxID: c.InitialTxID,
+								finalTxID:   c.FinalTxID,
+								initialTs:   c.InitialTs,
+								finalTs:     c.FinalTs,
+							}
+						}
+					}
+				}
 			}
 
 			m.wHub.DoneUpto(txHdr.ID)
