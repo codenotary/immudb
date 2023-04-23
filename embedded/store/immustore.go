@@ -562,21 +562,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		}
 	}
 
-	err = store.inmemPrecommitWHub.DoneUpto(precommittedTxID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = store.durablePrecommitWHub.DoneUpto(precommittedTxID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = store.commitWHub.DoneUpto(committedTxID)
-	if err != nil {
-		return nil, err
-	}
-
 	store.metaState, err = newMetaState(store)
 	if err != nil {
 		store.Close()
@@ -594,6 +579,21 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	if err != nil {
 		store.Close()
 		return nil, fmt.Errorf("could not start meta state: %w", err)
+	}
+
+	err = store.inmemPrecommitWHub.DoneUpto(precommittedTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = store.durablePrecommitWHub.DoneUpto(precommittedTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = store.commitWHub.DoneUpto(committedTxID)
+	if err != nil {
+		return nil, err
 	}
 
 	indexPath := filepath.Join(store.path, indexDirname)

@@ -31,7 +31,7 @@ type metaState struct {
 
 	truncatedUpToTxID uint64
 
-	indexes map[IndexID]*indexSpec
+	indexes map[int]*indexSpec
 
 	wHub *watchers.WatchersHub
 
@@ -51,10 +51,11 @@ type indexSpec struct {
 func newMetaState(st *ImmuStore) (*metaState, error) {
 	//metaPath := filepath.Join(st.path, metaDirname)
 	return &metaState{
-		st:     st,
-		wHub:   watchers.New(0, MaxIndexID),
-		stopCh: make(chan struct{}),
-		doneCh: make(chan struct{}),
+		st:      st,
+		indexes: make(map[int]*indexSpec),
+		wHub:    watchers.New(0, MaxIndexID),
+		stopCh:  make(chan struct{}),
+		doneCh:  make(chan struct{}),
 	}, nil
 }
 

@@ -4858,3 +4858,47 @@ func TestCommitOfEmptyTxWithMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, txholder.Entries())
 }
+
+func TestIndexingChanges(t *testing.T) {
+	st, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+	require.NotNil(t, st)
+
+	defer immustoreClose(t, st)
+
+	tx1, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	indexingChanges1 := make(map[int]IndexChange)
+	indexingChanges1[1] = &IndexCreationChange{}
+	indexingChanges1[2] = &IndexCreationChange{}
+
+	tx1.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges1))
+
+	hdr1, err := tx1.Commit(context.Background())
+	require.NoError(t, err)
+
+	txholder, err := st.fetchAllocTx()
+	require.NoError(t, err)
+
+	defer st.releaseAllocTx(txholder)
+
+	err = st.readTx(hdr1.ID, false, true, txholder)
+	require.NoError(t, err)
+	require.Empty(t, txholder.Entries())
+
+	require.Len(t, st.metaState.indexes, 2)
+
+	tx2, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	indexingChanges2 := make(map[int]IndexChange)
+	indexingChanges2[1] = &IndexDeletionChange{}
+
+	tx2.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges2))
+
+	_, err = tx2.Commit(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, st.metaState.indexes, 1)
+}

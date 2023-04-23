@@ -105,7 +105,7 @@ func (a *nonIndexableAttribute) deserialize(b []byte) (int, error) {
 }
 
 type useIndexAttribute struct {
-	indexID uint16
+	indexID int
 }
 
 func (a *useIndexAttribute) code() attributeCode {
@@ -114,7 +114,7 @@ func (a *useIndexAttribute) code() attributeCode {
 
 func (a *useIndexAttribute) serialize() []byte {
 	var b [indexIDSize]byte
-	binary.BigEndian.PutUint16(b[:], a.indexID)
+	binary.BigEndian.PutUint16(b[:], uint16(a.indexID))
 	return b[:]
 }
 
@@ -123,7 +123,7 @@ func (a *useIndexAttribute) deserialize(b []byte) (int, error) {
 		return 0, ErrCorruptedData
 	}
 
-	a.indexID = binary.BigEndian.Uint16(b)
+	a.indexID = int(binary.BigEndian.Uint16(b))
 
 	return indexIDSize, nil
 }
@@ -247,7 +247,7 @@ func (md *KVMetadata) UseIndex(indexID int) error {
 	_, ok := md.attributes[useIndexAttrCode]
 	if !ok {
 		md.attributes[useIndexAttrCode] = &useIndexAttribute{
-			indexID: uint16(indexID),
+			indexID: indexID,
 		}
 	}
 
@@ -271,7 +271,7 @@ func (md *KVMetadata) Index() (int, error) {
 func (md *KVMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	for _, attrCode := range []attributeCode{deletedAttrCode, expiresAtAttrCode, nonIndexableAttrCode} {
+	for _, attrCode := range []attributeCode{deletedAttrCode, expiresAtAttrCode, nonIndexableAttrCode, useIndexAttrCode} {
 		attr, ok := md.attributes[attrCode]
 		if ok {
 			b.WriteByte(byte(attr.code()))

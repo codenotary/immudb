@@ -76,7 +76,7 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	changes := desmd.GetIndexingChanges()
 	require.Nil(t, changes)
 
-	specChanges := make(map[IndexID]IndexChange)
+	specChanges := make(map[int]IndexChange)
 	desmd.WithIndexingChanges(specChanges)
 	changes = desmd.GetIndexingChanges()
 	require.Nil(t, changes)

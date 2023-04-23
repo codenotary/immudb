@@ -67,10 +67,8 @@ func (a *truncatedUptoTxAttribute) deserialize(b []byte) (int, error) {
 }
 
 type indexingChangesAttribute struct {
-	changes map[IndexID]IndexChange
+	changes map[int]IndexChange
 }
-
-type IndexID uint16
 
 type IndexChange interface {
 	IsIndexDeletion() bool
@@ -119,11 +117,11 @@ func (a *indexingChangesAttribute) serialize() []byte {
 	var b [indexingChangesAttrSize]byte
 	i := 0
 
-	binary.BigEndian.PutUint16(b[:], uint16(len(a.changes)))
+	binary.BigEndian.PutUint16(b[i:], uint16(len(a.changes)))
 	i += sszSize
 
 	for id, change := range a.changes {
-		binary.BigEndian.PutUint16(b[:], uint16(id))
+		binary.BigEndian.PutUint16(b[i:], uint16(id))
 		i += indexIDSize
 
 		if change.IsIndexDeletion() {
@@ -136,16 +134,16 @@ func (a *indexingChangesAttribute) serialize() []byte {
 
 			c := change.(*IndexCreationChange)
 
-			binary.BigEndian.PutUint64(b[:], c.InitialTxID)
+			binary.BigEndian.PutUint64(b[i:], c.InitialTxID)
 			i += txIDSize
 
-			binary.BigEndian.PutUint64(b[:], c.FinalTxID)
+			binary.BigEndian.PutUint64(b[i:], c.FinalTxID)
 			i += txIDSize
 
-			binary.BigEndian.PutUint64(b[:], uint64(c.InitialTs))
+			binary.BigEndian.PutUint64(b[i:], uint64(c.InitialTs))
 			i += tsSize
 
-			binary.BigEndian.PutUint64(b[:], uint64(c.FinalTs))
+			binary.BigEndian.PutUint64(b[i:], uint64(c.FinalTs))
 			i += tsSize
 		}
 	}
@@ -161,28 +159,28 @@ func (a *indexingChangesAttribute) deserialize(b []byte) (int, error) {
 		return n, ErrCorruptedData
 	}
 
-	changesCount := binary.BigEndian.Uint16(b)
+	changesCount := int(binary.BigEndian.Uint16(b[n:]))
 	n += sszSize
 
 	if changesCount > MaxNumberOfIndexChangesPerTx {
 		return n, ErrCorruptedData
 	}
 
-	a.changes = make(map[IndexID]IndexChange, changesCount)
+	a.changes = make(map[int]IndexChange, changesCount)
 
-	for i := 0; i < int(changesCount); i++ {
+	for i := 0; i < changesCount; i++ {
 		if len(b) < indexIDSize+1 {
 			return n, ErrCorruptedData
 		}
 
-		indexID := binary.BigEndian.Uint16(b[n:])
+		indexID := int(binary.BigEndian.Uint16(b[n:]))
 		n += indexIDSize
 
 		changeType := b[n]
 		n++
 
 		if changeType == indexDeletionChange {
-			a.changes[IndexID(indexID)] = &IndexDeletionChange{}
+			a.changes[indexID] = &IndexDeletionChange{}
 			continue
 		}
 
@@ -205,7 +203,7 @@ func (a *indexingChangesAttribute) deserialize(b []byte) (int, error) {
 			change.FinalTs = int64(binary.BigEndian.Uint64(b[n:]))
 			n += tsSize
 
-			a.changes[IndexID(indexID)] = change
+			a.changes[indexID] = change
 			continue
 		}
 
@@ -258,7 +256,7 @@ func (md *TxMetadata) Equal(amd *TxMetadata) bool {
 func (md *TxMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	for _, attrCode := range []attributeCode{truncatedUptoTxAttrCode} {
+	for _, attrCode := range []attributeCode{truncatedUptoTxAttrCode, indexingChangesAttrCode} {
 		attr, ok := md.attributes[attrCode]
 		if ok {
 			b.WriteByte(byte(attr.code()))
@@ -270,7 +268,7 @@ func (md *TxMetadata) Bytes() []byte {
 }
 
 func (md *TxMetadata) ReadFrom(b []byte) error {
-	if len(b) > maxKVMetadataLen {
+	if len(b) > maxTxMetadataLen {
 		return ErrCorruptedData
 	}
 
@@ -339,7 +337,7 @@ func (md *TxMetadata) WithTruncatedTxID(txID uint64) *TxMetadata {
 	return md
 }
 
-func (md *TxMetadata) WithIndexingChanges(indexingChanges map[IndexID]IndexChange) *TxMetadata {
+func (md *TxMetadata) WithIndexingChanges(indexingChanges map[int]IndexChange) *TxMetadata {
 	if len(indexingChanges) == 0 {
 		delete(md.attributes, indexingChangesAttrCode)
 		return md
@@ -352,7 +350,7 @@ func (md *TxMetadata) WithIndexingChanges(indexingChanges map[IndexID]IndexChang
 	return md
 }
 
-func (md *TxMetadata) GetIndexingChanges() map[IndexID]IndexChange {
+func (md *TxMetadata) GetIndexingChanges() map[int]IndexChange {
 	attr, ok := md.attributes[indexingChangesAttrCode]
 	if !ok {
 		return nil
