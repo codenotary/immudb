@@ -18,7 +18,7 @@ package store
 
 import (
 	"errors"
-	"time"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/watchers"
 )
@@ -27,18 +27,11 @@ var ErrAlreadyRunning = errors.New("already running")
 var ErrAlreadyStopped = errors.New("already stopped")
 
 type metaState struct {
-	st *ImmuStore
-
 	truncatedUpToTxID uint64
 
 	indexes map[int]*indexSpec
 
 	wHub *watchers.WatchersHub
-
-	stopCh chan (struct{})
-	doneCh chan (struct{})
-
-	running bool
 }
 
 type indexSpec struct {
@@ -48,15 +41,27 @@ type indexSpec struct {
 	finalTs     int64
 }
 
-func newMetaState(st *ImmuStore) (*metaState, error) {
-	//metaPath := filepath.Join(st.path, metaDirname)
+type metaStateOptions struct {
+}
+
+func openMetaState(path string, opts metaStateOptions) (*metaState, error) {
 	return &metaState{
-		st:      st,
 		indexes: make(map[int]*indexSpec),
 		wHub:    watchers.New(0, MaxIndexID),
-		stopCh:  make(chan struct{}),
-		doneCh:  make(chan struct{}),
 	}, nil
+}
+
+func (m *metaState) rollbackUpTo(txID uint64) error {
+	m.indexes = make(map[int]*indexSpec)
+
+	err := m.wHub.Close()
+	if err != nil {
+		return err
+	}
+
+	m.wHub = watchers.New(0, MaxIndexID)
+
+	return nil
 }
 
 func (m *metaState) calculatedUpToTxID() uint64 {
@@ -64,84 +69,73 @@ func (m *metaState) calculatedUpToTxID() uint64 {
 	return doneUpToTxID
 }
 
-func (m *metaState) start() error {
-	if m.running {
-		return ErrAlreadyRunning
+func (m *metaState) processTxHeader(hdr *TxHeader) error {
+	if hdr == nil {
+		return ErrIllegalArguments
 	}
 
-	m.running = true
+	if m.calculatedUpToTxID() >= hdr.ID {
+		return fmt.Errorf("%w: transaction already processed", ErrIllegalArguments)
+	}
 
-	go func() {
-		for {
-			select {
-			case <-m.stopCh:
-				{
-					m.doneCh <- struct{}{}
-					return
-				}
-			default:
-				{
-				}
-			}
+	if hdr.Metadata == nil {
+		m.wHub.DoneUpto(hdr.ID)
+		return nil
+	}
 
-			txHdr, err := m.st.readTxHeader(m.calculatedUpToTxID()+1, false, false)
-			if err != nil {
-				if errors.Is(err, ErrTxNotFound) {
-					time.Sleep(m.st.syncFrequency)
-					continue
+	truncatedUpToTxID, err := hdr.Metadata.GetTruncatedTxID()
+	if err == nil {
+		if m.truncatedUpToTxID > truncatedUpToTxID {
+			return ErrCorruptedData
+		}
+
+		m.truncatedUpToTxID = truncatedUpToTxID
+	} else if !errors.Is(err, ErrTruncationInfoNotPresentInMetadata) {
+		return err
+	}
+
+	indexingChanges := hdr.Metadata.GetIndexingChanges()
+
+	if len(indexingChanges) > 0 {
+		for id, change := range indexingChanges {
+			_, indexAlreadyExists := m.indexes[id]
+
+			if change.IsIndexDeletion() {
+				if !indexAlreadyExists {
+					return fmt.Errorf("%w: index does not exist", ErrCorruptedData)
 				}
 
-				time.Sleep(10 * m.st.syncFrequency)
-				m.st.notify(Error, false, "%s: while scanning transaction headers", err)
+				delete(m.indexes, id)
+
 				continue
 			}
 
-			if txHdr.Metadata != nil {
-				truncatedUpToTxID, err := txHdr.Metadata.GetTruncatedTxID()
-				if err == nil {
-					m.truncatedUpToTxID = truncatedUpToTxID
-				} else if !errors.Is(err, ErrTxNotPresentInMetadata) {
-					m.st.notify(Error, false, "%s: while reading transaction metadata", err)
-					continue
+			if change.IsIndexCreation() {
+				if indexAlreadyExists {
+					return fmt.Errorf("%w: index already exists", ErrCorruptedData)
 				}
 
-				indexingChanges := txHdr.Metadata.GetIndexingChanges()
-				if len(indexingChanges) > 0 {
+				c := change.(*IndexCreationChange)
 
-					for id, change := range indexingChanges {
-						if change.IsIndexDeletion() {
-							delete(m.indexes, id)
-						}
-						if change.IsIndexCreation() {
-							c := change.(*IndexCreationChange)
-
-							m.indexes[id] = &indexSpec{
-								initialTxID: c.InitialTxID,
-								finalTxID:   c.FinalTxID,
-								initialTs:   c.InitialTs,
-								finalTs:     c.FinalTs,
-							}
-						}
-					}
+				m.indexes[id] = &indexSpec{
+					initialTxID: c.InitialTxID,
+					finalTxID:   c.FinalTxID,
+					initialTs:   c.InitialTs,
+					finalTs:     c.FinalTs,
 				}
+
+				continue
 			}
 
-			m.wHub.DoneUpto(txHdr.ID)
+			return fmt.Errorf("%w: it may be due to an unsupported metadata change", ErrUnexpectedError)
 		}
-	}()
+	}
+
+	m.wHub.DoneUpto(hdr.ID)
 
 	return nil
 }
 
-func (m *metaState) stop() error {
-	if !m.running {
-		return ErrAlreadyStopped
-	}
-
-	m.running = false
-
-	m.stopCh <- struct{}{}
-	<-m.doneCh
-
+func (m *metaState) close() error {
 	return m.wHub.Close()
 }

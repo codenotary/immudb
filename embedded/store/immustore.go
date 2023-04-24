@@ -72,7 +72,7 @@ var ErrCorruptedTxDataUnknownHeaderVersion = fmt.Errorf("%w: unknown TX header v
 var ErrCorruptedTxDataMaxKeyLenExceeded = fmt.Errorf("%w: maximum key length exceeded", ErrCorruptedTxData)
 var ErrCorruptedTxDataDuplicateKey = fmt.Errorf("%w: duplicate key in a single TX", ErrCorruptedTxData)
 var ErrCorruptedData = errors.New("data is corrupted")
-var ErrCorruptedCLog = errors.New("commit log is corrupted")
+var ErrCorruptedCLog = errors.New("commit-log is corrupted")
 var ErrCorruptedIndex = errors.New("corrupted index")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
@@ -106,7 +106,7 @@ var ErrMetadataUnsupported = errors.New(
 
 var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization method")
 var ErrIllegalTruncationArgument = fmt.Errorf("%w: invalid truncation info", ErrIllegalArguments)
-var ErrTxNotPresentInMetadata = errors.New("tx not present in metadata")
+var ErrTruncationInfoNotPresentInMetadata = errors.New("truncation info not present in metadata")
 
 var ErrMaxIndexIDExceeded = errors.New("max index id exceeded")
 
@@ -277,7 +277,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
 	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open commit log: %w", err)
+		return nil, fmt.Errorf("unable to open commit-log: %w", err)
 
 	}
 
@@ -312,28 +312,28 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (filesize): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit-log metadata (filesize): %w", ErrCorruptedCLog)
 	}
 
 	maxTxEntries, ok := metadata.GetInt(metaMaxTxEntries)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (max tx entries): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit-log metadata (max tx entries): %w", ErrCorruptedCLog)
 	}
 
 	maxKeyLen, ok := metadata.GetInt(metaMaxKeyLen)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (max key len): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit-log metadata (max key len): %w", ErrCorruptedCLog)
 	}
 
 	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (max value len): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit-log metadata (max value len): %w", ErrCorruptedCLog)
 
 	}
 
 	cLogSize, err := cLog.Size()
 	if err != nil {
-		return nil, fmt.Errorf("corrupted commit log: could not get size: %w", err)
+		return nil, fmt.Errorf("corrupted commit-log: could not get size: %w", err)
 	}
 
 	rem := cLogSize % cLogEntrySize
@@ -341,7 +341,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		cLogSize -= rem
 		err = cLog.SetOffset(cLogSize)
 		if err != nil {
-			return nil, fmt.Errorf("corrupted commit log: could not set offset: %w", err)
+			return nil, fmt.Errorf("corrupted commit-log: could not set offset: %w", err)
 		}
 	}
 
@@ -355,7 +355,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		b := make([]byte, cLogEntrySize)
 		_, err := cLog.ReadAt(b, cLogSize-cLogEntrySize)
 		if err != nil {
-			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
+			return nil, fmt.Errorf("corrupted commit-log: could not read the last commit: %w", err)
 		}
 
 		committedTxOffset = int64(binary.BigEndian.Uint64(b))
@@ -486,6 +486,13 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
+	metaPath := filepath.Join(path, metaDirname)
+
+	metaState, err := openMetaState(metaPath, metaStateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not open meta state: %w", err)
+	}
+
 	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
 	if err != nil {
 		return nil, err
@@ -531,7 +538,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		useExternalCommitAllowance: opts.UseExternalCommitAllowance,
 		commitAllowedUpToTxID:      committedTxID,
 
-		aht: aht,
+		aht:       aht,
+		metaState: metaState,
 
 		inmemPrecommitWHub:   watchers.New(0, opts.MaxActiveTransactions+1), // syncer (TODO: indexer may wait here instead)
 		durablePrecommitWHub: watchers.New(0, opts.MaxActiveTransactions+opts.MaxWaitees),
@@ -548,37 +556,36 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		err = store.aht.ResetSize(precommittedTxID)
 		if err != nil {
 			store.Close()
-			return nil, fmt.Errorf("corrupted commit log: can not truncate aht tree: %w", err)
+			return nil, fmt.Errorf("corrupted commit-log: can not truncate aht tree: %w", err)
 		}
 	}
 
 	if store.aht.Size() == precommittedTxID {
-		store.logger.Infof("Binary Linking up to date at '%s'", store.path)
+		store.logger.Infof("binary-linking up to date at '%s'", store.path)
 	} else {
 		err = store.syncBinaryLinking()
 		if err != nil {
 			store.Close()
-			return nil, fmt.Errorf("binary linking failed: %w", err)
+			return nil, fmt.Errorf("binary-linking syncing failed: %w", err)
 		}
 	}
 
-	store.metaState, err = newMetaState(store)
-	if err != nil {
-		store.Close()
-		return nil, fmt.Errorf("could not open meta state: %w", err)
+	if store.metaState.calculatedUpToTxID() > precommittedTxID {
+		err = store.metaState.rollbackUpTo(precommittedTxID)
+		if err != nil {
+			store.Close()
+			return nil, fmt.Errorf("corrupted commit-log: can not truncate meta-state: %w", err)
+		}
 	}
 
-	if store.metaState.calculatedUpToTxID() > committedTxID {
-		store.Close()
-		return nil, fmt.Errorf("corrupted commit log: meta state size is too large: %w", ErrCorruptedCLog)
-
-		//TODO: if meta state is calculated on pre-committed txs, the meta state may need to be recalculated
-	}
-
-	err = store.metaState.start()
-	if err != nil {
-		store.Close()
-		return nil, fmt.Errorf("could not start meta state: %w", err)
+	if store.metaState.calculatedUpToTxID() == precommittedTxID {
+		store.logger.Infof("meta-state up to date at '%s'", store.path)
+	} else {
+		err = store.syncMetaState()
+		if err != nil {
+			store.Close()
+			return nil, fmt.Errorf("meta-state syncing failed: %w", err)
+		}
 	}
 
 	err = store.inmemPrecommitWHub.DoneUpto(precommittedTxID)
@@ -606,7 +613,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	if store.indexer.Ts() > committedTxID {
 		store.Close()
-		return nil, fmt.Errorf("corrupted commit log: index size is too large: %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit-log: index size is too large: %w", ErrCorruptedCLog)
 
 		// TODO: if indexing is done on pre-committed txs, the index may be rollback to a previous snapshot where it was already synced
 		// NOTE: compaction should preserve snapshot which are not synced... so to ensure rollback can be achieved
@@ -874,7 +881,7 @@ func (s *ImmuStore) precommittedAlh() (uint64, [sha256.Size]byte) {
 }
 
 func (s *ImmuStore) syncBinaryLinking() error {
-	s.logger.Infof("Syncing Binary Linking at '%s'...", s.path)
+	s.logger.Infof("syncing binary-linking at '%s'...", s.path)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -900,11 +907,44 @@ func (s *ImmuStore) syncBinaryLinking() error {
 		s.aht.Append(alh[:])
 
 		if tx.header.ID%1000 == 0 {
-			s.logger.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
+			s.logger.Infof("binary-linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
 		}
 	}
 
-	s.logger.Infof("Binary Linking up to date at '%s'", s.path)
+	s.logger.Infof("binary-linking up to date at '%s'", s.path)
+
+	return nil
+}
+
+func (s *ImmuStore) syncMetaState() error {
+	s.logger.Infof("syncing meta-state at '%s'...", s.path)
+
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return err
+	}
+	defer s.releaseAllocTx(tx)
+
+	for {
+		hdr, err := s.readTxHeader(s.metaState.calculatedUpToTxID()+1, false, false)
+		if err == ErrTxNotFound {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		err = s.metaState.processTxHeader(hdr)
+		if err != nil {
+			return err
+		}
+
+		if tx.header.ID%1000 == 0 {
+			s.logger.Infof("meta-state at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
+		}
+	}
+
+	s.logger.Infof("meta-state up to date at '%s'", s.path)
 
 	return nil
 }
@@ -1365,7 +1405,7 @@ func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 	// will overwrite partially written and uncommitted data
 	err := s.txLog.SetOffset(s.precommittedTxLogSize)
 	if err != nil {
-		return fmt.Errorf("commit log: could not set offset: %w", err)
+		return fmt.Errorf("commit-log: could not set offset: %w", err)
 	}
 
 	tx.header.ID = s.inmemPrecommittedTxID + 1
@@ -1484,6 +1524,11 @@ func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 	_, _, err = s.aht.Append(alh[:])
+	if err != nil {
+		return err
+	}
+
+	err = s.metaState.processTxHeader(tx.header)
 	if err != nil {
 		return err
 	}
@@ -2046,7 +2091,7 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	}
 	if err == io.EOF {
 		// A partially readable commit record must be discarded -
-		// - it is a result of incomplete commit log write
+		// - it is a result of incomplete commit-log write
 		// and will be overwritten on the next commit
 		return 0, 0, ErrTxNotFound
 	}
@@ -2890,7 +2935,7 @@ func (s *ImmuStore) Close() error {
 	}
 
 	if s.metaState != nil {
-		err := s.metaState.stop()
+		err := s.metaState.close()
 		merr.Append(err)
 	}
 
