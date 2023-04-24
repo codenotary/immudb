@@ -295,7 +295,6 @@ func (md *TxMetadata) ReadFrom(b []byte) error {
 		if err != nil {
 			return fmt.Errorf("error reading tx metadata attributes: %w", err)
 		}
-
 		i += n
 
 		md.attributes[attr.code()] = attr

@@ -418,7 +418,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	for {
 		err = tx.readFrom(txReader, false)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -896,7 +896,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 	for {
 		tx, err := txReader.Read()
-		if err == ErrNoMoreEntries {
+		if errors.Is(err, ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -927,7 +927,7 @@ func (s *ImmuStore) syncMetaState() error {
 
 	for {
 		hdr, err := s.readTxHeader(s.metaState.calculatedUpToTxID()+1, false, false)
-		if err == ErrTxNotFound {
+		if errors.Is(err, ErrTxNotFound) {
 			break
 		}
 		if err != nil {
@@ -974,7 +974,7 @@ func (s *ImmuStore) WaitForTx(ctx context.Context, txID uint64, allowPrecommitte
 	} else {
 		err = s.commitWHub.WaitFor(ctx, txID)
 	}
-	if err == watchers.ErrAlreadyClosed {
+	if errors.Is(err, watchers.ErrAlreadyClosed) {
 		return ErrAlreadyClosed
 	}
 	return err
@@ -1182,7 +1182,7 @@ func (s *ImmuStore) commit(ctx context.Context, otx *OngoingTx, expectedHeader *
 
 	// note: durability is ensured only if the store is in sync mode
 	err = s.commitWHub.WaitFor(ctx, hdr.ID)
-	if err == watchers.ErrAlreadyClosed {
+	if errors.Is(err, watchers.ErrAlreadyClosed) {
 		return nil, ErrAlreadyClosed
 	}
 	if err != nil {
@@ -1286,7 +1286,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 
 		// ensure tx is committed in the expected order
 		err = s.inmemPrecommitWHub.WaitFor(ctx, hdr.ID-1)
-		if err == watchers.ErrAlreadyClosed {
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
 			return nil, ErrAlreadyClosed
 		}
 		if err != nil {
@@ -1533,16 +1533,16 @@ func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 
+	err = s.cLogBuf.put(s.inmemPrecommittedTxID+1, alh, txOff, txSize)
+	if err != nil {
+		return err
+	}
+
 	s.inmemPrecommittedTxID++
 	s.inmemPrecommittedAlh = alh
 	s.precommittedTxLogSize += int64(txSize)
 
 	s.inmemPrecommitWHub.DoneUpto(s.inmemPrecommittedTxID)
-
-	err = s.cLogBuf.put(s.inmemPrecommittedTxID, alh, txOff, txSize)
-	if err != nil {
-		return err
-	}
 
 	if !s.synced {
 		s.durablePrecommitWHub.DoneUpto(s.inmemPrecommittedTxID)
@@ -2086,10 +2086,10 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	var cb [cLogEntrySize]byte
 
 	_, err := s.cLog.ReadAt(cb[:], int64(off))
-	if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+	if errors.Is(err, multiapp.ErrAlreadyClosed) || errors.Is(err, singleapp.ErrAlreadyClosed) {
 		return 0, 0, ErrAlreadyClosed
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		// A partially readable commit record must be discarded -
 		// - it is a result of incomplete commit-log write
 		// and will be overwritten on the next commit
@@ -2401,7 +2401,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 
 	// wait for syncing to happen before exposing the header
 	err = s.durablePrecommitWHub.WaitFor(ctx, txHdr.ID)
-	if err == watchers.ErrAlreadyClosed {
+	if errors.Is(err, watchers.ErrAlreadyClosed) {
 		return nil, ErrAlreadyClosed
 	}
 	if err != nil {
@@ -2410,7 +2410,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 
 	if !s.useExternalCommitAllowance {
 		err = s.commitWHub.WaitFor(ctx, txHdr.ID)
-		if err == watchers.ErrAlreadyClosed {
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
 			return nil, ErrAlreadyClosed
 		}
 		if err != nil {
@@ -2550,7 +2550,7 @@ func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, skipIntegrityChe
 	}
 
 	err = tx.readFrom(r, skipIntegrityCheck)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrCorruptedTxData, txID)
 	}
 
@@ -2720,7 +2720,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 			defer s.releaseVLog(vLogID)
 
 			n, err = vLog.ReadAt(b, offset)
-			if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+			if errors.Is(err, multiapp.ErrAlreadyClosed) || errors.Is(err, singleapp.ErrAlreadyClosed) {
 				return n, ErrAlreadyClosed
 			}
 			if err != nil {
@@ -2975,7 +2975,7 @@ func (s *ImmuStore) Close() error {
 }
 
 func (s *ImmuStore) wrapAppendableErr(err error, action string) error {
-	if err == singleapp.ErrAlreadyClosed || err == multiapp.ErrAlreadyClosed {
+	if errors.Is(err, singleapp.ErrAlreadyClosed) || errors.Is(err, multiapp.ErrAlreadyClosed) {
 		s.logger.Warningf("Got '%v' while '%s'", err, action)
 		return ErrAlreadyClosed
 	}

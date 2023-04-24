@@ -4878,12 +4878,15 @@ func TestIndexingChanges(t *testing.T) {
 	hdr1, err := tx1.Commit(context.Background())
 	require.NoError(t, err)
 
-	txholder, err := st.fetchAllocTx()
+	txPool, err := st.NewTxHolderPool(1, true)
 	require.NoError(t, err)
 
-	defer st.releaseAllocTx(txholder)
+	txholder, err := txPool.Alloc()
+	require.NoError(t, err)
 
-	err = st.readTx(hdr1.ID, false, true, txholder)
+	defer txPool.Release(txholder)
+
+	err = st.ReadTx(hdr1.ID, false, txholder)
 	require.NoError(t, err)
 	require.Empty(t, txholder.Entries())
 
