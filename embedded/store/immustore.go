@@ -1297,7 +1297,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 
 		if hdr.BlTxID > 0 {
 			blRoot, err = s.aht.RootAt(hdr.BlTxID)
-			if err != nil && err != ahtree.ErrEmptyTree {
+			if err != nil && !errors.Is(err, ahtree.ErrEmptyTree) {
 				return nil, err
 			}
 		}
@@ -1415,7 +1415,7 @@ func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 
 	if blTxID > 0 {
 		blRoot, err := s.aht.RootAt(blTxID)
-		if err != nil && err != ahtree.ErrEmptyTree {
+		if err != nil && !errors.Is(err, ahtree.ErrEmptyTree) {
 			return err
 		}
 		tx.header.BlRoot = blRoot

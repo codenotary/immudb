@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sort"
 )
 
 // attributeCode is used to identify the attribute.
@@ -120,7 +121,19 @@ func (a *indexingChangesAttribute) serialize() []byte {
 	binary.BigEndian.PutUint16(b[i:], uint16(len(a.changes)))
 	i += sszSize
 
-	for id, change := range a.changes {
+	sortedIds := make([]int, len(a.changes))
+	o := 0
+
+	for id := range a.changes {
+		sortedIds[o] = id
+		o++
+	}
+
+	sort.Ints(sortedIds)
+
+	for _, id := range sortedIds {
+		change := a.changes[id]
+
 		binary.BigEndian.PutUint16(b[i:], uint16(id))
 		i += indexIDSize
 
