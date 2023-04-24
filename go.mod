@@ -35,7 +35,7 @@ require (
 	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.7.0
 	golang.org/x/net v0.8.0
-	golang.org/x/sys v0.6.0
+	golang.org/x/sys v0.7.0
 	golang.org/x/tools/cmd/cover v0.1.0-deprecated
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
 	google.golang.org/grpc v1.54.0
