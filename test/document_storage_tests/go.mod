@@ -1,4 +1,4 @@
-module github.com/codenotary/immudb/test/objectstorage_tests
+module github.com/codenotary/immudb/test/documents_storage_tests
 
 go 1.19
 
