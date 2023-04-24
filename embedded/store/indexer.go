@@ -271,13 +271,13 @@ func (idx *indexer) CompactIndex() (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.store.logger.Infof("Compacting index '%s'...", idx.store.path)
+	idx.store.logger.Infof("compacting index '%s'...", idx.store.path)
 
 	defer func() {
 		if err == nil {
-			idx.store.logger.Infof("Index '%s' sucessfully compacted", idx.store.path)
+			idx.store.logger.Infof("index '%s' sucessfully compacted", idx.store.path)
 		} else if err == tbtree.ErrCompactionThresholdNotReached {
-			idx.store.logger.Infof("Compaction of index '%s' not needed: %v", idx.store.path, err)
+			idx.store.logger.Infof("compaction of index '%s' not needed: %v", idx.store.path, err)
 		} else {
 			idx.store.logger.Warningf("%v: while compacting index '%s'", err, idx.store.path)
 		}
@@ -316,7 +316,7 @@ func (idx *indexer) stop() {
 	idx.stateCond.L.Unlock()
 	idx.stateCond.Signal()
 
-	idx.store.notify(Info, true, "Indexing gracefully stopped at '%s'", idx.store.path)
+	idx.store.notify(Info, true, "indexing gracefully stopped at '%s'", idx.store.path)
 }
 
 func (idx *indexer) resume() {
@@ -326,7 +326,7 @@ func (idx *indexer) resume() {
 	go idx.doIndexing()
 	idx.stateCond.L.Unlock()
 
-	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
+	idx.store.notify(Info, true, "indexing in progress at '%s'", idx.store.path)
 }
 
 func (idx *indexer) restartIndex() error {
@@ -387,7 +387,7 @@ func (idx *indexer) doIndexing() {
 			return
 		}
 		if err != nil {
-			idx.store.logger.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 
@@ -415,7 +415,7 @@ func (idx *indexer) doIndexing() {
 			return
 		}
 		if err != nil {
-			idx.store.logger.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 	}

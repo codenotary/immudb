@@ -347,13 +347,13 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		snapPath := filepath.Join(path, cFolder)
 
-		opts.logger.Infof("Reading snapshots at '%s'...", snapPath)
+		opts.logger.Infof("reading snapshots at '%s'...", snapPath)
 
 		appendableOpts.WithFileExt("n")
 		appendableOpts.WithMaxOpenedFiles(opts.nodesLogMaxOpenedFiles)
 		nLog, err := appFactory(path, nFolder, appendableOpts)
 		if err != nil {
-			opts.logger.Infof("Skipping snapshots at '%s', reading node data returned: %v", snapPath, err)
+			opts.logger.Infof("skipping snapshots at '%s', reading node data returned: %v", snapPath, err)
 			continue
 		}
 
@@ -362,7 +362,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		cLog, err := appFactory(path, cFolder, appendableOpts)
 		if err != nil {
 			nLog.Close()
-			opts.logger.Infof("Skipping snapshots at '%s', reading commit data returned: %v", snapPath, err)
+			opts.logger.Infof("skipping snapshots at '%s', reading commit data returned: %v", snapPath, err)
 			continue
 		}
 
@@ -371,7 +371,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		cLogSize, err := cLog.Size()
 		if err == nil && cLogSize < cLogEntrySize {
-			opts.logger.Infof("Skipping snapshots at '%s', reading commit data returned: %s", snapPath, "empty clog")
+			opts.logger.Infof("skipping snapshots at '%s', reading commit data returned: %s", snapPath, "empty clog")
 			discardSnapshotsFolder = true
 		}
 		if err == nil && !discardSnapshotsFolder {
@@ -379,7 +379,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 			t, err = OpenWith(path, nLog, hLog, cLog, opts)
 		}
 		if err != nil {
-			opts.logger.Infof("Skipping snapshots at '%s', opening btree returned: %v", snapPath, err)
+			opts.logger.Infof("skipping snapshots at '%s', opening btree returned: %v", snapPath, err)
 			discardSnapshotsFolder = true
 		}
 
@@ -389,18 +389,18 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 			err = discardSnapshots(path, snapIDs[i-1:i], opts.logger)
 			if err != nil {
-				opts.logger.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
+				opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 			}
 
 			continue
 		}
 
-		opts.logger.Infof("Successfully read snapshots at '%s'", snapPath)
+		opts.logger.Infof("successfully read snapshots at '%s'", snapPath)
 
 		// Discard older snapshots upon successful validation
 		err = discardSnapshots(path, snapIDs[:i-1], opts.logger)
 		if err != nil {
-			opts.logger.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
+			opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 		}
 
 		return t, nil
@@ -453,7 +453,7 @@ func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []
 
 			id, err := strconv.ParseInt(strings.TrimPrefix(f.Name(), prefix), 10, 64)
 			if err != nil {
-				logger.Warningf("Invalid folder found '%s', skipped during index selection", f.Name())
+				logger.Warningf("invalid folder found '%s', skipped during index selection", f.Name())
 				continue
 			}
 
@@ -472,7 +472,7 @@ func discardSnapshots(path string, snapIDs []uint64, logger logger.Logger) error
 		nPath := filepath.Join(path, nFolder)
 		cPath := filepath.Join(path, cFolder)
 
-		logger.Infof("Discarding snapshots at '%s'...", cPath)
+		logger.Infof("discarding snapshots at '%s'...", cPath)
 
 		err := os.RemoveAll(nPath) // TODO: nLog.Remove()
 		if err != nil {
@@ -484,7 +484,7 @@ func discardSnapshots(path string, snapIDs []uint64, logger logger.Logger) error
 			return err
 		}
 
-		logger.Infof("Snapshots at '%s' has been discarded", cPath)
+		logger.Infof("snapshots at '%s' has been discarded", cPath)
 	}
 
 	return nil
@@ -619,7 +619,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		if mustDiscard {
-			t.logger.Infof("Discarding snapshots due to %v at '%s'", err, path)
+			t.logger.Infof("discarding snapshots due to %v at '%s'", err, path)
 
 			discardedCLogEntries += int(t.committedLogSize/cLogEntrySize) + 1
 
@@ -667,7 +667,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		return nil, fmt.Errorf("%w: while setting initial offset of commit log for index '%s'", err, path)
 	}
 
-	opts.logger.Infof("Index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedCLogEntries)
+	opts.logger.Infof("index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedCLogEntries)
 
 	return t, nil
 }
@@ -1037,13 +1037,13 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 		cleanupPercentage = 0
 	}
 
-	t.logger.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, since_cleanup=%d} requested via %s...",
+	t.logger.Infof("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, since_cleanup=%d} requested via %s...",
 		t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, t.insertionCountSinceCleanup,
 		src,
 	)
 
 	if !t.root.mutated() && cleanupPercentage == 0 {
-		t.logger.Infof("Flushing not needed at '%s' {ts=%d, cleanup_percentage=%.2f}", t.path, t.root.ts(), cleanupPercentage)
+		t.logger.Infof("flushing not needed at '%s' {ts=%d, cleanup_percentage=%.2f}", t.path, t.root.ts(), cleanupPercentage)
 		return 0, 0, nil
 	}
 
@@ -1085,19 +1085,19 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 
 	_, actualNewMinOffset, wN, wH, err := snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	err = t.hLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
@@ -1106,13 +1106,13 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	if sync {
 		err = t.hLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+			return 0, 0, t.wrapNwarn("syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 		}
 
 		err = t.nLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+			return 0, 0, t.wrapNwarn("syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 		}
 	}
@@ -1141,25 +1141,25 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 
 	cLogEntry.nLogChecksum, err = appendable.Checksum(t.nLog, t.committedNLogSize, wN)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	cLogEntry.hLogChecksum, err = appendable.Checksum(t.hLog, t.committedHLogSize, wH)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	_, _, err = t.cLog.Append(cLogEntry.serialize())
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
@@ -1167,18 +1167,18 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	if cleanupPercentage != 0 {
 		t.insertionCountSinceCleanup = 0
 	}
-	t.logger.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully flushed",
+	t.logger.Infof("index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully flushed",
 		t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage)
 
 	if sync {
 		err = t.cLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+			return 0, 0, t.wrapNwarn("syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 		}
 
 		t.insertionCountSinceSync = 0
-		t.logger.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully synced",
+		t.logger.Infof("index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully synced",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage)
 
 		// prevent discarding data referenced by opened snapshots
@@ -1190,31 +1190,31 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 		}
 
 		if discardableNLogOffset > t.minOffset {
-			t.logger.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d}...",
+			t.logger.Infof("discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d}...",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, t.minOffset, actualNewMinOffset)
 
 			err = t.nLog.DiscardUpto(discardableNLogOffset)
 			if err != nil {
-				t.logger.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+				t.logger.Warningf("discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 					t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 			}
 
 			metricsBtreeNodesDataBeginOffset.WithLabelValues(t.path).Set(float64(discardableNLogOffset))
 
-			t.logger.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d} successfully discarded",
+			t.logger.Infof("unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d} successfully discarded",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, t.minOffset, actualNewMinOffset)
 		}
 
 		discardableCommitLogOffset := t.committedLogSize - int64(cLogEntrySize*len(t.snapshots)+1)
 		if discardableCommitLogOffset > 0 {
-			t.logger.Infof("Discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d}...", t.path, t.root.ts(), len(t.snapshots))
+			t.logger.Infof("discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d}...", t.path, t.root.ts(), len(t.snapshots))
 
 			err = t.cLog.DiscardUpto(discardableCommitLogOffset)
 			if err != nil {
-				t.logger.Warningf("Discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d} returned: %v", t.path, t.root.ts(), len(t.snapshots), err)
+				t.logger.Warningf("discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d} returned: %v", t.path, t.root.ts(), len(t.snapshots), err)
 			}
 
-			t.logger.Infof("Older snapshots at index '%s' {ts=%d, opened_snapshots=%d} successfully discarded", t.path, t.root.ts(), len(t.snapshots))
+			t.logger.Infof("older snapshots at index '%s' {ts=%d, opened_snapshots=%d} successfully discarded", t.path, t.root.ts(), len(t.snapshots))
 		}
 	}
 
@@ -1344,7 +1344,7 @@ func (t *TBtree) Compact() (uint64, error) {
 	t.rwmutex.Unlock()
 	defer t.rwmutex.Lock()
 
-	t.logger.Infof("Dumping index '%s' {ts=%d}...", t.path, snap.Ts())
+	t.logger.Infof("dumping index '%s' {ts=%d}...", t.path, snap.Ts())
 
 	progressOutput, finishOutput := t.buildWriteProgressOutput(
 		metricsCompactedNodesLastCycle,
@@ -1359,10 +1359,10 @@ func (t *TBtree) Compact() (uint64, error) {
 
 	err = t.fullDump(snap, progressOutput)
 	if err != nil {
-		return 0, t.wrapNwarn("Dumping index '%s' {ts=%d} returned: %v", t.path, snap.Ts(), err)
+		return 0, t.wrapNwarn("dumping index '%s' {ts=%d} returned: %v", t.path, snap.Ts(), err)
 	}
 
-	t.logger.Infof("Index '%s' {ts=%d} successfully dumped", t.path, snap.Ts())
+	t.logger.Infof("index '%s' {ts=%d} successfully dumped", t.path, snap.Ts())
 
 	return snap.Ts(), nil
 }
@@ -1488,7 +1488,7 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 }
 
 func (t *TBtree) Close() error {
-	t.logger.Infof("Closing index '%s' {ts=%d}...", t.path, t.root.ts())
+	t.logger.Infof("closing index '%s' {ts=%d}...", t.path, t.root.ts())
 
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
@@ -1519,10 +1519,10 @@ func (t *TBtree) Close() error {
 
 	err = merrors.Reduce()
 	if err != nil {
-		return t.wrapNwarn("Closing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return t.wrapNwarn("closing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
 
-	t.logger.Infof("Index '%s' {ts=%d} successfully closed", t.path, t.root.ts())
+	t.logger.Infof("index '%s' {ts=%d} successfully closed", t.path, t.root.ts())
 	return nil
 }
 
