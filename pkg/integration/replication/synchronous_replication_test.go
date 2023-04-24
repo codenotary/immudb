@@ -603,11 +603,11 @@ func (suite *SyncTestChangingMasterSettingsSuite) SetupTest() {
 
 func (suite *SyncTestChangingMasterSettingsSuite) TestSyncTestChangingMasterSuite() {
 	suite.Run("get one locked writer due to insufficient confirmations", func() {
-		ctx, mc, cleanup := suite.ClientForMaster()
+		ctx, mc, cleanup := suite.ClientForPrimary()
 		defer cleanup()
-		_, err := mc.UpdateDatabaseV2(ctx, suite.masterDBName, &schema.DatabaseNullableSettings{
+		_, err := mc.UpdateDatabaseV2(ctx, suite.primaryDBName, &schema.DatabaseNullableSettings{
 			ReplicationSettings: &schema.ReplicationNullableSettings{
-				SyncFollowers: &schema.NullableUint32{
+				SyncAcks: &schema.NullableUint32{
 					Value: 2,
 				},
 			},
@@ -623,15 +623,15 @@ func (suite *SyncTestChangingMasterSettingsSuite) TestSyncTestChangingMasterSuit
 	})
 
 	suite.Run("recover from locked write by changing database settings", func() {
-		ctx, mc, cleanup := suite.ClientForMaster()
+		ctx, mc, cleanup := suite.ClientForPrimary()
 		defer cleanup()
 
 		ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		_, err := mc.UpdateDatabaseV2(ctxWithTimeout, suite.masterDBName, &schema.DatabaseNullableSettings{
+		_, err := mc.UpdateDatabaseV2(ctxWithTimeout, suite.primaryDBName, &schema.DatabaseNullableSettings{
 			ReplicationSettings: &schema.ReplicationNullableSettings{
-				SyncFollowers: &schema.NullableUint32{
+				SyncAcks: &schema.NullableUint32{
 					Value: 1,
 				},
 			},
@@ -646,7 +646,7 @@ func (suite *SyncTestChangingMasterSettingsSuite) TestSyncTestChangingMasterSuit
 	})
 
 	suite.Run("ensure all commits are correctly persisted", func() {
-		ctx, mc, cleanup := suite.ClientForMaster()
+		ctx, mc, cleanup := suite.ClientForPrimary()
 		defer cleanup()
 
 		val, err := mc.Get(ctx, []byte("key"))
