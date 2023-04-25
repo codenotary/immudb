@@ -211,7 +211,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	err = immuStore.Sync()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	err = immuStore.FlushIndex(100, true)
+	err = immuStore.FlushIndex(DefaultIndexID, 100, true)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = immuStore.commit(context.Background(), &OngoingTx{entries: []*EntrySpec{
@@ -964,10 +964,10 @@ func TestImmudbStoreIndexing(t *testing.T) {
 		return
 	}
 
-	err = immuStore.FlushIndex(-10, true)
+	err = immuStore.FlushIndex(DefaultIndexID, -10, true)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 
-	err = immuStore.FlushIndex(100, true)
+	err = immuStore.FlushIndex(DefaultIndexID, 100, true)
 	require.NoError(t, err)
 
 	t.Run("latest set value should be committed", func(t *testing.T) {
@@ -1607,7 +1607,9 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	hdr, err := immuStore.CommitWith(context.Background(), callback, true)
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(1), immuStore.IndexInfo())
+	ts, err := immuStore.IndexInfo(DefaultIndexID)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), ts)
 
 	_, err = immuStore.ReadValue(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
@@ -1659,7 +1661,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	err = immuStore.CompactIndex()
+	err = immuStore.CompactIndex(DefaultIndexID)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -1722,7 +1724,7 @@ func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 
 	defer immustoreClose(t, immuStore)
 
-	err = immuStore.CompactIndex()
+	err = immuStore.CompactIndex(DefaultIndexID)
 	require.ErrorIs(t, err, ErrCompactionUnsupported)
 }
 

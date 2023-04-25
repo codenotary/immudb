@@ -29,6 +29,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -109,6 +110,9 @@ var ErrIllegalTruncationArgument = fmt.Errorf("%w: invalid truncation info", Err
 var ErrTruncationInfoNotPresentInMetadata = errors.New("truncation info not present in metadata")
 
 var ErrMaxIndexIDExceeded = errors.New("max index id exceeded")
+var ErrIndexNotFound = errors.New("index not found")
+
+const DefaultIndexID = 0
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
@@ -206,7 +210,9 @@ type ImmuStore struct {
 	commitWHub           *watchers.WatchersHub
 
 	metaState *metaState
-	indexer   *indexer
+
+	indexers    map[int]*indexer
+	indexersMux sync.RWMutex
 
 	closed bool
 
@@ -541,6 +547,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		aht:       aht,
 		metaState: metaState,
 
+		indexers: make(map[int]*indexer),
+
 		inmemPrecommitWHub:   watchers.New(0, opts.MaxActiveTransactions+1), // syncer (TODO: indexer may wait here instead)
 		durablePrecommitWHub: watchers.New(0, opts.MaxActiveTransactions+opts.MaxWaitees),
 		commitWHub:           watchers.New(0, 1+opts.MaxActiveTransactions+opts.MaxWaitees), // including indexer
@@ -605,19 +613,21 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	indexPath := filepath.Join(store.path, indexDirname)
 
-	store.indexer, err = newIndexer(indexPath, store, opts)
+	defaultIndexer, err := newIndexer(0, indexPath, store, opts)
 	if err != nil {
 		store.Close()
 		return nil, fmt.Errorf("could not open indexer: %w", err)
 	}
 
-	if store.indexer.Ts() > committedTxID {
+	if defaultIndexer.Ts() > committedTxID {
 		store.Close()
 		return nil, fmt.Errorf("corrupted commit-log: index size is too large: %w", ErrCorruptedCLog)
 
 		// TODO: if indexing is done on pre-committed txs, the index may be rollback to a previous snapshot where it was already synced
 		// NOTE: compaction should preserve snapshot which are not synced... so to ensure rollback can be achieved
 	}
+
+	store.indexers[DefaultIndexID] = defaultIndexer
 
 	if store.synced {
 		go func() {
@@ -695,16 +705,38 @@ func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMess
 	}
 }
 
-func (s *ImmuStore) IndexInfo() uint64 {
-	return s.indexer.Ts()
+func (s *ImmuStore) getIndexer(indexID int) (*indexer, error) {
+	indexer, found := s.indexers[indexID]
+	if !found {
+		return nil, ErrIndexNotFound
+	}
+
+	return indexer, nil
+}
+
+func (s *ImmuStore) IndexInfo(indexID int) (uint64, error) {
+	s.indexersMux.RLock()
+	defer s.indexersMux.RUnlock()
+
+	indexer, err := s.getIndexer(indexID)
+	if err != nil {
+		return 0, err
+	}
+
+	return indexer.Ts(), nil
 }
 
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
+	return s.GetWithFilters(key, DefaultIndexID, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
-	indexedVal, tx, hc, err := s.indexer.Get(key)
+func (s *ImmuStore) GetWithFilters(key []byte, indexID int, filters ...FilterFn) (valRef ValueRef, err error) {
+	indexer, err := s.getIndexer(indexID)
+	if err != nil {
+		return nil, err
+	}
+
+	indexedVal, tx, hc, err := indexer.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -731,11 +763,16 @@ func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef Valu
 }
 
 func (s *ImmuStore) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return s.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+	return s.GetWithPrefixAndFilters(prefix, neq, DefaultIndexID, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
-	key, indexedVal, tx, hc, err := s.indexer.GetWithPrefix(prefix, neq)
+func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, indexID int, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+	indexer, err := s.getIndexer(indexID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	key, indexedVal, tx, hc, err := indexer.GetWithPrefix(prefix, neq)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -761,8 +798,13 @@ func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters .
 	return key, valRef, nil
 }
 
-func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
-	return s.indexer.History(key, offset, descOrder, limit)
+func (s *ImmuStore) History(key []byte, indexID int, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
+	indexer, err := s.getIndexer(indexID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return indexer.History(key, offset, descOrder, limit)
 }
 
 func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
@@ -998,18 +1040,86 @@ func (s *ImmuStore) WaitForIndexingUpto(ctx context.Context, txID uint64) error 
 		s.waiteesMutex.Unlock()
 	}()
 
-	return s.indexer.WaitForIndexingUpto(ctx, txID)
+	for _, indexer := range s.indexers {
+		err := indexer.WaitForIndexingUpto(ctx, txID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (s *ImmuStore) CompactIndex() error {
+func (s *ImmuStore) GetIndexIDs() []int {
+	s.indexersMux.RLock()
+	defer s.indexersMux.RUnlock()
+
+	ids := make([]int, len(s.indexers))
+
+	i := 0
+
+	for id := range s.indexers {
+		ids[i] = id
+		i++
+	}
+
+	sort.Ints(ids)
+
+	return ids
+}
+
+func (s *ImmuStore) CompactIndex(indexID int) error {
+	return s.CompactIndexes([]int{indexID})
+}
+
+func (s *ImmuStore) CompactIndexes(indexIDs []int) error {
 	if s.compactionDisabled {
 		return ErrCompactionUnsupported
 	}
-	return s.indexer.CompactIndex()
+
+	s.indexersMux.RLock()
+	defer s.indexersMux.RUnlock()
+
+	// TODO: indexes may be concurrently compacted
+
+	for _, indexID := range indexIDs {
+		indexer, err := s.getIndexer(indexID)
+		if err != nil {
+			return err
+		}
+
+		err = indexer.CompactIndex()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (s *ImmuStore) FlushIndex(cleanupPercentage float32, synced bool) error {
-	return s.indexer.FlushIndex(cleanupPercentage, synced)
+func (s *ImmuStore) FlushIndex(indexID int, cleanupPercentage float32, synced bool) error {
+	return s.FlushIndexes([]int{indexID}, cleanupPercentage, synced)
+}
+
+func (s *ImmuStore) FlushIndexes(indexIDs []int, cleanupPercentage float32, synced bool) error {
+	s.indexersMux.RLock()
+	defer s.indexersMux.RUnlock()
+
+	// TODO: indexes may be concurrently flushed
+
+	for _, indexID := range indexIDs {
+		indexer, err := s.getIndexer(indexID)
+		if err != nil {
+			return err
+		}
+
+		err = indexer.FlushIndex(cleanupPercentage, synced)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen int) int {
@@ -1770,15 +1880,15 @@ func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
 }
 
 func (index *unsafeIndex) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, error) {
-	return index.st.GetWithFilters(key, filters...)
+	return index.st.GetWithFilters(key, DefaultIndexID, filters...)
 }
 
 func (index *unsafeIndex) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return index.st.GetWithPrefixAndFilters(prefix, neq, IgnoreDeleted, IgnoreExpired)
+	return index.st.GetWithPrefixAndFilters(prefix, neq, DefaultIndexID, IgnoreDeleted, IgnoreExpired)
 }
 
 func (index *unsafeIndex) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
-	return index.st.GetWithPrefixAndFilters(prefix, neq, filters...)
+	return index.st.GetWithPrefixAndFilters(prefix, neq, DefaultIndexID, filters...)
 }
 
 func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
@@ -2929,8 +3039,8 @@ func (s *ImmuStore) Close() error {
 
 	merr := multierr.NewMultiErr()
 
-	if s.indexer != nil {
-		err := s.indexer.Close()
+	for _, indexer := range s.indexers {
+		err := indexer.Close()
 		merr.Append(err)
 	}
 
