@@ -28,7 +28,7 @@ type DocumentServiceClient interface {
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
 	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error)
 	CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error)
-	DocumentInsertMany(ctx context.Context, in *DocumentBulkInsertRequest, opts ...grpc.CallOption) (*DocumentBulkInsertResponse, error)
+	DocumentInsertMany(ctx context.Context, in *DocumentInsertManyRequest, opts ...grpc.CallOption) (*DocumentInsertManyResponse, error)
 }
 
 type documentServiceClient struct {
@@ -129,8 +129,8 @@ func (c *documentServiceClient) CollectionUpdate(ctx context.Context, in *Collec
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentInsertMany(ctx context.Context, in *DocumentBulkInsertRequest, opts ...grpc.CallOption) (*DocumentBulkInsertResponse, error) {
-	out := new(DocumentBulkInsertResponse)
+func (c *documentServiceClient) DocumentInsertMany(ctx context.Context, in *DocumentInsertManyRequest, opts ...grpc.CallOption) (*DocumentInsertManyResponse, error) {
+	out := new(DocumentInsertManyResponse)
 	err := c.cc.Invoke(ctx, "/immudb.documentschema.DocumentService/DocumentInsertMany", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -152,7 +152,7 @@ type DocumentServiceServer interface {
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
 	CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error)
 	CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error)
-	DocumentInsertMany(context.Context, *DocumentBulkInsertRequest) (*DocumentBulkInsertResponse, error)
+	DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error)
 }
 
 // UnimplementedDocumentServiceServer should be embedded to have forward compatible implementations.
@@ -189,7 +189,7 @@ func (UnimplementedDocumentServiceServer) CollectionDelete(context.Context, *Col
 func (UnimplementedDocumentServiceServer) CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionUpdate not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentInsertMany(context.Context, *DocumentBulkInsertRequest) (*DocumentBulkInsertResponse, error) {
+func (UnimplementedDocumentServiceServer) DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsertMany not implemented")
 }
 
@@ -385,7 +385,7 @@ func _DocumentService_CollectionUpdate_Handler(srv interface{}, ctx context.Cont
 }
 
 func _DocumentService_DocumentInsertMany_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentBulkInsertRequest)
+	in := new(DocumentInsertManyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -397,7 +397,7 @@ func _DocumentService_DocumentInsertMany_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/immudb.documentschema.DocumentService/DocumentInsertMany",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentInsertMany(ctx, req.(*DocumentBulkInsertRequest))
+		return srv.(DocumentServiceServer).DocumentInsertMany(ctx, req.(*DocumentInsertManyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -241,7 +241,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentBulkInsertResponse"
+              "$ref": "#/definitions/documentschemaDocumentInsertManyResponse"
             }
           },
           "default": {
@@ -257,7 +257,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentBulkInsertRequest"
+              "$ref": "#/definitions/documentschemaDocumentInsertManyRequest"
             }
           }
         ],
@@ -500,13 +500,13 @@
         }
       }
     },
-    "documentschemaDocumentBulkInsertRequest": {
+    "documentschemaDocumentInsertManyRequest": {
       "type": "object",
       "properties": {
         "collection": {
           "type": "string"
         },
-        "document": {
+        "documents": {
           "type": "array",
           "items": {
             "type": "object"
@@ -514,7 +514,7 @@
         }
       }
     },
-    "documentschemaDocumentBulkInsertResponse": {
+    "documentschemaDocumentInsertManyResponse": {
       "type": "object",
       "properties": {
         "documentIds": {

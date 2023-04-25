@@ -56,8 +56,8 @@ type DocumentDatabase interface {
 	UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
 	// DocumentProof returns the proofs for a document
 	DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error)
-	// BulkInsertDocuments creates a new document
-	BulkInsertDocuments(ctx context.Context, req *schemav2.DocumentBulkInsertRequest) (*schemav2.DocumentBulkInsertResponse, error)
+	// DocumentInsertMany creates a new document
+	DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error)
 }
 
 // CreateCollection creates a new collection
@@ -329,15 +329,20 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 	}, nil
 }
 
-// BulkInsertDocuments inserts multiple documents
-func (d *db) BulkInsertDocuments(ctx context.Context, req *schemav2.DocumentBulkInsertRequest) (*schemav2.DocumentBulkInsertResponse, error) {
-	// docID, txID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
-	// if err != nil {
-	// 	return nil, err
-	// }
+// DocumentInsertMany inserts multiple documents
+func (d *db) DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error) {
+	docIDs, txID, err := d.documentEngine.BulkInsertDocuments(ctx, req.Collection, req.Documents)
+	if err != nil {
+		return nil, err
+	}
 
-	return &schemav2.DocumentBulkInsertResponse{
-		// DocumentId:    docID.EncodeToHexString(),
-		// TransactionId: txID,
+	docIDsStr := make([]string, 0, len(docIDs))
+	for _, docID := range docIDs {
+		docIDsStr = append(docIDsStr, docID.EncodeToHexString())
+	}
+
+	return &schemav2.DocumentInsertManyResponse{
+		DocumentIds:   docIDsStr,
+		TransactionId: txID,
 	}, nil
 }

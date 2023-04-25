@@ -190,12 +190,12 @@ message CollectionUpdateResponse {
   CollectionInformation collection = 1;
 }
 
-message DocumentBulkInsertRequest {
+message DocumentInsertManyRequest {
   string collection = 1;
-  repeated google.protobuf.Struct document = 2;
+  repeated google.protobuf.Struct documents = 2;
 }
 
-message DocumentBulkInsertResponse {
+message DocumentInsertManyResponse {
   repeated string documentIds = 1;
   uint64 transactionId = 2;
 }
@@ -308,7 +308,7 @@ service DocumentService {
     };
   }
 
-  rpc DocumentInsertMany(DocumentBulkInsertRequest) returns (DocumentBulkInsertResponse) {
+  rpc DocumentInsertMany(DocumentInsertManyRequest) returns (DocumentInsertManyResponse) {
     option (google.api.http) = {
       put: "/documents/insertMany"
       body: "*"
