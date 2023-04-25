@@ -21,8 +21,8 @@
     - [DocumentAudit](#immudb.documentschema.DocumentAudit)
     - [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest)
     - [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse)
-    - [DocumentBulkInsertRequest](#immudb.documentschema.DocumentBulkInsertRequest)
-    - [DocumentBulkInsertResponse](#immudb.documentschema.DocumentBulkInsertResponse)
+    - [DocumentInsertManyRequest](#immudb.documentschema.DocumentInsertManyRequest)
+    - [DocumentInsertManyResponse](#immudb.documentschema.DocumentInsertManyResponse)
     - [DocumentInsertRequest](#immudb.documentschema.DocumentInsertRequest)
     - [DocumentInsertResponse](#immudb.documentschema.DocumentInsertResponse)
     - [DocumentProofRequest](#immudb.documentschema.DocumentProofRequest)
@@ -308,25 +308,25 @@
 
 
 
-<a name="immudb.documentschema.DocumentBulkInsertRequest"></a>
+<a name="immudb.documentschema.DocumentInsertManyRequest"></a>
 
-### DocumentBulkInsertRequest
+### DocumentInsertManyRequest
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| document | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
+| documents | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.documentschema.DocumentBulkInsertResponse"></a>
+<a name="immudb.documentschema.DocumentInsertManyResponse"></a>
 
-### DocumentBulkInsertResponse
+### DocumentInsertManyResponse
 
 
 
@@ -577,7 +577,7 @@
 | CollectionList | [CollectionListRequest](#immudb.documentschema.CollectionListRequest) | [CollectionListResponse](#immudb.documentschema.CollectionListResponse) |  |
 | CollectionDelete | [CollectionDeleteRequest](#immudb.documentschema.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.documentschema.CollectionDeleteResponse) |  |
 | CollectionUpdate | [CollectionUpdateRequest](#immudb.documentschema.CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb.documentschema.CollectionUpdateResponse) |  |
-| DocumentInsertMany | [DocumentBulkInsertRequest](#immudb.documentschema.DocumentBulkInsertRequest) | [DocumentBulkInsertResponse](#immudb.documentschema.DocumentBulkInsertResponse) |  |
+| DocumentInsertMany | [DocumentInsertManyRequest](#immudb.documentschema.DocumentInsertManyRequest) | [DocumentInsertManyResponse](#immudb.documentschema.DocumentInsertManyResponse) |  |
 
  
 

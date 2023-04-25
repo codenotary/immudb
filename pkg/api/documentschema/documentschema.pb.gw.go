@@ -378,7 +378,7 @@ func local_request_DocumentService_CollectionUpdate_0(ctx context.Context, marsh
 }
 
 func request_DocumentService_DocumentInsertMany_0(ctx context.Context, marshaler runtime.Marshaler, client DocumentServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DocumentBulkInsertRequest
+	var protoReq DocumentInsertManyRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -395,7 +395,7 @@ func request_DocumentService_DocumentInsertMany_0(ctx context.Context, marshaler
 }
 
 func local_request_DocumentService_DocumentInsertMany_0(ctx context.Context, marshaler runtime.Marshaler, server DocumentServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DocumentBulkInsertRequest
+	var protoReq DocumentInsertManyRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
