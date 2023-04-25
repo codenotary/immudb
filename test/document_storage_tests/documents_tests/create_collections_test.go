@@ -19,9 +19,9 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/test/documents_storage_tests/documents_tests/actions"
 	"github.com/gavv/httpexpect/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -30,140 +30,38 @@ import (
 
 type CreateCollectionsTestSuite struct {
 	suite.Suite
-	expect *httpexpect.Expect
-	token  string
+	expect          *httpexpect.Expect
+	token           string
+	collection_name string
 }
 
 func (s *CreateCollectionsTestSuite) SetupTest() {
-	baseURL, exists := os.LookupEnv("DOCUMENTS_TEST_BASEURL")
-
-	if !exists {
-		baseURL = "http://localhost:8091/api/v2"
-	}
-
-	user := map[string]interface{}{
-		"username": "immudb",
-		"password": "immudb",
-		"database": "defaultdb",
-	}
-
-	s.expect = httpexpect.Default(s.T(), baseURL)
-	obj := s.expect.POST("/authorization/session/open").
-		WithJSON(user).
-		Expect().
-		Status(http.StatusOK).JSON().Object()
-	s.token = obj.Value("token").Raw().(string)
-
+	s.expect, s.token = actions.OpenSession(s.T())
+	s.collection_name = uuid.New().String()
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithName() {
-	payloadModel := `{
-       	"name": "string"
-	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = uuid.New().String()
-
-	s.expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := s.expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
+	collection := actions.CreateCollectionWithName(s.expect, s.token, s.collection_name)
 
 	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(payload["name"])
+	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneIndexKey() {
-	payloadModel := `{
-		"name": "string",
-		"indexKeys": {
-			"customers": {
-			  "type": "DOUBLE"
-			}
-		}
- 	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = uuid.New().String()
-	payload["indexKeys"] = map[string]interface{}{
-		"birth_date": map[string]interface{}{
-			"type": "STRING",
-		},
-	}
-
-	s.expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := s.expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
+	collection := actions.CreateCollectionWithNameAndOneIndexKey(s.expect, s.token, s.collection_name)
 
 	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(payload["name"])
+	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
 	collection.Value("collection").Object().Value("indexKeys").Object().Keys().ContainsOnly("_id", "birth_date")
 	collection.Value("collection").Object().Value("indexKeys").Object().Value("_id").Object().Value("type").IsEqual("STRING")
 	collection.Value("collection").Object().Value("indexKeys").Object().Value("birth_date").Object().Value("type").IsEqual("STRING")
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndMultipleIndexKeys() {
-	payloadModel := `{
-		"name": "string",
-		"indexKeys": {
-			"employees": {
-			  "type": "INTEGER"
-			}
-		}
- 	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = uuid.New().String()
-	payload["indexKeys"] = map[string]interface{}{
-		"birth_date": map[string]interface{}{
-			"type": "STRING",
-		},
-		"first_name": map[string]interface{}{
-			"type": "STRING",
-		},
-		"last_name": map[string]interface{}{
-			"type": "STRING",
-		},
-		"gender": map[string]interface{}{
-			"type": "STRING",
-		},
-		"hire_date": map[string]interface{}{
-			"type": "STRING",
-		},
-	}
-
-	s.expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := s.expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
+	collection := actions.CreateCollectionWithNameAndMultipleIndexKeys(s.expect, s.token, s.collection_name)
 
 	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(payload["name"])
+	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
 	collection.Value("collection").Object().Value("indexKeys").Object().Keys().ContainsOnly("_id", "birth_date", "first_name", "last_name", "gender", "hire_date")
 	collection.Value("collection").Object().Value("indexKeys").Object().Value("_id").Object().Value("type").IsEqual("STRING")
 	collection.Value("collection").Object().Value("indexKeys").Object().Value("birth_date").Object().Value("type").IsEqual("STRING")
@@ -221,28 +119,10 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithoutNameButWithIndex
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithIntegerName() {
-	payloadModel := `{
-       	"name": 123
-	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = uuid.New()
-
-	s.expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := s.expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
+	collection := actions.CreateCollectionWithIntegerName(s.expect, s.token, s.collection_name)
 
 	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(payload["name"])
+	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneInvalidIndexKey() {
