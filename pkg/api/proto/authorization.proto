@@ -16,12 +16,12 @@ limitations under the License.
 
 syntax = "proto3";
 
-package immudb.authorizationschema;
+package immudb.model;
 
 import "google/api/annotations.proto";
 import "protoc-gen-swagger/options/annotations.proto";
 
-option go_package = "github.com/codenotary/immudb/pkg/api/authorizationschema";
+option go_package = "github.com/codenotary/immudb/pkg/api/protomodel";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   base_path: "/api/v2",
   info: {
@@ -30,23 +30,51 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   };
 };
 
-message OpenSessionRequestV2 {
+message OpenSessionRequest {
   string username = 1;
   string password = 2;
   string database = 3;
 }
 
-message OpenSessionResponseV2 {
-  string token = 1;
+message OpenSessionResponse {
+  string sessionID = 1;
   string serverUUID = 2;
   int32 expirationTimestamp = 3;
   int32 inactivityTimestamp = 4;
 }
 
+message KeepAliveRequest {}
+
+message KeepAliveResponse {}
+
+message CloseSessionRequest {}
+
+message CloseSessionResponse {}
+
 service AuthorizationService {
-  rpc OpenSessionV2(OpenSessionRequestV2) returns (OpenSessionResponseV2) {
+  rpc OpenSession(OpenSessionRequest) returns (OpenSessionResponse) {
     option (google.api.http) = {
       post: "/authorization/session/open"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "authorization";
+    };
+  }
+
+  rpc KeepAlive(KeepAliveRequest) returns (KeepAliveResponse) {
+    option (google.api.http) = {
+      post: "/authorization/session/keepalive"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "authorization";
+    };
+  }
+
+  rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse) {
+    option (google.api.http) = {
+      post: "/authorization/session/close"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {

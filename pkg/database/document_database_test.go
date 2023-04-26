@@ -20,15 +20,15 @@ import (
 	"os"
 	"testing"
 
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/verification"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func newIndexOption(indexType schemav2.IndexType) *schemav2.IndexOption {
-	return &schemav2.IndexOption{Type: indexType}
+func newIndexOption(indexType protomodel.IndexType) *protomodel.IndexOption {
+	return &protomodel.IndexOption{Type: indexType}
 }
 
 func makeDocumentDb(t *testing.T) *db {
@@ -53,21 +53,21 @@ func makeDocumentDb(t *testing.T) *db {
 }
 
 func TestDocumentDB_Collection(t *testing.T) {
-	ctx := context.Background()
 	db := makeDocumentDb(t)
 
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(ctx, &schemav2.CollectionCreateRequest{
+
+	_, err := db.CreateCollection(context.Background(), &documents.CollectionCreateRequest{
 		Name: collectionName,
-		IndexKeys: map[string]*schemav2.IndexOption{
-			"pincode": newIndexOption(schemav2.IndexType_INTEGER),
+		IndexKeys: map[string]*documents.IndexOption{
+			"pincode": newIndexOption(documents.IndexType_INTEGER),
 		},
 	})
 	require.NoError(t, err)
 
 	// get collection
-	cinfo, err := db.GetCollection(ctx, &schemav2.CollectionGetRequest{
+	cinfo, err := db.GetCollection(context.Background(), &documents.CollectionGetRequest{
 		Name: collectionName,
 	})
 	require.NoError(t, err)
@@ -75,10 +75,10 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.Equal(t, 2, len(resp.IndexKeys))
 	require.Contains(t, resp.IndexKeys, "_id")
 	require.Contains(t, resp.IndexKeys, "pincode")
-	require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
+	require.Equal(t, documents.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
 
 	// add document to collection
-	docRes, err := db.InsertDocument(ctx, &schemav2.DocumentInsertRequest{
+	docRes, err := db.InsertDocument(context.Background(), &documents.DocumentInsertRequest{
 		Collection: collectionName,
 		Document: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
@@ -92,23 +92,23 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.NotNil(t, docRes)
 
 	// query collection for document
-	reader, err := db.SearchDocuments(ctx, &schemav2.DocumentSearchRequest{
+	reader, err := db.SearchDocuments(context.Background(), &documents.DocumentSearchRequest{
 		Collection: collectionName,
 		Page:       1,
 		PerPage:    10,
-		Query: []*schemav2.DocumentQuery{
+		Query: []*documents.DocumentQuery{
 			{
 				Field: "pincode",
 				Value: &structpb.Value{
 					Kind: &structpb.Value_NumberValue{NumberValue: 123},
 				},
-				Operator: schemav2.QueryOperator_EQ,
+				Operator: documents.QueryOperator_EQ,
 			},
 		},
 	})
 	require.NoError(t, err)
 	defer reader.Close()
-	docs, err := reader.Read(ctx, 1)
+	docs, err := reader.Read(context.Background(), 1)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(docs))
@@ -116,14 +116,14 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 
-	proofRes, err := db.DocumentProof(ctx, &schemav2.DocumentProofRequest{
+	proofRes, err := db.DocumentProof(context.Background(), &documents.DocumentProofRequest{
 		Collection: collectionName,
 		DocumentId: docRes.DocumentId,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, proofRes)
 
-	newState, err := verification.VerifyDocument(ctx, proofRes, doc, nil, nil)
+	newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
 }

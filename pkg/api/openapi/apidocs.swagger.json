@@ -2,9 +2,17 @@
   "swagger": "2.0",
   "info": {
     "title": "immudb REST API v2",
-    "description": "Objects storage API",
+    "description": "Authorization API",
     "version": "version not set"
   },
+  "tags": [
+    {
+      "name": "AuthorizationService"
+    },
+    {
+      "name": "DocumentService"
+    }
+  ],
   "basePath": "/api/v2",
   "consumes": [
     "application/json"
@@ -13,20 +21,20 @@
     "application/json"
   ],
   "paths": {
-    "/collections/create": {
-      "put": {
-        "operationId": "DocumentService_CollectionCreate",
+    "/authorization/session/close": {
+      "post": {
+        "operationId": "CloseSession",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionCreateResponse"
+              "$ref": "#/definitions/modelCloseSessionResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -36,7 +44,103 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionCreateRequest"
+              "$ref": "#/definitions/modelCloseSessionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/authorization/session/keepalive": {
+      "post": {
+        "operationId": "KeepAlive",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelKeepAliveResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelKeepAliveRequest"
+            }
+          }
+        ],
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/authorization/session/open": {
+      "post": {
+        "operationId": "OpenSession",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/immudbmodelOpenSessionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/immudbmodelOpenSessionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/collections/create": {
+      "put": {
+        "operationId": "CollectionCreate",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCollectionCreateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCollectionCreateRequest"
             }
           }
         ],
@@ -47,18 +151,18 @@
     },
     "/collections/delete": {
       "delete": {
-        "operationId": "DocumentService_CollectionDelete",
+        "operationId": "CollectionDelete",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionDeleteResponse"
+              "$ref": "#/definitions/modelCollectionDeleteResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -77,18 +181,18 @@
     },
     "/collections/get": {
       "get": {
-        "operationId": "DocumentService_CollectionGet",
+        "operationId": "CollectionGet",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionGetResponse"
+              "$ref": "#/definitions/modelCollectionGetResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -107,18 +211,18 @@
     },
     "/collections/list": {
       "post": {
-        "operationId": "DocumentService_CollectionList",
+        "operationId": "CollectionList",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionListResponse"
+              "$ref": "#/definitions/modelCollectionListResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -128,7 +232,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionListRequest"
+              "$ref": "#/definitions/modelCollectionListRequest"
             }
           }
         ],
@@ -139,18 +243,18 @@
     },
     "/collections/update": {
       "put": {
-        "operationId": "DocumentService_CollectionUpdate",
+        "operationId": "CollectionUpdate",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionUpdateResponse"
+              "$ref": "#/definitions/modelCollectionUpdateResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -160,7 +264,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaCollectionUpdateRequest"
+              "$ref": "#/definitions/modelCollectionUpdateRequest"
             }
           }
         ],
@@ -171,18 +275,18 @@
     },
     "/documents/audit": {
       "post": {
-        "operationId": "DocumentService_DocumentAudit",
+        "operationId": "DocumentAudit",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentAuditResponse"
+              "$ref": "#/definitions/modelDocumentAuditResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -192,7 +296,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentAuditRequest"
+              "$ref": "#/definitions/modelDocumentAuditRequest"
             }
           }
         ],
@@ -204,18 +308,18 @@
     },
     "/documents/insert": {
       "put": {
-        "operationId": "DocumentService_DocumentInsert",
+        "operationId": "DocumentInsert",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentInsertResponse"
+              "$ref": "#/definitions/modelDocumentInsertResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -225,7 +329,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentInsertRequest"
+              "$ref": "#/definitions/modelDocumentInsertRequest"
             }
           }
         ],
@@ -236,18 +340,18 @@
     },
     "/documents/insertMany": {
       "put": {
-        "operationId": "DocumentService_DocumentInsertMany",
+        "operationId": "DocumentInsertMany",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentInsertManyResponse"
+              "$ref": "#/definitions/modelDocumentInsertManyResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -257,7 +361,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentInsertManyRequest"
+              "$ref": "#/definitions/modelDocumentInsertManyRequest"
             }
           }
         ],
@@ -268,18 +372,18 @@
     },
     "/documents/proof": {
       "post": {
-        "operationId": "DocumentService_DocumentProof",
+        "operationId": "DocumentProof",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentProofResponse"
+              "$ref": "#/definitions/modelDocumentProofResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -289,7 +393,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentProofRequest"
+              "$ref": "#/definitions/modelDocumentProofRequest"
             }
           }
         ],
@@ -301,18 +405,18 @@
     },
     "/documents/search": {
       "post": {
-        "operationId": "DocumentService_DocumentSearch",
+        "operationId": "DocumentSearch",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentSearchResponse"
+              "$ref": "#/definitions/modelDocumentSearchResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -322,7 +426,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentSearchRequest"
+              "$ref": "#/definitions/modelDocumentSearchRequest"
             }
           }
         ],
@@ -333,18 +437,18 @@
     },
     "/documents/update": {
       "post": {
-        "operationId": "DocumentService_DocumentUpdate",
+        "operationId": "DocumentUpdate",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentUpdateResponse"
+              "$ref": "#/definitions/modelDocumentUpdateResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -354,7 +458,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/documentschemaDocumentUpdateRequest"
+              "$ref": "#/definitions/modelDocumentUpdateRequest"
             }
           }
         ],
@@ -365,96 +469,137 @@
     }
   },
   "definitions": {
-    "documentschemaCollectionCreateRequest": {
+    "immudbmodelOpenSessionRequest": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "immudbmodelOpenSessionResponse": {
+      "type": "object",
+      "properties": {
+        "sessionID": {
+          "type": "string"
+        },
+        "serverUUID": {
+          "type": "string"
+        },
+        "expirationTimestamp": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "inactivityTimestamp": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "modelCloseSessionRequest": {
+      "type": "object"
+    },
+    "modelCloseSessionResponse": {
+      "type": "object"
+    },
+    "modelCollection": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
-        "indexKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexOption"
-          }
-        }
-      }
-    },
-    "documentschemaCollectionCreateResponse": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "$ref": "#/definitions/documentschemaCollectionInformation"
-        }
-      }
-    },
-    "documentschemaCollectionDeleteResponse": {
-      "type": "object"
-    },
-    "documentschemaCollectionGetResponse": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "$ref": "#/definitions/documentschemaCollectionInformation"
-        }
-      }
-    },
-    "documentschemaCollectionInformation": {
-      "type": "object",
-      "properties": {
-        "name": {
+        "idFieldName": {
           "type": "string"
         },
-        "indexKeys": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexOption"
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelField"
+          }
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelIndex"
           }
         }
       }
     },
-    "documentschemaCollectionListRequest": {
+    "modelCollectionCreateRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/modelCollection"
+        }
+      }
+    },
+    "modelCollectionCreateResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/modelCollection"
+        }
+      }
+    },
+    "modelCollectionDeleteResponse": {
       "type": "object"
     },
-    "documentschemaCollectionListResponse": {
+    "modelCollectionGetResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/modelCollection"
+        }
+      }
+    },
+    "modelCollectionListRequest": {
+      "type": "object"
+    },
+    "modelCollectionListResponse": {
       "type": "object",
       "properties": {
         "collections": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/documentschemaCollectionInformation"
+            "type": "object",
+            "$ref": "#/definitions/modelCollection"
           }
         }
       }
     },
-    "documentschemaCollectionUpdateRequest": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "addIndexes": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/documentschemaIndexOption"
-          }
-        },
-        "removeIndexes": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "documentschemaCollectionUpdateResponse": {
+    "modelCollectionUpdateRequest": {
       "type": "object",
       "properties": {
         "collection": {
-          "$ref": "#/definitions/documentschemaCollectionInformation"
+          "$ref": "#/definitions/modelCollection"
         }
       }
     },
-    "documentschemaDocumentAudit": {
+    "modelCollectionUpdateResponse": {
+      "type": "object"
+    },
+    "modelComparisonOperator": {
+      "type": "string",
+      "enum": [
+        "EQ",
+        "NE",
+        "LT",
+        "LE",
+        "GT",
+        "GE",
+        "LIKE"
+      ],
+      "default": "EQ"
+    },
+    "modelDocumentAtRevision": {
       "type": "object",
       "properties": {
         "transactionId": {
@@ -470,7 +615,7 @@
         }
       }
     },
-    "documentschemaDocumentAuditRequest": {
+    "modelDocumentAuditRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -478,6 +623,9 @@
         },
         "documentId": {
           "type": "string"
+        },
+        "desc": {
+          "type": "boolean"
         },
         "page": {
           "type": "integer",
@@ -489,18 +637,19 @@
         }
       }
     },
-    "documentschemaDocumentAuditResponse": {
+    "modelDocumentAuditResponse": {
       "type": "object",
       "properties": {
-        "results": {
+        "revisions": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/documentschemaDocumentAudit"
+            "type": "object",
+            "$ref": "#/definitions/modelDocumentAtRevision"
           }
         }
       }
     },
-    "documentschemaDocumentInsertManyRequest": {
+    "modelDocumentInsertManyRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -514,22 +663,22 @@
         }
       }
     },
-    "documentschemaDocumentInsertManyResponse": {
+    "modelDocumentInsertManyResponse": {
       "type": "object",
       "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
         "documentIds": {
           "type": "array",
           "items": {
             "type": "string"
           }
-        },
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
         }
       }
     },
-    "documentschemaDocumentInsertRequest": {
+    "modelDocumentInsertRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -540,19 +689,19 @@
         }
       }
     },
-    "documentschemaDocumentInsertResponse": {
+    "modelDocumentInsertResponse": {
       "type": "object",
       "properties": {
-        "documentId": {
-          "type": "string"
-        },
         "transactionId": {
           "type": "string",
           "format": "uint64"
+        },
+        "documentId": {
+          "type": "string"
         }
       }
     },
-    "documentschemaDocumentProofRequest": {
+    "modelDocumentProofRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -571,7 +720,7 @@
         }
       }
     },
-    "documentschemaDocumentProofResponse": {
+    "modelDocumentProofResponse": {
       "type": "object",
       "properties": {
         "database": {
@@ -590,31 +739,17 @@
         }
       }
     },
-    "documentschemaDocumentQuery": {
-      "type": "object",
-      "properties": {
-        "field": {
-          "type": "string"
-        },
-        "operator": {
-          "$ref": "#/definitions/documentschemaQueryOperator"
-        },
-        "value": {
-          "type": "object"
-        }
-      }
-    },
-    "documentschemaDocumentSearchRequest": {
+    "modelDocumentSearchRequest": {
       "type": "object",
       "properties": {
         "collection": {
           "type": "string"
         },
         "query": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/documentschemaDocumentQuery"
-          }
+          "$ref": "#/definitions/modelQuery"
+        },
+        "desc": {
+          "type": "boolean"
         },
         "page": {
           "type": "integer",
@@ -629,13 +764,14 @@
         }
       }
     },
-    "documentschemaDocumentSearchResponse": {
+    "modelDocumentSearchResponse": {
       "type": "object",
       "properties": {
-        "results": {
+        "revisions": {
           "type": "array",
           "items": {
-            "type": "object"
+            "type": "object",
+            "$ref": "#/definitions/modelDocumentAtRevision"
           }
         },
         "searchID": {
@@ -643,83 +779,116 @@
         }
       }
     },
-    "documentschemaDocumentUpdateRequest": {
+    "modelDocumentUpdateRequest": {
       "type": "object",
       "properties": {
         "collection": {
           "type": "string"
         },
         "query": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/documentschemaDocumentQuery"
-          }
+          "$ref": "#/definitions/modelQuery"
         },
         "document": {
           "type": "object"
         }
       }
     },
-    "documentschemaDocumentUpdateResponse": {
+    "modelDocumentUpdateResponse": {
       "type": "object",
       "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
         "revision": {
-          "type": "string",
-          "format": "uint64"
+          "$ref": "#/definitions/modelDocumentAtRevision"
         }
       }
     },
-    "documentschemaIndexOption": {
+    "modelField": {
       "type": "object",
       "properties": {
+        "name": {
+          "type": "string"
+        },
         "type": {
-          "$ref": "#/definitions/documentschemaIndexType"
+          "$ref": "#/definitions/modelFieldType"
+        }
+      }
+    },
+    "modelFieldComparison": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/definitions/modelComparisonOperator"
+        },
+        "value": {}
+      }
+    },
+    "modelFieldType": {
+      "type": "string",
+      "enum": [
+        "STRING",
+        "BOOLEAN",
+        "INTEGER",
+        "DOUBLE",
+        "BLOB"
+      ],
+      "default": "STRING"
+    },
+    "modelIndex": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "isUnique": {
           "type": "boolean"
         }
       }
     },
-    "documentschemaIndexType": {
-      "type": "string",
-      "enum": [
-        "DOUBLE",
-        "INTEGER",
-        "STRING"
-      ],
-      "default": "DOUBLE"
+    "modelKeepAliveRequest": {
+      "type": "object"
     },
-    "documentschemaQueryOperator": {
-      "type": "string",
-      "enum": [
-        "EQ",
-        "NE",
-        "LT",
-        "LE",
-        "GT",
-        "GE",
-        "LIKE"
-      ],
-      "default": "EQ"
+    "modelKeepAliveResponse": {
+      "type": "object"
+    },
+    "modelQuery": {
+      "type": "object",
+      "properties": {
+        "expressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelQueryExpression"
+          }
+        }
+      }
+    },
+    "modelQueryExpression": {
+      "type": "object",
+      "properties": {
+        "fieldComparisons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelFieldComparison"
+          }
+        }
+      }
     },
     "protobufAny": {
       "type": "object",
       "properties": {
-        "type_url": {
+        "@type": {
           "type": "string",
           "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
-        },
-        "value": {
-          "type": "string",
-          "format": "byte",
-          "description": "Must be a valid serialized protocol buffer of the above specified type."
         }
       },
-      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\nExample 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\nExample 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := anypb.New(foo)\n     if err != nil {\n       ...\n     }\n     ...\n     foo := \u0026pb.Foo{}\n     if err := any.UnmarshalTo(foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
+      "additionalProperties": {},
+      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\n Example 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\n Example 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := ptypes.MarshalAny(foo)\n     ...\n     foo := \u0026pb.Foo{}\n     if err := ptypes.UnmarshalAny(any, foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n====\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
     },
     "protobufNullValue": {
       "type": "string",
@@ -729,12 +898,9 @@
       "default": "NULL_VALUE",
       "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\n The JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
     },
-    "runtimeError": {
+    "rpcStatus": {
       "type": "object",
       "properties": {
-        "error": {
-          "type": "string"
-        },
         "code": {
           "type": "integer",
           "format": "int32"
@@ -745,6 +911,7 @@
         "details": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
         }
@@ -896,6 +1063,7 @@
         "entries": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/schemaTxEntry"
           },
           "title": "Raw entry values"
@@ -903,6 +1071,7 @@
         "kvEntries": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/schemaEntry"
           },
           "title": "KV entries in the transaction (parsed)"
@@ -910,6 +1079,7 @@
         "zEntries": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/schemaZEntry"
           },
           "title": "Sorted Set entries in the transaction (parsed)"
@@ -1051,18 +1221,5 @@
         }
       }
     }
-  },
-  "securityDefinitions": {
-    "bearer": {
-      "type": "apiKey",
-      "description": "Session token: \u003ctoken\u003e",
-      "name": "grpc-metadata-sessionid",
-      "in": "header"
-    }
-  },
-  "security": [
-    {
-      "bearer": []
-    }
-  ]
+  }
 }

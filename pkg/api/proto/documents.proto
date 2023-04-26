@@ -1,0 +1,327 @@
+/*
+Copyright 2023 Codenotary Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+syntax = "proto3";
+
+package immudb.model;
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+import "schema.proto";
+
+option go_package = "github.com/codenotary/immudb/pkg/api/protomodel";
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  base_path: "/api/v2",
+  info: {
+    title: "immudb REST API v2";
+    description: "Objects storage API"
+  };
+  security_definitions: {
+    security: {
+      key: "bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "grpc-metadata-sessionid"
+        description: "Session token: <token>"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "bearer"
+    }
+  }
+};
+
+message CollectionCreateRequest {
+  Collection collection = 1;
+}
+
+message CollectionCreateResponse {
+  Collection collection = 1;
+}
+
+message Collection {
+  string name = 1;
+  string idFieldName = 2;
+  repeated Field fields = 3;
+  repeated Index indexes = 4;
+}
+
+message Field {
+  string name = 1;
+  FieldType type = 2;
+}
+
+enum FieldType {
+  STRING = 0;
+  BOOLEAN = 1;
+  INTEGER = 2;
+  DOUBLE = 3;
+  BLOB = 4;
+}
+
+message Index {
+  repeated string fields = 1;
+  bool isUnique = 2;
+}
+
+message CollectionGetRequest {
+  string name = 1;
+}
+
+message CollectionGetResponse {
+  Collection collection = 1;
+}
+
+message CollectionListRequest {}
+
+message CollectionListResponse {
+  repeated Collection collections = 1;
+}
+
+message CollectionDeleteRequest {
+  string name = 1;
+}
+
+message CollectionDeleteResponse {}
+
+message CollectionUpdateRequest {
+  Collection collection = 1;
+}
+
+message CollectionUpdateResponse {}
+
+message DocumentInsertRequest {
+  string collection = 1;
+  google.protobuf.Struct document = 2;
+}
+
+message DocumentInsertResponse {
+  uint64 transactionId = 1;
+  string documentId = 2;
+}
+
+message DocumentInsertManyRequest {
+  string collection = 1;
+  repeated google.protobuf.Struct documents = 2;
+}
+
+message DocumentInsertManyResponse {
+  uint64 transactionId = 1;
+  repeated string documentIds = 2;
+}
+
+message DocumentUpdateRequest {
+  string collection = 1;
+  Query query = 2;
+  google.protobuf.Struct document = 3;
+}
+
+message DocumentUpdateResponse {
+  DocumentAtRevision revision = 1;
+}
+
+message DocumentSearchRequest {
+  string searchID = 1;
+  string collection = 2;
+  Query query = 3;
+  bool desc = 4;
+  uint32 page = 5;
+  uint32 perPage = 6;
+}
+
+message Query {
+  repeated QueryExpression expressions = 1;
+}
+
+message QueryExpression {
+  repeated FieldComparison fieldComparisons = 1;
+}
+
+message FieldComparison {
+  string field = 1;
+  ComparisonOperator operator = 2;
+  google.protobuf.Value value = 3;
+}
+
+enum ComparisonOperator {
+  EQ = 0;
+  NE = 1;
+  LT = 2;
+  LE = 3;
+  GT = 4;
+  GE = 5;
+  LIKE = 6;
+}
+
+message DocumentSearchResponse {
+  string searchID = 1;
+  repeated DocumentAtRevision revisions = 2;
+}
+
+message DocumentAtRevision {
+  uint64 transactionId = 1;
+  uint64 revision = 2;
+  google.protobuf.Struct document = 3;
+}
+
+message DocumentAuditRequest {
+  string collection = 1;
+  string documentId = 2;
+  bool desc = 3;
+  uint32 page = 4;
+  uint32 perPage = 5;
+}
+
+message DocumentAuditResponse {
+  repeated DocumentAtRevision revisions = 1;
+}
+
+message DocumentProofRequest {
+  string collection = 1;
+  string documentId = 2;
+  uint64 transactionId = 3;
+  uint64 proofSinceTransactionId = 4;
+}
+
+message DocumentProofResponse {
+  string database = 1;
+  uint32 collectionId = 2;
+  bytes encodedDocument = 3;
+  schema.VerifiableTxV2 verifiableTx = 4;
+}
+
+service DocumentService {
+  rpc CollectionCreate(CollectionCreateRequest) returns (CollectionCreateResponse) {
+    option (google.api.http) = {
+      put: "/collections/create"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  rpc CollectionGet(CollectionGetRequest) returns (CollectionGetResponse) {
+    option (google.api.http) = {
+      get: "/collections/get"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  rpc CollectionList(CollectionListRequest) returns (CollectionListResponse) {
+    option (google.api.http) = {
+      post: "/collections/list"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  rpc CollectionDelete(CollectionDeleteRequest) returns (CollectionDeleteResponse) {
+    option (google.api.http) = {
+      delete: "/collections/delete"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  rpc CollectionUpdate(CollectionUpdateRequest) returns (CollectionUpdateResponse) {
+    option (google.api.http) = {
+      put: "/collections/update"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "collections";
+    };
+  }
+
+  rpc DocumentInsert(DocumentInsertRequest) returns (DocumentInsertResponse) {
+    option (google.api.http) = {
+      put: "/documents/insert"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc DocumentInsertMany(DocumentInsertManyRequest) returns (DocumentInsertManyResponse) {
+    option (google.api.http) = {
+      put: "/documents/insertMany"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc DocumentUpdate(DocumentUpdateRequest) returns (DocumentUpdateResponse) {
+    option (google.api.http) = {
+      post: "/documents/update"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: [
+        "documents"
+      ];
+    };
+  }
+
+  rpc DocumentSearch(DocumentSearchRequest) returns (DocumentSearchResponse) {
+    option (google.api.http) = {
+      post: "/documents/search"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc DocumentAudit(DocumentAuditRequest) returns (DocumentAuditResponse) {
+    option (google.api.http) = {
+      post: "/documents/audit"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: [
+        "documents",
+        "audit"
+      ];
+    };
+  }
+
+  rpc DocumentProof(DocumentProofRequest) returns (DocumentProofResponse) {
+    option (google.api.http) = {
+      post: "/documents/proof"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: [
+        "documents",
+        "audit"
+      ];
+    };
+  }
+
+}

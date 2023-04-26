@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-go run github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
