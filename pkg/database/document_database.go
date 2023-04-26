@@ -49,7 +49,7 @@ type DocumentDatabase interface {
 	// InsertDocument creates a new document
 	InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
 	// SearchDocuments queries the document
-	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error)
+	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (document.DocumentReader, error)
 	// DocumentAudit returns the document audit history
 	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
 	// UpdateDocument updates a document
@@ -124,7 +124,7 @@ func (d *db) getCollection(ctx context.Context, collectionName string) (*schemav
 }
 
 // SearchDocuments returns the documents matching the search request constraints
-func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (sql.RowReader, error) {
+func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (document.DocumentReader, error) {
 	queries := make([]*document.Query, 0, len(req.Query))
 	for _, q := range req.Query {
 		queries = append(queries, &document.Query{
@@ -137,7 +137,12 @@ func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRe
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
-	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries)
+	offset := (req.Page - 1) * req.PerPage
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid offset")
+	}
+
+	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries, int64(offset))
 	if err != nil {
 		return nil, err
 	}

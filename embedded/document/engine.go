@@ -117,6 +117,11 @@ type IndexOption struct {
 	IsUnique bool
 }
 
+type DocumentReader interface {
+	Read(ctx context.Context, count int) ([]*structpb.Struct, error)
+	Close() error
+}
+
 type upsertOptions struct {
 	isInsert bool
 	tx       *sql.SQLTx
@@ -515,7 +520,7 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 	return docID, txID, rev, nil
 }
 
-func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query) (sql.RowReader, error) {
+func (e *Engine) GetDocuments(ctx context.Context, collectionName string, queries []*Query, offset int64) (DocumentReader, error) {
 	exp, err := e.generateExp(ctx, collectionName, queries)
 	if err != nil {
 		return nil, err
@@ -526,7 +531,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 		collectionName,
 		exp,
 		nil,
-		nil,
+		sql.NewInteger(offset),
 	)
 
 	// returning an open reader here, so the caller HAS to close it
@@ -535,7 +540,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 		return nil, err
 	}
 
-	return r, nil
+	return NewDocumentReader(r), nil
 }
 
 func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *EncodedDocAudit, err error) {
@@ -927,14 +932,22 @@ func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string,
 	return
 }
 
+func NewDocumentReader(reader sql.RowReader) DocumentReader {
+	return &documentReader{reader: reader}
+}
+
+type documentReader struct {
+	reader sql.RowReader
+}
+
 // ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
-func ReadStructMessagesFromReader(ctx context.Context, reader sql.RowReader, count int) ([]*structpb.Struct, error) {
+func (d *documentReader) Read(ctx context.Context, count int) ([]*structpb.Struct, error) {
 	var err error
 	results := make([]*structpb.Struct, 0)
 
 	for l := 0; l < count; l++ {
 		var row *sql.Row
-		row, err = reader.Read(ctx)
+		row, err = d.reader.Read(ctx)
 		if err == sql.ErrNoMoreRows {
 			break
 		}
@@ -954,4 +967,8 @@ func ReadStructMessagesFromReader(ctx context.Context, reader sql.RowReader, cou
 	}
 
 	return results, err
+}
+
+func (d *documentReader) Close() error {
+	return d.reader.Close()
 }

@@ -20,7 +20,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/document"
 	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/verification"
@@ -109,7 +108,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer reader.Close()
-	docs, err := document.ReadStructMessagesFromReader(ctx, reader, 1)
+	docs, err := reader.Read(ctx, 1)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(docs))
