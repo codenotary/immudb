@@ -99,10 +99,12 @@ message DocumentSearchRequest {
   repeated DocumentQuery query = 2;
   uint32 page = 3;
   uint32 perPage = 4;
+  string searchID = 5;
 }
 
 message DocumentSearchResponse {
   repeated google.protobuf.Struct results = 1;
+  string searchID = 2;
 }
 
 message DocumentProofRequest {

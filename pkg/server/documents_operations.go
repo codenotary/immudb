@@ -18,14 +18,13 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/rs/xid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -182,13 +181,13 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	}
 
 	// generate a unique query name based on the request parameters
-	queryName := generateQueryName(req)
+	searchID := getSearchIDFromRequest(req)
 
 	// check if the paginated reader for this query has already been created
 	var resultReader document.DocumentReader
 	var pgreader *sessions.PaginatedReader
 
-	pgreader, err = sess.GetPaginatedReader(queryName)
+	pgreader, err = sess.GetPaginatedReader(searchID)
 	if err != nil { // paginated reader does not exist, create a new one and add it to the session
 		resultReader, err = db.SearchDocuments(ctx, req)
 		if err != nil {
@@ -201,7 +200,8 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 			LastPageNumber: req.Page,
 			LastPageSize:   req.PerPage,
 		}
-		sess.SetPaginatedReader(queryName, pgreader)
+
+		sess.SetPaginatedReader(searchID, pgreader)
 	} else { // paginated reader already exists, resume reading from the correct offset based on pagination parameters
 		// do validation on the pagination parameters
 		if req.Page < pgreader.LastPageNumber {
@@ -217,28 +217,28 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	}
 
 	// update the pagination parameters for this query in the session
-	sess.UpdatePaginatedReader(queryName, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
+	sess.UpdatePaginatedReader(searchID, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
 
 	if err == sql.ErrNoMoreRows {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
-		delErr := sess.DeletePaginatedReader(queryName)
-		s.Logger.Errorf("error deleting paginated reader: %v", delErr)
+		delErr := sess.DeletePaginatedReader(searchID)
+		if delErr != nil {
+			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", searchID, delErr)
+		}
 	}
 
 	return &documentschema.DocumentSearchResponse{
-		Results: results,
+		Results:  results,
+		SearchID: searchID,
 	}, err
 }
 
-func generateQueryName(req *documentschema.DocumentSearchRequest) string {
-	var queryBuilder strings.Builder
-	queryBuilder.WriteString(req.Collection)
-
-	for _, q := range req.Query {
-		queryBuilder.WriteString(fmt.Sprintf("%v%v", q.Field, q.Value))
+func getSearchIDFromRequest(req *documentschema.DocumentSearchRequest) string {
+	if req.SearchID != "" {
+		return req.SearchID
 	}
 
-	return queryBuilder.String()
+	return xid.New().String()
 }
 
 func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *documentschema.DocumentInsertManyRequest) (*documentschema.DocumentInsertManyResponse, error) {

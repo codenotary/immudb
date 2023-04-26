@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
@@ -158,6 +159,173 @@ func TestPaginationOnReader(t *testing.T) {
 	t.Run("test reader for multiple paginated reads", func(t *testing.T) {
 		results := make([]*structpb.Struct, 0)
 
+		var searchID string
+		for i := 1; i <= 4; i++ {
+			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: []*documentschema.DocumentQuery{
+					{
+						Field:    "pincode",
+						Operator: documentschema.QueryOperator_GE,
+						Value: &structpb.Value{
+							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+						},
+					},
+				},
+				Page:     uint32(i),
+				PerPage:  5,
+				SearchID: searchID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, 5, len(resp.Results))
+			results = append(results, resp.Results...)
+			searchID = resp.SearchID
+		}
+
+		for i := 1.0; i <= 20; i++ {
+			doc := results[int(i-1)]
+			require.Equal(t, i, doc.Fields["idx"].GetNumberValue())
+		}
+
+		// ensure there is only one reader in the session for the request and it is being reused
+		// get the session from the context
+		sessionID, err := sessions.GetSessionIDFromContext(ctx)
+		require.NoError(t, err)
+
+		sess, err := s.SessManager.GetSession(sessionID)
+		require.NoError(t, err)
+		require.Equal(t, 1, sess.GetPaginatedReadersCount())
+
+		t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
+			_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: []*documentschema.DocumentQuery{
+					{
+						Field:    "pincode",
+						Operator: documentschema.QueryOperator_GE,
+						Value: &structpb.Value{
+							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+						},
+					},
+				},
+				Page:     5,
+				PerPage:  5,
+				SearchID: searchID,
+			})
+			require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		})
+	})
+
+	t.Run("test reader should throw error on reading backwards", func(t *testing.T) {
+
+		var searchID string
+		for i := 1; i <= 3; i++ {
+			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: []*documentschema.DocumentQuery{
+					{
+						Field:    "pincode",
+						Operator: documentschema.QueryOperator_GE,
+						Value: &structpb.Value{
+							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+						},
+					},
+				},
+				Page:     uint32(i),
+				PerPage:  5,
+				SearchID: searchID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, 5, len(resp.Results))
+			searchID = resp.SearchID
+		}
+
+		_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			Collection: collectionName,
+			Query: []*documentschema.DocumentQuery{
+				{
+					Field:    "pincode",
+					Operator: documentschema.QueryOperator_GE,
+					Value: &structpb.Value{
+						Kind: &structpb.Value_NumberValue{NumberValue: 0},
+					},
+				},
+			},
+			Page:     2, // read upto page 3, check if we can read backwards
+			PerPage:  5,
+			SearchID: searchID,
+		})
+
+		require.ErrorIs(t, err, ErrInvalidPreviousPage)
+	})
+}
+
+func TestPaginationWithoutSearchID(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithPort(0).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	logged, err := s.OpenSessionV2(context.Background(), &authorizationschema.OpenSessionRequestV2{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, logged.Token)
+
+	md := metadata.Pairs("sessionid", logged.Token)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	// create collection
+	collectionName := "mycollection"
+	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{
+		Name: collectionName,
+		IndexKeys: map[string]*documentschema.IndexOption{
+			"pincode": {Type: documentschema.IndexType_INTEGER},
+			"country": {Type: documentschema.IndexType_STRING},
+			"idx":     {Type: documentschema.IndexType_INTEGER},
+		},
+	})
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 20; i++ {
+		_, err = s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{
+			Collection: collectionName,
+			Document: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"pincode": {
+						Kind: &structpb.Value_NumberValue{NumberValue: i},
+					},
+					"country": {
+						Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+					},
+					"idx": {
+						Kind: &structpb.Value_NumberValue{NumberValue: i},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("test reader for multiple paginated reads without search ID should have multiple readers", func(t *testing.T) {
+		sessionID, err := sessions.GetSessionIDFromContext(ctx)
+		require.NoError(t, err)
+
+		sess, err := s.SessManager.GetSession(sessionID)
+		require.NoError(t, err)
+
+		results := make([]*structpb.Struct, 0)
+
 		for i := 1; i <= 4; i++ {
 			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
 				Collection: collectionName,
@@ -182,63 +350,8 @@ func TestPaginationOnReader(t *testing.T) {
 			doc := results[int(i-1)]
 			require.Equal(t, i, doc.Fields["idx"].GetNumberValue())
 		}
-	})
 
-	t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
-		_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
-			Collection: collectionName,
-			Query: []*documentschema.DocumentQuery{
-				{
-					Field:    "pincode",
-					Operator: documentschema.QueryOperator_GE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 0},
-					},
-				},
-			},
-			Page:    5,
-			PerPage: 5,
-		})
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
-
-	})
-
-	t.Run("test reader should throw error on reading backwards", func(t *testing.T) {
-		for i := 1; i <= 3; i++ {
-			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
-				Collection: collectionName,
-				Query: []*documentschema.DocumentQuery{
-					{
-						Field:    "pincode",
-						Operator: documentschema.QueryOperator_GE,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 0},
-						},
-					},
-				},
-				Page:    uint32(i),
-				PerPage: 5,
-			})
-			require.NoError(t, err)
-			require.Equal(t, 5, len(resp.Results))
-		}
-
-		_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
-			Collection: collectionName,
-			Query: []*documentschema.DocumentQuery{
-				{
-					Field:    "pincode",
-					Operator: documentschema.QueryOperator_GE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 0},
-					},
-				},
-			},
-			Page:    2, // read upto page 3, check if we can read backwards
-			PerPage: 5,
-		})
-
-		require.ErrorIs(t, err, ErrInvalidPreviousPage)
+		require.Equal(t, 4, sess.GetPaginatedReadersCount())
 	})
 
 }
