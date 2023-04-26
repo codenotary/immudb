@@ -623,6 +623,9 @@
         "perPage": {
           "type": "integer",
           "format": "int64"
+        },
+        "searchID": {
+          "type": "string"
         }
       }
     },
@@ -634,6 +637,9 @@
           "items": {
             "type": "object"
           }
+        },
+        "searchID": {
+          "type": "string"
         }
       }
     },

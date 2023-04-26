@@ -437,6 +437,7 @@
 | query | [DocumentQuery](#immudb.documentschema.DocumentQuery) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
+| searchID | [string](#string) |  |  |
 
 
 
@@ -452,6 +453,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | results | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
+| searchID | [string](#string) |  |  |
 
 
 

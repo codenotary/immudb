@@ -290,3 +290,7 @@ func (s *Session) UpdatePaginatedReader(queryName string, lastPage uint32, lastP
 
 	return nil
 }
+
+func (s *Session) GetPaginatedReadersCount() int {
+	return len(s.paginatedReaders)
+}
