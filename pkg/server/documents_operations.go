@@ -185,7 +185,7 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	queryName := generateQueryName(req)
 
 	// check if the paginated reader for this query has already been created
-	var resultReader sql.RowReader
+	var resultReader document.DocumentReader
 	var pgreader *sessions.PaginatedReader
 
 	pgreader, err = sess.GetPaginatedReader(queryName)
@@ -211,7 +211,7 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	}
 
 	// read the next page of data from the paginated reader
-	results, err := document.ReadStructMessagesFromReader(ctx, resultReader, int(req.PerPage))
+	results, err := resultReader.Read(ctx, int(req.PerPage))
 	if err != nil && err != sql.ErrNoMoreRows {
 		return nil, err
 	}
@@ -246,6 +246,7 @@ func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *documentschema
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := db.DocumentInsertMany(ctx, req)
 	if err != nil {
 		return nil, err

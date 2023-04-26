@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
 
 	"github.com/codenotary/immudb/embedded/multierr"
@@ -37,10 +38,10 @@ var (
 )
 
 type PaginatedReader struct {
-	LastPageNumber uint32        // last read page number
-	LastPageSize   uint32        // number of items per page
-	TotalRead      uint32        // total number of items read
-	Reader         sql.RowReader // reader to read from
+	LastPageNumber uint32                  // last read page number
+	LastPageSize   uint32                  // number of items per page
+	TotalRead      uint32                  // total number of items read
+	Reader         document.DocumentReader // reader to read from
 }
 
 type Session struct {

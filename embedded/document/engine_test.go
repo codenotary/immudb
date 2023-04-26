@@ -200,10 +200,10 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
-	reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+	reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 	require.NoError(t, err)
 	defer reader.Close()
-	docs, err := ReadStructMessagesFromReader(ctx, reader, 1)
+	docs, err := reader.Read(ctx, 1)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(docs))
@@ -323,10 +323,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 9, len(docs))
 	})
@@ -342,10 +342,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 10, len(docs))
 	})
@@ -361,10 +361,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 9, len(docs))
 	})
@@ -379,10 +379,10 @@ func TestQueryDocuments(t *testing.T) {
 				},
 			},
 		}
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 5, len(docs))
 	})
@@ -398,10 +398,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 1, len(docs))
 	})
@@ -424,10 +424,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 8, len(docs))
 	})
@@ -450,10 +450,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 4, len(docs))
 	})
@@ -476,10 +476,10 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
-		docs, err := ReadStructMessagesFromReader(ctx, reader, 20)
+		docs, err := reader.Read(ctx, 20)
 		require.ErrorIs(t, err, sql.ErrNoMoreRows)
 		require.Equal(t, 3, len(docs))
 	})
@@ -534,11 +534,11 @@ func TestDocumentUpdate(t *testing.T) {
 		require.NotEqual(t, rev, 0)
 
 		// Verify that the document was updated
-		reader, err := e.GetDocuments(ctx, collectionName, queries)
+		reader, err := e.GetDocuments(ctx, collectionName, queries, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
-		updatedDocs, err := ReadStructMessagesFromReader(ctx, reader, 1)
+		updatedDocs, err := reader.Read(ctx, 1)
 		require.NoError(t, err)
 
 		updatedDoc := updatedDocs[0]
@@ -633,10 +633,10 @@ func TestFloatSupport(t *testing.T) {
 	}
 
 	// check if document is updated
-	reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+	reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 	require.NoError(t, err)
 	defer reader.Close()
-	docs, err := ReadStructMessagesFromReader(ctx, reader, 1)
+	docs, err := reader.Read(ctx, 1)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(docs))
@@ -886,11 +886,11 @@ func TestBulkInsert(t *testing.T) {
 		},
 	}
 
-	reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+	reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
-	docs, _ = ReadStructMessagesFromReader(ctx, reader, 10)
+	docs, _ = reader.Read(ctx, 10)
 	require.Equal(t, 10, len(docs))
 
 	for i, doc := range docs {
@@ -948,14 +948,14 @@ func TestPaginationOnReader(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions)
+		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
 		results := make([]*structpb.Struct, 0)
 		// use the reader to read paginated documents 5 at a time
 		for i := 0; i < 4; i++ {
-			docs, _ := ReadStructMessagesFromReader(ctx, reader, 5)
+			docs, _ := reader.Read(ctx, 5)
 			require.Equal(t, 5, len(docs))
 			results = append(results, docs...)
 		}
