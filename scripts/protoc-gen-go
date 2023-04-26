@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-go run google.golang.org/protobuf/cmd/protoc-gen-go

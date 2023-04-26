@@ -21,38 +21,61 @@ import (
 	"math"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/authorizationschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const infinity = time.Duration(math.MaxInt64)
 
-func (s *ImmuServer) OpenSessionV2(ctx context.Context, loginReq *authorizationschema.OpenSessionRequestV2) (*authorizationschema.OpenSessionResponseV2, error) {
+type authenticationServiceImp struct {
+	server *ImmuServer
+}
 
-	username := []byte(loginReq.Username)
-	password := []byte(loginReq.Password)
-	session, err := s.OpenSession(ctx, &schema.OpenSessionRequest{
-		Username:     username,
-		Password:     password,
+func (s *authenticationServiceImp) OpenSession(ctx context.Context, loginReq *protomodel.OpenSessionRequest) (*protomodel.OpenSessionResponse, error) {
+	session, err := s.server.OpenSession(ctx, &schema.OpenSessionRequest{
+		Username:     []byte(loginReq.Username),
+		Password:     []byte(loginReq.Password),
 		DatabaseName: loginReq.Database,
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	expirationTimestamp := int32(0)
 	inactivityTimestamp := int32(0)
 	now := time.Now()
-	if s.Options.SessionsOptions.MaxSessionInactivityTime > 0 {
-		inactivityTimestamp = int32(now.Add(s.Options.SessionsOptions.MaxSessionInactivityTime).Unix())
+
+	if s.server.Options.SessionsOptions.MaxSessionInactivityTime > 0 {
+		inactivityTimestamp = int32(now.Add(s.server.Options.SessionsOptions.MaxSessionInactivityTime).Unix())
 	}
 
-	if s.Options.SessionsOptions.MaxSessionAgeTime > 0 && s.Options.SessionsOptions.MaxSessionAgeTime != infinity {
-		expirationTimestamp = int32(now.Add(s.Options.SessionsOptions.MaxSessionAgeTime).Unix())
+	if s.server.Options.SessionsOptions.MaxSessionAgeTime > 0 && s.server.Options.SessionsOptions.MaxSessionAgeTime != infinity {
+		expirationTimestamp = int32(now.Add(s.server.Options.SessionsOptions.MaxSessionAgeTime).Unix())
 	}
-	return &authorizationschema.OpenSessionResponseV2{
-		Token:               session.SessionID,
+
+	return &protomodel.OpenSessionResponse{
+		SessionID:           session.SessionID,
 		ServerUUID:          session.ServerUUID,
 		ExpirationTimestamp: expirationTimestamp,
 		InactivityTimestamp: inactivityTimestamp,
 	}, nil
+}
+
+func (s *authenticationServiceImp) KeepAlive(ctx context.Context, _ *protomodel.KeepAliveRequest) (*protomodel.KeepAliveResponse, error) {
+	_, err := s.server.KeepAlive(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.KeepAliveResponse{}, nil
+}
+
+func (s *authenticationServiceImp) CloseSession(ctx context.Context, _ *protomodel.CloseSessionRequest) (*protomodel.CloseSessionResponse, error) {
+	_, err := s.server.CloseSession(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.CloseSessionResponse{}, nil
 }

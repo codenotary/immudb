@@ -21,54 +21,73 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/test/documents_storage_tests/immudbhttpclient/immudbdocuments"
+	"github.com/codenotary/immudb/pkg/api/httpclient"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateDocument(t *testing.T) {
-	client := getAuthorizedDocumentsClient()
+	client := getAuthorizedClient()
+
 	id := uuid.New()
 	documentId := id.String()
+
 	documentToInsert := make(map[string]interface{})
 	documentToInsert["_id"] = id.String()
 	documentToInsert["name"] = "John"
 	documentToInsert["surname"] = "Doe"
 	documentToInsert["age"] = 30
-	documentsToInsert := []map[string]interface{}{documentToInsert}
-	collectionName := CreateAndGetStandardTestCollection(client)
 
-	req := immudbdocuments.DocumentschemaDocumentInsertRequest{
-		Collection: &collectionName,
-		Document:   &documentsToInsert,
+	collection, err := createRandomCollection(client)
+	require.NoError(t, err)
+
+	req := httpclient.ModelDocumentInsertRequest{
+		Collection: collection.Name,
+		Document:   &documentToInsert,
 	}
-	response, _ := client.DocumentServiceDocumentInsertWithResponse(context.Background(), req)
-	assert.True(t, response.StatusCode() == 200)
-	page := int64(1)
-	perPage := int64(100)
-	operator := immudbdocuments.EQ
+	response, _ := client.DocumentInsertWithResponse(context.Background(), req)
+	require.True(t, response.StatusCode() == 200)
+
 	fieldName := "_id"
-	query := []immudbdocuments.DocumentschemaDocumentQuery{
-		{
-			Field:    &fieldName,
-			Value:    &documentId,
-			Operator: &operator,
+	operator := httpclient.EQ
+
+	query := httpclient.ModelQuery{
+		Expressions: &[]httpclient.ModelQueryExpression{
+			{
+				FieldComparisons: &[]httpclient.ModelFieldComparison{
+					{
+						Field:    &fieldName,
+						Operator: &operator,
+						Value: &map[string]interface{}{
+							"_id": &documentId,
+						},
+					},
+				},
+			},
 		},
 	}
-	searchReq := immudbdocuments.DocumentschemaDocumentSearchRequest{
-		Collection: &collectionName,
+
+	page := int64(1)
+	perPage := int64(100)
+
+	searchReq := httpclient.ModelDocumentSearchRequest{
+		Collection: collection.Name,
+		Query:      &query,
 		Page:       &page,
 		PerPage:    &perPage,
-		Query:      &query,
 	}
-	searchResponse, _ := client.DocumentServiceDocumentSearchWithResponse(context.Background(), searchReq)
+
+	searchResponse, _ := client.DocumentSearchWithResponse(context.Background(), searchReq)
 	fmt.Println(searchResponse.StatusCode())
-	assert.True(t, searchResponse.StatusCode() == 200)
-	documents := *searchResponse.JSON200.Results
-	first := documents[0]
-	assert.True(t, first["_id"] == documentId)
-	assert.True(t, first["age"] == 30)
-	assert.True(t, first["name"] == "John")
-	assert.True(t, first["surname"] == "Doe")
+	require.True(t, searchResponse.StatusCode() == 200)
+
+	revisions := *searchResponse.JSON200.Revisions
+
+	firstDocument := (*revisions[0].Document)
+
+	require.True(t, firstDocument["_id"] == documentId)
+	require.True(t, firstDocument["age"] == 30)
+	require.True(t, firstDocument["name"] == "John")
+	require.True(t, firstDocument["surname"] == "Doe")
 
 }

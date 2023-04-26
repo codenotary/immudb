@@ -27,13 +27,13 @@ import (
 	"github.com/codenotary/immudb/embedded/htree"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func VerifyDocument(ctx context.Context,
-	proof *schemav2.DocumentProofResponse,
+	proof *protomodel.DocumentProofResponse,
 	doc *structpb.Struct,
 	knownState *schema.ImmutableState,
 	serverSigningPubKey *ecdsa.PublicKey,

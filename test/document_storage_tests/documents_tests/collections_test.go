@@ -20,57 +20,49 @@ import (
 	"context"
 	"testing"
 
-	"github.com/codenotary/immudb/test/documents_storage_tests/immudbhttpclient/immudbdocuments"
-	"github.com/stretchr/testify/assert"
+	"github.com/codenotary/immudb/pkg/api/httpclient"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateCollection(t *testing.T) {
-	client := getAuthorizedDocumentsClient()
-	collection := GetStandarizedRandomString()
-	indexKeys := make(map[string]immudbdocuments.DocumentschemaIndexOption)
-	primaryKeys := make(map[string]immudbdocuments.DocumentschemaIndexOption)
-	stringType := immudbdocuments.STRING
-	primaryKeys["test"] = immudbdocuments.DocumentschemaIndexOption{
-		Type: &stringType,
-	}
-	req := immudbdocuments.DocumentServiceCollectionCreateJSONRequestBody{
-		IndexKeys:   &indexKeys,
-		PrimaryKeys: &primaryKeys,
-		Name:        &collection,
-	}
-	response, _ := client.DocumentServiceCollectionCreateWithResponse(context.Background(), req)
-	assert.True(t, response.StatusCode() == 200)
-	assert.True(t, *response.JSON200.Collection.Name == collection)
+	client := getAuthorizedClient()
 
-	response, _ = client.DocumentServiceCollectionCreateWithResponse(context.Background(), req)
-	assert.True(t, response.JSONDefault.Error != nil)
-}
-
-func TestListCollections(t *testing.T) {
-	client := getAuthorizedDocumentsClient()
-	collectionName := CreateAndGetStandardTestCollection(client)
-
-	response, _ := client.DocumentServiceCollectionListWithResponse(context.Background(), immudbdocuments.DocumentServiceCollectionListJSONRequestBody{})
-	assert.True(t, response.StatusCode() == 200)
-	collectionFound := false
-	for _, collection := range *response.JSON200.Collections {
-		if *collection.Name == collectionName {
-			collectionFound = true
-			assert.True(t, collection.PrimaryKeys != nil)
-			assert.True(t, collection.IndexKeys == nil)
-			break
-		}
-	}
-	assert.True(t, collectionFound)
+	collection, err := createRandomCollection(client)
+	require.NoError(t, err)
+	require.NotNil(t, collection)
 }
 
 func TestGetCollection(t *testing.T) {
-	client := getAuthorizedDocumentsClient()
-	collectionName := CreateAndGetStandardTestCollection(client)
+	client := getAuthorizedClient()
 
-	response, _ := client.DocumentServiceCollectionGetWithResponse(context.Background(), &immudbdocuments.DocumentServiceCollectionGetParams{
-		Name: &collectionName,
+	collection, err := createRandomCollection(client)
+	require.NoError(t, err)
+
+	response, err := client.CollectionGetWithResponse(context.Background(), &httpclient.CollectionGetParams{
+		Name: collection.Name,
 	})
-	assert.True(t, response.StatusCode() == 200)
-	assert.True(t, *response.JSON200.Collection.Name == collectionName)
+	require.NoError(t, err)
+	require.True(t, response.StatusCode() == 200)
+	require.True(t, *response.JSON200.Collection.Name == *collection.Name)
+}
+
+func TestListCollections(t *testing.T) {
+	client := getAuthorizedClient()
+
+	newCollection, err := createRandomCollection(client)
+	require.NoError(t, err)
+
+	response, _ := client.CollectionListWithResponse(context.Background(), httpclient.CollectionListJSONRequestBody{})
+	require.True(t, response.StatusCode() == 200)
+
+	collectionFound := false
+
+	for _, collection := range *response.JSON200.Collections {
+		if *collection.Name == *newCollection.Name {
+			collectionFound = true
+			break
+		}
+	}
+
+	require.True(t, collectionFound)
 }

@@ -22,46 +22,46 @@ import (
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 var (
-	schemaToValueType = map[schemav2.IndexType]sql.SQLValueType{
-		schemav2.IndexType_DOUBLE:  sql.Float64Type,
-		schemav2.IndexType_STRING:  sql.VarcharType,
-		schemav2.IndexType_INTEGER: sql.IntegerType,
+	schemaToValueType = map[protomodel.IndexType]sql.SQLValueType{
+		protomodel.IndexType_DOUBLE:           sql.Float64Type,
+		protomodel.IndexType_STRING:           sql.VarcharType,
+		docuprotomodelments.IndexType_INTEGER: sql.IntegerType,
 	}
 )
 
 // DocumentDatabase is the interface for document database
 type DocumentDatabase interface {
 	// GetCollection returns the collection schema
-	GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error)
+	GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error)
 	// CreateCollection creates a new collection
-	CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error)
+	CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error)
 	// ListCollections returns the list of collection schemas
-	ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error)
+	ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error)
 	// UpdateCollection updates an existing collection
-	UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error)
+	UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error)
 	// DeleteCollection deletes a collection
-	DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error)
+	DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error)
+	// GetDocument returns the document
+	SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error)
 	// InsertDocument creates a new document
-	InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error)
-	// SearchDocuments queries the document
-	SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (document.DocumentReader, error)
+	InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error)
 	// DocumentAudit returns the document audit history
-	DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error)
+	DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error)
 	// UpdateDocument updates a document
-	UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error)
+	UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error)
 	// DocumentProof returns the proofs for a document
-	DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error)
+	DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error)
 	// DocumentInsertMany creates a new document
-	DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error)
+	DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error)
 }
 
 // CreateCollection creates a new collection
-func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error) {
+func (d *db) CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
 	indexKeys := make(map[string]*document.IndexOption)
 
 	// validate index keys
@@ -87,34 +87,34 @@ func (d *db) CreateCollection(ctx context.Context, req *schemav2.CollectionCreat
 		return nil, err
 	}
 
-	return &schemav2.CollectionCreateResponse{Collection: cinfo}, nil
+	return &protomodel.CollectionCreateResponse{Collection: cinfo}, nil
 }
 
-func (d *db) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
+func (d *db) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
 	collections, err := d.documentEngine.ListCollections(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	cinfos := make([]*schemav2.CollectionInformation, 0, len(collections))
+	cinfos := make([]*protomodel.CollectionInformation, 0, len(collections))
 	for collectionName, indexes := range collections {
 		cinfos = append(cinfos, newCollectionInformation(collectionName, indexes))
 	}
 
-	return &schemav2.CollectionListResponse{Collections: cinfos}, nil
+	return &protomodel.CollectionListResponse{Collections: cinfos}, nil
 }
 
 // GetCollection returns the collection schema
-func (d *db) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error) {
+func (d *db) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
 	cinfo, err := d.getCollection(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schemav2.CollectionGetResponse{Collection: cinfo}, nil
+	return &protomodel.CollectionGetResponse{Collection: cinfo}, nil
 }
 
-func (d *db) getCollection(ctx context.Context, collectionName string) (*schemav2.CollectionInformation, error) {
+func (d *db) getCollection(ctx context.Context, collectionName string) (*protomodel.CollectionInformation, error) {
 	indexes, err := d.documentEngine.GetCollection(ctx, collectionName)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (d *db) getCollection(ctx context.Context, collectionName string) (*schemav
 }
 
 // SearchDocuments returns the documents matching the search request constraints
-func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (document.DocumentReader, error) {
+func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
 	queries := make([]*document.Query, 0, len(req.Query))
 	for _, q := range req.Query {
 		queries = append(queries, &document.Query{
@@ -150,26 +150,26 @@ func (d *db) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRe
 }
 
 // helper function to create a collection information
-func newCollectionInformation(collectionName string, indexes []*sql.Index) *schemav2.CollectionInformation {
-	cinfo := &schemav2.CollectionInformation{
+func newCollectionInformation(collectionName string, indexes []*sql.Index) *protomodel.CollectionInformation {
+	cinfo := &protomodel.CollectionInformation{
 		Name:      collectionName,
-		IndexKeys: make(map[string]*schemav2.IndexOption),
+		IndexKeys: make(map[string]*protomodel.IndexOption),
 	}
 
 	// iterate over indexes and extract primary and index keys
 	for _, idx := range indexes {
 		for _, col := range idx.Cols() {
-			var colType schemav2.IndexType
+			var colType protomodel.IndexType
 			switch col.Type() {
 			case sql.VarcharType:
-				colType = schemav2.IndexType_STRING
+				colType = protomodel.IndexType_STRING
 			case sql.IntegerType:
-				colType = schemav2.IndexType_INTEGER
+				colType = protomodel.IndexType_INTEGER
 			case sql.BLOBType:
-				colType = schemav2.IndexType_STRING
+				colType = protomodel.IndexType_STRING
 			}
 
-			cinfo.IndexKeys[col.Name()] = &schemav2.IndexOption{
+			cinfo.IndexKeys[col.Name()] = &protomodel.IndexOption{
 				Type: colType,
 			}
 
@@ -180,7 +180,7 @@ func newCollectionInformation(collectionName string, indexes []*sql.Index) *sche
 }
 
 // UpdateCollection updates an existing collection
-func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
+func (d *db) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
 	indexKeys := make(map[string]*document.IndexOption)
 
 	// validate index keys
@@ -206,33 +206,33 @@ func (d *db) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdat
 		return nil, err
 	}
 
-	return &schemav2.CollectionUpdateResponse{Collection: cinfo}, nil
+	return &protomodel.CollectionUpdateResponse{Collection: cinfo}, nil
 }
 
 // DeleteCollection deletes a collection
-func (d *db) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
+func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
 	err := d.documentEngine.DeleteCollection(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schemav2.CollectionDeleteResponse{}, nil
+	return &protomodel.CollectionDeleteResponse{}, nil
 }
 
 // InsertDocument creates a new document
-func (d *db) InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
+func (d *db) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
 	docID, txID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schemav2.DocumentInsertResponse{
+	return &protomodel.DocumentInsertResponse{
 		DocumentId:    docID.EncodeToHexString(),
 		TransactionId: txID,
 	}, nil
 }
 
-func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
+func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
 	// verify if document id is valid
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
@@ -248,12 +248,12 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 		return nil, fmt.Errorf("error fetching document history: %v", err)
 	}
 
-	resp := &schemav2.DocumentAuditResponse{
-		Results: make([]*schemav2.DocumentAudit, 0, len(historyLogs)),
+	resp := &protomodel.DocumentAuditResponse{
+		Results: make([]*protomodel.DocumentAudit, 0, len(historyLogs)),
 	}
 
 	for _, log := range historyLogs {
-		resp.Results = append(resp.Results, &schemav2.DocumentAudit{
+		resp.Results = append(resp.Results, &protomodel.DocumentAudit{
 			TransactionId: log.TxID,
 			Revision:      log.Revision,
 			Document:      log.Document,
@@ -264,7 +264,7 @@ func (d *db) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditReque
 }
 
 // UpdateDocument updates a document
-func (d *db) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
 	queries := make([]*document.Query, 0, len(req.Query))
 	for _, q := range req.Query {
 		queries = append(queries, &document.Query{
@@ -279,14 +279,14 @@ func (d *db) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateReq
 		return nil, err
 	}
 
-	return &schemav2.DocumentUpdateResponse{
+	return &protomodel.DocumentUpdateResponse{
 		TransactionId: txID,
 		Revision:      rev,
 	}, nil
 }
 
 // DocumentProof returns the proofs for a documenta
-func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error) {
+func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
@@ -332,7 +332,7 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 		return nil, err
 	}
 
-	return &schemav2.DocumentProofResponse{
+	return &protomodel.DocumentProofResponse{
 		Database:        d.name,
 		CollectionId:    collectionID,
 		EncodedDocument: docAudit.EncodedDocument,
@@ -344,7 +344,7 @@ func (d *db) DocumentProof(ctx context.Context, req *schemav2.DocumentProofReque
 }
 
 // DocumentInsertMany inserts multiple documents
-func (d *db) DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error) {
+func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
 	docIDs, txID, err := d.documentEngine.BulkInsertDocuments(ctx, req.Collection, req.Documents)
 	if err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func (d *db) DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInser
 		docIDsStr = append(docIDsStr, docID.EncodeToHexString())
 	}
 
-	return &schemav2.DocumentInsertManyResponse{
+	return &protomodel.DocumentInsertManyResponse{
 		DocumentIds:   docIDsStr,
 		TransactionId: txID,
 	}, nil

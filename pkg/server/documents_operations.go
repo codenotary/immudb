@@ -21,7 +21,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/rs/xid"
@@ -33,7 +33,7 @@ var (
 	ErrInvalidPreviousPage = status.Errorf(codes.InvalidArgument, "cannot go back to a previous page")
 )
 
-func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.DocumentInsertRequest) (*documentschema.DocumentInsertResponse, error) {
+func (s *ImmuServer) DocumentInsert(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentInsert")
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (s *ImmuServer) DocumentInsert(ctx context.Context, req *documentschema.Doc
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *documentschema.DocumentUpdateRequest) (*documentschema.DocumentUpdateResponse, error) {
+func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentUpdate")
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *documentschema.Doc
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionCreate(ctx context.Context, req *documentschema.CollectionCreateRequest) (*documentschema.CollectionCreateResponse, error) {
+func (s *ImmuServer) CollectionCreate(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "CollectionCreate")
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (s *ImmuServer) CollectionCreate(ctx context.Context, req *documentschema.C
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionGet(ctx context.Context, req *documentschema.CollectionGetRequest) (*documentschema.CollectionGetResponse, error) {
+func (s *ImmuServer) CollectionGet(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "CollectionGet")
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (s *ImmuServer) CollectionGet(ctx context.Context, req *documentschema.Coll
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionList(ctx context.Context, req *documentschema.CollectionListRequest) (*documentschema.CollectionListResponse, error) {
+func (s *ImmuServer) CollectionList(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "CollectionList")
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (s *ImmuServer) CollectionList(ctx context.Context, req *documentschema.Col
 }
 
 // TODO: implement
-func (s *ImmuServer) CollectionDelete(ctx context.Context, req *documentschema.CollectionDeleteRequest) (*documentschema.CollectionDeleteResponse, error) {
+func (s *ImmuServer) CollectionDelete(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "CollectionDelete")
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (s *ImmuServer) CollectionDelete(ctx context.Context, req *documentschema.C
 }
 
 // TODO: implement
-func (s *ImmuServer) DocumentAudit(ctx context.Context, req *documentschema.DocumentAuditRequest) (*documentschema.DocumentAuditResponse, error) {
+func (s *ImmuServer) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentAudit")
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (s *ImmuServer) DocumentAudit(ctx context.Context, req *documentschema.Docu
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentProof(ctx context.Context, req *documentschema.DocumentProofRequest) (*documentschema.DocumentProofResponse, error) {
+func (s *ImmuServer) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentProof")
 	if err != nil {
 		return nil, err
@@ -152,7 +152,7 @@ func (s *ImmuServer) DocumentProof(ctx context.Context, req *documentschema.Docu
 	return res, nil
 }
 
-func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *documentschema.CollectionUpdateRequest) (*documentschema.CollectionUpdateResponse, error) {
+func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "CollectionUpdate")
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *documentschema.C
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.DocumentSearchRequest) (*documentschema.DocumentSearchResponse, error) {
+func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.DocumentSearchRequest) (*protomodel.DocumentSearchResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentSearch")
 	if err != nil {
 		return nil, err
@@ -227,13 +227,13 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 		}
 	}
 
-	return &documentschema.DocumentSearchResponse{
+	return &protomodel.DocumentSearchResponse{
 		Results:  results,
 		SearchID: searchID,
 	}, err
 }
 
-func getSearchIDFromRequest(req *documentschema.DocumentSearchRequest) string {
+func getSearchIDFromRequest(req *protomodel.DocumentSearchRequest) string {
 	if req.SearchID != "" {
 		return req.SearchID
 	}
@@ -241,7 +241,7 @@ func getSearchIDFromRequest(req *documentschema.DocumentSearchRequest) string {
 	return xid.New().String()
 }
 
-func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *documentschema.DocumentInsertManyRequest) (*documentschema.DocumentInsertManyResponse, error) {
+func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentInsertMany")
 	if err != nil {
 		return nil, err

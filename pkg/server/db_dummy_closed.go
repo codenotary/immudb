@@ -22,10 +22,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 )
@@ -247,49 +246,49 @@ func (db *closedDB) Truncate(ts time.Duration) error {
 }
 
 // GetCollection returns the collection schema
-func (d *closedDB) GetCollection(ctx context.Context, req *schemav2.CollectionGetRequest) (*schemav2.CollectionGetResponse, error) {
+func (d *closedDB) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
 // CreateCollection creates a new collection
-func (d *closedDB) CreateCollection(ctx context.Context, req *schemav2.CollectionCreateRequest) (*schemav2.CollectionCreateResponse, error) {
+func (d *closedDB) CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
 // SearchDocuments returns the document
-func (d *closedDB) SearchDocuments(ctx context.Context, req *schemav2.DocumentSearchRequest) (document.DocumentReader, error) {
+func (d *closedDB) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (protomodel.DocumentReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
 // InsertDocument creates a new document
-func (d *closedDB) InsertDocument(ctx context.Context, req *schemav2.DocumentInsertRequest) (*schemav2.DocumentInsertResponse, error) {
+func (d *closedDB) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) ListCollections(ctx context.Context, req *schemav2.CollectionListRequest) (*schemav2.CollectionListResponse, error) {
+func (d *closedDB) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentAudit(ctx context.Context, req *schemav2.DocumentAuditRequest) (*schemav2.DocumentAuditResponse, error) {
+func (d *closedDB) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateDocument(ctx context.Context, req *schemav2.DocumentUpdateRequest) (*schemav2.DocumentUpdateResponse, error) {
+func (d *closedDB) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteCollection(ctx context.Context, req *schemav2.CollectionDeleteRequest) (*schemav2.CollectionDeleteResponse, error) {
+func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateCollection(ctx context.Context, req *schemav2.CollectionUpdateRequest) (*schemav2.CollectionUpdateResponse, error) {
+func (d *closedDB) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error) {
+func (d *closedDB) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error) {
+func (d *closedDB) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

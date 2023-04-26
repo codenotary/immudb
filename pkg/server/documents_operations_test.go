@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/assert"
@@ -47,54 +48,56 @@ func TestV2Authentication(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{})
+	_, err := s.DocumentInsert(ctx, &protomodel.DocumentInsertRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{})
+	_, err = s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{})
+	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionDelete(ctx, &documentschema.CollectionDeleteRequest{})
+	_, err = s.CollectionDelete(ctx, &protomodel.CollectionDeleteRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionList(ctx, &documentschema.CollectionListRequest{})
+	_, err = s.CollectionList(ctx, &protomodel.CollectionListRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionGet(ctx, &documentschema.CollectionGetRequest{})
+	_, err = s.CollectionGet(ctx, &protomodel.CollectionGetRequest{})
 	assert.ErrorIs(t, err, ErrNotLoggedIn)
 
-	logged, err := s.OpenSessionV2(ctx, &authorizationschema.OpenSessionRequestV2{
+	authServiceImp := &authenticationServiceImp{server: s}
+
+	logged, err := authServiceImp.OpenSession(ctx, &protomodel.OpenSessionRequest{
 		Username: "immudb",
 		Password: "immudb",
 		Database: "defaultdb",
 	})
 	assert.NoError(t, err)
-	assert.NotEmpty(t, logged.Token)
+	assert.NotEmpty(t, logged.SessionID)
 	fmt.Println(logged.ExpirationTimestamp)
 	assert.True(t, logged.InactivityTimestamp > 0)
 	assert.True(t, logged.ExpirationTimestamp >= 0)
 	assert.True(t, len(logged.ServerUUID) > 0)
 
-	md := metadata.Pairs("sessionid", logged.Token)
+	md := metadata.Pairs("sessionid", logged.SessionID)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
-	_, err = s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{})
+	_, err = s.DocumentInsert(ctx, &protomodel.DocumentInsertRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{})
+	_, err = s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{})
+	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionDelete(ctx, &documentschema.CollectionDeleteRequest{})
+	_, err = s.CollectionDelete(ctx, &protomodel.CollectionDeleteRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionList(ctx, &documentschema.CollectionListRequest{})
+	_, err = s.CollectionList(ctx, &protomodel.CollectionListRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CollectionGet(ctx, &documentschema.CollectionGetRequest{})
+	_, err = s.CollectionGet(ctx, &protomodel.CollectionGetRequest{})
 	assert.NotErrorIs(t, err, ErrNotLoggedIn)
 
 }
