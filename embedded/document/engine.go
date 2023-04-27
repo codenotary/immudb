@@ -116,6 +116,25 @@ type IndexOption struct {
 	IsUnique bool
 }
 
+type upsertOption struct {
+	isInsert bool
+	tx       *sql.SQLTx
+}
+
+func (u *upsertOption) withTx(tx *sql.SQLTx) *upsertOption {
+	u.tx = tx
+	return u
+}
+
+func (u *upsertOption) withIsInsert(isInsert bool) *upsertOption {
+	u.isInsert = isInsert
+	return u
+}
+
+func newUpsertOption() *upsertOption {
+	return &upsertOption{}
+}
+
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
 	engine, err := sql.NewEngine(store, opts)
 	if err != nil {
@@ -327,34 +346,41 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 }
 
 func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
-	docID, txID, _, err = e.upsertDocument(ctx, collectionName, doc, true)
+	opt := newUpsertOption().withIsInsert(true)
+	docID, txID, _, err = e.upsertDocument(ctx, collectionName, doc, opt)
 	return
 }
 
 func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID, rev uint64, err error) {
-	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, false)
+	opt := newUpsertOption().withIsInsert(false)
+	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, opt)
 	return
 }
 
-func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct, isInsert bool) (docID DocumentID, txID, rev uint64, err error) {
+func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct, opt *upsertOption) (docID DocumentID, txID, rev uint64, err error) {
 	if doc == nil {
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	docID, err = e.getDocumentID(doc, isInsert)
+	docID, err = e.getDocumentID(doc, opt.isInsert)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 
-	// concurrency validation are not needed when the document id is automatically generated
-	_, docIDProvisioned := doc.Fields[DocumentIDField]
-	opts := e.configureTxOptions(docIDProvisioned)
+	var tx *sql.SQLTx
+	if opt.tx == nil {
+		// concurrency validation are not needed when the document id is automatically generated
+		_, docIDProvisioned := doc.Fields[DocumentIDField]
+		opts := e.configureTxOptions(docIDProvisioned)
 
-	tx, err := e.sqlEngine.NewTx(ctx, opts)
-	if err != nil {
-		return nil, 0, 0, err
+		tx, err = e.sqlEngine.NewTx(ctx, opts)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		defer tx.Cancel()
+	} else {
+		tx = opt.tx
 	}
-	defer tx.Cancel()
 
 	table, err := tx.Catalog().GetTableByName(collectionName)
 	if err != nil {
@@ -385,7 +411,7 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 				collectionName,
 				cols,
 				rows,
-				isInsert,
+				opt.isInsert,
 				nil,
 			),
 		},
@@ -397,7 +423,7 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 
 	txID = ctxs[0].TxHeader().ID
 
-	if !isInsert {
+	if !opt.isInsert {
 		searchKey, err := e.getKeyForDocument(ctx, tx, collectionName, docID)
 		if err != nil {
 			return nil, 0, 0, err
@@ -873,7 +899,7 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 		nil,
 	)
 
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
 	if err != nil {
 		return 0, 0, err
 	}
@@ -883,7 +909,6 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 	if err != nil {
 		return 0, 0, err
 	}
-	defer r.Close()
 
 	var results []*structpb.Struct
 	for {
@@ -906,6 +931,9 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 		results = append(results, doc)
 	}
 
+	// close the active snapshot reader
+	r.Close()
+
 	if len(results) == 0 {
 		return 0, 0, ErrDocumentNotFound
 	}
@@ -919,6 +947,7 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 	mergeDocumentStructs(doc, docToUpdate)
 
 	// update the document
-	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, false)
+	opt := newUpsertOption().withIsInsert(false).withTx(tx)
+	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, opt)
 	return
 }
