@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -97,5 +98,11 @@ func (d *Document) Get(field string) interface{} {
 	if d.result.Get(field).Exists() {
 		return d.result.Get(field).Value()
 	}
+	return nil
+}
+
+// mergeDocumentStructs merges the given document struct with the given document struct to update
+func mergeDocumentStructs(doc *structpb.Struct, toUpdateDoc *structpb.Struct) error {
+	proto.Merge(doc, toUpdateDoc)
 	return nil
 }

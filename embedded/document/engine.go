@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -32,9 +33,13 @@ const (
 	DocumentBLOBField = "_doc"
 )
 
-var ErrIllegalArguments = store.ErrIllegalArguments
-var ErrCollectionDoesNotExist = errors.New("collection does not exist")
-var ErrMaxLengthExceeded = errors.New("max length exceeded")
+var (
+	ErrIllegalArguments       = store.ErrIllegalArguments
+	ErrCollectionDoesNotExist = errors.New("collection does not exist")
+	ErrMaxLengthExceeded      = errors.New("max length exceeded")
+	ErrMultipleDocumentsFound = errors.New("multiple documents found")
+	ErrDocumentNotFound       = errors.New("document not found")
+)
 
 // Schema to ValueType mapping
 var (
@@ -442,7 +447,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 
 	var results []*structpb.Struct
 
-	for l := 1; ; l++ {
+	for {
 		row, err := r.Read(ctx)
 		if err == sql.ErrNoMoreRows {
 			break
@@ -719,9 +724,10 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 }
 
 func (e *Engine) getDocumentID(doc *structpb.Struct, isInsert bool) (DocumentID, error) {
-	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
 	var docID DocumentID
 	var err error
+
+	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
 	if docIDProvisioned {
 		docID, err = NewDocumentIDFromHexEncodedString(provisionedDocID.GetStringValue())
 		if err != nil {
@@ -850,5 +856,69 @@ func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string,
 
 	txID = ctxs[0].TxHeader().ID
 
+	return
+}
+
+func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, queries []*Query, docToUpdate *structpb.Struct) (txID, rev uint64, err error) {
+	exp, err := e.generateExp(ctx, collectionName, queries)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	query := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(collectionName, DocumentBLOBField)},
+		collectionName,
+		exp,
+		nil,
+		nil,
+	)
+
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Cancel()
+
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, tx, query, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer r.Close()
+
+	var results []*structpb.Struct
+	for {
+		row, err := r.Read(ctx)
+		if err == sql.ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return 0, 0, err
+		}
+
+		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
+
+		doc := &structpb.Struct{}
+		err = json.Unmarshal(docBytes, doc)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		results = append(results, doc)
+	}
+
+	if len(results) == 0 {
+		return 0, 0, ErrDocumentNotFound
+	}
+
+	if len(results) > 1 {
+		return 0, 0, ErrMultipleDocumentsFound
+	}
+
+	// merge the document fields
+	doc := results[0]
+	mergeDocumentStructs(doc, docToUpdate)
+
+	// update the document
+	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, false)
 	return
 }

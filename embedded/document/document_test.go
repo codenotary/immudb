@@ -89,3 +89,35 @@ func TestDocument(t *testing.T) {
 		require.Equal(t, r1.Bytes(), r2.Bytes())
 	})
 }
+
+func TestMergeDocumentStructs(t *testing.T) {
+	// Create the initial struct
+	doc := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
+		},
+	}
+	// Create the struct to merge in
+	toUpdateDoc := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+			"city": {Kind: &structpb.Value_StringValue{StringValue: "New York"}},
+		},
+	}
+	// Call the mergeDocumentStructs function
+	err := mergeDocumentStructs(doc, toUpdateDoc)
+	if err != nil {
+		t.Fatalf("mergeDocumentStructs failed with error: %v", err)
+	}
+	// Check that the values have been updated correctly
+	if doc.Fields["name"].GetStringValue() != "Alice" {
+		t.Errorf("Expected name to be unchanged, got %v", doc.Fields["name"].GetStringValue())
+	}
+	if doc.Fields["age"].GetNumberValue() != 31 {
+		t.Errorf("Expected age to be updated to 31, got %v", doc.Fields["age"].GetNumberValue())
+	}
+	if doc.Fields["city"].GetStringValue() != "New York" {
+		t.Errorf("Expected city to be added, got %v", doc.Fields["city"].GetStringValue())
+	}
+}

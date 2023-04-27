@@ -177,3 +177,16 @@ func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *documentschema
 	}
 	return resp, nil
 }
+
+func (s *ImmuServer) DocumentFindOneAndUpdate(ctx context.Context, req *documentschema.DocumentFindOneAndUpdateRequest) (*documentschema.DocumentFindOneAndUpdateResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DocumentFindOneAndUpdate")
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := db.DocumentFindOneAndUpdate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

@@ -29,6 +29,7 @@ type DocumentServiceClient interface {
 	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error)
 	CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error)
 	DocumentInsertMany(ctx context.Context, in *DocumentInsertManyRequest, opts ...grpc.CallOption) (*DocumentInsertManyResponse, error)
+	DocumentFindOneAndUpdate(ctx context.Context, in *DocumentFindOneAndUpdateRequest, opts ...grpc.CallOption) (*DocumentFindOneAndUpdateResponse, error)
 }
 
 type documentServiceClient struct {
@@ -138,6 +139,15 @@ func (c *documentServiceClient) DocumentInsertMany(ctx context.Context, in *Docu
 	return out, nil
 }
 
+func (c *documentServiceClient) DocumentFindOneAndUpdate(ctx context.Context, in *DocumentFindOneAndUpdateRequest, opts ...grpc.CallOption) (*DocumentFindOneAndUpdateResponse, error) {
+	out := new(DocumentFindOneAndUpdateResponse)
+	err := c.cc.Invoke(ctx, "/immudb.documentschema.DocumentService/DocumentFindOneAndUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DocumentServiceServer is the server API for DocumentService service.
 // All implementations should embed UnimplementedDocumentServiceServer
 // for forward compatibility
@@ -153,6 +163,7 @@ type DocumentServiceServer interface {
 	CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error)
 	CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error)
 	DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error)
+	DocumentFindOneAndUpdate(context.Context, *DocumentFindOneAndUpdateRequest) (*DocumentFindOneAndUpdateResponse, error)
 }
 
 // UnimplementedDocumentServiceServer should be embedded to have forward compatible implementations.
@@ -191,6 +202,9 @@ func (UnimplementedDocumentServiceServer) CollectionUpdate(context.Context, *Col
 }
 func (UnimplementedDocumentServiceServer) DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsertMany not implemented")
+}
+func (UnimplementedDocumentServiceServer) DocumentFindOneAndUpdate(context.Context, *DocumentFindOneAndUpdateRequest) (*DocumentFindOneAndUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentFindOneAndUpdate not implemented")
 }
 
 // UnsafeDocumentServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -402,6 +416,24 @@ func _DocumentService_DocumentInsertMany_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_DocumentFindOneAndUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentFindOneAndUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DocumentFindOneAndUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.documentschema.DocumentService/DocumentFindOneAndUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DocumentFindOneAndUpdate(ctx, req.(*DocumentFindOneAndUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DocumentService_ServiceDesc is the grpc.ServiceDesc for DocumentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -452,6 +484,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DocumentInsertMany",
 			Handler:    _DocumentService_DocumentInsertMany_Handler,
+		},
+		{
+			MethodName: "DocumentFindOneAndUpdate",
+			Handler:    _DocumentService_DocumentFindOneAndUpdate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

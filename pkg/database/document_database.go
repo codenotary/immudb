@@ -58,6 +58,8 @@ type DocumentDatabase interface {
 	DocumentProof(ctx context.Context, req *schemav2.DocumentProofRequest) (*schemav2.DocumentProofResponse, error)
 	// DocumentInsertMany creates a new document
 	DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error)
+	// DocumentFindOneAndUpdate finds a document and updates it
+	DocumentFindOneAndUpdate(ctx context.Context, req *schemav2.DocumentFindOneAndUpdateRequest) (*schemav2.DocumentFindOneAndUpdateResponse, error)
 }
 
 // CreateCollection creates a new collection
@@ -344,5 +346,26 @@ func (d *db) DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInser
 	return &schemav2.DocumentInsertManyResponse{
 		DocumentIds:   docIDsStr,
 		TransactionId: txID,
+	}, nil
+}
+
+func (d *db) DocumentFindOneAndUpdate(ctx context.Context, req *schemav2.DocumentFindOneAndUpdateRequest) (*schemav2.DocumentFindOneAndUpdateResponse, error) {
+	queries := make([]*document.Query, 0, len(req.Query))
+	for _, q := range req.Query {
+		queries = append(queries, &document.Query{
+			Operator: int(q.Operator),
+			Field:    q.Field,
+			Value:    q.Value,
+		})
+	}
+
+	txID, rev, err := d.documentEngine.FindOneAndUpdate(ctx, req.Collection, queries, req.Document)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schemav2.DocumentFindOneAndUpdateResponse{
+		TransactionId: txID,
+		Revision:      rev,
 	}, nil
 }

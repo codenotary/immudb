@@ -17,6 +17,7 @@ package document
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -831,5 +832,87 @@ func TestBulkInsert(t *testing.T) {
 
 	for i, doc := range docs {
 		require.Equal(t, float64(i+1), doc.Fields["price"].GetNumberValue())
+	}
+}
+
+func newQuery(field string, op int, value *structpb.Value) *Query {
+	return &Query{
+		Field:    field,
+		Operator: op,
+		Value:    value,
+	}
+}
+
+func TestFindOneAndUpdate(t *testing.T) {
+	// Create a new engine instance
+	ctx := context.Background()
+	e := makeEngine(t)
+
+	// create collection
+	// Create a test collection with a single document
+	collectionName := "test_collection"
+	err := e.CreateCollection(ctx, collectionName, map[string]*IndexOption{
+		"name": {Type: sql.VarcharType},
+		"age":  {Type: sql.Float64Type},
+	})
+	require.NoError(t, err)
+
+	doc := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
+		},
+	}
+	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, true)
+	if err != nil {
+		t.Fatalf("Failed to insert test document: %v", err)
+	}
+
+	// Prepare a query to find the document by name
+	queries := []*Query{newQuery("name", sql.EQ, &structpb.Value{
+		Kind: &structpb.Value_StringValue{StringValue: "Alice"},
+	})}
+
+	// Prepare a document to update the age field
+	toUpdateDoc := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"age": {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+		},
+	}
+
+	// Call the FindOneAndUpdate method
+	txID, rev, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
+
+	// Check that the method returned the expected values
+	if err != nil {
+		t.Errorf("FindOneAndUpdate returned error: %v", err)
+	}
+	if txID == 0 {
+		t.Error("FindOneAndUpdate returned zero txID")
+	}
+	if rev == 0 {
+		t.Error("FindOneAndUpdate returned zero rev")
+	}
+
+	// Verify that the document was updated
+	updatedDocs, err := e.GetDocuments(ctx, collectionName, queries, 1, 1)
+	if err != nil {
+		t.Fatalf("Failed to find updated document: %v", err)
+	}
+	updatedDoc := updatedDocs[0]
+	if updatedDoc.Fields["age"].GetNumberValue() != 31 {
+		t.Errorf("Expected age to be updated to 31, got %v", updatedDoc.Fields["age"].GetNumberValue())
+	}
+
+	fmt.Println()
+	require.Equal(t, docID.EncodeToHexString(), updatedDoc.Fields[DocumentIDField].GetStringValue())
+
+	// Test error case when no documents are found
+	queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
+		Kind: &structpb.Value_StringValue{StringValue: "Bob"},
+	})}
+	_, _, err = e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
+	if !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("Expected ErrDocumentNotFound, got %v", err)
 	}
 }
