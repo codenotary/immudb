@@ -200,6 +200,16 @@ message DocumentInsertManyResponse {
   uint64 transactionId = 2;
 }
 
+message DocumentFindOneAndUpdateRequest {
+  string collection = 1;
+  repeated DocumentQuery query = 2;
+  google.protobuf.Struct document = 3;
+}
+
+message DocumentFindOneAndUpdateResponse {
+  uint64 transactionId = 1;
+  uint64 revision = 2;
+}
 
 service DocumentService {
   rpc DocumentInsert(DocumentInsertRequest) returns (DocumentInsertResponse) {
@@ -317,4 +327,17 @@ service DocumentService {
       tags: "documents";
     };
   }
+
+  rpc DocumentFindOneAndUpdate(DocumentFindOneAndUpdateRequest) returns (DocumentFindOneAndUpdateResponse) {
+    option (google.api.http) = {
+      post: "/documents/findOneAndUpdate"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: [
+        "documents"
+      ];
+    };
+  }
+
 }
