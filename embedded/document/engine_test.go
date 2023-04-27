@@ -863,7 +863,7 @@ func TestFindOneAndUpdate(t *testing.T) {
 			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
 		},
 	}
-	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, true)
+	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, &upsertOption{isInsert: true})
 	if err != nil {
 		t.Fatalf("Failed to insert test document: %v", err)
 	}
@@ -882,17 +882,10 @@ func TestFindOneAndUpdate(t *testing.T) {
 
 	// Call the FindOneAndUpdate method
 	txID, rev, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
-
+	require.NoError(t, err)
 	// Check that the method returned the expected values
-	if err != nil {
-		t.Errorf("FindOneAndUpdate returned error: %v", err)
-	}
-	if txID == 0 {
-		t.Error("FindOneAndUpdate returned zero txID")
-	}
-	if rev == 0 {
-		t.Error("FindOneAndUpdate returned zero rev")
-	}
+	require.NotEqual(t, txID, 0)
+	require.NotEqual(t, rev, 0)
 
 	// Verify that the document was updated
 	updatedDocs, err := e.GetDocuments(ctx, collectionName, queries, 1, 1)
