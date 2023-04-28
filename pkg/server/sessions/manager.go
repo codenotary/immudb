@@ -149,7 +149,7 @@ func (sm *manager) deleteSession(sessionID string) error {
 		merr.Append(err)
 	}
 
-	if err := sess.ClosePaginatedReaders(); err != nil {
+	if err := sess.ClosePaginatedDocumentReaders(); err != nil {
 		merr.Append(err)
 	}
 

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/pkg/api/authorizationschema"
 	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -194,7 +194,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 		sess, err := s.SessManager.GetSession(sessionID)
 		require.NoError(t, err)
-		require.Equal(t, 1, sess.GetPaginatedReadersCount())
+		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
 
 		t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
 			_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
@@ -212,7 +212,7 @@ func TestPaginationOnReader(t *testing.T) {
 				PerPage:  5,
 				SearchID: searchID,
 			})
-			require.ErrorIs(t, err, sql.ErrNoMoreRows)
+			require.ErrorIs(t, err, document.ErrNoMoreDocuments)
 		})
 	})
 
@@ -351,7 +351,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 			require.Equal(t, i, doc.Fields["idx"].GetNumberValue())
 		}
 
-		require.Equal(t, 4, sess.GetPaginatedReadersCount())
+		require.Equal(t, 4, sess.GetPaginatedDocumentReadersCount())
 	})
 
 }

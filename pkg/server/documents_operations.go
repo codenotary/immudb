@@ -185,9 +185,9 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 
 	// check if the paginated reader for this query has already been created
 	var resultReader document.DocumentReader
-	var pgreader *sessions.PaginatedReader
+	var pgreader *sessions.PaginatedDocumentReader
 
-	pgreader, err = sess.GetPaginatedReader(searchID)
+	pgreader, err = sess.GetPaginatedDocumentReader(searchID)
 	if err != nil { // paginated reader does not exist, create a new one and add it to the session
 		resultReader, err = db.SearchDocuments(ctx, req)
 		if err != nil {
@@ -195,13 +195,13 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 		}
 
 		// store the reader in the session for future use
-		pgreader = &sessions.PaginatedReader{
+		pgreader = &sessions.PaginatedDocumentReader{
 			Reader:         resultReader,
 			LastPageNumber: req.Page,
 			LastPageSize:   req.PerPage,
 		}
 
-		sess.SetPaginatedReader(searchID, pgreader)
+		sess.SetPaginatedDocumentReader(searchID, pgreader)
 	} else { // paginated reader already exists, resume reading from the correct offset based on pagination parameters
 		// do validation on the pagination parameters
 		if req.Page < pgreader.LastPageNumber {
@@ -217,11 +217,11 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *documentschema.Doc
 	}
 
 	// update the pagination parameters for this query in the session
-	sess.UpdatePaginatedReader(searchID, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
+	sess.UpdatePaginatedDocumentReader(searchID, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
 
 	if err == sql.ErrNoMoreRows {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
-		delErr := sess.DeletePaginatedReader(searchID)
+		delErr := sess.DeletePaginatedDocumentReader(searchID)
 		if delErr != nil {
 			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", searchID, delErr)
 		}

@@ -327,7 +327,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 9, len(docs))
 	})
 
@@ -346,7 +346,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 10, len(docs))
 	})
 
@@ -365,7 +365,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 9, len(docs))
 	})
 
@@ -383,7 +383,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 5, len(docs))
 	})
 
@@ -402,7 +402,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 1, len(docs))
 	})
 
@@ -428,7 +428,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 8, len(docs))
 	})
 
@@ -454,7 +454,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 4, len(docs))
 	})
 
@@ -480,7 +480,7 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.Read(ctx, 20)
-		require.ErrorIs(t, err, sql.ErrNoMoreRows)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Equal(t, 3, len(docs))
 	})
 

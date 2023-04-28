@@ -40,6 +40,7 @@ var (
 	ErrMultipleDocumentsFound = errors.New("multiple documents found")
 	ErrDocumentNotFound       = errors.New("document not found")
 	ErrDocumentIDMismatch     = errors.New("document id mismatch")
+	ErrNoMoreDocuments        = errors.New("no more documents")
 )
 
 // Schema to ValueType mapping
@@ -540,7 +541,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, querie
 		return nil, err
 	}
 
-	return NewDocumentReader(r), nil
+	return newDocumentReader(r), nil
 }
 
 func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAudit *EncodedDocAudit, err error) {
@@ -932,7 +933,7 @@ func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string,
 	return
 }
 
-func NewDocumentReader(reader sql.RowReader) DocumentReader {
+func newDocumentReader(reader sql.RowReader) DocumentReader {
 	return &documentReader{reader: reader}
 }
 
@@ -942,6 +943,10 @@ type documentReader struct {
 
 // ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
 func (d *documentReader) Read(ctx context.Context, count int) ([]*structpb.Struct, error) {
+	if count < 1 {
+		return nil, sql.ErrIllegalArguments
+	}
+
 	var err error
 	results := make([]*structpb.Struct, 0)
 
@@ -949,6 +954,7 @@ func (d *documentReader) Read(ctx context.Context, count int) ([]*structpb.Struc
 		var row *sql.Row
 		row, err = d.reader.Read(ctx)
 		if err == sql.ErrNoMoreRows {
+			err = ErrNoMoreDocuments
 			break
 		}
 		if err != nil {
