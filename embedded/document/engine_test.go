@@ -863,7 +863,8 @@ func TestFindOneAndUpdate(t *testing.T) {
 			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
 		},
 	}
-	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, &upsertOption{isInsert: true})
+
+	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, &upsertOptions{isInsert: true})
 	if err != nil {
 		t.Fatalf("Failed to insert test document: %v", err)
 	}
@@ -873,39 +874,68 @@ func TestFindOneAndUpdate(t *testing.T) {
 		Kind: &structpb.Value_StringValue{StringValue: "Alice"},
 	})}
 
-	// Prepare a document to update the age field
-	toUpdateDoc := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"age": {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
-		},
-	}
+	t.Run("update document should pass without docID", func(t *testing.T) {
+		// Prepare a document to update the age field
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+			},
+		}
 
-	// Call the FindOneAndUpdate method
-	txID, rev, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
-	require.NoError(t, err)
-	// Check that the method returned the expected values
-	require.NotEqual(t, txID, 0)
-	require.NotEqual(t, rev, 0)
+		// Call the FindOneAndUpdate method
+		txID, rev, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
+		require.NoError(t, err)
+		// Check that the method returned the expected values
+		require.NotEqual(t, txID, 0)
+		require.NotEqual(t, rev, 0)
 
-	// Verify that the document was updated
-	updatedDocs, err := e.GetDocuments(ctx, collectionName, queries, 1, 1)
-	if err != nil {
-		t.Fatalf("Failed to find updated document: %v", err)
-	}
-	updatedDoc := updatedDocs[0]
-	if updatedDoc.Fields["age"].GetNumberValue() != 31 {
-		t.Errorf("Expected age to be updated to 31, got %v", updatedDoc.Fields["age"].GetNumberValue())
-	}
+		// Verify that the document was updated
+		updatedDocs, err := e.GetDocuments(ctx, collectionName, queries, 1, 1)
+		require.NoError(t, err)
 
-	fmt.Println()
-	require.Equal(t, docID.EncodeToHexString(), updatedDoc.Fields[DocumentIDField].GetStringValue())
+		updatedDoc := updatedDocs[0]
+		if updatedDoc.Fields["age"].GetNumberValue() != 31 {
+			t.Errorf("Expected age to be updated to 31, got %v", updatedDoc.Fields["age"].GetNumberValue())
+		}
 
-	// Test error case when no documents are found
-	queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
-		Kind: &structpb.Value_StringValue{StringValue: "Bob"},
-	})}
-	_, _, err = e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
-	if !errors.Is(err, ErrDocumentNotFound) {
-		t.Errorf("Expected ErrDocumentNotFound, got %v", err)
-	}
+		require.Equal(t, docID.EncodeToHexString(), updatedDoc.Fields[DocumentIDField].GetStringValue())
+
+	})
+
+	t.Run("update document should fail when no document is found", func(t *testing.T) {
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+			},
+		}
+
+		// Test error case when no documents are found
+		queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: "Bob"},
+		})}
+		_, _, err = e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
+		if !errors.Is(err, ErrDocumentNotFound) {
+			t.Errorf("Expected ErrDocumentNotFound, got %v", err)
+		}
+	})
+
+	t.Run("update document should fail with a different docID", func(t *testing.T) {
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"_id":  {Kind: &structpb.Value_StringValue{StringValue: "123"}},
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 34}},
+			},
+		}
+		queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: "Alice"},
+		})}
+
+		// Call the FindOneAndUpdate method
+		_, _, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
+		require.ErrorIs(t, err, ErrDocumentIDMismatch)
+	})
+
 }
