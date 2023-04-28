@@ -292,7 +292,3 @@ func (d *closedDB) DocumentProof(ctx context.Context, req *schemav2.DocumentProo
 func (d *closedDB) DocumentInsertMany(ctx context.Context, req *schemav2.DocumentInsertManyRequest) (*schemav2.DocumentInsertManyResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
-
-func (d *closedDB) DocumentFindOneAndUpdate(ctx context.Context, req *schemav2.DocumentFindOneAndUpdateRequest) (*schemav2.DocumentFindOneAndUpdateResponse, error) {
-	return nil, store.ErrAlreadyClosed
-}

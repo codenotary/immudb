@@ -21,8 +21,6 @@
     - [DocumentAudit](#immudb.documentschema.DocumentAudit)
     - [DocumentAuditRequest](#immudb.documentschema.DocumentAuditRequest)
     - [DocumentAuditResponse](#immudb.documentschema.DocumentAuditResponse)
-    - [DocumentFindOneAndUpdateRequest](#immudb.documentschema.DocumentFindOneAndUpdateRequest)
-    - [DocumentFindOneAndUpdateResponse](#immudb.documentschema.DocumentFindOneAndUpdateResponse)
     - [DocumentInsertManyRequest](#immudb.documentschema.DocumentInsertManyRequest)
     - [DocumentInsertManyResponse](#immudb.documentschema.DocumentInsertManyResponse)
     - [DocumentInsertRequest](#immudb.documentschema.DocumentInsertRequest)
@@ -310,39 +308,6 @@
 
 
 
-<a name="immudb.documentschema.DocumentFindOneAndUpdateRequest"></a>
-
-### DocumentFindOneAndUpdateRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
-| query | [DocumentQuery](#immudb.documentschema.DocumentQuery) | repeated |  |
-| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
-
-
-
-
-
-
-<a name="immudb.documentschema.DocumentFindOneAndUpdateResponse"></a>
-
-### DocumentFindOneAndUpdateResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| transactionId | [uint64](#uint64) |  |  |
-| revision | [uint64](#uint64) |  |  |
-
-
-
-
-
-
 <a name="immudb.documentschema.DocumentInsertManyRequest"></a>
 
 ### DocumentInsertManyRequest
@@ -502,6 +467,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
+| query | [DocumentQuery](#immudb.documentschema.DocumentQuery) | repeated |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 
 
@@ -613,7 +579,6 @@
 | CollectionDelete | [CollectionDeleteRequest](#immudb.documentschema.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.documentschema.CollectionDeleteResponse) |  |
 | CollectionUpdate | [CollectionUpdateRequest](#immudb.documentschema.CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb.documentschema.CollectionUpdateResponse) |  |
 | DocumentInsertMany | [DocumentInsertManyRequest](#immudb.documentschema.DocumentInsertManyRequest) | [DocumentInsertManyResponse](#immudb.documentschema.DocumentInsertManyResponse) |  |
-| DocumentFindOneAndUpdate | [DocumentFindOneAndUpdateRequest](#immudb.documentschema.DocumentFindOneAndUpdateRequest) | [DocumentFindOneAndUpdateResponse](#immudb.documentschema.DocumentFindOneAndUpdateResponse) |  |
 
  
 
