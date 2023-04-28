@@ -39,6 +39,7 @@ var (
 	ErrMaxLengthExceeded      = errors.New("max length exceeded")
 	ErrMultipleDocumentsFound = errors.New("multiple documents found")
 	ErrDocumentNotFound       = errors.New("document not found")
+	ErrDocumentIDMismatch     = errors.New("document id mismatch")
 )
 
 // Schema to ValueType mapping
@@ -116,23 +117,23 @@ type IndexOption struct {
 	IsUnique bool
 }
 
-type upsertOption struct {
+type upsertOptions struct {
 	isInsert bool
 	tx       *sql.SQLTx
 }
 
-func (u *upsertOption) withTx(tx *sql.SQLTx) *upsertOption {
+func (u *upsertOptions) withTx(tx *sql.SQLTx) *upsertOptions {
 	u.tx = tx
 	return u
 }
 
-func (u *upsertOption) withIsInsert(isInsert bool) *upsertOption {
+func (u *upsertOptions) withIsInsert(isInsert bool) *upsertOptions {
 	u.isInsert = isInsert
 	return u
 }
 
-func newUpsertOption() *upsertOption {
-	return &upsertOption{}
+func newUpsertOptions() *upsertOptions {
+	return &upsertOptions{}
 }
 
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
@@ -346,18 +347,18 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 }
 
 func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
-	opt := newUpsertOption().withIsInsert(true)
+	opt := newUpsertOptions().withIsInsert(true)
 	docID, txID, _, err = e.upsertDocument(ctx, collectionName, doc, opt)
 	return
 }
 
 func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID, rev uint64, err error) {
-	opt := newUpsertOption().withIsInsert(false)
+	opt := newUpsertOptions().withIsInsert(false)
 	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, opt)
 	return
 }
 
-func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct, opt *upsertOption) (docID DocumentID, txID, rev uint64, err error) {
+func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct, opt *upsertOptions) (docID DocumentID, txID, rev uint64, err error) {
 	if doc == nil {
 		return nil, 0, 0, ErrIllegalArguments
 	}
@@ -892,7 +893,7 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 	}
 
 	query := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(collectionName, DocumentBLOBField)},
+		[]sql.Selector{sql.NewColSelector(collectionName, DocumentIDField)},
 		collectionName,
 		exp,
 		nil,
@@ -910,7 +911,7 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 		return 0, 0, err
 	}
 
-	var results []*structpb.Struct
+	var results []DocumentID
 	for {
 		row, err := r.Read(ctx)
 		if err == sql.ErrNoMoreRows {
@@ -920,15 +921,12 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 			return 0, 0, err
 		}
 
-		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
-
-		doc := &structpb.Struct{}
-		err = json.Unmarshal(docBytes, doc)
+		val := row.ValuesByPosition[0].RawValue().([]byte)
+		docID, err := NewDocumentIDFromRawBytes(val)
 		if err != nil {
 			return 0, 0, err
 		}
-
-		results = append(results, doc)
+		results = append(results, docID)
 	}
 
 	// close the active snapshot reader
@@ -943,11 +941,22 @@ func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, qu
 	}
 
 	// merge the document fields
-	doc := results[0]
-	mergeDocumentStructs(doc, docToUpdate)
+	docID := results[0]
+
+	// check if updated document has id field
+	if val, ok := docToUpdate.Fields[DocumentIDField]; ok {
+		// check if id field matches
+		if val.GetStringValue() != docID.EncodeToHexString() {
+			return 0, 0, ErrDocumentIDMismatch
+		}
+	} else {
+		// add id field to updated document
+		docToUpdate.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
+	}
 
 	// update the document
-	opt := newUpsertOption().withIsInsert(false).withTx(tx)
-	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, opt)
+	opt := newUpsertOptions().withIsInsert(false).withTx(tx)
+	_, txID, rev, err = e.upsertDocument(ctx, collectionName, docToUpdate, opt)
+
 	return
 }
