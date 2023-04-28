@@ -202,38 +202,6 @@
         ]
       }
     },
-    "/documents/findOneAndUpdate": {
-      "post": {
-        "operationId": "DocumentService_DocumentFindOneAndUpdate",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/documentschemaDocumentFindOneAndUpdateResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/documentschemaDocumentFindOneAndUpdateRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
     "/documents/insert": {
       "put": {
         "operationId": "DocumentService_DocumentInsert",
@@ -532,36 +500,6 @@
         }
       }
     },
-    "documentschemaDocumentFindOneAndUpdateRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "query": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/documentschemaDocumentQuery"
-          }
-        },
-        "document": {
-          "type": "object"
-        }
-      }
-    },
-    "documentschemaDocumentFindOneAndUpdateResponse": {
-      "type": "object",
-      "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "revision": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
     "documentschemaDocumentInsertManyRequest": {
       "type": "object",
       "properties": {
@@ -704,6 +642,12 @@
       "properties": {
         "collection": {
           "type": "string"
+        },
+        "query": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/documentschemaDocumentQuery"
+          }
         },
         "document": {
           "type": "object"

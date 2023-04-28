@@ -245,7 +245,12 @@ func TestDocumentAudit(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, &structpb.Struct{
+	// Prepare a query to find the document
+	queries := []*Query{newQuery("country", sql.EQ, &structpb.Value{
+		Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+	})}
+
+	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, queries, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"_id": {
 				Kind: &structpb.Value_StringValue{StringValue: docID.EncodeToHexString()},
@@ -463,71 +468,99 @@ func TestQueryDocument(t *testing.T) {
 }
 
 func TestDocumentUpdate(t *testing.T) {
-	engine := makeEngine(t)
+	// Create a new engine instance
+	ctx := context.Background()
+	e := makeEngine(t)
 
 	// create collection
-	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
-		"country": {Type: sql.VarcharType},
+	// Create a test collection with a single document
+	collectionName := "test_collection"
+	err := e.CreateCollection(ctx, collectionName, map[string]*IndexOption{
+		"name": {Type: sql.VarcharType},
+		"age":  {Type: sql.Float64Type},
 	})
 	require.NoError(t, err)
-	require.NoError(t, err)
 
-	// add document to collection
-	docID, _, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	doc := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"country": {
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
-			"data": {
-				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value1"}},
-					},
-				}},
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	_, revision, err := engine.UpdateDocument(context.Background(), collectionName, &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"_id": {
-				Kind: &structpb.Value_StringValue{StringValue: docID.EncodeToHexString()},
-			},
-			"country": {
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
-			"data": {
-				Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"key1": {Kind: &structpb.Value_StringValue{StringValue: "value2"}},
-					},
-				}},
-			},
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), revision)
-
-	expressions := []*Query{
-		{
-			Field:    "country",
-			Operator: sql.EQ,
-			Value: &structpb.Value{
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
+			"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
 		},
 	}
 
-	// check if document is updated
-	docs, err := engine.GetDocuments(context.Background(), collectionName, expressions, 1, 10)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(docs))
+	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, &upsertOptions{isInsert: true})
+	if err != nil {
+		t.Fatalf("Failed to insert test document: %v", err)
+	}
 
-	// check if data is updated
-	doc := docs[0]
-	require.Equal(t, "value2", doc.Fields["data"].GetStructValue().Fields["key1"].GetStringValue())
+	// Prepare a query to find the document by name
+	queries := []*Query{newQuery("name", sql.EQ, &structpb.Value{
+		Kind: &structpb.Value_StringValue{StringValue: "Alice"},
+	})}
+
+	t.Run("update document should pass without docID", func(t *testing.T) {
+		// Prepare a document to update the age field
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+			},
+		}
+
+		// Call the UpdateDocument method
+		txID, rev, err := e.UpdateDocument(ctx, collectionName, queries, toUpdateDoc)
+		require.NoError(t, err)
+		// Check that the method returned the expected values
+		require.NotEqual(t, txID, 0)
+		require.NotEqual(t, rev, 0)
+
+		// Verify that the document was updated
+		updatedDocs, err := e.GetDocuments(ctx, collectionName, queries, 1, 1)
+		require.NoError(t, err)
+
+		updatedDoc := updatedDocs[0]
+		if updatedDoc.Fields["age"].GetNumberValue() != 31 {
+			t.Errorf("Expected age to be updated to 31, got %v", updatedDoc.Fields["age"].GetNumberValue())
+		}
+
+		require.Equal(t, docID.EncodeToHexString(), updatedDoc.Fields[DocumentIDField].GetStringValue())
+
+	})
+
+	t.Run("update document should fail when no document is found", func(t *testing.T) {
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+			},
+		}
+
+		// Test error case when no documents are found
+		queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: "Bob"},
+		})}
+		_, _, err = e.UpdateDocument(ctx, collectionName, queries, toUpdateDoc)
+		if !errors.Is(err, ErrDocumentNotFound) {
+			t.Errorf("Expected ErrDocumentNotFound, got %v", err)
+		}
+	})
+
+	t.Run("update document should fail with a different docID", func(t *testing.T) {
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"_id":  {Kind: &structpb.Value_StringValue{StringValue: "123"}},
+				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
+				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 34}},
+			},
+		}
+		queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: "Alice"},
+		})}
+
+		// Call the UpdateDocument method
+		_, _, err := e.UpdateDocument(ctx, collectionName, queries, toUpdateDoc)
+		require.ErrorIs(t, err, ErrDocumentIDMismatch)
+	})
 }
 
 func TestFloatSupport(t *testing.T) {
@@ -841,101 +874,4 @@ func newQuery(field string, op int, value *structpb.Value) *Query {
 		Operator: op,
 		Value:    value,
 	}
-}
-
-func TestFindOneAndUpdate(t *testing.T) {
-	// Create a new engine instance
-	ctx := context.Background()
-	e := makeEngine(t)
-
-	// create collection
-	// Create a test collection with a single document
-	collectionName := "test_collection"
-	err := e.CreateCollection(ctx, collectionName, map[string]*IndexOption{
-		"name": {Type: sql.VarcharType},
-		"age":  {Type: sql.Float64Type},
-	})
-	require.NoError(t, err)
-
-	doc := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
-		},
-	}
-
-	docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, &upsertOptions{isInsert: true})
-	if err != nil {
-		t.Fatalf("Failed to insert test document: %v", err)
-	}
-
-	// Prepare a query to find the document by name
-	queries := []*Query{newQuery("name", sql.EQ, &structpb.Value{
-		Kind: &structpb.Value_StringValue{StringValue: "Alice"},
-	})}
-
-	t.Run("update document should pass without docID", func(t *testing.T) {
-		// Prepare a document to update the age field
-		toUpdateDoc := &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
-			},
-		}
-
-		// Call the FindOneAndUpdate method
-		txID, rev, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
-		require.NoError(t, err)
-		// Check that the method returned the expected values
-		require.NotEqual(t, txID, 0)
-		require.NotEqual(t, rev, 0)
-
-		// Verify that the document was updated
-		updatedDocs, err := e.GetDocuments(ctx, collectionName, queries, 1, 1)
-		require.NoError(t, err)
-
-		updatedDoc := updatedDocs[0]
-		if updatedDoc.Fields["age"].GetNumberValue() != 31 {
-			t.Errorf("Expected age to be updated to 31, got %v", updatedDoc.Fields["age"].GetNumberValue())
-		}
-
-		require.Equal(t, docID.EncodeToHexString(), updatedDoc.Fields[DocumentIDField].GetStringValue())
-
-	})
-
-	t.Run("update document should fail when no document is found", func(t *testing.T) {
-		toUpdateDoc := &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
-			},
-		}
-
-		// Test error case when no documents are found
-		queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
-			Kind: &structpb.Value_StringValue{StringValue: "Bob"},
-		})}
-		_, _, err = e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
-		if !errors.Is(err, ErrDocumentNotFound) {
-			t.Errorf("Expected ErrDocumentNotFound, got %v", err)
-		}
-	})
-
-	t.Run("update document should fail with a different docID", func(t *testing.T) {
-		toUpdateDoc := &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"_id":  {Kind: &structpb.Value_StringValue{StringValue: "123"}},
-				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 34}},
-			},
-		}
-		queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
-			Kind: &structpb.Value_StringValue{StringValue: "Alice"},
-		})}
-
-		// Call the FindOneAndUpdate method
-		_, _, err := e.FindOneAndUpdate(ctx, collectionName, queries, toUpdateDoc)
-		require.ErrorIs(t, err, ErrDocumentIDMismatch)
-	})
-
 }

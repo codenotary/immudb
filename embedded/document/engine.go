@@ -352,9 +352,78 @@ func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc 
 	return
 }
 
-func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID, rev uint64, err error) {
-	opt := newUpsertOptions().withIsInsert(false)
-	_, txID, rev, err = e.upsertDocument(ctx, collectionName, doc, opt)
+func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, queries []*Query, docToUpdate *structpb.Struct) (txID, rev uint64, err error) {
+	exp, err := e.generateExp(ctx, collectionName, queries)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	query := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(collectionName, DocumentIDField)},
+		collectionName,
+		exp,
+		nil,
+		nil,
+	)
+
+	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Cancel()
+
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, tx, query, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var results []DocumentID
+	for {
+		row, err := r.Read(ctx)
+		if err == sql.ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return 0, 0, err
+		}
+
+		val := row.ValuesByPosition[0].RawValue().([]byte)
+		docID, err := NewDocumentIDFromRawBytes(val)
+		if err != nil {
+			return 0, 0, err
+		}
+		results = append(results, docID)
+	}
+
+	// close the active snapshot reader
+	r.Close()
+
+	if len(results) == 0 {
+		return 0, 0, ErrDocumentNotFound
+	}
+
+	if len(results) > 1 {
+		return 0, 0, ErrMultipleDocumentsFound
+	}
+
+	// merge the document fields
+	docID := results[0]
+
+	// check if updated document has id field
+	if val, ok := docToUpdate.Fields[DocumentIDField]; ok {
+		// check if id field matches
+		if val.GetStringValue() != docID.EncodeToHexString() {
+			return 0, 0, ErrDocumentIDMismatch
+		}
+	} else {
+		// add id field to updated document
+		docToUpdate.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
+	}
+
+	// update the document
+	opt := newUpsertOptions().withIsInsert(false).withTx(tx)
+	_, txID, rev, err = e.upsertDocument(ctx, collectionName, docToUpdate, opt)
+
 	return
 }
 
@@ -882,81 +951,6 @@ func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string,
 	}
 
 	txID = ctxs[0].TxHeader().ID
-
-	return
-}
-
-func (e *Engine) FindOneAndUpdate(ctx context.Context, collectionName string, queries []*Query, docToUpdate *structpb.Struct) (txID, rev uint64, err error) {
-	exp, err := e.generateExp(ctx, collectionName, queries)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	query := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(collectionName, DocumentIDField)},
-		collectionName,
-		exp,
-		nil,
-		nil,
-	)
-
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
-	if err != nil {
-		return 0, 0, err
-	}
-	defer tx.Cancel()
-
-	r, err := e.sqlEngine.QueryPreparedStmt(ctx, tx, query, nil)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	var results []DocumentID
-	for {
-		row, err := r.Read(ctx)
-		if err == sql.ErrNoMoreRows {
-			break
-		}
-		if err != nil {
-			return 0, 0, err
-		}
-
-		val := row.ValuesByPosition[0].RawValue().([]byte)
-		docID, err := NewDocumentIDFromRawBytes(val)
-		if err != nil {
-			return 0, 0, err
-		}
-		results = append(results, docID)
-	}
-
-	// close the active snapshot reader
-	r.Close()
-
-	if len(results) == 0 {
-		return 0, 0, ErrDocumentNotFound
-	}
-
-	if len(results) > 1 {
-		return 0, 0, ErrMultipleDocumentsFound
-	}
-
-	// merge the document fields
-	docID := results[0]
-
-	// check if updated document has id field
-	if val, ok := docToUpdate.Fields[DocumentIDField]; ok {
-		// check if id field matches
-		if val.GetStringValue() != docID.EncodeToHexString() {
-			return 0, 0, ErrDocumentIDMismatch
-		}
-	} else {
-		// add id field to updated document
-		docToUpdate.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
-	}
-
-	// update the document
-	opt := newUpsertOptions().withIsInsert(false).withTx(tx)
-	_, txID, rev, err = e.upsertDocument(ctx, collectionName, docToUpdate, opt)
 
 	return
 }
