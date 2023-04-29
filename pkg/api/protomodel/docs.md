@@ -202,11 +202,6 @@
 
 
 
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| collection | [Collection](#immudb.model.Collection) |  |  |
-
-
 
 
 
@@ -475,6 +470,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| searchID | [string](#string) |  |  |
 | collection | [string](#string) |  |  |
 | query | [Query](#immudb.model.Query) |  |  |
 | desc | [bool](#bool) |  |  |
@@ -494,6 +490,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| searchID | [string](#string) |  |  |
 | revisions | [DocumentAtRevision](#immudb.model.DocumentAtRevision) | repeated |  |
 
 
@@ -526,7 +523,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| revision | [DocumentAtRevision](#immudb.model.DocumentAtRevision) |  |  |
+| transactionId | [uint64](#uint64) |  |  |
+| documentId | [string](#string) |  |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 

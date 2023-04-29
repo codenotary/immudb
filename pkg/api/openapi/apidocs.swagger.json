@@ -542,12 +542,7 @@
       }
     },
     "modelCollectionCreateResponse": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "$ref": "#/definitions/modelCollection"
-        }
-      }
+      "type": "object"
     },
     "modelCollectionDeleteResponse": {
       "type": "object"
@@ -742,6 +737,9 @@
     "modelDocumentSearchRequest": {
       "type": "object",
       "properties": {
+        "searchID": {
+          "type": "string"
+        },
         "collection": {
           "type": "string"
         },
@@ -758,24 +756,21 @@
         "perPage": {
           "type": "integer",
           "format": "int64"
-        },
-        "searchID": {
-          "type": "string"
         }
       }
     },
     "modelDocumentSearchResponse": {
       "type": "object",
       "properties": {
+        "searchID": {
+          "type": "string"
+        },
         "revisions": {
           "type": "array",
           "items": {
             "type": "object",
             "$ref": "#/definitions/modelDocumentAtRevision"
           }
-        },
-        "searchID": {
-          "type": "string"
         }
       }
     },
@@ -796,8 +791,16 @@
     "modelDocumentUpdateResponse": {
       "type": "object",
       "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "documentId": {
+          "type": "string"
+        },
         "revision": {
-          "$ref": "#/definitions/modelDocumentAtRevision"
+          "type": "string",
+          "format": "uint64"
         }
       }
     },

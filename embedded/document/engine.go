@@ -24,17 +24,19 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
-	DocumentIDField   = "_id"
-	DocumentBLOBField = "_doc"
+	DefaultDocumentIDField = "_id"
+	DocumentBLOBField      = "_doc"
 )
 
 var (
 	ErrIllegalArguments       = store.ErrIllegalArguments
+	ErrUnsupportedType        = errors.New("unsupported type")
 	ErrCollectionDoesNotExist = errors.New("collection does not exist")
 	ErrMaxLengthExceeded      = errors.New("max length exceeded")
 	ErrMultipleDocumentsFound = errors.New("multiple documents found")
@@ -43,55 +45,71 @@ var (
 	ErrNoMoreDocuments        = errors.New("no more documents")
 )
 
-// Schema to ValueType mapping
+func mayTranslateError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, sql.ErrTableDoesNotExist) {
+		return ErrCollectionDoesNotExist
+	}
+
+	if errors.Is(err, sql.ErrNoMoreRows) {
+		return ErrNoMoreDocuments
+	}
+
+	return err
+}
+
+// protomodel to sql.Value mapping
 var (
-	// ValueType to ValueExp conversion
-	valueTypeToExp = func(stype sql.SQLValueType, value *structpb.Value) (sql.ValueExp, error) {
-		errType := fmt.Errorf("unsupported type %v", stype)
+	// structpb.Value to sql.ValueExp conversion
+	structValueToSqlValue = func(stype sql.SQLValueType, value *structpb.Value) (sql.ValueExp, error) {
 		switch stype {
 		case sql.VarcharType:
 			_, ok := value.GetKind().(*structpb.Value_StringValue)
 			if !ok {
-				return nil, errType
+				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 			}
 			return sql.NewVarchar(value.GetStringValue()), nil
 		case sql.IntegerType:
 			_, ok := value.GetKind().(*structpb.Value_NumberValue)
 			if !ok {
-				return nil, errType
+				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 			}
 			return sql.NewInteger(int64(value.GetNumberValue())), nil
 		case sql.BLOBType:
 			_, ok := value.GetKind().(*structpb.Value_StructValue)
 			if !ok {
-				return nil, errType
+				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 			}
 			return sql.NewBlob([]byte(value.GetStructValue().String())), nil
 		case sql.Float64Type:
 			_, ok := value.GetKind().(*structpb.Value_NumberValue)
 			if !ok {
-				return nil, errType
+				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 			}
 			return sql.NewFloat64(value.GetNumberValue()), nil
 		}
 
-		return nil, errType
+		return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 	}
 
 	valueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
-		errType := fmt.Errorf("unsupported type %v", stype)
 		switch stype {
 		case sql.VarcharType:
-			return 256, nil
+			return sql.MaxKeyLen, nil
 		case sql.IntegerType:
 			return 0, nil
 		case sql.BLOBType:
-			return 256, nil
+			return sql.MaxKeyLen, nil
 		case sql.Float64Type:
+			return 0, nil
+		case sql.BooleanType:
 			return 0, nil
 		}
 
-		return 0, errType
+		return 0, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 	}
 )
 
@@ -101,45 +119,9 @@ type EncodedDocAudit struct {
 	EncodedDocument []byte
 }
 
-type DocAudit struct {
-	TxID     uint64
-	Revision uint64
-	Document *structpb.Struct
-}
-
-type Query struct {
-	Field    string
-	Operator int
-	Value    *structpb.Value
-}
-
-type IndexOption struct {
-	Type     sql.SQLValueType
-	IsUnique bool
-}
-
 type DocumentReader interface {
 	Read(ctx context.Context, count int) ([]*structpb.Struct, error)
 	Close() error
-}
-
-type upsertOptions struct {
-	isInsert bool
-	tx       *sql.SQLTx
-}
-
-func (u *upsertOptions) withTx(tx *sql.SQLTx) *upsertOptions {
-	u.tx = tx
-	return u
-}
-
-func (u *upsertOptions) withIsInsert(isInsert bool) *upsertOptions {
-	u.isInsert = isInsert
-	return u
-}
-
-func newUpsertOptions() *upsertOptions {
-	return &upsertOptions{}
 }
 
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
@@ -155,296 +137,500 @@ type Engine struct {
 	sqlEngine *sql.Engine
 }
 
-func (e *Engine) CreateCollection(ctx context.Context, collectionName string, idxKeys map[string]*IndexOption) error {
-	primaryKeys := []string{DocumentIDField}
-	columns := make([]*sql.ColSpec, 0)
-	idxStmts := make([]sql.SQLStmt, 0)
+func (e *Engine) CreateCollection(ctx context.Context, collection *protomodel.Collection) error {
+	if collection == nil {
+		return ErrIllegalArguments
+	}
+
+	// only catalog needs to be up to date
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	idFieldName := DefaultDocumentIDField
+	if collection.IdFieldName != "" {
+		idFieldName = collection.IdFieldName
+	}
+
+	columns := make([]*sql.ColSpec, 2+len(collection.Fields))
 
 	// add primary key for document id
-	columns = append(columns, sql.NewColSpec(DocumentIDField, sql.BLOBType, MaxDocumentIDLength, false, true))
+	columns[0] = sql.NewColSpec(idFieldName, sql.BLOBType, MaxDocumentIDLength, false, true)
 
 	// add columnn for blob, which stores the document as a whole
-	columns = append(columns, sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false))
+	columns[1] = sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false)
 
 	// add index keys
-	for name, idx := range idxKeys {
-		colLen, err := valueTypeDefaultLength(idx.Type)
+	for i, field := range collection.Fields {
+		colLen, err := valueTypeDefaultLength(field.Type.String())
 		if err != nil {
-			return fmt.Errorf("index key specified is not supported: %v", idx.Type)
+			return err
 		}
-		columns = append(columns, sql.NewColSpec(name, idx.Type, colLen, false, false))
-		idxStmts = append(idxStmts, sql.NewCreateIndexStmt(collectionName, []string{name}, idx.IsUnique))
+
+		columns[i+2] = sql.NewColSpec(field.Name, field.Type.String(), colLen, false, false)
 	}
 
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
-	if err != nil {
-		return err
-	}
-	defer tx.Cancel()
-
-	// add columns to collection
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
-		tx,
+		sqlTx,
 		[]sql.SQLStmt{sql.NewCreateTableStmt(
-			collectionName,
+			collection.Name,
 			false,
 			columns,
-			primaryKeys,
+			[]string{idFieldName},
 		)},
 		nil,
 	)
 	if err != nil {
-		return err
+		return mayTranslateError(err)
+	}
+
+	var indexStmts []sql.SQLStmt
+
+	for _, index := range collection.Indexes {
+		if len(index.Fields) == 1 && index.Fields[0] == idFieldName {
+			if !index.IsUnique {
+				return fmt.Errorf("%w: index on id field must be unique", ErrIllegalArguments)
+			}
+			// idField is the primary key and so the index is automatically created
+			continue
+		}
+
+		indexStmts = append(indexStmts, sql.NewCreateIndexStmt(collection.Name, index.Fields, index.IsUnique))
 	}
 
 	// add indexes to collection
-	if len(idxStmts) > 0 {
+	if len(indexStmts) > 0 {
 		_, _, err = e.sqlEngine.ExecPreparedStmts(
 			ctx,
-			tx,
-			idxStmts,
+			sqlTx,
+			indexStmts,
 			nil,
 		)
 		if err != nil {
-			return err
+			return mayTranslateError(err)
 		}
 	}
 
-	return tx.Commit(ctx)
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
 }
 
-func (e *Engine) ListCollections(ctx context.Context) (map[string][]*sql.Index, error) {
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection, error) {
+	opts := sql.DefaultTxOptions().
+		WithReadOnly(true).
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, mayTranslateError(err)
 	}
-	defer tx.Cancel()
+	defer sqlTx.Cancel()
 
-	collectionMap := make(map[string][]*sql.Index)
-	for _, table := range tx.Catalog().GetTables() {
-		_, ok := collectionMap[table.Name()]
-		if !ok {
-			collectionMap[table.Name()] = make([]*sql.Index, 0)
-		}
-		collectionMap[table.Name()] = append(collectionMap[table.Name()], table.GetIndexes()...)
+	tables := sqlTx.Catalog().GetTables()
+
+	collections := make([]*protomodel.Collection, len(tables))
+
+	for i, table := range tables {
+		collections[i] = collectionFromTable(table)
 	}
 
-	return collectionMap, nil
+	return collections, nil
 }
 
-func (e *Engine) GetCollection(ctx context.Context, collectionName string) ([]*sql.Index, error) {
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) GetCollection(ctx context.Context, collectionName string) (*protomodel.Collection, error) {
+	opts := sql.DefaultTxOptions().
+		WithReadOnly(true).
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
 	if err != nil {
-		return nil, err
-	}
-	defer tx.Cancel()
-
-	// check if collection exists
-	table, err := tx.Catalog().GetTableByName(collectionName)
-	if err != nil {
-		return nil, fmt.Errorf("collection %s does not exist", collectionName)
-	}
-
-	// fetch primary and index keys from collection schema
-	cols := table.Cols()
-	if len(cols) == 0 {
-		return nil, fmt.Errorf("collection %s does not have a field", collectionName)
-	}
-
-	indexes := make([]*sql.Index, 0)
-	indexes = append(indexes, table.GetIndexes()...)
-
-	return indexes, nil
-}
-
-func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, addIdxKeys map[string]*IndexOption, removeIdxKeys []string) error {
-	updateCollectionStmts := make([]sql.SQLStmt, 0)
-
-	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExplicitClose(true))
-	if err != nil {
-		return err
+		return nil, mayTranslateError(err)
 	}
 	defer sqlTx.Cancel()
 
 	table, err := sqlTx.Catalog().GetTableByName(collectionName)
 	if err != nil {
-		return err
+		return nil, mayTranslateError(err)
 	}
 
-	if len(removeIdxKeys) > 0 {
-		// delete indexes from collection
-		deleteIdxStmts := make([]sql.SQLStmt, 0)
-		for _, idx := range removeIdxKeys {
-			deleteIdxStmts = append(deleteIdxStmts, sql.NewDropIndexStmt(collectionName, idx))
+	return collectionFromTable(table), nil
+}
+
+func docIDFieldName(table *sql.Table) string {
+	return table.PrimaryIndex().Cols()[0].Name()
+}
+
+func collectionFromTable(table *sql.Table) *protomodel.Collection {
+	indexes := table.GetIndexes()
+
+	collection := &protomodel.Collection{
+		Name:        table.Name(),
+		IdFieldName: docIDFieldName(table),
+		Indexes:     make([]*protomodel.Index, len(indexes)),
+	}
+
+	for i, index := range indexes {
+		fields := make([]string, len(index.Cols()))
+
+		for i, c := range index.Cols() {
+			fields[i] = c.Name()
 		}
 
+		collection.Indexes[i] = &protomodel.Index{
+			Fields:   fields,
+			IsUnique: index.IsUnique(),
+		}
+	}
+
+	return collection
+}
+
+func (e *Engine) UpdateCollection(ctx context.Context, collection *protomodel.Collection) error {
+	if collection == nil {
+		return ErrIllegalArguments
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	table, err := sqlTx.Catalog().GetTableByName(collection.Name)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	idFieldName := docIDFieldName(table)
+
+	if collection.IdFieldName != "" && collection.IdFieldName != idFieldName {
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			ctx,
 			sqlTx,
-			deleteIdxStmts,
+			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), idFieldName, collection.IdFieldName)},
 			nil,
 		)
 		if err != nil {
-			return err
+			return mayTranslateError(err)
 		}
 	}
 
-	if len(addIdxKeys) > 0 {
-		// add index keys
-		for name, idx := range addIdxKeys {
-			colLen, err := valueTypeDefaultLength(idx.Type)
+	/*
+		updateCollectionStmts := make([]sql.SQLStmt, 0)
+
+		if len(removeIdxKeys) > 0 {
+			// delete indexes from collection
+			deleteIdxStmts := make([]sql.SQLStmt, 0)
+			for _, idx := range removeIdxKeys {
+				deleteIdxStmts = append(deleteIdxStmts, sql.NewDropIndexStmt(collectionName, idx))
+			}
+
+			_, _, err := e.sqlEngine.ExecPreparedStmts(
+				ctx,
+				sqlTx,
+				deleteIdxStmts,
+				nil,
+			)
 			if err != nil {
-				return fmt.Errorf("index key specified is not supported: %v", idx.Type)
+				return err
+			}
+		}
+
+		if len(addIdxKeys) > 0 {
+			// add index keys
+			for name, idx := range addIdxKeys {
+				colLen, err := valueTypeDefaultLength(idx.Type)
+				if err != nil {
+					return fmt.Errorf("index key specified is not supported: %v", idx.Type)
+				}
+
+				// check if index column already exists
+				if _, err := table.GetColumnByName(name); err == nil {
+					continue
+				}
+
+				// add indexes as new columns to collection
+				updateCollectionStmts = append(updateCollectionStmts, sql.NewAddColumnStmt(collectionName, sql.NewColSpec(name, idx.Type, colLen, false, false)))
 			}
 
-			// check if index column already exists
-			if _, err := table.GetColumnByName(name); err == nil {
-				continue
+			// add indexes to collection
+			for name, idx := range addIdxKeys {
+				updateCollectionStmts = append(updateCollectionStmts, sql.NewCreateIndexStmt(collectionName, []string{name}, idx.IsUnique))
 			}
 
-			// add indexes as new columns to collection
-			updateCollectionStmts = append(updateCollectionStmts, sql.NewAddColumnStmt(collectionName, sql.NewColSpec(name, idx.Type, colLen, false, false)))
+			_, _, err := e.sqlEngine.ExecPreparedStmts(
+				ctx,
+				sqlTx,
+				updateCollectionStmts,
+				nil,
+			)
+			if err != nil {
+				return err
+			}
 		}
+	*/
 
-		// add indexes to collection
-		for name, idx := range addIdxKeys {
-			updateCollectionStmts = append(updateCollectionStmts, sql.NewCreateIndexStmt(collectionName, []string{name}, idx.IsUnique))
-		}
-
-		_, _, err := e.sqlEngine.ExecPreparedStmts(
-			ctx,
-			sqlTx,
-			updateCollectionStmts,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return sqlTx.Commit(ctx)
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
 }
 
 // DeleteCollection deletes a collection.
 func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
-	// delete collection from catalog
-	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		nil,
 		[]sql.SQLStmt{
-			sql.NewDeleteFromStmt(collectionName, nil), // delete all documents from collection
-			sql.NewDropTableStmt(collectionName),       // delete collection from catalog
+			sql.NewDropTableStmt(collectionName), // delete collection from catalog
+		},
+		nil,
+	)
+
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
+}
+
+func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
+	txID, docIDs, err := e.BulkInsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return txID, docIDs[0], nil
+}
+
+func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
+	if len(docs) == 0 {
+		return 0, nil, ErrIllegalArguments
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return 0, nil, mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	table, err := sqlTx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		return 0, nil, mayTranslateError(err)
+	}
+
+	colNames := make([]string, len(table.Cols()))
+
+	for i, col := range table.Cols() {
+		colNames[i] = col.Name()
+	}
+
+	rows := make([]*sql.RowSpec, len(docs))
+
+	for _, doc := range docs {
+		if doc == nil {
+			return 0, nil, fmt.Errorf("%w: nil document", ErrIllegalArguments)
+		}
+
+		docIDFieldName := docIDFieldName(table)
+
+		_, docIDProvisioned := doc.Fields[docIDFieldName]
+		if docIDProvisioned {
+			return 0, nil, fmt.Errorf("%w: field (%s) should NOT be specified when inserting a document")
+		}
+
+		// generate document id
+		docID := NewDocumentIDFromTx(e.sqlEngine.GetStore().LastPrecommittedTxID())
+		doc.Fields[docIDFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
+
+		rowSpec, err := e.generateRowSpecForDocument(table, doc)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		docIDs = append(docIDs, docID)
+		rows = append(rows, rowSpec)
+	}
+
+	// add documents to collection
+	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		sqlTx,
+		[]sql.SQLStmt{
+			sql.NewUpserIntoStmt(
+				collectionName,
+				colNames,
+				rows,
+				true,
+				nil,
+			),
 		},
 		nil,
 	)
 	if err != nil {
-		return err
+		return 0, nil, mayTranslateError(err)
 	}
 
-	// wait for the transaction to be committed to ensure the collection is deleted from the catalog
-	committedTx := ctxs[0]
-	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, committedTx.TxHeader().ID)
-	if err != nil {
-		return err
-	}
+	txID = ctxs[0].TxHeader().ID
 
-	return nil
+	return txID, docIDs, nil
 }
 
-func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (docID DocumentID, txID uint64, err error) {
-	opt := newUpsertOptions().withIsInsert(true)
-	docID, txID, _, err = e.upsertDocument(ctx, collectionName, doc, opt)
-	return
-}
+func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Struct) (*sql.RowSpec, error) {
+	values := make([]sql.ValueExp, len(table.Cols()))
 
-func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, queries []*Query, docToUpdate *structpb.Struct) (txID, rev uint64, err error) {
-	exp, err := e.generateExp(ctx, collectionName, queries)
-	if err != nil {
-		return 0, 0, err
+	for i, col := range table.Cols() {
+		if col.Name() == DocumentBLOBField {
+			bs, err := json.Marshal(doc)
+			if err != nil {
+				return nil, err
+			}
+
+			values[i] = sql.NewBlob(bs)
+		} else {
+			if rval, ok := doc.Fields[col.Name()]; ok {
+				val, err := structValueToSqlValue(col.Type(), rval)
+				if err != nil {
+					return nil, err
+				}
+				values[i] = val
+			} else {
+				values[i] = &sql.NullValue{}
+			}
+		}
 	}
 
-	query := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(collectionName, DocumentIDField)},
+	return sql.NewRowSpec(values), nil
+}
+
+func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
+	if doc == nil {
+		return 0, nil, 0, ErrIllegalArguments
+	}
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	if err != nil {
+		return 0, nil, 0, mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	table, err := sqlTx.Catalog().GetTableByName(collectionName)
+	if err != nil {
+		return 0, nil, 0, mayTranslateError(err)
+	}
+
+	idFieldName := docIDFieldName(table)
+
+	provisionedDocID, docIDProvisioned := doc.Fields[idFieldName]
+	if docIDProvisioned {
+		// inject id comparisson into query
+		idFieldComparissonExp := &protomodel.QueryExpression{
+			FieldComparisons: []*protomodel.FieldComparison{
+				{
+					Field:    idFieldName,
+					Operator: protomodel.ComparisonOperator_EQ,
+					Value:    provisionedDocID,
+				},
+			},
+		}
+
+		if query == nil || len(query.Expressions) == 0 {
+			query = &protomodel.Query{
+				Expressions: []*protomodel.QueryExpression{idFieldComparissonExp},
+			}
+		} else {
+			// id comparisson as a first expression might result in faster comparisson
+			query.Expressions = append([]*protomodel.QueryExpression{idFieldComparissonExp}, query.Expressions...)
+		}
+	}
+
+	queryCondition, err := e.generateSQLExpression(ctx, query, table)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+
+	queryStmt := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(collectionName, idFieldName)},
 		collectionName,
-		exp,
-		nil,
+		queryCondition,
+		sql.NewInteger(1),
 		nil,
 	)
 
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, queryStmt, nil)
 	if err != nil {
-		return 0, 0, err
+		return 0, nil, 0, mayTranslateError(err)
 	}
-	defer tx.Cancel()
+	defer r.Close()
 
-	r, err := e.sqlEngine.QueryPreparedStmt(ctx, tx, query, nil)
+	row, err := r.Read(ctx)
 	if err != nil {
-		return 0, 0, err
+		return 0, nil, 0, mayTranslateError(err)
 	}
 
-	var results []DocumentID
-	for {
-		row, err := r.Read(ctx)
-		if err == sql.ErrNoMoreRows {
-			break
-		}
-		if err != nil {
-			return 0, 0, err
-		}
-
-		val := row.ValuesByPosition[0].RawValue().([]byte)
-		docID, err := NewDocumentIDFromRawBytes(val)
-		if err != nil {
-			return 0, 0, err
-		}
-		results = append(results, docID)
+	val := row.ValuesByPosition[0].RawValue().([]byte)
+	docID, err = NewDocumentIDFromRawBytes(val)
+	if err != nil {
+		return 0, nil, 0, err
 	}
 
-	// close the active snapshot reader
-	r.Close()
-
-	if len(results) == 0 {
-		return 0, 0, ErrDocumentNotFound
-	}
-
-	if len(results) > 1 {
-		return 0, 0, ErrMultipleDocumentsFound
-	}
-
-	// merge the document fields
-	docID := results[0]
-
-	// check if updated document has id field
-	if val, ok := docToUpdate.Fields[DocumentIDField]; ok {
-		// check if id field matches
-		if val.GetStringValue() != docID.EncodeToHexString() {
-			return 0, 0, ErrDocumentIDMismatch
-		}
-	} else {
+	if !docIDProvisioned {
 		// add id field to updated document
-		docToUpdate.Fields[DocumentIDField] = structpb.NewStringValue(docID.EncodeToHexString())
+		doc.Fields[idFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
 	}
 
 	// update the document
-	opt := newUpsertOptions().withIsInsert(false).withTx(tx)
-	_, txID, rev, err = e.upsertDocument(ctx, collectionName, docToUpdate, opt)
+	opts := newUpsertOptions().withIsInsert(false)
+	_, txID, rev, err = e.upsertDocument(ctx, tx, collectionName, docToUpdate, opt)
 
 	return
 }
 
-func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct, opt *upsertOptions) (docID DocumentID, txID, rev uint64, err error) {
+func (e *Engine) upsertDocument(ctx context.Context, tx *sql.SQLTx, collection string, query *protomodel.Query, doc *structpb.Struct, opts *upsertOptions) (txID uint64, docID DocumentID, rev uint64, err error) {
 	if doc == nil {
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	docID, err = e.getDocumentID(doc, opt.isInsert)
+	docID, err = e.getDocumentID(doc, opts.isInsert)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 
 	var tx *sql.SQLTx
-	if opt.tx == nil {
+	if opts.tx == nil {
 		// concurrency validation are not needed when the document id is automatically generated
 		_, docIDProvisioned := doc.Fields[DocumentIDField]
 		opts := e.configureTxOptions(docIDProvisioned)
@@ -455,7 +641,7 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 		}
 		defer tx.Cancel()
 	} else {
-		tx = opt.tx
+		tx = opts.tx
 	}
 
 	table, err := tx.Catalog().GetTableByName(collectionName)
@@ -487,7 +673,7 @@ func (e *Engine) upsertDocument(ctx context.Context, collectionName string, doc 
 				collectionName,
 				cols,
 				rows,
-				opt.isInsert,
+				opts.isInsert,
 				nil,
 			),
 		},
@@ -609,42 +795,51 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 	return results, nil
 }
 
-// generateExp generates a boolean expression from a list of expressions.
-func (d *Engine) generateExp(ctx context.Context, collection string, expressions []*Query) (sql.ValueExp, error) {
-	if len(expressions) == 0 {
+// generateSQLExpression generates a boolean expression from a list of expressions.
+func (d *Engine) generateSQLExpression(ctx context.Context, query *protomodel.Query, table *sql.Table) (sql.ValueExp, error) {
+	if query == nil || len(query.Expressions) == 0 {
 		return nil, nil
 	}
 
-	tcols, err := d.getCollectionSchema(ctx, collection)
-	if err != nil {
-		return nil, err
-	}
+	var outerExp sql.ValueExp
 
-	// Convert each expression to a boolean expression.
-	boolExps := make([]*sql.CmpBoolExp, len(expressions))
-	for i, exp := range expressions {
-		fieldType, ok := tcols[exp.Field]
-		if !ok {
-			return nil, fmt.Errorf("unsupported field %v", exp.Field)
-		}
-		value, err := valueTypeToExp(fieldType.Type(), exp.Value)
-		if err != nil {
-			return nil, err
+	for i, exp := range query.Expressions {
+		if len(exp.FieldComparisons) == 0 {
+			return nil, fmt.Errorf("%w: query expression without any field comparisson", ErrIllegalArguments)
 		}
 
-		colSelector := sql.NewColSelector(collection, exp.Field)
-		boolExps[i] = sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
+		var innerExp sql.ValueExp
+
+		for i, exp := range exp.FieldComparisons {
+			column, err := table.GetColumnByName(exp.Field)
+			if err != nil {
+				return nil, mayTranslateError(err)
+			}
+
+			value, err := valueTypeToExp(column.Type(), exp.Value)
+			if err != nil {
+				return nil, err
+			}
+
+			colSelector := sql.NewColSelector(table.Name(), exp.Field)
+
+			fieldComparisonExp := sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
+
+			if i == 0 {
+				innerExp = fieldComparisonExp
+			} else {
+				innerExp = sql.NewBinBoolExp(sql.AND, innerExp, fieldComparisonExp)
+			}
+		}
+
+		if i == 0 {
+			outerExp = innerExp
+		} else {
+			outerExp = sql.NewBinBoolExp(sql.OR, outerExp, innerExp)
+		}
 	}
 
-	// Combine boolean expressions using AND operator.
-	var result sql.ValueExp
-	result = sql.NewCmpBoolExp(boolExps[0].OP(), boolExps[0].Left(), boolExps[0].Right())
-
-	for _, exp := range boolExps[1:] {
-		result = sql.NewBinBoolExp(sql.AND, result, exp)
-	}
-
-	return result, nil
+	return outerExp, nil
 }
 
 func (e *Engine) getCollectionSchema(ctx context.Context, collection string) (map[string]*sql.Column, error) {
@@ -797,17 +992,18 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	return entry.Metadata(), v, nil
 }
 
-func (e *Engine) getDocumentID(doc *structpb.Struct, isInsert bool) (DocumentID, error) {
+func (e *Engine) mayGenDocumentID(doc *structpb.Struct, docIDFieldName string, isInsert bool) (DocumentID, error) {
 	var docID DocumentID
 	var err error
 
-	provisionedDocID, docIDProvisioned := doc.Fields[DocumentIDField]
+	provisionedDocID, docIDProvisioned := doc.Fields[docIDFieldName]
 	if docIDProvisioned {
 		docID, err = NewDocumentIDFromHexEncodedString(provisionedDocID.GetStringValue())
 		if err != nil {
 			return docID, err
 		}
 	} else {
+
 		if !isInsert {
 			return docID, fmt.Errorf("_id field is required when updating a document")
 		}
@@ -833,104 +1029,6 @@ func (e *Engine) configureTxOptions(docIDProvisioned bool) *sql.TxOptions {
 			})
 	}
 	return txOpts
-}
-
-func (e *Engine) generateRowSpecForDocument(docID DocumentID, doc *structpb.Struct, table *sql.Table) (*sql.RowSpec, error) {
-	var cols []string
-	var values []sql.ValueExp
-
-	for _, col := range table.Cols() {
-		cols = append(cols, col.Name())
-
-		switch col.Name() {
-		case DocumentIDField:
-			// add document id to document
-			values = append(values, sql.NewBlob(docID[:]))
-		case DocumentBLOBField:
-			bs, err := json.Marshal(doc)
-			if err != nil {
-				return nil, err
-			}
-
-			values = append(values, sql.NewBlob(bs))
-		default:
-			if rval, ok := doc.Fields[col.Name()]; ok {
-				val, err := valueTypeToExp(col.Type(), rval)
-				if err != nil {
-					return nil, err
-				}
-				values = append(values, val)
-			} else {
-				values = append(values, &sql.NullValue{})
-			}
-		}
-	}
-
-	return sql.NewRowSpec(values), nil
-
-}
-
-func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (docIDs []DocumentID, txID uint64, err error) {
-	tx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
-	if err != nil {
-		return nil, 0, err
-	}
-	defer tx.Cancel()
-
-	table, err := tx.Catalog().GetTableByName(collectionName)
-	if err != nil {
-		if errors.Is(err, sql.ErrTableDoesNotExist) {
-			return nil, 0, ErrCollectionDoesNotExist
-		}
-		return nil, 0, err
-	}
-
-	var cols []string
-	for _, col := range table.Cols() {
-		cols = append(cols, col.Name())
-	}
-
-	rows := make([]*sql.RowSpec, 0, len(docs))
-
-	for _, doc := range docs {
-		var docID DocumentID
-		docID, err = e.getDocumentID(doc, true)
-		if err != nil {
-			return
-		}
-
-		docIDs = append(docIDs, docID)
-
-		rowSpec, err := e.generateRowSpecForDocument(docID, doc, table)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		rows = append(rows, rowSpec)
-	}
-
-	// add documents to collection
-	_, ctxs, err := e.sqlEngine.ExecPreparedStmts(
-		ctx,
-		tx,
-		[]sql.SQLStmt{
-			sql.NewUpserIntoStmt(
-				collectionName,
-				cols,
-				rows,
-				true,
-				nil,
-			),
-		},
-		nil,
-	)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	txID = ctxs[0].TxHeader().ID
-
-	return
 }
 
 func newDocumentReader(reader sql.RowReader) DocumentReader {

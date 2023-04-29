@@ -387,7 +387,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 			return nil, err
 		}
 
-		if variableSized(col.colType) && (col.MaxLen() == 0 || col.MaxLen() > maxKeyLen) {
+		if variableSized(col.colType) && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
 			return nil, ErrLimitedKeyType
 		}
 
@@ -478,6 +478,10 @@ type RenameColumnStmt struct {
 	table   string
 	oldName string
 	newName string
+}
+
+func NewRenameColumnStmt(table, oldName, newName string) *RenameColumnStmt {
+	return &RenameColumnStmt{table: table, oldName: oldName, newName: newName}
 }
 
 func (stmt *RenameColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {

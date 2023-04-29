@@ -4841,10 +4841,10 @@ func TestEncodeAsKeyEdgeCases(t *testing.T) {
 	_, err := EncodeValueAsKey(&NullValue{}, IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 
-	_, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, maxKeyLen+1)
+	_, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, MaxKeyLen+1)
 	require.ErrorIs(t, err, ErrMaxKeyLengthExceeded)
 
-	_, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", maxKeyLen)
+	_, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", MaxKeyLen)
 	require.ErrorIs(t, err, ErrInvalidValue)
 
 	t.Run("varchar cases", func(t *testing.T) {

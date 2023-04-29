@@ -86,7 +86,7 @@ var ErrAmbiguousSelector = errors.New("ambiguous selector")
 var ErrUnsupportedCast = fmt.Errorf("%w: unsupported cast", ErrInvalidValue)
 var ErrColumnMismatchInUnionStmt = errors.New("column mismatch in union statement")
 
-var maxKeyLen = 256
+var MaxKeyLen = 256
 
 const EncIDLen = 4
 const EncLenLen = 4
