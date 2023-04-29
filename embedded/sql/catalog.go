@@ -938,7 +938,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 	if maxLen <= 0 {
 		return nil, ErrInvalidValue
 	}
-	if maxLen > maxKeyLen {
+	if maxLen > MaxKeyLen {
 		return nil, ErrMaxKeyLengthExceeded
 	}
 

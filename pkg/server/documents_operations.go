@@ -228,8 +228,8 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 	}
 
 	return &protomodel.DocumentSearchResponse{
-		Results:  results,
-		SearchID: searchID,
+		SearchID:  searchID,
+		Revisions: results,
 	}, err
 }
 

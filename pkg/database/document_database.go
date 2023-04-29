@@ -28,9 +28,9 @@ import (
 
 var (
 	schemaToValueType = map[protomodel.IndexType]sql.SQLValueType{
-		protomodel.IndexType_DOUBLE:           sql.Float64Type,
-		protomodel.IndexType_STRING:           sql.VarcharType,
-		docuprotomodelments.IndexType_INTEGER: sql.IntegerType,
+		protomodel.IndexType_DOUBLE:  sql.Float64Type,
+		protomodel.IndexType_STRING:  sql.VarcharType,
+		protomodel.IndexType_INTEGER: sql.IntegerType,
 	}
 )
 
@@ -62,32 +62,18 @@ type DocumentDatabase interface {
 
 // CreateCollection creates a new collection
 func (d *db) CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
-	indexKeys := make(map[string]*document.IndexOption)
-
-	// validate index keys
-	for name, pk := range req.IndexKeys {
-		schType, isValid := schemaToValueType[pk.Type]
-		if !isValid {
-			return nil, fmt.Errorf("invalid index key type: %v", pk)
-		}
-		indexKeys[name] = &document.IndexOption{
-			Type:     schType,
-			IsUnique: pk.IsUnique,
-		}
+	if req == nil {
+		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateCollection(ctx, req.Name, indexKeys)
+	collection, err := d.documentEngine.CreateCollection(ctx, req.Collection)
 	if err != nil {
 		return nil, err
 	}
 
-	// get collection information
-	cinfo, err := d.getCollection(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &protomodel.CollectionCreateResponse{Collection: cinfo}, nil
+	return &protomodel.CollectionCreateResponse{
+		Collection: collection,
+	}, nil
 }
 
 func (d *db) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {

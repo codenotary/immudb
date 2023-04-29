@@ -52,9 +52,7 @@ message CollectionCreateRequest {
   Collection collection = 1;
 }
 
-message CollectionCreateResponse {
-  Collection collection = 1;
-}
+message CollectionCreateResponse {}
 
 message Collection {
   string name = 1;
@@ -134,7 +132,9 @@ message DocumentUpdateRequest {
 }
 
 message DocumentUpdateResponse {
-  DocumentAtRevision revision = 1;
+  uint64 transactionId = 1;
+  string documentId = 2;
+  uint64 revision = 3;
 }
 
 message DocumentSearchRequest {
@@ -323,5 +323,4 @@ service DocumentService {
       ];
     };
   }
-
 }

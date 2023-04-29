@@ -22,8 +22,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/document"
-	"github.com/codenotary/immudb/pkg/api/authorizationschema"
-	"github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server/sessions"
@@ -115,32 +113,34 @@ func TestPaginationOnReader(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	require.NoError(t, s.Initialize())
 
-	logged, err := s.OpenSessionV2(context.Background(), &authorizationschema.OpenSessionRequestV2{
+	authenticationServiceImp := &authenticationServiceImp{s}
+
+	logged, err := authenticationServiceImp.OpenSession(context.Background(), &protomodel.OpenSessionRequest{
 		Username: "immudb",
 		Password: "immudb",
 		Database: "defaultdb",
 	})
 	assert.NoError(t, err)
-	assert.NotEmpty(t, logged.Token)
+	assert.NotEmpty(t, logged.SessionID)
 
-	md := metadata.Pairs("sessionid", logged.Token)
+	md := metadata.Pairs("sessionid", logged.SessionID)
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
 	// create collection
 	collectionName := "mycollection"
-	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{
+	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{
 		Name: collectionName,
-		IndexKeys: map[string]*documentschema.IndexOption{
-			"pincode": {Type: documentschema.IndexType_INTEGER},
-			"country": {Type: documentschema.IndexType_STRING},
-			"idx":     {Type: documentschema.IndexType_INTEGER},
+		IndexKeys: map[string]*protomodel.IndexOption{
+			"pincode": {Type: protomodel.IndexType_INTEGER},
+			"country": {Type: protomodel.IndexType_STRING},
+			"idx":     {Type: protomodel.IndexType_INTEGER},
 		},
 	})
 	require.NoError(t, err)
 
 	// add documents to collection
 	for i := 1.0; i <= 20; i++ {
-		_, err = s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{
+		_, err = s.DocumentInsert(ctx, &protomodel.DocumentInsertRequest{
 			Collection: collectionName,
 			Document: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -164,12 +164,12 @@ func TestPaginationOnReader(t *testing.T) {
 
 		var searchID string
 		for i := 1; i <= 4; i++ {
-			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*documentschema.DocumentQuery{
+				Query: []*protomodel.DocumentQuery{
 					{
 						Field:    "pincode",
-						Operator: documentschema.QueryOperator_GE,
+						Operator: protomodel.QueryOperator_GE,
 						Value: &structpb.Value{
 							Kind: &structpb.Value_NumberValue{NumberValue: 0},
 						},
@@ -180,8 +180,8 @@ func TestPaginationOnReader(t *testing.T) {
 				SearchID: searchID,
 			})
 			require.NoError(t, err)
-			require.Equal(t, 5, len(resp.Results))
-			results = append(results, resp.Results...)
+			require.Equal(t, 5, len(resp.Revisions))
+			results = append(results, resp.Revisions...)
 			searchID = resp.SearchID
 		}
 
@@ -200,12 +200,12 @@ func TestPaginationOnReader(t *testing.T) {
 		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
 
 		t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
-			_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			_, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*documentschema.DocumentQuery{
+				Query: []*protomodel.DocumentQuery{
 					{
 						Field:    "pincode",
-						Operator: documentschema.QueryOperator_GE,
+						Operator: protomodel.QueryOperator_GE,
 						Value: &structpb.Value{
 							Kind: &structpb.Value_NumberValue{NumberValue: 0},
 						},
@@ -223,12 +223,12 @@ func TestPaginationOnReader(t *testing.T) {
 
 		var searchID string
 		for i := 1; i <= 3; i++ {
-			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*documentschema.DocumentQuery{
+				Query: []*protomodel.DocumentQuery{
 					{
 						Field:    "pincode",
-						Operator: documentschema.QueryOperator_GE,
+						Operator: protomodel.QueryOperator_GE,
 						Value: &structpb.Value{
 							Kind: &structpb.Value_NumberValue{NumberValue: 0},
 						},
@@ -239,16 +239,16 @@ func TestPaginationOnReader(t *testing.T) {
 				SearchID: searchID,
 			})
 			require.NoError(t, err)
-			require.Equal(t, 5, len(resp.Results))
+			require.Equal(t, 5, len(resp.Revisions))
 			searchID = resp.SearchID
 		}
 
-		_, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+		_, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 			Collection: collectionName,
-			Query: []*documentschema.DocumentQuery{
+			Query: []*protomodel.DocumentQuery{
 				{
 					Field:    "pincode",
-					Operator: documentschema.QueryOperator_GE,
+					Operator: protomodel.QueryOperator_GE,
 					Value: &structpb.Value{
 						Kind: &structpb.Value_NumberValue{NumberValue: 0},
 					},
@@ -276,32 +276,34 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	require.NoError(t, s.Initialize())
 
-	logged, err := s.OpenSessionV2(context.Background(), &authorizationschema.OpenSessionRequestV2{
+	authServiceImp := &authenticationServiceImp{server: s}
+
+	logged, err := authServiceImp.OpenSession(context.Background(), &protomodel.OpenSessionRequest{
 		Username: "immudb",
 		Password: "immudb",
 		Database: "defaultdb",
 	})
 	assert.NoError(t, err)
-	assert.NotEmpty(t, logged.Token)
+	assert.NotEmpty(t, logged.SessionID)
 
-	md := metadata.Pairs("sessionid", logged.Token)
+	md := metadata.Pairs("sessionid", logged.SessionID)
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
 	// create collection
 	collectionName := "mycollection"
-	_, err = s.CollectionCreate(ctx, &documentschema.CollectionCreateRequest{
+	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{
 		Name: collectionName,
-		IndexKeys: map[string]*documentschema.IndexOption{
-			"pincode": {Type: documentschema.IndexType_INTEGER},
-			"country": {Type: documentschema.IndexType_STRING},
-			"idx":     {Type: documentschema.IndexType_INTEGER},
+		IndexKeys: map[string]*protomodel.IndexOption{
+			"pincode": {Type: protomodel.IndexType_INTEGER},
+			"country": {Type: protomodel.IndexType_STRING},
+			"idx":     {Type: protomodel.IndexType_INTEGER},
 		},
 	})
 	require.NoError(t, err)
 
 	// add documents to collection
 	for i := 1.0; i <= 20; i++ {
-		_, err = s.DocumentInsert(ctx, &documentschema.DocumentInsertRequest{
+		_, err = s.DocumentInsert(ctx, &protomodel.DocumentInsertRequest{
 			Collection: collectionName,
 			Document: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -330,12 +332,12 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 		results := make([]*structpb.Struct, 0)
 
 		for i := 1; i <= 4; i++ {
-			resp, err := s.DocumentSearch(ctx, &documentschema.DocumentSearchRequest{
+			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*documentschema.DocumentQuery{
+				Query: []*protomodel.DocumentQuery{
 					{
 						Field:    "pincode",
-						Operator: documentschema.QueryOperator_GE,
+						Operator: protomodel.QueryOperator_GE,
 						Value: &structpb.Value{
 							Kind: &structpb.Value_NumberValue{NumberValue: 0},
 						},
@@ -345,8 +347,8 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 				PerPage: 5,
 			})
 			require.NoError(t, err)
-			require.Equal(t, 5, len(resp.Results))
-			results = append(results, resp.Results...)
+			require.Equal(t, 5, len(resp.Revisions))
+			results = append(results, resp.Revisions...)
 		}
 
 		for i := 1.0; i <= 20; i++ {
