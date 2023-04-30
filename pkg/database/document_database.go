@@ -20,18 +20,9 @@ import (
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/document"
-	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
-)
-
-var (
-	schemaToValueType = map[protomodel.IndexType]sql.SQLValueType{
-		protomodel.IndexType_DOUBLE:  sql.Float64Type,
-		protomodel.IndexType_STRING:  sql.VarcharType,
-		protomodel.IndexType_INTEGER: sql.IntegerType,
-	}
 )
 
 // DocumentDatabase is the interface for document database
@@ -66,14 +57,12 @@ func (d *db) CreateCollection(ctx context.Context, req *protomodel.CollectionCre
 		return nil, ErrIllegalArguments
 	}
 
-	collection, err := d.documentEngine.CreateCollection(ctx, req.Collection)
+	err := d.documentEngine.CreateCollection(ctx, req.Collection)
 	if err != nil {
 		return nil, err
 	}
 
-	return &protomodel.CollectionCreateResponse{
-		Collection: collection,
-	}, nil
+	return &protomodel.CollectionCreateResponse{}, nil
 }
 
 func (d *db) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
@@ -82,17 +71,12 @@ func (d *db) ListCollections(ctx context.Context, req *protomodel.CollectionList
 		return nil, err
 	}
 
-	cinfos := make([]*protomodel.CollectionInformation, 0, len(collections))
-	for collectionName, indexes := range collections {
-		cinfos = append(cinfos, newCollectionInformation(collectionName, indexes))
-	}
-
-	return &protomodel.CollectionListResponse{Collections: cinfos}, nil
+	return &protomodel.CollectionListResponse{Collections: collections}, nil
 }
 
 // GetCollection returns the collection schema
 func (d *db) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
-	cinfo, err := d.getCollection(ctx, req.Name)
+	cinfo, err := d.documentEngine.GetCollection(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -100,25 +84,8 @@ func (d *db) GetCollection(ctx context.Context, req *protomodel.CollectionGetReq
 	return &protomodel.CollectionGetResponse{Collection: cinfo}, nil
 }
 
-func (d *db) getCollection(ctx context.Context, collectionName string) (*protomodel.CollectionInformation, error) {
-	indexes, err := d.documentEngine.GetCollection(ctx, collectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	return newCollectionInformation(collectionName, indexes), nil
-}
-
 // SearchDocuments returns the documents matching the search request constraints
 func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
-	queries := make([]*document.Query, 0, len(req.Query))
-	for _, q := range req.Query {
-		queries = append(queries, &document.Query{
-			Operator: int(q.Operator),
-			Field:    q.Field,
-			Value:    q.Value,
-		})
-	}
 	if req.Page < 1 || req.PerPage < 1 {
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
@@ -128,71 +95,21 @@ func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearch
 		return nil, fmt.Errorf("invalid offset")
 	}
 
-	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, queries, int64(offset))
+	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, req.Query, int64(offset))
 	if err != nil {
 		return nil, err
 	}
 	return reader, nil
 }
 
-// helper function to create a collection information
-func newCollectionInformation(collectionName string, indexes []*sql.Index) *protomodel.CollectionInformation {
-	cinfo := &protomodel.CollectionInformation{
-		Name:      collectionName,
-		IndexKeys: make(map[string]*protomodel.IndexOption),
-	}
-
-	// iterate over indexes and extract primary and index keys
-	for _, idx := range indexes {
-		for _, col := range idx.Cols() {
-			var colType protomodel.IndexType
-			switch col.Type() {
-			case sql.VarcharType:
-				colType = protomodel.IndexType_STRING
-			case sql.IntegerType:
-				colType = protomodel.IndexType_INTEGER
-			case sql.BLOBType:
-				colType = protomodel.IndexType_STRING
-			}
-
-			cinfo.IndexKeys[col.Name()] = &protomodel.IndexOption{
-				Type: colType,
-			}
-
-		}
-	}
-
-	return cinfo
-}
-
 // UpdateCollection updates an existing collection
 func (d *db) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
-	indexKeys := make(map[string]*document.IndexOption)
-
-	// validate index keys
-	for name, pk := range req.AddIndexes {
-		schType, isValid := schemaToValueType[pk.Type]
-		if !isValid {
-			return nil, fmt.Errorf("invalid index key type: %v", pk)
-		}
-		indexKeys[name] = &document.IndexOption{
-			Type:     schType,
-			IsUnique: pk.IsUnique,
-		}
-	}
-
-	err := d.documentEngine.UpdateCollection(ctx, req.Name, indexKeys, req.RemoveIndexes)
+	err := d.documentEngine.UpdateCollection(ctx, req.Collection)
 	if err != nil {
 		return nil, err
 	}
 
-	// get collection information
-	cinfo, err := d.getCollection(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &protomodel.CollectionUpdateResponse{Collection: cinfo}, nil
+	return &protomodel.CollectionUpdateResponse{}, nil
 }
 
 // DeleteCollection deletes a collection
@@ -207,14 +124,46 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDel
 
 // InsertDocument creates a new document
 func (d *db) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
-	docID, txID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
+	txID, docID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
 	return &protomodel.DocumentInsertResponse{
-		DocumentId:    docID.EncodeToHexString(),
 		TransactionId: txID,
+		DocumentId:    docID.EncodeToHexString(),
+	}, nil
+}
+
+// DocumentInsertMany inserts multiple documents
+func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
+	txID, docIDs, err := d.documentEngine.BulkInsertDocuments(ctx, req.Collection, req.Documents)
+	if err != nil {
+		return nil, err
+	}
+
+	docIDsStr := make([]string, 0, len(docIDs))
+	for _, docID := range docIDs {
+		docIDsStr = append(docIDsStr, docID.EncodeToHexString())
+	}
+
+	return &protomodel.DocumentInsertManyResponse{
+		TransactionId: txID,
+		DocumentIds:   docIDsStr,
+	}, nil
+}
+
+// UpdateDocument updates a document
+func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
+	txID, docID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Collection, req.Query, req.Document)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.DocumentUpdateResponse{
+		TransactionId: txID,
+		DocumentId:    docID.EncodeToHexString(),
+		Revision:      rev,
 	}, nil
 }
 
@@ -229,45 +178,13 @@ func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditReq
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
 
-	historyLogs, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.Page), int(req.PerPage))
+	revisions, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.Page), int(req.PerPage))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching document history: %v", err)
 	}
 
-	resp := &protomodel.DocumentAuditResponse{
-		Results: make([]*protomodel.DocumentAudit, 0, len(historyLogs)),
-	}
-
-	for _, log := range historyLogs {
-		resp.Results = append(resp.Results, &protomodel.DocumentAudit{
-			TransactionId: log.TxID,
-			Revision:      log.Revision,
-			Document:      log.Document,
-		})
-	}
-
-	return resp, nil
-}
-
-// UpdateDocument updates a document
-func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
-	queries := make([]*document.Query, 0, len(req.Query))
-	for _, q := range req.Query {
-		queries = append(queries, &document.Query{
-			Operator: int(q.Operator),
-			Field:    q.Field,
-			Value:    q.Value,
-		})
-	}
-
-	txID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Collection, queries, req.Document)
-	if err != nil {
-		return nil, err
-	}
-
-	return &protomodel.DocumentUpdateResponse{
-		TransactionId: txID,
-		Revision:      rev,
+	return &protomodel.DocumentAuditResponse{
+		Revisions: revisions,
 	}, nil
 }
 
@@ -326,23 +243,5 @@ func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofReq
 			Tx:        schema.TxToProto(tx),
 			DualProof: schema.DualProofV2ToProto(dualProof),
 		},
-	}, nil
-}
-
-// DocumentInsertMany inserts multiple documents
-func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
-	docIDs, txID, err := d.documentEngine.BulkInsertDocuments(ctx, req.Collection, req.Documents)
-	if err != nil {
-		return nil, err
-	}
-
-	docIDsStr := make([]string, 0, len(docIDs))
-	for _, docID := range docIDs {
-		docIDsStr = append(docIDsStr, docID.EncodeToHexString())
-	}
-
-	return &protomodel.DocumentInsertManyResponse{
-		DocumentIds:   docIDsStr,
-		TransactionId: txID,
 	}, nil
 }
