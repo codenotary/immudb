@@ -227,9 +227,6 @@ func (e *Engine) CreateCollection(ctx context.Context, collection *protomodel.Co
 func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection, error) {
 	opts := sql.DefaultTxOptions().
 		WithReadOnly(true).
-		WithUnsafeMVCC(true).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
-		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
@@ -252,9 +249,6 @@ func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection,
 func (e *Engine) GetCollection(ctx context.Context, collectionName string) (*protomodel.Collection, error) {
 	opts := sql.DefaultTxOptions().
 		WithReadOnly(true).
-		WithUnsafeMVCC(true).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
-		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
@@ -287,6 +281,32 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 		Name:        table.Name(),
 		IdFieldName: docIDFieldName(table),
 		Indexes:     make([]*protomodel.Index, len(indexes)),
+	}
+
+	for _, col := range table.Cols() {
+		if col.Name() == DocumentBLOBField {
+			continue
+		}
+
+		var colType protomodel.FieldType
+
+		switch col.Type() {
+		case sql.BooleanType:
+			colType = protomodel.FieldType_BOOLEAN
+		case sql.VarcharType:
+			colType = protomodel.FieldType_STRING
+		case sql.IntegerType:
+			colType = protomodel.FieldType_INTEGER
+		case sql.Float64Type:
+			colType = protomodel.FieldType_DOUBLE
+		case sql.BLOBType:
+			colType = protomodel.FieldType_STRING
+		}
+
+		collection.Fields = append(collection.Fields, &protomodel.Field{
+			Name: col.Name(),
+			Type: colType,
+		})
 	}
 
 	for i, index := range indexes {

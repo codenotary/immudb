@@ -27,10 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func newIndexOption(indexType protomodel.IndexType) *protomodel.IndexOption {
-	return &protomodel.IndexOption{Type: indexType}
-}
-
 func makeDocumentDb(t *testing.T) *db {
 	rootPath := t.TempDir()
 
@@ -58,27 +54,38 @@ func TestDocumentDB_Collection(t *testing.T) {
 	// create collection
 	collectionName := "mycollection"
 
-	_, err := db.CreateCollection(context.Background(), &documents.CollectionCreateRequest{
-		Name: collectionName,
-		IndexKeys: map[string]*documents.IndexOption{
-			"pincode": newIndexOption(documents.IndexType_INTEGER),
+	_, err := db.CreateCollection(context.Background(), &protomodel.CollectionCreateRequest{
+		Collection: &protomodel.Collection{
+			Name: collectionName,
+			Fields: []*protomodel.Field{
+				{
+					Name: "pincode",
+					Type: protomodel.FieldType_INTEGER,
+				},
+			},
+			Indexes: []*protomodel.Index{
+				{
+					Fields: []string{"pincode"},
+				},
+			},
 		},
 	})
 	require.NoError(t, err)
 
 	// get collection
-	cinfo, err := db.GetCollection(context.Background(), &documents.CollectionGetRequest{
+	cinfo, err := db.GetCollection(context.Background(), &protomodel.CollectionGetRequest{
 		Name: collectionName,
 	})
 	require.NoError(t, err)
 	resp := cinfo.Collection
-	require.Equal(t, 2, len(resp.IndexKeys))
-	require.Contains(t, resp.IndexKeys, "_id")
-	require.Contains(t, resp.IndexKeys, "pincode")
-	require.Equal(t, documents.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
+	require.Equal(t, 2, len(resp.Fields))
+	require.Equal(t, resp.Fields[0].Name, "_id")
+	require.Contains(t, resp.Fields[1].Name, "pincode")
+	require.Equal(t, protomodel.FieldType_STRING, resp.Fields[0].Type)
+	require.Equal(t, protomodel.FieldType_INTEGER, resp.Fields[1].Type)
 
 	// add document to collection
-	docRes, err := db.InsertDocument(context.Background(), &documents.DocumentInsertRequest{
+	docRes, err := db.InsertDocument(context.Background(), &protomodel.DocumentInsertRequest{
 		Collection: collectionName,
 		Document: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
@@ -92,17 +99,23 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.NotNil(t, docRes)
 
 	// query collection for document
-	reader, err := db.SearchDocuments(context.Background(), &documents.DocumentSearchRequest{
+	reader, err := db.SearchDocuments(context.Background(), &protomodel.DocumentSearchRequest{
 		Collection: collectionName,
 		Page:       1,
 		PerPage:    10,
-		Query: []*documents.DocumentQuery{
-			{
-				Field: "pincode",
-				Value: &structpb.Value{
-					Kind: &structpb.Value_NumberValue{NumberValue: 123},
+		Query: &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value: &structpb.Value{
+								Kind: &structpb.Value_NumberValue{NumberValue: 123},
+							},
+						},
+					},
 				},
-				Operator: documents.QueryOperator_EQ,
 			},
 		},
 	})
@@ -116,7 +129,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 
-	proofRes, err := db.DocumentProof(context.Background(), &documents.DocumentProofRequest{
+	proofRes, err := db.DocumentProof(context.Background(), &protomodel.DocumentProofRequest{
 		Collection: collectionName,
 		DocumentId: docRes.DocumentId,
 	})
