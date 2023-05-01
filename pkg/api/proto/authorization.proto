@@ -28,6 +28,22 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
     title: "immudb REST API v2";
     description: "Authorization API"
   };
+  security_definitions: {
+    security: {
+      key: "bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "grpc-metadata-sessionid"
+        description: "Session token: <token>"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "bearer"
+    }
+  }
 };
 
 message OpenSessionRequest {
@@ -58,6 +74,7 @@ service AuthorizationService {
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      security: {} // no security
       tags: "authorization";
     };
   }
