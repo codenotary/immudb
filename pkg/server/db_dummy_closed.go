@@ -268,11 +268,11 @@ func (d *closedDB) ListCollections(ctx context.Context, req *protomodel.Collecti
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) CreateIndexes(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
+func (d *closedDB) CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteIndexes(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
+func (d *closedDB) DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

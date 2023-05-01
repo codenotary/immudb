@@ -5,14 +5,6 @@
     "description": "Authorization API",
     "version": "version not set"
   },
-  "tags": [
-    {
-      "name": "AuthorizationService"
-    },
-    {
-      "name": "DocumentService"
-    }
-  ],
   "basePath": "/api/v2",
   "consumes": [
     "application/json"
@@ -301,8 +293,7 @@
           }
         ],
         "tags": [
-          "documents",
-          "audit"
+          "documents"
         ]
       }
     },
@@ -398,8 +389,7 @@
           }
         ],
         "tags": [
-          "documents",
-          "audit"
+          "documents"
         ]
       }
     },
@@ -945,12 +935,14 @@
         "collection": {
           "type": "string"
         },
-        "indexes": {
+        "fields": {
           "type": "array",
           "items": {
-            "type": "object",
-            "$ref": "#/definitions/modelIndex"
+            "type": "string"
           }
+        },
+        "isUnique": {
+          "type": "boolean"
         }
       }
     },
@@ -963,11 +955,10 @@
         "collection": {
           "type": "string"
         },
-        "indexes": {
+        "fields": {
           "type": "array",
           "items": {
-            "type": "object",
-            "$ref": "#/definitions/modelIndex"
+            "type": "string"
           }
         }
       }

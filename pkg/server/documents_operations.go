@@ -98,7 +98,7 @@ func (s *ImmuServer) IndexCreate(ctx context.Context, req *protomodel.IndexCreat
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.CreateIndexes(ctx, req)
+	resp, err := db.CreateIndex(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (s *ImmuServer) IndexDelete(ctx context.Context, req *protomodel.IndexDelet
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.DeleteIndexes(ctx, req)
+	resp, err := db.DeleteIndex(ctx, req)
 	if err != nil {
 		return nil, err
 	}
