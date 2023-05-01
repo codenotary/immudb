@@ -16,6 +16,10 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 )
 
+const (
+	BearerScopes = "bearer.Scopes"
+)
+
 // Defines values for ModelComparisonOperator.
 const (
 	EQ   ModelComparisonOperator = "EQ"

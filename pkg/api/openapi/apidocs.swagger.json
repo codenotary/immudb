@@ -106,7 +106,8 @@
         ],
         "tags": [
           "authorization"
-        ]
+        ],
+        "security": []
       }
     },
     "/collections/create": {
@@ -1338,5 +1339,18 @@
         }
       }
     }
-  }
+  },
+  "securityDefinitions": {
+    "bearer": {
+      "type": "apiKey",
+      "description": "Session token: \u003ctoken\u003e",
+      "name": "grpc-metadata-sessionid",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
 }

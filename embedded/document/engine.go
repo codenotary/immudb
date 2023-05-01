@@ -46,6 +46,7 @@ var (
 	ErrFieldAlreadyExists     = errors.New("field already exists")
 	ErrFieldDoesNotExist      = errors.New("field does not exist")
 	ErrReservedFieldName      = errors.New("reserved field name")
+	ErrLimitedIndexCreation   = errors.New("index creation is only supported on empty collections")
 )
 
 func mayTranslateError(err error) error {
@@ -67,6 +68,10 @@ func mayTranslateError(err error) error {
 
 	if errors.Is(err, sql.ErrColumnDoesNotExist) {
 		return ErrFieldDoesNotExist
+	}
+
+	if errors.Is(err, sql.ErrLimitedIndexCreation) {
+		return ErrLimitedIndexCreation
 	}
 
 	return err
