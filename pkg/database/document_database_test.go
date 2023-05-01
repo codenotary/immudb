@@ -75,6 +75,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 		Name: collectionName,
 	})
 	require.NoError(t, err)
+
 	resp := cinfo.Collection
 	require.Equal(t, 2, len(resp.Fields))
 	require.Equal(t, resp.Fields[0].Name, "_id")
