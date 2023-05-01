@@ -201,7 +201,7 @@ func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofReq
 	}
 	defer d.releaseTx(tx)
 
-	collectionID, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.Collection, docID, req.TransactionId)
+	collectionID, idFieldName, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.Collection, docID, req.TransactionId)
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +238,7 @@ func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofReq
 	return &protomodel.DocumentProofResponse{
 		Database:        d.name,
 		CollectionId:    collectionID,
+		IdFieldName:     idFieldName,
 		EncodedDocument: docAudit.EncodedDocument,
 		VerifiableTx: &schema.VerifiableTxV2{
 			Tx:        schema.TxToProto(tx),
