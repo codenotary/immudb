@@ -466,6 +466,70 @@
           "documents"
         ]
       }
+    },
+    "/indexes/create": {
+      "put": {
+        "operationId": "IndexCreate",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelIndexCreateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelIndexCreateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "indexes"
+        ]
+      }
+    },
+    "/indexes/delete": {
+      "put": {
+        "operationId": "IndexDelete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelIndexDeleteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelIndexDeleteRequest"
+            }
+          }
+        ],
+        "tags": [
+          "indexes"
+        ]
+      }
     }
   },
   "definitions": {
@@ -536,8 +600,25 @@
     "modelCollectionCreateRequest": {
       "type": "object",
       "properties": {
-        "collection": {
-          "$ref": "#/definitions/modelCollection"
+        "name": {
+          "type": "string"
+        },
+        "idFieldName": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelField"
+          }
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelIndex"
+          }
         }
       }
     },
@@ -573,8 +654,11 @@
     "modelCollectionUpdateRequest": {
       "type": "object",
       "properties": {
-        "collection": {
-          "$ref": "#/definitions/modelCollection"
+        "name": {
+          "type": "string"
+        },
+        "idFieldName": {
+          "type": "string"
         }
       }
     },
@@ -854,6 +938,42 @@
           "type": "boolean"
         }
       }
+    },
+    "modelIndexCreateRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelIndex"
+          }
+        }
+      }
+    },
+    "modelIndexCreateResponse": {
+      "type": "object"
+    },
+    "modelIndexDeleteRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/modelIndex"
+          }
+        }
+      }
+    },
+    "modelIndexDeleteResponse": {
+      "type": "object"
     },
     "modelKeepAliveRequest": {
       "type": "object"

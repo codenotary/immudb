@@ -128,12 +128,18 @@ func TestPaginationOnReader(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
+
 	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{
 		Name: collectionName,
-		IndexKeys: map[string]*protomodel.IndexOption{
-			"pincode": {Type: protomodel.IndexType_INTEGER},
-			"country": {Type: protomodel.IndexType_STRING},
-			"idx":     {Type: protomodel.IndexType_INTEGER},
+		Fields: []*protomodel.Field{
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "idx", Type: protomodel.FieldType_INTEGER},
+		},
+		Indexes: []*protomodel.Index{
+			{Fields: []string{"pincode"}},
+			{Fields: []string{"country"}},
+			{Fields: []string{"idx"}},
 		},
 	})
 	require.NoError(t, err)
@@ -160,18 +166,24 @@ func TestPaginationOnReader(t *testing.T) {
 	}
 
 	t.Run("test reader for multiple paginated reads", func(t *testing.T) {
-		results := make([]*structpb.Struct, 0)
+		results := make([]*protomodel.DocumentAtRevision, 0)
 
 		var searchID string
 		for i := 1; i <= 4; i++ {
 			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*protomodel.DocumentQuery{
-					{
-						Field:    "pincode",
-						Operator: protomodel.QueryOperator_GE,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value: &structpb.Value{
+										Kind: &structpb.Value_NumberValue{NumberValue: 0},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -186,8 +198,8 @@ func TestPaginationOnReader(t *testing.T) {
 		}
 
 		for i := 1.0; i <= 20; i++ {
-			doc := results[int(i-1)]
-			require.Equal(t, i, doc.Fields["idx"].GetNumberValue())
+			docAtRev := results[int(i-1)]
+			require.Equal(t, i, docAtRev.Document.Fields["idx"].GetNumberValue())
 		}
 
 		// ensure there is only one reader in the session for the request and it is being reused
@@ -202,12 +214,18 @@ func TestPaginationOnReader(t *testing.T) {
 		t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
 			_, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*protomodel.DocumentQuery{
-					{
-						Field:    "pincode",
-						Operator: protomodel.QueryOperator_GE,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value: &structpb.Value{
+										Kind: &structpb.Value_NumberValue{NumberValue: 0},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -225,12 +243,18 @@ func TestPaginationOnReader(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*protomodel.DocumentQuery{
-					{
-						Field:    "pincode",
-						Operator: protomodel.QueryOperator_GE,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value: &structpb.Value{
+										Kind: &structpb.Value_NumberValue{NumberValue: 0},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -245,12 +269,18 @@ func TestPaginationOnReader(t *testing.T) {
 
 		_, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 			Collection: collectionName,
-			Query: []*protomodel.DocumentQuery{
-				{
-					Field:    "pincode",
-					Operator: protomodel.QueryOperator_GE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 0},
+			Query: &protomodel.Query{
+				Expressions: []*protomodel.QueryExpression{
+					{
+						FieldComparisons: []*protomodel.FieldComparison{
+							{
+								Field:    "pincode",
+								Operator: protomodel.ComparisonOperator_GE,
+								Value: &structpb.Value{
+									Kind: &structpb.Value_NumberValue{NumberValue: 0},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -293,10 +323,15 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 	collectionName := "mycollection"
 	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{
 		Name: collectionName,
-		IndexKeys: map[string]*protomodel.IndexOption{
-			"pincode": {Type: protomodel.IndexType_INTEGER},
-			"country": {Type: protomodel.IndexType_STRING},
-			"idx":     {Type: protomodel.IndexType_INTEGER},
+		Fields: []*protomodel.Field{
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "idx", Type: protomodel.FieldType_INTEGER},
+		},
+		Indexes: []*protomodel.Index{
+			{Fields: []string{"pincode"}},
+			{Fields: []string{"country"}},
+			{Fields: []string{"idx"}},
 		},
 	})
 	require.NoError(t, err)
@@ -329,17 +364,23 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 		sess, err := s.SessManager.GetSession(sessionID)
 		require.NoError(t, err)
 
-		results := make([]*structpb.Struct, 0)
+		results := make([]*protomodel.DocumentAtRevision, 0)
 
 		for i := 1; i <= 4; i++ {
 			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
-				Query: []*protomodel.DocumentQuery{
-					{
-						Field:    "pincode",
-						Operator: protomodel.QueryOperator_GE,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 0},
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value: &structpb.Value{
+										Kind: &structpb.Value_NumberValue{NumberValue: 0},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -352,8 +393,8 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 		}
 
 		for i := 1.0; i <= 20; i++ {
-			doc := results[int(i-1)]
-			require.Equal(t, i, doc.Fields["idx"].GetNumberValue())
+			docAtRev := results[int(i-1)]
+			require.Equal(t, i, docAtRev.Document.Fields["idx"].GetNumberValue())
 		}
 
 		require.Equal(t, 4, sess.GetPaginatedDocumentReadersCount())

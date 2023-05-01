@@ -55,18 +55,16 @@ func TestDocumentDB_Collection(t *testing.T) {
 	collectionName := "mycollection"
 
 	_, err := db.CreateCollection(context.Background(), &protomodel.CollectionCreateRequest{
-		Collection: &protomodel.Collection{
-			Name: collectionName,
-			Fields: []*protomodel.Field{
-				{
-					Name: "pincode",
-					Type: protomodel.FieldType_INTEGER,
-				},
+		Name: collectionName,
+		Fields: []*protomodel.Field{
+			{
+				Name: "pincode",
+				Type: protomodel.FieldType_INTEGER,
 			},
-			Indexes: []*protomodel.Index{
-				{
-					Fields: []string{"pincode"},
-				},
+		},
+		Indexes: []*protomodel.Index{
+			{
+				Fields: []string{"pincode"},
 			},
 		},
 	})
@@ -123,11 +121,11 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	defer reader.Close()
 
-	docs, err := reader.Read(context.Background(), 1)
+	revisions, err := reader.Read(context.Background(), 1)
 	require.NoError(t, err)
 
-	require.Equal(t, 1, len(docs))
-	doc := docs[0]
+	require.Equal(t, 1, len(revisions))
+	doc := revisions[0].Document
 
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 

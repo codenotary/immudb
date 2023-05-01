@@ -246,18 +246,33 @@ func (db *closedDB) Truncate(ts time.Duration) error {
 	return store.ErrAlreadyClosed
 }
 
-// GetCollection returns the collection schema
-func (d *closedDB) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
-	return nil, store.ErrAlreadyClosed
-}
-
 // CreateCollection creates a new collection
 func (d *closedDB) CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-// SearchDocuments returns the document
-func (d *closedDB) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
+// GetCollection returns the collection schema
+func (d *closedDB) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) CreateIndexes(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) DeleteIndexes(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -266,11 +281,7 @@ func (d *closedDB) InsertDocument(ctx context.Context, req *protomodel.DocumentI
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
-	return nil, store.ErrAlreadyClosed
-}
-
-func (d *closedDB) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
+func (d *closedDB) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -278,18 +289,15 @@ func (d *closedDB) UpdateDocument(ctx context.Context, req *protomodel.DocumentU
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
+func (d *closedDB) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
+// SearchDocuments returns the document
+func (d *closedDB) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
 func (d *closedDB) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
-	return nil, store.ErrAlreadyClosed
-}
-
-func (d *closedDB) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

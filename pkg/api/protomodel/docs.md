@@ -41,6 +41,10 @@
     - [Field](#immudb.model.Field)
     - [FieldComparison](#immudb.model.FieldComparison)
     - [Index](#immudb.model.Index)
+    - [IndexCreateRequest](#immudb.model.IndexCreateRequest)
+    - [IndexCreateResponse](#immudb.model.IndexCreateResponse)
+    - [IndexDeleteRequest](#immudb.model.IndexDeleteRequest)
+    - [IndexDeleteResponse](#immudb.model.IndexDeleteResponse)
     - [Query](#immudb.model.Query)
     - [QueryExpression](#immudb.model.QueryExpression)
   
@@ -189,7 +193,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [Collection](#immudb.model.Collection) |  |  |
+| name | [string](#string) |  |  |
+| idFieldName | [string](#string) |  |  |
+| fields | [Field](#immudb.model.Field) | repeated |  |
+| indexes | [Index](#immudb.model.Index) | repeated |  |
 
 
 
@@ -294,7 +301,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [Collection](#immudb.model.Collection) |  |  |
+| name | [string](#string) |  |  |
+| idFieldName | [string](#string) |  |  |
 
 
 
@@ -582,6 +590,58 @@
 
 
 
+<a name="immudb.model.IndexCreateRequest"></a>
+
+### IndexCreateRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| indexes | [Index](#immudb.model.Index) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.model.IndexCreateResponse"></a>
+
+### IndexCreateResponse
+
+
+
+
+
+
+
+<a name="immudb.model.IndexDeleteRequest"></a>
+
+### IndexDeleteRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collection | [string](#string) |  |  |
+| indexes | [Index](#immudb.model.Index) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.model.IndexDeleteResponse"></a>
+
+### IndexDeleteResponse
+
+
+
+
+
+
+
 <a name="immudb.model.Query"></a>
 
 ### Query
@@ -662,6 +722,8 @@
 | CollectionList | [CollectionListRequest](#immudb.model.CollectionListRequest) | [CollectionListResponse](#immudb.model.CollectionListResponse) |  |
 | CollectionDelete | [CollectionDeleteRequest](#immudb.model.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.model.CollectionDeleteResponse) |  |
 | CollectionUpdate | [CollectionUpdateRequest](#immudb.model.CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb.model.CollectionUpdateResponse) |  |
+| IndexCreate | [IndexCreateRequest](#immudb.model.IndexCreateRequest) | [IndexCreateResponse](#immudb.model.IndexCreateResponse) |  |
+| IndexDelete | [IndexDeleteRequest](#immudb.model.IndexDeleteRequest) | [IndexDeleteResponse](#immudb.model.IndexDeleteResponse) |  |
 | DocumentInsert | [DocumentInsertRequest](#immudb.model.DocumentInsertRequest) | [DocumentInsertResponse](#immudb.model.DocumentInsertResponse) |  |
 | DocumentInsertMany | [DocumentInsertManyRequest](#immudb.model.DocumentInsertManyRequest) | [DocumentInsertManyResponse](#immudb.model.DocumentInsertManyResponse) |  |
 | DocumentUpdate | [DocumentUpdateRequest](#immudb.model.DocumentUpdateRequest) | [DocumentUpdateResponse](#immudb.model.DocumentUpdateResponse) |  |

@@ -49,17 +49,13 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 message CollectionCreateRequest {
-  Collection collection = 1;
-}
-
-message CollectionCreateResponse {}
-
-message Collection {
   string name = 1;
   string idFieldName = 2;
   repeated Field fields = 3;
   repeated Index indexes = 4;
 }
+
+message CollectionCreateResponse {}
 
 message Field {
   string name = 1;
@@ -87,6 +83,13 @@ message CollectionGetResponse {
   Collection collection = 1;
 }
 
+message Collection {
+  string name = 1;
+  string idFieldName = 2;
+  repeated Field fields = 3;
+  repeated Index indexes = 4;
+}
+
 message CollectionListRequest {}
 
 message CollectionListResponse {
@@ -100,10 +103,25 @@ message CollectionDeleteRequest {
 message CollectionDeleteResponse {}
 
 message CollectionUpdateRequest {
-  Collection collection = 1;
+  string name = 1;
+  string idFieldName = 2;
 }
 
 message CollectionUpdateResponse {}
+
+message IndexCreateRequest {
+  string collection = 1;
+  repeated Index indexes = 2;
+}
+
+message IndexCreateResponse {}
+
+message IndexDeleteRequest {
+  string collection = 1;
+  repeated Index indexes = 2;
+}
+
+message IndexDeleteResponse {}
 
 message DocumentInsertRequest {
   string collection = 1;
@@ -254,6 +272,26 @@ service DocumentService {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "collections";
+    };
+  }
+
+  rpc IndexCreate(IndexCreateRequest) returns (IndexCreateResponse) {
+    option (google.api.http) = {
+      put: "/indexes/create"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "indexes";
+    };
+  }
+
+  rpc IndexDelete(IndexDeleteRequest) returns (IndexDeleteResponse) {
+    option (google.api.http) = {
+      put: "/indexes/delete"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "indexes";
     };
   }
 
