@@ -51,6 +51,8 @@ var maintenanceMethods = map[string]struct{}{
 	"CollectionList":      {},
 	"CollectionUpdate":    {},
 	"CollectionDelete":    {},
+	"IndexCreate":         {},
+	"IndexDelete":         {},
 	"DocumentAudit":       {},
 	"DocumentProof":       {},
 
@@ -122,6 +124,8 @@ var methodsPermissions = map[string][]uint32{
 	"CollectionList":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"CollectionUpdate":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"CollectionDelete":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"IndexCreate":            {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"IndexDelete":            {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"DocumentAudit":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DocumentProof":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 

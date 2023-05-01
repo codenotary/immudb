@@ -1682,6 +1682,10 @@ type Bool struct {
 	val bool
 }
 
+func NewBool(val bool) *Bool {
+	return &Bool{val: val}
+}
+
 func (v *Bool) Type() SQLValueType {
 	return BooleanType
 }
@@ -4094,14 +4098,14 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	return tx, nil
 }
 
-func NewDropIndexStmt(table string, indexName string) *DropIndexStmt {
-	return &DropIndexStmt{table: table, indexName: indexName}
-}
-
 // DropIndexStmt represents a statement to delete a table.
 type DropIndexStmt struct {
-	table     string
-	indexName string
+	table   string
+	columns []string
+}
+
+func NewDropIndexStmt(table string, columns []string) *DropIndexStmt {
+	return &DropIndexStmt{table: table, columns: columns}
 }
 
 func (stmt *DropIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -4123,14 +4127,24 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	col, err := table.GetColumnByName(stmt.indexName)
+	cols := make([]*Column, len(stmt.columns))
+
+	for i, colName := range stmt.columns {
+		col, err := table.GetColumnByName(colName)
+		if err != nil {
+			return nil, err
+		}
+
+		cols[i] = col
+	}
+
+	index, err := table.GetIndexByName(indexName(table.name, cols))
 	if err != nil {
 		return nil, err
 	}
 
-	index, err := table.GetIndexByName(indexName(table.name, []*Column{col}))
-	if err != nil {
-		return nil, err
+	if index.IsPrimary() {
+		return nil, fmt.Errorf("%w: primary key index can NOT be deleted", ErrIllegalArguments)
 	}
 
 	// delete index

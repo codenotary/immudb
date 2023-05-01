@@ -23,6 +23,8 @@ type DocumentServiceClient interface {
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
 	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error)
 	CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error)
+	IndexCreate(ctx context.Context, in *IndexCreateRequest, opts ...grpc.CallOption) (*IndexCreateResponse, error)
+	IndexDelete(ctx context.Context, in *IndexDeleteRequest, opts ...grpc.CallOption) (*IndexDeleteResponse, error)
 	DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*DocumentInsertResponse, error)
 	DocumentInsertMany(ctx context.Context, in *DocumentInsertManyRequest, opts ...grpc.CallOption) (*DocumentInsertManyResponse, error)
 	DocumentUpdate(ctx context.Context, in *DocumentUpdateRequest, opts ...grpc.CallOption) (*DocumentUpdateResponse, error)
@@ -78,6 +80,24 @@ func (c *documentServiceClient) CollectionDelete(ctx context.Context, in *Collec
 func (c *documentServiceClient) CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error) {
 	out := new(CollectionUpdateResponse)
 	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CollectionUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) IndexCreate(ctx context.Context, in *IndexCreateRequest, opts ...grpc.CallOption) (*IndexCreateResponse, error) {
+	out := new(IndexCreateResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/IndexCreate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) IndexDelete(ctx context.Context, in *IndexDeleteRequest, opts ...grpc.CallOption) (*IndexDeleteResponse, error) {
+	out := new(IndexDeleteResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/IndexDelete", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +167,8 @@ type DocumentServiceServer interface {
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
 	CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error)
 	CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error)
+	IndexCreate(context.Context, *IndexCreateRequest) (*IndexCreateResponse, error)
+	IndexDelete(context.Context, *IndexDeleteRequest) (*IndexDeleteResponse, error)
 	DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error)
 	DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error)
 	DocumentUpdate(context.Context, *DocumentUpdateRequest) (*DocumentUpdateResponse, error)
@@ -173,6 +195,12 @@ func (UnimplementedDocumentServiceServer) CollectionDelete(context.Context, *Col
 }
 func (UnimplementedDocumentServiceServer) CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CollectionUpdate not implemented")
+}
+func (UnimplementedDocumentServiceServer) IndexCreate(context.Context, *IndexCreateRequest) (*IndexCreateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IndexCreate not implemented")
+}
+func (UnimplementedDocumentServiceServer) IndexDelete(context.Context, *IndexDeleteRequest) (*IndexDeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IndexDelete not implemented")
 }
 func (UnimplementedDocumentServiceServer) DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsert not implemented")
@@ -290,6 +318,42 @@ func _DocumentService_CollectionUpdate_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).CollectionUpdate(ctx, req.(*CollectionUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_IndexCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IndexCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).IndexCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/IndexCreate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).IndexCreate(ctx, req.(*IndexCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_IndexDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IndexDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).IndexDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/IndexDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).IndexDelete(ctx, req.(*IndexDeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -428,6 +492,14 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CollectionUpdate",
 			Handler:    _DocumentService_CollectionUpdate_Handler,
+		},
+		{
+			MethodName: "IndexCreate",
+			Handler:    _DocumentService_IndexCreate_Handler,
+		},
+		{
+			MethodName: "IndexDelete",
+			Handler:    _DocumentService_IndexDelete_Handler,
 		},
 		{
 			MethodName: "DocumentInsert",

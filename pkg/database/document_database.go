@@ -37,6 +37,10 @@ type DocumentDatabase interface {
 	UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error)
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error)
+	// CreateIndexes creates indexes for a collection
+	CreateIndexes(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error)
+	// DeleteIndexes deletes indexes from a collection
+	DeleteIndexes(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error)
 	// GetDocument returns the document
 	SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error)
 	// InsertDocument creates a new document
@@ -57,7 +61,7 @@ func (d *db) CreateCollection(ctx context.Context, req *protomodel.CollectionCre
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateCollection(ctx, req.Collection)
+	err := d.documentEngine.CreateCollection(ctx, req.Name, req.IdFieldName, req.Fields, req.Indexes)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +80,10 @@ func (d *db) ListCollections(ctx context.Context, req *protomodel.CollectionList
 
 // GetCollection returns the collection schema
 func (d *db) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	cinfo, err := d.documentEngine.GetCollection(ctx, req.Name)
 	if err != nil {
 		return nil, err
@@ -86,6 +94,10 @@ func (d *db) GetCollection(ctx context.Context, req *protomodel.CollectionGetReq
 
 // SearchDocuments returns the documents matching the search request constraints
 func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	if req.Page < 1 || req.PerPage < 1 {
 		return nil, fmt.Errorf("invalid offset or limit")
 	}
@@ -104,7 +116,11 @@ func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearch
 
 // UpdateCollection updates an existing collection
 func (d *db) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
-	err := d.documentEngine.UpdateCollection(ctx, req.Collection)
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.documentEngine.UpdateCollection(ctx, req.Name, req.IdFieldName)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +130,10 @@ func (d *db) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpd
 
 // DeleteCollection deletes a collection
 func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	err := d.documentEngine.DeleteCollection(ctx, req.Name)
 	if err != nil {
 		return nil, err
@@ -122,8 +142,40 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDel
 	return &protomodel.CollectionDeleteResponse{}, nil
 }
 
+// CreateIndexes creates indexes for a collection
+func (d *db) CreateIndexes(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.documentEngine.CreateIndexes(ctx, req.Collection, req.Indexes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.IndexCreateResponse{}, nil
+}
+
+// DeleteIndexes deletes indexes from a collection
+func (d *db) DeleteIndexes(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.documentEngine.DeleteIndexes(ctx, req.Collection, req.Indexes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.IndexDeleteResponse{}, nil
+}
+
 // InsertDocument creates a new document
 func (d *db) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	txID, docID, err := d.documentEngine.InsertDocument(ctx, req.Collection, req.Document)
 	if err != nil {
 		return nil, err
@@ -137,6 +189,10 @@ func (d *db) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertR
 
 // DocumentInsertMany inserts multiple documents
 func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	txID, docIDs, err := d.documentEngine.BulkInsertDocuments(ctx, req.Collection, req.Documents)
 	if err != nil {
 		return nil, err
@@ -155,6 +211,10 @@ func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentIns
 
 // UpdateDocument updates a document
 func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	txID, docID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Collection, req.Query, req.Document)
 	if err != nil {
 		return nil, err
@@ -168,6 +228,10 @@ func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateR
 }
 
 func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	// verify if document id is valid
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
@@ -190,6 +254,10 @@ func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditReq
 
 // DocumentProof returns the proofs for a documenta
 func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
