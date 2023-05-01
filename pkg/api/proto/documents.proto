@@ -203,8 +203,9 @@ message DocumentProofRequest {
 message DocumentProofResponse {
   string database = 1;
   uint32 collectionId = 2;
-  bytes encodedDocument = 3;
-  schema.VerifiableTxV2 verifiableTx = 4;
+  string idFieldName = 3;
+  bytes encodedDocument = 4;
+  schema.VerifiableTxV2 verifiableTx = 5;
 }
 
 service DocumentService {

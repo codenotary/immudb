@@ -725,6 +725,9 @@
           "type": "integer",
           "format": "int64"
         },
+        "idFieldName": {
+          "type": "string"
+        },
         "encodedDocument": {
           "type": "string",
           "format": "byte"

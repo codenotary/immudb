@@ -120,7 +120,9 @@ func TestDocumentDB_Collection(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
 	defer reader.Close()
+
 	docs, err := reader.Read(context.Background(), 1)
 	require.NoError(t, err)
 

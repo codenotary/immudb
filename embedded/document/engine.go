@@ -490,9 +490,11 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 		colNames[i] = col.Name()
 	}
 
+	docIDs = make([]DocumentID, len(docs))
+
 	rows := make([]*sql.RowSpec, len(docs))
 
-	for _, doc := range docs {
+	for i, doc := range docs {
 		if doc == nil {
 			return 0, nil, fmt.Errorf("%w: nil document", ErrIllegalArguments)
 		}
@@ -526,8 +528,8 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 			return 0, nil, err
 		}
 
-		docIDs = append(docIDs, docID)
-		rows = append(rows, rowSpec)
+		docIDs[i] = docID
+		rows[i] = rowSpec
 	}
 
 	// add documents to collection
@@ -555,9 +557,21 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 }
 
 func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Struct) (*sql.RowSpec, error) {
+	idFieldName := docIDFieldName(table)
+
 	values := make([]sql.ValueExp, len(table.Cols()))
 
 	for i, col := range table.Cols() {
+		if col.Name() == idFieldName {
+			docID, err := NewDocumentIDFromHexEncodedString(doc.Fields[col.Name()].GetStringValue())
+			if err != nil {
+				return nil, err
+			}
+
+			values[i] = sql.NewBlob(docID[:])
+			continue
+		}
+
 		if col.Name() == DocumentBLOBField {
 			bs, err := json.Marshal(doc)
 			if err != nil {
@@ -565,16 +579,17 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 			}
 
 			values[i] = sql.NewBlob(bs)
-		} else {
-			if rval, ok := doc.Fields[col.Name()]; ok {
-				val, err := structValueToSqlValue(col.Type(), rval)
-				if err != nil {
-					return nil, err
-				}
-				values[i] = val
-			} else {
-				values[i] = &sql.NullValue{}
+			continue
+		}
+
+		if rval, ok := doc.Fields[col.Name()]; ok {
+			val, err := structValueToSqlValue(col.Type(), rval)
+			if err != nil {
+				return nil, err
 			}
+			values[i] = val
+		} else {
+			values[i] = &sql.NullValue{}
 		}
 	}
 
@@ -686,7 +701,6 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, query 
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
-	defer sqlTx.Cancel()
 
 	table, err := getTableForCollection(sqlTx, collectionName)
 	if err != nil {
@@ -709,35 +723,36 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, query 
 	// returning an open reader here, so the caller HAS to close it
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, op, nil)
 	if err != nil {
+		defer sqlTx.Cancel()
 		return nil, err
 	}
 
-	return newDocumentReader(r), nil
+	return newDocumentReader(sqlTx, r), nil
 }
 
-func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, docAtRevision *EncodedDocumentAtRevision, err error) {
+func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, idFieldName string, docAtRevision *EncodedDocumentAtRevision, err error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
-		return 0, nil, mayTranslateError(err)
+		return 0, "", nil, mayTranslateError(err)
 	}
 	defer sqlTx.Cancel()
 
 	table, err := getTableForCollection(sqlTx, collectionName)
 	if err != nil {
-		return 0, nil, err
+		return 0, "", nil, err
 	}
 
 	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
 	if err != nil {
-		return 0, nil, err
+		return 0, "", nil, err
 	}
 
 	docAtRevision, err = e.getEncodedDocumentAtRevision(searchKey, txID, false)
 	if err != nil {
-		return 0, nil, err
+		return 0, "", nil, err
 	}
 
-	return table.ID(), docAtRevision, nil
+	return table.ID(), docIDFieldName(table), docAtRevision, nil
 }
 
 // DocumentAudit returns the audit history of a document.
@@ -958,12 +973,16 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	return entry.Metadata(), v, nil
 }
 
-func newDocumentReader(reader sql.RowReader) DocumentReader {
-	return &documentReader{reader: reader}
+type documentReader struct {
+	sqlTx  *sql.SQLTx
+	reader sql.RowReader
 }
 
-type documentReader struct {
-	reader sql.RowReader
+func newDocumentReader(sqlTx *sql.SQLTx, reader sql.RowReader) DocumentReader {
+	return &documentReader{
+		sqlTx:  sqlTx,
+		reader: reader,
+	}
 }
 
 // ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
@@ -1001,5 +1020,7 @@ func (d *documentReader) Read(ctx context.Context, count int) ([]*structpb.Struc
 }
 
 func (d *documentReader) Close() error {
+	defer d.sqlTx.Cancel()
+
 	return d.reader.Close()
 }

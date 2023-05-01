@@ -454,6 +454,7 @@
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  |  |
 | collectionId | [uint32](#uint32) |  |  |
+| idFieldName | [string](#string) |  |  |
 | encodedDocument | [bytes](#bytes) |  |  |
 | verifiableTx | [immudb.schema.VerifiableTxV2](#immudb.schema.VerifiableTxV2) |  |  |
 
