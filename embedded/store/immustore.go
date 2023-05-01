@@ -602,7 +602,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 					// give some time for more transactions to be precommitted
 					time.Sleep(store.syncFrequency / 4)
 
-					latestPrecommitedTx := store.lastPrecommittedTxID()
+					latestPrecommitedTx := store.LastPrecommittedTxID()
 
 					if prevLatestPrecommitedTx == latestPrecommitedTx {
 						// avoid waiting if there are no new transactions
@@ -792,7 +792,7 @@ func (s *ImmuStore) SnapshotMustIncludeTxID(ctx context.Context, txID uint64) (*
 // If txID is 0, any snapshot not older than renewalPeriod may be used.
 // If renewalPeriod is 0, renewal period is not taken into consideration
 func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context, txID uint64, renewalPeriod time.Duration) (*Snapshot, error) {
-	if txID > s.lastPrecommittedTxID() {
+	if txID > s.LastPrecommittedTxID() {
 		return nil, fmt.Errorf("%w: txID is greater than the last precommitted transaction", ErrIllegalArguments)
 	}
 
@@ -1208,7 +1208,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 			return nil, fmt.Errorf("%w: entries hash (Eh) differs", ErrIllegalArguments)
 		}
 
-		lastPreCommittedTxID := s.lastPrecommittedTxID()
+		lastPreCommittedTxID := s.LastPrecommittedTxID()
 
 		if lastPreCommittedTxID >= hdr.ID {
 			return nil, ErrTxAlreadyCommitted
@@ -1320,15 +1320,11 @@ func (s *ImmuStore) LastCommittedTxID() uint64 {
 	return s.committedTxID
 }
 
-func (s *ImmuStore) lastPrecommittedTxID() uint64 {
+func (s *ImmuStore) LastPrecommittedTxID() uint64 {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
 	return s.inmemPrecommittedTxID
-}
-
-func (s *ImmuStore) LastPrecommittedTxID() uint64 {
-	return s.lastPrecommittedTxID()
 }
 
 func (s *ImmuStore) MandatoryMVCCUpToTxID() uint64 {
@@ -1742,7 +1738,7 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	s.indexer.Pause()
 	defer s.indexer.Resume()
 
-	lastPreCommittedTxID := s.lastPrecommittedTxID()
+	lastPreCommittedTxID := s.LastPrecommittedTxID()
 
 	otx.entries, otx.preconditions, err = callback(lastPreCommittedTxID+1, &unsafeIndex{st: s})
 	if err != nil {

@@ -107,7 +107,13 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 	var snapshotMustIncludeTxID uint64
 
 	if opts.SnapshotMustIncludeTxID != nil {
-		snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID(s.lastPrecommittedTxID())
+		snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID(s.LastPrecommittedTxID())
+	}
+
+	mandatoryMVCCUpToTxID := s.MandatoryMVCCUpToTxID()
+
+	if mandatoryMVCCUpToTxID > snapshotMustIncludeTxID {
+		snapshotMustIncludeTxID = mandatoryMVCCUpToTxID
 	}
 
 	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(ctx, snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod)
@@ -494,7 +500,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
-	if tx.IsWriteOnly() || tx.snap.Ts() > st.lastPrecommittedTxID() {
+	if tx.IsWriteOnly() || tx.snap.Ts() > st.LastPrecommittedTxID() {
 		// read-only transactions or read-write transactions when no other transaction was committed won't be invalidated
 		return nil
 	}
