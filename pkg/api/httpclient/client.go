@@ -220,8 +220,9 @@ type ModelIndex struct {
 
 // ModelIndexCreateRequest defines model for modelIndexCreateRequest.
 type ModelIndexCreateRequest struct {
-	Collection *string       `json:"collection,omitempty"`
-	Indexes    *[]ModelIndex `json:"indexes,omitempty"`
+	Collection *string   `json:"collection,omitempty"`
+	Fields     *[]string `json:"fields,omitempty"`
+	IsUnique   *bool     `json:"isUnique,omitempty"`
 }
 
 // ModelIndexCreateResponse defines model for modelIndexCreateResponse.
@@ -229,8 +230,8 @@ type ModelIndexCreateResponse = map[string]interface{}
 
 // ModelIndexDeleteRequest defines model for modelIndexDeleteRequest.
 type ModelIndexDeleteRequest struct {
-	Collection *string       `json:"collection,omitempty"`
-	Indexes    *[]ModelIndex `json:"indexes,omitempty"`
+	Collection *string   `json:"collection,omitempty"`
+	Fields     *[]string `json:"fields,omitempty"`
 }
 
 // ModelIndexDeleteResponse defines model for modelIndexDeleteResponse.

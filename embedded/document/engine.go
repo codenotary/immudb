@@ -447,9 +447,9 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 	return mayTranslateError(err)
 }
 
-func (e *Engine) CreateIndexes(ctx context.Context, collectionName string, indexes []*protomodel.Index) error {
-	if len(indexes) == 0 {
-		return fmt.Errorf("%w: no index specified", ErrIllegalArguments)
+func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields []string, isUnique bool) error {
+	if len(fields) == 0 {
+		return fmt.Errorf("%w: no fields specified", ErrIllegalArguments)
 	}
 
 	opts := sql.DefaultTxOptions().
@@ -464,22 +464,18 @@ func (e *Engine) CreateIndexes(ctx context.Context, collectionName string, index
 	}
 	defer sqlTx.Cancel()
 
-	createIndexStmts := make([]sql.SQLStmt, len(indexes))
-
-	for i, index := range indexes {
-		for _, field := range index.Fields {
-			if field == DocumentBLOBField {
-				return fmt.Errorf("%w(%s): non-indexable field", ErrReservedFieldName, DocumentBLOBField)
-			}
+	for _, field := range fields {
+		if field == DocumentBLOBField {
+			return fmt.Errorf("%w(%s): non-indexable field", ErrReservedFieldName, DocumentBLOBField)
 		}
-
-		createIndexStmts[i] = sql.NewCreateIndexStmt(collectionName, index.Fields, index.IsUnique)
 	}
+
+	createIndexStmt := sql.NewCreateIndexStmt(collectionName, fields, isUnique)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		sqlTx,
-		createIndexStmts,
+		[]sql.SQLStmt{createIndexStmt},
 		nil,
 	)
 	if err != nil {
@@ -490,9 +486,9 @@ func (e *Engine) CreateIndexes(ctx context.Context, collectionName string, index
 	return mayTranslateError(err)
 }
 
-func (e *Engine) DeleteIndexes(ctx context.Context, collectionName string, indexes []*protomodel.Index) error {
-	if len(indexes) == 0 {
-		return fmt.Errorf("%w: no index specified", ErrIllegalArguments)
+func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields []string) error {
+	if len(fields) == 0 {
+		return fmt.Errorf("%w: no fields specified", ErrIllegalArguments)
 	}
 
 	opts := sql.DefaultTxOptions().
@@ -507,22 +503,18 @@ func (e *Engine) DeleteIndexes(ctx context.Context, collectionName string, index
 	}
 	defer sqlTx.Cancel()
 
-	createIndexStmts := make([]sql.SQLStmt, len(indexes))
-
-	for i, index := range indexes {
-		for _, field := range index.Fields {
-			if field == DocumentBLOBField {
-				return ErrFieldDoesNotExist
-			}
+	for _, field := range fields {
+		if field == DocumentBLOBField {
+			return ErrFieldDoesNotExist
 		}
-
-		createIndexStmts[i] = sql.NewDropIndexStmt(collectionName, index.Fields)
 	}
+
+	createIndexStmt := sql.NewDropIndexStmt(collectionName, fields)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		sqlTx,
-		createIndexStmts,
+		[]sql.SQLStmt{createIndexStmt},
 		nil,
 	)
 	if err != nil {

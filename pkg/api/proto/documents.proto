@@ -111,14 +111,15 @@ message CollectionUpdateResponse {}
 
 message IndexCreateRequest {
   string collection = 1;
-  repeated Index indexes = 2;
+  repeated string fields = 2;
+  bool isUnique = 3;
 }
 
 message IndexCreateResponse {}
 
 message IndexDeleteRequest {
   string collection = 1;
-  repeated Index indexes = 2;
+  repeated string fields = 2;
 }
 
 message IndexDeleteResponse {}
@@ -344,8 +345,7 @@ service DocumentService {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: [
-        "documents",
-        "audit"
+        "documents"
       ];
     };
   }
@@ -357,8 +357,7 @@ service DocumentService {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: [
-        "documents",
-        "audit"
+        "documents"
       ];
     };
   }

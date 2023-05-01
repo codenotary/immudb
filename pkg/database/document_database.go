@@ -37,10 +37,10 @@ type DocumentDatabase interface {
 	UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error)
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error)
-	// CreateIndexes creates indexes for a collection
-	CreateIndexes(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error)
-	// DeleteIndexes deletes indexes from a collection
-	DeleteIndexes(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error)
+	// CreateIndex creates an index for a collection
+	CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error)
+	// DeleteIndex deletes an index from a collection
+	DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error)
 	// GetDocument returns the document
 	SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error)
 	// InsertDocument creates a new document
@@ -142,13 +142,13 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDel
 	return &protomodel.CollectionDeleteResponse{}, nil
 }
 
-// CreateIndexes creates indexes for a collection
-func (d *db) CreateIndexes(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
+// CreateIndex creates an index for a collection
+func (d *db) CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateIndexes(ctx, req.Collection, req.Indexes)
+	err := d.documentEngine.CreateIndex(ctx, req.Collection, req.Fields, req.IsUnique)
 	if err != nil {
 		return nil, err
 	}
@@ -156,13 +156,13 @@ func (d *db) CreateIndexes(ctx context.Context, req *protomodel.IndexCreateReque
 	return &protomodel.IndexCreateResponse{}, nil
 }
 
-// DeleteIndexes deletes indexes from a collection
-func (d *db) DeleteIndexes(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
+// DeleteIndex deletes an index from a collection
+func (d *db) DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteIndexes(ctx, req.Collection, req.Indexes)
+	err := d.documentEngine.DeleteIndex(ctx, req.Collection, req.Fields)
 	if err != nil {
 		return nil, err
 	}

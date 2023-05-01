@@ -599,7 +599,8 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| indexes | [Index](#immudb.model.Index) | repeated |  |
+| fields | [string](#string) | repeated |  |
+| isUnique | [bool](#bool) |  |  |
 
 
 
@@ -625,7 +626,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| indexes | [Index](#immudb.model.Index) | repeated |  |
+| fields | [string](#string) | repeated |  |
 
 
 
