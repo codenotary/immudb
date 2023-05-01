@@ -321,11 +321,13 @@ func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table,
 }
 
 func collectionFromTable(table *sql.Table) *protomodel.Collection {
+	idFieldName := docIDFieldName(table)
+
 	indexes := table.GetIndexes()
 
 	collection := &protomodel.Collection{
 		Name:        table.Name(),
-		IdFieldName: docIDFieldName(table),
+		IdFieldName: idFieldName,
 		Indexes:     make([]*protomodel.Index, len(indexes)),
 	}
 
@@ -336,17 +338,21 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 
 		var colType protomodel.FieldType
 
-		switch col.Type() {
-		case sql.BooleanType:
-			colType = protomodel.FieldType_BOOLEAN
-		case sql.VarcharType:
+		if col.Name() == idFieldName {
 			colType = protomodel.FieldType_STRING
-		case sql.IntegerType:
-			colType = protomodel.FieldType_INTEGER
-		case sql.Float64Type:
-			colType = protomodel.FieldType_DOUBLE
-		case sql.BLOBType:
-			colType = protomodel.FieldType_BLOB
+		} else {
+			switch col.Type() {
+			case sql.BooleanType:
+				colType = protomodel.FieldType_BOOLEAN
+			case sql.VarcharType:
+				colType = protomodel.FieldType_STRING
+			case sql.IntegerType:
+				colType = protomodel.FieldType_INTEGER
+			case sql.Float64Type:
+				colType = protomodel.FieldType_DOUBLE
+			case sql.BLOBType:
+				colType = protomodel.FieldType_BLOB
+			}
 		}
 
 		collection.Fields = append(collection.Fields, &protomodel.Field{

@@ -67,13 +67,14 @@ type ModelCollection struct {
 
 // ModelCollectionCreateRequest defines model for modelCollectionCreateRequest.
 type ModelCollectionCreateRequest struct {
-	Collection *ModelCollection `json:"collection,omitempty"`
+	Fields      *[]ModelField `json:"fields,omitempty"`
+	IdFieldName *string       `json:"idFieldName,omitempty"`
+	Indexes     *[]ModelIndex `json:"indexes,omitempty"`
+	Name        *string       `json:"name,omitempty"`
 }
 
 // ModelCollectionCreateResponse defines model for modelCollectionCreateResponse.
-type ModelCollectionCreateResponse struct {
-	Collection *ModelCollection `json:"collection,omitempty"`
-}
+type ModelCollectionCreateResponse = map[string]interface{}
 
 // ModelCollectionDeleteResponse defines model for modelCollectionDeleteResponse.
 type ModelCollectionDeleteResponse = map[string]interface{}
@@ -93,7 +94,8 @@ type ModelCollectionListResponse struct {
 
 // ModelCollectionUpdateRequest defines model for modelCollectionUpdateRequest.
 type ModelCollectionUpdateRequest struct {
-	Collection *ModelCollection `json:"collection,omitempty"`
+	IdFieldName *string `json:"idFieldName,omitempty"`
+	Name        *string `json:"name,omitempty"`
 }
 
 // ModelCollectionUpdateResponse defines model for modelCollectionUpdateResponse.
@@ -160,6 +162,7 @@ type ModelDocumentProofResponse struct {
 	CollectionId    *int64                `json:"collectionId,omitempty"`
 	Database        *string               `json:"database,omitempty"`
 	EncodedDocument *[]byte               `json:"encodedDocument,omitempty"`
+	IdFieldName     *string               `json:"idFieldName,omitempty"`
 	VerifiableTx    *SchemaVerifiableTxV2 `json:"verifiableTx,omitempty"`
 }
 
@@ -170,11 +173,13 @@ type ModelDocumentSearchRequest struct {
 	Page       *int64      `json:"page,omitempty"`
 	PerPage    *int64      `json:"perPage,omitempty"`
 	Query      *ModelQuery `json:"query,omitempty"`
+	SearchID   *string     `json:"searchID,omitempty"`
 }
 
 // ModelDocumentSearchResponse defines model for modelDocumentSearchResponse.
 type ModelDocumentSearchResponse struct {
 	Revisions *[]ModelDocumentAtRevision `json:"revisions,omitempty"`
+	SearchID  *string                    `json:"searchID,omitempty"`
 }
 
 // ModelDocumentUpdateRequest defines model for modelDocumentUpdateRequest.
@@ -186,7 +191,9 @@ type ModelDocumentUpdateRequest struct {
 
 // ModelDocumentUpdateResponse defines model for modelDocumentUpdateResponse.
 type ModelDocumentUpdateResponse struct {
-	Revision *ModelDocumentAtRevision `json:"revision,omitempty"`
+	DocumentId    *string `json:"documentId,omitempty"`
+	Revision      *string `json:"revision,omitempty"`
+	TransactionId *string `json:"transactionId,omitempty"`
 }
 
 // ModelField defines model for modelField.
@@ -210,6 +217,24 @@ type ModelIndex struct {
 	Fields   *[]string `json:"fields,omitempty"`
 	IsUnique *bool     `json:"isUnique,omitempty"`
 }
+
+// ModelIndexCreateRequest defines model for modelIndexCreateRequest.
+type ModelIndexCreateRequest struct {
+	Collection *string       `json:"collection,omitempty"`
+	Indexes    *[]ModelIndex `json:"indexes,omitempty"`
+}
+
+// ModelIndexCreateResponse defines model for modelIndexCreateResponse.
+type ModelIndexCreateResponse = map[string]interface{}
+
+// ModelIndexDeleteRequest defines model for modelIndexDeleteRequest.
+type ModelIndexDeleteRequest struct {
+	Collection *string       `json:"collection,omitempty"`
+	Indexes    *[]ModelIndex `json:"indexes,omitempty"`
+}
+
+// ModelIndexDeleteResponse defines model for modelIndexDeleteResponse.
+type ModelIndexDeleteResponse = map[string]interface{}
 
 // ModelKeepAliveRequest defines model for modelKeepAliveRequest.
 type ModelKeepAliveRequest = map[string]interface{}
@@ -490,6 +515,12 @@ type DocumentSearchJSONRequestBody = ModelDocumentSearchRequest
 // DocumentUpdateJSONRequestBody defines body for DocumentUpdate for application/json ContentType.
 type DocumentUpdateJSONRequestBody = ModelDocumentUpdateRequest
 
+// IndexCreateJSONRequestBody defines body for IndexCreate for application/json ContentType.
+type IndexCreateJSONRequestBody = ModelIndexCreateRequest
+
+// IndexDeleteJSONRequestBody defines body for IndexDelete for application/json ContentType.
+type IndexDeleteJSONRequestBody = ModelIndexDeleteRequest
+
 // Getter for additional properties for ProtobufAny. Returns the specified
 // element and whether it was found
 func (a ProtobufAny) Get(fieldName string) (value map[string]interface{}, found bool) {
@@ -696,6 +727,16 @@ type ClientInterface interface {
 	DocumentUpdateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	DocumentUpdate(ctx context.Context, body DocumentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// IndexCreate request with any body
+	IndexCreateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	IndexCreate(ctx context.Context, body IndexCreateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// IndexDelete request with any body
+	IndexDeleteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	IndexDelete(ctx context.Context, body IndexDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) CloseSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1000,6 +1041,54 @@ func (c *Client) DocumentUpdateWithBody(ctx context.Context, contentType string,
 
 func (c *Client) DocumentUpdate(ctx context.Context, body DocumentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDocumentUpdateRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IndexCreateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIndexCreateRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IndexCreate(ctx context.Context, body IndexCreateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIndexCreateRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IndexDeleteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIndexDeleteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IndexDelete(ctx context.Context, body IndexDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIndexDeleteRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1584,6 +1673,86 @@ func NewDocumentUpdateRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewIndexCreateRequest calls the generic IndexCreate builder with application/json body
+func NewIndexCreateRequest(server string, body IndexCreateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewIndexCreateRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewIndexCreateRequestWithBody generates requests for IndexCreate with any type of body
+func NewIndexCreateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/indexes/create")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewIndexDeleteRequest calls the generic IndexDelete builder with application/json body
+func NewIndexDeleteRequest(server string, body IndexDeleteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewIndexDeleteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewIndexDeleteRequestWithBody generates requests for IndexDelete with any type of body
+func NewIndexDeleteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/indexes/delete")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1692,6 +1861,16 @@ type ClientWithResponsesInterface interface {
 	DocumentUpdateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DocumentUpdateResponse, error)
 
 	DocumentUpdateWithResponse(ctx context.Context, body DocumentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*DocumentUpdateResponse, error)
+
+	// IndexCreate request with any body
+	IndexCreateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IndexCreateResponse, error)
+
+	IndexCreateWithResponse(ctx context.Context, body IndexCreateJSONRequestBody, reqEditors ...RequestEditorFn) (*IndexCreateResponse, error)
+
+	// IndexDelete request with any body
+	IndexDeleteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IndexDeleteResponse, error)
+
+	IndexDeleteWithResponse(ctx context.Context, body IndexDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*IndexDeleteResponse, error)
 }
 
 type CloseSessionResponse struct {
@@ -2016,6 +2195,52 @@ func (r DocumentUpdateResponse) StatusCode() int {
 	return 0
 }
 
+type IndexCreateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelIndexCreateResponse
+	JSONDefault  *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r IndexCreateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r IndexCreateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type IndexDeleteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelIndexDeleteResponse
+	JSONDefault  *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r IndexDeleteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r IndexDeleteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // CloseSessionWithBodyWithResponse request with arbitrary body returning *CloseSessionResponse
 func (c *ClientWithResponses) CloseSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CloseSessionResponse, error) {
 	rsp, err := c.CloseSessionWithBody(ctx, contentType, body, reqEditors...)
@@ -2236,6 +2461,40 @@ func (c *ClientWithResponses) DocumentUpdateWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParseDocumentUpdateResponse(rsp)
+}
+
+// IndexCreateWithBodyWithResponse request with arbitrary body returning *IndexCreateResponse
+func (c *ClientWithResponses) IndexCreateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IndexCreateResponse, error) {
+	rsp, err := c.IndexCreateWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIndexCreateResponse(rsp)
+}
+
+func (c *ClientWithResponses) IndexCreateWithResponse(ctx context.Context, body IndexCreateJSONRequestBody, reqEditors ...RequestEditorFn) (*IndexCreateResponse, error) {
+	rsp, err := c.IndexCreate(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIndexCreateResponse(rsp)
+}
+
+// IndexDeleteWithBodyWithResponse request with arbitrary body returning *IndexDeleteResponse
+func (c *ClientWithResponses) IndexDeleteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IndexDeleteResponse, error) {
+	rsp, err := c.IndexDeleteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIndexDeleteResponse(rsp)
+}
+
+func (c *ClientWithResponses) IndexDeleteWithResponse(ctx context.Context, body IndexDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*IndexDeleteResponse, error) {
+	rsp, err := c.IndexDelete(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIndexDeleteResponse(rsp)
 }
 
 // ParseCloseSessionResponse parses an HTTP response from a CloseSessionWithResponse call
@@ -2683,6 +2942,72 @@ func ParseDocumentUpdateResponse(rsp *http.Response) (*DocumentUpdateResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ModelDocumentUpdateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseIndexCreateResponse parses an HTTP response from a IndexCreateWithResponse call
+func ParseIndexCreateResponse(rsp *http.Response) (*IndexCreateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &IndexCreateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelIndexCreateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseIndexDeleteResponse parses an HTTP response from a IndexDeleteWithResponse call
+func ParseIndexDeleteResponse(rsp *http.Response) (*IndexDeleteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &IndexDeleteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelIndexDeleteResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
