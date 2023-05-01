@@ -971,3 +971,8 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 
 	return nil
 }
+
+// CopyCatalogToTx copies the current sql catalog to the ongoing transaction.
+func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
+	return e.sqlEngine.CopyCatalogToTx(ctx, tx)
+}

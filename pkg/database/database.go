@@ -1656,6 +1656,17 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 // CopyCatalog creates a copy of the sql catalog and returns a transaction
 // that can be used to commit the copy.
 func (d *db) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
-	// TODO: add document store support for truncation too
-	return d.sqlEngine.CopyCatalogToTx(ctx, tx)
+	// copy the sql catalog
+	err := d.sqlEngine.CopyCatalogToTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	// copy the document store catalog
+	err = d.documentEngine.CopyCatalogToTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

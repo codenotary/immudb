@@ -25,9 +25,11 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func encodeOffset(offset int64, vLogID byte) int64 {
@@ -607,4 +609,151 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 	<-doneWritesCh
 	<-doneTruncateCh
+}
+
+func Test_vlogCompactor_with_document_store(t *testing.T) {
+	db := setupCommonTest(t)
+
+	exec := func(t *testing.T, stmt string) {
+		_, ctx, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: stmt})
+		require.NoError(t, err)
+		require.Len(t, ctx, 1)
+	}
+
+	query := func(t *testing.T, stmt string, expectedRows int) {
+		res, err := db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.Len(t, res.Rows, expectedRows)
+	}
+
+	verify := func(t *testing.T, txID uint64) {
+		lastCommitTx := db.st.LastCommittedTxID()
+
+		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
+		require.NoError(t, err)
+		require.NotNil(t, hdr.Metadata)
+		require.True(t, hdr.Metadata.HasTruncatedTxID())
+
+		truncatedTxId, err := hdr.Metadata.GetTruncatedTxID()
+		require.NoError(t, err)
+		require.Equal(t, txID, truncatedTxId)
+	}
+
+	// create a new table
+	exec(t, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], amount INTEGER, PRIMARY KEY id)")
+	exec(t, "CREATE UNIQUE INDEX ON table1 (name)")
+
+	// create new document store
+	// create collection
+	collectionName := "mycollection"
+	_, err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
+		Name: collectionName,
+		IndexKeys: map[string]*schemav2.IndexOption{
+			"pincode": newIndexOption(schemav2.IndexType_INTEGER),
+		},
+	})
+	require.NoError(t, err)
+
+	t.Run("succeed truncating sql catalog", func(t *testing.T) {
+		lastCommitTx := db.st.LastCommittedTxID()
+
+		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
+		require.NoError(t, err)
+
+		c := NewVlogTruncator(db)
+		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
+
+		// should add two extra transaction with catalogue
+		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		verify(t, hdr.ID)
+	})
+
+	t.Run("succeed loading catalog from latest schema", func(t *testing.T) {
+		query(t, "SELECT * FROM table1", 0)
+
+		// get collection
+		cinfo, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
+			Name: collectionName,
+		})
+		require.NoError(t, err)
+		resp := cinfo.Collection
+		require.Equal(t, 2, len(resp.IndexKeys))
+		require.Contains(t, resp.IndexKeys, "_id")
+		require.Contains(t, resp.IndexKeys, "pincode")
+		require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
+	})
+
+	// insert some data
+	for i := 1; i <= 5; i++ {
+		var err error
+		kv := &schema.KeyValue{
+			Key:   []byte(fmt.Sprintf("key_%d", i)),
+			Value: []byte(fmt.Sprintf("val_%d", i)),
+		}
+		_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+		require.NoError(t, err)
+
+		res, err := db.InsertDocument(context.Background(), &schemav2.DocumentInsertRequest{
+			Collection: collectionName,
+			Document: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"pincode": {
+						Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	}
+
+	// delete txns in the store upto a certain txn
+	t.Run("succeed truncating sql catalog again", func(t *testing.T) {
+		lastCommitTx := db.st.LastCommittedTxID()
+
+		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
+		require.NoError(t, err)
+
+		c := NewVlogTruncator(db)
+		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
+
+		// should add an extra transaction with catalogue
+		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		verify(t, hdr.ID)
+	})
+
+	t.Run("adding new rows/documents should work", func(t *testing.T) {
+		exec(t, "INSERT INTO table1(name, amount) VALUES('Foo', 0)")
+		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
+
+		res, err := db.InsertDocument(context.Background(), &schemav2.DocumentInsertRequest{
+			Collection: collectionName,
+			Document: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"pincode": {
+						Kind: &structpb.Value_NumberValue{NumberValue: 999},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+
+	// check if can query the table with new catalogue
+	t.Run("succeed loading catalog from latest schema should work", func(t *testing.T) {
+		query(t, "SELECT * FROM table1", 2)
+
+		cinfo, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
+			Name: collectionName,
+		})
+		require.NoError(t, err)
+
+		resp := cinfo.Collection
+		require.Equal(t, 2, len(resp.IndexKeys))
+		require.Contains(t, resp.IndexKeys, "_id")
+		require.Contains(t, resp.IndexKeys, "pincode")
+		require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
+	})
 }
