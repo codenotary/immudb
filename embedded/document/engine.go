@@ -592,7 +592,9 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 
 	for i, doc := range docs {
 		if doc == nil {
-			doc = &structpb.Struct{}
+			doc = &structpb.Struct{
+				Fields: make(map[string]*structpb.Value),
+			}
 		}
 
 		_, blobFieldProvisioned := doc.Fields[DocumentBLOBField]
