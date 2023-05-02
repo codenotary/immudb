@@ -304,7 +304,7 @@ func (s *ImmuServer) Start() (err error) {
 	}
 
 	if s.Options.WebServer {
-		if err := s.setUpWebServer(); err != nil {
+		if err := s.setUpWebServer(context.Background()); err != nil {
 			log.Fatal(fmt.Sprintf("Failed to setup web API/console server: %v", err))
 		}
 		defer func() {
@@ -353,8 +353,10 @@ func (s *ImmuServer) setUpMetricsServer() error {
 	return nil
 }
 
-func (s *ImmuServer) setUpWebServer() error {
-	server, err := StartWebServer(
+func (s *ImmuServer) setUpWebServer(ctx context.Context) error {
+	server, err := startWebServer(
+		ctx,
+		s.Options.Bind(),
 		s.Options.WebBind(),
 		s.Options.TLSConfig,
 		s,
