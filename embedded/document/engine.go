@@ -84,6 +84,10 @@ func mayTranslateError(err error) error {
 		return ErrConflict
 	}
 
+	if errors.Is(err, store.ErrKeyAlreadyExists) {
+		return ErrConflict
+	}
+
 	return err
 }
 
