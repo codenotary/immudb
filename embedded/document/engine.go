@@ -514,12 +514,12 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 		}
 	}
 
-	createIndexStmt := sql.NewDropIndexStmt(collectionName, fields)
+	dropIndexStmt := sql.NewDropIndexStmt(collectionName, fields)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
 		sqlTx,
-		[]sql.SQLStmt{createIndexStmt},
+		[]sql.SQLStmt{dropIndexStmt},
 		nil,
 	)
 	if err != nil {
