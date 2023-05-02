@@ -57,6 +57,13 @@ type DocumentDatabase interface {
 
 // CreateCollection creates a new collection
 func (d *db) CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -116,6 +123,13 @@ func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearch
 
 // UpdateCollection updates an existing collection
 func (d *db) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -130,6 +144,13 @@ func (d *db) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpd
 
 // DeleteCollection deletes a collection
 func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -144,6 +165,13 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.CollectionDel
 
 // CreateIndex creates an index for a collection
 func (d *db) CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -158,6 +186,13 @@ func (d *db) CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest
 
 // DeleteIndex deletes an index from a collection
 func (d *db) DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -172,6 +207,13 @@ func (d *db) DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest
 
 // InsertDocument creates a new document
 func (d *db) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -189,6 +231,13 @@ func (d *db) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertR
 
 // DocumentInsertMany inserts multiple documents
 func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -211,6 +260,13 @@ func (d *db) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentIns
 
 // UpdateDocument updates a document
 func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}

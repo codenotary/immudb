@@ -16,16 +16,19 @@ limitations under the License.
 package document
 
 import (
+	"context"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/stretchr/testify/require"
 )
 
 func makeEngine(t *testing.T) *Engine {
 	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		err := st.Close()
 		if !t.Failed() {
@@ -41,20 +44,27 @@ func makeEngine(t *testing.T) *Engine {
 	return engine
 }
 
-/*
 func TestListCollections(t *testing.T) {
 	engine := makeEngine(t)
 
 	collections := []string{"mycollection1", "mycollection2", "mycollection3"}
+
 	for _, collectionName := range collections {
 		err := engine.CreateCollection(
 			context.Background(),
 			collectionName,
-			map[string]*IndexOption{
-				"number":  {Type: sql.IntegerType},
-				"name":    {Type: sql.BLOBType},
-				"pin":     {Type: sql.IntegerType},
-				"country": {Type: sql.VarcharType},
+			"",
+			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_INTEGER},
+				{Name: "name", Type: protomodel.FieldType_BLOB},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"number"}},
+				{Fields: []string{"name"}},
+				{Fields: []string{"pin"}},
+				{Fields: []string{"country"}},
 			},
 		)
 		require.NoError(t, err)
@@ -63,23 +73,9 @@ func TestListCollections(t *testing.T) {
 	collectionList, err := engine.ListCollections(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, len(collections), len(collectionList))
-
-	for _, indexes := range collectionList {
-		primaryKeyCount := 0
-		indexKeyCount := 0
-		for _, idx := range indexes {
-			// check if primary key
-			if idx.IsPrimary() {
-				primaryKeyCount += len(idx.Cols())
-			} else {
-				indexKeyCount += len(idx.Cols())
-			}
-		}
-		require.Equal(t, 1, primaryKeyCount)
-		require.Equal(t, 4, indexKeyCount)
-	}
 }
 
+/*
 func TestCreateCollection(t *testing.T) {
 	engine := makeEngine(t)
 
