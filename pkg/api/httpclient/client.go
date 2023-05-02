@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	BearerScopes = "bearer.Scopes"
+	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
 // Defines values for ModelComparisonOperator.
