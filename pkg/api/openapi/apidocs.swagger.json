@@ -1340,16 +1340,16 @@
     }
   },
   "securityDefinitions": {
-    "bearer": {
+    "ApiKeyAuth": {
       "type": "apiKey",
-      "description": "Session token: \u003ctoken\u003e",
-      "name": "grpc-metadata-sessionid",
+      "description": "Session Identifier",
+      "name": "sessionid",
       "in": "header"
     }
   },
   "security": [
     {
-      "bearer": []
+      "ApiKeyAuth": []
     }
   ]
 }

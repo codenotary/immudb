@@ -30,18 +30,18 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   };
   security_definitions: {
     security: {
-      key: "bearer"
+      key: "ApiKeyAuth"
       value: {
         type: TYPE_API_KEY
         in: IN_HEADER
-        name: "grpc-metadata-sessionid"
-        description: "Session token: <token>"
+        name: "sessionid"
+        description: "Session Identifier"
       }
     }
   }
   security: {
     security_requirement: {
-      key: "bearer"
+      key: "ApiKeyAuth"
     }
   }
 };

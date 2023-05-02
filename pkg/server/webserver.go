@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -38,7 +39,16 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 		return nil, err
 	}
 
-	proxyMux := runtime.NewServeMux()
+	proxyMux := runtime.NewServeMux(
+		runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
+			switch strings.ToLower(key) {
+			case "sessionid":
+				return "Sessionid", true
+			default:
+				return runtime.DefaultHeaderMatcher(key)
+			}
+		}),
+	)
 
 	err = schema.RegisterImmuServiceHandler(ctx, proxyMux, grpcClient)
 	if err != nil {
