@@ -33,7 +33,6 @@ const (
 
 // Defines values for ModelFieldType.
 const (
-	BLOB    ModelFieldType = "BLOB"
 	BOOLEAN ModelFieldType = "BOOLEAN"
 	DOUBLE  ModelFieldType = "DOUBLE"
 	INTEGER ModelFieldType = "INTEGER"

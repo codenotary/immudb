@@ -137,8 +137,6 @@ var (
 			return sql.VarcharType, nil
 		case protomodel.FieldType_INTEGER:
 			return sql.IntegerType, nil
-		case protomodel.FieldType_BLOB:
-			return sql.BLOBType, nil
 		case protomodel.FieldType_DOUBLE:
 			return sql.Float64Type, nil
 		case protomodel.FieldType_BOOLEAN:
@@ -369,8 +367,6 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 				colType = protomodel.FieldType_INTEGER
 			case sql.Float64Type:
 				colType = protomodel.FieldType_DOUBLE
-			case sql.BLOBType:
-				colType = protomodel.FieldType_BLOB
 			}
 		}
 

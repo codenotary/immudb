@@ -911,8 +911,7 @@
         "STRING",
         "BOOLEAN",
         "INTEGER",
-        "DOUBLE",
-        "BLOB"
+        "DOUBLE"
       ],
       "default": "STRING"
     },
