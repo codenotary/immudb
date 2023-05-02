@@ -48,6 +48,7 @@ var (
 	ErrFieldDoesNotExist       = errors.New("field does not exist")
 	ErrReservedFieldName       = errors.New("reserved field name")
 	ErrLimitedIndexCreation    = errors.New("index creation is only supported on empty collections")
+	ErrConflict                = errors.New("conflict due to uniqueness contraint violation or read document was updated by another transaction")
 )
 
 func mayTranslateError(err error) error {
@@ -77,6 +78,10 @@ func mayTranslateError(err error) error {
 
 	if errors.Is(err, sql.ErrLimitedIndexCreation) {
 		return ErrLimitedIndexCreation
+	}
+
+	if errors.Is(err, store.ErrTxReadConflict) {
+		return ErrConflict
 	}
 
 	return err
