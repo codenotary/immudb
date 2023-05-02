@@ -35,23 +35,28 @@ const (
 )
 
 var (
-	ErrIllegalArguments       = store.ErrIllegalArguments
-	ErrUnsupportedType        = errors.New("unsupported type")
-	ErrCollectionDoesNotExist = errors.New("collection does not exist")
-	ErrMaxLengthExceeded      = errors.New("max length exceeded")
-	ErrMultipleDocumentsFound = errors.New("multiple documents found")
-	ErrDocumentNotFound       = errors.New("document not found")
-	ErrDocumentIDMismatch     = errors.New("document id mismatch")
-	ErrNoMoreDocuments        = errors.New("no more documents")
-	ErrFieldAlreadyExists     = errors.New("field already exists")
-	ErrFieldDoesNotExist      = errors.New("field does not exist")
-	ErrReservedFieldName      = errors.New("reserved field name")
-	ErrLimitedIndexCreation   = errors.New("index creation is only supported on empty collections")
+	ErrIllegalArguments        = store.ErrIllegalArguments
+	ErrUnsupportedType         = errors.New("unsupported type")
+	ErrCollectionAlreadyExists = errors.New("collection alrady exists")
+	ErrCollectionDoesNotExist  = errors.New("collection does not exist")
+	ErrMaxLengthExceeded       = errors.New("max length exceeded")
+	ErrMultipleDocumentsFound  = errors.New("multiple documents found")
+	ErrDocumentNotFound        = errors.New("document not found")
+	ErrDocumentIDMismatch      = errors.New("document id mismatch")
+	ErrNoMoreDocuments         = errors.New("no more documents")
+	ErrFieldAlreadyExists      = errors.New("field already exists")
+	ErrFieldDoesNotExist       = errors.New("field does not exist")
+	ErrReservedFieldName       = errors.New("reserved field name")
+	ErrLimitedIndexCreation    = errors.New("index creation is only supported on empty collections")
 )
 
 func mayTranslateError(err error) error {
 	if err == nil {
 		return nil
+	}
+
+	if errors.Is(err, sql.ErrTableAlreadyExists) {
+		return ErrCollectionAlreadyExists
 	}
 
 	if errors.Is(err, sql.ErrTableDoesNotExist) {
