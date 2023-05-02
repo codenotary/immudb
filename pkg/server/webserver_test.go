@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"testing"
@@ -36,8 +37,10 @@ func TestStartWebServerHTTP(t *testing.T) {
 		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}
 
-	webServer, err := StartWebServer(
-		"0.0.0.0:8080",
+	webServer, err := startWebServer(
+		context.Background(),
+		options.Bind(),
+		options.WebBind(),
 		tlsConfig,
 		server,
 		&mockLogger{})
@@ -48,7 +51,7 @@ func TestStartWebServerHTTP(t *testing.T) {
 
 	client := &http.Client{}
 	require.Eventually(t, func() bool {
-		_, err = client.Get("http://0.0.0.0:8080")
+		_, err = client.Get("http://" + options.WebBind())
 		return err == nil
 	}, 10*time.Second, 30*time.Millisecond)
 }
@@ -79,8 +82,10 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	require.NoError(t, err)
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
 
-	webServer, err := StartWebServer(
-		"0.0.0.0:8080",
+	webServer, err := startWebServer(
+		context.Background(),
+		options.Bind(),
+		options.WebBind(),
 		tlsConfig,
 		server,
 		&mockLogger{})
@@ -92,7 +97,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	client := &http.Client{Transport: tr}
 	require.Eventually(t, func() bool {
-		_, err = client.Get("https://0.0.0.0:8080")
+		_, err = client.Get("https://" + options.WebBind())
 		return err == nil
 	}, 10*time.Second, 30*time.Millisecond)
 }
