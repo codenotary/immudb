@@ -56,7 +56,7 @@ func TestListCollections(t *testing.T) {
 			"",
 			[]*protomodel.Field{
 				{Name: "number", Type: protomodel.FieldType_INTEGER},
-				{Name: "name", Type: protomodel.FieldType_BLOB},
+				{Name: "name", Type: protomodel.FieldType_STRING},
 				{Name: "pin", Type: protomodel.FieldType_INTEGER},
 				{Name: "country", Type: protomodel.FieldType_STRING},
 			},
