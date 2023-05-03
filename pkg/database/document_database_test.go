@@ -109,9 +109,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 						{
 							Field:    "pincode",
 							Operator: protomodel.ComparisonOperator_EQ,
-							Value: &structpb.Value{
-								Kind: &structpb.Value_NumberValue{NumberValue: 123},
-							},
+							Value:    structpb.NewNumberValue(123),
 						},
 					},
 				},
