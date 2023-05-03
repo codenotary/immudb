@@ -926,3 +926,78 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 
 	return entry.Metadata(), v, nil
 }
+
+func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, query *protomodel.Query) (err error) {
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	table, err := getTableForCollection(sqlTx, collectionName)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	idFieldName := docIDFieldName(table)
+
+	queryCondition, err := e.generateSQLExpression(ctx, query, table)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	queryStmt := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(collectionName, idFieldName)},
+		collectionName,
+		queryCondition,
+		sql.NewInteger(1),
+		nil,
+	)
+
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, queryStmt, nil)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer r.Close()
+
+	rows := make([]*sql.Row, 0)
+	for {
+		row, err := r.Read(ctx)
+		if err == sql.ErrNoMoreRows {
+			err = ErrNoMoreDocuments
+			break
+		}
+		if err != nil {
+			return mayTranslateError(err)
+		}
+		rows = append(rows, row)
+	}
+
+	if len(rows) == 0 {
+		return ErrDocumentNotFound
+	}
+
+	if len(rows) > 1 {
+		return ErrMultipleDocumentsFound
+	}
+
+	row := rows[0]
+	val := row.ValuesByPosition[0].RawValue().([]byte)
+	docID, err := NewDocumentIDFromRawBytes(val)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	// fetch revision
+	docKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	err = sqlTx.Delete(docKey)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	return nil
+}
