@@ -26,7 +26,10 @@ import (
 )
 
 type DocumentReader interface {
-	Read(ctx context.Context, count int) ([]*protomodel.DocumentAtRevision, error)
+	// Read reads a single message from a reader and returns it as a Struct message.
+	Read(ctx context.Context) (*protomodel.DocumentAtRevision, error)
+	// ReadN reads n number of messages from a reader and returns them as a slice of Struct messages.
+	ReadN(ctx context.Context, count int) ([]*protomodel.DocumentAtRevision, error)
 	Close() error
 }
 
@@ -42,8 +45,8 @@ func newDocumentReader(rowReader sql.RowReader, onCloseCallback func(reader Docu
 	}
 }
 
-// ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
-func (r *documentReader) Read(ctx context.Context, count int) ([]*protomodel.DocumentAtRevision, error) {
+// ReadN reads n number of messages from a reader and returns them as a slice of Struct messages.
+func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.DocumentAtRevision, error) {
 	if count < 1 {
 		return nil, sql.ErrIllegalArguments
 	}
@@ -87,4 +90,32 @@ func (r *documentReader) Close() error {
 	}
 
 	return r.rowReader.Close()
+}
+
+// Read reads a single message from a reader and returns it as a Struct message.
+func (r *documentReader) Read(ctx context.Context) (*protomodel.DocumentAtRevision, error) {
+	var row *sql.Row
+	row, err := r.rowReader.Read(ctx)
+	if err == sql.ErrNoMoreRows {
+		err = ErrNoMoreDocuments
+	}
+	if err != nil {
+		return nil, mayTranslateError(err)
+	}
+
+	docBytes := row.ValuesByPosition[0].RawValue().([]byte)
+
+	doc := &structpb.Struct{}
+	err = json.Unmarshal(docBytes, doc)
+	if err != nil {
+		return nil, err
+	}
+
+	revision := &protomodel.DocumentAtRevision{
+		TransactionId: 0, // TODO: not yet available
+		Revision:      0, // TODO: not yet available
+		Document:      doc,
+	}
+
+	return revision, err
 }

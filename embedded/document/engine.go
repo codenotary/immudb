@@ -950,7 +950,7 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 		[]sql.Selector{sql.NewColSelector(collectionName, idFieldName)},
 		collectionName,
 		queryCondition,
-		sql.NewInteger(1),
+		nil,
 		nil,
 	)
 
@@ -958,7 +958,6 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 	if err != nil {
 		return mayTranslateError(err)
 	}
-	defer r.Close()
 
 	rows := make([]*sql.Row, 0)
 	for {
@@ -972,6 +971,8 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 		}
 		rows = append(rows, row)
 	}
+
+	r.Close()
 
 	if len(rows) == 0 {
 		return ErrDocumentNotFound
@@ -999,5 +1000,5 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 		return mayTranslateError(err)
 	}
 
-	return nil
+	return sqlTx.Commit(ctx)
 }
