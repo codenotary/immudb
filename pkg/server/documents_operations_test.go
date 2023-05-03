@@ -179,9 +179,7 @@ func TestPaginationOnReader(t *testing.T) {
 								{
 									Field:    "pincode",
 									Operator: protomodel.ComparisonOperator_GE,
-									Value: &structpb.Value{
-										Kind: &structpb.Value_NumberValue{NumberValue: 0},
-									},
+									Value:    structpb.NewNumberValue(0),
 								},
 							},
 						},
@@ -221,9 +219,7 @@ func TestPaginationOnReader(t *testing.T) {
 								{
 									Field:    "pincode",
 									Operator: protomodel.ComparisonOperator_GE,
-									Value: &structpb.Value{
-										Kind: &structpb.Value_NumberValue{NumberValue: 0},
-									},
+									Value:    structpb.NewNumberValue(0),
 								},
 							},
 						},
@@ -250,9 +246,7 @@ func TestPaginationOnReader(t *testing.T) {
 								{
 									Field:    "pincode",
 									Operator: protomodel.ComparisonOperator_GE,
-									Value: &structpb.Value{
-										Kind: &structpb.Value_NumberValue{NumberValue: 0},
-									},
+									Value:    structpb.NewNumberValue(0),
 								},
 							},
 						},
@@ -276,9 +270,7 @@ func TestPaginationOnReader(t *testing.T) {
 							{
 								Field:    "pincode",
 								Operator: protomodel.ComparisonOperator_GE,
-								Value: &structpb.Value{
-									Kind: &structpb.Value_NumberValue{NumberValue: 0},
-								},
+								Value:    structpb.NewNumberValue(0),
 							},
 						},
 					},
@@ -376,9 +368,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 								{
 									Field:    "pincode",
 									Operator: protomodel.ComparisonOperator_GE,
-									Value: &structpb.Value{
-										Kind: &structpb.Value_NumberValue{NumberValue: 0},
-									},
+									Value:    structpb.NewNumberValue(0),
 								},
 							},
 						},
