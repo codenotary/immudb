@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -34,144 +33,14 @@ const (
 	DocumentBLOBField      = "_doc"
 )
 
-var (
-	ErrIllegalArguments        = store.ErrIllegalArguments
-	ErrUnsupportedType         = errors.New("unsupported type")
-	ErrCollectionAlreadyExists = errors.New("collection alrady exists")
-	ErrCollectionDoesNotExist  = errors.New("collection does not exist")
-	ErrMaxLengthExceeded       = errors.New("max length exceeded")
-	ErrMultipleDocumentsFound  = errors.New("multiple documents found")
-	ErrDocumentNotFound        = errors.New("document not found")
-	ErrDocumentIDMismatch      = errors.New("document id mismatch")
-	ErrNoMoreDocuments         = errors.New("no more documents")
-	ErrFieldAlreadyExists      = errors.New("field already exists")
-	ErrFieldDoesNotExist       = errors.New("field does not exist")
-	ErrReservedFieldName       = errors.New("reserved field name")
-	ErrLimitedIndexCreation    = errors.New("index creation is only supported on empty collections")
-	ErrConflict                = errors.New("conflict due to uniqueness contraint violation or read document was updated by another transaction")
-)
-
-func mayTranslateError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if errors.Is(err, sql.ErrTableAlreadyExists) {
-		return ErrCollectionAlreadyExists
-	}
-
-	if errors.Is(err, sql.ErrTableDoesNotExist) {
-		return ErrCollectionDoesNotExist
-	}
-
-	if errors.Is(err, sql.ErrNoMoreRows) {
-		return ErrNoMoreDocuments
-	}
-
-	if errors.Is(err, sql.ErrColumnAlreadyExists) {
-		return ErrFieldAlreadyExists
-	}
-
-	if errors.Is(err, sql.ErrColumnDoesNotExist) {
-		return ErrFieldDoesNotExist
-	}
-
-	if errors.Is(err, sql.ErrLimitedIndexCreation) {
-		return ErrLimitedIndexCreation
-	}
-
-	if errors.Is(err, store.ErrTxReadConflict) {
-		return ErrConflict
-	}
-
-	if errors.Is(err, store.ErrKeyAlreadyExists) {
-		return ErrConflict
-	}
-
-	return err
+type Engine struct {
+	sqlEngine *sql.Engine
 }
-
-// protomodel to sql.Value mapping
-var (
-	// structpb.Value to sql.ValueExp conversion
-	structValueToSqlValue = func(stype sql.SQLValueType, value *structpb.Value) (sql.ValueExp, error) {
-		switch stype {
-		case sql.VarcharType:
-			_, ok := value.GetKind().(*structpb.Value_StringValue)
-			if !ok {
-				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-			}
-			return sql.NewVarchar(value.GetStringValue()), nil
-		case sql.IntegerType:
-			_, ok := value.GetKind().(*structpb.Value_NumberValue)
-			if !ok {
-				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-			}
-			return sql.NewInteger(int64(value.GetNumberValue())), nil
-		case sql.BLOBType:
-			_, ok := value.GetKind().(*structpb.Value_StructValue)
-			if !ok {
-				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-			}
-			return sql.NewBlob([]byte(value.GetStructValue().String())), nil
-		case sql.Float64Type:
-			_, ok := value.GetKind().(*structpb.Value_NumberValue)
-			if !ok {
-				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-			}
-			return sql.NewFloat64(value.GetNumberValue()), nil
-		case sql.BooleanType:
-			_, ok := value.GetKind().(*structpb.Value_BoolValue)
-			if !ok {
-				return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-			}
-			return sql.NewBool(value.GetBoolValue()), nil
-		}
-
-		return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-	}
-
-	protomodelValueTypeToSQLValueType = func(stype protomodel.FieldType) (sql.SQLValueType, error) {
-		switch stype {
-		case protomodel.FieldType_STRING:
-			return sql.VarcharType, nil
-		case protomodel.FieldType_INTEGER:
-			return sql.IntegerType, nil
-		case protomodel.FieldType_DOUBLE:
-			return sql.Float64Type, nil
-		case protomodel.FieldType_BOOLEAN:
-			return sql.BooleanType, nil
-		}
-
-		return "", fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-	}
-
-	sqlValueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
-		switch stype {
-		case sql.VarcharType:
-			return sql.MaxKeyLen, nil
-		case sql.IntegerType:
-			return 0, nil
-		case sql.BLOBType:
-			return sql.MaxKeyLen, nil
-		case sql.Float64Type:
-			return 0, nil
-		case sql.BooleanType:
-			return 0, nil
-		}
-
-		return 0, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-	}
-)
 
 type EncodedDocumentAtRevision struct {
 	TxID            uint64
 	Revision        uint64
 	EncodedDocument []byte
-}
-
-type Engine struct {
-	sqlEngine *sql.Engine
 }
 
 func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
