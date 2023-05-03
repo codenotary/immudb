@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func makeEngine(t *testing.T) *Engine {
@@ -960,3 +961,70 @@ func TestPaginationOnReader(t *testing.T) {
 	})
 }
 */
+
+func TestDeleteDocument(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
+	// create collection
+	collectionName := "mycollection"
+	err := engine.CreateCollection(context.Background(), collectionName, "", []*protomodel.Field{
+		{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+		{Name: "country", Type: protomodel.FieldType_STRING},
+	}, nil)
+	require.NoError(t, err)
+
+	// add document to collection
+	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"pincode": {
+				Kind: &structpb.Value_NumberValue{NumberValue: 2},
+			},
+			"country": {
+				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	query := &protomodel.Query{
+		Expressions: []*protomodel.QueryExpression{
+			{
+				FieldComparisons: []*protomodel.FieldComparison{
+					{
+						Field:    "country",
+						Operator: 0, // EQ
+						Value: &structpb.Value{
+							Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+						},
+					},
+					{
+						Field:    "pincode",
+						Operator: 0, // EQ
+						Value: &structpb.Value{
+							Kind: &structpb.Value_NumberValue{NumberValue: 2},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+	require.NoError(t, err)
+	defer reader.Close()
+	docs, err := reader.ReadN(ctx, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(docs))
+
+	err = engine.DeleteDocument(ctx, collectionName, query)
+	require.NoError(t, err)
+
+	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(ctx, engine.sqlEngine.GetStore().LastCommittedTxID())
+	require.NoError(t, err)
+	reader, err = engine.GetDocuments(ctx, collectionName, query, 0)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	_, err = reader.Read(ctx)
+	require.ErrorIs(t, ErrNoMoreDocuments, err)
+}
