@@ -330,7 +330,7 @@
         ]
       }
     },
-    "/documents/insertMany": {
+    "/documents/insertmany": {
       "put": {
         "operationId": "DocumentInsertMany",
         "responses": {

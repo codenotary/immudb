@@ -1537,7 +1537,7 @@ func NewDocumentInsertManyRequestWithBody(server string, contentType string, bod
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/documents/insertMany")
+	operationPath := fmt.Sprintf("/documents/insertmany")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
