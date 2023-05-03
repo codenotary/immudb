@@ -4058,7 +4058,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(table.id),
 			EncodeID(index.id),
 		)
-		err = tx.delete(mappedKey)
+		err = tx.Delete(mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4075,7 +4075,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(col.id),
 			[]byte(col.colType),
 		)
-		err = tx.delete(mappedKey)
+		err = tx.Delete(mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4088,7 +4088,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(1),
 		EncodeID(table.id),
 	)
-	err = tx.delete(mappedKey)
+	err = tx.Delete(mappedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4155,7 +4155,7 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(table.id),
 		EncodeID(index.id),
 	)
-	err = tx.delete(indexKey)
+	err = tx.Delete(indexKey)
 	if err != nil {
 		return nil, err
 	}

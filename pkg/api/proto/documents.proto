@@ -226,6 +226,14 @@ message DocumentProofResponse {
   schema.VerifiableTxV2 verifiableTx = 5;
 }
 
+message DocumentDeleteRequest {
+  string collection = 1;
+  Query query = 2;
+}
+
+message DocumentDeleteResponse {}
+
+
 service DocumentService {
   rpc CollectionCreate(CollectionCreateRequest) returns (CollectionCreateResponse) {
     option (google.api.http) = {
@@ -360,4 +368,17 @@ service DocumentService {
       ];
     };
   }
+
+  rpc DocumentDelete(DocumentDeleteRequest) returns (DocumentDeleteResponse) {
+    option (google.api.http) = {
+      put: "/documents/delete"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: [
+        "documents"
+      ];
+    };
+  }
+  
 }
