@@ -307,7 +307,7 @@ service DocumentService {
 
   rpc DocumentInsertMany(DocumentInsertManyRequest) returns (DocumentInsertManyResponse) {
     option (google.api.http) = {
-      put: "/documents/insertMany"
+      put: "/documents/insertmany"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {

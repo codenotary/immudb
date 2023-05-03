@@ -1105,7 +1105,7 @@ var (
 
 	pattern_DocumentService_DocumentInsert_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "insert"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_DocumentService_DocumentInsertMany_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "insertMany"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_DocumentService_DocumentInsertMany_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "insertmany"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_DocumentService_DocumentUpdate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "update"}, "", runtime.AssumeColonVerbOpt(true)))
 
