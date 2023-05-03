@@ -31,19 +31,19 @@ type DocumentReader interface {
 }
 
 type documentReader struct {
-	sqlTx  *sql.SQLTx
-	reader sql.RowReader
+	rowReader       sql.RowReader
+	onCloseCallback func(reader DocumentReader)
 }
 
-func newDocumentReader(sqlTx *sql.SQLTx, reader sql.RowReader) DocumentReader {
+func newDocumentReader(rowReader sql.RowReader, onCloseCallback func(reader DocumentReader)) DocumentReader {
 	return &documentReader{
-		sqlTx:  sqlTx,
-		reader: reader,
+		rowReader:       rowReader,
+		onCloseCallback: onCloseCallback,
 	}
 }
 
 // ReadStructMessagesFromReader reads a number of messages from a reader and returns them as a slice of Struct messages.
-func (d *documentReader) Read(ctx context.Context, count int) ([]*protomodel.DocumentAtRevision, error) {
+func (r *documentReader) Read(ctx context.Context, count int) ([]*protomodel.DocumentAtRevision, error) {
 	if count < 1 {
 		return nil, sql.ErrIllegalArguments
 	}
@@ -54,13 +54,13 @@ func (d *documentReader) Read(ctx context.Context, count int) ([]*protomodel.Doc
 
 	for l := 0; l < count; l++ {
 		var row *sql.Row
-		row, err = d.reader.Read(ctx)
+		row, err = r.rowReader.Read(ctx)
 		if err == sql.ErrNoMoreRows {
 			err = ErrNoMoreDocuments
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, mayTranslateError(err)
 		}
 
 		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
@@ -81,8 +81,10 @@ func (d *documentReader) Read(ctx context.Context, count int) ([]*protomodel.Doc
 	return revisions, err
 }
 
-func (d *documentReader) Close() error {
-	defer d.sqlTx.Cancel()
+func (r *documentReader) Close() error {
+	if r.onCloseCallback != nil {
+		defer r.onCloseCallback(r)
+	}
 
-	return d.reader.Close()
+	return r.rowReader.Close()
 }

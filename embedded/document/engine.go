@@ -824,7 +824,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, query 
 		return nil, err
 	}
 
-	return newDocumentReader(sqlTx, r), nil
+	return newDocumentReader(r, func(_ DocumentReader) { sqlTx.Cancel() }), nil
 }
 
 func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, idFieldName string, docAtRevision *EncodedDocumentAtRevision, err error) {
