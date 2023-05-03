@@ -105,7 +105,7 @@ func (s *Session) ClosePaginatedDocumentReaders() error {
 	merr := multierr.NewMultiErr()
 
 	for qname := range s.paginatedDocumentReaders {
-		if err := s.DeletePaginatedDocumentReader(qname); err != nil {
+		if err := s.deletePaginatedDocumentReader(qname); err != nil {
 			s.log.Errorf("Error while removing paginated reader: %v", err)
 			merr.Append(err)
 		}
@@ -246,10 +246,7 @@ func (s *Session) GetPaginatedDocumentReader(queryName string) (*PaginatedDocume
 	return reader, nil
 }
 
-func (s *Session) DeletePaginatedDocumentReader(queryName string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
+func (s *Session) deletePaginatedDocumentReader(queryName string) error {
 	// get the io.Reader object for the specified query name
 	reader, ok := s.paginatedDocumentReaders[queryName]
 	if !ok {
@@ -266,6 +263,13 @@ func (s *Session) DeletePaginatedDocumentReader(queryName string) error {
 	}
 
 	return nil
+}
+
+func (s *Session) DeletePaginatedDocumentReader(queryName string) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.deletePaginatedDocumentReader(queryName)
 }
 
 func (s *Session) UpdatePaginatedDocumentReader(queryName string, lastPage uint32, lastPageSize uint32, totalDocsRead int) error {

@@ -120,7 +120,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	defer reader.Close()
 
-	revisions, err := reader.Read(context.Background(), 1)
+	revisions, err := reader.ReadN(context.Background(), 1)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(revisions))
