@@ -301,3 +301,7 @@ func (d *closedDB) SearchDocuments(ctx context.Context, req *protomodel.Document
 func (d *closedDB) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
+
+func (d *closedDB) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}

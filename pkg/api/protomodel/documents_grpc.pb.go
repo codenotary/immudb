@@ -31,6 +31,7 @@ type DocumentServiceClient interface {
 	DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error)
 	DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error)
 	DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*DocumentProofResponse, error)
+	DocumentDelete(ctx context.Context, in *DocumentDeleteRequest, opts ...grpc.CallOption) (*DocumentDeleteResponse, error)
 }
 
 type documentServiceClient struct {
@@ -158,6 +159,15 @@ func (c *documentServiceClient) DocumentProof(ctx context.Context, in *DocumentP
 	return out, nil
 }
 
+func (c *documentServiceClient) DocumentDelete(ctx context.Context, in *DocumentDeleteRequest, opts ...grpc.CallOption) (*DocumentDeleteResponse, error) {
+	out := new(DocumentDeleteResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DocumentServiceServer is the server API for DocumentService service.
 // All implementations should embed UnimplementedDocumentServiceServer
 // for forward compatibility
@@ -175,6 +185,7 @@ type DocumentServiceServer interface {
 	DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error)
 	DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error)
 	DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error)
+	DocumentDelete(context.Context, *DocumentDeleteRequest) (*DocumentDeleteResponse, error)
 }
 
 // UnimplementedDocumentServiceServer should be embedded to have forward compatible implementations.
@@ -219,6 +230,9 @@ func (UnimplementedDocumentServiceServer) DocumentAudit(context.Context, *Docume
 }
 func (UnimplementedDocumentServiceServer) DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DocumentProof not implemented")
+}
+func (UnimplementedDocumentServiceServer) DocumentDelete(context.Context, *DocumentDeleteRequest) (*DocumentDeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DocumentDelete not implemented")
 }
 
 // UnsafeDocumentServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -466,6 +480,24 @@ func _DocumentService_DocumentProof_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_DocumentDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DocumentDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DocumentDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/DocumentDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DocumentDelete(ctx, req.(*DocumentDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DocumentService_ServiceDesc is the grpc.ServiceDesc for DocumentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -524,6 +556,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DocumentProof",
 			Handler:    _DocumentService_DocumentProof_Handler,
+		},
+		{
+			MethodName: "DocumentDelete",
+			Handler:    _DocumentService_DocumentDelete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

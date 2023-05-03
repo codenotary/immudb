@@ -53,6 +53,8 @@ type DocumentDatabase interface {
 	DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error)
 	// DocumentInsertMany creates a new document
 	DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error)
+	// DocumentDelete deletes a document
+	DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error)
 }
 
 // CreateCollection creates a new collection
@@ -369,4 +371,16 @@ func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofReq
 			DualProof: schema.DualProofV2ToProto(dualProof),
 		},
 	}, nil
+}
+
+func (d *db) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.documentEngine.DeleteDocument(ctx, req.Collection, req.Query)
+	if err != nil {
+		return nil, err
+	}
+	return &protomodel.DocumentDeleteResponse{}, nil
 }
