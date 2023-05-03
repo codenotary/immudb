@@ -276,3 +276,15 @@ func getSearchIDFromRequest(req *protomodel.DocumentSearchRequest) string {
 
 	return xid.New().String()
 }
+
+func (s *ImmuServer) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DocumentDelete")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := db.DocumentDelete(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

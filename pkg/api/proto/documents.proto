@@ -233,7 +233,6 @@ message DocumentDeleteRequest {
 
 message DocumentDeleteResponse {}
 
-
 service DocumentService {
   rpc CollectionCreate(CollectionCreateRequest) returns (CollectionCreateResponse) {
     option (google.api.http) = {
@@ -380,5 +379,4 @@ service DocumentService {
       ];
     };
   }
-  
 }
