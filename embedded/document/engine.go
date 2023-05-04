@@ -608,12 +608,14 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	if err != nil {
 		return 0, nil, 0, mayTranslateError(err)
 	}
-	defer r.Close()
 
 	row, err := r.Read(ctx)
 	if err != nil {
+		r.Close()
 		return 0, nil, 0, mayTranslateError(err)
 	}
+
+	r.Close()
 
 	val := row.ValuesByPosition[0].RawValue().([]byte)
 	docID, err = NewDocumentIDFromRawBytes(val)
