@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var baseURL = GetEnv("DOCUMENTS_TEST_BASEURL", "http://localhost:8091/api/v2")
+var baseURL = GetEnv("DOCUMENTS_TEST_BASEURL", "http://localhost:8080/api/v2")
 
 func GetEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
@@ -36,7 +36,7 @@ func GetEnv(key, defaultValue string) string {
 	}
 	return value
 }
-func GetStandarizedRandomString() string {
+func getStandarizedRandomString() string {
 	return uuid.New().String()
 }
 
@@ -63,6 +63,7 @@ func getAuthorizedClient() *httpclient.ClientWithResponses {
 	if err != nil {
 		panic(err)
 	}
+
 	if response.StatusCode() != 200 {
 		panic("Could not login")
 	}
@@ -71,7 +72,7 @@ func getAuthorizedClient() *httpclient.ClientWithResponses {
 		baseURL,
 		httpclient.WithRequestEditorFn(
 			func(ctx context.Context, req *http.Request) error {
-				req.Header.Set("grpc-metadata-sessionid", *response.JSON200.SessionID)
+				req.Header.Set("sessionid", *response.JSON200.SessionID)
 				return nil
 			},
 		),
@@ -83,25 +84,18 @@ func getAuthorizedClient() *httpclient.ClientWithResponses {
 	return authClient
 }
 
-func createRandomCollection(client *httpclient.ClientWithResponses) (*httpclient.ModelCollection, error) {
-	collectionName := GetStandarizedRandomString()
-
-	idField := "_docid"
-
+func createCollection(collectionName string, client *httpclient.ClientWithResponses) error {
 	req := httpclient.CollectionCreateJSONRequestBody{
-		Collection: &httpclient.ModelCollection{
-			Name:        &collectionName,
-			IdFieldName: &idField,
-		},
+		Name: &collectionName,
 	}
 
 	response, err := client.CollectionCreateWithResponse(context.Background(), req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if response.StatusCode() != 200 {
-		return nil, fmt.Errorf("no 200 response: %d", response.StatusCode())
+		return fmt.Errorf("no 200 response: %d", response.StatusCode())
 	}
 
-	return response.JSON200.Collection, nil
+	return nil
 }

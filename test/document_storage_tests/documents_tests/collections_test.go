@@ -27,29 +27,32 @@ import (
 func TestCreateCollection(t *testing.T) {
 	client := getAuthorizedClient()
 
-	collection, err := createRandomCollection(client)
+	err := createCollection(getStandarizedRandomString(), client)
 	require.NoError(t, err)
-	require.NotNil(t, collection)
 }
 
 func TestGetCollection(t *testing.T) {
 	client := getAuthorizedClient()
 
-	collection, err := createRandomCollection(client)
+	collectionName := getStandarizedRandomString()
+
+	err := createCollection(collectionName, client)
 	require.NoError(t, err)
 
 	response, err := client.CollectionGetWithResponse(context.Background(), &httpclient.CollectionGetParams{
-		Name: collection.Name,
+		Name: &collectionName,
 	})
 	require.NoError(t, err)
 	require.True(t, response.StatusCode() == 200)
-	require.True(t, *response.JSON200.Collection.Name == *collection.Name)
+	require.True(t, *response.JSON200.Collection.Name == collectionName)
 }
 
 func TestListCollections(t *testing.T) {
 	client := getAuthorizedClient()
 
-	newCollection, err := createRandomCollection(client)
+	collectionName := getStandarizedRandomString()
+
+	err := createCollection(collectionName, client)
 	require.NoError(t, err)
 
 	response, _ := client.CollectionListWithResponse(context.Background(), httpclient.CollectionListJSONRequestBody{})
@@ -58,7 +61,7 @@ func TestListCollections(t *testing.T) {
 	collectionFound := false
 
 	for _, collection := range *response.JSON200.Collections {
-		if *collection.Name == *newCollection.Name {
+		if *collection.Name == collectionName {
 			collectionFound = true
 			break
 		}

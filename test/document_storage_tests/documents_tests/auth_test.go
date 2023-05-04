@@ -22,32 +22,34 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/httpclient"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuthentication(t *testing.T) {
-	authClient := getAuthorizedClient()
+	client := getClient()
 
 	badLogin := "immudbXXX"
 	badPassword := "immudbXXX"
 	badDatabase := "defaultdbXXX"
 
-	response, _ := authClient.OpenSessionWithResponse(context.Background(), httpclient.OpenSessionJSONRequestBody{
+	response, err := client.OpenSessionWithResponse(context.Background(), httpclient.OpenSessionJSONRequestBody{
 		Username: &badLogin,
 		Password: &badPassword,
 		Database: &badDatabase,
 	})
-	assert.True(t, *response.JSONDefault.Message == "invalid user name or password")
+	require.NoError(t, err)
+	require.True(t, *response.JSONDefault.Message == "invalid user name or password")
 
 	defaultLogin := "immudb"
 	defaultPassword := "immudb"
 	defaultDatabase := "defaultdb"
 
-	response, _ = authClient.OpenSessionWithResponse(context.Background(), httpclient.OpenSessionJSONRequestBody{
+	response, err = client.OpenSessionWithResponse(context.Background(), httpclient.OpenSessionJSONRequestBody{
 		Username: &defaultLogin,
 		Password: &defaultPassword,
 		Database: &defaultDatabase,
 	})
-	assert.True(t, response.StatusCode() == 200)
-	assert.True(t, len(*response.JSON200.SessionID) > 0)
+	require.NoError(t, err)
+	require.True(t, response.StatusCode() == 200)
+	require.True(t, len(*response.JSON200.SessionID) > 0)
 }
