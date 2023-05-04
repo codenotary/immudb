@@ -457,7 +457,7 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 	rows := make([]*sql.RowSpec, len(docs))
 
 	for i, doc := range docs {
-		if doc == nil {
+		if doc == nil || len(doc.Fields) == 0 {
 			doc = &structpb.Struct{
 				Fields: make(map[string]*structpb.Value),
 			}
