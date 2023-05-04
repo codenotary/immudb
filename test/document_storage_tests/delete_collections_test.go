@@ -17,11 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
-	"github.com/codenotary/immudb/test/documents_storage_tests/documents_tests/actions"
+	"github.com/codenotary/immudb/test/documents_storage_tests/actions"
 	"github.com/gavv/httpexpect/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -40,9 +39,7 @@ func (s *DeleteCollectionsTestSuite) SetupTest() {
 }
 
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
-	collection := actions.CreateCollectionWithName(s.expect, s.token, s.collection_name)
-	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
+	actions.CreateCollectionWithName(s.expect, s.token, s.collection_name)
 
 	s.expect.DELETE("/collections/delete").
 		WithHeader("grpc-metadata-sessionid", s.token).
@@ -58,14 +55,8 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
 		Status(http.StatusInternalServerError)
 }
 
-func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndOneIndexKey() {
-	collection := actions.CreateCollectionWithNameAndOneIndexKey(s.expect, s.token, s.collection_name)
-
-	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
-	collection.Value("collection").Object().Value("indexKeys").Object().Keys().ContainsOnly("_id", "birth_date")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("_id").Object().Value("type").IsEqual("STRING")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("birth_date").Object().Value("type").IsEqual("STRING")
+func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndOneField() {
+	actions.CreateCollectionWithNameAndOneField(s.expect, s.token, s.collection_name)
 
 	s.expect.DELETE("/collections/delete").
 		WithHeader("grpc-metadata-sessionid", s.token).
@@ -81,18 +72,8 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndOneIn
 		Status(http.StatusInternalServerError)
 }
 
-func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndMultipleIndexKeys() {
-	collection := actions.CreateCollectionWithNameAndMultipleIndexKeys(s.expect, s.token, s.collection_name)
-
-	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
-	collection.Value("collection").Object().Value("indexKeys").Object().Keys().ContainsOnly("_id", "birth_date", "first_name", "last_name", "gender", "hire_date")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("_id").Object().Value("type").IsEqual("STRING")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("birth_date").Object().Value("type").IsEqual("STRING")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("first_name").Object().Value("type").IsEqual("STRING")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("last_name").Object().Value("type").IsEqual("STRING")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("gender").Object().Value("type").IsEqual("STRING")
-	collection.Value("collection").Object().Value("indexKeys").Object().Value("hire_date").Object().Value("type").IsEqual("STRING")
+func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndMultipleFields() {
+	actions.CreateCollectionWithNameAndMultipleFields(s.expect, s.token, s.collection_name)
 
 	s.expect.DELETE("/collections/delete").
 		WithHeader("grpc-metadata-sessionid", s.token).
@@ -109,21 +90,9 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndMulti
 }
 
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithIntegerName() {
-	collection := actions.CreateCollectionWithIntegerName(s.expect, s.token, s.collection_name)
-
-	collection.Keys().ContainsOnly("collection")
-	collection.Value("collection").Object().Value("name").IsEqual(s.collection_name)
-
 	s.expect.DELETE("/collections/delete").
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object().Empty()
-
-	s.expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
+		WithQuery("name", 123).
 		Expect().
 		Status(http.StatusInternalServerError)
 }
@@ -138,8 +107,8 @@ func (s *DeleteCollectionsTestSuite) TestDeleteNonExistingCollection() {
 
 	error.Keys().ContainsAll("code", "error", "message")
 	error.Value("code").IsEqual(2)
-	error.Value("error").IsEqual(fmt.Sprintf("table does not exist (%s)", s.collection_name))
-	error.Value("message").IsEqual(fmt.Sprintf("table does not exist (%s)", s.collection_name))
+	error.Value("error").IsEqual("collection does not exist")
+	error.Value("message").IsEqual("collection does not exist")
 }
 
 func TestDeleteCollectionsTestSuite(t *testing.T) {
