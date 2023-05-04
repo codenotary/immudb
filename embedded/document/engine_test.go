@@ -17,6 +17,7 @@ package document
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -142,12 +143,8 @@ func TestGetDocument(t *testing.T) {
 	// add document to collection
 	_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"country": {
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
-			"pincode": {
-				Kind: &structpb.Value_NumberValue{NumberValue: 2},
-			},
+			"country": structpb.NewStringValue("wonderland"),
+			"pincode": structpb.NewNumberValue(2),
 		},
 	})
 	require.NoError(t, err)
@@ -159,16 +156,12 @@ func TestGetDocument(t *testing.T) {
 					{
 						Field:    "country",
 						Operator: protomodel.ComparisonOperator_EQ,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-						},
+						Value:    structpb.NewStringValue("wonderland"),
 					},
 					{
 						Field:    "pincode",
 						Operator: protomodel.ComparisonOperator_EQ,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 2},
-						},
+						Value:    structpb.NewNumberValue(2),
 					},
 				},
 			},
@@ -210,12 +203,8 @@ func TestDocumentAudit(t *testing.T) {
 	// add document to collection
 	_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"country": {
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
-			"pincode": {
-				Kind: &structpb.Value_NumberValue{NumberValue: 2},
-			},
+			"country": structpb.NewStringValue("wonderland"),
+			"pincode": structpb.NewNumberValue(2),
 		},
 	})
 	require.NoError(t, err)
@@ -227,9 +216,7 @@ func TestDocumentAudit(t *testing.T) {
 					{
 						Field:    "country",
 						Operator: protomodel.ComparisonOperator_EQ,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-						},
+						Value:    structpb.NewStringValue("wonderland"),
 					},
 				},
 			},
@@ -238,15 +225,9 @@ func TestDocumentAudit(t *testing.T) {
 
 	_, _, revision, err := engine.UpdateDocument(context.Background(), collectionName, query, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"_id": {
-				Kind: &structpb.Value_StringValue{StringValue: docID.EncodeToHexString()},
-			},
-			"pincode": {
-				Kind: &structpb.Value_NumberValue{NumberValue: 2},
-			},
-			"country": {
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
+			"_id":     structpb.NewStringValue(docID.EncodeToHexString()),
+			"pincode": structpb.NewNumberValue(2),
+			"country": structpb.NewStringValue("wonderland"),
 		},
 	})
 	require.NoError(t, err)
@@ -265,254 +246,312 @@ func TestDocumentAudit(t *testing.T) {
 	}
 }
 
-/*
-	func TestQueryDocuments(t *testing.T) {
-		ctx := context.Background()
-		engine := makeEngine(t)
+func TestQueryDocuments(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
 
-		// create collection
-		collectionName := "mycollection"
-		err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
-			"pincode": {Type: sql.IntegerType},
-			"country": {Type: sql.VarcharType},
-			"idx":     {Type: sql.IntegerType},
-		})
-		require.NoError(t, err)
+	collectionName := "mycollection"
 
-		// add documents to collection
-		for i := 1.0; i <= 10; i++ {
-			_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"pincode": {
-						Kind: &structpb.Value_NumberValue{NumberValue: i},
-					},
-					"country": {
-						Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
-					},
-					"idx": {
-						Kind: &structpb.Value_NumberValue{NumberValue: i},
-					},
-				},
-			})
-			require.NoError(t, err)
-		}
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"country"}},
+			{Fields: []string{"pincode"}},
+		},
+	)
+	require.NoError(t, err)
 
-		t.Run("test query with != operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.NE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 5},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 9, len(docs))
-		})
-
-		t.Run("test query with < operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.LT,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 11},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 10, len(docs))
-		})
-
-		t.Run("test query with <= operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.LE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 9},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 9, len(docs))
-		})
-
-		t.Run("test query with > operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.GT,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 5},
-					},
-				},
-			}
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 5, len(docs))
-		})
-
-		t.Run("test query with >= operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.GE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 10},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 1, len(docs))
-		})
-
-		t.Run("test group query with != operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.NE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 5},
-					},
-				},
-				{
-					Field:    "country",
-					Operator: sql.NE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_StringValue{StringValue: "country-6"},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 8, len(docs))
-		})
-
-		t.Run("test group query with < operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.LT,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 11},
-					},
-				},
-				{
-					Field:    "idx",
-					Operator: sql.LT,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 5},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 4, len(docs))
-		})
-
-		t.Run("test group query with > operator", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "idx",
-					Operator: sql.GT,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 7},
-					},
-				},
-				{
-					Field:    "pincode",
-					Operator: sql.GT,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 5},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-			docs, err := reader.Read(ctx, 20)
-			require.ErrorIs(t, err, ErrNoMoreDocuments)
-			require.Equal(t, 3, len(docs))
-		})
-
-}
-
-	func TestDocumentUpdate(t *testing.T) {
-		// Create a new engine instance
-		ctx := context.Background()
-		e := makeEngine(t)
-
-		// create collection
-		// Create a test collection with a single document
-		collectionName := "test_collection"
-		err := e.CreateCollection(ctx, collectionName, map[string]*IndexOption{
-			"name": {Type: sql.VarcharType},
-			"age":  {Type: sql.Float64Type},
-		})
-		require.NoError(t, err)
-
-		doc := &structpb.Struct{
+	// add documents to collection
+	for i := 1.0; i <= 10; i++ {
+		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 30}},
+				"pincode": structpb.NewNumberValue(i),
+				"country": structpb.NewStringValue(fmt.Sprintf("country-%d", int(i))),
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("test query with != operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_NE,
+							Value:    structpb.NewNumberValue(2),
+						},
+					},
+				},
 			},
 		}
 
-		docID, _, _, err := e.upsertDocument(ctx, collectionName, doc, &upsertOptions{isInsert: true})
-		if err != nil {
-			t.Fatalf("Failed to insert test document: %v", err)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 9, len(docs))
+	})
+
+	t.Run("test query with < operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_LT,
+							Value:    structpb.NewNumberValue(10),
+						},
+					},
+				},
+			},
 		}
 
-		// Prepare a query to find the document by name
-		queries := []*Query{newQuery("name", sql.EQ, &structpb.Value{
-			Kind: &structpb.Value_StringValue{StringValue: "Alice"},
-		})}
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 9, len(docs))
+	})
+
+	t.Run("test query with <= operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_LE,
+							Value:    structpb.NewNumberValue(9),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 9, len(docs))
+	})
+
+	t.Run("test query with > operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_GT,
+							Value:    structpb.NewNumberValue(5),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 5, len(docs))
+	})
+
+	t.Run("test query with >= operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_GE,
+							Value:    structpb.NewNumberValue(10),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 1, len(docs))
+	})
+
+	t.Run("test group query with != operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "country",
+							Operator: protomodel.ComparisonOperator_NE,
+							Value:    structpb.NewStringValue("country-1"),
+						},
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_NE,
+							Value:    structpb.NewNumberValue(5),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 8, len(docs))
+	})
+
+	t.Run("test group query with < operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_LT,
+							Value:    structpb.NewNumberValue(5),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 4, len(docs))
+	})
+
+	t.Run("test group query with > operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "country",
+							Operator: protomodel.ComparisonOperator_GT,
+							Value:    structpb.NewStringValue("country-1"),
+						},
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_GT,
+							Value:    structpb.NewNumberValue(5),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Equal(t, 5, len(docs))
+	})
+}
+
+/*
+	func TestDocumentUpdate(t *testing.T) {
+		// Create a new engine instance
+		ctx := context.Background()
+		engine := makeEngine(t)
+
+		// Create a test collection with a single document
+		collectionName := "test_collection"
+
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "name", Type: protomodel.FieldType_STRING},
+				{Name: "age", Type: protomodel.FieldType_DOUBLE},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"name"}},
+				{Fields: []string{"age"}},
+			},
+		)
+		require.NoError(t, err)
+
+		_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": structpb.NewStringValue("Alice"),
+				"age":  structpb.NewNumberValue(30),
+			},
+		})
+		require.NoError(t, err)
 
 		t.Run("update document should pass without docID", func(t *testing.T) {
-			// Prepare a document to update the age field
-			toUpdateDoc := &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-					"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
+			query := &protomodel.Query{
+				Expressions: []*protomodel.QueryExpression{
+					{
+						FieldComparisons: []*protomodel.FieldComparison{
+							{
+								Field:    "_id",
+								Operator: protomodel.ComparisonOperator_EQ,
+								Value:    structpb.NewStringValue(docID.EncodeToHexString()),
+							},
+							{
+								Field:    "country",
+								Operator: protomodel.ComparisonOperator_EQ,
+								Value: &structpb.Value{
+									Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
+								},
+							},
+							{
+								Field:    "pincode",
+								Operator: protomodel.ComparisonOperator_EQ,
+								Value: &structpb.Value{
+									Kind: &structpb.Value_NumberValue{NumberValue: 2},
+								},
+							},
+						},
+					},
 				},
 			}
 
-			// Call the UpdateDocument method
-			txID, rev, err := e.UpdateDocument(ctx, collectionName, queries, toUpdateDoc)
+			txID, docID, rev, err := engine.UpdateDocument(ctx, collectionName, query, &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"name": {
+						Kind: &structpb.Value_StringValue{StringValue: "Alice"},
+					},
+					"age": {
+						Kind: &structpb.Value_NumberValue{NumberValue: 30},
+					},
+				},
+			})
 			require.NoError(t, err)
 			// Check that the method returned the expected values
 			require.NotEqual(t, txID, 0)
@@ -570,6 +609,8 @@ func TestDocumentAudit(t *testing.T) {
 			require.ErrorIs(t, err, ErrDocumentIDMismatch)
 		})
 	}
+
+/*
 
 	func TestFloatSupport(t *testing.T) {
 		ctx := context.Background()
