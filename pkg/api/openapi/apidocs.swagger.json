@@ -298,6 +298,38 @@
         ]
       }
     },
+    "/documents/delete": {
+      "put": {
+        "operationId": "DocumentDelete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelDocumentDeleteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelDocumentDeleteRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
     "/documents/insert": {
       "put": {
         "operationId": "DocumentInsert",
@@ -713,6 +745,20 @@
         }
       }
     },
+    "modelDocumentDeleteRequest": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        }
+      }
+    },
+    "modelDocumentDeleteResponse": {
+      "type": "object"
+    },
     "modelDocumentInsertManyRequest": {
       "type": "object",
       "properties": {
@@ -895,8 +941,7 @@
         "operator": {
           "$ref": "#/definitions/modelComparisonOperator"
         },
-        "value": {
-        }
+        "value": {}
       }
     },
     "modelFieldType": {
