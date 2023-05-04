@@ -25,6 +25,7 @@ import (
 var (
 	ErrIllegalArguments        = store.ErrIllegalArguments
 	ErrUnsupportedType         = errors.New("unsupported type")
+	ErrUnexpectedValue         = errors.New("unexpected value")
 	ErrCollectionAlreadyExists = errors.New("collection already exists")
 	ErrCollectionDoesNotExist  = errors.New("collection does not exist")
 	ErrMaxLengthExceeded       = errors.New("max length exceeded")

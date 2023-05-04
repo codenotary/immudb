@@ -29,31 +29,25 @@ var structValueToSqlValue = func(stype sql.SQLValueType, value *structpb.Value) 
 	case sql.VarcharType:
 		_, ok := value.GetKind().(*structpb.Value_StringValue)
 		if !ok {
-			return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
 		}
 		return sql.NewVarchar(value.GetStringValue()), nil
 	case sql.IntegerType:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
 		if !ok {
-			return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
 		}
 		return sql.NewInteger(int64(value.GetNumberValue())), nil
-	case sql.BLOBType:
-		_, ok := value.GetKind().(*structpb.Value_StructValue)
-		if !ok {
-			return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
-		}
-		return sql.NewBlob([]byte(value.GetStructValue().String())), nil
 	case sql.Float64Type:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
 		if !ok {
-			return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
 		}
 		return sql.NewFloat64(value.GetNumberValue()), nil
 	case sql.BooleanType:
 		_, ok := value.GetKind().(*structpb.Value_BoolValue)
 		if !ok {
-			return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
 		}
 		return sql.NewBool(value.GetBoolValue()), nil
 	}
