@@ -198,8 +198,8 @@ build/codegenv2:
 	$(PROTOC) -I pkg/api/proto/ pkg/api/proto/authorization.proto pkg/api/proto/documents.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
-	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  --go_out=paths=source_relative:pkg/api/protomodel \
 	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/protomodel \
 	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/protomodel \
