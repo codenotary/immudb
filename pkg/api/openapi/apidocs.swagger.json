@@ -864,8 +864,8 @@
         "query": {
           "$ref": "#/definitions/modelQuery"
         },
-        "desc": {
-          "type": "boolean"
+        "orderBy": {
+          "$ref": "#/definitions/modelOrderExpression"
         },
         "page": {
           "type": "integer",
@@ -941,7 +941,9 @@
         "operator": {
           "$ref": "#/definitions/modelComparisonOperator"
         },
-        "value": {}
+        "value": {
+          "type": "object"
+        }
       }
     },
     "modelFieldType": {
@@ -1010,6 +1012,17 @@
     },
     "modelKeepAliveResponse": {
       "type": "object"
+    },
+    "modelOrderExpression": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "boolean"
+        }
+      }
     },
     "modelQuery": {
       "type": "object",

@@ -2138,13 +2138,21 @@ type DataSource interface {
 	Alias() string
 }
 
-func NewSelectStmt(selectors []Selector, table string, where ValueExp, limit ValueExp, offset ValueExp) *SelectStmt {
+func NewSelectStmt(
+	selectors []Selector,
+	table string,
+	where ValueExp,
+	limit ValueExp,
+	offset ValueExp,
+	orderBy []*OrdCol,
+) *SelectStmt {
 	return &SelectStmt{
 		selectors: selectors,
 		ds:        newTableRef(table, ""),
 		where:     where,
 		limit:     limit,
 		offset:    offset,
+		orderBy:   orderBy,
 	}
 }
 
@@ -2659,6 +2667,13 @@ type JoinSpec struct {
 	ds       DataSource
 	cond     ValueExp
 	indexOn  []string
+}
+
+func NewOrdCol(table string, col string, descOrder bool) *OrdCol {
+	return &OrdCol{
+		sel:       NewColSelector(table, col),
+		descOrder: descOrder,
+	}
 }
 
 type OrdCol struct {
