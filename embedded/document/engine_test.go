@@ -236,7 +236,7 @@ func TestDocumentAudit(t *testing.T) {
 	// get document audit
 	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, 1, 10)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(res))
+	require.Len(t, res, 2)
 
 	for i, docAudit := range res {
 		require.Contains(t, docAudit.Document.Fields, DefaultDocumentIDField)
@@ -299,7 +299,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 9, len(docs))
+		require.Len(t, docs, 9)
 	})
 
 	t.Run("test query with < operator", func(t *testing.T) {
@@ -323,7 +323,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 9, len(docs))
+		require.Len(t, docs, 9)
 	})
 
 	t.Run("test query with <= operator", func(t *testing.T) {
@@ -347,7 +347,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 9, len(docs))
+		require.Len(t, docs, 9)
 	})
 
 	t.Run("test query with > operator", func(t *testing.T) {
@@ -371,7 +371,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 5, len(docs))
+		require.Len(t, docs, 5)
 	})
 
 	t.Run("test query with >= operator", func(t *testing.T) {
@@ -395,7 +395,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 1, len(docs))
+		require.Len(t, docs, 1)
 	})
 
 	t.Run("test group query with != operator", func(t *testing.T) {
@@ -424,7 +424,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 8, len(docs))
+		require.Len(t, docs, 8)
 	})
 
 	t.Run("test group query with < operator", func(t *testing.T) {
@@ -448,7 +448,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 4, len(docs))
+		require.Len(t, docs, 4)
 	})
 
 	t.Run("test group query with > operator", func(t *testing.T) {
@@ -477,7 +477,7 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Equal(t, 5, len(docs))
+		require.Len(t, docs, 5)
 	})
 }
 
@@ -719,7 +719,7 @@ func TestDeleteCollection(t *testing.T) {
 
 		collectionList, err := engine.ListCollections(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, 0, len(collectionList))
+		require.Empty(t, collectionList)
 	})
 }
 
@@ -762,7 +762,7 @@ func TestUpdateCollection(t *testing.T) {
 		collection, err := engine.GetCollection(context.Background(), collectionName)
 		require.NoError(t, err)
 		require.Equal(t, DefaultDocumentIDField, collection.IdFieldName)
-		require.Equal(t, 5, len(collection.Indexes))
+		require.Len(t, collection.Indexes, 5)
 	})
 
 	t.Run("update collection by adding changing idFieldName", func(t *testing.T) {
@@ -778,7 +778,7 @@ func TestUpdateCollection(t *testing.T) {
 		collection, err := engine.GetCollection(context.Background(), collectionName)
 		require.NoError(t, err)
 		require.Equal(t, "_docid", collection.IdFieldName)
-		require.Equal(t, 5, len(collection.Indexes))
+		require.Len(t, collection.Indexes, 5)
 	})
 }
 
@@ -834,132 +834,127 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 	})
 }
 
-/*
-	func TestBulkInsert(t *testing.T) {
-		ctx := context.Background()
-		engine := makeEngine(t)
+func TestBulkInsert(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
 
-		// create collection
-		collectionName := "mycollection"
-		err := engine.CreateCollection(ctx, collectionName, map[string]*IndexOption{
-			"country": {Type: sql.VarcharType},
-			"price":   {Type: sql.Float64Type},
+	// create collection
+	collectionName := "mycollection"
+
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "price", Type: protomodel.FieldType_DOUBLE},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"country"}},
+			{Fields: []string{"price"}},
+		},
+	)
+	require.NoError(t, err)
+
+	// add documents to collection
+	docs := make([]*structpb.Struct, 0)
+
+	for i := 1.0; i <= 10; i++ {
+		doc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"country": structpb.NewStringValue(fmt.Sprintf("country-%d", int(i))),
+				"price":   structpb.NewNumberValue(i),
+			},
+		}
+		docs = append(docs, doc)
+	}
+
+	txID, docIDs, err := engine.BulkInsertDocuments(ctx, collectionName, docs)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), txID)
+	require.Len(t, docIDs, 10)
+
+	reader, err := engine.GetDocuments(ctx, collectionName, nil, 0)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	res, err := reader.ReadN(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, docs, 10)
+
+	for i, doc := range res {
+		require.Equal(t, float64(i+1), doc.Document.Fields["price"].GetNumberValue())
+	}
+}
+
+func TestPaginationOnReader(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"country"}},
+			{Fields: []string{"pincode"}},
+		},
+	)
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 20; i++ {
+		_, _, err = engine.InsertDocument(ctx, collectionName, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"country": structpb.NewStringValue(fmt.Sprintf("country-%d", int(i))),
+				"pincode": structpb.NewNumberValue(i),
+			},
 		})
 		require.NoError(t, err)
+	}
 
-		// add documents to collection
-		docs := make([]*structpb.Struct, 0)
-		for i := 1.0; i <= 10; i++ {
-			doc := &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"country": {
-						Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+	t.Run("test reader for multiple reads", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_GE,
+							Value:    structpb.NewNumberValue(0),
+						},
 					},
-					"price": {
-						Kind: &structpb.Value_NumberValue{NumberValue: i},
-					},
-				},
-			}
-			docs = append(docs, doc)
-		}
-
-		docIDs, txID, err := engine.BulkInsertDocuments(ctx, collectionName, docs)
-		require.NoError(t, err)
-
-		require.Equal(t, 10, len(docIDs))
-		require.Equal(t, uint64(2), txID)
-
-		expressions := []*Query{
-			{
-				Field:    "price",
-				Operator: sql.GE, // EQ
-				Value: &structpb.Value{
-					Kind: &structpb.Value_NumberValue{NumberValue: 0},
 				},
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
-		docs, _ = reader.Read(ctx, 10)
-		require.Equal(t, 10, len(docs))
-
-		for i, doc := range docs {
-			require.Equal(t, float64(i+1), doc.Fields["price"].GetNumberValue())
+		results := make([]*protomodel.DocumentAtRevision, 0)
+		// use the reader to read paginated documents 5 at a time
+		for i := 0; i < 4; i++ {
+			docs, err := reader.ReadN(ctx, 5)
+			require.NoError(t, err)
+			require.Len(t, docs, 5)
+			results = append(results, docs...)
 		}
-	}
 
-	func newQuery(field string, op int, value *structpb.Value) *Query {
-		return &Query{
-			Field:    field,
-			Operator: op,
-			Value:    value,
-		}
-	}
-
-	func TestPaginationOnReader(t *testing.T) {
-		ctx := context.Background()
-		engine := makeEngine(t)
-
-		// create collection
-		collectionName := "mycollection"
-		err := engine.CreateCollection(ctx, collectionName, map[string]*IndexOption{
-			"idx":     {Type: sql.IntegerType},
-			"country": {Type: sql.VarcharType},
-			"pincode": {Type: sql.IntegerType},
-		})
-		require.NoError(t, err)
-
-		// add documents to collection
 		for i := 1.0; i <= 20; i++ {
-			_, _, err = engine.InsertDocument(ctx, collectionName, &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"pincode": {
-						Kind: &structpb.Value_NumberValue{NumberValue: i},
-					},
-					"country": {
-						Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
-					},
-					"idx": {
-						Kind: &structpb.Value_NumberValue{NumberValue: i},
-					},
-				},
-			})
-			require.NoError(t, err)
+			doc := results[int(i-1)]
+			require.Equal(t, i, doc.Document.Fields["pincode"].GetNumberValue())
 		}
+	})
+}
 
-		t.Run("test reader for multiple reads", func(t *testing.T) {
-			expressions := []*Query{
-				{
-					Field:    "pincode",
-					Operator: sql.GE,
-					Value: &structpb.Value{
-						Kind: &structpb.Value_NumberValue{NumberValue: 0},
-					},
-				},
-			}
-
-			reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-			require.NoError(t, err)
-			defer reader.Close()
-
-			results := make([]*structpb.Struct, 0)
-			// use the reader to read paginated documents 5 at a time
-			for i := 0; i < 4; i++ {
-				docs, _ := reader.Read(ctx, 5)
-				require.Equal(t, 5, len(docs))
-				results = append(results, docs...)
-			}
-
-			for i := 1.0; i <= 20; i++ {
-				doc := results[int(i-1)]
-				require.Equal(t, i, doc.Fields["idx"].GetNumberValue())
-			}
-		})
-	}
-*/
 func TestDeleteDocument(t *testing.T) {
 	ctx := context.Background()
 	engine := makeEngine(t)
