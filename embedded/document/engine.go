@@ -289,7 +289,7 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, id
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			ctx,
 			sqlTx,
-			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), idFieldName, idFieldName)},
+			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), currIDFieldName, idFieldName)},
 			nil,
 		)
 		if err != nil {
