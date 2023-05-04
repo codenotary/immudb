@@ -523,21 +523,9 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 }
 
 func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Struct) (*sql.RowSpec, error) {
-	idFieldName := docIDFieldName(table)
-
 	values := make([]sql.ValueExp, len(table.Cols()))
 
 	for i, col := range table.Cols() {
-		if col.Name() == idFieldName {
-			docID, err := NewDocumentIDFromHexEncodedString(doc.Fields[col.Name()].GetStringValue())
-			if err != nil {
-				return nil, err
-			}
-
-			values[i] = sql.NewBlob(docID[:])
-			continue
-		}
-
 		if col.Name() == DocumentBLOBField {
 			bs, err := json.Marshal(doc)
 			if err != nil {
