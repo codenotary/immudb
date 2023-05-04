@@ -481,393 +481,360 @@ func TestQueryDocuments(t *testing.T) {
 	})
 }
 
-/*
-	func TestDocumentUpdate(t *testing.T) {
-		// Create a new engine instance
-		ctx := context.Background()
-		engine := makeEngine(t)
+func TestDocumentUpdate(t *testing.T) {
+	// Create a new engine instance
+	ctx := context.Background()
+	engine := makeEngine(t)
 
-		// Create a test collection with a single document
-		collectionName := "test_collection"
+	// Create a test collection with a single document
+	collectionName := "test_collection"
 
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "name", Type: protomodel.FieldType_STRING},
+			{Name: "age", Type: protomodel.FieldType_DOUBLE},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"name"}},
+			{Fields: []string{"age"}},
+		},
+	)
+	require.NoError(t, err)
+
+	txID, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"name": structpb.NewStringValue("Alice"),
+			"age":  structpb.NewNumberValue(30),
+		},
+	})
+	require.NoError(t, err)
+
+	t.Run("update document should pass without docID", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "name",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewStringValue("Alice"),
+						},
+						{
+							Field:    "age",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewNumberValue(30),
+						},
+					},
+				},
+			},
+		}
+
+		updatetxID, updateDocID, rev, err := engine.UpdateDocument(ctx, collectionName, query, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": structpb.NewStringValue("Alice"),
+				"age":  structpb.NewNumberValue(31),
+			},
+		})
+		require.NoError(t, err)
+		// Check that the method returned the expected values
+		require.Equal(t, txID+1, updatetxID)
+		require.Equal(t, docID.EncodeToHexString(), updateDocID.EncodeToHexString())
+		require.EqualValues(t, 2, rev)
+
+		// Verify that the document was updated
+		query = &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "name",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewStringValue("Alice"),
+						},
+						{
+							Field:    "age",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewNumberValue(31),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		updatedDoc, err := reader.Read(ctx)
+		require.NoError(t, err)
+		require.EqualValues(t, 31, updatedDoc.Document.Fields["age"].GetNumberValue())
+		require.Equal(t, docID.EncodeToHexString(), updatedDoc.Document.Fields[DefaultDocumentIDField].GetStringValue())
+	})
+
+	t.Run("update document should fail when no document is found", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "name",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewStringValue("Bob"),
+						},
+					},
+				},
+			},
+		}
+
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"name": structpb.NewStringValue("Alice"),
+				"age":  structpb.NewNumberValue(32),
+			},
+		}
+
+		// Test error case when no documents are found
+		_, _, _, err = engine.UpdateDocument(ctx, collectionName, query, toUpdateDoc)
+		require.ErrorIs(t, err, ErrDocumentNotFound)
+	})
+
+	t.Run("update document should fail with a different docID", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "name",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewStringValue("Alice"),
+						},
+					},
+				},
+			},
+		}
+
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				DefaultDocumentIDField: structpb.NewStringValue("1234"),
+				"name":                 structpb.NewStringValue("Alice"),
+				"age":                  structpb.NewNumberValue(31),
+			},
+		}
+
+		// Call the UpdateDocument method
+		_, _, _, err := engine.UpdateDocument(ctx, collectionName, query, toUpdateDoc)
+		require.ErrorIs(t, err, ErrDocumentNotFound)
+	})
+}
+
+func TestFloatSupport(t *testing.T) {
+	ctx := context.Background()
+	engine := makeEngine(t)
+
+	collectionName := "mycollection"
+
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "number", Type: protomodel.FieldType_DOUBLE},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"number"}},
+		},
+	)
+	require.NoError(t, err)
+
+	// add document to collection
+	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"number": structpb.NewNumberValue(3.1),
+		},
+	})
+	require.NoError(t, err)
+
+	// query document
+	query := &protomodel.Query{
+		Expressions: []*protomodel.QueryExpression{
+			{
+				FieldComparisons: []*protomodel.FieldComparison{
+					{
+						Field:    "number",
+						Operator: protomodel.ComparisonOperator_EQ,
+						Value:    structpb.NewNumberValue(3.1),
+					},
+				},
+			},
+		},
+	}
+
+	// check if document is updated
+	reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	doc, err := reader.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 3.1, doc.Document.Fields["number"].GetNumberValue())
+}
+
+func TestDeleteCollection(t *testing.T) {
+	engine := makeEngine(t)
+
+	// create collection
+	collectionName := "mycollection"
+
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "number", Type: protomodel.FieldType_INTEGER},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"number"}},
+		},
+	)
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 10; i++ {
+		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"number": {
+					Kind: &structpb.Value_NumberValue{NumberValue: i},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("delete collection and check if it is empty", func(t *testing.T) {
+		err = engine.DeleteCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+
+		collectionList, err := engine.ListCollections(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, 0, len(collectionList))
+	})
+}
+
+func TestUpdateCollection(t *testing.T) {
+	engine := makeEngine(t)
+
+	collectionName := "mycollection"
+
+	t.Run("create collection and add index", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
 			collectionName,
 			"",
 			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_DOUBLE},
 				{Name: "name", Type: protomodel.FieldType_STRING},
-				{Name: "age", Type: protomodel.FieldType_DOUBLE},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
 			},
 			[]*protomodel.Index{
+				{Fields: []string{"number"}},
 				{Fields: []string{"name"}},
-				{Fields: []string{"age"}},
+				{Fields: []string{"country"}},
+				{Fields: []string{"pin"}},
 			},
 		)
 		require.NoError(t, err)
+	})
 
-		_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"name": structpb.NewStringValue("Alice"),
-				"age":  structpb.NewNumberValue(30),
-			},
-		})
+	t.Run("update collection by deleting indexes", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			"",
+		)
 		require.NoError(t, err)
 
-		t.Run("update document should pass without docID", func(t *testing.T) {
-			query := &protomodel.Query{
-				Expressions: []*protomodel.QueryExpression{
-					{
-						FieldComparisons: []*protomodel.FieldComparison{
-							{
-								Field:    "_id",
-								Operator: protomodel.ComparisonOperator_EQ,
-								Value:    structpb.NewStringValue(docID.EncodeToHexString()),
-							},
-							{
-								Field:    "country",
-								Operator: protomodel.ComparisonOperator_EQ,
-								Value: &structpb.Value{
-									Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-								},
-							},
-							{
-								Field:    "pincode",
-								Operator: protomodel.ComparisonOperator_EQ,
-								Value: &structpb.Value{
-									Kind: &structpb.Value_NumberValue{NumberValue: 2},
-								},
-							},
-						},
-					},
-				},
-			}
+		// get collection
+		collection, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Equal(t, DefaultDocumentIDField, collection.IdFieldName)
+		require.Equal(t, 5, len(collection.Indexes))
+	})
 
-			txID, docID, rev, err := engine.UpdateDocument(ctx, collectionName, query, &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"name": {
-						Kind: &structpb.Value_StringValue{StringValue: "Alice"},
-					},
-					"age": {
-						Kind: &structpb.Value_NumberValue{NumberValue: 30},
-					},
-				},
-			})
-			require.NoError(t, err)
-			// Check that the method returned the expected values
-			require.NotEqual(t, txID, 0)
-			require.NotEqual(t, rev, 0)
+	t.Run("update collection by adding changing idFieldName", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			"_docid",
+		)
+		require.NoError(t, err)
 
-			// Verify that the document was updated
-			reader, err := e.GetDocuments(ctx, collectionName, queries, 0)
-			require.NoError(t, err)
-			defer reader.Close()
+		// get collection
+		collection, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Equal(t, "_docid", collection.IdFieldName)
+		require.Equal(t, 5, len(collection.Indexes))
+	})
+}
 
-			updatedDocs, err := reader.Read(ctx, 1)
-			require.NoError(t, err)
+func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
+	engine := makeEngine(t)
 
-			updatedDoc := updatedDocs[0]
-			if updatedDoc.Fields["age"].GetNumberValue() != 31 {
-				t.Errorf("Expected age to be updated to 31, got %v", updatedDoc.Fields["age"].GetNumberValue())
-			}
+	collectionName := "mycollection"
 
-			require.Equal(t, docID.EncodeToHexString(), updatedDoc.Fields[DocumentIDField].GetStringValue())
+	t.Run("create collection and add index", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_DOUBLE},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"number"}},
+			},
+		)
+		require.NoError(t, err)
+	})
 
-		})
+	t.Run("update collection by deleting indexes", func(t *testing.T) {
+		// update collection
+		err := engine.DeleteIndex(
+			context.Background(),
+			collectionName,
+			[]string{"number"},
+		)
+		require.NoError(t, err)
 
-		t.Run("update document should fail when no document is found", func(t *testing.T) {
-			toUpdateDoc := &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-					"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 31}},
-				},
-			}
+		// get collection
+		collection, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Len(t, collection.Indexes, 1)
+	})
 
-			// Test error case when no documents are found
-			queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
-				Kind: &structpb.Value_StringValue{StringValue: "Bob"},
-			})}
-			_, _, err = e.UpdateDocument(ctx, collectionName, queries, toUpdateDoc)
-			if !errors.Is(err, ErrDocumentNotFound) {
-				t.Errorf("Expected ErrDocumentNotFound, got %v", err)
-			}
-		})
+	t.Run("update collection by adding the same index should pass", func(t *testing.T) {
+		// update collection
+		err := engine.CreateIndex(
+			context.Background(),
+			collectionName,
+			[]string{"number"},
+			false,
+		)
+		require.NoError(t, err)
 
-		t.Run("update document should fail with a different docID", func(t *testing.T) {
-			toUpdateDoc := &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"_id":  {Kind: &structpb.Value_StringValue{StringValue: "123"}},
-					"name": {Kind: &structpb.Value_StringValue{StringValue: "Alice"}},
-					"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 34}},
-				},
-			}
-			queries = []*Query{newQuery("name", sql.EQ, &structpb.Value{
-				Kind: &structpb.Value_StringValue{StringValue: "Alice"},
-			})}
-
-			// Call the UpdateDocument method
-			_, _, err := e.UpdateDocument(ctx, collectionName, queries, toUpdateDoc)
-			require.ErrorIs(t, err, ErrDocumentIDMismatch)
-		})
-	}
+		// get collection
+		collection, err := engine.GetCollection(context.Background(), collectionName)
+		require.NoError(t, err)
+		require.Len(t, collection.Indexes, 2)
+	})
+}
 
 /*
-
-	func TestFloatSupport(t *testing.T) {
-		ctx := context.Background()
-		engine := makeEngine(t)
-
-		collectionName := "mycollection"
-		err := engine.CreateCollection(
-			ctx,
-			collectionName,
-			map[string]*IndexOption{
-				"number": {Type: sql.Float64Type},
-			},
-		)
-		require.NoError(t, err)
-
-		catalog, err := engine.sqlEngine.Catalog(ctx, nil)
-		require.NoError(t, err)
-
-		table, err := catalog.GetTableByName(collectionName)
-		require.NoError(t, err)
-		require.Equal(t, collectionName, table.Name())
-
-		col, err := table.GetColumnByName("number")
-		require.NoError(t, err)
-		require.Equal(t, sql.Float64Type, col.Type())
-
-		// add document to collection
-		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"number": {
-					Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
-				},
-			},
-		})
-		require.NoError(t, err)
-
-		// query document
-		expressions := []*Query{
-			{
-				Field:    "number",
-				Operator: sql.EQ,
-				Value: &structpb.Value{
-					Kind: &structpb.Value_NumberValue{NumberValue: 3.1},
-				},
-			},
-		}
-
-		// check if document is updated
-		reader, err := engine.GetDocuments(ctx, collectionName, expressions, 0)
-		require.NoError(t, err)
-		defer reader.Close()
-		docs, err := reader.Read(ctx, 1)
-		require.NoError(t, err)
-
-		require.Equal(t, 1, len(docs))
-
-		// retrieve document
-		doc := docs[0]
-		require.Equal(t, 3.1, doc.Fields["number"].GetNumberValue())
-	}
-
-	func TestDeleteCollection(t *testing.T) {
-		engine := makeEngine(t)
-
-		// create collection
-		collectionName := "mycollection"
-		err := engine.CreateCollection(context.Background(), collectionName, map[string]*IndexOption{
-			"idx": {Type: sql.IntegerType},
-		})
-		require.NoError(t, err)
-
-		// add documents to collection
-		for i := 1.0; i <= 10; i++ {
-			_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"idx": {
-						Kind: &structpb.Value_NumberValue{NumberValue: i},
-					},
-				},
-			})
-			require.NoError(t, err)
-		}
-
-		t.Run("delete collection and check if it is empty", func(t *testing.T) {
-			err = engine.DeleteCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-
-			_, err := engine.sqlEngine.Query(context.Background(), nil, "SELECT COUNT(*) FROM mycollection", nil)
-			require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
-
-			collectionList, err := engine.ListCollections(context.Background())
-			require.NoError(t, err)
-			require.Equal(t, 0, len(collectionList))
-		})
-	}
-
-	func TestUpdateCollection(t *testing.T) {
-		engine := makeEngine(t)
-
-		collectionName := "mycollection"
-
-		t.Run("create collection and add index", func(t *testing.T) {
-			err := engine.CreateCollection(
-				context.Background(),
-				collectionName,
-				map[string]*IndexOption{
-					"number":  {Type: sql.Float64Type},
-					"name":    {Type: sql.VarcharType},
-					"pin":     {Type: sql.IntegerType},
-					"country": {Type: sql.VarcharType},
-				},
-			)
-			require.NoError(t, err)
-		})
-
-		t.Run("update collection by deleting indexes", func(t *testing.T) {
-			// update collection
-			err := engine.UpdateCollection(
-				context.Background(),
-				collectionName,
-				nil,
-				[]string{"number", "name"},
-			)
-			require.NoError(t, err)
-
-			// get collection
-			indexes, err := engine.GetCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-			require.Equal(t, 3, len(indexes))
-
-			primaryKeyCount := 0
-			indexKeyCount := 0
-			for _, idx := range indexes {
-				// check if primary key
-				if idx.IsPrimary() {
-					primaryKeyCount += len(idx.Cols())
-				} else {
-					indexKeyCount += len(idx.Cols())
-				}
-			}
-			require.Equal(t, 1, primaryKeyCount)
-			require.Equal(t, 2, indexKeyCount)
-
-		})
-
-		t.Run("update collection by adding indexes", func(t *testing.T) {
-			// update collection
-			err := engine.UpdateCollection(
-				context.Background(),
-				collectionName,
-				map[string]*IndexOption{
-					"data1": {Type: sql.VarcharType},
-					"data2": {Type: sql.VarcharType},
-					"data3": {Type: sql.VarcharType},
-				},
-				nil,
-			)
-			require.NoError(t, err)
-
-			// get collection
-			indexes, err := engine.GetCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-			require.Equal(t, 6, len(indexes))
-
-			primaryKeyCount := 0
-			indexKeyCount := 0
-			for _, idx := range indexes {
-				// check if primary key
-				if idx.IsPrimary() {
-					primaryKeyCount += len(idx.Cols())
-				} else {
-					indexKeyCount += len(idx.Cols())
-				}
-			}
-			require.Equal(t, 1, primaryKeyCount)
-			require.Equal(t, 5, indexKeyCount)
-		})
-	}
-
-	func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
-		engine := makeEngine(t)
-
-		collectionName := "mycollection"
-
-		t.Run("create collection and add index", func(t *testing.T) {
-			err := engine.CreateCollection(
-				context.Background(),
-				collectionName,
-				map[string]*IndexOption{
-					"number": {Type: sql.Float64Type},
-				},
-			)
-			require.NoError(t, err)
-		})
-
-		t.Run("update collection by deleting indexes", func(t *testing.T) {
-			// update collection
-			err := engine.UpdateCollection(
-				context.Background(),
-				collectionName,
-				nil,
-				[]string{"number"},
-			)
-			require.NoError(t, err)
-
-			// get collection
-			indexes, err := engine.GetCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-			require.Equal(t, 1, len(indexes))
-
-			primaryKeyCount := 0
-			indexKeyCount := 0
-			for _, idx := range indexes {
-				// check if primary key
-				if idx.IsPrimary() {
-					primaryKeyCount += len(idx.Cols())
-				} else {
-					indexKeyCount += len(idx.Cols())
-				}
-			}
-			require.Equal(t, 1, primaryKeyCount)
-			require.Equal(t, 0, indexKeyCount)
-
-		})
-
-		t.Run("update collection by adding the same index should pass", func(t *testing.T) {
-			// update collection
-			err := engine.UpdateCollection(
-				context.Background(),
-				collectionName,
-				map[string]*IndexOption{
-					"number": {Type: sql.Float64Type},
-				},
-				nil,
-			)
-			require.NoError(t, err)
-
-			// get collection
-			indexes, err := engine.GetCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-			require.Equal(t, 2, len(indexes))
-
-			primaryKeyCount := 0
-			indexKeyCount := 0
-			for _, idx := range indexes {
-				// check if primary key
-				if idx.IsPrimary() {
-					primaryKeyCount += len(idx.Cols())
-				} else {
-					indexKeyCount += len(idx.Cols())
-				}
-			}
-			require.Equal(t, 1, primaryKeyCount)
-			require.Equal(t, 1, indexKeyCount)
-		})
-	}
-
 	func TestBulkInsert(t *testing.T) {
 		ctx := context.Background()
 		engine := makeEngine(t)

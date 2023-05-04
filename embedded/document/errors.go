@@ -31,7 +31,6 @@ var (
 	ErrMaxLengthExceeded       = errors.New("max length exceeded")
 	ErrMultipleDocumentsFound  = errors.New("multiple documents found")
 	ErrDocumentNotFound        = errors.New("document not found")
-	ErrDocumentIDMismatch      = errors.New("document id mismatch")
 	ErrNoMoreDocuments         = errors.New("no more documents")
 	ErrFieldAlreadyExists      = errors.New("field already exists")
 	ErrFieldDoesNotExist       = errors.New("field does not exist")
