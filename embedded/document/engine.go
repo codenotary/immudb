@@ -552,8 +552,10 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 }
 
 func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
-	if doc == nil {
-		return 0, nil, 0, ErrIllegalArguments
+	if doc == nil || len(doc.Fields) == 0 {
+		doc = &structpb.Struct{
+			Fields: make(map[string]*structpb.Value),
+		}
 	}
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
