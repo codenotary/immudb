@@ -205,7 +205,6 @@ build/codegenv2:
 	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/protomodel \
 	  --doc_out=pkg/api/protomodel --doc_opt=markdown,docs.md \
 	  --swagger_out=logtostderr=true,allow_merge=true,simple_operation_ids=true:pkg/api/openapi \
-	  --openapiv2_out=allow_merge=true,simple_operation_ids=true,disable_service_tags=true:pkg/api/openapi \
 
 ./swagger/dist:
 	rm -rf swagger/dist/

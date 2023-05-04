@@ -1028,3 +1028,38 @@ func TestDeleteDocument(t *testing.T) {
 	_, err = reader.Read(ctx)
 	require.ErrorIs(t, ErrNoMoreDocuments, err)
 }
+
+func TestGetCollection(t *testing.T) {
+	engine := makeEngine(t)
+	collectionName := "mycollection1"
+
+	err := engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "number", Type: protomodel.FieldType_INTEGER},
+			{Name: "name", Type: protomodel.FieldType_STRING},
+			{Name: "pin", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"number"}},
+			{Fields: []string{"name"}},
+			{Fields: []string{"pin"}},
+			{Fields: []string{"country"}},
+		},
+	)
+	require.NoError(t, err)
+
+	collection, err := engine.GetCollection(context.Background(), collectionName)
+	require.NoError(t, err)
+	require.Equal(t, collectionName, collection.Name)
+	require.Equal(t, 5, len(collection.Fields))
+	require.Equal(t, 5, len(collection.Indexes))
+
+	expectedIndexKeys := []string{"_id", "number", "name", "pin", "country"}
+	for i, key := range expectedIndexKeys {
+		require.Equal(t, key, collection.Fields[i].Name)
+	}
+}

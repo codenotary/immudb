@@ -216,15 +216,26 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 		return nil, err
 	}
 
-	// generate a unique query name based on the request parameters
-	searchID := getSearchIDFromRequest(req)
-
 	// check if the paginated reader for this query has already been created
 	var resultReader document.DocumentReader
 	var pgreader *sessions.PaginatedDocumentReader
+	var searchID string
 
-	pgreader, err = sess.GetPaginatedDocumentReader(searchID)
-	if err != nil { // paginated reader does not exist, create a new one and add it to the session
+	// check if the incoming searchID is valid
+	if req.SearchID != "" {
+		var err error
+		if pgreader, err = sess.GetPaginatedDocumentReader(req.SearchID); err != nil {
+			// invalid searchID, return error
+			return nil, err
+		} else { // paginated reader already exists, resume reading from the correct offset based
+			// on pagination parameters, do validation on the pagination parameters
+			if req.Page < pgreader.LastPageNumber {
+				return nil, ErrInvalidPreviousPage
+			}
+			resultReader = pgreader.Reader
+			searchID = req.SearchID
+		}
+	} else { // paginated reader does not exist, create a new one and add it to the session
 		resultReader, err = db.SearchDocuments(ctx, req)
 		if err != nil {
 			return nil, err
@@ -237,18 +248,13 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 			LastPageSize:   req.PerPage,
 		}
 
+		searchID = xid.New().String()
 		sess.SetPaginatedDocumentReader(searchID, pgreader)
-	} else { // paginated reader already exists, resume reading from the correct offset based on pagination parameters
-		// do validation on the pagination parameters
-		if req.Page < pgreader.LastPageNumber {
-			return nil, ErrInvalidPreviousPage
-		}
-		resultReader = pgreader.Reader
 	}
 
 	// read the next page of data from the paginated reader
 	results, err := resultReader.ReadN(ctx, int(req.PerPage))
-	if err != nil && errors.Is(err, document.ErrNoMoreDocuments) {
+	if err != nil && !errors.Is(err, document.ErrNoMoreDocuments) {
 		return nil, err
 	}
 
@@ -267,14 +273,6 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 		SearchID:  searchID,
 		Revisions: results,
 	}, err
-}
-
-func getSearchIDFromRequest(req *protomodel.DocumentSearchRequest) string {
-	if req.SearchID != "" {
-		return req.SearchID
-	}
-
-	return xid.New().String()
 }
 
 func (s *ImmuServer) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
