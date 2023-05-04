@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"errors"
 
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
@@ -247,14 +248,14 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 
 	// read the next page of data from the paginated reader
 	results, err := resultReader.ReadN(ctx, int(req.PerPage))
-	if err != nil && err != document.ErrNoMoreDocuments {
+	if err != nil && errors.Is(err, document.ErrNoMoreDocuments) {
 		return nil, err
 	}
 
 	// update the pagination parameters for this query in the session
 	sess.UpdatePaginatedDocumentReader(searchID, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
 
-	if err == document.ErrNoMoreDocuments {
+	if errors.Is(err, document.ErrNoMoreDocuments) {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
 		delErr := sess.DeletePaginatedDocumentReader(searchID)
 		if delErr != nil {

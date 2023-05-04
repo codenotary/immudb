@@ -55,6 +55,7 @@ var maintenanceMethods = map[string]struct{}{
 	"IndexDelete":         {},
 	"DocumentAudit":       {},
 	"DocumentProof":       {},
+	"DocumentDelete":      {},
 
 	// admin methods
 	"ListUsers":    {},
@@ -128,6 +129,7 @@ var methodsPermissions = map[string][]uint32{
 	"IndexDelete":            {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"DocumentAudit":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DocumentProof":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DocumentDelete":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 
 	// admin methods
 	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},

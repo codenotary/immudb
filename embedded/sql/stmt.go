@@ -1158,10 +1158,11 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	return tx, nil
 }
 
-func NewDeleteFromStmt(table string, where ValueExp) *DeleteFromStmt {
+func NewDeleteFromStmt(table string, where ValueExp, limit ValueExp) *DeleteFromStmt {
 	return &DeleteFromStmt{
 		tableRef: newTableRef(table, ""),
 		where:    where,
+		limit:    limit,
 	}
 }
 
@@ -4058,7 +4059,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(table.id),
 			EncodeID(index.id),
 		)
-		err = tx.Delete(mappedKey)
+		err = tx.delete(mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4075,7 +4076,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(col.id),
 			[]byte(col.colType),
 		)
-		err = tx.Delete(mappedKey)
+		err = tx.delete(mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4088,7 +4089,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(1),
 		EncodeID(table.id),
 	)
-	err = tx.Delete(mappedKey)
+	err = tx.delete(mappedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4155,7 +4156,7 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(table.id),
 		EncodeID(index.id),
 	)
-	err = tx.Delete(indexKey)
+	err = tx.delete(indexKey)
 	if err != nil {
 		return nil, err
 	}

@@ -53,7 +53,7 @@ type DocumentDatabase interface {
 	DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error)
 	// DocumentInsertMany creates a new document
 	DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error)
-	// DocumentDelete deletes a document
+	// DocumentDelete deletes a single document
 	DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error)
 }
 
