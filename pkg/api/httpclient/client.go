@@ -209,7 +209,7 @@ type ModelField struct {
 type ModelFieldComparison struct {
 	Field    *string                  `json:"field,omitempty"`
 	Operator *ModelComparisonOperator `json:"operator,omitempty"`
-	Value    *map[string]interface{}  `json:"value,omitempty"`
+	Value    interface{}  `json:"value,omitempty"`
 }
 
 // ModelFieldType defines model for modelFieldType.
@@ -338,7 +338,7 @@ type ModelQueryExpression struct {
 //	  "value": "1.212s"
 //	}
 type ProtobufAny struct {
-	// Type A URL/resource name that uniquely identifies the type of the serialized
+	// TypeUrl A URL/resource name that uniquely identifies the type of the serialized
 	// protocol buffer message. This string must contain at least
 	// one "/" character. The last segment of the URL's path must represent
 	// the fully qualified name of the type (as in
@@ -365,14 +365,17 @@ type ProtobufAny struct {
 	//
 	// Schemes other than `http`, `https` (or the empty scheme) might be
 	// used with implementation specific semantics.
-	Type                 *string                           `json:"@type,omitempty"`
-	AdditionalProperties map[string]map[string]interface{} `json:"-"`
+	TypeUrl *string `json:"type_url,omitempty"`
+
+	// Value Must be a valid serialized protocol buffer of the above specified type.
+	Value *[]byte `json:"value,omitempty"`
 }
 
-// RpcStatus defines model for rpcStatus.
-type RpcStatus struct {
+// RuntimeError defines model for runtimeError.
+type RuntimeError struct {
 	Code    *int32         `json:"code,omitempty"`
 	Details *[]ProtobufAny `json:"details,omitempty"`
+	Error   *string        `json:"error,omitempty"`
 	Message *string        `json:"message,omitempty"`
 }
 
@@ -527,74 +530,6 @@ type IndexCreateJSONRequestBody = ModelIndexCreateRequest
 
 // IndexDeleteJSONRequestBody defines body for IndexDelete for application/json ContentType.
 type IndexDeleteJSONRequestBody = ModelIndexDeleteRequest
-
-// Getter for additional properties for ProtobufAny. Returns the specified
-// element and whether it was found
-func (a ProtobufAny) Get(fieldName string) (value map[string]interface{}, found bool) {
-	if a.AdditionalProperties != nil {
-		value, found = a.AdditionalProperties[fieldName]
-	}
-	return
-}
-
-// Setter for additional properties for ProtobufAny
-func (a *ProtobufAny) Set(fieldName string, value map[string]interface{}) {
-	if a.AdditionalProperties == nil {
-		a.AdditionalProperties = make(map[string]map[string]interface{})
-	}
-	a.AdditionalProperties[fieldName] = value
-}
-
-// Override default JSON handling for ProtobufAny to handle AdditionalProperties
-func (a *ProtobufAny) UnmarshalJSON(b []byte) error {
-	object := make(map[string]json.RawMessage)
-	err := json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["@type"]; found {
-		err = json.Unmarshal(raw, &a.Type)
-		if err != nil {
-			return fmt.Errorf("error reading '@type': %w", err)
-		}
-		delete(object, "@type")
-	}
-
-	if len(object) != 0 {
-		a.AdditionalProperties = make(map[string]map[string]interface{})
-		for fieldName, fieldBuf := range object {
-			var fieldVal map[string]interface{}
-			err := json.Unmarshal(fieldBuf, &fieldVal)
-			if err != nil {
-				return fmt.Errorf("error unmarshalling field %s: %w", fieldName, err)
-			}
-			a.AdditionalProperties[fieldName] = fieldVal
-		}
-	}
-	return nil
-}
-
-// Override default JSON handling for ProtobufAny to handle AdditionalProperties
-func (a ProtobufAny) MarshalJSON() ([]byte, error) {
-	var err error
-	object := make(map[string]json.RawMessage)
-
-	if a.Type != nil {
-		object["@type"], err = json.Marshal(a.Type)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '@type': %w", err)
-		}
-	}
-
-	for fieldName, field := range a.AdditionalProperties {
-		object[fieldName], err = json.Marshal(field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
-		}
-	}
-	return json.Marshal(object)
-}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -1884,7 +1819,7 @@ type CloseSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelCloseSessionResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -1907,7 +1842,7 @@ type KeepAliveResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelKeepAliveResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -1930,7 +1865,7 @@ type OpenSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ImmudbmodelOpenSessionResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -1953,7 +1888,7 @@ type CollectionCreateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelCollectionCreateResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -1976,7 +1911,7 @@ type CollectionDeleteResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelCollectionDeleteResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -1999,7 +1934,7 @@ type CollectionGetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelCollectionGetResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2022,7 +1957,7 @@ type CollectionListResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelCollectionListResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2045,7 +1980,7 @@ type CollectionUpdateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelCollectionUpdateResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2068,7 +2003,7 @@ type DocumentAuditResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelDocumentAuditResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2091,7 +2026,7 @@ type DocumentInsertResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelDocumentInsertResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2114,7 +2049,7 @@ type DocumentInsertManyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelDocumentInsertManyResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2137,7 +2072,7 @@ type DocumentProofResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelDocumentProofResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2160,7 +2095,7 @@ type DocumentSearchResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelDocumentSearchResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2183,7 +2118,7 @@ type DocumentUpdateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelDocumentUpdateResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2206,7 +2141,7 @@ type IndexCreateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelIndexCreateResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2229,7 +2164,7 @@ type IndexDeleteResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelIndexDeleteResponse
-	JSONDefault  *RpcStatus
+	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
@@ -2526,7 +2461,7 @@ func ParseCloseSessionResponse(rsp *http.Response) (*CloseSessionResponse, error
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2559,7 +2494,7 @@ func ParseKeepAliveResponse(rsp *http.Response) (*KeepAliveResponse, error) {
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2592,7 +2527,7 @@ func ParseOpenSessionResponse(rsp *http.Response) (*OpenSessionResponse, error) 
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2625,7 +2560,7 @@ func ParseCollectionCreateResponse(rsp *http.Response) (*CollectionCreateRespons
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2658,7 +2593,7 @@ func ParseCollectionDeleteResponse(rsp *http.Response) (*CollectionDeleteRespons
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2691,7 +2626,7 @@ func ParseCollectionGetResponse(rsp *http.Response) (*CollectionGetResponse, err
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2724,7 +2659,7 @@ func ParseCollectionListResponse(rsp *http.Response) (*CollectionListResponse, e
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2757,7 +2692,7 @@ func ParseCollectionUpdateResponse(rsp *http.Response) (*CollectionUpdateRespons
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2790,7 +2725,7 @@ func ParseDocumentAuditResponse(rsp *http.Response) (*DocumentAuditResponse, err
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2823,7 +2758,7 @@ func ParseDocumentInsertResponse(rsp *http.Response) (*DocumentInsertResponse, e
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2856,7 +2791,7 @@ func ParseDocumentInsertManyResponse(rsp *http.Response) (*DocumentInsertManyRes
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2889,7 +2824,7 @@ func ParseDocumentProofResponse(rsp *http.Response) (*DocumentProofResponse, err
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2922,7 +2857,7 @@ func ParseDocumentSearchResponse(rsp *http.Response) (*DocumentSearchResponse, e
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2955,7 +2890,7 @@ func ParseDocumentUpdateResponse(rsp *http.Response) (*DocumentUpdateResponse, e
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2988,7 +2923,7 @@ func ParseIndexCreateResponse(rsp *http.Response) (*IndexCreateResponse, error) 
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3021,7 +2956,7 @@ func ParseIndexDeleteResponse(rsp *http.Response) (*IndexDeleteResponse, error) 
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RpcStatus
+		var dest RuntimeError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
