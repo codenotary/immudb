@@ -38,6 +38,18 @@ var structValueToSqlValue = func(stype sql.SQLValueType, value *structpb.Value) 
 			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
 		}
 		return sql.NewInteger(int64(value.GetNumberValue())), nil
+	case sql.BLOBType:
+		_, ok := value.GetKind().(*structpb.Value_StringValue)
+		if !ok {
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
+		}
+
+		docID, err := NewDocumentIDFromHexEncodedString(value.GetStringValue())
+		if err != nil {
+			return nil, err
+		}
+
+		return sql.NewBlob(docID[:]), nil
 	case sql.Float64Type:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
 		if !ok {
