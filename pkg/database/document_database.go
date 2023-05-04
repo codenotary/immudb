@@ -303,7 +303,7 @@ func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearch
 		return nil, fmt.Errorf("invalid offset")
 	}
 
-	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, req.Query, int64(offset))
+	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, req.Query, int64(offset), req.OrderBy)
 	if err != nil {
 		return nil, err
 	}

@@ -159,9 +159,14 @@ message DocumentSearchRequest {
   string searchID = 1;
   string collection = 2;
   Query query = 3;
-  bool desc = 4;
+  OrderExpression orderBy = 4;
   uint32 page = 5;
   uint32 perPage = 6;
+}
+
+message OrderExpression {
+  string field = 1;
+  bool desc = 2;
 }
 
 message Query {

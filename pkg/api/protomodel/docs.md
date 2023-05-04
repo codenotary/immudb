@@ -3,70 +3,71 @@
 
 ## Table of Contents
 
-- [authorization.proto](#authorization.proto)
-    - [CloseSessionRequest](#immudb.model.CloseSessionRequest)
-    - [CloseSessionResponse](#immudb.model.CloseSessionResponse)
-    - [KeepAliveRequest](#immudb.model.KeepAliveRequest)
-    - [KeepAliveResponse](#immudb.model.KeepAliveResponse)
-    - [OpenSessionRequest](#immudb.model.OpenSessionRequest)
-    - [OpenSessionResponse](#immudb.model.OpenSessionResponse)
+- [authorization.proto](#authorization-proto)
+    - [CloseSessionRequest](#immudb-model-CloseSessionRequest)
+    - [CloseSessionResponse](#immudb-model-CloseSessionResponse)
+    - [KeepAliveRequest](#immudb-model-KeepAliveRequest)
+    - [KeepAliveResponse](#immudb-model-KeepAliveResponse)
+    - [OpenSessionRequest](#immudb-model-OpenSessionRequest)
+    - [OpenSessionResponse](#immudb-model-OpenSessionResponse)
   
-    - [AuthorizationService](#immudb.model.AuthorizationService)
+    - [AuthorizationService](#immudb-model-AuthorizationService)
   
-- [documents.proto](#documents.proto)
-    - [Collection](#immudb.model.Collection)
-    - [CollectionCreateRequest](#immudb.model.CollectionCreateRequest)
-    - [CollectionCreateResponse](#immudb.model.CollectionCreateResponse)
-    - [CollectionDeleteRequest](#immudb.model.CollectionDeleteRequest)
-    - [CollectionDeleteResponse](#immudb.model.CollectionDeleteResponse)
-    - [CollectionGetRequest](#immudb.model.CollectionGetRequest)
-    - [CollectionGetResponse](#immudb.model.CollectionGetResponse)
-    - [CollectionListRequest](#immudb.model.CollectionListRequest)
-    - [CollectionListResponse](#immudb.model.CollectionListResponse)
-    - [CollectionUpdateRequest](#immudb.model.CollectionUpdateRequest)
-    - [CollectionUpdateResponse](#immudb.model.CollectionUpdateResponse)
-    - [DocumentAtRevision](#immudb.model.DocumentAtRevision)
-    - [DocumentAuditRequest](#immudb.model.DocumentAuditRequest)
-    - [DocumentAuditResponse](#immudb.model.DocumentAuditResponse)
-    - [DocumentDeleteRequest](#immudb.model.DocumentDeleteRequest)
-    - [DocumentDeleteResponse](#immudb.model.DocumentDeleteResponse)
-    - [DocumentInsertManyRequest](#immudb.model.DocumentInsertManyRequest)
-    - [DocumentInsertManyResponse](#immudb.model.DocumentInsertManyResponse)
-    - [DocumentInsertRequest](#immudb.model.DocumentInsertRequest)
-    - [DocumentInsertResponse](#immudb.model.DocumentInsertResponse)
-    - [DocumentProofRequest](#immudb.model.DocumentProofRequest)
-    - [DocumentProofResponse](#immudb.model.DocumentProofResponse)
-    - [DocumentSearchRequest](#immudb.model.DocumentSearchRequest)
-    - [DocumentSearchResponse](#immudb.model.DocumentSearchResponse)
-    - [DocumentUpdateRequest](#immudb.model.DocumentUpdateRequest)
-    - [DocumentUpdateResponse](#immudb.model.DocumentUpdateResponse)
-    - [Field](#immudb.model.Field)
-    - [FieldComparison](#immudb.model.FieldComparison)
-    - [Index](#immudb.model.Index)
-    - [IndexCreateRequest](#immudb.model.IndexCreateRequest)
-    - [IndexCreateResponse](#immudb.model.IndexCreateResponse)
-    - [IndexDeleteRequest](#immudb.model.IndexDeleteRequest)
-    - [IndexDeleteResponse](#immudb.model.IndexDeleteResponse)
-    - [Query](#immudb.model.Query)
-    - [QueryExpression](#immudb.model.QueryExpression)
+- [documents.proto](#documents-proto)
+    - [Collection](#immudb-model-Collection)
+    - [CollectionCreateRequest](#immudb-model-CollectionCreateRequest)
+    - [CollectionCreateResponse](#immudb-model-CollectionCreateResponse)
+    - [CollectionDeleteRequest](#immudb-model-CollectionDeleteRequest)
+    - [CollectionDeleteResponse](#immudb-model-CollectionDeleteResponse)
+    - [CollectionGetRequest](#immudb-model-CollectionGetRequest)
+    - [CollectionGetResponse](#immudb-model-CollectionGetResponse)
+    - [CollectionListRequest](#immudb-model-CollectionListRequest)
+    - [CollectionListResponse](#immudb-model-CollectionListResponse)
+    - [CollectionUpdateRequest](#immudb-model-CollectionUpdateRequest)
+    - [CollectionUpdateResponse](#immudb-model-CollectionUpdateResponse)
+    - [DocumentAtRevision](#immudb-model-DocumentAtRevision)
+    - [DocumentAuditRequest](#immudb-model-DocumentAuditRequest)
+    - [DocumentAuditResponse](#immudb-model-DocumentAuditResponse)
+    - [DocumentDeleteRequest](#immudb-model-DocumentDeleteRequest)
+    - [DocumentDeleteResponse](#immudb-model-DocumentDeleteResponse)
+    - [DocumentInsertManyRequest](#immudb-model-DocumentInsertManyRequest)
+    - [DocumentInsertManyResponse](#immudb-model-DocumentInsertManyResponse)
+    - [DocumentInsertRequest](#immudb-model-DocumentInsertRequest)
+    - [DocumentInsertResponse](#immudb-model-DocumentInsertResponse)
+    - [DocumentProofRequest](#immudb-model-DocumentProofRequest)
+    - [DocumentProofResponse](#immudb-model-DocumentProofResponse)
+    - [DocumentSearchRequest](#immudb-model-DocumentSearchRequest)
+    - [DocumentSearchResponse](#immudb-model-DocumentSearchResponse)
+    - [DocumentUpdateRequest](#immudb-model-DocumentUpdateRequest)
+    - [DocumentUpdateResponse](#immudb-model-DocumentUpdateResponse)
+    - [Field](#immudb-model-Field)
+    - [FieldComparison](#immudb-model-FieldComparison)
+    - [Index](#immudb-model-Index)
+    - [IndexCreateRequest](#immudb-model-IndexCreateRequest)
+    - [IndexCreateResponse](#immudb-model-IndexCreateResponse)
+    - [IndexDeleteRequest](#immudb-model-IndexDeleteRequest)
+    - [IndexDeleteResponse](#immudb-model-IndexDeleteResponse)
+    - [OrderExpression](#immudb-model-OrderExpression)
+    - [Query](#immudb-model-Query)
+    - [QueryExpression](#immudb-model-QueryExpression)
   
-    - [ComparisonOperator](#immudb.model.ComparisonOperator)
-    - [FieldType](#immudb.model.FieldType)
+    - [ComparisonOperator](#immudb-model-ComparisonOperator)
+    - [FieldType](#immudb-model-FieldType)
   
-    - [DocumentService](#immudb.model.DocumentService)
+    - [DocumentService](#immudb-model-DocumentService)
   
 - [Scalar Value Types](#scalar-value-types)
 
 
 
-<a name="authorization.proto"></a>
+<a name="authorization-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
 ## authorization.proto
 
 
 
-<a name="immudb.model.CloseSessionRequest"></a>
+<a name="immudb-model-CloseSessionRequest"></a>
 
 ### CloseSessionRequest
 
@@ -76,7 +77,7 @@
 
 
 
-<a name="immudb.model.CloseSessionResponse"></a>
+<a name="immudb-model-CloseSessionResponse"></a>
 
 ### CloseSessionResponse
 
@@ -86,7 +87,7 @@
 
 
 
-<a name="immudb.model.KeepAliveRequest"></a>
+<a name="immudb-model-KeepAliveRequest"></a>
 
 ### KeepAliveRequest
 
@@ -96,7 +97,7 @@
 
 
 
-<a name="immudb.model.KeepAliveResponse"></a>
+<a name="immudb-model-KeepAliveResponse"></a>
 
 ### KeepAliveResponse
 
@@ -106,7 +107,7 @@
 
 
 
-<a name="immudb.model.OpenSessionRequest"></a>
+<a name="immudb-model-OpenSessionRequest"></a>
 
 ### OpenSessionRequest
 
@@ -123,7 +124,7 @@
 
 
 
-<a name="immudb.model.OpenSessionResponse"></a>
+<a name="immudb-model-OpenSessionResponse"></a>
 
 ### OpenSessionResponse
 
@@ -147,29 +148,29 @@
  
 
 
-<a name="immudb.model.AuthorizationService"></a>
+<a name="immudb-model-AuthorizationService"></a>
 
 ### AuthorizationService
 
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| OpenSession | [OpenSessionRequest](#immudb.model.OpenSessionRequest) | [OpenSessionResponse](#immudb.model.OpenSessionResponse) |  |
-| KeepAlive | [KeepAliveRequest](#immudb.model.KeepAliveRequest) | [KeepAliveResponse](#immudb.model.KeepAliveResponse) |  |
-| CloseSession | [CloseSessionRequest](#immudb.model.CloseSessionRequest) | [CloseSessionResponse](#immudb.model.CloseSessionResponse) |  |
+| OpenSession | [OpenSessionRequest](#immudb-model-OpenSessionRequest) | [OpenSessionResponse](#immudb-model-OpenSessionResponse) |  |
+| KeepAlive | [KeepAliveRequest](#immudb-model-KeepAliveRequest) | [KeepAliveResponse](#immudb-model-KeepAliveResponse) |  |
+| CloseSession | [CloseSessionRequest](#immudb-model-CloseSessionRequest) | [CloseSessionResponse](#immudb-model-CloseSessionResponse) |  |
 
  
 
 
 
-<a name="documents.proto"></a>
+<a name="documents-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
 ## documents.proto
 
 
 
-<a name="immudb.model.Collection"></a>
+<a name="immudb-model-Collection"></a>
 
 ### Collection
 
@@ -179,15 +180,15 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | idFieldName | [string](#string) |  |  |
-| fields | [Field](#immudb.model.Field) | repeated |  |
-| indexes | [Index](#immudb.model.Index) | repeated |  |
+| fields | [Field](#immudb-model-Field) | repeated |  |
+| indexes | [Index](#immudb-model-Index) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.CollectionCreateRequest"></a>
+<a name="immudb-model-CollectionCreateRequest"></a>
 
 ### CollectionCreateRequest
 
@@ -197,15 +198,15 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | idFieldName | [string](#string) |  |  |
-| fields | [Field](#immudb.model.Field) | repeated |  |
-| indexes | [Index](#immudb.model.Index) | repeated |  |
+| fields | [Field](#immudb-model-Field) | repeated |  |
+| indexes | [Index](#immudb-model-Index) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.CollectionCreateResponse"></a>
+<a name="immudb-model-CollectionCreateResponse"></a>
 
 ### CollectionCreateResponse
 
@@ -215,7 +216,7 @@
 
 
 
-<a name="immudb.model.CollectionDeleteRequest"></a>
+<a name="immudb-model-CollectionDeleteRequest"></a>
 
 ### CollectionDeleteRequest
 
@@ -230,7 +231,7 @@
 
 
 
-<a name="immudb.model.CollectionDeleteResponse"></a>
+<a name="immudb-model-CollectionDeleteResponse"></a>
 
 ### CollectionDeleteResponse
 
@@ -240,7 +241,7 @@
 
 
 
-<a name="immudb.model.CollectionGetRequest"></a>
+<a name="immudb-model-CollectionGetRequest"></a>
 
 ### CollectionGetRequest
 
@@ -255,7 +256,7 @@
 
 
 
-<a name="immudb.model.CollectionGetResponse"></a>
+<a name="immudb-model-CollectionGetResponse"></a>
 
 ### CollectionGetResponse
 
@@ -263,14 +264,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [Collection](#immudb.model.Collection) |  |  |
+| collection | [Collection](#immudb-model-Collection) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.CollectionListRequest"></a>
+<a name="immudb-model-CollectionListRequest"></a>
 
 ### CollectionListRequest
 
@@ -280,7 +281,7 @@
 
 
 
-<a name="immudb.model.CollectionListResponse"></a>
+<a name="immudb-model-CollectionListResponse"></a>
 
 ### CollectionListResponse
 
@@ -288,14 +289,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collections | [Collection](#immudb.model.Collection) | repeated |  |
+| collections | [Collection](#immudb-model-Collection) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.CollectionUpdateRequest"></a>
+<a name="immudb-model-CollectionUpdateRequest"></a>
 
 ### CollectionUpdateRequest
 
@@ -311,7 +312,7 @@
 
 
 
-<a name="immudb.model.CollectionUpdateResponse"></a>
+<a name="immudb-model-CollectionUpdateResponse"></a>
 
 ### CollectionUpdateResponse
 
@@ -321,7 +322,7 @@
 
 
 
-<a name="immudb.model.DocumentAtRevision"></a>
+<a name="immudb-model-DocumentAtRevision"></a>
 
 ### DocumentAtRevision
 
@@ -331,14 +332,14 @@
 | ----- | ---- | ----- | ----------- |
 | transactionId | [uint64](#uint64) |  |  |
 | revision | [uint64](#uint64) |  |  |
-| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| document | [google.protobuf.Struct](#google-protobuf-Struct) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentAuditRequest"></a>
+<a name="immudb-model-DocumentAuditRequest"></a>
 
 ### DocumentAuditRequest
 
@@ -357,7 +358,7 @@
 
 
 
-<a name="immudb.model.DocumentAuditResponse"></a>
+<a name="immudb-model-DocumentAuditResponse"></a>
 
 ### DocumentAuditResponse
 
@@ -365,14 +366,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| revisions | [DocumentAtRevision](#immudb.model.DocumentAtRevision) | repeated |  |
+| revisions | [DocumentAtRevision](#immudb-model-DocumentAtRevision) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentDeleteRequest"></a>
+<a name="immudb-model-DocumentDeleteRequest"></a>
 
 ### DocumentDeleteRequest
 
@@ -381,14 +382,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| query | [Query](#immudb.model.Query) |  |  |
+| query | [Query](#immudb-model-Query) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentDeleteResponse"></a>
+<a name="immudb-model-DocumentDeleteResponse"></a>
 
 ### DocumentDeleteResponse
 
@@ -398,7 +399,7 @@
 
 
 
-<a name="immudb.model.DocumentInsertManyRequest"></a>
+<a name="immudb-model-DocumentInsertManyRequest"></a>
 
 ### DocumentInsertManyRequest
 
@@ -407,14 +408,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| documents | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
+| documents | [google.protobuf.Struct](#google-protobuf-Struct) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentInsertManyResponse"></a>
+<a name="immudb-model-DocumentInsertManyResponse"></a>
 
 ### DocumentInsertManyResponse
 
@@ -430,7 +431,7 @@
 
 
 
-<a name="immudb.model.DocumentInsertRequest"></a>
+<a name="immudb-model-DocumentInsertRequest"></a>
 
 ### DocumentInsertRequest
 
@@ -439,14 +440,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| document | [google.protobuf.Struct](#google-protobuf-Struct) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentInsertResponse"></a>
+<a name="immudb-model-DocumentInsertResponse"></a>
 
 ### DocumentInsertResponse
 
@@ -462,7 +463,7 @@
 
 
 
-<a name="immudb.model.DocumentProofRequest"></a>
+<a name="immudb-model-DocumentProofRequest"></a>
 
 ### DocumentProofRequest
 
@@ -480,7 +481,7 @@
 
 
 
-<a name="immudb.model.DocumentProofResponse"></a>
+<a name="immudb-model-DocumentProofResponse"></a>
 
 ### DocumentProofResponse
 
@@ -492,14 +493,14 @@
 | collectionId | [uint32](#uint32) |  |  |
 | idFieldName | [string](#string) |  |  |
 | encodedDocument | [bytes](#bytes) |  |  |
-| verifiableTx | [immudb.schema.VerifiableTxV2](#immudb.schema.VerifiableTxV2) |  |  |
+| verifiableTx | [immudb.schema.VerifiableTxV2](#immudb-schema-VerifiableTxV2) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentSearchRequest"></a>
+<a name="immudb-model-DocumentSearchRequest"></a>
 
 ### DocumentSearchRequest
 
@@ -509,8 +510,8 @@
 | ----- | ---- | ----- | ----------- |
 | searchID | [string](#string) |  |  |
 | collection | [string](#string) |  |  |
-| query | [Query](#immudb.model.Query) |  |  |
-| desc | [bool](#bool) |  |  |
+| query | [Query](#immudb-model-Query) |  |  |
+| orderBy | [OrderExpression](#immudb-model-OrderExpression) |  |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
 
@@ -519,7 +520,7 @@
 
 
 
-<a name="immudb.model.DocumentSearchResponse"></a>
+<a name="immudb-model-DocumentSearchResponse"></a>
 
 ### DocumentSearchResponse
 
@@ -528,14 +529,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | searchID | [string](#string) |  |  |
-| revisions | [DocumentAtRevision](#immudb.model.DocumentAtRevision) | repeated |  |
+| revisions | [DocumentAtRevision](#immudb-model-DocumentAtRevision) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentUpdateRequest"></a>
+<a name="immudb-model-DocumentUpdateRequest"></a>
 
 ### DocumentUpdateRequest
 
@@ -544,15 +545,15 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | collection | [string](#string) |  |  |
-| query | [Query](#immudb.model.Query) |  |  |
-| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| query | [Query](#immudb-model-Query) |  |  |
+| document | [google.protobuf.Struct](#google-protobuf-Struct) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.DocumentUpdateResponse"></a>
+<a name="immudb-model-DocumentUpdateResponse"></a>
 
 ### DocumentUpdateResponse
 
@@ -569,7 +570,7 @@
 
 
 
-<a name="immudb.model.Field"></a>
+<a name="immudb-model-Field"></a>
 
 ### Field
 
@@ -578,14 +579,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| type | [FieldType](#immudb.model.FieldType) |  |  |
+| type | [FieldType](#immudb-model-FieldType) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.FieldComparison"></a>
+<a name="immudb-model-FieldComparison"></a>
 
 ### FieldComparison
 
@@ -594,15 +595,15 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | field | [string](#string) |  |  |
-| operator | [ComparisonOperator](#immudb.model.ComparisonOperator) |  |  |
-| value | [google.protobuf.Value](#google.protobuf.Value) |  |  |
+| operator | [ComparisonOperator](#immudb-model-ComparisonOperator) |  |  |
+| value | [google.protobuf.Value](#google-protobuf-Value) |  |  |
 
 
 
 
 
 
-<a name="immudb.model.Index"></a>
+<a name="immudb-model-Index"></a>
 
 ### Index
 
@@ -618,7 +619,7 @@
 
 
 
-<a name="immudb.model.IndexCreateRequest"></a>
+<a name="immudb-model-IndexCreateRequest"></a>
 
 ### IndexCreateRequest
 
@@ -635,7 +636,7 @@
 
 
 
-<a name="immudb.model.IndexCreateResponse"></a>
+<a name="immudb-model-IndexCreateResponse"></a>
 
 ### IndexCreateResponse
 
@@ -645,7 +646,7 @@
 
 
 
-<a name="immudb.model.IndexDeleteRequest"></a>
+<a name="immudb-model-IndexDeleteRequest"></a>
 
 ### IndexDeleteRequest
 
@@ -661,7 +662,7 @@
 
 
 
-<a name="immudb.model.IndexDeleteResponse"></a>
+<a name="immudb-model-IndexDeleteResponse"></a>
 
 ### IndexDeleteResponse
 
@@ -671,7 +672,23 @@
 
 
 
-<a name="immudb.model.Query"></a>
+<a name="immudb-model-OrderExpression"></a>
+
+### OrderExpression
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| field | [string](#string) |  |  |
+| desc | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb-model-Query"></a>
 
 ### Query
 
@@ -679,14 +696,14 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| expressions | [QueryExpression](#immudb.model.QueryExpression) | repeated |  |
+| expressions | [QueryExpression](#immudb-model-QueryExpression) | repeated |  |
 
 
 
 
 
 
-<a name="immudb.model.QueryExpression"></a>
+<a name="immudb-model-QueryExpression"></a>
 
 ### QueryExpression
 
@@ -694,7 +711,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| fieldComparisons | [FieldComparison](#immudb.model.FieldComparison) | repeated |  |
+| fieldComparisons | [FieldComparison](#immudb-model-FieldComparison) | repeated |  |
 
 
 
@@ -703,7 +720,7 @@
  
 
 
-<a name="immudb.model.ComparisonOperator"></a>
+<a name="immudb-model-ComparisonOperator"></a>
 
 ### ComparisonOperator
 
@@ -720,7 +737,7 @@
 
 
 
-<a name="immudb.model.FieldType"></a>
+<a name="immudb-model-FieldType"></a>
 
 ### FieldType
 
@@ -738,27 +755,27 @@
  
 
 
-<a name="immudb.model.DocumentService"></a>
+<a name="immudb-model-DocumentService"></a>
 
 ### DocumentService
 
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| CollectionCreate | [CollectionCreateRequest](#immudb.model.CollectionCreateRequest) | [CollectionCreateResponse](#immudb.model.CollectionCreateResponse) |  |
-| CollectionGet | [CollectionGetRequest](#immudb.model.CollectionGetRequest) | [CollectionGetResponse](#immudb.model.CollectionGetResponse) |  |
-| CollectionList | [CollectionListRequest](#immudb.model.CollectionListRequest) | [CollectionListResponse](#immudb.model.CollectionListResponse) |  |
-| CollectionDelete | [CollectionDeleteRequest](#immudb.model.CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb.model.CollectionDeleteResponse) |  |
-| CollectionUpdate | [CollectionUpdateRequest](#immudb.model.CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb.model.CollectionUpdateResponse) |  |
-| IndexCreate | [IndexCreateRequest](#immudb.model.IndexCreateRequest) | [IndexCreateResponse](#immudb.model.IndexCreateResponse) |  |
-| IndexDelete | [IndexDeleteRequest](#immudb.model.IndexDeleteRequest) | [IndexDeleteResponse](#immudb.model.IndexDeleteResponse) |  |
-| DocumentInsert | [DocumentInsertRequest](#immudb.model.DocumentInsertRequest) | [DocumentInsertResponse](#immudb.model.DocumentInsertResponse) |  |
-| DocumentInsertMany | [DocumentInsertManyRequest](#immudb.model.DocumentInsertManyRequest) | [DocumentInsertManyResponse](#immudb.model.DocumentInsertManyResponse) |  |
-| DocumentUpdate | [DocumentUpdateRequest](#immudb.model.DocumentUpdateRequest) | [DocumentUpdateResponse](#immudb.model.DocumentUpdateResponse) |  |
-| DocumentSearch | [DocumentSearchRequest](#immudb.model.DocumentSearchRequest) | [DocumentSearchResponse](#immudb.model.DocumentSearchResponse) |  |
-| DocumentAudit | [DocumentAuditRequest](#immudb.model.DocumentAuditRequest) | [DocumentAuditResponse](#immudb.model.DocumentAuditResponse) |  |
-| DocumentProof | [DocumentProofRequest](#immudb.model.DocumentProofRequest) | [DocumentProofResponse](#immudb.model.DocumentProofResponse) |  |
-| DocumentDelete | [DocumentDeleteRequest](#immudb.model.DocumentDeleteRequest) | [DocumentDeleteResponse](#immudb.model.DocumentDeleteResponse) |  |
+| CollectionCreate | [CollectionCreateRequest](#immudb-model-CollectionCreateRequest) | [CollectionCreateResponse](#immudb-model-CollectionCreateResponse) |  |
+| CollectionGet | [CollectionGetRequest](#immudb-model-CollectionGetRequest) | [CollectionGetResponse](#immudb-model-CollectionGetResponse) |  |
+| CollectionList | [CollectionListRequest](#immudb-model-CollectionListRequest) | [CollectionListResponse](#immudb-model-CollectionListResponse) |  |
+| CollectionDelete | [CollectionDeleteRequest](#immudb-model-CollectionDeleteRequest) | [CollectionDeleteResponse](#immudb-model-CollectionDeleteResponse) |  |
+| CollectionUpdate | [CollectionUpdateRequest](#immudb-model-CollectionUpdateRequest) | [CollectionUpdateResponse](#immudb-model-CollectionUpdateResponse) |  |
+| IndexCreate | [IndexCreateRequest](#immudb-model-IndexCreateRequest) | [IndexCreateResponse](#immudb-model-IndexCreateResponse) |  |
+| IndexDelete | [IndexDeleteRequest](#immudb-model-IndexDeleteRequest) | [IndexDeleteResponse](#immudb-model-IndexDeleteResponse) |  |
+| DocumentInsert | [DocumentInsertRequest](#immudb-model-DocumentInsertRequest) | [DocumentInsertResponse](#immudb-model-DocumentInsertResponse) |  |
+| DocumentInsertMany | [DocumentInsertManyRequest](#immudb-model-DocumentInsertManyRequest) | [DocumentInsertManyResponse](#immudb-model-DocumentInsertManyResponse) |  |
+| DocumentUpdate | [DocumentUpdateRequest](#immudb-model-DocumentUpdateRequest) | [DocumentUpdateResponse](#immudb-model-DocumentUpdateResponse) |  |
+| DocumentSearch | [DocumentSearchRequest](#immudb-model-DocumentSearchRequest) | [DocumentSearchResponse](#immudb-model-DocumentSearchResponse) |  |
+| DocumentAudit | [DocumentAuditRequest](#immudb-model-DocumentAuditRequest) | [DocumentAuditResponse](#immudb-model-DocumentAuditResponse) |  |
+| DocumentProof | [DocumentProofRequest](#immudb-model-DocumentProofRequest) | [DocumentProofResponse](#immudb-model-DocumentProofResponse) |  |
+| DocumentDelete | [DocumentDeleteRequest](#immudb-model-DocumentDeleteRequest) | [DocumentDeleteResponse](#immudb-model-DocumentDeleteResponse) |  |
 
  
 

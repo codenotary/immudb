@@ -597,7 +597,7 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 		}
 	}
 
-	queryCondition, err := e.generateSQLExpression(ctx, query, table)
+	queryCondition, err := generateSQLExpression(query, table)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -607,6 +607,7 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 		collectionName,
 		queryCondition,
 		sql.NewInteger(1),
+		nil,
 		nil,
 	)
 
@@ -663,7 +664,13 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	return txID, docID, encDoc.Revision, err
 }
 
-func (e *Engine) GetDocuments(ctx context.Context, collectionName string, query *protomodel.Query, offset int64) (DocumentReader, error) {
+func (e *Engine) GetDocuments(
+	ctx context.Context,
+	collectionName string,
+	query *protomodel.Query,
+	offset int64,
+	orderExp *protomodel.OrderExpression,
+) (DocumentReader, error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, mayTranslateError(err)
@@ -674,7 +681,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, query 
 		return nil, err
 	}
 
-	queryCondition, err := e.generateSQLExpression(ctx, query, table)
+	queryCondition, err := generateSQLExpression(query, table)
 	if err != nil {
 		return nil, err
 	}
@@ -685,6 +692,7 @@ func (e *Engine) GetDocuments(ctx context.Context, collectionName string, query 
 		queryCondition,
 		nil,
 		sql.NewInteger(offset),
+		generateOrderByExpression(table, orderExp),
 	)
 
 	// returning an open reader here, so the caller HAS to close it
@@ -763,7 +771,7 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docum
 }
 
 // generateSQLExpression generates a boolean expression from a list of expressions.
-func (d *Engine) generateSQLExpression(ctx context.Context, query *protomodel.Query, table *sql.Table) (sql.ValueExp, error) {
+func generateSQLExpression(query *protomodel.Query, table *sql.Table) (sql.ValueExp, error) {
 	if query == nil || len(query.Expressions) == 0 {
 		return nil, nil
 	}
@@ -953,7 +961,7 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 		return err
 	}
 
-	queryCondition, err := e.generateSQLExpression(ctx, query, table)
+	queryCondition, err := generateSQLExpression(query, table)
 	if err != nil {
 		return err
 	}
@@ -977,4 +985,13 @@ func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, quer
 // CopyCatalogToTx copies the current sql catalog to the ongoing transaction.
 func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
 	return e.sqlEngine.CopyCatalogToTx(ctx, tx)
+}
+
+func generateOrderByExpression(table *sql.Table, orderBy *protomodel.OrderExpression) (ordCols []*sql.OrdCol) {
+	if orderBy == nil {
+		return nil
+	}
+
+	ordCols = append(ordCols, sql.NewOrdCol(table.Name(), orderBy.Field, orderBy.Desc))
+	return ordCols
 }
