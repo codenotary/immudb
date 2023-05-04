@@ -41,20 +41,20 @@ type DocumentDatabase interface {
 	CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error)
 	// DeleteIndex deletes an index from a collection
 	DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error)
-	// GetDocument returns the document
-	SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error)
 	// InsertDocument creates a new document
 	InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error)
-	// DocumentAudit returns the document audit history
-	DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error)
-	// UpdateDocument updates a document
-	UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error)
-	// DocumentProof returns the proofs for a document
-	DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error)
 	// DocumentInsertMany creates a new document
 	DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error)
+	// UpdateDocument updates a document
+	UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error)
+	// DocumentAudit returns the document audit history
+	DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error)
+	// SearchDocuments returns the documents matching the query
+	SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error)
 	// DocumentDelete deletes a single document
 	DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error)
+	// DocumentProof returns the proofs for a document
+	DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error)
 }
 
 // CreateCollection creates a new collection
@@ -99,28 +99,6 @@ func (d *db) GetCollection(ctx context.Context, req *protomodel.CollectionGetReq
 	}
 
 	return &protomodel.CollectionGetResponse{Collection: cinfo}, nil
-}
-
-// SearchDocuments returns the documents matching the search request constraints
-func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	if req.Page < 1 || req.PerPage < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
-	offset := (req.Page - 1) * req.PerPage
-	if offset < 0 {
-		return nil, fmt.Errorf("invalid offset")
-	}
-
-	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, req.Query, int64(offset))
-	if err != nil {
-		return nil, err
-	}
-	return reader, nil
 }
 
 // UpdateCollection updates an existing collection
@@ -310,6 +288,40 @@ func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditReq
 	}, nil
 }
 
+// SearchDocuments returns the documents matching the search request constraints
+func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if req.Page < 1 || req.PerPage < 1 {
+		return nil, fmt.Errorf("invalid offset or limit")
+	}
+
+	offset := (req.Page - 1) * req.PerPage
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid offset")
+	}
+
+	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, req.Query, int64(offset))
+	if err != nil {
+		return nil, err
+	}
+	return reader, nil
+}
+
+func (d *db) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.documentEngine.DeleteDocument(ctx, req.Collection, req.Query)
+	if err != nil {
+		return nil, err
+	}
+	return &protomodel.DocumentDeleteResponse{}, nil
+}
+
 // DocumentProof returns the proofs for a documenta
 func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
 	if req == nil {
@@ -371,16 +383,4 @@ func (d *db) DocumentProof(ctx context.Context, req *protomodel.DocumentProofReq
 			DualProof: schema.DualProofV2ToProto(dualProof),
 		},
 	}, nil
-}
-
-func (d *db) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	err := d.documentEngine.DeleteDocument(ctx, req.Collection, req.Query)
-	if err != nil {
-		return nil, err
-	}
-	return &protomodel.DocumentDeleteResponse{}, nil
 }
