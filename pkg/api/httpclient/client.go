@@ -128,6 +128,15 @@ type ModelDocumentAuditResponse struct {
 	Revisions *[]ModelDocumentAtRevision `json:"revisions,omitempty"`
 }
 
+// ModelDocumentDeleteRequest defines model for modelDocumentDeleteRequest.
+type ModelDocumentDeleteRequest struct {
+	Collection *string     `json:"collection,omitempty"`
+	Query      *ModelQuery `json:"query,omitempty"`
+}
+
+// ModelDocumentDeleteResponse defines model for modelDocumentDeleteResponse.
+type ModelDocumentDeleteResponse = map[string]interface{}
+
 // ModelDocumentInsertManyRequest defines model for modelDocumentInsertManyRequest.
 type ModelDocumentInsertManyRequest struct {
 	Collection *string                   `json:"collection,omitempty"`
@@ -510,6 +519,9 @@ type CollectionUpdateJSONRequestBody = ModelCollectionUpdateRequest
 // DocumentAuditJSONRequestBody defines body for DocumentAudit for application/json ContentType.
 type DocumentAuditJSONRequestBody = ModelDocumentAuditRequest
 
+// DocumentDeleteJSONRequestBody defines body for DocumentDelete for application/json ContentType.
+type DocumentDeleteJSONRequestBody = ModelDocumentDeleteRequest
+
 // DocumentInsertJSONRequestBody defines body for DocumentInsert for application/json ContentType.
 type DocumentInsertJSONRequestBody = ModelDocumentInsertRequest
 
@@ -644,6 +656,11 @@ type ClientInterface interface {
 	DocumentAuditWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	DocumentAudit(ctx context.Context, body DocumentAuditJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DocumentDelete request with any body
+	DocumentDeleteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DocumentDelete(ctx context.Context, body DocumentDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DocumentInsert request with any body
 	DocumentInsertWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -863,6 +880,30 @@ func (c *Client) DocumentAuditWithBody(ctx context.Context, contentType string, 
 
 func (c *Client) DocumentAudit(ctx context.Context, body DocumentAuditJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDocumentAuditRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DocumentDeleteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDocumentDeleteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DocumentDelete(ctx context.Context, body DocumentDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDocumentDeleteRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1415,6 +1456,46 @@ func NewDocumentAuditRequestWithBody(server string, contentType string, body io.
 	return req, nil
 }
 
+// NewDocumentDeleteRequest calls the generic DocumentDelete builder with application/json body
+func NewDocumentDeleteRequest(server string, body DocumentDeleteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDocumentDeleteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDocumentDeleteRequestWithBody generates requests for DocumentDelete with any type of body
+func NewDocumentDeleteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/documents/delete")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDocumentInsertRequest calls the generic DocumentInsert builder with application/json body
 func NewDocumentInsertRequest(server string, body DocumentInsertJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1779,6 +1860,11 @@ type ClientWithResponsesInterface interface {
 
 	DocumentAuditWithResponse(ctx context.Context, body DocumentAuditJSONRequestBody, reqEditors ...RequestEditorFn) (*DocumentAuditResponse, error)
 
+	// DocumentDelete request with any body
+	DocumentDeleteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DocumentDeleteResponse, error)
+
+	DocumentDeleteWithResponse(ctx context.Context, body DocumentDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*DocumentDeleteResponse, error)
+
 	// DocumentInsert request with any body
 	DocumentInsertWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DocumentInsertResponse, error)
 
@@ -2016,6 +2102,29 @@ func (r DocumentAuditResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DocumentAuditResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DocumentDeleteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelDocumentDeleteResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r DocumentDeleteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DocumentDeleteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2318,6 +2427,23 @@ func (c *ClientWithResponses) DocumentAuditWithResponse(ctx context.Context, bod
 		return nil, err
 	}
 	return ParseDocumentAuditResponse(rsp)
+}
+
+// DocumentDeleteWithBodyWithResponse request with arbitrary body returning *DocumentDeleteResponse
+func (c *ClientWithResponses) DocumentDeleteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DocumentDeleteResponse, error) {
+	rsp, err := c.DocumentDeleteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDocumentDeleteResponse(rsp)
+}
+
+func (c *ClientWithResponses) DocumentDeleteWithResponse(ctx context.Context, body DocumentDeleteJSONRequestBody, reqEditors ...RequestEditorFn) (*DocumentDeleteResponse, error) {
+	rsp, err := c.DocumentDelete(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDocumentDeleteResponse(rsp)
 }
 
 // DocumentInsertWithBodyWithResponse request with arbitrary body returning *DocumentInsertResponse
@@ -2719,6 +2845,39 @@ func ParseDocumentAuditResponse(rsp *http.Response) (*DocumentAuditResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ModelDocumentAuditResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDocumentDeleteResponse parses an HTTP response from a DocumentDeleteWithResponse call
+func ParseDocumentDeleteResponse(rsp *http.Response) (*DocumentDeleteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DocumentDeleteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelDocumentDeleteResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
