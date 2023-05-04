@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server/sessions"
@@ -233,7 +232,7 @@ func TestPaginationOnReader(t *testing.T) {
 		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
 
 		t.Run("test reader should throw no more entries when reading more entries from a reader", func(t *testing.T) {
-			_, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
+			_, err = s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
 				Query: &protomodel.Query{
 					Expressions: []*protomodel.QueryExpression{
@@ -252,7 +251,7 @@ func TestPaginationOnReader(t *testing.T) {
 				PerPage:  5,
 				SearchID: searchID,
 			})
-			require.ErrorIs(t, err, document.ErrNoMoreDocuments)
+			require.NoError(t, err)
 		})
 	})
 
@@ -411,6 +410,201 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 		}
 
 		require.Equal(t, 4, sess.GetPaginatedDocumentReadersCount())
+	})
+}
+
+func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithPort(0).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	authenticationServiceImp := &authenticationServiceImp{s}
+
+	logged, err := authenticationServiceImp.OpenSession(context.Background(), &protomodel.OpenSessionRequest{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, logged.SessionID)
+
+	md := metadata.Pairs("sessionid", logged.SessionID)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	// create collection
+	collectionName := "mycollection"
+
+	_, err = s.CollectionCreate(ctx, &protomodel.CollectionCreateRequest{
+		Name: collectionName,
+		Fields: []*protomodel.Field{
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "idx", Type: protomodel.FieldType_INTEGER},
+		},
+		Indexes: []*protomodel.Index{
+			{Fields: []string{"pincode"}},
+			{Fields: []string{"country"}},
+			{Fields: []string{"idx"}},
+		},
+	})
+	require.NoError(t, err)
+
+	// add documents to collection
+	for i := 1.0; i <= 10; i++ {
+		_, err = s.DocumentInsert(ctx, &protomodel.DocumentInsertRequest{
+			Collection: collectionName,
+			Document: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"pincode": {
+						Kind: &structpb.Value_NumberValue{NumberValue: i},
+					},
+					"country": {
+						Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("country-%d", int(i))},
+					},
+					"idx": {
+						Kind: &structpb.Value_NumberValue{NumberValue: i},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("test reader with multiple paginated reads", func(t *testing.T) {
+		results := make([]*protomodel.DocumentAtRevision, 0)
+
+		var searchID string
+		for i := 1; i <= 2; i++ {
+			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value:    structpb.NewNumberValue(0),
+								},
+							},
+						},
+					},
+				},
+				Page:     uint32(i),
+				PerPage:  4,
+				SearchID: searchID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, 4, len(resp.Revisions))
+			results = append(results, resp.Revisions...)
+			searchID = resp.SearchID
+		}
+
+		// ensure there is only one reader in the session for the request and it is being reused
+		// get the session from the context
+		sessionID, err := sessions.GetSessionIDFromContext(ctx)
+		require.NoError(t, err)
+
+		sess, err := s.SessManager.GetSession(sessionID)
+		require.NoError(t, err)
+		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
+
+		t.Run("test reader should throw no more entries when reading more entries from a reader", func(t *testing.T) {
+			resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value:    structpb.NewNumberValue(0),
+								},
+							},
+						},
+					},
+				},
+				Page:     3,
+				PerPage:  5,
+				SearchID: searchID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, 2, len(resp.Revisions))
+			results = append(results, resp.Revisions...)
+		})
+
+		for i := 1.0; i <= 10; i++ {
+			docAtRev := results[int(i-1)]
+			require.Equal(t, i, docAtRev.Document.Fields["idx"].GetNumberValue())
+		}
+	})
+
+	t.Run("test reader with single read", func(t *testing.T) {
+		var searchID string
+		resp, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
+			Collection: collectionName,
+			Query: &protomodel.Query{
+				Expressions: []*protomodel.QueryExpression{
+					{
+						FieldComparisons: []*protomodel.FieldComparison{
+							{
+								Field:    "pincode",
+								Operator: protomodel.ComparisonOperator_GE,
+								Value:    structpb.NewNumberValue(0),
+							},
+						},
+					},
+				},
+			},
+			Page:     1,
+			PerPage:  11,
+			SearchID: searchID,
+		})
+		require.NoError(t, err)
+		require.Equal(t, 10, len(resp.Revisions))
+		searchID = resp.SearchID
+
+		// ensure there is only one reader in the session for the request and it is being reused
+		// get the session from the context
+		sessionID, err := sessions.GetSessionIDFromContext(ctx)
+		require.NoError(t, err)
+
+		sess, err := s.SessManager.GetSession(sessionID)
+		require.NoError(t, err)
+		require.Equal(t, 0, sess.GetPaginatedDocumentReadersCount())
+
+		t.Run("test reader should throw error when reader is deleted", func(t *testing.T) {
+			_, err = s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
+				Collection: collectionName,
+				Query: &protomodel.Query{
+					Expressions: []*protomodel.QueryExpression{
+						{
+							FieldComparisons: []*protomodel.FieldComparison{
+								{
+									Field:    "pincode",
+									Operator: protomodel.ComparisonOperator_GE,
+									Value:    structpb.NewNumberValue(0),
+								},
+							},
+						},
+					},
+				},
+				Page:     2,
+				PerPage:  5,
+				SearchID: searchID,
+			})
+			require.ErrorIs(t, err, sessions.ErrPaginatedDocumentReaderNotFound)
+		})
+
 	})
 
 }

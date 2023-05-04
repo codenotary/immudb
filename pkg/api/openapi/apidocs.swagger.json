@@ -941,7 +941,9 @@
         "operator": {
           "$ref": "#/definitions/modelComparisonOperator"
         },
-        "value": {}
+        "value": {
+          "type": "object"
+        }
       }
     },
     "modelFieldType": {
