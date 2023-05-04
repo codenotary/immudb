@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	ErrPaginatedDocumentReaderNotFound = errors.New("paginated document reader not found")
+	ErrPaginatedDocumentReaderNotFound = errors.New("document reader not found")
 )
 
 type PaginatedDocumentReader struct {

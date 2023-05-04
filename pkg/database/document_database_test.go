@@ -78,6 +78,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	resp := cinfo.Collection
 	require.Equal(t, 2, len(resp.Fields))
+	require.Equal(t, 2, len(resp.Indexes))
 	require.Equal(t, resp.Fields[0].Name, "_id")
 	require.Contains(t, resp.Fields[1].Name, "pincode")
 	require.Equal(t, protomodel.FieldType_STRING, resp.Fields[0].Type)

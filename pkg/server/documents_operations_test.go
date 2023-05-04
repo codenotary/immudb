@@ -165,6 +165,29 @@ func TestPaginationOnReader(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	t.Run("test with invalid search id should fail", func(t *testing.T) {
+		_, err = s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
+			Collection: collectionName,
+			Query: &protomodel.Query{
+				Expressions: []*protomodel.QueryExpression{
+					{
+						FieldComparisons: []*protomodel.FieldComparison{
+							{
+								Field:    "pincode",
+								Operator: protomodel.ComparisonOperator_GE,
+								Value:    structpb.NewNumberValue(0),
+							},
+						},
+					},
+				},
+			},
+			Page:     1,
+			PerPage:  5,
+			SearchID: "foobar",
+		})
+		require.ErrorIs(t, err, sessions.ErrPaginatedDocumentReaderNotFound)
+	})
+
 	t.Run("test reader for multiple paginated reads", func(t *testing.T) {
 		results := make([]*protomodel.DocumentAtRevision, 0)
 
@@ -209,7 +232,7 @@ func TestPaginationOnReader(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
 
-		t.Run("test reader should throw no more entries when reading more entries", func(t *testing.T) {
+		t.Run("test reader should throw no more entries when reading more entries from a reader", func(t *testing.T) {
 			_, err := s.DocumentSearch(ctx, &protomodel.DocumentSearchRequest{
 				Collection: collectionName,
 				Query: &protomodel.Query{
