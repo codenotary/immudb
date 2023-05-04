@@ -29,24 +29,28 @@ import (
 func TestCreateDocument(t *testing.T) {
 	client := getAuthorizedClient()
 
-	id := uuid.New()
-	documentId := id.String()
+	uuid := uuid.New()
 
 	documentToInsert := make(map[string]interface{})
-	documentToInsert["_id"] = id.String()
+	documentToInsert["uuid"] = uuid.String()
 	documentToInsert["name"] = "John"
 	documentToInsert["surname"] = "Doe"
 	documentToInsert["age"] = 30
 
-	collection, err := createRandomCollection(client)
+	collectionName := getStandarizedRandomString()
+
+	err := createCollection(collectionName, client)
 	require.NoError(t, err)
 
 	req := httpclient.ModelDocumentInsertRequest{
-		Collection: collection.Name,
+		Collection: &collectionName,
 		Document:   &documentToInsert,
 	}
-	response, _ := client.DocumentInsertWithResponse(context.Background(), req)
+	response, err := client.DocumentInsertWithResponse(context.Background(), req)
+	require.NoError(t, err)
 	require.True(t, response.StatusCode() == 200)
+
+	documentId := response.JSON200.DocumentId
 
 	fieldName := "_id"
 	operator := httpclient.EQ
@@ -58,9 +62,7 @@ func TestCreateDocument(t *testing.T) {
 					{
 						Field:    &fieldName,
 						Operator: &operator,
-						Value: &map[string]interface{}{
-							"_id": &documentId,
-						},
+						Value:    documentId,
 					},
 				},
 			},
@@ -68,16 +70,17 @@ func TestCreateDocument(t *testing.T) {
 	}
 
 	page := int64(1)
-	perPage := int64(100)
+	perPage := int64(1)
 
 	searchReq := httpclient.ModelDocumentSearchRequest{
-		Collection: collection.Name,
+		Collection: &collectionName,
 		Query:      &query,
 		Page:       &page,
 		PerPage:    &perPage,
 	}
 
-	searchResponse, _ := client.DocumentSearchWithResponse(context.Background(), searchReq)
+	searchResponse, err := client.DocumentSearchWithResponse(context.Background(), searchReq)
+	require.NoError(t, err)
 	fmt.Println(searchResponse.StatusCode())
 	require.True(t, searchResponse.StatusCode() == 200)
 
@@ -85,9 +88,9 @@ func TestCreateDocument(t *testing.T) {
 
 	firstDocument := (*revisions[0].Document)
 
-	require.True(t, firstDocument["_id"] == documentId)
-	require.True(t, firstDocument["age"] == 30)
-	require.True(t, firstDocument["name"] == "John")
-	require.True(t, firstDocument["surname"] == "Doe")
+	require.Equal(t, *documentId, firstDocument["_id"])
+	require.Equal(t, float64(30), firstDocument["age"])
+	require.Equal(t, "John", firstDocument["name"])
+	require.Equal(t, "Doe", firstDocument["surname"])
 
 }
