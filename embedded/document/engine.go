@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -317,7 +318,7 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
-		nil,
+		sqlTx,
 		[]sql.SQLStmt{
 			sql.NewDropTableStmt(collectionName), // delete collection from catalog
 		},
@@ -571,23 +572,26 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	provisionedDocID, docIDProvisioned := doc.Fields[idFieldName]
 	if docIDProvisioned {
 		// inject id comparisson into query
-		idFieldComparissonExp := &protomodel.QueryExpression{
-			FieldComparisons: []*protomodel.FieldComparison{
-				{
-					Field:    idFieldName,
-					Operator: protomodel.ComparisonOperator_EQ,
-					Value:    provisionedDocID,
-				},
-			},
+		idFieldComparisson := &protomodel.FieldComparison{
+			Field:    idFieldName,
+			Operator: protomodel.ComparisonOperator_EQ,
+			Value:    provisionedDocID,
 		}
 
 		if query == nil || len(query.Expressions) == 0 {
 			query = &protomodel.Query{
-				Expressions: []*protomodel.QueryExpression{idFieldComparissonExp},
+				Expressions: []*protomodel.QueryExpression{
+					{
+						FieldComparisons: []*protomodel.FieldComparison{
+							idFieldComparisson,
+						},
+					},
+				},
 			}
 		} else {
 			// id comparisson as a first expression might result in faster comparisson
-			query.Expressions = append([]*protomodel.QueryExpression{idFieldComparissonExp}, query.Expressions...)
+			firstExp := query.Expressions[0]
+			firstExp.FieldComparisons = append([]*protomodel.FieldComparison{idFieldComparisson}, firstExp.FieldComparisons...)
 		}
 	}
 
@@ -612,6 +616,11 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	row, err := r.Read(ctx)
 	if err != nil {
 		r.Close()
+
+		if errors.Is(err, sql.ErrNoMoreRows) {
+			return 0, nil, 0, ErrDocumentNotFound
+		}
+
 		return 0, nil, 0, mayTranslateError(err)
 	}
 
