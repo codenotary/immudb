@@ -142,6 +142,6 @@ func (sqlTx *SQLTx) Closed() bool {
 	return sqlTx.closed
 }
 
-func (sqlTx *SQLTx) Delete(key []byte) error {
+func (sqlTx *SQLTx) delete(key []byte) error {
 	return sqlTx.tx.Delete(key)
 }
