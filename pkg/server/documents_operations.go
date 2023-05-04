@@ -168,38 +168,6 @@ func (s *ImmuServer) DocumentAudit(ctx context.Context, req *protomodel.Document
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentProof")
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := db.DocumentProof(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.StateSigner != nil {
-		hdr := schema.TxHeaderFromProto(res.VerifiableTx.DualProof.TargetTxHeader)
-		alh := hdr.Alh()
-
-		newState := &schema.ImmutableState{
-			Db:     db.GetName(),
-			TxId:   hdr.ID,
-			TxHash: alh[:],
-		}
-
-		err = s.StateSigner.Sign(newState)
-		if err != nil {
-			return nil, err
-		}
-
-		res.VerifiableTx.Signature = newState.Signature
-	}
-
-	return res, nil
-}
-
 func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.DocumentSearchRequest) (*protomodel.DocumentSearchResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DocumentSearch")
 	if err != nil {
@@ -285,4 +253,36 @@ func (s *ImmuServer) DocumentDelete(ctx context.Context, req *protomodel.Documen
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (s *ImmuServer) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DocumentProof")
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := db.DocumentProof(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.StateSigner != nil {
+		hdr := schema.TxHeaderFromProto(res.VerifiableTx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     db.GetName(),
+			TxId:   hdr.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		res.VerifiableTx.Signature = newState.Signature
+	}
+
+	return res, nil
 }

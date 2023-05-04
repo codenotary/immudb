@@ -18,6 +18,7 @@ package document
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
@@ -58,7 +59,7 @@ func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.Do
 	for l := 0; l < count; l++ {
 		var row *sql.Row
 		row, err = r.rowReader.Read(ctx)
-		if err == sql.ErrNoMoreRows {
+		if errors.Is(err, sql.ErrNoMoreRows) {
 			err = ErrNoMoreDocuments
 			break
 		}
@@ -96,7 +97,7 @@ func (r *documentReader) Close() error {
 func (r *documentReader) Read(ctx context.Context) (*protomodel.DocumentAtRevision, error) {
 	var row *sql.Row
 	row, err := r.rowReader.Read(ctx)
-	if err == sql.ErrNoMoreRows {
+	if errors.Is(err, sql.ErrNoMoreRows) {
 		err = ErrNoMoreDocuments
 	}
 	if err != nil {

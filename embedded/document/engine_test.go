@@ -992,14 +992,14 @@ func TestDeleteDocument(t *testing.T) {
 				FieldComparisons: []*protomodel.FieldComparison{
 					{
 						Field:    "country",
-						Operator: 0, // EQ
+						Operator: protomodel.ComparisonOperator_EQ,
 						Value: &structpb.Value{
 							Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
 						},
 					},
 					{
 						Field:    "pincode",
-						Operator: 0, // EQ
+						Operator: protomodel.ComparisonOperator_EQ,
 						Value: &structpb.Value{
 							Kind: &structpb.Value_NumberValue{NumberValue: 2},
 						},
@@ -1012,6 +1012,7 @@ func TestDeleteDocument(t *testing.T) {
 	reader, err := engine.GetDocuments(ctx, collectionName, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
+
 	docs, err := reader.ReadN(ctx, 1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(docs))
@@ -1021,6 +1022,7 @@ func TestDeleteDocument(t *testing.T) {
 
 	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(ctx, engine.sqlEngine.GetStore().LastCommittedTxID())
 	require.NoError(t, err)
+
 	reader, err = engine.GetDocuments(ctx, collectionName, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
