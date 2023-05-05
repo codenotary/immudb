@@ -19,18 +19,13 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/rs/xid"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-)
-
-var (
-	ErrInvalidPreviousPage = status.Errorf(codes.InvalidArgument, "cannot go back to a previous page")
 )
 
 func (s *ImmuServer) CollectionCreate(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
@@ -174,75 +169,96 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 		return nil, err
 	}
 
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if req.SearchId != "" && req.Query != nil {
+		return nil, fmt.Errorf("%w: query or searchId must be specified, not both", ErrIllegalArguments)
+	}
+
 	// get the session from the context
 	sessionID, err := sessions.GetSessionIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	sess, err := s.SessManager.GetSession(sessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	// check if the paginated reader for this query has already been created
-	var resultReader document.DocumentReader
 	var pgreader *sessions.PaginatedDocumentReader
-	var searchID string
 
-	// check if the incoming searchID is valid
-	if req.SearchID != "" {
+	// check if the incoming SearchId is valid
+	if req.SearchId != "" {
 		var err error
-		if pgreader, err = sess.GetPaginatedDocumentReader(req.SearchID); err != nil {
-			// invalid searchID, return error
+
+		if pgreader, err = sess.GetPaginatedDocumentReader(req.SearchId); err != nil {
+			// invalid SearchId, return error
 			return nil, err
-		} else { // paginated reader already exists, resume reading from the correct offset based
-			// on pagination parameters, do validation on the pagination parameters
-			if req.Page < pgreader.LastPageNumber {
-				return nil, ErrInvalidPreviousPage
-			}
-			resultReader = pgreader.Reader
-			searchID = req.SearchID
 		}
-	} else { // paginated reader does not exist, create a new one and add it to the session
-		resultReader, err = db.SearchDocuments(ctx, req)
+
+		// paginated reader already exists, resume reading from the correct offset based
+		// on pagination parameters, do validation on the pagination parameters
+		if req.Page != pgreader.LastPageNumber+1 || req.PageSize != pgreader.LastPageSize {
+			req.Query = pgreader.Query
+			pgreader = nil
+		}
+	} else {
+		if req.Page < 1 || req.PageSize < 1 {
+			return nil, fmt.Errorf("%w: invalid page or page size", ErrIllegalArguments)
+		}
+
+		req.SearchId = xid.New().String()
+	}
+
+	if pgreader == nil {
+		// create a new reader and add it to the session
+		offset := int64((req.Page - 1) * req.PageSize)
+
+		docReader, err := db.SearchDocuments(ctx, req.Query, offset)
 		if err != nil {
 			return nil, err
 		}
 
 		// store the reader in the session for future use
 		pgreader = &sessions.PaginatedDocumentReader{
-			Reader:         resultReader,
+			Reader:         docReader,
+			Query:          req.Query,
 			LastPageNumber: req.Page,
-			LastPageSize:   req.PerPage,
+			LastPageSize:   req.PageSize,
 		}
 
-		searchID = xid.New().String()
-		sess.SetPaginatedDocumentReader(searchID, pgreader)
+		sess.SetPaginatedDocumentReader(req.SearchId, pgreader)
 	}
 
 	// read the next page of data from the paginated reader
-	results, err := resultReader.ReadN(ctx, int(req.PerPage))
+	docs, err := pgreader.Reader.ReadN(ctx, int(req.PageSize))
 	if err != nil && !errors.Is(err, document.ErrNoMoreDocuments) {
 		return nil, err
 	}
 
 	// update the pagination parameters for this query in the session
-	sess.UpdatePaginatedDocumentReader(searchID, req.Page, req.PerPage, int(pgreader.TotalRead)+len(results))
-
-	resp := &protomodel.DocumentSearchResponse{
-		SearchID:  searchID,
-		Revisions: results,
-	}
+	sess.UpdatePaginatedDocumentReader(req.SearchId, req.Page, req.PageSize)
 
 	if errors.Is(err, document.ErrNoMoreDocuments) {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
-		delErr := sess.DeletePaginatedDocumentReader(searchID)
-		if delErr != nil {
-			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", searchID, delErr)
+		err = sess.DeletePaginatedDocumentReader(req.SearchId)
+		if err != nil {
+			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", req.SearchId, err)
 		}
+
+		return &protomodel.DocumentSearchResponse{
+			Revisions: docs,
+		}, nil
 	}
 
-	return resp, nil
+	return &protomodel.DocumentSearchResponse{
+		SearchId:  req.SearchId,
+		Revisions: docs,
+	}, nil
 }
 
 func (s *ImmuServer) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {

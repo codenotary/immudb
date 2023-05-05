@@ -148,6 +148,7 @@ func TestGetDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	query := &protomodel.Query{
+		Collection: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -166,7 +167,7 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
-	reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+	reader, err := engine.GetDocuments(ctx, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -208,6 +209,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	query := &protomodel.Query{
+		Collection: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -221,7 +223,7 @@ func TestDocumentAudit(t *testing.T) {
 		},
 	}
 
-	_, _, revision, err := engine.UpdateDocument(context.Background(), collectionName, query, &structpb.Struct{
+	_, _, revision, err := engine.UpdateDocument(context.Background(), query, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"_id":     structpb.NewStringValue(docID.EncodeToHexString()),
 			"pincode": structpb.NewNumberValue(2),
@@ -278,6 +280,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with != operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -291,7 +294,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -302,6 +305,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with < operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -315,7 +319,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -326,6 +330,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with <= operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -339,7 +344,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -350,6 +355,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with > operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -363,7 +369,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -374,6 +380,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with >= operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -387,7 +394,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -398,6 +405,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test group query with != operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -416,7 +424,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -427,6 +435,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test group query with < operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -440,7 +449,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -451,6 +460,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test group query with > operator", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -469,7 +479,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -512,6 +522,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	t.Run("update document should pass without docID", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -530,7 +541,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		updatetxID, updateDocID, rev, err := engine.UpdateDocument(ctx, collectionName, query, &structpb.Struct{
+		updatetxID, updateDocID, rev, err := engine.UpdateDocument(ctx, query, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"name": structpb.NewStringValue("Alice"),
 				"age":  structpb.NewNumberValue(31),
@@ -544,6 +555,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 		// Verify that the document was updated
 		query = &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -562,7 +574,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -574,6 +586,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	t.Run("update document should fail when no document is found", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -595,12 +608,13 @@ func TestDocumentUpdate(t *testing.T) {
 		}
 
 		// Test error case when no documents are found
-		_, _, _, err = engine.UpdateDocument(ctx, collectionName, query, toUpdateDoc)
+		_, _, _, err = engine.UpdateDocument(ctx, query, toUpdateDoc)
 		require.ErrorIs(t, err, ErrDocumentNotFound)
 	})
 
 	t.Run("update document should fail with a different docID", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -623,7 +637,7 @@ func TestDocumentUpdate(t *testing.T) {
 		}
 
 		// Call the UpdateDocument method
-		_, _, _, err := engine.UpdateDocument(ctx, collectionName, query, toUpdateDoc)
+		_, _, _, err := engine.UpdateDocument(ctx, query, toUpdateDoc)
 		require.ErrorIs(t, err, ErrDocumentNotFound)
 	})
 }
@@ -657,6 +671,7 @@ func TestFloatSupport(t *testing.T) {
 
 	// query document
 	query := &protomodel.Query{
+		Collection: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -671,7 +686,7 @@ func TestFloatSupport(t *testing.T) {
 	}
 
 	// check if document is updated
-	reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+	reader, err := engine.GetDocuments(ctx, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -870,7 +885,7 @@ func TestBulkInsert(t *testing.T) {
 	require.Equal(t, uint64(2), txID)
 	require.Len(t, docIDs, 10)
 
-	reader, err := engine.GetDocuments(ctx, collectionName, nil, nil, 0)
+	reader, err := engine.GetDocuments(ctx, &protomodel.Query{Collection: collectionName}, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -918,6 +933,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 	t.Run("test reader for multiple reads", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -931,7 +947,7 @@ func TestPaginationOnReader(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -972,6 +988,7 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	query := &protomodel.Query{
+		Collection: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -990,7 +1007,7 @@ func TestDeleteDocument(t *testing.T) {
 		},
 	}
 
-	reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
+	reader, err := engine.GetDocuments(ctx, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -998,10 +1015,10 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
 
-	err = engine.DeleteDocument(ctx, collectionName, query)
+	err = engine.DeleteDocument(ctx, query)
 	require.NoError(t, err)
 
-	reader, err = engine.GetDocuments(ctx, collectionName, query, nil, 0)
+	reader, err = engine.GetDocuments(ctx, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -1077,6 +1094,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 
 	t.Run("order by single field", func(t *testing.T) {
 		query := &protomodel.Query{
+			Collection: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -1088,14 +1106,13 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 					},
 				},
 			},
+			OrderBy: []*protomodel.OrderByClause{{
+				Field: "number",
+				Desc:  true,
+			}},
 		}
 
-		orderBy := []*protomodel.OrderExpression{{
-			Field: "number",
-			Desc:  true,
-		}}
-
-		reader, err := engine.GetDocuments(ctx, collectionName, query, orderBy, 0)
+		reader, err := engine.GetDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 

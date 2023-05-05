@@ -294,7 +294,7 @@ func (d *closedDB) DocumentAudit(ctx context.Context, req *protomodel.DocumentAu
 }
 
 // SearchDocuments returns the document
-func (d *closedDB) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
+func (d *closedDB) SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

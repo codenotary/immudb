@@ -556,7 +556,11 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 	return sql.NewRowSpec(values), nil
 }
 
-func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
+func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
+	if query == nil {
+		return 0, nil, 0, ErrIllegalArguments
+	}
+
 	if doc == nil || len(doc.Fields) == 0 {
 		doc = &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
@@ -569,7 +573,7 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	}
 	defer sqlTx.Cancel()
 
-	table, err := getTableForCollection(sqlTx, collectionName)
+	table, err := getTableForCollection(sqlTx, query.Collection)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -608,8 +612,8 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	}
 
 	queryStmt := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(collectionName, idFieldName)},
-		collectionName,
+		[]sql.Selector{sql.NewColSelector(query.Collection, idFieldName)},
+		query.Collection,
 		queryCondition,
 		sql.NewInteger(1),
 		nil,
@@ -645,13 +649,13 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 		doc.Fields[idFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
 	}
 
-	txID, _, err = e.upsertDocuments(ctx, sqlTx, collectionName, []*structpb.Struct{doc}, false)
+	txID, _, err = e.upsertDocuments(ctx, sqlTx, query.Collection, []*structpb.Struct{doc}, false)
 	if err != nil {
 		return 0, nil, 0, err
 	}
 
 	// fetch revision
-	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
+	searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.Collection, docID)
 	if err != nil {
 		return txID, docID, 0, nil
 	}
@@ -669,19 +673,17 @@ func (e *Engine) UpdateDocument(ctx context.Context, collectionName string, quer
 	return txID, docID, encDoc.Revision, err
 }
 
-func (e *Engine) GetDocuments(
-	ctx context.Context,
-	collectionName string,
-	query *protomodel.Query,
-	orderExp []*protomodel.OrderExpression,
-	offset int64,
-) (DocumentReader, error) {
+func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offset int64) (DocumentReader, error) {
+	if query == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
 
-	table, err := getTableForCollection(sqlTx, collectionName)
+	table, err := getTableForCollection(sqlTx, query.Collection)
 	if err != nil {
 		return nil, err
 	}
@@ -692,12 +694,12 @@ func (e *Engine) GetDocuments(
 	}
 
 	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(collectionName, DocumentBLOBField)},
-		collectionName,
+		[]sql.Selector{sql.NewColSelector(query.Collection, DocumentBLOBField)},
+		query.Collection,
 		queryCondition,
 		nil,
 		sql.NewInteger(offset),
-		generateOrderByExpression(table, orderExp),
+		generateOrderByExpression(table, query.OrderBy),
 	)
 
 	// returning an open reader here, so the caller HAS to close it
@@ -954,14 +956,18 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 }
 
 // DeleteDocument deletes a single document matching the query
-func (e *Engine) DeleteDocument(ctx context.Context, collectionName string, query *protomodel.Query) (err error) {
+func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) error {
+	if query == nil {
+		return ErrIllegalArguments
+	}
+
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
 	if err != nil {
 		return mayTranslateError(err)
 	}
 	defer sqlTx.Cancel()
 
-	table, err := getTableForCollection(sqlTx, collectionName)
+	table, err := getTableForCollection(sqlTx, query.Collection)
 	if err != nil {
 		return err
 	}
@@ -992,7 +998,7 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	return e.sqlEngine.CopyCatalogToTx(ctx, tx)
 }
 
-func generateOrderByExpression(table *sql.Table, orderBy []*protomodel.OrderExpression) (ordCols []*sql.OrdCol) {
+func generateOrderByExpression(table *sql.Table, orderBy []*protomodel.OrderByClause) (ordCols []*sql.OrdCol) {
 	for _, col := range orderBy {
 		ordCols = append(ordCols, sql.NewOrdCol(table.Name(), col.Field, col.Desc))
 	}

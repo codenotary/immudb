@@ -144,9 +144,8 @@ message DocumentInsertManyResponse {
 }
 
 message DocumentUpdateRequest {
-  string collection = 1;
-  Query query = 2;
-  google.protobuf.Struct document = 3;
+  Query query = 1;
+  google.protobuf.Struct document = 2;
 }
 
 message DocumentUpdateResponse {
@@ -156,21 +155,16 @@ message DocumentUpdateResponse {
 }
 
 message DocumentSearchRequest {
-  string searchID = 1;
-  string collection = 2;
-  Query query = 3;
-  repeated OrderExpression orderBy = 4;
-  uint32 page = 5;
-  uint32 perPage = 6;
-}
-
-message OrderExpression {
-  string field = 1;
-  bool desc = 2;
+  string searchId = 1;
+  Query query = 2;
+  uint32 page = 3;
+  uint32 pageSize = 4;
 }
 
 message Query {
-  repeated QueryExpression expressions = 1;
+  string collection = 1;
+  repeated QueryExpression expressions = 2;
+  repeated OrderByClause orderBy = 3;
 }
 
 message QueryExpression {
@@ -193,8 +187,13 @@ enum ComparisonOperator {
   LIKE = 6;
 }
 
+message OrderByClause {
+  string field = 1;
+  bool desc = 2;
+}
+
 message DocumentSearchResponse {
-  string searchID = 1;
+  string searchId = 1;
   repeated DocumentAtRevision revisions = 2;
 }
 
@@ -209,7 +208,7 @@ message DocumentAuditRequest {
   string documentId = 2;
   bool desc = 3;
   uint32 page = 4;
-  uint32 perPage = 5;
+  uint32 pageSize = 5;
 }
 
 message DocumentAuditResponse {
@@ -232,8 +231,7 @@ message DocumentProofResponse {
 }
 
 message DocumentDeleteRequest {
-  string collection = 1;
-  Query query = 2;
+  Query query = 1;
 }
 
 message DocumentDeleteResponse {}

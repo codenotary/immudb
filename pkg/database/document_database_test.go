@@ -99,33 +99,30 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.NotNil(t, docRes)
 
 	// query collection for document
-	reader, err := db.SearchDocuments(context.Background(), &protomodel.DocumentSearchRequest{
+	reader, err := db.SearchDocuments(context.Background(), &protomodel.Query{
 		Collection: collectionName,
-		Page:       1,
-		PerPage:    10,
-		Query: &protomodel.Query{
-			Expressions: []*protomodel.QueryExpression{
-				{
-					FieldComparisons: []*protomodel.FieldComparison{
-						{
-							Field:    "pincode",
-							Operator: protomodel.ComparisonOperator_EQ,
-							Value:    structpb.NewNumberValue(123),
-						},
+		Expressions: []*protomodel.QueryExpression{
+			{
+				FieldComparisons: []*protomodel.FieldComparison{
+					{
+						Field:    "pincode",
+						Operator: protomodel.ComparisonOperator_EQ,
+						Value:    structpb.NewNumberValue(123),
 					},
 				},
 			},
 		},
-	})
+	},
+		0,
+	)
 	require.NoError(t, err)
 
 	defer reader.Close()
 
-	revisions, err := reader.ReadN(context.Background(), 1)
+	revision, err := reader.Read(context.Background())
 	require.NoError(t, err)
 
-	require.Equal(t, 1, len(revisions))
-	doc := revisions[0].Document
+	doc := revision.Document
 
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 

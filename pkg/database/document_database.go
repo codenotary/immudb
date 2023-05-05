@@ -50,7 +50,7 @@ type DocumentDatabase interface {
 	// DocumentAudit returns the document audit history
 	DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error)
 	// SearchDocuments returns the documents matching the query
-	SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error)
+	SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error)
 	// DocumentDelete deletes a single document
 	DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error)
 	// DocumentProof returns the proofs for a document
@@ -78,7 +78,7 @@ func (d *db) CreateCollection(ctx context.Context, req *protomodel.CollectionCre
 	return &protomodel.CollectionCreateResponse{}, nil
 }
 
-func (d *db) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
+func (d *db) ListCollections(ctx context.Context, _ *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
 	collections, err := d.documentEngine.ListCollections(ctx)
 	if err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func (d *db) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateR
 		return nil, ErrIllegalArguments
 	}
 
-	txID, docID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Collection, req.Query, req.Document)
+	txID, docID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Query, req.Document)
 	if err != nil {
 		return nil, err
 	}
@@ -268,17 +268,17 @@ func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditReq
 		return nil, ErrIllegalArguments
 	}
 
+	if req.Page < 1 || req.PageSize < 1 {
+		return nil, fmt.Errorf("%w: invalid page or page size", ErrIllegalArguments)
+	}
+
 	// verify if document id is valid
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}
 
-	if req.Page < 1 || req.PerPage < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
-	revisions, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.Page), int(req.PerPage))
+	revisions, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.Page), int(req.PageSize))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching document history: %v", err)
 	}
@@ -289,25 +289,8 @@ func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditReq
 }
 
 // SearchDocuments returns the documents matching the search request constraints
-func (d *db) SearchDocuments(ctx context.Context, req *protomodel.DocumentSearchRequest) (document.DocumentReader, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	if req.Page < 1 || req.PerPage < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
-	offset := (req.Page - 1) * req.PerPage
-	if offset < 0 {
-		return nil, fmt.Errorf("invalid offset")
-	}
-
-	reader, err := d.documentEngine.GetDocuments(ctx, req.Collection, req.Query, req.OrderBy, int64(offset))
-	if err != nil {
-		return nil, err
-	}
-	return reader, nil
+func (d *db) SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error) {
+	return d.documentEngine.GetDocuments(ctx, query, offset)
 }
 
 func (d *db) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
@@ -315,7 +298,7 @@ func (d *db) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteR
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteDocument(ctx, req.Collection, req.Query)
+	err := d.documentEngine.DeleteDocument(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}

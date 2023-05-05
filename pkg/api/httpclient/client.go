@@ -120,7 +120,7 @@ type ModelDocumentAuditRequest struct {
 	Desc       *bool   `json:"desc,omitempty"`
 	DocumentId *string `json:"documentId,omitempty"`
 	Page       *int64  `json:"page,omitempty"`
-	PerPage    *int64  `json:"perPage,omitempty"`
+	PageSize   *int64  `json:"pageSize,omitempty"`
 }
 
 // ModelDocumentAuditResponse defines model for modelDocumentAuditResponse.
@@ -130,8 +130,7 @@ type ModelDocumentAuditResponse struct {
 
 // ModelDocumentDeleteRequest defines model for modelDocumentDeleteRequest.
 type ModelDocumentDeleteRequest struct {
-	Collection *string     `json:"collection,omitempty"`
-	Query      *ModelQuery `json:"query,omitempty"`
+	Query *ModelQuery `json:"query,omitempty"`
 }
 
 // ModelDocumentDeleteResponse defines model for modelDocumentDeleteResponse.
@@ -180,25 +179,22 @@ type ModelDocumentProofResponse struct {
 
 // ModelDocumentSearchRequest defines model for modelDocumentSearchRequest.
 type ModelDocumentSearchRequest struct {
-	Collection *string     `json:"collection,omitempty"`
-	Desc       *bool       `json:"desc,omitempty"`
-	Page       *int64      `json:"page,omitempty"`
-	PerPage    *int64      `json:"perPage,omitempty"`
-	Query      *ModelQuery `json:"query,omitempty"`
-	SearchID   *string     `json:"searchID,omitempty"`
+	Page     *int64      `json:"page,omitempty"`
+	PageSize *int64      `json:"pageSize,omitempty"`
+	Query    *ModelQuery `json:"query,omitempty"`
+	SearchId *string     `json:"searchId,omitempty"`
 }
 
 // ModelDocumentSearchResponse defines model for modelDocumentSearchResponse.
 type ModelDocumentSearchResponse struct {
 	Revisions *[]ModelDocumentAtRevision `json:"revisions,omitempty"`
-	SearchID  *string                    `json:"searchID,omitempty"`
+	SearchId  *string                    `json:"searchId,omitempty"`
 }
 
 // ModelDocumentUpdateRequest defines model for modelDocumentUpdateRequest.
 type ModelDocumentUpdateRequest struct {
-	Collection *string                 `json:"collection,omitempty"`
-	Document   *map[string]interface{} `json:"document,omitempty"`
-	Query      *ModelQuery             `json:"query,omitempty"`
+	Document *map[string]interface{} `json:"document,omitempty"`
+	Query    *ModelQuery             `json:"query,omitempty"`
 }
 
 // ModelDocumentUpdateResponse defines model for modelDocumentUpdateResponse.
@@ -255,9 +251,17 @@ type ModelKeepAliveRequest = map[string]interface{}
 // ModelKeepAliveResponse defines model for modelKeepAliveResponse.
 type ModelKeepAliveResponse = map[string]interface{}
 
+// ModelOrderByClause defines model for modelOrderByClause.
+type ModelOrderByClause struct {
+	Desc  *bool   `json:"desc,omitempty"`
+	Field *string `json:"field,omitempty"`
+}
+
 // ModelQuery defines model for modelQuery.
 type ModelQuery struct {
+	Collection  *string                 `json:"collection,omitempty"`
 	Expressions *[]ModelQueryExpression `json:"expressions,omitempty"`
+	OrderBy     *[]ModelOrderByClause   `json:"orderBy,omitempty"`
 }
 
 // ModelQueryExpression defines model for modelQueryExpression.

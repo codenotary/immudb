@@ -728,7 +728,7 @@
           "type": "integer",
           "format": "int64"
         },
-        "perPage": {
+        "pageSize": {
           "type": "integer",
           "format": "int64"
         }
@@ -748,9 +748,6 @@
     "modelDocumentDeleteRequest": {
       "type": "object",
       "properties": {
-        "collection": {
-          "type": "string"
-        },
         "query": {
           "$ref": "#/definitions/modelQuery"
         }
@@ -855,26 +852,17 @@
     "modelDocumentSearchRequest": {
       "type": "object",
       "properties": {
-        "searchID": {
-          "type": "string"
-        },
-        "collection": {
+        "searchId": {
           "type": "string"
         },
         "query": {
           "$ref": "#/definitions/modelQuery"
         },
-        "orderBy": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/modelOrderExpression"
-          }
-        },
         "page": {
           "type": "integer",
           "format": "int64"
         },
-        "perPage": {
+        "pageSize": {
           "type": "integer",
           "format": "int64"
         }
@@ -883,7 +871,7 @@
     "modelDocumentSearchResponse": {
       "type": "object",
       "properties": {
-        "searchID": {
+        "searchId": {
           "type": "string"
         },
         "revisions": {
@@ -897,9 +885,6 @@
     "modelDocumentUpdateRequest": {
       "type": "object",
       "properties": {
-        "collection": {
-          "type": "string"
-        },
         "query": {
           "$ref": "#/definitions/modelQuery"
         },
@@ -945,7 +930,6 @@
           "$ref": "#/definitions/modelComparisonOperator"
         },
         "value": {
-          "type": "object"
         }
       }
     },
@@ -1016,7 +1000,7 @@
     "modelKeepAliveResponse": {
       "type": "object"
     },
-    "modelOrderExpression": {
+    "modelOrderByClause": {
       "type": "object",
       "properties": {
         "field": {
@@ -1030,10 +1014,19 @@
     "modelQuery": {
       "type": "object",
       "properties": {
+        "collection": {
+          "type": "string"
+        },
         "expressions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/modelQueryExpression"
+          }
+        },
+        "orderBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelOrderByClause"
           }
         }
       }
