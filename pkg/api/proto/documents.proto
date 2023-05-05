@@ -159,7 +159,7 @@ message DocumentSearchRequest {
   string searchID = 1;
   string collection = 2;
   Query query = 3;
-  OrderExpression orderBy = 4;
+  repeated OrderExpression orderBy = 4;
   uint32 page = 5;
   uint32 perPage = 6;
 }

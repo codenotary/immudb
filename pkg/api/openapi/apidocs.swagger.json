@@ -865,7 +865,10 @@
           "$ref": "#/definitions/modelQuery"
         },
         "orderBy": {
-          "$ref": "#/definitions/modelOrderExpression"
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelOrderExpression"
+          }
         },
         "page": {
           "type": "integer",

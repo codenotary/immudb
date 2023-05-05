@@ -668,8 +668,8 @@ func (e *Engine) GetDocuments(
 	ctx context.Context,
 	collectionName string,
 	query *protomodel.Query,
+	orderExp []*protomodel.OrderExpression,
 	offset int64,
-	orderExp *protomodel.OrderExpression,
 ) (DocumentReader, error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
@@ -987,11 +987,9 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	return e.sqlEngine.CopyCatalogToTx(ctx, tx)
 }
 
-func generateOrderByExpression(table *sql.Table, orderBy *protomodel.OrderExpression) (ordCols []*sql.OrdCol) {
-	if orderBy == nil {
-		return nil
+func generateOrderByExpression(table *sql.Table, orderBy []*protomodel.OrderExpression) (ordCols []*sql.OrdCol) {
+	for _, col := range orderBy {
+		ordCols = append(ordCols, sql.NewOrdCol(table.Name(), col.Field, col.Desc))
 	}
-
-	ordCols = append(ordCols, sql.NewOrdCol(table.Name(), orderBy.Field, orderBy.Desc))
 	return ordCols
 }
