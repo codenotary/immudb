@@ -3,7 +3,7 @@ WORKDIR /src
 COPY . .
 RUN GOOS=linux GOARCH=amd64 make immuclient-static
 
-FROM debian:11.6-slim as bullseye
+FROM debian:11.7-slim as bullseye
 LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 
 COPY --from=build /src/immuclient /app/immuclient

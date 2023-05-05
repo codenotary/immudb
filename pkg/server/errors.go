@@ -56,6 +56,7 @@ var (
 	ErrDatabaseAlreadyLoaded       = errors.New("database already loaded")
 	ErrTruncatorNotNeeded          = errors.New("truncator is not needed")
 	ErrTruncatorNotInProgress      = errors.New("truncation is not in progress")
+	ErrTruncatorDoesNotExist       = errors.New("truncator does not exist")
 )
 
 func mapServerError(err error) error {

@@ -1654,6 +1654,27 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
+func TestErrorDuringUpdate(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(
+		context.Background(), nil,
+		`
+		create table mytable(id varchar[256], value integer, primary key id);
+		insert into mytable(id, value) values('aa',12), ('ab',13);
+	`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "update mytable set value=@val where id=@id", nil)
+	require.ErrorIs(t, err, ErrMissingParameter)
+
+	params := make(map[string]interface{})
+	params["id"] = "ab";
+	params["val"] = 15;
+	_, _, err = engine.Exec(context.Background(), nil, "update mytable set value=@val where id=@id", params)
+	require.NoError(t, err)
+}
+
 func TestTransactions(t *testing.T) {
 	engine := setupCommonTest(t)
 

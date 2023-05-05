@@ -1102,6 +1102,8 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		row, err := rowReader.Read(ctx)
 		if err == ErrNoMoreRows {
 			break
+		} else if err != nil {
+			return nil, err
 		}
 
 		valuesByColID := make(map[uint32]TypedValue, len(row.ValuesBySelector))
