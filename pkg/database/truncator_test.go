@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
-	schemav2 "github.com/codenotary/immudb/pkg/api/documentschema"
+	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -647,10 +647,13 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	// create new document store
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), &schemav2.CollectionCreateRequest{
+	_, err := db.CreateCollection(context.Background(), &protomodel.CollectionCreateRequest{
 		Name: collectionName,
-		IndexKeys: map[string]*schemav2.IndexOption{
-			"pincode": newIndexOption(schemav2.IndexType_INTEGER),
+		Fields: []*protomodel.Field{
+			{Name: "pincode", Type: protomodel.FieldType_DOUBLE},
+		},
+		Indexes: []*protomodel.Index{
+			{Fields: []string{"pincode"}},
 		},
 	})
 	require.NoError(t, err)
@@ -673,15 +676,14 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		query(t, "SELECT * FROM table1", 0)
 
 		// get collection
-		cinfo, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
+		cinfo, err := db.GetCollection(context.Background(), &protomodel.CollectionGetRequest{
 			Name: collectionName,
 		})
 		require.NoError(t, err)
 		resp := cinfo.Collection
-		require.Equal(t, 2, len(resp.IndexKeys))
-		require.Contains(t, resp.IndexKeys, "_id")
-		require.Contains(t, resp.IndexKeys, "pincode")
-		require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
+		require.Equal(t, 2, len(resp.Indexes))
+		require.Contains(t, resp.Indexes[0].Fields, "_id")
+		require.Contains(t, resp.Indexes[1].Fields, "pincode")
 	})
 
 	// insert some data
@@ -694,7 +696,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
 
-		res, err := db.InsertDocument(context.Background(), &schemav2.DocumentInsertRequest{
+		res, err := db.InsertDocument(context.Background(), &protomodel.DocumentInsertRequest{
 			Collection: collectionName,
 			Document: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -727,7 +729,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Foo', 0)")
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
 
-		res, err := db.InsertDocument(context.Background(), &schemav2.DocumentInsertRequest{
+		res, err := db.InsertDocument(context.Background(), &protomodel.DocumentInsertRequest{
 			Collection: collectionName,
 			Document: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -745,15 +747,14 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	t.Run("succeed loading catalog from latest schema should work", func(t *testing.T) {
 		query(t, "SELECT * FROM table1", 2)
 
-		cinfo, err := db.GetCollection(context.Background(), &schemav2.CollectionGetRequest{
+		cinfo, err := db.GetCollection(context.Background(), &protomodel.CollectionGetRequest{
 			Name: collectionName,
 		})
 		require.NoError(t, err)
 
 		resp := cinfo.Collection
-		require.Equal(t, 2, len(resp.IndexKeys))
-		require.Contains(t, resp.IndexKeys, "_id")
-		require.Contains(t, resp.IndexKeys, "pincode")
-		require.Equal(t, schemav2.IndexType_INTEGER, resp.IndexKeys["pincode"].Type)
+		require.Equal(t, 2, len(resp.Indexes))
+		require.Contains(t, resp.Indexes[0].Fields, "_id")
+		require.Contains(t, resp.Indexes[1].Fields, "pincode")
 	})
 }
