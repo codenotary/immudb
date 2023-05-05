@@ -705,9 +705,7 @@ func TestDeleteCollection(t *testing.T) {
 	for i := 1.0; i <= 10; i++ {
 		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"number": {
-					Kind: &structpb.Value_NumberValue{NumberValue: i},
-				},
+				"number": structpb.NewNumberValue(i),
 			},
 		})
 		require.NoError(t, err)
@@ -969,12 +967,8 @@ func TestDeleteDocument(t *testing.T) {
 	// add document to collection
 	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"pincode": {
-				Kind: &structpb.Value_NumberValue{NumberValue: 2},
-			},
-			"country": {
-				Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-			},
+			"pincode": structpb.NewNumberValue(2),
+			"country": structpb.NewStringValue("wonderland"),
 		},
 	})
 	require.NoError(t, err)
@@ -986,16 +980,12 @@ func TestDeleteDocument(t *testing.T) {
 					{
 						Field:    "country",
 						Operator: protomodel.ComparisonOperator_EQ,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_StringValue{StringValue: "wonderland"},
-						},
+						Value:    structpb.NewStringValue("wonderland"),
 					},
 					{
 						Field:    "pincode",
 						Operator: protomodel.ComparisonOperator_EQ,
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 2},
-						},
+						Value:    structpb.NewNumberValue(2),
 					},
 				},
 			},
@@ -1008,13 +998,11 @@ func TestDeleteDocument(t *testing.T) {
 
 	docs, err := reader.ReadN(ctx, 1)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(docs))
+	require.Len(t, docs, 1)
 
 	err = engine.DeleteDocument(ctx, collectionName, query)
 	require.NoError(t, err)
 
-	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(ctx, engine.sqlEngine.GetStore().LastCommittedTxID())
-	require.NoError(t, err)
 	reader, err = engine.GetDocuments(ctx, collectionName, query, nil, 0)
 	require.NoError(t, err)
 	defer reader.Close()
@@ -1049,8 +1037,8 @@ func TestGetCollection(t *testing.T) {
 	collection, err := engine.GetCollection(context.Background(), collectionName)
 	require.NoError(t, err)
 	require.Equal(t, collectionName, collection.Name)
-	require.Equal(t, 5, len(collection.Fields))
-	require.Equal(t, 5, len(collection.Indexes))
+	require.Len(t, collection.Fields, 5)
+	require.Len(t, collection.Indexes, 5)
 
 	expectedIndexKeys := []string{"_id", "number", "name", "pin", "country"}
 	for i, key := range expectedIndexKeys {
@@ -1094,7 +1082,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 				FieldComparisons: []*protomodel.FieldComparison{
 					{
 						Field:    "number",
-						Operator: protomodel.ComparisonOperator(sql.GT), // EQ
+						Operator: protomodel.ComparisonOperator_EQ,
 						Value:    structpb.NewNumberValue(0),
 					},
 				},
@@ -1111,9 +1099,10 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 		reader, err := engine.GetDocuments(ctx, collectionName, query, orderBy, 0)
 		require.NoError(t, err)
 		defer reader.Close()
+
 		docs, err := reader.ReadN(ctx, noOfDocs)
 		require.NoError(t, err)
-		require.Equal(t, 5, len(docs))
+		require.Len(t, docs, 5)
 
 		i := noOfDocs
 		for _, doc := range docs {

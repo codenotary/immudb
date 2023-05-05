@@ -26,9 +26,9 @@ import (
 func newDoc(id float64, name string, age float64) *Document {
 	doc, err := NewDocumentFrom(&structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"id":   {Kind: &structpb.Value_NumberValue{NumberValue: id}},
-			"name": {Kind: &structpb.Value_StringValue{StringValue: name}},
-			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: age}},
+			"id":   structpb.NewNumberValue(id),
+			"name": structpb.NewStringValue(name),
+			"age":  structpb.NewNumberValue(age),
 		},
 	})
 	if err != nil {
@@ -40,9 +40,9 @@ func newDoc(id float64, name string, age float64) *Document {
 func TestDocument(t *testing.T) {
 	r, err := NewDocumentFrom(&structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"name": {Kind: &structpb.Value_StringValue{StringValue: "foo"}},
-			"id":   {Kind: &structpb.Value_NumberValue{NumberValue: 1}},
-			"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 10}},
+			"name": structpb.NewStringValue("foo"),
+			"id":   structpb.NewNumberValue(1),
+			"age":  structpb.NewNumberValue(10),
 		},
 	})
 	if err != nil {
@@ -74,16 +74,16 @@ func TestDocument(t *testing.T) {
 	t.Run("check field ordering", func(t *testing.T) {
 		r1, _ := NewDocumentFrom(&structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"name": {Kind: &structpb.Value_StringValue{StringValue: "foo"}},
-				"id":   {Kind: &structpb.Value_NumberValue{NumberValue: 1}},
-				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 10}},
+				"name": structpb.NewStringValue("foo"),
+				"id":   structpb.NewNumberValue(1),
+				"age":  structpb.NewNumberValue(10),
 			},
 		})
 		r2, _ := NewDocumentFrom(&structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"age":  {Kind: &structpb.Value_NumberValue{NumberValue: 10}},
-				"id":   {Kind: &structpb.Value_NumberValue{NumberValue: 1}},
-				"name": {Kind: &structpb.Value_StringValue{StringValue: "foo"}},
+				"age":  structpb.NewNumberValue(10),
+				"id":   structpb.NewNumberValue(1),
+				"name": structpb.NewStringValue("foo"),
 			},
 		})
 		require.Equal(t, r1.Bytes(), r2.Bytes())
