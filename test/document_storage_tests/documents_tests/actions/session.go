@@ -43,5 +43,5 @@ func OpenSession(t *testing.T) (*httpexpect.Expect, string) {
 		Expect().
 		Status(http.StatusOK).JSON().Object()
 
-	return expect, obj.Value("token").Raw().(string)
+	return expect, obj.Value("sessionID").Raw().(string)
 }
