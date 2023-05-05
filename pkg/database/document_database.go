@@ -272,13 +272,16 @@ func (d *db) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditReq
 		return nil, fmt.Errorf("%w: invalid page or page size", ErrIllegalArguments)
 	}
 
+	offset := uint64((req.Page - 1) * req.PageSize)
+	limit := int(req.PageSize)
+
 	// verify if document id is valid
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}
 
-	revisions, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, int(req.Page), int(req.PageSize))
+	revisions, err := d.documentEngine.DocumentAudit(ctx, req.Collection, docID, req.Desc, offset, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching document history: %v", err)
 	}

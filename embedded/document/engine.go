@@ -738,25 +738,19 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 }
 
 // DocumentAudit returns the audit history of a document.
-func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, documentID DocumentID, pageNum int, itemsPerPage int) ([]*protomodel.DocumentAtRevision, error) {
-	offset := (pageNum - 1) * itemsPerPage
-	limit := itemsPerPage
-	if offset < 0 || limit < 1 {
-		return nil, fmt.Errorf("invalid offset or limit")
-	}
-
+func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
 	defer sqlTx.Cancel()
 
-	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, documentID)
+	searchKey, err := e.getKeyForDocument(ctx, sqlTx, collectionName, docID)
 	if err != nil {
 		return nil, err
 	}
 
-	txIDs, _, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), false, limit)
+	txIDs, _, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), desc, limit)
 	if err != nil {
 		return nil, err
 	}

@@ -234,7 +234,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.Equal(t, uint64(2), revision)
 
 	// get document audit
-	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, 1, 10)
+	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, false, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
 
