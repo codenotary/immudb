@@ -44,8 +44,13 @@ type EncodedDocumentAtRevision struct {
 	EncodedDocument []byte
 }
 
-func NewEngine(store *store.ImmuStore, opts *sql.Options) (*Engine, error) {
-	engine, err := sql.NewEngine(store, opts)
+func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	engine, err := sql.NewEngine(store, sql.DefaultOptions().WithPrefix(opts.prefix))
 	if err != nil {
 		return nil, err
 	}

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/stretchr/testify/require"
@@ -39,8 +38,7 @@ func makeEngine(t *testing.T) *Engine {
 		}
 	})
 
-	opts := sql.DefaultOptions()
-	engine, err := NewEngine(st, opts)
+	engine, err := NewEngine(st, DefaultOptions())
 	require.NoError(t, err)
 
 	return engine
