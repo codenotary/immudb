@@ -511,7 +511,7 @@
 | searchID | [string](#string) |  |  |
 | collection | [string](#string) |  |  |
 | query | [Query](#immudb-model-Query) |  |  |
-| orderBy | [OrderExpression](#immudb-model-OrderExpression) |  |  |
+| orderBy | [OrderExpression](#immudb-model-OrderExpression) | repeated |  |
 | page | [uint32](#uint32) |  |  |
 | perPage | [uint32](#uint32) |  |  |
 

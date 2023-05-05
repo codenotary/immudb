@@ -168,7 +168,7 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
-	reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+	reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -293,7 +293,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -317,7 +317,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -341,7 +341,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -365,7 +365,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -389,7 +389,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -418,7 +418,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -442,7 +442,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -471,7 +471,7 @@ func TestQueryDocuments(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -564,7 +564,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -673,7 +673,7 @@ func TestFloatSupport(t *testing.T) {
 	}
 
 	// check if document is updated
-	reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+	reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -874,7 +874,7 @@ func TestBulkInsert(t *testing.T) {
 	require.Equal(t, uint64(2), txID)
 	require.Len(t, docIDs, 10)
 
-	reader, err := engine.GetDocuments(ctx, collectionName, nil, 0, nil)
+	reader, err := engine.GetDocuments(ctx, collectionName, nil, nil, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -935,7 +935,7 @@ func TestPaginationOnReader(t *testing.T) {
 			},
 		}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -1002,7 +1002,7 @@ func TestDeleteDocument(t *testing.T) {
 		},
 	}
 
-	reader, err := engine.GetDocuments(ctx, collectionName, query, 0, nil)
+	reader, err := engine.GetDocuments(ctx, collectionName, query, nil, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -1015,7 +1015,7 @@ func TestDeleteDocument(t *testing.T) {
 
 	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(ctx, engine.sqlEngine.GetStore().LastCommittedTxID())
 	require.NoError(t, err)
-	reader, err = engine.GetDocuments(ctx, collectionName, query, 0, nil)
+	reader, err = engine.GetDocuments(ctx, collectionName, query, nil, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -1069,9 +1069,10 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 		"",
 		[]*protomodel.Field{
 			{Name: "number", Type: protomodel.FieldType_DOUBLE},
+			{Name: "age", Type: protomodel.FieldType_DOUBLE},
 		},
 		[]*protomodel.Index{
-			{Fields: []string{"number"}},
+			{Fields: []string{"number", "age"}},
 		},
 	)
 	require.NoError(t, err)
@@ -1081,9 +1082,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 	for i := 1; i <= noOfDocs; i++ {
 		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"number": {
-					Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
-				},
+				"number": structpb.NewNumberValue(float64(i)),
 			},
 		})
 		require.NoError(t, err)
@@ -1096,9 +1095,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 					{
 						Field:    "number",
 						Operator: protomodel.ComparisonOperator(sql.GT), // EQ
-						Value: &structpb.Value{
-							Kind: &structpb.Value_NumberValue{NumberValue: 0},
-						},
+						Value:    structpb.NewNumberValue(0),
 					},
 				},
 			},
@@ -1106,16 +1103,16 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 	}
 
 	t.Run("order by single field", func(t *testing.T) {
-		orderBy := &protomodel.OrderExpression{
+		orderBy := []*protomodel.OrderExpression{{
 			Field: "number",
 			Desc:  true,
-		}
+		}}
 
-		reader, err := engine.GetDocuments(ctx, collectionName, query, 0, orderBy)
+		reader, err := engine.GetDocuments(ctx, collectionName, query, orderBy, 0)
 		require.NoError(t, err)
 		defer reader.Close()
 		docs, err := reader.ReadN(ctx, noOfDocs)
-		// require.NoError(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 5, len(docs))
 
 		i := noOfDocs
@@ -1124,5 +1121,4 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 			i--
 		}
 	})
-
 }
