@@ -19,13 +19,13 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/ory/go-acc v0.2.8
 	github.com/peterh/liner v1.2.1
-	github.com/prometheus/client_golang v1.12.2
-	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.32.1
-	github.com/prometheus/procfs v0.7.3
+	github.com/prometheus/client_golang v1.15.1
+	github.com/prometheus/client_model v0.4.0
+	github.com/prometheus/common v0.43.0
+	github.com/prometheus/procfs v0.9.0
 	github.com/pseudomuto/protoc-gen-doc v1.4.1
 	github.com/rakyll/statik v0.1.7
-	github.com/rogpeppe/go-internal v1.9.0
+	github.com/rogpeppe/go-internal v1.10.0
 	github.com/rs/xid v1.5.0
 	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v1.6.1
@@ -40,7 +40,7 @@ require (
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
 	google.golang.org/grpc v1.54.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
@@ -78,7 +78,7 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
