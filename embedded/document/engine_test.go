@@ -1049,8 +1049,9 @@ func TestGetCollection(t *testing.T) {
 func TestGetDocuments_WithOrderBy(t *testing.T) {
 	ctx := context.Background()
 	engine := makeEngine(t)
-	// create collection
+
 	collectionName := "mycollection"
+
 	err := engine.CreateCollection(
 		context.Background(),
 		collectionName,
@@ -1066,7 +1067,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 	require.NoError(t, err)
 
 	noOfDocs := 5
-	// add documents to collection
+
 	for i := 1; i <= noOfDocs; i++ {
 		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
@@ -1076,21 +1077,21 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	query := &protomodel.Query{
-		Expressions: []*protomodel.QueryExpression{
-			{
-				FieldComparisons: []*protomodel.FieldComparison{
-					{
-						Field:    "number",
-						Operator: protomodel.ComparisonOperator_EQ,
-						Value:    structpb.NewNumberValue(0),
+	t.Run("order by single field", func(t *testing.T) {
+		query := &protomodel.Query{
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "number",
+							Operator: protomodel.ComparisonOperator_LE,
+							Value:    structpb.NewNumberValue(5),
+						},
 					},
 				},
 			},
-		},
-	}
+		}
 
-	t.Run("order by single field", func(t *testing.T) {
 		orderBy := []*protomodel.OrderExpression{{
 			Field: "number",
 			Desc:  true,
