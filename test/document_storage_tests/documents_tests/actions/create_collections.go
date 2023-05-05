@@ -17,132 +17,156 @@ limitations under the License.
 package actions
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/gavv/httpexpect/v2"
 )
 
-func CreateCollectionWithName(expect *httpexpect.Expect, token string, name string) *httpexpect.Object {
-	payloadModel := `{
-		"name": "string"
-	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = name
+func CreateCollectionWithName(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name": name,
+	}
 
-	expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
-
-	return collection
+	return createCollection(expect, sessionID, payload)
 }
 
-func CreateCollectionWithNameAndOneIndexKey(expect *httpexpect.Expect, token string, name string) *httpexpect.Object {
-	payloadModel := `{
-		"name": "string",
-		"indexKeys": {
-			"customers": {
-			  "type": "DOUBLE"
-			}
-		}
- 	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = name
-	payload["indexKeys"] = map[string]interface{}{
-		"birth_date": map[string]interface{}{
-			"type": "STRING",
+func CreateCollectionWithNameAndOneField(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name": name,
+		"fields": []interface{}{
+			map[string]interface{}{
+				"name": "first_name",
+				"type": "STRING",
+			},
 		},
 	}
 
-	expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
-
-	return collection
+	return createCollection(expect, sessionID, payload)
 }
 
-func CreateCollectionWithNameAndMultipleIndexKeys(expect *httpexpect.Expect, token string, name string) *httpexpect.Object {
-	payloadModel := `{
-		"name": "string",
-		"indexKeys": {
-			"employees": {
-			  "type": "INTEGER"
-			}
-		}
- 	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = name
-	payload["indexKeys"] = map[string]interface{}{
-		"birth_date": map[string]interface{}{
-			"type": "STRING",
-		},
-		"first_name": map[string]interface{}{
-			"type": "STRING",
-		},
-		"last_name": map[string]interface{}{
-			"type": "STRING",
-		},
-		"gender": map[string]interface{}{
-			"type": "STRING",
-		},
-		"hire_date": map[string]interface{}{
-			"type": "STRING",
+func CreateCollectionWithNameAndIdFieldName(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name":        name,
+		"idFieldName": "emp_no",
+	}
+
+	return createCollection(expect, sessionID, payload)
+}
+
+func CreateCollectionWithNameIdFieldNameAndOneField(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name":        name,
+		"idFieldName": "emp_no",
+		"fields": []interface{}{
+			map[string]interface{}{
+				"name": "hire_date",
+				"type": "STRING",
+			},
 		},
 	}
 
-	expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", token).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
-
-	collection := expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", token).
-		WithQuery("name", payload["name"]).
-		Expect().
-		Status(http.StatusOK).
-		JSON().Object()
-
-	return collection
+	return createCollection(expect, sessionID, payload)
 }
 
-func CreateCollectionWithIntegerName(expect *httpexpect.Expect, token string, name string) *httpexpect.Object {
-	payloadModel := `{
-		"name": 123
- 	}`
-	var payload map[string]interface{}
-	json.Unmarshal([]byte(payloadModel), &payload)
-	payload["name"] = name
+func CreateCollectionWithNameOneFieldAndOneUniqueIndex(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name": name,
+		"fields": []interface{}{
+			map[string]interface{}{
+				"name": "id_number",
+				"type": "INTEGER",
+			},
+		},
+		"indexes": []interface{}{
+			map[string]interface{}{
+				"fields": []string{
+					"id_number",
+				},
+				"isUnique": true,
+			},
+		},
+	}
 
+	return createCollection(expect, sessionID, payload)
+}
+
+func CreateCollectionWithNameAndMultipleFields(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name": name,
+		"fields": []interface{}{
+			map[string]interface{}{
+				"name": "birth_date",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "first_name",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "last_name",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "gender",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "hire_date",
+				"type": "STRING",
+			},
+		},
+	}
+
+	return createCollection(expect, sessionID, payload)
+}
+
+func CreateCollectionWithNameMultipleFieldsAndMultipleIndexes(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
+	payload := map[string]interface{}{
+		"name": name,
+		"fields": []interface{}{
+			map[string]interface{}{
+				"name": "birth_date",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "first_name",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "last_name",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "gender",
+				"type": "STRING",
+			},
+			map[string]interface{}{
+				"name": "hire_date",
+				"type": "STRING",
+			},
+		},
+		"indexes": []interface{}{
+			map[string]interface{}{
+				"fields": []string{
+					"birth_date", "last_name",
+				},
+				"isUnique": true,
+			},
+		},
+	}
+
+	return createCollection(expect, sessionID, payload)
+}
+
+func createCollection(expect *httpexpect.Expect, sessionID string, payload map[string]interface{}) *httpexpect.Object {
 	expect.PUT("/collections/create").
-		WithHeader("grpc-metadata-sessionid", token).
+		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithJSON(payload).
 		Expect().
-		Status(http.StatusOK).JSON().Object().NotEmpty()
+		Status(http.StatusOK).JSON().Object().Empty()
 
 	collection := expect.GET("/collections/get").
-		WithHeader("grpc-metadata-sessionid", token).
+		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithQuery("name", payload["name"]).
 		Expect().
 		Status(http.StatusOK).
