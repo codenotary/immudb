@@ -203,6 +203,11 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 		// paginated reader already exists, resume reading from the correct offset based
 		// on pagination parameters, do validation on the pagination parameters
 		if req.Page != pgreader.LastPageNumber+1 || req.PageSize != pgreader.LastPageSize {
+			if pgreader.Reader != nil {
+				err := pgreader.Reader.Close()
+				s.Logger.Errorf("error closing paginated reader: %s, err = %v", req.SearchId, err)
+			}
+
 			req.Query = pgreader.Query
 			pgreader = nil
 		}
