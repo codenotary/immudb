@@ -221,6 +221,19 @@ func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table,
 	return table, mayTranslateError(err)
 }
 
+func getColumnForField(table *sql.Table, field string) (*sql.Column, error) {
+	if field == "" {
+		return nil, fmt.Errorf("%w: invalid field name", ErrIllegalArguments)
+	}
+
+	column, err := table.GetColumnByName(field)
+	if errors.Is(err, sql.ErrColumnDoesNotExist) {
+		return nil, fmt.Errorf("%w (%s)", mayTranslateError(err), field)
+	}
+
+	return column, mayTranslateError(err)
+}
+
 func collectionFromTable(table *sql.Table) *protomodel.Collection {
 	idFieldName := docIDFieldName(table)
 
@@ -796,9 +809,9 @@ func generateSQLExpression(query *protomodel.Query, table *sql.Table) (sql.Value
 		var innerExp sql.ValueExp
 
 		for i, exp := range exp.FieldComparisons {
-			column, err := table.GetColumnByName(exp.Field)
+			column, err := getColumnForField(table, exp.Field)
 			if err != nil {
-				return nil, mayTranslateError(err)
+				return nil, err
 			}
 
 			value, err := structValueToSqlValue(column.Type(), exp.Value)
