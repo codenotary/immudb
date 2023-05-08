@@ -34,6 +34,7 @@
     - [DocumentInsertManyResponse](#immudb.model.DocumentInsertManyResponse)
     - [DocumentInsertRequest](#immudb.model.DocumentInsertRequest)
     - [DocumentInsertResponse](#immudb.model.DocumentInsertResponse)
+    - [DocumentMetadata](#immudb.model.DocumentMetadata)
     - [DocumentProofRequest](#immudb.model.DocumentProofRequest)
     - [DocumentProofResponse](#immudb.model.DocumentProofResponse)
     - [DocumentSearchRequest](#immudb.model.DocumentSearchRequest)
@@ -332,6 +333,7 @@
 | ----- | ---- | ----- | ----------- |
 | transactionId | [uint64](#uint64) |  |  |
 | revision | [uint64](#uint64) |  |  |
+| metadata | [DocumentMetadata](#immudb.model.DocumentMetadata) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 
 
@@ -456,6 +458,21 @@
 | ----- | ---- | ----- | ----------- |
 | transactionId | [uint64](#uint64) |  |  |
 | documentId | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.model.DocumentMetadata"></a>
+
+### DocumentMetadata
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| deleted | [bool](#bool) |  |  |
 
 
 

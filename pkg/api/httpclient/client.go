@@ -110,6 +110,7 @@ type ModelComparisonOperator string
 // ModelDocumentAtRevision defines model for modelDocumentAtRevision.
 type ModelDocumentAtRevision struct {
 	Document      *map[string]interface{} `json:"document,omitempty"`
+	Metadata      *ModelDocumentMetadata  `json:"metadata,omitempty"`
 	Revision      *string                 `json:"revision,omitempty"`
 	TransactionId *string                 `json:"transactionId,omitempty"`
 }
@@ -158,6 +159,11 @@ type ModelDocumentInsertRequest struct {
 type ModelDocumentInsertResponse struct {
 	DocumentId    *string `json:"documentId,omitempty"`
 	TransactionId *string `json:"transactionId,omitempty"`
+}
+
+// ModelDocumentMetadata defines model for modelDocumentMetadata.
+type ModelDocumentMetadata struct {
+	Deleted *bool `json:"deleted,omitempty"`
 }
 
 // ModelDocumentProofRequest defines model for modelDocumentProofRequest.

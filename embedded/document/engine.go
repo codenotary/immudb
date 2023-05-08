@@ -41,6 +41,7 @@ type Engine struct {
 type EncodedDocumentAtRevision struct {
 	TxID            uint64
 	Revision        uint64
+	KVMetadata      *store.KVMetadata
 	EncodedDocument []byte
 }
 
@@ -862,6 +863,14 @@ func (e *Engine) getDocumentAtRevision(
 		return nil, err
 	}
 
+	if encDocAtRevision.KVMetadata != nil && encDocAtRevision.KVMetadata.Deleted() {
+		return &protomodel.DocumentAtRevision{
+			TransactionId: encDocAtRevision.TxID,
+			Revision:      encDocAtRevision.Revision,
+			Metadata:      &protomodel.DocumentMetadata{Deleted: true},
+		}, nil
+	}
+
 	voff := sql.EncLenLen + sql.EncIDLen
 
 	// DocumentIDField
@@ -901,6 +910,7 @@ func (e *Engine) getEncodedDocumentAtRevision(
 
 	var txID uint64
 	var encodedDoc []byte
+	var md *store.KVMetadata
 	var revision uint64
 
 	index := e.sqlEngine.GetStore()
@@ -912,6 +922,8 @@ func (e *Engine) getEncodedDocumentAtRevision(
 
 		txID = valRef.Tx()
 
+		md = valRef.KVMetadata()
+
 		encodedDoc, err = valRef.Resolve()
 		if err != nil {
 			return nil, mayTranslateError(err)
@@ -921,7 +933,7 @@ func (e *Engine) getEncodedDocumentAtRevision(
 		revision = valRef.HC()
 	} else {
 		txID = atTx
-		_, encodedDoc, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
+		md, encodedDoc, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
 		if err != nil {
 			return nil, err
 		}
@@ -930,6 +942,7 @@ func (e *Engine) getEncodedDocumentAtRevision(
 	return &EncodedDocumentAtRevision{
 		TxID:            txID,
 		Revision:        revision,
+		KVMetadata:      md,
 		EncodedDocument: encodedDoc,
 	}, err
 }

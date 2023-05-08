@@ -200,7 +200,12 @@ message DocumentSearchResponse {
 message DocumentAtRevision {
   uint64 transactionId = 1;
   uint64 revision = 2;
-  google.protobuf.Struct document = 3;
+  DocumentMetadata metadata = 3;
+  google.protobuf.Struct document = 4;
+}
+
+message DocumentMetadata {
+  bool deleted = 1;
 }
 
 message DocumentAuditRequest {

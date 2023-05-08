@@ -707,6 +707,9 @@
           "type": "string",
           "format": "uint64"
         },
+        "metadata": {
+          "$ref": "#/definitions/modelDocumentMetadata"
+        },
         "document": {
           "type": "object"
         }
@@ -805,6 +808,14 @@
         },
         "documentId": {
           "type": "string"
+        }
+      }
+    },
+    "modelDocumentMetadata": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
         }
       }
     },
@@ -929,8 +940,7 @@
         "operator": {
           "$ref": "#/definitions/modelComparisonOperator"
         },
-        "value": {
-        }
+        "value": {}
       }
     },
     "modelFieldType": {
