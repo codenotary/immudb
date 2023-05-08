@@ -772,22 +772,33 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID
 		return nil, err
 	}
 
-	txIDs, _, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), desc, limit)
+	txIDs, hCount, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), desc, limit)
 	if err != nil {
 		return nil, err
 	}
 
+	revision := offset + 1
+	if desc {
+		revision = hCount - offset
+	}
+
 	results := make([]*protomodel.DocumentAtRevision, 0)
 
-	for i, txID := range txIDs {
+	for _, txID := range txIDs {
 		docAtRevision, err := e.getDocumentAtRevision(searchKey, txID, false)
 		if err != nil {
 			return nil, err
 		}
 
-		docAtRevision.Revision = uint64(i) + 1
+		docAtRevision.Revision = revision
 
 		results = append(results, docAtRevision)
+
+		if desc {
+			revision--
+		} else {
+			revision++
+		}
 	}
 
 	return results, nil
