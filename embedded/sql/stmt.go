@@ -276,15 +276,15 @@ func persistColumn(col *Column, tx *SQLTx) error {
 	return tx.set(mappedKey, nil, v)
 }
 
-func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkColNames []string) *CreateTableStmt {
-	return &CreateTableStmt{table: table, ifNotExists: ifNotExists, colsSpec: colsSpec, pkColNames: pkColNames}
-}
-
 type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
 	colsSpec    []*ColSpec
 	pkColNames  []string
+}
+
+func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkColNames []string) *CreateTableStmt {
+	return &CreateTableStmt{table: table, ifNotExists: ifNotExists, colsSpec: colsSpec, pkColNames: pkColNames}
 }
 
 func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -332,6 +332,14 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	return tx, nil
 }
 
+type ColSpec struct {
+	colName       string
+	colType       SQLValueType
+	maxLen        int
+	autoIncrement bool
+	notNull       bool
+}
+
 func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement bool, notNull bool) *ColSpec {
 	return &ColSpec{
 		colName:       name,
@@ -342,23 +350,15 @@ func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement boo
 	}
 }
 
-type ColSpec struct {
-	colName       string
-	colType       SQLValueType
-	maxLen        int
-	autoIncrement bool
-	notNull       bool
-}
-
-func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndexStmt {
-	return &CreateIndexStmt{unique: isUnique, table: table, cols: cols}
-}
-
 type CreateIndexStmt struct {
 	unique      bool
 	ifNotExists bool
 	table       string
 	cols        []string
+}
+
+func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndexStmt {
+	return &CreateIndexStmt{unique: isUnique, table: table, cols: cols}
 }
 
 func (stmt *CreateIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -440,13 +440,13 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	return tx, nil
 }
 
-func NewAddColumnStmt(table string, colSpec *ColSpec) *AddColumnStmt {
-	return &AddColumnStmt{table: table, colSpec: colSpec}
-}
-
 type AddColumnStmt struct {
 	table   string
 	colSpec *ColSpec
+}
+
+func NewAddColumnStmt(table string, colSpec *ColSpec) *AddColumnStmt {
+	return &AddColumnStmt{table: table, colSpec: colSpec}
 }
 
 func (stmt *AddColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -509,6 +509,14 @@ func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 	return tx, nil
 }
 
+type UpsertIntoStmt struct {
+	isInsert   bool
+	tableRef   *tableRef
+	cols       []string
+	rows       []*RowSpec
+	onConflict *OnConflictDo
+}
+
 func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, isInsert bool, onConflict *OnConflictDo) *UpsertIntoStmt {
 	return &UpsertIntoStmt{
 		isInsert:   isInsert,
@@ -519,22 +527,14 @@ func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, isInsert boo
 	}
 }
 
-type UpsertIntoStmt struct {
-	isInsert   bool
-	tableRef   *tableRef
-	cols       []string
-	rows       []*RowSpec
-	onConflict *OnConflictDo
+type RowSpec struct {
+	Values []ValueExp
 }
 
 func NewRowSpec(values []ValueExp) *RowSpec {
 	return &RowSpec{
 		Values: values,
 	}
-}
-
-type RowSpec struct {
-	Values []ValueExp
 }
 
 type OnConflictDo struct {
@@ -981,14 +981,6 @@ func (tx *SQLTx) deprecateIndexEntries(
 	return reusableIndexEntries, nil
 }
 
-func NewUpdateStmt(table string, where ValueExp, update *colUpdate) *UpdateStmt {
-	return &UpdateStmt{
-		tableRef: newTableRef(table, ""),
-		where:    where,
-		updates:  []*colUpdate{update},
-	}
-}
-
 type UpdateStmt struct {
 	tableRef *tableRef
 	where    ValueExp
@@ -998,11 +990,11 @@ type UpdateStmt struct {
 	offset   ValueExp
 }
 
-func NewColUpdate(col string, val ValueExp) *colUpdate {
-	return &colUpdate{
-		col: col,
-		op:  EQ,
-		val: val,
+func NewUpdateStmt(table string, where ValueExp, update *colUpdate) *UpdateStmt {
+	return &UpdateStmt{
+		tableRef: newTableRef(table, ""),
+		where:    where,
+		updates:  []*colUpdate{update},
 	}
 }
 
@@ -1010,6 +1002,14 @@ type colUpdate struct {
 	col string
 	op  CmpOperator
 	val ValueExp
+}
+
+func NewColUpdate(col string, val ValueExp) *colUpdate {
+	return &colUpdate{
+		col: col,
+		op:  EQ,
+		val: val,
+	}
 }
 
 func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -1160,26 +1160,29 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	return tx, nil
 }
 
-func NewDeleteFromStmt(table string, where ValueExp, limit ValueExp) *DeleteFromStmt {
-	return &DeleteFromStmt{
-		tableRef: newTableRef(table, ""),
-		where:    where,
-		limit:    limit,
-	}
-}
-
 type DeleteFromStmt struct {
 	tableRef *tableRef
 	where    ValueExp
 	indexOn  []string
+	orderBy  []*OrdCol
 	limit    ValueExp
 	offset   ValueExp
 }
 
+func NewDeleteFromStmt(table string, where ValueExp, orderBy []*OrdCol, limit ValueExp) *DeleteFromStmt {
+	return &DeleteFromStmt{
+		tableRef: newTableRef(table, ""),
+		where:    where,
+		orderBy:  orderBy,
+		limit:    limit,
+	}
+}
+
 func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	selectStmt := &SelectStmt{
-		ds:    stmt.tableRef,
-		where: stmt.where,
+		ds:      stmt.tableRef,
+		where:   stmt.where,
+		orderBy: stmt.orderBy,
 	}
 	return selectStmt.inferParameters(ctx, tx, params)
 }
@@ -1189,6 +1192,7 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		ds:      stmt.tableRef,
 		where:   stmt.where,
 		indexOn: stmt.indexOn,
+		orderBy: stmt.orderBy,
 		limit:   stmt.limit,
 		offset:  stmt.offset,
 	}
@@ -1466,12 +1470,12 @@ func (v *NullValue) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
-func NewInteger(val int64) *Integer {
-	return &Integer{val: val}
-}
-
 type Integer struct {
 	val int64
+}
+
+func NewInteger(val int64) *Integer {
+	return &Integer{val: val}
 }
 
 func (v *Integer) Type() SQLValueType {
@@ -1615,12 +1619,12 @@ func (v *Timestamp) Compare(val TypedValue) (int, error) {
 	return 0, nil
 }
 
-func NewVarchar(val string) *Varchar {
-	return &Varchar{val: val}
-}
-
 type Varchar struct {
 	val string
+}
+
+func NewVarchar(val string) *Varchar {
+	return &Varchar{val: val}
 }
 
 func (v *Varchar) Type() SQLValueType {
@@ -1755,12 +1759,12 @@ func (v *Bool) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func NewBlob(val []byte) *Blob {
-	return &Blob{val: val}
-}
-
 type Blob struct {
 	val []byte
+}
+
+func NewBlob(val []byte) *Blob {
+	return &Blob{val: val}
 }
 
 func (v *Blob) Type() SQLValueType {
@@ -1821,12 +1825,12 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	return bytes.Compare(v.val, rval), nil
 }
 
-func NewFloat64(val float64) *Float64 {
-	return &Float64{val: val}
-}
-
 type Float64 struct {
 	val float64
+}
+
+func NewFloat64(val float64) *Float64 {
+	return &Float64{val: val}
 }
 
 func (v *Float64) Type() SQLValueType {
@@ -2140,24 +2144,6 @@ type DataSource interface {
 	Alias() string
 }
 
-func NewSelectStmt(
-	selectors []Selector,
-	table string,
-	where ValueExp,
-	limit ValueExp,
-	offset ValueExp,
-	orderBy []*OrdCol,
-) *SelectStmt {
-	return &SelectStmt{
-		selectors: selectors,
-		ds:        newTableRef(table, ""),
-		where:     where,
-		limit:     limit,
-		offset:    offset,
-		orderBy:   orderBy,
-	}
-}
-
 type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
@@ -2167,10 +2153,28 @@ type SelectStmt struct {
 	where     ValueExp
 	groupBy   []*ColSelector
 	having    ValueExp
+	orderBy   []*OrdCol
 	limit     ValueExp
 	offset    ValueExp
-	orderBy   []*OrdCol
 	as        string
+}
+
+func NewSelectStmt(
+	selectors []Selector,
+	table string,
+	where ValueExp,
+	orderBy []*OrdCol,
+	limit ValueExp,
+	offset ValueExp,
+) *SelectStmt {
+	return &SelectStmt{
+		selectors: selectors,
+		ds:        newTableRef(table, ""),
+		where:     where,
+		orderBy:   orderBy,
+		limit:     limit,
+		offset:    offset,
+	}
 }
 
 func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -2671,16 +2675,16 @@ type JoinSpec struct {
 	indexOn  []string
 }
 
+type OrdCol struct {
+	sel       *ColSelector
+	descOrder bool
+}
+
 func NewOrdCol(table string, col string, descOrder bool) *OrdCol {
 	return &OrdCol{
 		sel:       NewColSelector(table, col),
 		descOrder: descOrder,
 	}
-}
-
-type OrdCol struct {
-	sel       *ColSelector
-	descOrder bool
 }
 
 type Selector interface {
@@ -2690,17 +2694,17 @@ type Selector interface {
 	setAlias(alias string)
 }
 
+type ColSelector struct {
+	table string
+	col   string
+	as    string
+}
+
 func NewColSelector(table, col string) *ColSelector {
 	return &ColSelector{
 		table: table,
 		col:   col,
 	}
-}
-
-type ColSelector struct {
-	table string
-	col   string
-	as    string
 }
 
 func (sel *ColSelector) resolve(implicitTable string) (aggFn, table, col string) {
@@ -3187,17 +3191,17 @@ func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map
 	return nil
 }
 
+type CmpBoolExp struct {
+	op          CmpOperator
+	left, right ValueExp
+}
+
 func NewCmpBoolExp(op CmpOperator, left, right ValueExp) *CmpBoolExp {
 	return &CmpBoolExp{
 		op:    op,
 		left:  left,
 		right: right,
 	}
-}
-
-type CmpBoolExp struct {
-	op          CmpOperator
-	left, right ValueExp
 }
 
 func (bexp *CmpBoolExp) Left() ValueExp {
@@ -3437,6 +3441,11 @@ func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
 	return false
 }
 
+type BinBoolExp struct {
+	op          LogicOperator
+	left, right ValueExp
+}
+
 func NewBinBoolExp(op LogicOperator, lrexp, rrexp ValueExp) *BinBoolExp {
 	bexp := &BinBoolExp{
 		op: op,
@@ -3446,11 +3455,6 @@ func NewBinBoolExp(op LogicOperator, lrexp, rrexp ValueExp) *BinBoolExp {
 	bexp.right = rrexp
 
 	return bexp
-}
-
-type BinBoolExp struct {
-	op          LogicOperator
-	left, right ValueExp
 }
 
 func (bexp *BinBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -4036,13 +4040,13 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
 }
 
-func NewDropTableStmt(table string) *DropTableStmt {
-	return &DropTableStmt{table: table}
-}
-
 // DropTableStmt represents a statement to delete a table.
 type DropTableStmt struct {
 	table string
+}
+
+func NewDropTableStmt(table string) *DropTableStmt {
+	return &DropTableStmt{table: table}
 }
 
 func (stmt *DropTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {

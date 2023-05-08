@@ -611,7 +611,7 @@ func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, do
 			Value:    provisionedDocID,
 		}
 
-		if query == nil || len(query.Expressions) == 0 {
+		if len(query.Expressions) == 0 {
 			query = &protomodel.Query{
 				Expressions: []*protomodel.QueryExpression{
 					{
@@ -628,7 +628,7 @@ func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, do
 		}
 	}
 
-	queryCondition, err := generateSQLExpression(query, table)
+	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -637,8 +637,8 @@ func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, do
 		[]sql.Selector{sql.NewColSelector(query.Collection, idFieldName)},
 		query.Collection,
 		queryCondition,
+		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(1),
-		nil,
 		nil,
 	)
 
@@ -710,7 +710,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		return nil, err
 	}
 
-	queryCondition, err := generateSQLExpression(query, table)
+	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
 	if err != nil {
 		return nil, err
 	}
@@ -719,9 +719,9 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		[]sql.Selector{sql.NewColSelector(query.Collection, DocumentBLOBField)},
 		query.Collection,
 		queryCondition,
+		generateSQLOrderByClauses(table, query.OrderBy),
 		nil,
 		sql.NewInteger(offset),
-		generateOrderByExpression(table, query.OrderBy),
 	)
 
 	// returning an open reader here, so the caller HAS to close it
@@ -793,15 +793,11 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID
 	return results, nil
 }
 
-// generateSQLExpression generates a boolean expression from a list of expressions.
-func generateSQLExpression(query *protomodel.Query, table *sql.Table) (sql.ValueExp, error) {
-	if query == nil || len(query.Expressions) == 0 {
-		return nil, nil
-	}
-
+// generateSQLFilteringExpression generates a boolean expression from a list of expressions.
+func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, table *sql.Table) (sql.ValueExp, error) {
 	var outerExp sql.ValueExp
 
-	for i, exp := range query.Expressions {
+	for i, exp := range expressions {
 		if len(exp.FieldComparisons) == 0 {
 			return nil, fmt.Errorf("%w: query expression without any field comparisson", ErrIllegalArguments)
 		}
@@ -1000,13 +996,18 @@ func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) er
 		return err
 	}
 
-	queryCondition, err := generateSQLExpression(query, table)
+	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
 	if err != nil {
 		return err
 	}
 
 	// Delete a single document matching the query
-	deleteStmt := sql.NewDeleteFromStmt(table.Name(), queryCondition, sql.NewInteger(1))
+	deleteStmt := sql.NewDeleteFromStmt(
+		table.Name(),
+		queryCondition,
+		generateSQLOrderByClauses(table, query.OrderBy),
+		sql.NewInteger(1),
+	)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
 		ctx,
@@ -1026,7 +1027,7 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	return e.sqlEngine.CopyCatalogToTx(ctx, tx)
 }
 
-func generateOrderByExpression(table *sql.Table, orderBy []*protomodel.OrderByClause) (ordCols []*sql.OrdCol) {
+func generateSQLOrderByClauses(table *sql.Table, orderBy []*protomodel.OrderByClause) (ordCols []*sql.OrdCol) {
 	for _, col := range orderBy {
 		ordCols = append(ordCols, sql.NewOrdCol(table.Name(), col.Field, col.Desc))
 	}
