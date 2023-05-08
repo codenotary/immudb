@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+    immudb-standalone:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        build:
+            context: ../..
+            dockerfile: test/release_perf_test/Dockerfile
+        # command: ["standalone", "asd"]
+    immudb-tools:
+        container_name: immudb-tools
+        image: immudb-tools
+        build:
+            context: .
+            dockerfile: ./Dockerfile.tools
+    immudb-tools-kv:
+        container_name: immudb-tools
+        image: immudb-tools
+        entrypoint:
+        - "/usr/local/bin/stresser2"
+        depends_on:
+        - immudb-standalone
