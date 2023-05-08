@@ -22,13 +22,14 @@ const (
 
 // Defines values for ModelComparisonOperator.
 const (
-	EQ   ModelComparisonOperator = "EQ"
-	GE   ModelComparisonOperator = "GE"
-	GT   ModelComparisonOperator = "GT"
-	LE   ModelComparisonOperator = "LE"
-	LIKE ModelComparisonOperator = "LIKE"
-	LT   ModelComparisonOperator = "LT"
-	NE   ModelComparisonOperator = "NE"
+	EQ      ModelComparisonOperator = "EQ"
+	GE      ModelComparisonOperator = "GE"
+	GT      ModelComparisonOperator = "GT"
+	LE      ModelComparisonOperator = "LE"
+	LIKE    ModelComparisonOperator = "LIKE"
+	LT      ModelComparisonOperator = "LT"
+	NE      ModelComparisonOperator = "NE"
+	NOTLIKE ModelComparisonOperator = "NOT_LIKE"
 )
 
 // Defines values for ModelFieldType.

@@ -3096,6 +3096,14 @@ type LikeBoolExp struct {
 	pattern ValueExp
 }
 
+func NewLikeBoolExp(val ValueExp, notLike bool, pattern ValueExp) *LikeBoolExp {
+	return &LikeBoolExp{
+		val:     val,
+		notLike: notLike,
+		pattern: pattern,
+	}
+}
+
 func (bexp *LikeBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	if bexp.val == nil || bexp.pattern == nil {
 		return AnyType, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)

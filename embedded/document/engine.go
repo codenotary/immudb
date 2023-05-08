@@ -828,12 +828,32 @@ func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, t
 
 			colSelector := sql.NewColSelector(table.Name(), exp.Field)
 
-			fieldComparisonExp := sql.NewCmpBoolExp(int(exp.Operator), colSelector, value)
+			var fieldExp sql.ValueExp
+
+			switch exp.Operator {
+			case protomodel.ComparisonOperator_LIKE:
+				{
+					fieldExp = sql.NewLikeBoolExp(colSelector, false, value)
+				}
+			case protomodel.ComparisonOperator_NOT_LIKE:
+				{
+					fieldExp = sql.NewLikeBoolExp(colSelector, true, value)
+				}
+			default:
+				{
+					sqlCmpOp, err := sqlCmpOperatorFor(exp.Operator)
+					if err != nil {
+						return nil, err
+					}
+
+					fieldExp = sql.NewCmpBoolExp(sqlCmpOp, colSelector, value)
+				}
+			}
 
 			if i == 0 {
-				innerExp = fieldComparisonExp
+				innerExp = fieldExp
 			} else {
-				innerExp = sql.NewBinBoolExp(sql.AND, innerExp, fieldComparisonExp)
+				innerExp = sql.NewBinBoolExp(sql.AND, innerExp, fieldExp)
 			}
 		}
 
@@ -845,6 +865,39 @@ func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, t
 	}
 
 	return outerExp, nil
+}
+
+func sqlCmpOperatorFor(op protomodel.ComparisonOperator) (sql.CmpOperator, error) {
+	switch op {
+	case protomodel.ComparisonOperator_EQ:
+		{
+			return sql.EQ, nil
+		}
+	case protomodel.ComparisonOperator_NE:
+		{
+			return sql.NE, nil
+		}
+	case protomodel.ComparisonOperator_LT:
+		{
+			return sql.LT, nil
+		}
+	case protomodel.ComparisonOperator_LE:
+		{
+			return sql.LE, nil
+		}
+	case protomodel.ComparisonOperator_GT:
+		{
+			return sql.GT, nil
+		}
+	case protomodel.ComparisonOperator_GE:
+		{
+			return sql.GE, nil
+		}
+	default:
+		{
+			return 0, fmt.Errorf("%w: unsupported operator ('%s')", ErrIllegalArguments, op)
+		}
+	}
 }
 
 func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collectionName string, documentID DocumentID) ([]byte, error) {

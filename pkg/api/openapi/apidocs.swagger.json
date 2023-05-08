@@ -692,7 +692,8 @@
         "LE",
         "GT",
         "GE",
-        "LIKE"
+        "LIKE",
+        "NOT_LIKE"
       ],
       "default": "EQ"
     },

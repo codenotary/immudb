@@ -185,6 +185,7 @@ enum ComparisonOperator {
   GT = 4;
   GE = 5;
   LIKE = 6;
+  NOT_LIKE = 7;
 }
 
 message OrderByClause {
