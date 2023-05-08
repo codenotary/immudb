@@ -209,7 +209,15 @@ func docIDFieldName(table *sql.Table) string {
 }
 
 func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table, error) {
+	if collectionName == "" {
+		return nil, fmt.Errorf("%w: invalid collection name", ErrIllegalArguments)
+	}
+
 	table, err := sqlTx.Catalog().GetTableByName(collectionName)
+	if errors.Is(err, sql.ErrTableDoesNotExist) {
+		return nil, fmt.Errorf("%w (%s)", mayTranslateError(err), collectionName)
+	}
+
 	return table, mayTranslateError(err)
 }
 
