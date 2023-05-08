@@ -445,10 +445,6 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 		return nil, ErrAlreadyClosed
 	}
 
-	if tx.readOnly {
-		return nil, ErrReadOnlyTx
-	}
-
 	if !tx.IsWriteOnly() {
 		err := tx.snap.Close()
 		if err != nil {
@@ -457,6 +453,10 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 	}
 
 	tx.closed = true
+
+	if tx.readOnly {
+		return nil, ErrReadOnlyTx
+	}
 
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
