@@ -304,7 +304,10 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	}()
 
 	txChan := make(chan *sql.SQLTx)
+	defer close(txChan)
+
 	errChan := make(chan error)
+	defer close(errChan)
 
 	go func() {
 		tx, err = d.sqlEngine.NewTx(txCtx, opts)
@@ -323,6 +326,10 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	case tx := <-txChan:
 		{
 			return tx, nil
+		}
+	case err := <-errChan:
+		{
+			return nil, err
 		}
 	}
 }

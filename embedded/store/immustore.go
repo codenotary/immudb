@@ -1165,6 +1165,8 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	defer s.releaseAllocTx(tx)
 
 	appendableCh := make(chan appendableResult)
+	defer close(appendableCh)
+
 	go s.appendData(otx.entries, appendableCh)
 
 	if hdr == nil {
