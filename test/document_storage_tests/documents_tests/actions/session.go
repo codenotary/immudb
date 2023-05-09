@@ -25,11 +25,7 @@ import (
 )
 
 func OpenSession(t *testing.T) (*httpexpect.Expect, string) {
-	baseURL, exists := os.LookupEnv("OBJECTS_TEST_BASEURL")
-
-	if !exists {
-		baseURL = "http://localhost:8091/api/v2"
-	}
+	baseURL := GetBaseUrl()
 
 	user := map[string]interface{}{
 		"username": "immudb",
@@ -44,4 +40,14 @@ func OpenSession(t *testing.T) (*httpexpect.Expect, string) {
 		Status(http.StatusOK).JSON().Object()
 
 	return expect, obj.Value("sessionID").Raw().(string)
+}
+
+func GetBaseUrl() string {
+	baseURL, exists := os.LookupEnv("OBJECTS_TEST_BASEURL")
+
+	if !exists {
+		baseURL = "http://localhost:8091/api/v2"
+	}
+
+	return baseURL
 }
