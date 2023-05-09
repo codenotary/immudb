@@ -22,23 +22,21 @@ services:
         image: immudb-tools
         entrypoint:
         - "/usr/local/bin/stresser2"
-        depends_on:
-        - immudb-standalone
 
     immudb-async-main:
-        container_name: immudb-standalone
+        container_name: immudb-async-main
         image: immudb-perftest
         command: ["asyncmain"]
     immudb-async-replica:
-        container_name: immudb-standalone
+        container_name: immudb-async-replica
         image: immudb-perftest
         command: ["asyncreplica"]
 
     immudb-sync-main:
-        container_name: immudb-standalone
+        container_name: immudb-sync-main
         image: immudb-perftest
         command: ["syncmain"]
     immudb-sync-replica:
-        container_name: immudb-standalone
+        container_name: immudb-sync-replica
         image: immudb-perftest
         command: ["syncreplica"]
