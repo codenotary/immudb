@@ -70,6 +70,7 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Cancel()
 
 	ntx, ctxs, err := db.SQLExec(ctx, tx, req)
 	if err != nil {
