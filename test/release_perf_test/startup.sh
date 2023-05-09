@@ -36,7 +36,7 @@ case $MODE in
   $IMMUADMIN database create perf \
     --replication-is-replica \
     --replication-primary-database perf \
-    --replication-primary-database immudb-async-main \
+    --replication-primary-host immudb-async-main \
     --replication-primary-password immudb \
     --replication-primary-port 3322 \
     --replication-primary-username immudb
