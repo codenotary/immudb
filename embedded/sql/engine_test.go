@@ -1669,8 +1669,8 @@ func TestErrorDuringUpdate(t *testing.T) {
 	require.ErrorIs(t, err, ErrMissingParameter)
 
 	params := make(map[string]interface{})
-	params["id"] = "ab";
-	params["val"] = 15;
+	params["id"] = "ab"
+	params["val"] = 15
 	_, _, err = engine.Exec(context.Background(), nil, "update mytable set value=@val where id=@id", params)
 	require.NoError(t, err)
 }
@@ -6196,6 +6196,26 @@ func TestMVCC(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', false, x'0A10');", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
+		require.ErrorIs(t, err, store.ErrTxReadConflict)
+	})
+
+	t.Run("read conflict should be detected when processing transactions with invalidated catalog changes", func(t *testing.T) {
+		tx1, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), tx1, "CREATE TABLE mytable1 (id INTEGER, PRIMARY KEY id);", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), tx2, "CREATE TABLE mytable1 (id INTEGER, PRIMARY KEY id);", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
