@@ -3602,7 +3602,7 @@ func (bexp *BinBoolExp) selectorRanges(table *Table, asTable string, params map[
 }
 
 type ExistsBoolExp struct {
-	q *SelectStmt
+	q DataSource
 }
 
 func (bexp *ExistsBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {

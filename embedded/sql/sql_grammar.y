@@ -830,7 +830,7 @@ exp:
 |
     EXISTS '(' dqlstmt ')'
     {
-        $$ = &ExistsBoolExp{q: ($3).(*SelectStmt)}
+        $$ = &ExistsBoolExp{q: ($3).(DataSource)}
     }
 |
     boundexp opt_not IN '(' dqlstmt ')'

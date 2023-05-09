@@ -1461,7 +1461,7 @@ yydefault:
 	case 132:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyVAL.exp = &ExistsBoolExp{q: (yyDollar[3].stmt).(*SelectStmt)}
+			yyVAL.exp = &ExistsBoolExp{q: (yyDollar[3].stmt).(DataSource)}
 		}
 	case 133:
 		yyDollar = yyS[yypt-6 : yypt+1]
