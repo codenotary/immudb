@@ -1,18 +1,22 @@
 version: '3.9'
 services:
-    immudb-standalone:
-        container_name: immudb-standalone
+    immudb-perftest:
+        container_name: immudb-perftest
         image: immudb-perftest
         build:
             context: ../..
             dockerfile: test/release_perf_test/Dockerfile
-        # command: ["standalone", "asd"]
     immudb-tools:
         container_name: immudb-tools
         image: immudb-tools
         build:
             context: .
             dockerfile: ./Dockerfile.tools
+
+    immudb-standalone:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        command: ["standalone"]
     immudb-tools-kv:
         container_name: immudb-tools
         image: immudb-tools

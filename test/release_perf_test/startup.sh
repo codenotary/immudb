@@ -1,5 +1,6 @@
 #!/bin/sh
 IMMUDB=/usr/local/bin/immudb
+IMMUADMIN=/usr/local/bin/immuadmin
 
 if [ -z "$1" ]
 then
@@ -12,6 +13,11 @@ echo "Startup mode '$MODE'"
 
 case $MODE in
   standalone)
+  (
+  sleep 3
+  echo -n immudb | $IMMUADMIN login immudb
+  $IMMUADMIN database create perf --max-commit-concurrency 120
+  ) &
   $IMMUDB --dir /usr/lib/immudb
   ;;
   syncmain)
