@@ -24,3 +24,21 @@ services:
         - "/usr/local/bin/stresser2"
         depends_on:
         - immudb-standalone
+
+    immudb-async-main:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        command: ["asyncmain"]
+    immudb-async-replica:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        command: ["asyncreplica"]
+
+    immudb-sync-main:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        command: ["syncmain"]
+    immudb-sync-replica:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        command: ["syncreplica"]
