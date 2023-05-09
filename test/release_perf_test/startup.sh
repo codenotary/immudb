@@ -18,7 +18,7 @@ case $MODE in
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf --max-commit-concurrency 120
   ) &
-  $IMMUDB --dir /usr/lib/immudb
+  $IMMUDB --dir /var/lib/immudb
   ;;
 
   asyncmain)
@@ -27,13 +27,14 @@ case $MODE in
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf --max-commit-concurrency 120
   ) &
-  $IMMUDB --dir /usr/lib/immudb
+  $IMMUDB --dir /var/lib/immudb --max-sessions 120
   ;;
   asyncreplica)
   (
   sleep 3
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf \
+    --max-commit-concurrency 120 \
     --replication-is-replica \
     --replication-primary-database perf \
     --replication-primary-host immudb-async-main \
@@ -41,14 +42,14 @@ case $MODE in
     --replication-primary-port 3322 \
     --replication-primary-username immudb
   ) &
-  $IMMUDB --dir /usr/lib/immudb
+  $IMMUDB --dir /var/lib/immudb
   ;;
 
   syncmain)
-  $IMMUDB --dir /usr/lib/immudb
+  $IMMUDB --dir /var/lib/immudb
   ;;
   syncreplica)
-  $IMMUDB --dir /usr/lib/immudb
+  $IMMUDB --dir /var/lib/immudb
   ;;
   *)
   echo "Wrong startup mode ($MODE)"

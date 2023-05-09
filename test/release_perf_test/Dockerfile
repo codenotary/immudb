@@ -3,7 +3,7 @@ WORKDIR /src/immudb
 COPY go.mod go.sum /src/immudb
 RUN go mod download -x
 COPY . .
-RUN rm -rf /src/webconsole/dist &&   mkdir /usr/lib/immudb
+RUN rm -rf /src/webconsole/dist &&   mkdir /var/lib/immudb
 RUN GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static immuclient-static
 
 FROM debian:stable-slim
