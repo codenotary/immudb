@@ -38,10 +38,9 @@ function test_matrix() {
 		echo "BATCHSIZE $BATCHSIZE WORKERS $WORKERS" >> /tmp/runme.log
 		docker-compose up -d $SRV
 		sleep 5
-		docker-compose run immudb-tools-kv -duration $DURATION\
-			-addr $ADDR -db perf \
-			-read-workers 0 -write-speed 0 \
-			-write-workers $WORKERS -write-batchnum $BATCHNUM \
+		docker-compose run immudb-tools-kv \
+			-addr $ADDR -db perf -duration $DURATION \
+			-read-workers 0 -write-speed 0 -write-workers $WORKERS \
 			-silent -summary 2>&1 | tee -a /tmp/runme.log
 		TXS=$(tail -n1 /tmp/runme.log|grep -F "TOTAL WRITE"|grep -Eo '[0-9]+ Txs/s'|cut -d ' ' -f 1)
 		STATS+=( $TXS )
