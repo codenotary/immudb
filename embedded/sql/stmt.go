@@ -388,7 +388,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 
 		if variableSized(col.colType) && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
-			return nil, ErrLimitedKeyType
+			return nil, fmt.Errorf("%w: can not create index using column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 
 		colIDs[i] = col.id
@@ -822,7 +822,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 
 			encVal, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 			if err != nil {
-				return err
+				return fmt.Errorf("%w: index on '%s' and column '%s'", err, index.Name(), col.colName)
 			}
 
 			encodedValues[i+3] = encVal
@@ -867,7 +867,7 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 
 		encVal, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: primary index of table '%s' and column '%s'", err, table.name, col.colName)
 		}
 
 		_, err = valbuf.Write(encVal)
