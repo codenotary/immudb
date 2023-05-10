@@ -64,7 +64,7 @@ case $MODE in
     --replication-sync-enabled \
     --replication-is-replica \
     --replication-primary-database perf \
-    --replication-primary-host immudb-async-main \
+    --replication-primary-host immudb-sync-main \
     --replication-primary-password immudb \
     --replication-primary-port 3322 \
     --replication-primary-username immudb
