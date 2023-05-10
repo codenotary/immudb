@@ -40,7 +40,8 @@ function test_matrix() {
 		sleep 5
 		docker-compose run immudb-tools-kv \
 			-addr $ADDR -db perf -duration $DURATION \
-			-read-workers 0 -write-speed 0 -write-workers $WORKERS \
+			-read-workers 0 -read-batchsize 0 -write-speed 0 \
+			-write-workers $WORKERS -write-batchsize $BATCHSIZE \
 			-silent -summary 2>&1 | tee -a /tmp/runme.log
 		TXS=$(tail -n1 /tmp/runme.log|grep -F "TOTAL WRITE"|grep -Eo '[0-9]+ Txs/s'|cut -d ' ' -f 1)
 		STATS+=( $TXS )
