@@ -12,7 +12,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/influxdata/influxdb-client-go/v2 v2.12.3
 	github.com/jackc/pgx/v4 v4.16.1
-	github.com/jaswdr/faker v1.16.0
+	github.com/jaswdr/faker v1.17.0
 	github.com/lib/pq v1.10.9
 	github.com/mattn/goveralls v0.0.11
 	github.com/o1egl/paseto v1.0.0
