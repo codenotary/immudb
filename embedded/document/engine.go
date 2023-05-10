@@ -565,7 +565,7 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 		}
 
 		if rval, ok := doc.Fields[col.Name()]; ok {
-			val, err := structValueToSqlValue(col.Type(), rval)
+			val, err := structValueToSqlValue(rval, col.Type())
 			if err != nil {
 				return nil, err
 			}
@@ -821,7 +821,7 @@ func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, t
 				return nil, err
 			}
 
-			value, err := structValueToSqlValue(column.Type(), exp.Value)
+			value, err := structValueToSqlValue(exp.Value, column.Type())
 			if err != nil {
 				return nil, err
 			}

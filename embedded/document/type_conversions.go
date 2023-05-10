@@ -24,24 +24,24 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-var structValueToSqlValue = func(stype sql.SQLValueType, value *structpb.Value) (sql.ValueExp, error) {
-	switch stype {
+var structValueToSqlValue = func(value *structpb.Value, sqlType sql.SQLValueType) (sql.ValueExp, error) {
+	switch sqlType {
 	case sql.VarcharType:
 		_, ok := value.GetKind().(*structpb.Value_StringValue)
 		if !ok {
-			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
 		}
 		return sql.NewVarchar(value.GetStringValue()), nil
 	case sql.IntegerType:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
 		if !ok {
-			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
 		}
 		return sql.NewInteger(int64(value.GetNumberValue())), nil
 	case sql.BLOBType:
 		_, ok := value.GetKind().(*structpb.Value_StringValue)
 		if !ok {
-			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
 		}
 
 		docID, err := NewDocumentIDFromHexEncodedString(value.GetStringValue())
@@ -53,18 +53,18 @@ var structValueToSqlValue = func(stype sql.SQLValueType, value *structpb.Value) 
 	case sql.Float64Type:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
 		if !ok {
-			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
 		}
 		return sql.NewFloat64(value.GetNumberValue()), nil
 	case sql.BooleanType:
 		_, ok := value.GetKind().(*structpb.Value_BoolValue)
 		if !ok {
-			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, stype)
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
 		}
 		return sql.NewBool(value.GetBoolValue()), nil
 	}
 
-	return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+	return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, sqlType)
 }
 
 var protomodelValueTypeToSQLValueType = func(stype protomodel.FieldType) (sql.SQLValueType, error) {
