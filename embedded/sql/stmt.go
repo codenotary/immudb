@@ -381,6 +381,8 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 	colIDs := make([]uint32, len(stmt.cols))
 
+	indexKeyLen := 0
+
 	for i, colName := range stmt.cols {
 		col, err := table.GetColumnByName(colName)
 		if err != nil {
@@ -391,7 +393,13 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 			return nil, fmt.Errorf("%w: can not create index using column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 
+		indexKeyLen += col.MaxLen()
+
 		colIDs[i] = col.id
+	}
+
+	if indexKeyLen > MaxKeyLen {
+		return nil, fmt.Errorf("%w: can not create index using columns '%v'. Max key length is %d", ErrLimitedKeyType, stmt.cols, MaxKeyLen)
 	}
 
 	index, err := table.newIndex(stmt.unique, colIDs)

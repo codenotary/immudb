@@ -101,7 +101,7 @@ func TestCreateTable(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil)
 	require.ErrorIs(t, err, ErrLimitedKeyType)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR[512], PRIMARY KEY name)", nil)
+	_, _, err = engine.Exec(context.Background(), nil, fmt.Sprintf("CREATE TABLE table1 (name VARCHAR[%d], PRIMARY KEY name)", MaxKeyLen+1), nil)
 	require.ErrorIs(t, err, ErrLimitedKeyType)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil)
