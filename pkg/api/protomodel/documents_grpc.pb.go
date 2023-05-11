@@ -26,11 +26,11 @@ type DocumentServiceClient interface {
 	CreateIndex(ctx context.Context, in *CreateIndexRequest, opts ...grpc.CallOption) (*CreateIndexResponse, error)
 	DeleteIndex(ctx context.Context, in *DeleteIndexRequest, opts ...grpc.CallOption) (*DeleteIndexResponse, error)
 	InsertDocuments(ctx context.Context, in *InsertDocumentsRequest, opts ...grpc.CallOption) (*InsertDocumentsResponse, error)
-	UpdateDocument(ctx context.Context, in *UpdateDocumentRequest, opts ...grpc.CallOption) (*UpdateDocumentResponse, error)
+	ReplaceDocument(ctx context.Context, in *ReplaceDocumentRequest, opts ...grpc.CallOption) (*ReplaceDocumentResponse, error)
 	DeleteDocuments(ctx context.Context, in *DeleteDocumentsRequest, opts ...grpc.CallOption) (*DeleteDocumentsResponse, error)
 	SearchDocuments(ctx context.Context, in *SearchDocumentsRequest, opts ...grpc.CallOption) (*SearchDocumentsResponse, error)
 	AuditDocument(ctx context.Context, in *AuditDocumentRequest, opts ...grpc.CallOption) (*AuditDocumentResponse, error)
-	ProveDocument(ctx context.Context, in *ProveDocumentRequest, opts ...grpc.CallOption) (*ProveDocumentResponse, error)
+	ProofDocument(ctx context.Context, in *ProofDocumentRequest, opts ...grpc.CallOption) (*ProofDocumentResponse, error)
 }
 
 type documentServiceClient struct {
@@ -113,9 +113,9 @@ func (c *documentServiceClient) InsertDocuments(ctx context.Context, in *InsertD
 	return out, nil
 }
 
-func (c *documentServiceClient) UpdateDocument(ctx context.Context, in *UpdateDocumentRequest, opts ...grpc.CallOption) (*UpdateDocumentResponse, error) {
-	out := new(UpdateDocumentResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/UpdateDocument", in, out, opts...)
+func (c *documentServiceClient) ReplaceDocument(ctx context.Context, in *ReplaceDocumentRequest, opts ...grpc.CallOption) (*ReplaceDocumentResponse, error) {
+	out := new(ReplaceDocumentResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ReplaceDocument", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,9 +149,9 @@ func (c *documentServiceClient) AuditDocument(ctx context.Context, in *AuditDocu
 	return out, nil
 }
 
-func (c *documentServiceClient) ProveDocument(ctx context.Context, in *ProveDocumentRequest, opts ...grpc.CallOption) (*ProveDocumentResponse, error) {
-	out := new(ProveDocumentResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ProveDocument", in, out, opts...)
+func (c *documentServiceClient) ProofDocument(ctx context.Context, in *ProofDocumentRequest, opts ...grpc.CallOption) (*ProofDocumentResponse, error) {
+	out := new(ProofDocumentResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ProofDocument", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,11 +170,11 @@ type DocumentServiceServer interface {
 	CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error)
 	DeleteIndex(context.Context, *DeleteIndexRequest) (*DeleteIndexResponse, error)
 	InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error)
-	UpdateDocument(context.Context, *UpdateDocumentRequest) (*UpdateDocumentResponse, error)
+	ReplaceDocument(context.Context, *ReplaceDocumentRequest) (*ReplaceDocumentResponse, error)
 	DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error)
 	SearchDocuments(context.Context, *SearchDocumentsRequest) (*SearchDocumentsResponse, error)
 	AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error)
-	ProveDocument(context.Context, *ProveDocumentRequest) (*ProveDocumentResponse, error)
+	ProofDocument(context.Context, *ProofDocumentRequest) (*ProofDocumentResponse, error)
 }
 
 // UnimplementedDocumentServiceServer should be embedded to have forward compatible implementations.
@@ -205,8 +205,8 @@ func (UnimplementedDocumentServiceServer) DeleteIndex(context.Context, *DeleteIn
 func (UnimplementedDocumentServiceServer) InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InsertDocuments not implemented")
 }
-func (UnimplementedDocumentServiceServer) UpdateDocument(context.Context, *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateDocument not implemented")
+func (UnimplementedDocumentServiceServer) ReplaceDocument(context.Context, *ReplaceDocumentRequest) (*ReplaceDocumentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplaceDocument not implemented")
 }
 func (UnimplementedDocumentServiceServer) DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDocuments not implemented")
@@ -217,8 +217,8 @@ func (UnimplementedDocumentServiceServer) SearchDocuments(context.Context, *Sear
 func (UnimplementedDocumentServiceServer) AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AuditDocument not implemented")
 }
-func (UnimplementedDocumentServiceServer) ProveDocument(context.Context, *ProveDocumentRequest) (*ProveDocumentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ProveDocument not implemented")
+func (UnimplementedDocumentServiceServer) ProofDocument(context.Context, *ProofDocumentRequest) (*ProofDocumentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProofDocument not implemented")
 }
 
 // UnsafeDocumentServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -376,20 +376,20 @@ func _DocumentService_InsertDocuments_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_UpdateDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateDocumentRequest)
+func _DocumentService_ReplaceDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceDocumentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).UpdateDocument(ctx, in)
+		return srv.(DocumentServiceServer).ReplaceDocument(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/UpdateDocument",
+		FullMethod: "/immudb.model.DocumentService/ReplaceDocument",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).UpdateDocument(ctx, req.(*UpdateDocumentRequest))
+		return srv.(DocumentServiceServer).ReplaceDocument(ctx, req.(*ReplaceDocumentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -448,20 +448,20 @@ func _DocumentService_AuditDocument_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_ProveDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ProveDocumentRequest)
+func _DocumentService_ProofDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProofDocumentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).ProveDocument(ctx, in)
+		return srv.(DocumentServiceServer).ProofDocument(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/ProveDocument",
+		FullMethod: "/immudb.model.DocumentService/ProofDocument",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).ProveDocument(ctx, req.(*ProveDocumentRequest))
+		return srv.(DocumentServiceServer).ProofDocument(ctx, req.(*ProofDocumentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -506,8 +506,8 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DocumentService_InsertDocuments_Handler,
 		},
 		{
-			MethodName: "UpdateDocument",
-			Handler:    _DocumentService_UpdateDocument_Handler,
+			MethodName: "ReplaceDocument",
+			Handler:    _DocumentService_ReplaceDocument_Handler,
 		},
 		{
 			MethodName: "DeleteDocuments",
@@ -522,8 +522,8 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DocumentService_AuditDocument_Handler,
 		},
 		{
-			MethodName: "ProveDocument",
-			Handler:    _DocumentService_ProveDocument_Handler,
+			MethodName: "ProofDocument",
+			Handler:    _DocumentService_ProofDocument_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -128,7 +128,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 
-	proofRes, err := db.ProveDocument(context.Background(), &protomodel.ProveDocumentRequest{
+	proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
 		Collection: collectionName,
 		DocumentId: res.DocumentIds[0],
 	})

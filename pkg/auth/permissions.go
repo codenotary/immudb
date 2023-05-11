@@ -51,11 +51,11 @@ var maintenanceMethods = map[string]struct{}{
 	"CreateIndex":         {},
 	"DeleteIndex":         {},
 	"InsertDocuments":     {},
-	"UpdateDocument":      {},
+	"ReplaceDocument":     {},
 	"DeleteDocuments":     {},
 	"SearchDocuments":     {},
 	"AuditDocument":       {},
-	"ProveDocument":       {},
+	"ProofDocument":       {},
 
 	// admin methods
 	"ListUsers":    {},
@@ -126,11 +126,11 @@ var methodsPermissions = map[string][]uint32{
 	"CreateIndex":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"DeleteIndex":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"InsertDocuments":  {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"UpdateDocument":   {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"ReplaceDocument":  {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"DeleteDocuments":  {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SearchDocuments":  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"AuditDocument":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
-	"ProveDocument":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"ProofDocument":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 
 	// admin methods
 	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},

@@ -39,16 +39,16 @@
     - [InsertDocumentsRequest](#immudb.model.InsertDocumentsRequest)
     - [InsertDocumentsResponse](#immudb.model.InsertDocumentsResponse)
     - [OrderByClause](#immudb.model.OrderByClause)
-    - [ProveDocumentRequest](#immudb.model.ProveDocumentRequest)
-    - [ProveDocumentResponse](#immudb.model.ProveDocumentResponse)
+    - [ProofDocumentRequest](#immudb.model.ProofDocumentRequest)
+    - [ProofDocumentResponse](#immudb.model.ProofDocumentResponse)
     - [Query](#immudb.model.Query)
     - [QueryExpression](#immudb.model.QueryExpression)
+    - [ReplaceDocumentRequest](#immudb.model.ReplaceDocumentRequest)
+    - [ReplaceDocumentResponse](#immudb.model.ReplaceDocumentResponse)
     - [SearchDocumentsRequest](#immudb.model.SearchDocumentsRequest)
     - [SearchDocumentsResponse](#immudb.model.SearchDocumentsResponse)
     - [UpdateCollectionRequest](#immudb.model.UpdateCollectionRequest)
     - [UpdateCollectionResponse](#immudb.model.UpdateCollectionResponse)
-    - [UpdateDocumentRequest](#immudb.model.UpdateDocumentRequest)
-    - [UpdateDocumentResponse](#immudb.model.UpdateDocumentResponse)
   
     - [ComparisonOperator](#immudb.model.ComparisonOperator)
     - [FieldType](#immudb.model.FieldType)
@@ -538,9 +538,9 @@
 
 
 
-<a name="immudb.model.ProveDocumentRequest"></a>
+<a name="immudb.model.ProofDocumentRequest"></a>
 
-### ProveDocumentRequest
+### ProofDocumentRequest
 
 
 
@@ -556,9 +556,9 @@
 
 
 
-<a name="immudb.model.ProveDocumentResponse"></a>
+<a name="immudb.model.ProofDocumentResponse"></a>
 
-### ProveDocumentResponse
+### ProofDocumentResponse
 
 
 
@@ -601,6 +601,39 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | fieldComparisons | [FieldComparison](#immudb.model.FieldComparison) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.model.ReplaceDocumentRequest"></a>
+
+### ReplaceDocumentRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| query | [Query](#immudb.model.Query) |  |  |
+| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+
+
+
+
+
+
+<a name="immudb.model.ReplaceDocumentResponse"></a>
+
+### ReplaceDocumentResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| transactionId | [uint64](#uint64) |  |  |
+| documentId | [string](#string) |  |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 
@@ -666,39 +699,6 @@
 
 
 
-
-<a name="immudb.model.UpdateDocumentRequest"></a>
-
-### UpdateDocumentRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| query | [Query](#immudb.model.Query) |  |  |
-| document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
-
-
-
-
-
-
-<a name="immudb.model.UpdateDocumentResponse"></a>
-
-### UpdateDocumentResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| transactionId | [uint64](#uint64) |  |  |
-| documentId | [string](#string) |  |  |
-| revision | [uint64](#uint64) |  |  |
-
-
-
-
-
  
 
 
@@ -753,11 +753,11 @@
 | CreateIndex | [CreateIndexRequest](#immudb.model.CreateIndexRequest) | [CreateIndexResponse](#immudb.model.CreateIndexResponse) |  |
 | DeleteIndex | [DeleteIndexRequest](#immudb.model.DeleteIndexRequest) | [DeleteIndexResponse](#immudb.model.DeleteIndexResponse) |  |
 | InsertDocuments | [InsertDocumentsRequest](#immudb.model.InsertDocumentsRequest) | [InsertDocumentsResponse](#immudb.model.InsertDocumentsResponse) |  |
-| UpdateDocument | [UpdateDocumentRequest](#immudb.model.UpdateDocumentRequest) | [UpdateDocumentResponse](#immudb.model.UpdateDocumentResponse) |  |
+| ReplaceDocument | [ReplaceDocumentRequest](#immudb.model.ReplaceDocumentRequest) | [ReplaceDocumentResponse](#immudb.model.ReplaceDocumentResponse) |  |
 | DeleteDocuments | [DeleteDocumentsRequest](#immudb.model.DeleteDocumentsRequest) | [DeleteDocumentsResponse](#immudb.model.DeleteDocumentsResponse) |  |
 | SearchDocuments | [SearchDocumentsRequest](#immudb.model.SearchDocumentsRequest) | [SearchDocumentsResponse](#immudb.model.SearchDocumentsResponse) |  |
 | AuditDocument | [AuditDocumentRequest](#immudb.model.AuditDocumentRequest) | [AuditDocumentResponse](#immudb.model.AuditDocumentResponse) |  |
-| ProveDocument | [ProveDocumentRequest](#immudb.model.ProveDocumentRequest) | [ProveDocumentResponse](#immudb.model.ProveDocumentResponse) |  |
+| ProofDocument | [ProofDocumentRequest](#immudb.model.ProofDocumentRequest) | [ProofDocumentResponse](#immudb.model.ProofDocumentResponse) |  |
 
  
 

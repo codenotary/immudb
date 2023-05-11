@@ -280,7 +280,7 @@ func (d *closedDB) InsertDocuments(ctx context.Context, req *protomodel.InsertDo
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateDocument(ctx context.Context, req *protomodel.UpdateDocumentRequest) (*protomodel.UpdateDocumentResponse, error) {
+func (d *closedDB) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -292,7 +292,7 @@ func (d *closedDB) SearchDocuments(ctx context.Context, query *protomodel.Query,
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) ProveDocument(ctx context.Context, req *protomodel.ProveDocumentRequest) (*protomodel.ProveDocumentResponse, error) {
+func (d *closedDB) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

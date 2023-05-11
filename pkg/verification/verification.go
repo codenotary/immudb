@@ -33,7 +33,7 @@ import (
 )
 
 func VerifyDocument(ctx context.Context,
-	proof *protomodel.ProveDocumentResponse,
+	proof *protomodel.ProofDocumentResponse,
 	doc *structpb.Struct,
 	knownState *schema.ImmutableState,
 	serverSigningPubKey *ecdsa.PublicKey,

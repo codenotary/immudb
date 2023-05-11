@@ -348,14 +348,14 @@
         ]
       }
     },
-    "/documents/prove": {
+    "/documents/proof": {
       "post": {
-        "operationId": "ProveDocument",
+        "operationId": "ProofDocument",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelProveDocumentResponse"
+              "$ref": "#/definitions/modelProofDocumentResponse"
             }
           },
           "default": {
@@ -371,7 +371,39 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelProveDocumentRequest"
+              "$ref": "#/definitions/modelProofDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/documents/replace": {
+      "put": {
+        "operationId": "ReplaceDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelReplaceDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelReplaceDocumentRequest"
             }
           }
         ],
@@ -404,38 +436,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/modelSearchDocumentsRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/documents/update": {
-      "put": {
-        "operationId": "UpdateDocument",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelUpdateDocumentResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelUpdateDocumentRequest"
             }
           }
         ],
@@ -839,7 +839,7 @@
         }
       }
     },
-    "modelProveDocumentRequest": {
+    "modelProofDocumentRequest": {
       "type": "object",
       "properties": {
         "collection": {
@@ -858,7 +858,7 @@
         }
       }
     },
-    "modelProveDocumentResponse": {
+    "modelProofDocumentResponse": {
       "type": "object",
       "properties": {
         "database": {
@@ -911,6 +911,33 @@
         }
       }
     },
+    "modelReplaceDocumentRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        },
+        "document": {
+          "type": "object"
+        }
+      }
+    },
+    "modelReplaceDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "documentId": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "modelSearchDocumentsRequest": {
       "type": "object",
       "properties": {
@@ -957,33 +984,6 @@
     },
     "modelUpdateCollectionResponse": {
       "type": "object"
-    },
-    "modelUpdateDocumentRequest": {
-      "type": "object",
-      "properties": {
-        "query": {
-          "$ref": "#/definitions/modelQuery"
-        },
-        "document": {
-          "type": "object"
-        }
-      }
-    },
-    "modelUpdateDocumentResponse": {
-      "type": "object",
-      "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "documentId": {
-          "type": "string"
-        },
-        "revision": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
     },
     "protobufAny": {
       "type": "object",

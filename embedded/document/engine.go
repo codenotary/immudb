@@ -578,7 +578,7 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 	return sql.NewRowSpec(values), nil
 }
 
-func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
+func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
 	if query == nil {
 		return 0, nil, 0, ErrIllegalArguments
 	}
