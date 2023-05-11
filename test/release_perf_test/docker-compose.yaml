@@ -17,11 +17,6 @@ services:
         container_name: immudb-standalone
         image: immudb-perftest
         command: ["standalone"]
-    immudb-tools-kv:
-        container_name: immudb-tools
-        image: immudb-tools
-        entrypoint:
-        - "/usr/local/bin/stresser2"
 
     immudb-async-main:
         container_name: immudb-async-main
@@ -40,3 +35,15 @@ services:
         container_name: immudb-sync-replica
         image: immudb-perftest
         command: ["syncreplica"]
+
+    immudb-tools-kv:
+        container_name: immudb-tools
+        image: immudb-tools
+        entrypoint:
+        - "/usr/local/bin/stresser2"
+
+    immudb-tools-sql:
+        container_name: immudb-tools
+        image: immudb-tools
+        entrypoint:
+        - "/usr/local/bin/paralsql"
