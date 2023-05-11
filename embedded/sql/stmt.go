@@ -2321,7 +2321,13 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			return nil, fmt.Errorf("%w: invalid limit", err)
 		}
 
-		rowReader = newLimitRowReader(rowReader, limit)
+		if limit < 0 {
+			return nil, fmt.Errorf("%w: invalid limit", ErrIllegalArguments)
+		}
+
+		if limit > 0 {
+			rowReader = newLimitRowReader(rowReader, limit)
+		}
 	}
 
 	return rowReader, nil
