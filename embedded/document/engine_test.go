@@ -223,7 +223,7 @@ func TestDocumentAudit(t *testing.T) {
 		},
 	}
 
-	_, _, revision, err := engine.UpdateDocument(context.Background(), query, &structpb.Struct{
+	_, _, revision, err := engine.ReplaceDocument(context.Background(), query, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"_id":     structpb.NewStringValue(docID.EncodeToHexString()),
 			"pincode": structpb.NewNumberValue(2),
@@ -541,7 +541,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		updatetxID, updateDocID, rev, err := engine.UpdateDocument(ctx, query, &structpb.Struct{
+		updatetxID, updateDocID, rev, err := engine.ReplaceDocument(ctx, query, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"name": structpb.NewStringValue("Alice"),
 				"age":  structpb.NewNumberValue(31),
@@ -608,7 +608,7 @@ func TestDocumentUpdate(t *testing.T) {
 		}
 
 		// Test error case when no documents are found
-		_, _, _, err = engine.UpdateDocument(ctx, query, toUpdateDoc)
+		_, _, _, err = engine.ReplaceDocument(ctx, query, toUpdateDoc)
 		require.ErrorIs(t, err, ErrDocumentNotFound)
 	})
 
@@ -636,8 +636,8 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		// Call the UpdateDocument method
-		_, _, _, err := engine.UpdateDocument(ctx, query, toUpdateDoc)
+		// Call the ReplaceDocument method
+		_, _, _, err := engine.ReplaceDocument(ctx, query, toUpdateDoc)
 		require.ErrorIs(t, err, ErrDocumentNotFound)
 	})
 }

@@ -197,16 +197,16 @@ type ModelOrderByClause struct {
 	Field *string `json:"field,omitempty"`
 }
 
-// ModelProveDocumentRequest defines model for modelProveDocumentRequest.
-type ModelProveDocumentRequest struct {
+// ModelProofDocumentRequest defines model for modelProofDocumentRequest.
+type ModelProofDocumentRequest struct {
 	Collection              *string `json:"collection,omitempty"`
 	DocumentId              *string `json:"documentId,omitempty"`
 	ProofSinceTransactionId *string `json:"proofSinceTransactionId,omitempty"`
 	TransactionId           *string `json:"transactionId,omitempty"`
 }
 
-// ModelProveDocumentResponse defines model for modelProveDocumentResponse.
-type ModelProveDocumentResponse struct {
+// ModelProofDocumentResponse defines model for modelProofDocumentResponse.
+type ModelProofDocumentResponse struct {
 	CollectionId    *int64                `json:"collectionId,omitempty"`
 	Database        *string               `json:"database,omitempty"`
 	EncodedDocument *[]byte               `json:"encodedDocument,omitempty"`
@@ -224,6 +224,19 @@ type ModelQuery struct {
 // ModelQueryExpression defines model for modelQueryExpression.
 type ModelQueryExpression struct {
 	FieldComparisons *[]ModelFieldComparison `json:"fieldComparisons,omitempty"`
+}
+
+// ModelReplaceDocumentRequest defines model for modelReplaceDocumentRequest.
+type ModelReplaceDocumentRequest struct {
+	Document *map[string]interface{} `json:"document,omitempty"`
+	Query    *ModelQuery             `json:"query,omitempty"`
+}
+
+// ModelReplaceDocumentResponse defines model for modelReplaceDocumentResponse.
+type ModelReplaceDocumentResponse struct {
+	DocumentId    *string `json:"documentId,omitempty"`
+	Revision      *string `json:"revision,omitempty"`
+	TransactionId *string `json:"transactionId,omitempty"`
 }
 
 // ModelSearchDocumentsRequest defines model for modelSearchDocumentsRequest.
@@ -248,19 +261,6 @@ type ModelUpdateCollectionRequest struct {
 
 // ModelUpdateCollectionResponse defines model for modelUpdateCollectionResponse.
 type ModelUpdateCollectionResponse = map[string]interface{}
-
-// ModelUpdateDocumentRequest defines model for modelUpdateDocumentRequest.
-type ModelUpdateDocumentRequest struct {
-	Document *map[string]interface{} `json:"document,omitempty"`
-	Query    *ModelQuery             `json:"query,omitempty"`
-}
-
-// ModelUpdateDocumentResponse defines model for modelUpdateDocumentResponse.
-type ModelUpdateDocumentResponse struct {
-	DocumentId    *string `json:"documentId,omitempty"`
-	Revision      *string `json:"revision,omitempty"`
-	TransactionId *string `json:"transactionId,omitempty"`
-}
 
 // ProtobufAny `Any` contains an arbitrary serialized protocol buffer message along with a
 // URL that describes the type of the serialized message.
@@ -509,14 +509,14 @@ type AuditDocumentJSONRequestBody = ModelAuditDocumentRequest
 // DeleteDocumentsJSONRequestBody defines body for DeleteDocuments for application/json ContentType.
 type DeleteDocumentsJSONRequestBody = ModelDeleteDocumentsRequest
 
-// ProveDocumentJSONRequestBody defines body for ProveDocument for application/json ContentType.
-type ProveDocumentJSONRequestBody = ModelProveDocumentRequest
+// ProofDocumentJSONRequestBody defines body for ProofDocument for application/json ContentType.
+type ProofDocumentJSONRequestBody = ModelProofDocumentRequest
+
+// ReplaceDocumentJSONRequestBody defines body for ReplaceDocument for application/json ContentType.
+type ReplaceDocumentJSONRequestBody = ModelReplaceDocumentRequest
 
 // SearchDocumentsJSONRequestBody defines body for SearchDocuments for application/json ContentType.
 type SearchDocumentsJSONRequestBody = ModelSearchDocumentsRequest
-
-// UpdateDocumentJSONRequestBody defines body for UpdateDocument for application/json ContentType.
-type UpdateDocumentJSONRequestBody = ModelUpdateDocumentRequest
 
 // CreateIndexJSONRequestBody defines body for CreateIndex for application/json ContentType.
 type CreateIndexJSONRequestBody = ModelCreateIndexRequest
@@ -646,20 +646,20 @@ type ClientInterface interface {
 
 	DeleteDocuments(ctx context.Context, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ProveDocument request with any body
-	ProveDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ProofDocument request with any body
+	ProofDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ProveDocument(ctx context.Context, body ProveDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ProofDocument(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceDocument request with any body
+	ReplaceDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReplaceDocument(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SearchDocuments request with any body
 	SearchDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SearchDocuments(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateDocument request with any body
-	UpdateDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateDocument(ctx context.Context, body UpdateDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateIndex request with any body
 	CreateIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -900,8 +900,8 @@ func (c *Client) DeleteDocuments(ctx context.Context, body DeleteDocumentsJSONRe
 	return c.Client.Do(req)
 }
 
-func (c *Client) ProveDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewProveDocumentRequestWithBody(c.Server, contentType, body)
+func (c *Client) ProofDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewProofDocumentRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -912,8 +912,32 @@ func (c *Client) ProveDocumentWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ProveDocument(ctx context.Context, body ProveDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewProveDocumentRequest(c.Server, body)
+func (c *Client) ProofDocument(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewProofDocumentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReplaceDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceDocumentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReplaceDocument(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceDocumentRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -938,30 +962,6 @@ func (c *Client) SearchDocumentsWithBody(ctx context.Context, contentType string
 
 func (c *Client) SearchDocuments(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSearchDocumentsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDocumentRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDocument(ctx context.Context, body UpdateDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDocumentRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1435,19 +1435,19 @@ func NewDeleteDocumentsRequestWithBody(server string, contentType string, body i
 	return req, nil
 }
 
-// NewProveDocumentRequest calls the generic ProveDocument builder with application/json body
-func NewProveDocumentRequest(server string, body ProveDocumentJSONRequestBody) (*http.Request, error) {
+// NewProofDocumentRequest calls the generic ProofDocument builder with application/json body
+func NewProofDocumentRequest(server string, body ProofDocumentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewProveDocumentRequestWithBody(server, "application/json", bodyReader)
+	return NewProofDocumentRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewProveDocumentRequestWithBody generates requests for ProveDocument with any type of body
-func NewProveDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewProofDocumentRequestWithBody generates requests for ProofDocument with any type of body
+func NewProofDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1455,7 +1455,7 @@ func NewProveDocumentRequestWithBody(server string, contentType string, body io.
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/documents/prove")
+	operationPath := fmt.Sprintf("/documents/proof")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1466,6 +1466,46 @@ func NewProveDocumentRequestWithBody(server string, contentType string, body io.
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReplaceDocumentRequest calls the generic ReplaceDocument builder with application/json body
+func NewReplaceDocumentRequest(server string, body ReplaceDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceDocumentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewReplaceDocumentRequestWithBody generates requests for ReplaceDocument with any type of body
+func NewReplaceDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/documents/replace")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1506,46 +1546,6 @@ func NewSearchDocumentsRequestWithBody(server string, contentType string, body i
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewUpdateDocumentRequest calls the generic UpdateDocument builder with application/json body
-func NewUpdateDocumentRequest(server string, body UpdateDocumentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateDocumentRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateDocumentRequestWithBody generates requests for UpdateDocument with any type of body
-func NewUpdateDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents/update")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1727,20 +1727,20 @@ type ClientWithResponsesInterface interface {
 
 	DeleteDocumentsWithResponse(ctx context.Context, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error)
 
-	// ProveDocument request with any body
-	ProveDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProveDocumentResponse, error)
+	// ProofDocument request with any body
+	ProofDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
 
-	ProveDocumentWithResponse(ctx context.Context, body ProveDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProveDocumentResponse, error)
+	ProofDocumentWithResponse(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
+
+	// ReplaceDocument request with any body
+	ReplaceDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error)
+
+	ReplaceDocumentWithResponse(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error)
 
 	// SearchDocuments request with any body
 	SearchDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
 
 	SearchDocumentsWithResponse(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
-
-	// UpdateDocument request with any body
-	UpdateDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDocumentResponse, error)
-
-	UpdateDocumentWithResponse(ctx context.Context, body UpdateDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDocumentResponse, error)
 
 	// CreateIndex request with any body
 	CreateIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
@@ -2006,15 +2006,15 @@ func (r DeleteDocumentsResponse) StatusCode() int {
 	return 0
 }
 
-type ProveDocumentResponse struct {
+type ProofDocumentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ModelProveDocumentResponse
+	JSON200      *ModelProofDocumentResponse
 	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
-func (r ProveDocumentResponse) Status() string {
+func (r ProofDocumentResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -2022,7 +2022,30 @@ func (r ProveDocumentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ProveDocumentResponse) StatusCode() int {
+func (r ProofDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ReplaceDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelReplaceDocumentResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceDocumentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2046,29 +2069,6 @@ func (r SearchDocumentsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SearchDocumentsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateDocumentResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelUpdateDocumentResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateDocumentResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateDocumentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2284,21 +2284,38 @@ func (c *ClientWithResponses) DeleteDocumentsWithResponse(ctx context.Context, b
 	return ParseDeleteDocumentsResponse(rsp)
 }
 
-// ProveDocumentWithBodyWithResponse request with arbitrary body returning *ProveDocumentResponse
-func (c *ClientWithResponses) ProveDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProveDocumentResponse, error) {
-	rsp, err := c.ProveDocumentWithBody(ctx, contentType, body, reqEditors...)
+// ProofDocumentWithBodyWithResponse request with arbitrary body returning *ProofDocumentResponse
+func (c *ClientWithResponses) ProofDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error) {
+	rsp, err := c.ProofDocumentWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseProveDocumentResponse(rsp)
+	return ParseProofDocumentResponse(rsp)
 }
 
-func (c *ClientWithResponses) ProveDocumentWithResponse(ctx context.Context, body ProveDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProveDocumentResponse, error) {
-	rsp, err := c.ProveDocument(ctx, body, reqEditors...)
+func (c *ClientWithResponses) ProofDocumentWithResponse(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error) {
+	rsp, err := c.ProofDocument(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseProveDocumentResponse(rsp)
+	return ParseProofDocumentResponse(rsp)
+}
+
+// ReplaceDocumentWithBodyWithResponse request with arbitrary body returning *ReplaceDocumentResponse
+func (c *ClientWithResponses) ReplaceDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error) {
+	rsp, err := c.ReplaceDocumentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceDocumentResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReplaceDocumentWithResponse(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error) {
+	rsp, err := c.ReplaceDocument(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceDocumentResponse(rsp)
 }
 
 // SearchDocumentsWithBodyWithResponse request with arbitrary body returning *SearchDocumentsResponse
@@ -2316,23 +2333,6 @@ func (c *ClientWithResponses) SearchDocumentsWithResponse(ctx context.Context, b
 		return nil, err
 	}
 	return ParseSearchDocumentsResponse(rsp)
-}
-
-// UpdateDocumentWithBodyWithResponse request with arbitrary body returning *UpdateDocumentResponse
-func (c *ClientWithResponses) UpdateDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDocumentResponse, error) {
-	rsp, err := c.UpdateDocumentWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDocumentResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateDocumentWithResponse(ctx context.Context, body UpdateDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDocumentResponse, error) {
-	rsp, err := c.UpdateDocument(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDocumentResponse(rsp)
 }
 
 // CreateIndexWithBodyWithResponse request with arbitrary body returning *CreateIndexResponse
@@ -2732,22 +2732,55 @@ func ParseDeleteDocumentsResponse(rsp *http.Response) (*DeleteDocumentsResponse,
 	return response, nil
 }
 
-// ParseProveDocumentResponse parses an HTTP response from a ProveDocumentWithResponse call
-func ParseProveDocumentResponse(rsp *http.Response) (*ProveDocumentResponse, error) {
+// ParseProofDocumentResponse parses an HTTP response from a ProofDocumentWithResponse call
+func ParseProofDocumentResponse(rsp *http.Response) (*ProofDocumentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ProveDocumentResponse{
+	response := &ProofDocumentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelProveDocumentResponse
+		var dest ModelProofDocumentResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplaceDocumentResponse parses an HTTP response from a ReplaceDocumentWithResponse call
+func ParseReplaceDocumentResponse(rsp *http.Response) (*ReplaceDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelReplaceDocumentResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2781,39 +2814,6 @@ func ParseSearchDocumentsResponse(rsp *http.Response) (*SearchDocumentsResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ModelSearchDocumentsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateDocumentResponse parses an HTTP response from a UpdateDocumentWithResponse call
-func ParseUpdateDocumentResponse(rsp *http.Response) (*UpdateDocumentResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateDocumentResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelUpdateDocumentResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

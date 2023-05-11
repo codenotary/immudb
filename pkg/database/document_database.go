@@ -43,16 +43,16 @@ type DocumentDatabase interface {
 	DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error)
 	// InsertDocuments creates new documents
 	InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error)
-	// UpdateDocument updates a document
-	UpdateDocument(ctx context.Context, req *protomodel.UpdateDocumentRequest) (*protomodel.UpdateDocumentResponse, error)
+	// ReplaceDocument replaces a document
+	ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error)
 	// AuditDocument returns the document audit history
 	AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error)
 	// SearchDocuments returns the documents matching the query
 	SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error)
 	// DeleteDocuments deletes documents maching the query
 	DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error)
-	// ProveDocument returns the proofs for a document
-	ProveDocument(ctx context.Context, req *protomodel.ProveDocumentRequest) (*protomodel.ProveDocumentResponse, error)
+	// ProofDocument returns the proofs for a document
+	ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error)
 }
 
 // CreateCollection creates a new collection
@@ -212,8 +212,8 @@ func (d *db) InsertDocuments(ctx context.Context, req *protomodel.InsertDocument
 	}, nil
 }
 
-// UpdateDocument updates a document
-func (d *db) UpdateDocument(ctx context.Context, req *protomodel.UpdateDocumentRequest) (*protomodel.UpdateDocumentResponse, error) {
+// ReplaceDocument replaces a document
+func (d *db) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -225,12 +225,12 @@ func (d *db) UpdateDocument(ctx context.Context, req *protomodel.UpdateDocumentR
 		return nil, ErrIllegalArguments
 	}
 
-	txID, docID, rev, err := d.documentEngine.UpdateDocument(ctx, req.Query, req.Document)
+	txID, docID, rev, err := d.documentEngine.ReplaceDocument(ctx, req.Query, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
-	return &protomodel.UpdateDocumentResponse{
+	return &protomodel.ReplaceDocumentResponse{
 		TransactionId: txID,
 		DocumentId:    docID.EncodeToHexString(),
 		Revision:      rev,
@@ -282,8 +282,8 @@ func (d *db) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocument
 	return &protomodel.DeleteDocumentsResponse{}, nil
 }
 
-// ProveDocument returns the proofs for a documenta
-func (d *db) ProveDocument(ctx context.Context, req *protomodel.ProveDocumentRequest) (*protomodel.ProveDocumentResponse, error) {
+// ProofDocument returns the proofs for a documenta
+func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -333,7 +333,7 @@ func (d *db) ProveDocument(ctx context.Context, req *protomodel.ProveDocumentReq
 		return nil, err
 	}
 
-	return &protomodel.ProveDocumentResponse{
+	return &protomodel.ProofDocumentResponse{
 		Database:        d.name,
 		CollectionId:    collectionID,
 		IdFieldName:     idFieldName,

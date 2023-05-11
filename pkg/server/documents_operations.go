@@ -124,12 +124,12 @@ func (s *ImmuServer) InsertDocuments(ctx context.Context, req *protomodel.Insert
 	return resp, nil
 }
 
-func (s *ImmuServer) UpdateDocument(ctx context.Context, req *protomodel.UpdateDocumentRequest) (*protomodel.UpdateDocumentResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "UpdateDocument")
+func (s *ImmuServer) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "ReplaceDocument")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.UpdateDocument(ctx, req)
+	resp, err := db.ReplaceDocument(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -264,13 +264,13 @@ func (s *ImmuServer) DeleteDocuments(ctx context.Context, req *protomodel.Delete
 	return resp, nil
 }
 
-func (s *ImmuServer) ProveDocument(ctx context.Context, req *protomodel.ProveDocumentRequest) (*protomodel.ProveDocumentResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "ProveDocument")
+func (s *ImmuServer) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "ProofDocument")
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := db.ProveDocument(ctx, req)
+	res, err := db.ProofDocument(ctx, req)
 	if err != nil {
 		return nil, err
 	}

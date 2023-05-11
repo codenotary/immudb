@@ -133,12 +133,12 @@ message InsertDocumentsResponse {
   repeated string documentIds = 2;
 }
 
-message UpdateDocumentRequest {
+message ReplaceDocumentRequest {
   Query query = 1;
   google.protobuf.Struct document = 2;
 }
 
-message UpdateDocumentResponse {
+message ReplaceDocumentResponse {
   uint64 transactionId = 1;
   string documentId = 2;
   uint64 revision = 3;
@@ -211,14 +211,14 @@ message AuditDocumentResponse {
   repeated DocumentAtRevision revisions = 1;
 }
 
-message ProveDocumentRequest {
+message ProofDocumentRequest {
   string collection = 1;
   string documentId = 2;
   uint64 transactionId = 3;
   uint64 proofSinceTransactionId = 4;
 }
 
-message ProveDocumentResponse {
+message ProofDocumentResponse {
   string database = 1;
   uint32 collectionId = 2;
   string idFieldName = 3;
@@ -311,9 +311,9 @@ service DocumentService {
     };
   }
 
-  rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse) {
+  rpc ReplaceDocument(ReplaceDocumentRequest) returns (ReplaceDocumentResponse) {
     option (google.api.http) = {
-      put: "/documents/update"
+      put: "/documents/replace"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -357,9 +357,9 @@ service DocumentService {
     };
   }
 
-  rpc ProveDocument(ProveDocumentRequest) returns (ProveDocumentResponse) {
+  rpc ProofDocument(ProofDocumentRequest) returns (ProofDocumentResponse) {
     option (google.api.http) = {
-      post: "/documents/prove"
+      post: "/documents/proof"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
