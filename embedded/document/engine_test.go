@@ -112,7 +112,7 @@ func TestListCollections(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	collectionList, err := engine.ListCollections(context.Background())
+	collectionList, err := engine.GetCollections(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, len(collections), len(collectionList))
 }
@@ -234,7 +234,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.Equal(t, uint64(2), revision)
 
 	// get document audit
-	res, err := engine.DocumentAudit(context.Background(), collectionName, docID, false, 0, 10)
+	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
 
@@ -728,7 +728,7 @@ func TestDeleteCollection(t *testing.T) {
 		err = engine.DeleteCollection(context.Background(), collectionName)
 		require.NoError(t, err)
 
-		collectionList, err := engine.ListCollections(context.Background())
+		collectionList, err := engine.GetCollections(context.Background())
 		require.NoError(t, err)
 		require.Empty(t, collectionList)
 	})
@@ -880,7 +880,7 @@ func TestBulkInsert(t *testing.T) {
 		docs = append(docs, doc)
 	}
 
-	txID, docIDs, err := engine.BulkInsertDocuments(ctx, collectionName, docs)
+	txID, docIDs, err := engine.InsertDocuments(ctx, collectionName, docs)
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), txID)
 	require.Len(t, docIDs, 10)
@@ -1015,7 +1015,7 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
 
-	err = engine.DeleteDocument(ctx, query)
+	err = engine.DeleteDocuments(ctx, query, 1)
 	require.NoError(t, err)
 
 	reader, err = engine.GetDocuments(ctx, query, 0)

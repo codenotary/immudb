@@ -163,7 +163,26 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 	return mayTranslateError(err)
 }
 
-func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection, error) {
+func (e *Engine) GetCollection(ctx context.Context, collectionName string) (*protomodel.Collection, error) {
+	opts := sql.DefaultTxOptions().
+		WithReadOnly(true).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return nil, mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	table, err := getTableForCollection(sqlTx, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	return collectionFromTable(table), nil
+}
+
+func (e *Engine) GetCollections(ctx context.Context) ([]*protomodel.Collection, error) {
 	opts := sql.DefaultTxOptions().
 		WithReadOnly(true).
 		WithExplicitClose(true)
@@ -183,25 +202,6 @@ func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection,
 	}
 
 	return collections, nil
-}
-
-func (e *Engine) GetCollection(ctx context.Context, collectionName string) (*protomodel.Collection, error) {
-	opts := sql.DefaultTxOptions().
-		WithReadOnly(true).
-		WithExplicitClose(true)
-
-	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
-	if err != nil {
-		return nil, mayTranslateError(err)
-	}
-	defer sqlTx.Cancel()
-
-	table, err := getTableForCollection(sqlTx, collectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	return collectionFromTable(table), nil
 }
 
 func docIDFieldName(table *sql.Table) string {
@@ -438,7 +438,7 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 }
 
 func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
-	txID, docIDs, err := e.BulkInsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
+	txID, docIDs, err := e.InsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -446,7 +446,7 @@ func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc 
 	return txID, docIDs[0], nil
 }
 
-func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
+func (e *Engine) InsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
@@ -759,8 +759,8 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 	return table.ID(), docIDFieldName(table), docAtRevision, nil
 }
 
-// DocumentAudit returns the audit history of a document.
-func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
+// AuditDocument returns the audit history of a document.
+func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, mayTranslateError(err)
@@ -1043,8 +1043,8 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	return entry.Metadata(), v, nil
 }
 
-// DeleteDocument deletes a single document matching the query
-func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) error {
+// DeleteDocuments deletes documents matching the query
+func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query, limit int) error {
 	if query == nil {
 		return ErrIllegalArguments
 	}
@@ -1070,7 +1070,7 @@ func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) er
 		table.Name(),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		sql.NewInteger(1),
+		sql.NewInteger(int64(limit)),
 	)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(
