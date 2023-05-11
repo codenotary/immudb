@@ -54,7 +54,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 	// create collection
 	collectionName := "mycollection"
 
-	_, err := db.CreateCollection(context.Background(), &protomodel.CollectionCreateRequest{
+	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
 			{
@@ -71,7 +71,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.NoError(t, err)
 
 	// get collection
-	cinfo, err := db.GetCollection(context.Background(), &protomodel.CollectionGetRequest{
+	cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
 		Name: collectionName,
 	})
 	require.NoError(t, err)
@@ -85,18 +85,20 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.Equal(t, protomodel.FieldType_INTEGER, resp.Fields[1].Type)
 
 	// add document to collection
-	docRes, err := db.InsertDocument(context.Background(), &protomodel.DocumentInsertRequest{
+	res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
 		Collection: collectionName,
-		Document: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"pincode": {
-					Kind: &structpb.Value_NumberValue{NumberValue: 123},
+		Documents: []*structpb.Struct{
+			{
+				Fields: map[string]*structpb.Value{
+					"pincode": {
+						Kind: &structpb.Value_NumberValue{NumberValue: 123},
+					},
 				},
 			},
 		},
 	})
 	require.NoError(t, err)
-	require.NotNil(t, docRes)
+	require.NotNil(t, res)
 
 	// query collection for document
 	reader, err := db.SearchDocuments(context.Background(), &protomodel.Query{
@@ -126,9 +128,9 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 
-	proofRes, err := db.DocumentProof(context.Background(), &protomodel.DocumentProofRequest{
+	proofRes, err := db.ProveDocument(context.Background(), &protomodel.ProveDocumentRequest{
 		Collection: collectionName,
-		DocumentId: docRes.DocumentId,
+		DocumentId: res.DocumentIds[0],
 	})
 	require.NoError(t, err)
 	require.NotNil(t, proofRes)

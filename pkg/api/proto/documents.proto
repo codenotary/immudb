@@ -48,14 +48,14 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   }
 };
 
-message CollectionCreateRequest {
+message CreateCollectionRequest {
   string name = 1;
   string idFieldName = 2;
   repeated Field fields = 3;
   repeated Index indexes = 4;
 }
 
-message CollectionCreateResponse {}
+message CreateCollectionResponse {}
 
 message Field {
   string name = 1;
@@ -74,11 +74,11 @@ message Index {
   bool isUnique = 2;
 }
 
-message CollectionGetRequest {
+message GetCollectionRequest {
   string name = 1;
 }
 
-message CollectionGetResponse {
+message GetCollectionResponse {
   Collection collection = 1;
 }
 
@@ -89,72 +89,62 @@ message Collection {
   repeated Index indexes = 4;
 }
 
-message CollectionListRequest {}
+message GetCollectionsRequest {}
 
-message CollectionListResponse {
+message GetCollectionsResponse {
   repeated Collection collections = 1;
 }
 
-message CollectionDeleteRequest {
+message DeleteCollectionRequest {
   string name = 1;
 }
 
-message CollectionDeleteResponse {}
+message DeleteCollectionResponse {}
 
-message CollectionUpdateRequest {
+message UpdateCollectionRequest {
   string name = 1;
   string idFieldName = 2;
 }
 
-message CollectionUpdateResponse {}
+message UpdateCollectionResponse {}
 
-message IndexCreateRequest {
+message CreateIndexRequest {
   string collection = 1;
   repeated string fields = 2;
   bool isUnique = 3;
 }
 
-message IndexCreateResponse {}
+message CreateIndexResponse {}
 
-message IndexDeleteRequest {
+message DeleteIndexRequest {
   string collection = 1;
   repeated string fields = 2;
 }
 
-message IndexDeleteResponse {}
+message DeleteIndexResponse {}
 
-message DocumentInsertRequest {
-  string collection = 1;
-  google.protobuf.Struct document = 2;
-}
-
-message DocumentInsertResponse {
-  uint64 transactionId = 1;
-  string documentId = 2;
-}
-
-message DocumentInsertManyRequest {
+message InsertDocumentsRequest {
   string collection = 1;
   repeated google.protobuf.Struct documents = 2;
 }
 
-message DocumentInsertManyResponse {
+message InsertDocumentsResponse {
   uint64 transactionId = 1;
   repeated string documentIds = 2;
 }
 
-message DocumentUpdateRequest {
+message UpdateDocumentRequest {
   Query query = 1;
   google.protobuf.Struct document = 2;
 }
 
-message DocumentUpdateResponse {
+message UpdateDocumentResponse {
   uint64 transactionId = 1;
   string documentId = 2;
   uint64 revision = 3;
 }
 
-message DocumentSearchRequest {
+message SearchDocumentsRequest {
   string searchId = 1;
   Query query = 2;
   uint32 page = 3;
@@ -193,7 +183,7 @@ message OrderByClause {
   bool desc = 2;
 }
 
-message DocumentSearchResponse {
+message SearchDocumentsResponse {
   string searchId = 1;
   repeated DocumentAtRevision revisions = 2;
 }
@@ -209,7 +199,7 @@ message DocumentMetadata {
   bool deleted = 1;
 }
 
-message DocumentAuditRequest {
+message AuditDocumentRequest {
   string collection = 1;
   string documentId = 2;
   bool desc = 3;
@@ -217,18 +207,18 @@ message DocumentAuditRequest {
   uint32 pageSize = 5;
 }
 
-message DocumentAuditResponse {
+message AuditDocumentResponse {
   repeated DocumentAtRevision revisions = 1;
 }
 
-message DocumentProofRequest {
+message ProveDocumentRequest {
   string collection = 1;
   string documentId = 2;
   uint64 transactionId = 3;
   uint64 proofSinceTransactionId = 4;
 }
 
-message DocumentProofResponse {
+message ProveDocumentResponse {
   string database = 1;
   uint32 collectionId = 2;
   string idFieldName = 3;
@@ -236,16 +226,17 @@ message DocumentProofResponse {
   schema.VerifiableTxV2 verifiableTx = 5;
 }
 
-message DocumentDeleteRequest {
+message DeleteDocumentsRequest {
   Query query = 1;
+  uint32 limit = 2;
 }
 
-message DocumentDeleteResponse {}
+message DeleteDocumentsResponse {}
 
 service DocumentService {
-  rpc CollectionCreate(CollectionCreateRequest) returns (CollectionCreateResponse) {
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse) {
     option (google.api.http) = {
-      put: "/collections/create"
+      put: "/collections"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -253,35 +244,25 @@ service DocumentService {
     };
   }
 
-  rpc CollectionGet(CollectionGetRequest) returns (CollectionGetResponse) {
+  rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse) {
     option (google.api.http) = {
-      get: "/collections/get"
+      get: "/collections/{name}"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "collections";
     };
   }
 
-  rpc CollectionList(CollectionListRequest) returns (CollectionListResponse) {
+  rpc GetCollections(GetCollectionsRequest) returns (GetCollectionsResponse) {
     option (google.api.http) = {
-      post: "/collections/list"
-      body: "*"
+      get: "/collections"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "collections";
     };
   }
 
-  rpc CollectionDelete(CollectionDeleteRequest) returns (CollectionDeleteResponse) {
-    option (google.api.http) = {
-      delete: "/collections/delete"
-    };
-    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: "collections";
-    };
-  }
-
-  rpc CollectionUpdate(CollectionUpdateRequest) returns (CollectionUpdateResponse) {
+  rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse) {
     option (google.api.http) = {
       put: "/collections/update"
       body: "*"
@@ -291,29 +272,38 @@ service DocumentService {
     };
   }
 
-  rpc IndexCreate(IndexCreateRequest) returns (IndexCreateResponse) {
+  rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse) {
     option (google.api.http) = {
-      put: "/indexes/create"
-      body: "*"
+      delete: "/collections/{name}"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: "indexes";
+      tags: "collections";
     };
   }
 
-  rpc IndexDelete(IndexDeleteRequest) returns (IndexDeleteResponse) {
+  rpc CreateIndex(CreateIndexRequest) returns (CreateIndexResponse) {
     option (google.api.http) = {
-      put: "/indexes/delete"
+      put: "/index"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: "indexes";
+      tags: "index";
     };
   }
 
-  rpc DocumentInsert(DocumentInsertRequest) returns (DocumentInsertResponse) {
+  rpc DeleteIndex(DeleteIndexRequest) returns (DeleteIndexResponse) {
     option (google.api.http) = {
-      put: "/documents/insert"
+      post: "/index/delete"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "index";
+    };
+  }
+
+  rpc InsertDocuments(InsertDocumentsRequest) returns (InsertDocumentsResponse) {
+    option (google.api.http) = {
+      put: "/documents"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -321,19 +311,9 @@ service DocumentService {
     };
   }
 
-  rpc DocumentInsertMany(DocumentInsertManyRequest) returns (DocumentInsertManyResponse) {
+  rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse) {
     option (google.api.http) = {
-      put: "/documents/insertmany"
-      body: "*"
-    };
-    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: "documents";
-    };
-  }
-
-  rpc DocumentUpdate(DocumentUpdateRequest) returns (DocumentUpdateResponse) {
-    option (google.api.http) = {
-      post: "/documents/update"
+      put: "/documents/update"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -343,7 +323,19 @@ service DocumentService {
     };
   }
 
-  rpc DocumentSearch(DocumentSearchRequest) returns (DocumentSearchResponse) {
+  rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse) {
+    option (google.api.http) = {
+      post: "/documents/delete"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: [
+        "documents"
+      ];
+    };
+  }
+
+  rpc SearchDocuments(SearchDocumentsRequest) returns (SearchDocumentsResponse) {
     option (google.api.http) = {
       post: "/documents/search"
       body: "*"
@@ -353,7 +345,7 @@ service DocumentService {
     };
   }
 
-  rpc DocumentAudit(DocumentAuditRequest) returns (DocumentAuditResponse) {
+  rpc AuditDocument(AuditDocumentRequest) returns (AuditDocumentResponse) {
     option (google.api.http) = {
       post: "/documents/audit"
       body: "*"
@@ -365,21 +357,9 @@ service DocumentService {
     };
   }
 
-  rpc DocumentProof(DocumentProofRequest) returns (DocumentProofResponse) {
+  rpc ProveDocument(ProveDocumentRequest) returns (ProveDocumentResponse) {
     option (google.api.http) = {
-      post: "/documents/proof"
-      body: "*"
-    };
-    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: [
-        "documents"
-      ];
-    };
-  }
-
-  rpc DocumentDelete(DocumentDeleteRequest) returns (DocumentDeleteResponse) {
-    option (google.api.http) = {
-      put: "/documents/delete"
+      post: "/documents/prove"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
