@@ -112,7 +112,6 @@ type ModelDeleteCollectionResponse = map[string]interface{}
 
 // ModelDeleteDocumentsRequest defines model for modelDeleteDocumentsRequest.
 type ModelDeleteDocumentsRequest struct {
-	Limit *int64      `json:"limit,omitempty"`
 	Query *ModelQuery `json:"query,omitempty"`
 }
 
@@ -131,6 +130,7 @@ type ModelDeleteIndexResponse = map[string]interface{}
 // ModelDocumentAtRevision defines model for modelDocumentAtRevision.
 type ModelDocumentAtRevision struct {
 	Document      *map[string]interface{} `json:"document,omitempty"`
+	DocumentId    *string                 `json:"documentId,omitempty"`
 	Metadata      *ModelDocumentMetadata  `json:"metadata,omitempty"`
 	Revision      *string                 `json:"revision,omitempty"`
 	TransactionId *string                 `json:"transactionId,omitempty"`
@@ -218,6 +218,7 @@ type ModelProofDocumentResponse struct {
 type ModelQuery struct {
 	Collection  *string                 `json:"collection,omitempty"`
 	Expressions *[]ModelQueryExpression `json:"expressions,omitempty"`
+	Limit       *int64                  `json:"limit,omitempty"`
 	OrderBy     *[]ModelOrderByClause   `json:"orderBy,omitempty"`
 }
 
@@ -226,17 +227,15 @@ type ModelQueryExpression struct {
 	FieldComparisons *[]ModelFieldComparison `json:"fieldComparisons,omitempty"`
 }
 
-// ModelReplaceDocumentRequest defines model for modelReplaceDocumentRequest.
-type ModelReplaceDocumentRequest struct {
+// ModelReplaceDocumentsRequest defines model for modelReplaceDocumentsRequest.
+type ModelReplaceDocumentsRequest struct {
 	Document *map[string]interface{} `json:"document,omitempty"`
 	Query    *ModelQuery             `json:"query,omitempty"`
 }
 
-// ModelReplaceDocumentResponse defines model for modelReplaceDocumentResponse.
-type ModelReplaceDocumentResponse struct {
-	DocumentId    *string `json:"documentId,omitempty"`
-	Revision      *string `json:"revision,omitempty"`
-	TransactionId *string `json:"transactionId,omitempty"`
+// ModelReplaceDocumentsResponse defines model for modelReplaceDocumentsResponse.
+type ModelReplaceDocumentsResponse struct {
+	Revisions *[]ModelDocumentAtRevision `json:"revisions,omitempty"`
 }
 
 // ModelSearchDocumentsRequest defines model for modelSearchDocumentsRequest.
@@ -511,8 +510,8 @@ type DeleteDocumentsJSONRequestBody = ModelDeleteDocumentsRequest
 // ProofDocumentJSONRequestBody defines body for ProofDocument for application/json ContentType.
 type ProofDocumentJSONRequestBody = ModelProofDocumentRequest
 
-// ReplaceDocumentJSONRequestBody defines body for ReplaceDocument for application/json ContentType.
-type ReplaceDocumentJSONRequestBody = ModelReplaceDocumentRequest
+// ReplaceDocumentsJSONRequestBody defines body for ReplaceDocuments for application/json ContentType.
+type ReplaceDocumentsJSONRequestBody = ModelReplaceDocumentsRequest
 
 // SearchDocumentsJSONRequestBody defines body for SearchDocuments for application/json ContentType.
 type SearchDocumentsJSONRequestBody = ModelSearchDocumentsRequest
@@ -650,10 +649,10 @@ type ClientInterface interface {
 
 	ProofDocument(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReplaceDocument request with any body
-	ReplaceDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ReplaceDocuments request with any body
+	ReplaceDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ReplaceDocument(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ReplaceDocuments(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SearchDocuments request with any body
 	SearchDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -923,8 +922,8 @@ func (c *Client) ProofDocument(ctx context.Context, body ProofDocumentJSONReques
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReplaceDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReplaceDocumentRequestWithBody(c.Server, contentType, body)
+func (c *Client) ReplaceDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceDocumentsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -935,8 +934,8 @@ func (c *Client) ReplaceDocumentWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReplaceDocument(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReplaceDocumentRequest(c.Server, body)
+func (c *Client) ReplaceDocuments(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceDocumentsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1481,19 +1480,19 @@ func NewProofDocumentRequestWithBody(server string, contentType string, body io.
 	return req, nil
 }
 
-// NewReplaceDocumentRequest calls the generic ReplaceDocument builder with application/json body
-func NewReplaceDocumentRequest(server string, body ReplaceDocumentJSONRequestBody) (*http.Request, error) {
+// NewReplaceDocumentsRequest calls the generic ReplaceDocuments builder with application/json body
+func NewReplaceDocumentsRequest(server string, body ReplaceDocumentsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewReplaceDocumentRequestWithBody(server, "application/json", bodyReader)
+	return NewReplaceDocumentsRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewReplaceDocumentRequestWithBody generates requests for ReplaceDocument with any type of body
-func NewReplaceDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewReplaceDocumentsRequestWithBody generates requests for ReplaceDocuments with any type of body
+func NewReplaceDocumentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1738,10 +1737,10 @@ type ClientWithResponsesInterface interface {
 
 	ProofDocumentWithResponse(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
 
-	// ReplaceDocument request with any body
-	ReplaceDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error)
+	// ReplaceDocuments request with any body
+	ReplaceDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error)
 
-	ReplaceDocumentWithResponse(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error)
+	ReplaceDocumentsWithResponse(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error)
 
 	// SearchDocuments request with any body
 	SearchDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
@@ -2035,15 +2034,15 @@ func (r ProofDocumentResponse) StatusCode() int {
 	return 0
 }
 
-type ReplaceDocumentResponse struct {
+type ReplaceDocumentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ModelReplaceDocumentResponse
+	JSON200      *ModelReplaceDocumentsResponse
 	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
-func (r ReplaceDocumentResponse) Status() string {
+func (r ReplaceDocumentsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -2051,7 +2050,7 @@ func (r ReplaceDocumentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ReplaceDocumentResponse) StatusCode() int {
+func (r ReplaceDocumentsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2307,21 +2306,21 @@ func (c *ClientWithResponses) ProofDocumentWithResponse(ctx context.Context, bod
 	return ParseProofDocumentResponse(rsp)
 }
 
-// ReplaceDocumentWithBodyWithResponse request with arbitrary body returning *ReplaceDocumentResponse
-func (c *ClientWithResponses) ReplaceDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error) {
-	rsp, err := c.ReplaceDocumentWithBody(ctx, contentType, body, reqEditors...)
+// ReplaceDocumentsWithBodyWithResponse request with arbitrary body returning *ReplaceDocumentsResponse
+func (c *ClientWithResponses) ReplaceDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error) {
+	rsp, err := c.ReplaceDocumentsWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseReplaceDocumentResponse(rsp)
+	return ParseReplaceDocumentsResponse(rsp)
 }
 
-func (c *ClientWithResponses) ReplaceDocumentWithResponse(ctx context.Context, body ReplaceDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentResponse, error) {
-	rsp, err := c.ReplaceDocument(ctx, body, reqEditors...)
+func (c *ClientWithResponses) ReplaceDocumentsWithResponse(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error) {
+	rsp, err := c.ReplaceDocuments(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseReplaceDocumentResponse(rsp)
+	return ParseReplaceDocumentsResponse(rsp)
 }
 
 // SearchDocumentsWithBodyWithResponse request with arbitrary body returning *SearchDocumentsResponse
@@ -2771,22 +2770,22 @@ func ParseProofDocumentResponse(rsp *http.Response) (*ProofDocumentResponse, err
 	return response, nil
 }
 
-// ParseReplaceDocumentResponse parses an HTTP response from a ReplaceDocumentWithResponse call
-func ParseReplaceDocumentResponse(rsp *http.Response) (*ReplaceDocumentResponse, error) {
+// ParseReplaceDocumentsResponse parses an HTTP response from a ReplaceDocumentsWithResponse call
+func ParseReplaceDocumentsResponse(rsp *http.Response) (*ReplaceDocumentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ReplaceDocumentResponse{
+	response := &ReplaceDocumentsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelReplaceDocumentResponse
+		var dest ModelReplaceDocumentsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

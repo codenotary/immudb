@@ -386,12 +386,12 @@
     },
     "/documents/replace": {
       "put": {
-        "operationId": "ReplaceDocument",
+        "operationId": "ReplaceDocuments",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelReplaceDocumentResponse"
+              "$ref": "#/definitions/modelReplaceDocumentsResponse"
             }
           },
           "default": {
@@ -407,7 +407,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelReplaceDocumentRequest"
+              "$ref": "#/definitions/modelReplaceDocumentsRequest"
             }
           }
         ],
@@ -677,10 +677,6 @@
       "properties": {
         "query": {
           "$ref": "#/definitions/modelQuery"
-        },
-        "limit": {
-          "type": "integer",
-          "format": "int64"
         }
       }
     },
@@ -710,6 +706,9 @@
         "transactionId": {
           "type": "string",
           "format": "uint64"
+        },
+        "documentId": {
+          "type": "string"
         },
         "revision": {
           "type": "string",
@@ -901,6 +900,10 @@
           "items": {
             "$ref": "#/definitions/modelOrderByClause"
           }
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -915,7 +918,7 @@
         }
       }
     },
-    "modelReplaceDocumentRequest": {
+    "modelReplaceDocumentsRequest": {
       "type": "object",
       "properties": {
         "query": {
@@ -926,19 +929,14 @@
         }
       }
     },
-    "modelReplaceDocumentResponse": {
+    "modelReplaceDocumentsResponse": {
       "type": "object",
       "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "documentId": {
-          "type": "string"
-        },
-        "revision": {
-          "type": "string",
-          "format": "uint64"
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
         }
       }
     },

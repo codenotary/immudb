@@ -43,8 +43,8 @@
     - [ProofDocumentResponse](#immudb.model.ProofDocumentResponse)
     - [Query](#immudb.model.Query)
     - [QueryExpression](#immudb.model.QueryExpression)
-    - [ReplaceDocumentRequest](#immudb.model.ReplaceDocumentRequest)
-    - [ReplaceDocumentResponse](#immudb.model.ReplaceDocumentResponse)
+    - [ReplaceDocumentsRequest](#immudb.model.ReplaceDocumentsRequest)
+    - [ReplaceDocumentsResponse](#immudb.model.ReplaceDocumentsResponse)
     - [SearchDocumentsRequest](#immudb.model.SearchDocumentsRequest)
     - [SearchDocumentsResponse](#immudb.model.SearchDocumentsResponse)
     - [UpdateCollectionRequest](#immudb.model.UpdateCollectionRequest)
@@ -310,7 +310,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | query | [Query](#immudb.model.Query) |  |  |
-| limit | [uint32](#uint32) |  |  |
 
 
 
@@ -362,6 +361,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | transactionId | [uint64](#uint64) |  |  |
+| documentId | [string](#string) |  |  |
 | revision | [uint64](#uint64) |  |  |
 | metadata | [DocumentMetadata](#immudb.model.DocumentMetadata) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
@@ -586,6 +586,7 @@
 | collection | [string](#string) |  |  |
 | expressions | [QueryExpression](#immudb.model.QueryExpression) | repeated |  |
 | orderBy | [OrderByClause](#immudb.model.OrderByClause) | repeated |  |
+| limit | [uint32](#uint32) |  |  |
 
 
 
@@ -607,9 +608,9 @@
 
 
 
-<a name="immudb.model.ReplaceDocumentRequest"></a>
+<a name="immudb.model.ReplaceDocumentsRequest"></a>
 
-### ReplaceDocumentRequest
+### ReplaceDocumentsRequest
 
 
 
@@ -623,17 +624,15 @@
 
 
 
-<a name="immudb.model.ReplaceDocumentResponse"></a>
+<a name="immudb.model.ReplaceDocumentsResponse"></a>
 
-### ReplaceDocumentResponse
+### ReplaceDocumentsResponse
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| transactionId | [uint64](#uint64) |  |  |
-| documentId | [string](#string) |  |  |
-| revision | [uint64](#uint64) |  |  |
+| revisions | [DocumentAtRevision](#immudb.model.DocumentAtRevision) | repeated |  |
 
 
 
@@ -753,7 +752,7 @@
 | CreateIndex | [CreateIndexRequest](#immudb.model.CreateIndexRequest) | [CreateIndexResponse](#immudb.model.CreateIndexResponse) |  |
 | DeleteIndex | [DeleteIndexRequest](#immudb.model.DeleteIndexRequest) | [DeleteIndexResponse](#immudb.model.DeleteIndexResponse) |  |
 | InsertDocuments | [InsertDocumentsRequest](#immudb.model.InsertDocumentsRequest) | [InsertDocumentsResponse](#immudb.model.InsertDocumentsResponse) |  |
-| ReplaceDocument | [ReplaceDocumentRequest](#immudb.model.ReplaceDocumentRequest) | [ReplaceDocumentResponse](#immudb.model.ReplaceDocumentResponse) |  |
+| ReplaceDocuments | [ReplaceDocumentsRequest](#immudb.model.ReplaceDocumentsRequest) | [ReplaceDocumentsResponse](#immudb.model.ReplaceDocumentsResponse) |  |
 | DeleteDocuments | [DeleteDocumentsRequest](#immudb.model.DeleteDocumentsRequest) | [DeleteDocumentsResponse](#immudb.model.DeleteDocumentsResponse) |  |
 | SearchDocuments | [SearchDocumentsRequest](#immudb.model.SearchDocumentsRequest) | [SearchDocumentsResponse](#immudb.model.SearchDocumentsResponse) |  |
 | AuditDocument | [AuditDocumentRequest](#immudb.model.AuditDocumentRequest) | [AuditDocumentResponse](#immudb.model.AuditDocumentResponse) |  |

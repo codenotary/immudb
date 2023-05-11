@@ -223,7 +223,7 @@ func TestDocumentAudit(t *testing.T) {
 		},
 	}
 
-	_, _, revision, err := engine.ReplaceDocument(context.Background(), query, &structpb.Struct{
+	revisions, err := engine.ReplaceDocuments(context.Background(), query, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"_id":     structpb.NewStringValue(docID.EncodeToHexString()),
 			"pincode": structpb.NewNumberValue(2),
@@ -231,7 +231,8 @@ func TestDocumentAudit(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), revision)
+	require.Len(t, revisions, 1)
+	require.Equal(t, uint64(2), revisions[0].Revision)
 
 	// get document audit
 	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
@@ -541,7 +542,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		updatetxID, updateDocID, rev, err := engine.ReplaceDocument(ctx, query, &structpb.Struct{
+		revisions, err := engine.ReplaceDocuments(ctx, query, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"name": structpb.NewStringValue("Alice"),
 				"age":  structpb.NewNumberValue(31),
@@ -549,9 +550,11 @@ func TestDocumentUpdate(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// Check that the method returned the expected values
-		require.Equal(t, txID+1, updatetxID)
-		require.Equal(t, docID.EncodeToHexString(), updateDocID.EncodeToHexString())
-		require.EqualValues(t, 2, rev)
+		require.Len(t, revisions, 1)
+
+		require.Equal(t, txID+1, revisions[0].TransactionId)
+		require.Equal(t, docID.EncodeToHexString(), revisions[0].DocumentId)
+		require.EqualValues(t, 2, revisions[0].Revision)
 
 		// Verify that the document was updated
 		query = &protomodel.Query{
@@ -608,8 +611,9 @@ func TestDocumentUpdate(t *testing.T) {
 		}
 
 		// Test error case when no documents are found
-		_, _, _, err = engine.ReplaceDocument(ctx, query, toUpdateDoc)
-		require.ErrorIs(t, err, ErrDocumentNotFound)
+		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		require.NoError(t, err)
+		require.Empty(t, revisions)
 	})
 
 	t.Run("update document should fail with a different docID", func(t *testing.T) {
@@ -637,8 +641,9 @@ func TestDocumentUpdate(t *testing.T) {
 		}
 
 		// Call the ReplaceDocument method
-		_, _, _, err := engine.ReplaceDocument(ctx, query, toUpdateDoc)
-		require.ErrorIs(t, err, ErrDocumentNotFound)
+		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		require.NoError(t, err)
+		require.Empty(t, revisions)
 	})
 }
 
@@ -1005,6 +1010,7 @@ func TestDeleteDocument(t *testing.T) {
 				},
 			},
 		},
+		Limit: 1,
 	}
 
 	reader, err := engine.GetDocuments(ctx, query, 0)
@@ -1015,7 +1021,7 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
 
-	err = engine.DeleteDocuments(ctx, query, 1)
+	err = engine.DeleteDocuments(ctx, query)
 	require.NoError(t, err)
 
 	reader, err = engine.GetDocuments(ctx, query, 0)

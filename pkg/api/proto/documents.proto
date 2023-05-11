@@ -133,15 +133,13 @@ message InsertDocumentsResponse {
   repeated string documentIds = 2;
 }
 
-message ReplaceDocumentRequest {
+message ReplaceDocumentsRequest {
   Query query = 1;
   google.protobuf.Struct document = 2;
 }
 
-message ReplaceDocumentResponse {
-  uint64 transactionId = 1;
-  string documentId = 2;
-  uint64 revision = 3;
+message ReplaceDocumentsResponse {
+  repeated DocumentAtRevision revisions = 1;
 }
 
 message SearchDocumentsRequest {
@@ -155,6 +153,7 @@ message Query {
   string collection = 1;
   repeated QueryExpression expressions = 2;
   repeated OrderByClause orderBy = 3;
+  uint32 limit = 4;
 }
 
 message QueryExpression {
@@ -190,9 +189,10 @@ message SearchDocumentsResponse {
 
 message DocumentAtRevision {
   uint64 transactionId = 1;
-  uint64 revision = 2;
-  DocumentMetadata metadata = 3;
-  google.protobuf.Struct document = 4;
+  string documentId = 2;
+  uint64 revision = 3;
+  DocumentMetadata metadata = 4;
+  google.protobuf.Struct document = 5;
 }
 
 message DocumentMetadata {
@@ -228,7 +228,6 @@ message ProofDocumentResponse {
 
 message DeleteDocumentsRequest {
   Query query = 1;
-  uint32 limit = 2;
 }
 
 message DeleteDocumentsResponse {}
@@ -311,7 +310,7 @@ service DocumentService {
     };
   }
 
-  rpc ReplaceDocument(ReplaceDocumentRequest) returns (ReplaceDocumentResponse) {
+  rpc ReplaceDocuments(ReplaceDocumentsRequest) returns (ReplaceDocumentsResponse) {
     option (google.api.http) = {
       put: "/documents/replace"
       body: "*"

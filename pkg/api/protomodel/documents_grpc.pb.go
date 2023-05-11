@@ -26,7 +26,7 @@ type DocumentServiceClient interface {
 	CreateIndex(ctx context.Context, in *CreateIndexRequest, opts ...grpc.CallOption) (*CreateIndexResponse, error)
 	DeleteIndex(ctx context.Context, in *DeleteIndexRequest, opts ...grpc.CallOption) (*DeleteIndexResponse, error)
 	InsertDocuments(ctx context.Context, in *InsertDocumentsRequest, opts ...grpc.CallOption) (*InsertDocumentsResponse, error)
-	ReplaceDocument(ctx context.Context, in *ReplaceDocumentRequest, opts ...grpc.CallOption) (*ReplaceDocumentResponse, error)
+	ReplaceDocuments(ctx context.Context, in *ReplaceDocumentsRequest, opts ...grpc.CallOption) (*ReplaceDocumentsResponse, error)
 	DeleteDocuments(ctx context.Context, in *DeleteDocumentsRequest, opts ...grpc.CallOption) (*DeleteDocumentsResponse, error)
 	SearchDocuments(ctx context.Context, in *SearchDocumentsRequest, opts ...grpc.CallOption) (*SearchDocumentsResponse, error)
 	AuditDocument(ctx context.Context, in *AuditDocumentRequest, opts ...grpc.CallOption) (*AuditDocumentResponse, error)
@@ -113,9 +113,9 @@ func (c *documentServiceClient) InsertDocuments(ctx context.Context, in *InsertD
 	return out, nil
 }
 
-func (c *documentServiceClient) ReplaceDocument(ctx context.Context, in *ReplaceDocumentRequest, opts ...grpc.CallOption) (*ReplaceDocumentResponse, error) {
-	out := new(ReplaceDocumentResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ReplaceDocument", in, out, opts...)
+func (c *documentServiceClient) ReplaceDocuments(ctx context.Context, in *ReplaceDocumentsRequest, opts ...grpc.CallOption) (*ReplaceDocumentsResponse, error) {
+	out := new(ReplaceDocumentsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ReplaceDocuments", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ type DocumentServiceServer interface {
 	CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error)
 	DeleteIndex(context.Context, *DeleteIndexRequest) (*DeleteIndexResponse, error)
 	InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error)
-	ReplaceDocument(context.Context, *ReplaceDocumentRequest) (*ReplaceDocumentResponse, error)
+	ReplaceDocuments(context.Context, *ReplaceDocumentsRequest) (*ReplaceDocumentsResponse, error)
 	DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error)
 	SearchDocuments(context.Context, *SearchDocumentsRequest) (*SearchDocumentsResponse, error)
 	AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error)
@@ -205,8 +205,8 @@ func (UnimplementedDocumentServiceServer) DeleteIndex(context.Context, *DeleteIn
 func (UnimplementedDocumentServiceServer) InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InsertDocuments not implemented")
 }
-func (UnimplementedDocumentServiceServer) ReplaceDocument(context.Context, *ReplaceDocumentRequest) (*ReplaceDocumentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReplaceDocument not implemented")
+func (UnimplementedDocumentServiceServer) ReplaceDocuments(context.Context, *ReplaceDocumentsRequest) (*ReplaceDocumentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplaceDocuments not implemented")
 }
 func (UnimplementedDocumentServiceServer) DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDocuments not implemented")
@@ -376,20 +376,20 @@ func _DocumentService_InsertDocuments_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_ReplaceDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReplaceDocumentRequest)
+func _DocumentService_ReplaceDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceDocumentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).ReplaceDocument(ctx, in)
+		return srv.(DocumentServiceServer).ReplaceDocuments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/ReplaceDocument",
+		FullMethod: "/immudb.model.DocumentService/ReplaceDocuments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).ReplaceDocument(ctx, req.(*ReplaceDocumentRequest))
+		return srv.(DocumentServiceServer).ReplaceDocuments(ctx, req.(*ReplaceDocumentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -506,8 +506,8 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DocumentService_InsertDocuments_Handler,
 		},
 		{
-			MethodName: "ReplaceDocument",
-			Handler:    _DocumentService_ReplaceDocument_Handler,
+			MethodName: "ReplaceDocuments",
+			Handler:    _DocumentService_ReplaceDocuments_Handler,
 		},
 		{
 			MethodName: "DeleteDocuments",

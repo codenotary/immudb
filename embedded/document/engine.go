@@ -38,9 +38,9 @@ type Engine struct {
 	sqlEngine *sql.Engine
 }
 
-type EncodedDocumentAtRevision struct {
+type EncodedDocument struct {
 	TxID            uint64
-	Revision        uint64
+	Revision        uint64 // revision is only set when txID == 0 and info is fetch from the index
 	KVMetadata      *store.KVMetadata
 	EncodedDocument []byte
 }
@@ -578,9 +578,9 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 	return sql.NewRowSpec(values), nil
 }
 
-func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
+func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
 	if query == nil {
-		return 0, nil, 0, ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	if doc == nil || len(doc.Fields) == 0 {
@@ -591,13 +591,13 @@ func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, d
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
 	if err != nil {
-		return 0, nil, 0, mayTranslateError(err)
+		return nil, mayTranslateError(err)
 	}
 	defer sqlTx.Cancel()
 
 	table, err := getTableForCollection(sqlTx, query.Collection)
 	if err != nil {
-		return 0, nil, 0, err
+		return nil, err
 	}
 
 	documentIdFieldName := docIDFieldName(table)
@@ -612,25 +612,25 @@ func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, d
 		}
 
 		if len(query.Expressions) == 0 {
-			query = &protomodel.Query{
-				Expressions: []*protomodel.QueryExpression{
-					{
-						FieldComparisons: []*protomodel.FieldComparison{
-							idFieldComparisson,
-						},
+			query.Expressions = []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						idFieldComparisson,
 					},
 				},
 			}
 		} else {
-			// id comparisson as a first expression might result in faster comparisson
-			firstExp := query.Expressions[0]
-			firstExp.FieldComparisons = append([]*protomodel.FieldComparison{idFieldComparisson}, firstExp.FieldComparisons...)
+			// id comparisson as a first comparisson might result in faster evaluation
+			// note it mas be added into every expression
+			for _, exp := range query.Expressions {
+				exp.FieldComparisons = append([]*protomodel.FieldComparison{idFieldComparisson}, exp.FieldComparisons...)
+			}
 		}
 	}
 
 	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
 	if err != nil {
-		return 0, nil, 0, err
+		return nil, err
 	}
 
 	queryStmt := sql.NewSelectStmt(
@@ -638,61 +638,85 @@ func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, d
 		query.Collection,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		sql.NewInteger(1),
+		sql.NewInteger(int64(query.Limit)),
 		nil,
 	)
 
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, queryStmt, nil)
 	if err != nil {
-		return 0, nil, 0, mayTranslateError(err)
+		return nil, mayTranslateError(err)
 	}
 
-	row, err := r.Read(ctx)
-	if err != nil {
-		r.Close()
+	var docs []*structpb.Struct
 
-		if errors.Is(err, sql.ErrNoMoreRows) {
-			return 0, nil, 0, ErrDocumentNotFound
+	for {
+		row, err := r.Read(ctx)
+		if err != nil {
+			r.Close()
+
+			if errors.Is(err, sql.ErrNoMoreRows) {
+				break
+			}
+
+			return nil, mayTranslateError(err)
 		}
 
-		return 0, nil, 0, mayTranslateError(err)
+		val := row.ValuesByPosition[0].RawValue().([]byte)
+		docID, err := NewDocumentIDFromRawBytes(val)
+		if err != nil {
+			return nil, err
+		}
+
+		newDoc, err := structpb.NewStruct(doc.AsMap())
+		if err != nil {
+			return nil, err
+		}
+
+		if !docIDProvisioned {
+			// add id field to updated document
+			newDoc.Fields[documentIdFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
+		}
+
+		docs = append(docs, newDoc)
 	}
 
 	r.Close()
 
-	val := row.ValuesByPosition[0].RawValue().([]byte)
-	docID, err = NewDocumentIDFromRawBytes(val)
+	if len(docs) == 0 {
+		return nil, nil
+	}
+
+	txID, docIDs, err := e.upsertDocuments(ctx, sqlTx, query.Collection, docs, false)
 	if err != nil {
-		return 0, nil, 0, err
+		return nil, err
 	}
 
-	if !docIDProvisioned {
-		// add id field to updated document
-		doc.Fields[documentIdFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
+	for _, docID := range docIDs {
+		// fetch revision
+		searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.Collection, docID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
+		if err != nil {
+			return nil, err
+		}
+
+		encDoc, err := e.getEncodedDocument(searchKey, 0, false)
+		if err != nil {
+			return nil, err
+		}
+
+		revisions = append(revisions, &protomodel.DocumentAtRevision{
+			TransactionId: txID,
+			DocumentId:    docID.EncodeToHexString(),
+			Revision:      encDoc.Revision,
+			Metadata:      kvMetadataToProto(encDoc.KVMetadata),
+		})
 	}
 
-	txID, _, err = e.upsertDocuments(ctx, sqlTx, query.Collection, []*structpb.Struct{doc}, false)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-
-	// fetch revision
-	searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.Collection, docID)
-	if err != nil {
-		return txID, docID, 0, nil
-	}
-
-	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
-	if err != nil {
-		return txID, docID, 0, nil
-	}
-
-	encDoc, err := e.getEncodedDocumentAtRevision(searchKey, 0, false)
-	if err != nil {
-		return txID, docID, 0, nil
-	}
-
-	return txID, docID, encDoc.Revision, err
+	return revisions, nil
 }
 
 func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offset int64) (DocumentReader, error) {
@@ -734,7 +758,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	return newDocumentReader(r, func(_ DocumentReader) { sqlTx.Cancel() }), nil
 }
 
-func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, documentIdFieldName string, docAtRevision *EncodedDocumentAtRevision, err error) {
+func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, documentIdFieldName string, encodedDoc *EncodedDocument, err error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return 0, "", nil, mayTranslateError(err)
@@ -751,12 +775,12 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 		return 0, "", nil, err
 	}
 
-	docAtRevision, err = e.getEncodedDocumentAtRevision(searchKey, txID, false)
+	encodedDoc, err = e.getEncodedDocument(searchKey, txID, false)
 	if err != nil {
 		return 0, "", nil, err
 	}
 
-	return table.ID(), docIDFieldName(table), docAtRevision, nil
+	return table.ID(), docIDFieldName(table), encodedDoc, nil
 }
 
 // AuditDocument returns the audit history of a document.
@@ -785,11 +809,12 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 	results := make([]*protomodel.DocumentAtRevision, 0)
 
 	for _, txID := range txIDs {
-		docAtRevision, err := e.getDocumentAtRevision(searchKey, txID, false)
+		docAtRevision, err := e.getDocumentAtTransaction(searchKey, txID, false)
 		if err != nil {
 			return nil, err
 		}
 
+		docAtRevision.DocumentId = docID.EncodeToHexString()
 		docAtRevision.Revision = revision
 
 		results = append(results, docAtRevision)
@@ -804,7 +829,7 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 	return results, nil
 }
 
-// generateSQLFilteringExpression generates a boolean expression from a list of expressions.
+// generateSQLFilteringExpression generates a boolean expression in Disjunctive Normal Form from a list of expressions
 func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, table *sql.Table) (sql.ValueExp, error) {
 	var outerExp sql.ValueExp
 
@@ -934,28 +959,27 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	return searchKey, nil
 }
 
-func (e *Engine) getDocumentAtRevision(
+func (e *Engine) getDocumentAtTransaction(
 	key []byte,
 	atTx uint64,
 	skipIntegrityCheck bool,
 ) (docAtRevision *protomodel.DocumentAtRevision, err error) {
-	encDocAtRevision, err := e.getEncodedDocumentAtRevision(key, atTx, skipIntegrityCheck)
+	encDoc, err := e.getEncodedDocument(key, atTx, skipIntegrityCheck)
 	if err != nil {
 		return nil, err
 	}
 
-	if encDocAtRevision.KVMetadata != nil && encDocAtRevision.KVMetadata.Deleted() {
+	if encDoc.KVMetadata != nil && encDoc.KVMetadata.Deleted() {
 		return &protomodel.DocumentAtRevision{
-			TransactionId: encDocAtRevision.TxID,
-			Revision:      encDocAtRevision.Revision,
-			Metadata:      &protomodel.DocumentMetadata{Deleted: true},
+			TransactionId: encDoc.TxID,
+			Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		}, nil
 	}
 
 	voff := sql.EncLenLen + sql.EncIDLen
 
 	// DocumentIDField
-	_, n, err := sql.DecodeValue(encDocAtRevision.EncodedDocument[voff:], sql.BLOBType)
+	_, n, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
@@ -963,7 +987,7 @@ func (e *Engine) getDocumentAtRevision(
 	voff += n + sql.EncIDLen
 
 	// DocumentBLOBField
-	encodedDoc, _, err := sql.DecodeValue(encDocAtRevision.EncodedDocument[voff:], sql.BLOBType)
+	encodedDoc, _, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
@@ -977,17 +1001,17 @@ func (e *Engine) getDocumentAtRevision(
 	}
 
 	return &protomodel.DocumentAtRevision{
-		TransactionId: encDocAtRevision.TxID,
-		Revision:      encDocAtRevision.Revision,
+		TransactionId: encDoc.TxID,
+		Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		Document:      doc,
 	}, err
 }
 
-func (e *Engine) getEncodedDocumentAtRevision(
+func (e *Engine) getEncodedDocument(
 	key []byte,
 	atTx uint64,
 	skipIntegrityCheck bool,
-) (encDoc *EncodedDocumentAtRevision, err error) {
+) (encDoc *EncodedDocument, err error) {
 
 	var txID uint64
 	var encodedDoc []byte
@@ -1020,7 +1044,7 @@ func (e *Engine) getEncodedDocumentAtRevision(
 		}
 	}
 
-	return &EncodedDocumentAtRevision{
+	return &EncodedDocument{
 		TxID:            txID,
 		Revision:        revision,
 		KVMetadata:      md,
@@ -1044,7 +1068,7 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 }
 
 // DeleteDocuments deletes documents matching the query
-func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query, limit int) error {
+func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query) error {
 	if query == nil {
 		return ErrIllegalArguments
 	}
@@ -1070,7 +1094,7 @@ func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query, l
 		table.Name(),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		sql.NewInteger(int64(limit)),
+		sql.NewInteger(int64(query.Limit)),
 	)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(

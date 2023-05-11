@@ -124,12 +124,12 @@ func (s *ImmuServer) InsertDocuments(ctx context.Context, req *protomodel.Insert
 	return resp, nil
 }
 
-func (s *ImmuServer) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "ReplaceDocument")
+func (s *ImmuServer) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "ReplaceDocuments")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.ReplaceDocument(ctx, req)
+	resp, err := db.ReplaceDocuments(ctx, req)
 	if err != nil {
 		return nil, err
 	}

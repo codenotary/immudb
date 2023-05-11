@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -97,4 +98,14 @@ var sqlValueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
 	}
 
 	return 0, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+}
+
+func kvMetadataToProto(kvMetadata *store.KVMetadata) *protomodel.DocumentMetadata {
+	if kvMetadata == nil {
+		return nil
+	}
+
+	return &protomodel.DocumentMetadata{
+		Deleted: kvMetadata.Deleted(),
+	}
 }

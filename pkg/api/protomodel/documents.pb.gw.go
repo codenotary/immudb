@@ -365,8 +365,8 @@ func local_request_DocumentService_InsertDocuments_0(ctx context.Context, marsha
 
 }
 
-func request_DocumentService_ReplaceDocument_0(ctx context.Context, marshaler runtime.Marshaler, client DocumentServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ReplaceDocumentRequest
+func request_DocumentService_ReplaceDocuments_0(ctx context.Context, marshaler runtime.Marshaler, client DocumentServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ReplaceDocumentsRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -377,13 +377,13 @@ func request_DocumentService_ReplaceDocument_0(ctx context.Context, marshaler ru
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.ReplaceDocument(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ReplaceDocuments(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_DocumentService_ReplaceDocument_0(ctx context.Context, marshaler runtime.Marshaler, server DocumentServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ReplaceDocumentRequest
+func local_request_DocumentService_ReplaceDocuments_0(ctx context.Context, marshaler runtime.Marshaler, server DocumentServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ReplaceDocumentsRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -394,7 +394,7 @@ func local_request_DocumentService_ReplaceDocument_0(ctx context.Context, marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.ReplaceDocument(ctx, &protoReq)
+	msg, err := server.ReplaceDocuments(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -725,7 +725,7 @@ func RegisterDocumentServiceHandlerServer(ctx context.Context, mux *runtime.Serv
 
 	})
 
-	mux.Handle("PUT", pattern_DocumentService_ReplaceDocument_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_DocumentService_ReplaceDocuments_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -736,7 +736,7 @@ func RegisterDocumentServiceHandlerServer(ctx context.Context, mux *runtime.Serv
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_DocumentService_ReplaceDocument_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_DocumentService_ReplaceDocuments_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -744,7 +744,7 @@ func RegisterDocumentServiceHandlerServer(ctx context.Context, mux *runtime.Serv
 			return
 		}
 
-		forward_DocumentService_ReplaceDocument_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DocumentService_ReplaceDocuments_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -1041,7 +1041,7 @@ func RegisterDocumentServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 
 	})
 
-	mux.Handle("PUT", pattern_DocumentService_ReplaceDocument_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_DocumentService_ReplaceDocuments_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -1050,14 +1050,14 @@ func RegisterDocumentServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_DocumentService_ReplaceDocument_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DocumentService_ReplaceDocuments_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_DocumentService_ReplaceDocument_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DocumentService_ReplaceDocuments_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -1161,7 +1161,7 @@ var (
 
 	pattern_DocumentService_InsertDocuments_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"documents"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_DocumentService_ReplaceDocument_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "replace"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_DocumentService_ReplaceDocuments_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "replace"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_DocumentService_DeleteDocuments_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"documents", "delete"}, "", runtime.AssumeColonVerbOpt(true)))
 
@@ -1189,7 +1189,7 @@ var (
 
 	forward_DocumentService_InsertDocuments_0 = runtime.ForwardResponseMessage
 
-	forward_DocumentService_ReplaceDocument_0 = runtime.ForwardResponseMessage
+	forward_DocumentService_ReplaceDocuments_0 = runtime.ForwardResponseMessage
 
 	forward_DocumentService_DeleteDocuments_0 = runtime.ForwardResponseMessage
 

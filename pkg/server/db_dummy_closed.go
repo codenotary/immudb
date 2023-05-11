@@ -280,7 +280,7 @@ func (d *closedDB) InsertDocuments(ctx context.Context, req *protomodel.InsertDo
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error) {
+func (d *closedDB) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

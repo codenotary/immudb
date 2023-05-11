@@ -43,8 +43,8 @@ type DocumentDatabase interface {
 	DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error)
 	// InsertDocuments creates new documents
 	InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error)
-	// ReplaceDocument replaces a document
-	ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error)
+	// ReplaceDocuments replaces documents matching the query
+	ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error)
 	// AuditDocument returns the document audit history
 	AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error)
 	// SearchDocuments returns the documents matching the query
@@ -212,8 +212,8 @@ func (d *db) InsertDocuments(ctx context.Context, req *protomodel.InsertDocument
 	}, nil
 }
 
-// ReplaceDocument replaces a document
-func (d *db) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumentRequest) (*protomodel.ReplaceDocumentResponse, error) {
+// ReplaceDocuments replaces documents matching the query
+func (d *db) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -225,15 +225,13 @@ func (d *db) ReplaceDocument(ctx context.Context, req *protomodel.ReplaceDocumen
 		return nil, ErrIllegalArguments
 	}
 
-	txID, docID, rev, err := d.documentEngine.ReplaceDocument(ctx, req.Query, req.Document)
+	revisions, err := d.documentEngine.ReplaceDocuments(ctx, req.Query, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
-	return &protomodel.ReplaceDocumentResponse{
-		TransactionId: txID,
-		DocumentId:    docID.EncodeToHexString(),
-		Revision:      rev,
+	return &protomodel.ReplaceDocumentsResponse{
+		Revisions: revisions,
 	}, nil
 }
 
@@ -275,7 +273,7 @@ func (d *db) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocument
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteDocuments(ctx, req.Query, int(req.Limit))
+	err := d.documentEngine.DeleteDocuments(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
