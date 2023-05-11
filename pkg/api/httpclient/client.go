@@ -256,7 +256,6 @@ type ModelSearchDocumentsResponse struct {
 // ModelUpdateCollectionRequest defines model for modelUpdateCollectionRequest.
 type ModelUpdateCollectionRequest struct {
 	IdFieldName *string `json:"idFieldName,omitempty"`
-	Name        *string `json:"name,omitempty"`
 }
 
 // ModelUpdateCollectionResponse defines model for modelUpdateCollectionResponse.
@@ -620,16 +619,16 @@ type ClientInterface interface {
 
 	CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateCollection request with any body
-	UpdateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateCollection(ctx context.Context, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DeleteCollection request
 	DeleteCollection(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCollection request
 	GetCollection(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateCollection request with any body
+	UpdateCollectionWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateCollection(ctx context.Context, name string, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InsertDocuments request with any body
 	InsertDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -780,30 +779,6 @@ func (c *Client) CreateCollection(ctx context.Context, body CreateCollectionJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateCollectionRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateCollection(ctx context.Context, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateCollectionRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) DeleteCollection(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteCollectionRequest(c.Server, name)
 	if err != nil {
@@ -818,6 +793,30 @@ func (c *Client) DeleteCollection(ctx context.Context, name string, reqEditors .
 
 func (c *Client) GetCollection(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCollectionRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCollectionWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCollectionRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCollection(ctx context.Context, name string, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCollectionRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1207,46 +1206,6 @@ func NewCreateCollectionRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
-// NewUpdateCollectionRequest calls the generic UpdateCollection builder with application/json body
-func NewUpdateCollectionRequest(server string, body UpdateCollectionJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateCollectionRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateCollectionRequestWithBody generates requests for UpdateCollection with any type of body
-func NewUpdateCollectionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/collections/update")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewDeleteCollectionRequest generates requests for DeleteCollection
 func NewDeleteCollectionRequest(server string, name string) (*http.Request, error) {
 	var err error
@@ -1311,6 +1270,53 @@ func NewGetCollectionRequest(server string, name string) (*http.Request, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateCollectionRequest calls the generic UpdateCollection builder with application/json body
+func NewUpdateCollectionRequest(server string, name string, body UpdateCollectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCollectionRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewUpdateCollectionRequestWithBody generates requests for UpdateCollection with any type of body
+func NewUpdateCollectionRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collections/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1701,16 +1707,16 @@ type ClientWithResponsesInterface interface {
 
 	CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
 
-	// UpdateCollection request with any body
-	UpdateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error)
-
-	UpdateCollectionWithResponse(ctx context.Context, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error)
-
 	// DeleteCollection request
 	DeleteCollectionWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error)
 
 	// GetCollection request
 	GetCollectionWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetCollectionResponse, error)
+
+	// UpdateCollection request with any body
+	UpdateCollectionWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error)
+
+	UpdateCollectionWithResponse(ctx context.Context, name string, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error)
 
 	// InsertDocuments request with any body
 	InsertDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error)
@@ -1868,29 +1874,6 @@ func (r CreateCollectionResponse) StatusCode() int {
 	return 0
 }
 
-type UpdateCollectionResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelUpdateCollectionResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateCollectionResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateCollectionResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type DeleteCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1931,6 +1914,29 @@ func (r GetCollectionResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCollectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateCollectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelUpdateCollectionResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateCollectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateCollectionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2198,23 +2204,6 @@ func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, 
 	return ParseCreateCollectionResponse(rsp)
 }
 
-// UpdateCollectionWithBodyWithResponse request with arbitrary body returning *UpdateCollectionResponse
-func (c *ClientWithResponses) UpdateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error) {
-	rsp, err := c.UpdateCollectionWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateCollectionResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateCollectionWithResponse(ctx context.Context, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error) {
-	rsp, err := c.UpdateCollection(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateCollectionResponse(rsp)
-}
-
 // DeleteCollectionWithResponse request returning *DeleteCollectionResponse
 func (c *ClientWithResponses) DeleteCollectionWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error) {
 	rsp, err := c.DeleteCollection(ctx, name, reqEditors...)
@@ -2231,6 +2220,23 @@ func (c *ClientWithResponses) GetCollectionWithResponse(ctx context.Context, nam
 		return nil, err
 	}
 	return ParseGetCollectionResponse(rsp)
+}
+
+// UpdateCollectionWithBodyWithResponse request with arbitrary body returning *UpdateCollectionResponse
+func (c *ClientWithResponses) UpdateCollectionWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error) {
+	rsp, err := c.UpdateCollectionWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCollectionResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateCollectionWithResponse(ctx context.Context, name string, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error) {
+	rsp, err := c.UpdateCollection(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCollectionResponse(rsp)
 }
 
 // InsertDocumentsWithBodyWithResponse request with arbitrary body returning *InsertDocumentsResponse
@@ -2534,39 +2540,6 @@ func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionRespons
 	return response, nil
 }
 
-// ParseUpdateCollectionResponse parses an HTTP response from a UpdateCollectionWithResponse call
-func ParseUpdateCollectionResponse(rsp *http.Response) (*UpdateCollectionResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateCollectionResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelUpdateCollectionResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseDeleteCollectionResponse parses an HTTP response from a DeleteCollectionWithResponse call
 func ParseDeleteCollectionResponse(rsp *http.Response) (*DeleteCollectionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2616,6 +2589,39 @@ func ParseGetCollectionResponse(rsp *http.Response) (*GetCollectionResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ModelGetCollectionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateCollectionResponse parses an HTTP response from a UpdateCollectionWithResponse call
+func ParseUpdateCollectionResponse(rsp *http.Response) (*UpdateCollectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateCollectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelUpdateCollectionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

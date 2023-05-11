@@ -162,38 +162,6 @@
         ]
       }
     },
-    "/collections/update": {
-      "put": {
-        "operationId": "UpdateCollection",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelUpdateCollectionResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelUpdateCollectionRequest"
-            }
-          }
-        ],
-        "tags": [
-          "collections"
-        ]
-      }
-    },
     "/collections/{name}": {
       "get": {
         "operationId": "GetCollection",
@@ -245,6 +213,42 @@
             "in": "path",
             "required": true,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "collections"
+        ]
+      },
+      "put": {
+        "operationId": "UpdateCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelUpdateCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelUpdateCollectionRequest"
+            }
           }
         ],
         "tags": [
@@ -974,9 +978,6 @@
     "modelUpdateCollectionRequest": {
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string"
-        },
         "idFieldName": {
           "type": "string"
         }

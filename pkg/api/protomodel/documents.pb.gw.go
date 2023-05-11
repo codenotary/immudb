@@ -151,6 +151,24 @@ func request_DocumentService_UpdateCollection_0(ctx context.Context, marshaler r
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := client.UpdateCollection(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
@@ -166,6 +184,24 @@ func local_request_DocumentService_UpdateCollection_0(ctx context.Context, marsh
 	}
 	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
 	msg, err := server.UpdateCollection(ctx, &protoReq)
@@ -1115,7 +1151,7 @@ var (
 
 	pattern_DocumentService_GetCollections_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"collections"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_DocumentService_UpdateCollection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"collections", "update"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_DocumentService_UpdateCollection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"collections", "name"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_DocumentService_DeleteCollection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"collections", "name"}, "", runtime.AssumeColonVerbOpt(true)))
 

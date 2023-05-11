@@ -264,7 +264,7 @@ service DocumentService {
 
   rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse) {
     option (google.api.http) = {
-      put: "/collections/update"
+      put: "/collections/{name}"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
