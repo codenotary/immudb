@@ -77,10 +77,10 @@ type ModelCloseSessionResponse = map[string]interface{}
 
 // ModelCollection defines model for modelCollection.
 type ModelCollection struct {
-	Fields      *[]ModelField `json:"fields,omitempty"`
-	IdFieldName *string       `json:"idFieldName,omitempty"`
-	Indexes     *[]ModelIndex `json:"indexes,omitempty"`
-	Name        *string       `json:"name,omitempty"`
+	DocumentIdFieldName *string       `json:"documentIdFieldName,omitempty"`
+	Fields              *[]ModelField `json:"fields,omitempty"`
+	Indexes             *[]ModelIndex `json:"indexes,omitempty"`
+	Name                *string       `json:"name,omitempty"`
 }
 
 // ModelComparisonOperator defines model for modelComparisonOperator.
@@ -88,10 +88,10 @@ type ModelComparisonOperator string
 
 // ModelCreateCollectionRequest defines model for modelCreateCollectionRequest.
 type ModelCreateCollectionRequest struct {
-	Fields      *[]ModelField `json:"fields,omitempty"`
-	IdFieldName *string       `json:"idFieldName,omitempty"`
-	Indexes     *[]ModelIndex `json:"indexes,omitempty"`
-	Name        *string       `json:"name,omitempty"`
+	DocumentIdFieldName *string       `json:"documentIdFieldName,omitempty"`
+	Fields              *[]ModelField `json:"fields,omitempty"`
+	Indexes             *[]ModelIndex `json:"indexes,omitempty"`
+	Name                *string       `json:"name,omitempty"`
 }
 
 // ModelCreateCollectionResponse defines model for modelCreateCollectionResponse.
@@ -207,11 +207,11 @@ type ModelProofDocumentRequest struct {
 
 // ModelProofDocumentResponse defines model for modelProofDocumentResponse.
 type ModelProofDocumentResponse struct {
-	CollectionId    *int64                `json:"collectionId,omitempty"`
-	Database        *string               `json:"database,omitempty"`
-	EncodedDocument *[]byte               `json:"encodedDocument,omitempty"`
-	IdFieldName     *string               `json:"idFieldName,omitempty"`
-	VerifiableTx    *SchemaVerifiableTxV2 `json:"verifiableTx,omitempty"`
+	CollectionId        *int64                `json:"collectionId,omitempty"`
+	Database            *string               `json:"database,omitempty"`
+	DocumentIdFieldName *string               `json:"documentIdFieldName,omitempty"`
+	EncodedDocument     *[]byte               `json:"encodedDocument,omitempty"`
+	VerifiableTx        *SchemaVerifiableTxV2 `json:"verifiableTx,omitempty"`
 }
 
 // ModelQuery defines model for modelQuery.
@@ -255,7 +255,7 @@ type ModelSearchDocumentsResponse struct {
 
 // ModelUpdateCollectionRequest defines model for modelUpdateCollectionRequest.
 type ModelUpdateCollectionRequest struct {
-	IdFieldName *string `json:"idFieldName,omitempty"`
+	DocumentIdFieldName *string `json:"documentIdFieldName,omitempty"`
 }
 
 // ModelUpdateCollectionResponse defines model for modelUpdateCollectionResponse.

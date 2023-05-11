@@ -50,7 +50,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 message CreateCollectionRequest {
   string name = 1;
-  string idFieldName = 2;
+  string documentIdFieldName = 2;
   repeated Field fields = 3;
   repeated Index indexes = 4;
 }
@@ -84,7 +84,7 @@ message GetCollectionResponse {
 
 message Collection {
   string name = 1;
-  string idFieldName = 2;
+  string documentIdFieldName = 2;
   repeated Field fields = 3;
   repeated Index indexes = 4;
 }
@@ -103,7 +103,7 @@ message DeleteCollectionResponse {}
 
 message UpdateCollectionRequest {
   string name = 1;
-  string idFieldName = 2;
+  string documentIdFieldName = 2;
 }
 
 message UpdateCollectionResponse {}
@@ -221,7 +221,7 @@ message ProofDocumentRequest {
 message ProofDocumentResponse {
   string database = 1;
   uint32 collectionId = 2;
-  string idFieldName = 3;
+  string documentIdFieldName = 3;
   bytes encodedDocument = 4;
   schema.VerifiableTxV2 verifiableTx = 5;
 }

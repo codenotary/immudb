@@ -68,7 +68,7 @@ func (d *db) CreateCollection(ctx context.Context, req *protomodel.CreateCollect
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateCollection(ctx, req.Name, req.IdFieldName, req.Fields, req.Indexes)
+	err := d.documentEngine.CreateCollection(ctx, req.Name, req.DocumentIdFieldName, req.Fields, req.Indexes)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (d *db) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollect
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.UpdateCollection(ctx, req.Name, req.IdFieldName)
+	err := d.documentEngine.UpdateCollection(ctx, req.Name, req.DocumentIdFieldName)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentReq
 	}
 	defer d.releaseTx(tx)
 
-	collectionID, idFieldName, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.Collection, docID, req.TransactionId)
+	collectionID, documentIdFieldName, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.Collection, docID, req.TransactionId)
 	if err != nil {
 		return nil, err
 	}
@@ -334,10 +334,10 @@ func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentReq
 	}
 
 	return &protomodel.ProofDocumentResponse{
-		Database:        d.name,
-		CollectionId:    collectionID,
-		IdFieldName:     idFieldName,
-		EncodedDocument: docAudit.EncodedDocument,
+		Database:            d.name,
+		CollectionId:        collectionID,
+		DocumentIdFieldName: documentIdFieldName,
+		EncodedDocument:     docAudit.EncodedDocument,
 		VerifiableTx: &schema.VerifiableTxV2{
 			Tx:        schema.TxToProto(tx),
 			DualProof: schema.DualProofV2ToProto(dualProof),

@@ -772,11 +772,11 @@ func TestUpdateCollection(t *testing.T) {
 		// get collection
 		collection, err := engine.GetCollection(context.Background(), collectionName)
 		require.NoError(t, err)
-		require.Equal(t, DefaultDocumentIDField, collection.IdFieldName)
+		require.Equal(t, DefaultDocumentIDField, collection.DocumentIdFieldName)
 		require.Len(t, collection.Indexes, 5)
 	})
 
-	t.Run("update collection by adding changing idFieldName", func(t *testing.T) {
+	t.Run("update collection by adding changing documentIdFieldName", func(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
@@ -788,7 +788,7 @@ func TestUpdateCollection(t *testing.T) {
 		// get collection
 		collection, err := engine.GetCollection(context.Background(), collectionName)
 		require.NoError(t, err)
-		require.Equal(t, "_docid", collection.IdFieldName)
+		require.Equal(t, "_docid", collection.DocumentIdFieldName)
 		require.Len(t, collection.Indexes, 5)
 	})
 }

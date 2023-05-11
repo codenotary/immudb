@@ -59,12 +59,12 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	return &Engine{engine}, nil
 }
 
-func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
-	if idFieldName == "" {
-		idFieldName = DefaultDocumentIDField
+func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
+	if documentIdFieldName == "" {
+		documentIdFieldName = DefaultDocumentIDField
 	}
 
-	if idFieldName == DocumentBLOBField {
+	if documentIdFieldName == DocumentBLOBField {
 		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
 	}
 
@@ -84,14 +84,14 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 	columns := make([]*sql.ColSpec, 2+len(fields))
 
 	// add primary key for document id
-	columns[0] = sql.NewColSpec(idFieldName, sql.BLOBType, MaxDocumentIDLength, false, true)
+	columns[0] = sql.NewColSpec(documentIdFieldName, sql.BLOBType, MaxDocumentIDLength, false, true)
 
 	// add columnn for blob, which stores the document as a whole
 	columns[1] = sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false)
 
 	for i, field := range fields {
-		if field.Name == idFieldName {
-			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, idFieldName)
+		if field.Name == documentIdFieldName {
+			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, documentIdFieldName)
 		}
 
 		if field.Name == DocumentBLOBField {
@@ -118,7 +118,7 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 			name,
 			false,
 			columns,
-			[]string{idFieldName},
+			[]string{documentIdFieldName},
 		)},
 		nil,
 	)
@@ -135,7 +135,7 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 			}
 		}
 
-		if len(index.Fields) == 1 && index.Fields[0] == idFieldName {
+		if len(index.Fields) == 1 && index.Fields[0] == documentIdFieldName {
 			if !index.IsUnique {
 				return fmt.Errorf("%w: index on id field must be unique", ErrIllegalArguments)
 			}
@@ -235,14 +235,14 @@ func getColumnForField(table *sql.Table, field string) (*sql.Column, error) {
 }
 
 func collectionFromTable(table *sql.Table) *protomodel.Collection {
-	idFieldName := docIDFieldName(table)
+	documentIdFieldName := docIDFieldName(table)
 
 	indexes := table.GetIndexes()
 
 	collection := &protomodel.Collection{
-		Name:        table.Name(),
-		IdFieldName: idFieldName,
-		Indexes:     make([]*protomodel.Index, len(indexes)),
+		Name:                table.Name(),
+		DocumentIdFieldName: documentIdFieldName,
+		Indexes:             make([]*protomodel.Index, len(indexes)),
 	}
 
 	for _, col := range table.Cols() {
@@ -252,7 +252,7 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 
 		var colType protomodel.FieldType
 
-		if col.Name() == idFieldName {
+		if col.Name() == documentIdFieldName {
 			colType = protomodel.FieldType_STRING
 		} else {
 			switch col.Type() {
@@ -289,8 +289,8 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 	return collection
 }
 
-func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, idFieldName string) error {
-	if idFieldName == DocumentBLOBField {
+func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, documentIdFieldName string) error {
+	if documentIdFieldName == DocumentBLOBField {
 		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
 	}
 
@@ -313,11 +313,11 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, id
 
 	currIDFieldName := docIDFieldName(table)
 
-	if idFieldName != "" && idFieldName != currIDFieldName {
+	if documentIdFieldName != "" && documentIdFieldName != currIDFieldName {
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			ctx,
 			sqlTx,
-			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), currIDFieldName, idFieldName)},
+			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), currIDFieldName, documentIdFieldName)},
 			nil,
 		)
 		if err != nil {
@@ -600,13 +600,13 @@ func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, d
 		return 0, nil, 0, err
 	}
 
-	idFieldName := docIDFieldName(table)
+	documentIdFieldName := docIDFieldName(table)
 
-	provisionedDocID, docIDProvisioned := doc.Fields[idFieldName]
+	provisionedDocID, docIDProvisioned := doc.Fields[documentIdFieldName]
 	if docIDProvisioned {
 		// inject id comparisson into query
 		idFieldComparisson := &protomodel.FieldComparison{
-			Field:    idFieldName,
+			Field:    documentIdFieldName,
 			Operator: protomodel.ComparisonOperator_EQ,
 			Value:    provisionedDocID,
 		}
@@ -634,7 +634,7 @@ func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, d
 	}
 
 	queryStmt := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.Collection, idFieldName)},
+		[]sql.Selector{sql.NewColSelector(query.Collection, documentIdFieldName)},
 		query.Collection,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
@@ -668,7 +668,7 @@ func (e *Engine) ReplaceDocument(ctx context.Context, query *protomodel.Query, d
 
 	if !docIDProvisioned {
 		// add id field to updated document
-		doc.Fields[idFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
+		doc.Fields[documentIdFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
 	}
 
 	txID, _, err = e.upsertDocuments(ctx, sqlTx, query.Collection, []*structpb.Struct{doc}, false)
@@ -734,7 +734,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	return newDocumentReader(r, func(_ DocumentReader) { sqlTx.Cancel() }), nil
 }
 
-func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, idFieldName string, docAtRevision *EncodedDocumentAtRevision, err error) {
+func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, documentIdFieldName string, docAtRevision *EncodedDocumentAtRevision, err error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return 0, "", nil, mayTranslateError(err)

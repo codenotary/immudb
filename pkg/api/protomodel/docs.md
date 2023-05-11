@@ -212,7 +212,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| idFieldName | [string](#string) |  |  |
+| documentIdFieldName | [string](#string) |  |  |
 | fields | [Field](#immudb.model.Field) | repeated |  |
 | indexes | [Index](#immudb.model.Index) | repeated |  |
 
@@ -230,7 +230,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| idFieldName | [string](#string) |  |  |
+| documentIdFieldName | [string](#string) |  |  |
 | fields | [Field](#immudb.model.Field) | repeated |  |
 | indexes | [Index](#immudb.model.Index) | repeated |  |
 
@@ -566,7 +566,7 @@
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  |  |
 | collectionId | [uint32](#uint32) |  |  |
-| idFieldName | [string](#string) |  |  |
+| documentIdFieldName | [string](#string) |  |  |
 | encodedDocument | [bytes](#bytes) |  |  |
 | verifiableTx | [immudb.schema.VerifiableTxV2](#immudb.schema.VerifiableTxV2) |  |  |
 
@@ -683,7 +683,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| idFieldName | [string](#string) |  |  |
+| documentIdFieldName | [string](#string) |  |  |
 
 
 

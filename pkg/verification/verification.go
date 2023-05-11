@@ -43,9 +43,9 @@ func VerifyDocument(ctx context.Context,
 		return nil, store.ErrIllegalArguments
 	}
 
-	docID, ok := doc.Fields[proof.IdFieldName]
+	docID, ok := doc.Fields[proof.DocumentIdFieldName]
 	if !ok {
-		return nil, fmt.Errorf("%w: missing field '%s'", store.ErrIllegalArguments, proof.IdFieldName)
+		return nil, fmt.Errorf("%w: missing field '%s'", store.ErrIllegalArguments, proof.DocumentIdFieldName)
 	}
 
 	encDocKey, err := encodedKeyForDocument(proof.CollectionId, docID.GetStringValue())

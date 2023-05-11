@@ -592,7 +592,7 @@
         "name": {
           "type": "string"
         },
-        "idFieldName": {
+        "documentIdFieldName": {
           "type": "string"
         },
         "fields": {
@@ -629,7 +629,7 @@
         "name": {
           "type": "string"
         },
-        "idFieldName": {
+        "documentIdFieldName": {
           "type": "string"
         },
         "fields": {
@@ -872,7 +872,7 @@
           "type": "integer",
           "format": "int64"
         },
-        "idFieldName": {
+        "documentIdFieldName": {
           "type": "string"
         },
         "encodedDocument": {
@@ -978,7 +978,7 @@
     "modelUpdateCollectionRequest": {
       "type": "object",
       "properties": {
-        "idFieldName": {
+        "documentIdFieldName": {
           "type": "string"
         }
       }

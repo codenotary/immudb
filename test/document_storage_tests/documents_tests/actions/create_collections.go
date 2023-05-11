@@ -46,8 +46,8 @@ func CreateCollectionWithNameAndOneField(expect *httpexpect.Expect, sessionID st
 
 func CreateCollectionWithNameAndIdFieldName(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name":        name,
-		"idFieldName": "emp_no",
+		"name":                name,
+		"documentIdFieldName": "emp_no",
 	}
 
 	return createCollection(expect, sessionID, payload)
@@ -55,8 +55,8 @@ func CreateCollectionWithNameAndIdFieldName(expect *httpexpect.Expect, sessionID
 
 func CreateCollectionWithNameIdFieldNameAndOneField(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name":        name,
-		"idFieldName": "emp_no",
+		"name":                name,
+		"documentIdFieldName": "emp_no",
 		"fields": []interface{}{
 			map[string]interface{}{
 				"name": "hire_date",
