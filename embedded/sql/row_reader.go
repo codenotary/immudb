@@ -218,7 +218,7 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 			if colRange.hRange == nil {
 				hiKeyReady = true
 			} else {
-				encVal, err := EncodeValueAsKey(colRange.hRange.val, col.colType, col.MaxLen())
+				encVal, _, err := EncodeValueAsKey(colRange.hRange.val, col.colType, col.MaxLen())
 				if err != nil {
 					return nil, err
 				}
@@ -230,7 +230,7 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 			if colRange.lRange == nil {
 				loKeyReady = true
 			} else {
-				encVal, err := EncodeValueAsKey(colRange.lRange.val, col.colType, col.MaxLen())
+				encVal, _, err := EncodeValueAsKey(colRange.lRange.val, col.colType, col.MaxLen())
 				if err != nil {
 					return nil, err
 				}

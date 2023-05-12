@@ -468,6 +468,11 @@ func (c *Column) MaxLen() int {
 	case Float64Type:
 		return 8
 	}
+
+	if c.maxLen == 0 {
+		return MaxKeyLen
+	}
+
 	return c.maxLen
 }
 
@@ -865,7 +870,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 			off += 1
 
 			maxLen := col.MaxLen()
-			if variableSized(col.colType) {
+			if variableSizedType(col.colType) {
 				maxLen += EncLenLen
 			}
 			if len(enc)-off < maxLen {
@@ -884,7 +889,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 	return enc[off:], nil
 }
 
-func variableSized(sqlType SQLValueType) bool {
+func variableSizedType(sqlType SQLValueType) bool {
 	return sqlType == VarcharType || sqlType == BLOBType
 }
 
@@ -929,26 +934,26 @@ const (
 	KeyValPrefixUpperBound byte = 0xFF
 )
 
-func EncodeValueAsKey(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeValueAsKey(val TypedValue, colType SQLValueType, maxLen int) ([]byte, int, error) {
 	return EncodeRawValueAsKey(val.RawValue(), colType, maxLen)
 }
 
 // EncodeRawValueAsKey encodes a value in a b-tree meaningful way.
-func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, int, error) {
 	if maxLen <= 0 {
-		return nil, ErrInvalidValue
+		return nil, 0, ErrInvalidValue
 	}
 	if maxLen > MaxKeyLen {
-		return nil, ErrMaxKeyLengthExceeded
+		return nil, 0, ErrMaxKeyLengthExceeded
 	}
 
 	convVal, err := mayApplyImplicitConversion(val, colType)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if convVal == nil {
-		return []byte{KeyValPrefixNull}, nil
+		return []byte{KeyValPrefixNull}, 0, nil
 	}
 
 	switch colType {
@@ -956,13 +961,13 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			strVal, ok := convVal.(string)
 			if !ok {
-				return nil, fmt.Errorf(
+				return nil, 0, fmt.Errorf(
 					"value is not a string: %w", ErrInvalidValue,
 				)
 			}
 
 			if len(strVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
+				return nil, 0, ErrMaxLengthExceeded
 			}
 
 			// notnull + value + padding + len(value)
@@ -971,17 +976,17 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 			copy(encv[1:], []byte(strVal))
 			binary.BigEndian.PutUint32(encv[len(encv)-EncLenLen:], uint32(len(strVal)))
 
-			return encv, nil
+			return encv, len(strVal), nil
 		}
 	case IntegerType:
 		{
 			if maxLen != 8 {
-				return nil, ErrCorruptedData
+				return nil, 0, ErrCorruptedData
 			}
 
 			intVal, ok := convVal.(int64)
 			if !ok {
-				return nil, fmt.Errorf(
+				return nil, 0, fmt.Errorf(
 					"value is not an integer: %w", ErrInvalidValue,
 				)
 			}
@@ -993,17 +998,17 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 			// map to unsigned integer space for lexical sorting order
 			encv[1] ^= 0x80
 
-			return encv[:], nil
+			return encv[:], 8, nil
 		}
 	case BooleanType:
 		{
 			if maxLen != 1 {
-				return nil, ErrCorruptedData
+				return nil, 0, ErrCorruptedData
 			}
 
 			boolVal, ok := convVal.(bool)
 			if !ok {
-				return nil, fmt.Errorf(
+				return nil, 0, fmt.Errorf(
 					"value is not a boolean: %w", ErrInvalidValue,
 				)
 			}
@@ -1015,19 +1020,19 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 				encv[1] = 1
 			}
 
-			return encv[:], nil
+			return encv[:], 1, nil
 		}
 	case BLOBType:
 		{
 			blobVal, ok := convVal.([]byte)
 			if !ok {
-				return nil, fmt.Errorf(
+				return nil, 0, fmt.Errorf(
 					"value is not a blob: %w", ErrInvalidValue,
 				)
 			}
 
 			if len(blobVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
+				return nil, 0, ErrMaxLengthExceeded
 			}
 
 			// notnull + value + padding + len(value)
@@ -1036,17 +1041,17 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 			copy(encv[1:], []byte(blobVal))
 			binary.BigEndian.PutUint32(encv[len(encv)-EncLenLen:], uint32(len(blobVal)))
 
-			return encv, nil
+			return encv, len(blobVal), nil
 		}
 	case TimestampType:
 		{
 			if maxLen != 8 {
-				return nil, ErrCorruptedData
+				return nil, 0, ErrCorruptedData
 			}
 
 			timeVal, ok := convVal.(time.Time)
 			if !ok {
-				return nil, fmt.Errorf(
+				return nil, 0, fmt.Errorf(
 					"value is not a timestamp: %w", ErrInvalidValue,
 				)
 			}
@@ -1058,13 +1063,13 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 			// map to unsigned integer space for lexical sorting order
 			encv[1] ^= 0x80
 
-			return encv[:], nil
+			return encv[:], 8, nil
 		}
 	case Float64Type:
 		{
 			floatVal, ok := convVal.(float64)
 			if !ok {
-				return nil, fmt.Errorf(
+				return nil, 0, fmt.Errorf(
 					"value is not a float: %w", ErrInvalidValue,
 				)
 			}
@@ -1091,11 +1096,11 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 				encv[1] ^= 0x80
 			}
 
-			return encv[:], nil
+			return encv[:], 8, nil
 		}
 	}
 
-	return nil, ErrInvalidValue
+	return nil, 0, ErrInvalidValue
 }
 
 func EncodeValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {

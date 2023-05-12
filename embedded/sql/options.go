@@ -25,9 +25,10 @@ import (
 var defaultDistinctLimit = 1 << 20 // ~ 1mi rows
 
 type Options struct {
-	prefix        []byte
-	distinctLimit int
-	autocommit    bool
+	prefix                        []byte
+	distinctLimit                 int
+	autocommit                    bool
+	lazyIndexConstraintValidation bool
 
 	multidbHandler MultiDBHandler
 }
@@ -62,6 +63,11 @@ func (opts *Options) WithDistinctLimit(distinctLimit int) *Options {
 
 func (opts *Options) WithAutocommit(autocommit bool) *Options {
 	opts.autocommit = autocommit
+	return opts
+}
+
+func (opts *Options) WithLazyIndexConstraintValidation(lazyIndexConstraintValidation bool) *Options {
+	opts.lazyIndexConstraintValidation = lazyIndexConstraintValidation
 	return opts
 }
 

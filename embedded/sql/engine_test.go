@@ -99,15 +99,15 @@ func TestCreateTable(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil)
-	require.ErrorIs(t, err, ErrLimitedKeyType)
-
-	_, _, err = engine.Exec(context.Background(), nil, fmt.Sprintf("CREATE TABLE table1 (name VARCHAR[%d], PRIMARY KEY name)", MaxKeyLen+1), nil)
-	require.ErrorIs(t, err, ErrLimitedKeyType)
-
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec(context.Background(), nil, fmt.Sprintf("CREATE TABLE table2 (name VARCHAR[%d], PRIMARY KEY name)", MaxKeyLen+1), nil)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table3 (name VARCHAR[32], PRIMARY KEY name)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table4 (id INTEGER, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil)
@@ -4859,52 +4859,52 @@ func TestUnmapIndexEntry(t *testing.T) {
 }
 
 func TestEncodeAsKeyEdgeCases(t *testing.T) {
-	_, err := EncodeValueAsKey(&NullValue{}, IntegerType, 0)
+	_, _, err := EncodeValueAsKey(&NullValue{}, IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 
-	_, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, MaxKeyLen+1)
+	_, _, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, MaxKeyLen+1)
 	require.ErrorIs(t, err, ErrMaxKeyLengthExceeded)
 
-	_, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", MaxKeyLen)
+	_, _, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", MaxKeyLen)
 	require.ErrorIs(t, err, ErrInvalidValue)
 
 	t.Run("varchar cases", func(t *testing.T) {
-		_, err = EncodeValueAsKey(&Bool{val: true}, VarcharType, 10)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, VarcharType, 10)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeValueAsKey(&Varchar{val: "abc"}, VarcharType, 1)
+		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, VarcharType, 1)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
 
 	t.Run("integer cases", func(t *testing.T) {
-		_, err = EncodeValueAsKey(&Bool{val: true}, IntegerType, 8)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, IntegerType, 8)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeValueAsKey(&Integer{val: int64(10)}, IntegerType, 4)
+		_, _, err = EncodeValueAsKey(&Integer{val: int64(10)}, IntegerType, 4)
 		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 
 	t.Run("boolean cases", func(t *testing.T) {
-		_, err = EncodeValueAsKey(&Varchar{val: "abc"}, BooleanType, 1)
+		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, BooleanType, 1)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeValueAsKey(&Bool{val: true}, BooleanType, 2)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, BooleanType, 2)
 		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 
 	t.Run("blob cases", func(t *testing.T) {
-		_, err = EncodeValueAsKey(&Varchar{val: "abc"}, BLOBType, 3)
+		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, BLOBType, 3)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeValueAsKey(&Blob{val: []byte{1, 2, 3}}, BLOBType, 2)
+		_, _, err = EncodeValueAsKey(&Blob{val: []byte{1, 2, 3}}, BLOBType, 2)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
 
 	t.Run("timestamp cases", func(t *testing.T) {
-		_, err = EncodeValueAsKey(&Bool{val: true}, TimestampType, 8)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, TimestampType, 8)
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, err = EncodeValueAsKey(&Integer{val: int64(10)}, TimestampType, 4)
+		_, _, err = EncodeValueAsKey(&Integer{val: int64(10)}, TimestampType, 4)
 		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 }
