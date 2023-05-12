@@ -57,11 +57,11 @@ type ImmudbmodelOpenSessionResponse struct {
 
 // ModelAuditDocumentRequest defines model for modelAuditDocumentRequest.
 type ModelAuditDocumentRequest struct {
-	Collection *string `json:"collection,omitempty"`
-	Desc       *bool   `json:"desc,omitempty"`
-	DocumentId *string `json:"documentId,omitempty"`
-	Page       *int64  `json:"page,omitempty"`
-	PageSize   *int64  `json:"pageSize,omitempty"`
+	Collection string `json:"collection"`
+	Desc       *bool  `json:"desc,omitempty"`
+	DocumentId string `json:"documentId"`
+	Page       int64  `json:"page"`
+	PageSize   int64  `json:"pageSize"`
 }
 
 // ModelAuditDocumentResponse defines model for modelAuditDocumentResponse.
@@ -91,7 +91,7 @@ type ModelCreateCollectionRequest struct {
 	DocumentIdFieldName *string       `json:"documentIdFieldName,omitempty"`
 	Fields              *[]ModelField `json:"fields,omitempty"`
 	Indexes             *[]ModelIndex `json:"indexes,omitempty"`
-	Name                *string       `json:"name,omitempty"`
+	Name                string        `json:"name"`
 }
 
 // ModelCreateCollectionResponse defines model for modelCreateCollectionResponse.
@@ -99,7 +99,7 @@ type ModelCreateCollectionResponse = map[string]interface{}
 
 // ModelCreateIndexRequest defines model for modelCreateIndexRequest.
 type ModelCreateIndexRequest struct {
-	Collection *string   `json:"collection,omitempty"`
+	Collection string    `json:"collection"`
 	Fields     *[]string `json:"fields,omitempty"`
 	IsUnique   *bool     `json:"isUnique,omitempty"`
 }
@@ -112,7 +112,7 @@ type ModelDeleteCollectionResponse = map[string]interface{}
 
 // ModelDeleteDocumentsRequest defines model for modelDeleteDocumentsRequest.
 type ModelDeleteDocumentsRequest struct {
-	Query *ModelQuery `json:"query,omitempty"`
+	Query ModelQuery `json:"query"`
 }
 
 // ModelDeleteDocumentsResponse defines model for modelDeleteDocumentsResponse.
@@ -120,7 +120,7 @@ type ModelDeleteDocumentsResponse = map[string]interface{}
 
 // ModelDeleteIndexRequest defines model for modelDeleteIndexRequest.
 type ModelDeleteIndexRequest struct {
-	Collection *string   `json:"collection,omitempty"`
+	Collection string    `json:"collection"`
 	Fields     *[]string `json:"fields,omitempty"`
 }
 
@@ -143,15 +143,15 @@ type ModelDocumentMetadata struct {
 
 // ModelField defines model for modelField.
 type ModelField struct {
-	Name *string         `json:"name,omitempty"`
-	Type *ModelFieldType `json:"type,omitempty"`
+	Name string         `json:"name"`
+	Type ModelFieldType `json:"type"`
 }
 
 // ModelFieldComparison defines model for modelFieldComparison.
 type ModelFieldComparison struct {
-	Field    *string                  `json:"field,omitempty"`
-	Operator *ModelComparisonOperator `json:"operator,omitempty"`
-	Value    interface{}  `json:"value,omitempty"`
+	Field    string                  `json:"field"`
+	Operator ModelComparisonOperator `json:"operator"`
+	Value    interface{} `json:"value,omitempty"`
 }
 
 // ModelFieldType defines model for modelFieldType.
@@ -175,7 +175,7 @@ type ModelIndex struct {
 
 // ModelInsertDocumentsRequest defines model for modelInsertDocumentsRequest.
 type ModelInsertDocumentsRequest struct {
-	Collection *string                   `json:"collection,omitempty"`
+	Collection string                    `json:"collection"`
 	Documents  *[]map[string]interface{} `json:"documents,omitempty"`
 }
 
@@ -193,14 +193,14 @@ type ModelKeepAliveResponse = map[string]interface{}
 
 // ModelOrderByClause defines model for modelOrderByClause.
 type ModelOrderByClause struct {
-	Desc  *bool   `json:"desc,omitempty"`
-	Field *string `json:"field,omitempty"`
+	Desc  bool   `json:"desc"`
+	Field string `json:"field"`
 }
 
 // ModelProofDocumentRequest defines model for modelProofDocumentRequest.
 type ModelProofDocumentRequest struct {
-	Collection              *string `json:"collection,omitempty"`
-	DocumentId              *string `json:"documentId,omitempty"`
+	Collection              string  `json:"collection"`
+	DocumentId              string  `json:"documentId"`
 	ProofSinceTransactionId *string `json:"proofSinceTransactionId,omitempty"`
 	TransactionId           *string `json:"transactionId,omitempty"`
 }
@@ -216,7 +216,7 @@ type ModelProofDocumentResponse struct {
 
 // ModelQuery defines model for modelQuery.
 type ModelQuery struct {
-	Collection  *string                 `json:"collection,omitempty"`
+	Collection  string                  `json:"collection"`
 	Expressions *[]ModelQueryExpression `json:"expressions,omitempty"`
 	Limit       *int64                  `json:"limit,omitempty"`
 	OrderBy     *[]ModelOrderByClause   `json:"orderBy,omitempty"`
@@ -230,7 +230,7 @@ type ModelQueryExpression struct {
 // ModelReplaceDocumentsRequest defines model for modelReplaceDocumentsRequest.
 type ModelReplaceDocumentsRequest struct {
 	Document *map[string]interface{} `json:"document,omitempty"`
-	Query    *ModelQuery             `json:"query,omitempty"`
+	Query    ModelQuery              `json:"query"`
 }
 
 // ModelReplaceDocumentsResponse defines model for modelReplaceDocumentsResponse.
@@ -240,8 +240,8 @@ type ModelReplaceDocumentsResponse struct {
 
 // ModelSearchDocumentsRequest defines model for modelSearchDocumentsRequest.
 type ModelSearchDocumentsRequest struct {
-	Page     *int64      `json:"page,omitempty"`
-	PageSize *int64      `json:"pageSize,omitempty"`
+	Page     int64       `json:"page"`
+	PageSize int64       `json:"pageSize"`
 	Query    *ModelQuery `json:"query,omitempty"`
 	SearchId *string     `json:"searchId,omitempty"`
 }

@@ -49,6 +49,14 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 message CreateCollectionRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "name"
+      ]
+    }
+  };
+
   string name = 1;
   string documentIdFieldName = 2;
   repeated Field fields = 3;
@@ -58,6 +66,15 @@ message CreateCollectionRequest {
 message CreateCollectionResponse {}
 
 message Field {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "name",
+        "type"
+      ]
+    }
+  };
+
   string name = 1;
   FieldType type = 2;
 }
@@ -75,6 +92,14 @@ message Index {
 }
 
 message GetCollectionRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "name"
+      ]
+    }
+  };
+
   string name = 1;
 }
 
@@ -96,12 +121,28 @@ message GetCollectionsResponse {
 }
 
 message DeleteCollectionRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "name"
+      ]
+    }
+  };
+
   string name = 1;
 }
 
 message DeleteCollectionResponse {}
 
 message UpdateCollectionRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "name"
+      ]
+    }
+  };
+
   string name = 1;
   string documentIdFieldName = 2;
 }
@@ -109,6 +150,14 @@ message UpdateCollectionRequest {
 message UpdateCollectionResponse {}
 
 message CreateIndexRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collection"
+      ]
+    }
+  };
+
   string collection = 1;
   repeated string fields = 2;
   bool isUnique = 3;
@@ -117,6 +166,14 @@ message CreateIndexRequest {
 message CreateIndexResponse {}
 
 message DeleteIndexRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collection"
+      ]
+    }
+  };
+
   string collection = 1;
   repeated string fields = 2;
 }
@@ -124,6 +181,14 @@ message DeleteIndexRequest {
 message DeleteIndexResponse {}
 
 message InsertDocumentsRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collection"
+      ]
+    }
+  };
+
   string collection = 1;
   repeated google.protobuf.Struct documents = 2;
 }
@@ -134,6 +199,14 @@ message InsertDocumentsResponse {
 }
 
 message ReplaceDocumentsRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "query"
+      ]
+    }
+  };
+
   Query query = 1;
   google.protobuf.Struct document = 2;
 }
@@ -142,7 +215,30 @@ message ReplaceDocumentsResponse {
   repeated DocumentAtRevision revisions = 1;
 }
 
+message DeleteDocumentsRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "query"
+      ]
+    }
+  };
+
+  Query query = 1;
+}
+
+message DeleteDocumentsResponse {}
+
 message SearchDocumentsRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "page",
+        "pageSize"
+      ]
+    }
+  };
+
   string searchId = 1;
   Query query = 2;
   uint32 page = 3;
@@ -150,6 +246,14 @@ message SearchDocumentsRequest {
 }
 
 message Query {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collection"
+      ]
+    }
+  };
+
   string collection = 1;
   repeated QueryExpression expressions = 2;
   repeated OrderByClause orderBy = 3;
@@ -161,6 +265,15 @@ message QueryExpression {
 }
 
 message FieldComparison {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "field",
+        "operator"
+      ]
+    }
+  };
+
   string field = 1;
   ComparisonOperator operator = 2;
   google.protobuf.Value value = 3;
@@ -178,6 +291,15 @@ enum ComparisonOperator {
 }
 
 message OrderByClause {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "field",
+        "desc"
+      ]
+    }
+  };
+
   string field = 1;
   bool desc = 2;
 }
@@ -200,6 +322,17 @@ message DocumentMetadata {
 }
 
 message AuditDocumentRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collection",
+        "documentId",
+        "page",
+        "pageSize"
+      ]
+    }
+  };
+
   string collection = 1;
   string documentId = 2;
   bool desc = 3;
@@ -212,6 +345,15 @@ message AuditDocumentResponse {
 }
 
 message ProofDocumentRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collection",
+        "documentId"
+      ]
+    }
+  };
+
   string collection = 1;
   string documentId = 2;
   uint64 transactionId = 3;
@@ -225,12 +367,6 @@ message ProofDocumentResponse {
   bytes encodedDocument = 4;
   schema.VerifiableTxV2 verifiableTx = 5;
 }
-
-message DeleteDocumentsRequest {
-  Query query = 1;
-}
-
-message DeleteDocumentsResponse {}
 
 service DocumentService {
   rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse) {

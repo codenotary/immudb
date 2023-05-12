@@ -567,7 +567,13 @@
           "type": "integer",
           "format": "int64"
         }
-      }
+      },
+      "required": [
+        "collection",
+        "documentId",
+        "page",
+        "pageSize"
+      ]
     },
     "modelAuditDocumentResponse": {
       "type": "object",
@@ -644,7 +650,10 @@
             "$ref": "#/definitions/modelIndex"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "modelCreateCollectionResponse": {
       "type": "object"
@@ -664,7 +673,10 @@
         "isUnique": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "collection"
+      ]
     },
     "modelCreateIndexResponse": {
       "type": "object"
@@ -678,7 +690,10 @@
         "query": {
           "$ref": "#/definitions/modelQuery"
         }
-      }
+      },
+      "required": [
+        "query"
+      ]
     },
     "modelDeleteDocumentsResponse": {
       "type": "object"
@@ -695,7 +710,10 @@
             "type": "string"
           }
         }
-      }
+      },
+      "required": [
+        "collection"
+      ]
     },
     "modelDeleteIndexResponse": {
       "type": "object"
@@ -739,7 +757,11 @@
         "type": {
           "$ref": "#/definitions/modelFieldType"
         }
-      }
+      },
+      "required": [
+        "name",
+        "type"
+      ]
     },
     "modelFieldComparison": {
       "type": "object",
@@ -751,7 +773,11 @@
           "$ref": "#/definitions/modelComparisonOperator"
         },
         "value": {}
-      }
+      },
+      "required": [
+        "field",
+        "operator"
+      ]
     },
     "modelFieldType": {
       "type": "string",
@@ -808,7 +834,10 @@
             "type": "object"
           }
         }
-      }
+      },
+      "required": [
+        "collection"
+      ]
     },
     "modelInsertDocumentsResponse": {
       "type": "object",
@@ -840,7 +869,11 @@
         "desc": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "field",
+        "desc"
+      ]
     },
     "modelProofDocumentRequest": {
       "type": "object",
@@ -859,7 +892,11 @@
           "type": "string",
           "format": "uint64"
         }
-      }
+      },
+      "required": [
+        "collection",
+        "documentId"
+      ]
     },
     "modelProofDocumentResponse": {
       "type": "object",
@@ -905,7 +942,10 @@
           "type": "integer",
           "format": "int64"
         }
-      }
+      },
+      "required": [
+        "collection"
+      ]
     },
     "modelQueryExpression": {
       "type": "object",
@@ -927,7 +967,10 @@
         "document": {
           "type": "object"
         }
-      }
+      },
+      "required": [
+        "query"
+      ]
     },
     "modelReplaceDocumentsResponse": {
       "type": "object",
@@ -957,7 +1000,11 @@
           "type": "integer",
           "format": "int64"
         }
-      }
+      },
+      "required": [
+        "page",
+        "pageSize"
+      ]
     },
     "modelSearchDocumentsResponse": {
       "type": "object",
@@ -979,7 +1026,10 @@
         "documentIdFieldName": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "modelUpdateCollectionResponse": {
       "type": "object"
