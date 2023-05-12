@@ -51,7 +51,11 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		return nil, err
 	}
 
-	engine, err := sql.NewEngine(store, sql.DefaultOptions().WithPrefix(opts.prefix))
+	sqlOpts := sql.DefaultOptions().
+		WithPrefix(opts.prefix).
+		WithLazyIndexConstraintValidation(true)
+
+	engine, err := sql.NewEngine(store, sqlOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -936,7 +940,7 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	valbuf := bytes.Buffer{}
 
 	rval := sql.NewBlob(documentID[:])
-	encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, MaxDocumentIDLength)
+	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, MaxDocumentIDLength)
 	if err != nil {
 		return nil, err
 	}
