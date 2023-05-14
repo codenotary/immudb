@@ -17,11 +17,11 @@ package document
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
+	"google.golang.org/protobuf/proto"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -70,7 +70,7 @@ func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.Do
 		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
 
 		doc := &structpb.Struct{}
-		err = json.Unmarshal(docBytes, doc)
+		err = proto.Unmarshal(docBytes, doc)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func (r *documentReader) Read(ctx context.Context) (*protomodel.DocumentAtRevisi
 	docBytes := row.ValuesByPosition[0].RawValue().([]byte)
 
 	doc := &structpb.Struct{}
-	err = json.Unmarshal(docBytes, doc)
+	err = proto.Unmarshal(docBytes, doc)
 	if err != nil {
 		return nil, err
 	}

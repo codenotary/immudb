@@ -18,7 +18,6 @@ package document
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -559,7 +559,7 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 
 	for i, col := range table.Cols() {
 		if col.Name() == DocumentBLOBField {
-			bs, err := json.Marshal(doc)
+			bs, err := proto.Marshal(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -999,7 +999,7 @@ func (e *Engine) getDocumentAtTransaction(
 	docBytes := encodedDoc.RawValue().([]byte)
 
 	doc := &structpb.Struct{}
-	err = json.Unmarshal(docBytes, doc)
+	err = proto.Unmarshal(docBytes, doc)
 	if err != nil {
 		return nil, err
 	}
