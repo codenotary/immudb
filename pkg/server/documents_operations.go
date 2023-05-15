@@ -191,7 +191,9 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 		if req.Page != pgreader.LastPageNumber+1 || req.PageSize != pgreader.LastPageSize {
 			if pgreader.Reader != nil {
 				err := pgreader.Reader.Close()
-				s.Logger.Errorf("error closing paginated reader: %s, err = %v", req.SearchId, err)
+				if err != nil {
+					s.Logger.Errorf("error closing paginated reader: %s, err = %v", req.SearchId, err)
+				}
 			}
 
 			req.Query = pgreader.Query
