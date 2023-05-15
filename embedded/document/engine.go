@@ -748,7 +748,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		query.CollectionName,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		nil,
+		sql.NewInteger(int64(query.Limit)),
 		sql.NewInteger(offset),
 	)
 
