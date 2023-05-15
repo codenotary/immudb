@@ -200,7 +200,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	txID, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
 			"pincode": structpb.NewNumberValue(2),
@@ -233,6 +233,14 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, revisions, 1)
 	require.Equal(t, uint64(2), revisions[0].Revision)
+
+	t.Run("get encoded document should pass with valid docID", func(t *testing.T) {
+		_, field, doc, err := engine.GetEncodedDocument(context.Background(), collectionName, docID, 0)
+		require.NoError(t, err)
+		require.Equal(t, DefaultDocumentIDField, field)
+		require.Equal(t, txID+1, doc.TxID)
+		require.Equal(t, uint64(2), doc.Revision)
+	})
 
 	// get document audit
 	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
@@ -1061,9 +1069,17 @@ func TestGetCollection(t *testing.T) {
 	require.Len(t, collection.Fields, 5)
 	require.Len(t, collection.Indexes, 5)
 
-	expectedIndexKeys := []string{"_id", "number", "name", "pin", "country"}
-	for i, key := range expectedIndexKeys {
-		require.Equal(t, key, collection.Fields[i].Name)
+	expectedIndexKeys := []*protomodel.Field{
+		{Name: "_id", Type: protomodel.FieldType_STRING},
+		{Name: "number", Type: protomodel.FieldType_INTEGER},
+		{Name: "name", Type: protomodel.FieldType_STRING},
+		{Name: "pin", Type: protomodel.FieldType_INTEGER},
+		{Name: "country", Type: protomodel.FieldType_STRING},
+	}
+
+	for i, idxType := range expectedIndexKeys {
+		require.Equal(t, idxType.Name, collection.Fields[i].Name)
+		require.Equal(t, idxType.Type, collection.Fields[i].Type)
 	}
 }
 

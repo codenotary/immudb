@@ -104,6 +104,21 @@ func TestDocumentID_IncrementalCounter(t *testing.T) {
 	}
 }
 
+func TestDocumentID_FromRawBytes(t *testing.T) {
+	id := NewDocumentIDFromTx(1)
+	b := []byte(id.EncodeToHexString())
+
+	_, err := NewDocumentIDFromRawBytes([]byte{})
+	require.ErrorIs(t, ErrIllegalArguments, err)
+
+	_, err = NewDocumentIDFromRawBytes(b)
+	require.NoError(t, err)
+
+	b = append(b, byte(0))
+	_, err = NewDocumentIDFromRawBytes(b)
+	require.ErrorIs(t, ErrMaxLengthExceeded, err)
+}
+
 func BenchmarkHex(b *testing.B) {
 	id := NewDocumentIDFromTx(0)
 	for i := 0; i < b.N; i++ {
