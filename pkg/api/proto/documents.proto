@@ -490,7 +490,7 @@ service DocumentService {
 
   rpc AuditDocument(AuditDocumentRequest) returns (AuditDocumentResponse) {
     option (google.api.http) = {
-      post: "/collection/{collectionName}/documents/{documentId}/audit"
+      post: "/collection/{collectionName}/document/{documentId}/audit"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -502,7 +502,7 @@ service DocumentService {
 
   rpc ProofDocument(ProofDocumentRequest) returns (ProofDocumentResponse) {
     option (google.api.http) = {
-      post: "/collection/{collectionName}/documents/{documentId}/proof"
+      post: "/collection/{collectionName}/document/{documentId}/proof"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {

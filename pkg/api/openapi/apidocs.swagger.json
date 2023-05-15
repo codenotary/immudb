@@ -148,45 +148,7 @@
         ]
       }
     },
-    "/collection/{collectionName}/documents": {
-      "put": {
-        "operationId": "InsertDocuments",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelInsertDocumentsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "collectionName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelInsertDocumentsRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/collection/{collectionName}/documents/{documentId}/audit": {
+    "/collection/{collectionName}/document/{documentId}/audit": {
       "post": {
         "operationId": "AuditDocument",
         "responses": {
@@ -230,7 +192,7 @@
         ]
       }
     },
-    "/collection/{collectionName}/documents/{documentId}/proof": {
+    "/collection/{collectionName}/document/{documentId}/proof": {
       "post": {
         "operationId": "ProofDocument",
         "responses": {
@@ -266,6 +228,44 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/modelProofDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents": {
+      "put": {
+        "operationId": "InsertDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelInsertDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelInsertDocumentsRequest"
             }
           }
         ],

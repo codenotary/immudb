@@ -1616,9 +1616,9 @@ var (
 
 	pattern_DocumentService_SearchDocuments_1 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"collection", "documents", "search", "searchId"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_DocumentService_AuditDocument_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"collection", "collectionName", "documents", "documentId", "audit"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_DocumentService_AuditDocument_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"collection", "collectionName", "document", "documentId", "audit"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_DocumentService_ProofDocument_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"collection", "collectionName", "documents", "documentId", "proof"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_DocumentService_ProofDocument_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"collection", "collectionName", "document", "documentId", "proof"}, "", runtime.AssumeColonVerbOpt(true)))
 )
 
 var (
