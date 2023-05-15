@@ -554,3 +554,330 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 	})
 
 }
+
+func TestDocumentInsert_WithEmptyDocument(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithPort(0).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	authenticationServiceImp := &authenticationServiceImp{s}
+
+	logged, err := authenticationServiceImp.OpenSession(context.Background(), &protomodel.OpenSessionRequest{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, logged.SessionID)
+
+	md := metadata.Pairs("sessionid", logged.SessionID)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	collectionName := "employees"
+
+	_, err = s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{
+		Name:                collectionName,
+		DocumentIdFieldName: "emp_no",
+		Fields: []*protomodel.Field{
+			{Name: "birth_date", Type: protomodel.FieldType_STRING},
+			{Name: "first_name", Type: protomodel.FieldType_STRING},
+			{Name: "last_name", Type: protomodel.FieldType_STRING},
+			{Name: "gender", Type: protomodel.FieldType_STRING},
+			{Name: "hire_date", Type: protomodel.FieldType_STRING},
+		},
+		Indexes: []*protomodel.Index{
+			{Fields: []string{"last_name"}},
+		},
+	})
+	require.NoError(t, err)
+
+	t.Run("#272: insert with empty document should not panic", func(t *testing.T) {
+		_, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{
+			CollectionName: collectionName,
+			Documents:      []*structpb.Struct{{}},
+		})
+		require.NoError(t, err)
+	})
+}
+
+func TestCollections(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithPort(0).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	authenticationServiceImp := &authenticationServiceImp{s}
+
+	logged, err := authenticationServiceImp.OpenSession(context.Background(), &protomodel.OpenSessionRequest{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, logged.SessionID)
+
+	md := metadata.Pairs("sessionid", logged.SessionID)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	// create collection
+	defaultCollectionName := "mycollection"
+
+	t.Run("should pass when creating a collection", func(t *testing.T) {
+
+		_, err := s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{
+			Name: defaultCollectionName,
+			Fields: []*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_INTEGER},
+				{Name: "name", Type: protomodel.FieldType_STRING},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+			},
+		})
+		require.NoError(t, err)
+
+		// get collection
+		cinfo, err := s.GetCollection(ctx, &protomodel.GetCollectionRequest{
+			Name: defaultCollectionName,
+		})
+		require.NoError(t, err)
+
+		expectedFieldKeys := []*protomodel.Field{
+			{Name: "_id", Type: protomodel.FieldType_STRING},
+			{Name: "number", Type: protomodel.FieldType_INTEGER},
+			{Name: "name", Type: protomodel.FieldType_STRING},
+			{Name: "pin", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+		}
+
+		collection := cinfo.Collection
+
+		for i, idxType := range expectedFieldKeys {
+			require.Equal(t, idxType.Name, collection.Fields[i].Name)
+			require.Equal(t, idxType.Type, collection.Fields[i].Type)
+		}
+
+	})
+
+	t.Run("should pass when adding an index to the collection", func(t *testing.T) {
+		_, err := s.CreateIndex(ctx, &protomodel.CreateIndexRequest{
+			CollectionName: defaultCollectionName,
+			Fields:         []string{"number"},
+		})
+		require.NoError(t, err)
+
+		// get collection
+		cinfo, err := s.GetCollection(ctx, &protomodel.GetCollectionRequest{
+			Name: defaultCollectionName,
+		})
+		require.NoError(t, err)
+
+		collection := cinfo.Collection
+
+		expectedIndexKeys := []*protomodel.Index{
+			{Fields: []string{"_id"}, IsUnique: true},
+			{Fields: []string{"number"}, IsUnique: false},
+		}
+
+		for i, idxType := range expectedIndexKeys {
+			require.Equal(t, idxType.Fields, collection.Indexes[i].Fields)
+			require.Equal(t, idxType.IsUnique, collection.Indexes[i].IsUnique)
+		}
+	})
+
+	t.Run("should pass when deleting an index to the collection", func(t *testing.T) {
+		_, err := s.DeleteIndex(ctx, &protomodel.DeleteIndexRequest{
+			CollectionName: defaultCollectionName,
+			Fields:         []string{"number"},
+		})
+		require.NoError(t, err)
+
+		// get collection
+		cinfo, err := s.GetCollection(ctx, &protomodel.GetCollectionRequest{
+			Name: defaultCollectionName,
+		})
+		require.NoError(t, err)
+
+		collection := cinfo.Collection
+		require.Len(t, collection.Indexes, 1)
+
+		expectedIndexKeys := []*protomodel.Index{
+			{Fields: []string{"_id"}, IsUnique: true},
+		}
+
+		for i, idxType := range expectedIndexKeys {
+			require.Equal(t, idxType.Fields, collection.Indexes[i].Fields)
+			require.Equal(t, idxType.IsUnique, collection.Indexes[i].IsUnique)
+		}
+	})
+
+	t.Run("should pass when updating a collection", func(t *testing.T) {
+		_, err := s.UpdateCollection(ctx, &protomodel.UpdateCollectionRequest{
+			Name:                defaultCollectionName,
+			DocumentIdFieldName: "foo",
+		})
+		require.NoError(t, err)
+
+		// get collection
+		cinfo, err := s.GetCollection(ctx, &protomodel.GetCollectionRequest{
+			Name: defaultCollectionName,
+		})
+		require.NoError(t, err)
+
+		collection := cinfo.Collection
+		require.Equal(t, "foo", collection.Fields[0].Name)
+	})
+
+	t.Run("should pass when deleting collection", func(t *testing.T) {
+		_, err := s.DeleteCollection(ctx, &protomodel.DeleteCollectionRequest{
+			Name: "mycollection",
+		})
+		require.NoError(t, err)
+
+		resp, err := s.GetCollections(ctx, &protomodel.GetCollectionsRequest{})
+		require.NoError(t, err)
+
+		require.Len(t, resp.Collections, 0)
+	})
+
+	t.Run("should pass when creating multiple collections", func(t *testing.T) {
+		// create collection
+		collections := []string{"mycollection1", "mycollection2", "mycollection3"}
+
+		for _, collectionName := range collections {
+			_, err := s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{
+				Name: collectionName,
+				Fields: []*protomodel.Field{
+					{Name: "number", Type: protomodel.FieldType_INTEGER},
+					{Name: "country", Type: protomodel.FieldType_STRING},
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		expectedFieldKeys := []*protomodel.Field{
+			{Name: "_id", Type: protomodel.FieldType_STRING},
+			{Name: "number", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+		}
+
+		// verify collection
+		resp, err := s.GetCollections(ctx, &protomodel.GetCollectionsRequest{})
+		require.NoError(t, err)
+		require.Len(t, resp.Collections, len(resp.Collections))
+
+		for i, collection := range resp.Collections {
+			require.Equal(t, collections[i], collection.Name)
+			for i, idxType := range expectedFieldKeys {
+				require.Equal(t, idxType.Name, collection.Fields[i].Name)
+				require.Equal(t, idxType.Type, collection.Fields[i].Type)
+			}
+		}
+	})
+}
+
+func TestDocuments(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithPort(0).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	authenticationServiceImp := &authenticationServiceImp{s}
+
+	logged, err := authenticationServiceImp.OpenSession(context.Background(), &protomodel.OpenSessionRequest{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, logged.SessionID)
+
+	md := metadata.Pairs("sessionid", logged.SessionID)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	// create collection
+	collectionName := "mycollection"
+	_, err = s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{
+		Name: collectionName,
+		Fields: []*protomodel.Field{
+			{
+				Name: "pincode",
+				Type: protomodel.FieldType_INTEGER,
+			},
+		},
+		Indexes: []*protomodel.Index{
+			{
+				Fields: []string{"pincode"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	t.Run("should fail with empty document", func(t *testing.T) {
+		// add document to collection
+		_, err := s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{
+			CollectionName: collectionName,
+			Documents:      nil,
+		})
+		require.Error(t, err)
+	})
+
+	var res *protomodel.InsertDocumentsResponse
+	var docID string
+	t.Run("should pass when adding documents", func(t *testing.T) {
+		var err error
+		// add document to collection
+		res, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{
+			CollectionName: collectionName,
+			Documents: []*structpb.Struct{
+				{
+					Fields: map[string]*structpb.Value{
+						"pincode": {
+							Kind: &structpb.Value_NumberValue{NumberValue: 123},
+						},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.Len(t, res.DocumentIds, 1)
+		docID = res.DocumentIds[0]
+	})
+
+	t.Run("should pass when auditing document", func(t *testing.T) {
+		resp, err := s.AuditDocument(ctx, &protomodel.AuditDocumentRequest{
+			CollectionName: collectionName,
+			DocumentId:     docID,
+			Page:           1,
+			PageSize:       10,
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Revisions, 1)
+
+		for _, rev := range resp.Revisions {
+			require.Equal(t, docID, rev.Document.Fields["_id"].GetStringValue())
+		}
+	})
+}
