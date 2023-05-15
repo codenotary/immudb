@@ -233,10 +233,7 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 		return nil, err
 	}
 
-	// update the pagination parameters for this query in the session
-	sess.UpdatePaginatedDocumentReader(req.SearchId, req.Page, req.PageSize)
-
-	if errors.Is(err, document.ErrNoMoreDocuments) {
+	if errors.Is(err, document.ErrNoMoreDocuments) || !req.KeepOpen {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
 		err = sess.DeletePaginatedDocumentReader(req.SearchId)
 		if err != nil {
@@ -247,6 +244,9 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 			Revisions: docs,
 		}, nil
 	}
+
+	// update the pagination parameters for this query in the session
+	sess.UpdatePaginatedDocumentReader(req.SearchId, req.Page, req.PageSize)
 
 	return &protomodel.SearchDocumentsResponse{
 		SearchId:  req.SearchId,
