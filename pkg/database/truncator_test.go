@@ -697,7 +697,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		require.NoError(t, err)
 
 		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{
@@ -732,7 +732,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
 
 		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{

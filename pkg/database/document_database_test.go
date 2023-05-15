@@ -86,7 +86,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	// add document to collection
 	res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
-		Collection: collectionName,
+		CollectionName: collectionName,
 		Documents: []*structpb.Struct{
 			{
 				Fields: map[string]*structpb.Value{
@@ -102,7 +102,7 @@ func TestDocumentDB_Collection(t *testing.T) {
 
 	// query collection for document
 	reader, err := db.SearchDocuments(context.Background(), &protomodel.Query{
-		Collection: collectionName,
+		CollectionName: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -129,8 +129,8 @@ func TestDocumentDB_Collection(t *testing.T) {
 	require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 
 	proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
-		Collection: collectionName,
-		DocumentId: res.DocumentIds[0],
+		CollectionName: collectionName,
+		DocumentId:     res.DocumentIds[0],
 	})
 	require.NoError(t, err)
 	require.NotNil(t, proofRes)

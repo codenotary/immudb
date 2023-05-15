@@ -57,11 +57,9 @@ type ImmudbmodelOpenSessionResponse struct {
 
 // ModelAuditDocumentRequest defines model for modelAuditDocumentRequest.
 type ModelAuditDocumentRequest struct {
-	Collection string `json:"collection"`
-	Desc       *bool  `json:"desc,omitempty"`
-	DocumentId string `json:"documentId"`
-	Page       int64  `json:"page"`
-	PageSize   int64  `json:"pageSize"`
+	Desc     *bool `json:"desc,omitempty"`
+	Page     int64 `json:"page"`
+	PageSize int64 `json:"pageSize"`
 }
 
 // ModelAuditDocumentResponse defines model for modelAuditDocumentResponse.
@@ -91,7 +89,6 @@ type ModelCreateCollectionRequest struct {
 	DocumentIdFieldName *string       `json:"documentIdFieldName,omitempty"`
 	Fields              *[]ModelField `json:"fields,omitempty"`
 	Indexes             *[]ModelIndex `json:"indexes,omitempty"`
-	Name                string        `json:"name"`
 }
 
 // ModelCreateCollectionResponse defines model for modelCreateCollectionResponse.
@@ -99,9 +96,8 @@ type ModelCreateCollectionResponse = map[string]interface{}
 
 // ModelCreateIndexRequest defines model for modelCreateIndexRequest.
 type ModelCreateIndexRequest struct {
-	Collection string    `json:"collection"`
-	Fields     *[]string `json:"fields,omitempty"`
-	IsUnique   *bool     `json:"isUnique,omitempty"`
+	Fields   *[]string `json:"fields,omitempty"`
+	IsUnique *bool     `json:"isUnique,omitempty"`
 }
 
 // ModelCreateIndexResponse defines model for modelCreateIndexResponse.
@@ -117,12 +113,6 @@ type ModelDeleteDocumentsRequest struct {
 
 // ModelDeleteDocumentsResponse defines model for modelDeleteDocumentsResponse.
 type ModelDeleteDocumentsResponse = map[string]interface{}
-
-// ModelDeleteIndexRequest defines model for modelDeleteIndexRequest.
-type ModelDeleteIndexRequest struct {
-	Collection string    `json:"collection"`
-	Fields     *[]string `json:"fields,omitempty"`
-}
 
 // ModelDeleteIndexResponse defines model for modelDeleteIndexResponse.
 type ModelDeleteIndexResponse = map[string]interface{}
@@ -175,8 +165,7 @@ type ModelIndex struct {
 
 // ModelInsertDocumentsRequest defines model for modelInsertDocumentsRequest.
 type ModelInsertDocumentsRequest struct {
-	Collection string                    `json:"collection"`
-	Documents  *[]map[string]interface{} `json:"documents,omitempty"`
+	Documents *[]map[string]interface{} `json:"documents,omitempty"`
 }
 
 // ModelInsertDocumentsResponse defines model for modelInsertDocumentsResponse.
@@ -199,8 +188,6 @@ type ModelOrderByClause struct {
 
 // ModelProofDocumentRequest defines model for modelProofDocumentRequest.
 type ModelProofDocumentRequest struct {
-	Collection              string  `json:"collection"`
-	DocumentId              string  `json:"documentId"`
 	ProofSinceTransactionId *string `json:"proofSinceTransactionId,omitempty"`
 	TransactionId           *string `json:"transactionId,omitempty"`
 }
@@ -216,7 +203,6 @@ type ModelProofDocumentResponse struct {
 
 // ModelQuery defines model for modelQuery.
 type ModelQuery struct {
-	Collection  string                  `json:"collection"`
 	Expressions *[]ModelQueryExpression `json:"expressions,omitempty"`
 	Limit       *int64                  `json:"limit,omitempty"`
 	OrderBy     *[]ModelOrderByClause   `json:"orderBy,omitempty"`
@@ -240,10 +226,17 @@ type ModelReplaceDocumentsResponse struct {
 
 // ModelSearchDocumentsRequest defines model for modelSearchDocumentsRequest.
 type ModelSearchDocumentsRequest struct {
+	KeepOpen *bool       `json:"keepOpen,omitempty"`
 	Page     int64       `json:"page"`
 	PageSize int64       `json:"pageSize"`
 	Query    *ModelQuery `json:"query,omitempty"`
-	SearchId *string     `json:"searchId,omitempty"`
+}
+
+// ModelSearchDocumentsRequestWith defines model for modelSearchDocumentsRequestWith.
+type ModelSearchDocumentsRequestWith struct {
+	KeepOpen *bool `json:"keepOpen,omitempty"`
+	Page     int64 `json:"page"`
+	PageSize int64 `json:"pageSize"`
 }
 
 // ModelSearchDocumentsResponse defines model for modelSearchDocumentsResponse.
@@ -483,6 +476,11 @@ type SchemaZEntry struct {
 	Set   *[]byte      `json:"set,omitempty"`
 }
 
+// DeleteIndexParams defines parameters for DeleteIndex.
+type DeleteIndexParams struct {
+	Fields *[]string `form:"fields,omitempty" json:"fields,omitempty"`
+}
+
 // CloseSessionJSONRequestBody defines body for CloseSession for application/json ContentType.
 type CloseSessionJSONRequestBody = ModelCloseSessionRequest
 
@@ -492,23 +490,14 @@ type KeepAliveJSONRequestBody = ModelKeepAliveRequest
 // OpenSessionJSONRequestBody defines body for OpenSession for application/json ContentType.
 type OpenSessionJSONRequestBody = ImmudbmodelOpenSessionRequest
 
-// CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
-type CreateCollectionJSONRequestBody = ModelCreateCollectionRequest
-
-// UpdateCollectionJSONRequestBody defines body for UpdateCollection for application/json ContentType.
-type UpdateCollectionJSONRequestBody = ModelUpdateCollectionRequest
+// SearchDocumentsWithJSONRequestBody defines body for SearchDocumentsWith for application/json ContentType.
+type SearchDocumentsWithJSONRequestBody = ModelSearchDocumentsRequestWith
 
 // InsertDocumentsJSONRequestBody defines body for InsertDocuments for application/json ContentType.
 type InsertDocumentsJSONRequestBody = ModelInsertDocumentsRequest
 
-// AuditDocumentJSONRequestBody defines body for AuditDocument for application/json ContentType.
-type AuditDocumentJSONRequestBody = ModelAuditDocumentRequest
-
 // DeleteDocumentsJSONRequestBody defines body for DeleteDocuments for application/json ContentType.
 type DeleteDocumentsJSONRequestBody = ModelDeleteDocumentsRequest
-
-// ProofDocumentJSONRequestBody defines body for ProofDocument for application/json ContentType.
-type ProofDocumentJSONRequestBody = ModelProofDocumentRequest
 
 // ReplaceDocumentsJSONRequestBody defines body for ReplaceDocuments for application/json ContentType.
 type ReplaceDocumentsJSONRequestBody = ModelReplaceDocumentsRequest
@@ -516,11 +505,20 @@ type ReplaceDocumentsJSONRequestBody = ModelReplaceDocumentsRequest
 // SearchDocumentsJSONRequestBody defines body for SearchDocuments for application/json ContentType.
 type SearchDocumentsJSONRequestBody = ModelSearchDocumentsRequest
 
+// AuditDocumentJSONRequestBody defines body for AuditDocument for application/json ContentType.
+type AuditDocumentJSONRequestBody = ModelAuditDocumentRequest
+
+// ProofDocumentJSONRequestBody defines body for ProofDocument for application/json ContentType.
+type ProofDocumentJSONRequestBody = ModelProofDocumentRequest
+
 // CreateIndexJSONRequestBody defines body for CreateIndex for application/json ContentType.
 type CreateIndexJSONRequestBody = ModelCreateIndexRequest
 
-// DeleteIndexJSONRequestBody defines body for DeleteIndex for application/json ContentType.
-type DeleteIndexJSONRequestBody = ModelDeleteIndexRequest
+// UpdateCollectionJSONRequestBody defines body for UpdateCollection for application/json ContentType.
+type UpdateCollectionJSONRequestBody = ModelUpdateCollectionRequest
+
+// CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
+type CreateCollectionJSONRequestBody = ModelCreateCollectionRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -610,13 +608,48 @@ type ClientInterface interface {
 
 	OpenSession(ctx context.Context, body OpenSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetCollections request
-	GetCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// SearchDocumentsWith request with any body
+	SearchDocumentsWithWithBody(ctx context.Context, searchId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateCollection request with any body
-	CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SearchDocumentsWith(ctx context.Context, searchId string, body SearchDocumentsWithJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// InsertDocuments request with any body
+	InsertDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	InsertDocuments(ctx context.Context, collectionName string, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDocuments request with any body
+	DeleteDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteDocuments(ctx context.Context, collectionName string, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceDocuments request with any body
+	ReplaceDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReplaceDocuments(ctx context.Context, collectionName string, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchDocuments request with any body
+	SearchDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SearchDocuments(ctx context.Context, collectionName string, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuditDocument request with any body
+	AuditDocumentWithBody(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AuditDocument(ctx context.Context, collectionName string, documentId string, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ProofDocument request with any body
+	ProofDocumentWithBody(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ProofDocument(ctx context.Context, collectionName string, documentId string, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteIndex request
+	DeleteIndex(ctx context.Context, collectionName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIndex request with any body
+	CreateIndexWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateIndex(ctx context.Context, collectionName string, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteCollection request
 	DeleteCollection(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -629,45 +662,13 @@ type ClientInterface interface {
 
 	UpdateCollection(ctx context.Context, name string, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// InsertDocuments request with any body
-	InsertDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetCollections request
+	GetCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	InsertDocuments(ctx context.Context, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateCollection request with any body
+	CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AuditDocument request with any body
-	AuditDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	AuditDocument(ctx context.Context, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteDocuments request with any body
-	DeleteDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	DeleteDocuments(ctx context.Context, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ProofDocument request with any body
-	ProofDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ProofDocument(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ReplaceDocuments request with any body
-	ReplaceDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ReplaceDocuments(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SearchDocuments request with any body
-	SearchDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SearchDocuments(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateIndex request with any body
-	CreateIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateIndex(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteIndex request with any body
-	DeleteIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	DeleteIndex(ctx context.Context, body DeleteIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) CloseSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -742,8 +743,8 @@ func (c *Client) OpenSession(ctx context.Context, body OpenSessionJSONRequestBod
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetCollectionsRequest(c.Server)
+func (c *Client) SearchDocumentsWithWithBody(ctx context.Context, searchId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchDocumentsWithRequestWithBody(c.Server, searchId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -754,8 +755,8 @@ func (c *Client) GetCollections(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateCollectionRequestWithBody(c.Server, contentType, body)
+func (c *Client) SearchDocumentsWith(ctx context.Context, searchId string, body SearchDocumentsWithJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchDocumentsWithRequest(c.Server, searchId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -766,8 +767,176 @@ func (c *Client) CreateCollectionWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateCollectionRequest(c.Server, body)
+func (c *Client) InsertDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInsertDocumentsRequestWithBody(c.Server, collectionName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InsertDocuments(ctx context.Context, collectionName string, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInsertDocumentsRequest(c.Server, collectionName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDocumentsRequestWithBody(c.Server, collectionName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDocuments(ctx context.Context, collectionName string, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDocumentsRequest(c.Server, collectionName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReplaceDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceDocumentsRequestWithBody(c.Server, collectionName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReplaceDocuments(ctx context.Context, collectionName string, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceDocumentsRequest(c.Server, collectionName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchDocumentsWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchDocumentsRequestWithBody(c.Server, collectionName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchDocuments(ctx context.Context, collectionName string, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchDocumentsRequest(c.Server, collectionName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuditDocumentWithBody(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuditDocumentRequestWithBody(c.Server, collectionName, documentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuditDocument(ctx context.Context, collectionName string, documentId string, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuditDocumentRequest(c.Server, collectionName, documentId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ProofDocumentWithBody(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewProofDocumentRequestWithBody(c.Server, collectionName, documentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ProofDocument(ctx context.Context, collectionName string, documentId string, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewProofDocumentRequest(c.Server, collectionName, documentId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteIndex(ctx context.Context, collectionName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteIndexRequest(c.Server, collectionName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIndexWithBody(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexRequestWithBody(c.Server, collectionName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIndex(ctx context.Context, collectionName string, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexRequest(c.Server, collectionName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -826,8 +995,8 @@ func (c *Client) UpdateCollection(ctx context.Context, name string, body UpdateC
 	return c.Client.Do(req)
 }
 
-func (c *Client) InsertDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInsertDocumentsRequestWithBody(c.Server, contentType, body)
+func (c *Client) GetCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCollectionsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -838,8 +1007,8 @@ func (c *Client) InsertDocumentsWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-func (c *Client) InsertDocuments(ctx context.Context, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInsertDocumentsRequest(c.Server, body)
+func (c *Client) CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCollectionRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -850,164 +1019,8 @@ func (c *Client) InsertDocuments(ctx context.Context, body InsertDocumentsJSONRe
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuditDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuditDocumentRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) AuditDocument(ctx context.Context, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuditDocumentRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteDocumentsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteDocuments(ctx context.Context, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteDocumentsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ProofDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewProofDocumentRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ProofDocument(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewProofDocumentRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ReplaceDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReplaceDocumentsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ReplaceDocuments(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReplaceDocumentsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SearchDocumentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSearchDocumentsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SearchDocuments(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSearchDocumentsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateIndex(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteIndexRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteIndex(ctx context.Context, body DeleteIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteIndexRequest(c.Server, body)
+func (c *Client) CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCollectionRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1138,6 +1151,565 @@ func NewOpenSessionRequestWithBody(server string, contentType string, body io.Re
 	return req, nil
 }
 
+// NewSearchDocumentsWithRequest calls the generic SearchDocumentsWith builder with application/json body
+func NewSearchDocumentsWithRequest(server string, searchId string, body SearchDocumentsWithJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSearchDocumentsWithRequestWithBody(server, searchId, "application/json", bodyReader)
+}
+
+// NewSearchDocumentsWithRequestWithBody generates requests for SearchDocumentsWith with any type of body
+func NewSearchDocumentsWithRequestWithBody(server string, searchId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "searchId", runtime.ParamLocationPath, searchId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/documents/search/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewInsertDocumentsRequest calls the generic InsertDocuments builder with application/json body
+func NewInsertDocumentsRequest(server string, collectionName string, body InsertDocumentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInsertDocumentsRequestWithBody(server, collectionName, "application/json", bodyReader)
+}
+
+// NewInsertDocumentsRequestWithBody generates requests for InsertDocuments with any type of body
+func NewInsertDocumentsRequestWithBody(server string, collectionName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/documents", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDocumentsRequest calls the generic DeleteDocuments builder with application/json body
+func NewDeleteDocumentsRequest(server string, collectionName string, body DeleteDocumentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteDocumentsRequestWithBody(server, collectionName, "application/json", bodyReader)
+}
+
+// NewDeleteDocumentsRequestWithBody generates requests for DeleteDocuments with any type of body
+func NewDeleteDocumentsRequestWithBody(server string, collectionName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/documents/delete", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReplaceDocumentsRequest calls the generic ReplaceDocuments builder with application/json body
+func NewReplaceDocumentsRequest(server string, collectionName string, body ReplaceDocumentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceDocumentsRequestWithBody(server, collectionName, "application/json", bodyReader)
+}
+
+// NewReplaceDocumentsRequestWithBody generates requests for ReplaceDocuments with any type of body
+func NewReplaceDocumentsRequestWithBody(server string, collectionName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/documents/replace", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSearchDocumentsRequest calls the generic SearchDocuments builder with application/json body
+func NewSearchDocumentsRequest(server string, collectionName string, body SearchDocumentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSearchDocumentsRequestWithBody(server, collectionName, "application/json", bodyReader)
+}
+
+// NewSearchDocumentsRequestWithBody generates requests for SearchDocuments with any type of body
+func NewSearchDocumentsRequestWithBody(server string, collectionName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/documents/search", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAuditDocumentRequest calls the generic AuditDocument builder with application/json body
+func NewAuditDocumentRequest(server string, collectionName string, documentId string, body AuditDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAuditDocumentRequestWithBody(server, collectionName, documentId, "application/json", bodyReader)
+}
+
+// NewAuditDocumentRequestWithBody generates requests for AuditDocument with any type of body
+func NewAuditDocumentRequestWithBody(server string, collectionName string, documentId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "documentId", runtime.ParamLocationPath, documentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/documents/%s/audit", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewProofDocumentRequest calls the generic ProofDocument builder with application/json body
+func NewProofDocumentRequest(server string, collectionName string, documentId string, body ProofDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewProofDocumentRequestWithBody(server, collectionName, documentId, "application/json", bodyReader)
+}
+
+// NewProofDocumentRequestWithBody generates requests for ProofDocument with any type of body
+func NewProofDocumentRequestWithBody(server string, collectionName string, documentId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "documentId", runtime.ParamLocationPath, documentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/documents/%s/proof", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteIndexRequest generates requests for DeleteIndex
+func NewDeleteIndexRequest(server string, collectionName string, params *DeleteIndexParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/index", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	queryValues := queryURL.Query()
+
+	if params.Fields != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "fields", runtime.ParamLocationQuery, *params.Fields); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	queryURL.RawQuery = queryValues.Encode()
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateIndexRequest calls the generic CreateIndex builder with application/json body
+func NewCreateIndexRequest(server string, collectionName string, body CreateIndexJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIndexRequestWithBody(server, collectionName, "application/json", bodyReader)
+}
+
+// NewCreateIndexRequestWithBody generates requests for CreateIndex with any type of body
+func NewCreateIndexRequestWithBody(server string, collectionName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "collectionName", runtime.ParamLocationPath, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s/index", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteCollectionRequest generates requests for DeleteCollection
+func NewDeleteCollectionRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCollectionRequest generates requests for GetCollection
+func NewGetCollectionRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateCollectionRequest calls the generic UpdateCollection builder with application/json body
+func NewUpdateCollectionRequest(server string, name string, body UpdateCollectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCollectionRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewUpdateCollectionRequestWithBody generates requests for UpdateCollection with any type of body
+func NewUpdateCollectionRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetCollectionsRequest generates requests for GetCollections
 func NewGetCollectionsRequest(server string) (*http.Request, error) {
 	var err error
@@ -1205,441 +1777,6 @@ func NewCreateCollectionRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
-// NewDeleteCollectionRequest generates requests for DeleteCollection
-func NewDeleteCollectionRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/collections/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetCollectionRequest generates requests for GetCollection
-func NewGetCollectionRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/collections/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateCollectionRequest calls the generic UpdateCollection builder with application/json body
-func NewUpdateCollectionRequest(server string, name string, body UpdateCollectionJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateCollectionRequestWithBody(server, name, "application/json", bodyReader)
-}
-
-// NewUpdateCollectionRequestWithBody generates requests for UpdateCollection with any type of body
-func NewUpdateCollectionRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/collections/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewInsertDocumentsRequest calls the generic InsertDocuments builder with application/json body
-func NewInsertDocumentsRequest(server string, body InsertDocumentsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewInsertDocumentsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewInsertDocumentsRequestWithBody generates requests for InsertDocuments with any type of body
-func NewInsertDocumentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewAuditDocumentRequest calls the generic AuditDocument builder with application/json body
-func NewAuditDocumentRequest(server string, body AuditDocumentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewAuditDocumentRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewAuditDocumentRequestWithBody generates requests for AuditDocument with any type of body
-func NewAuditDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents/audit")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteDocumentsRequest calls the generic DeleteDocuments builder with application/json body
-func NewDeleteDocumentsRequest(server string, body DeleteDocumentsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewDeleteDocumentsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewDeleteDocumentsRequestWithBody generates requests for DeleteDocuments with any type of body
-func NewDeleteDocumentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents/delete")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewProofDocumentRequest calls the generic ProofDocument builder with application/json body
-func NewProofDocumentRequest(server string, body ProofDocumentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewProofDocumentRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewProofDocumentRequestWithBody generates requests for ProofDocument with any type of body
-func NewProofDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents/proof")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewReplaceDocumentsRequest calls the generic ReplaceDocuments builder with application/json body
-func NewReplaceDocumentsRequest(server string, body ReplaceDocumentsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewReplaceDocumentsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewReplaceDocumentsRequestWithBody generates requests for ReplaceDocuments with any type of body
-func NewReplaceDocumentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents/replace")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewSearchDocumentsRequest calls the generic SearchDocuments builder with application/json body
-func NewSearchDocumentsRequest(server string, body SearchDocumentsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSearchDocumentsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSearchDocumentsRequestWithBody generates requests for SearchDocuments with any type of body
-func NewSearchDocumentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/documents/search")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewCreateIndexRequest calls the generic CreateIndex builder with application/json body
-func NewCreateIndexRequest(server string, body CreateIndexJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateIndexRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateIndexRequestWithBody generates requests for CreateIndex with any type of body
-func NewCreateIndexRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/index")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteIndexRequest calls the generic DeleteIndex builder with application/json body
-func NewDeleteIndexRequest(server string, body DeleteIndexJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewDeleteIndexRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewDeleteIndexRequestWithBody generates requests for DeleteIndex with any type of body
-func NewDeleteIndexRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/index/delete")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1698,13 +1835,48 @@ type ClientWithResponsesInterface interface {
 
 	OpenSessionWithResponse(ctx context.Context, body OpenSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenSessionResponse, error)
 
-	// GetCollections request
-	GetCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCollectionsResponse, error)
+	// SearchDocumentsWith request with any body
+	SearchDocumentsWithWithBodyWithResponse(ctx context.Context, searchId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsWithResponse, error)
 
-	// CreateCollection request with any body
-	CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
+	SearchDocumentsWithWithResponse(ctx context.Context, searchId string, body SearchDocumentsWithJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsWithResponse, error)
 
-	CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
+	// InsertDocuments request with any body
+	InsertDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error)
+
+	InsertDocumentsWithResponse(ctx context.Context, collectionName string, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error)
+
+	// DeleteDocuments request with any body
+	DeleteDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error)
+
+	DeleteDocumentsWithResponse(ctx context.Context, collectionName string, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error)
+
+	// ReplaceDocuments request with any body
+	ReplaceDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error)
+
+	ReplaceDocumentsWithResponse(ctx context.Context, collectionName string, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error)
+
+	// SearchDocuments request with any body
+	SearchDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
+
+	SearchDocumentsWithResponse(ctx context.Context, collectionName string, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
+
+	// AuditDocument request with any body
+	AuditDocumentWithBodyWithResponse(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error)
+
+	AuditDocumentWithResponse(ctx context.Context, collectionName string, documentId string, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error)
+
+	// ProofDocument request with any body
+	ProofDocumentWithBodyWithResponse(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
+
+	ProofDocumentWithResponse(ctx context.Context, collectionName string, documentId string, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
+
+	// DeleteIndex request
+	DeleteIndexWithResponse(ctx context.Context, collectionName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error)
+
+	// CreateIndex request with any body
+	CreateIndexWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
+
+	CreateIndexWithResponse(ctx context.Context, collectionName string, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
 
 	// DeleteCollection request
 	DeleteCollectionWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error)
@@ -1717,45 +1889,13 @@ type ClientWithResponsesInterface interface {
 
 	UpdateCollectionWithResponse(ctx context.Context, name string, body UpdateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error)
 
-	// InsertDocuments request with any body
-	InsertDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error)
+	// GetCollections request
+	GetCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCollectionsResponse, error)
 
-	InsertDocumentsWithResponse(ctx context.Context, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error)
+	// CreateCollection request with any body
+	CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
 
-	// AuditDocument request with any body
-	AuditDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error)
-
-	AuditDocumentWithResponse(ctx context.Context, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error)
-
-	// DeleteDocuments request with any body
-	DeleteDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error)
-
-	DeleteDocumentsWithResponse(ctx context.Context, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error)
-
-	// ProofDocument request with any body
-	ProofDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
-
-	ProofDocumentWithResponse(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error)
-
-	// ReplaceDocuments request with any body
-	ReplaceDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error)
-
-	ReplaceDocumentsWithResponse(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error)
-
-	// SearchDocuments request with any body
-	SearchDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
-
-	SearchDocumentsWithResponse(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error)
-
-	// CreateIndex request with any body
-	CreateIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
-
-	CreateIndexWithResponse(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
-
-	// DeleteIndex request with any body
-	DeleteIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error)
-
-	DeleteIndexWithResponse(ctx context.Context, body DeleteIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error)
+	CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
 }
 
 type CloseSessionResponse struct {
@@ -1827,15 +1967,15 @@ func (r OpenSessionResponse) StatusCode() int {
 	return 0
 }
 
-type GetCollectionsResponse struct {
+type SearchDocumentsWithResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ModelGetCollectionsResponse
+	JSON200      *ModelSearchDocumentsResponse
 	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
-func (r GetCollectionsResponse) Status() string {
+func (r SearchDocumentsWithResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1843,22 +1983,22 @@ func (r GetCollectionsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetCollectionsResponse) StatusCode() int {
+func (r SearchDocumentsWithResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateCollectionResponse struct {
+type InsertDocumentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ModelCreateCollectionResponse
+	JSON200      *ModelInsertDocumentsResponse
 	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateCollectionResponse) Status() string {
+func (r InsertDocumentsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1866,7 +2006,168 @@ func (r CreateCollectionResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateCollectionResponse) StatusCode() int {
+func (r InsertDocumentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteDocumentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelDeleteDocumentsResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDocumentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDocumentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ReplaceDocumentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelReplaceDocumentsResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceDocumentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceDocumentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SearchDocumentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelSearchDocumentsResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchDocumentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchDocumentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AuditDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelAuditDocumentResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r AuditDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuditDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ProofDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelProofDocumentResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r ProofDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ProofDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteIndexResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelDeleteIndexResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteIndexResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteIndexResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateIndexResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelCreateIndexResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIndexResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIndexResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1942,15 +2243,15 @@ func (r UpdateCollectionResponse) StatusCode() int {
 	return 0
 }
 
-type InsertDocumentsResponse struct {
+type GetCollectionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ModelInsertDocumentsResponse
+	JSON200      *ModelGetCollectionsResponse
 	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
-func (r InsertDocumentsResponse) Status() string {
+func (r GetCollectionsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1958,22 +2259,22 @@ func (r InsertDocumentsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r InsertDocumentsResponse) StatusCode() int {
+func (r GetCollectionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type AuditDocumentResponse struct {
+type CreateCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ModelAuditDocumentResponse
+	JSON200      *ModelCreateCollectionResponse
 	JSONDefault  *RuntimeError
 }
 
 // Status returns HTTPResponse.Status
-func (r AuditDocumentResponse) Status() string {
+func (r CreateCollectionResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1981,145 +2282,7 @@ func (r AuditDocumentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r AuditDocumentResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteDocumentsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelDeleteDocumentsResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteDocumentsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteDocumentsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ProofDocumentResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelProofDocumentResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r ProofDocumentResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ProofDocumentResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ReplaceDocumentsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelReplaceDocumentsResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r ReplaceDocumentsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ReplaceDocumentsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SearchDocumentsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelSearchDocumentsResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r SearchDocumentsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SearchDocumentsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateIndexResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelCreateIndexResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateIndexResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateIndexResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteIndexResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelDeleteIndexResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteIndexResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteIndexResponse) StatusCode() int {
+func (r CreateCollectionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2177,30 +2340,149 @@ func (c *ClientWithResponses) OpenSessionWithResponse(ctx context.Context, body 
 	return ParseOpenSessionResponse(rsp)
 }
 
-// GetCollectionsWithResponse request returning *GetCollectionsResponse
-func (c *ClientWithResponses) GetCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCollectionsResponse, error) {
-	rsp, err := c.GetCollections(ctx, reqEditors...)
+// SearchDocumentsWithWithBodyWithResponse request with arbitrary body returning *SearchDocumentsWithResponse
+func (c *ClientWithResponses) SearchDocumentsWithWithBodyWithResponse(ctx context.Context, searchId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsWithResponse, error) {
+	rsp, err := c.SearchDocumentsWithWithBody(ctx, searchId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetCollectionsResponse(rsp)
+	return ParseSearchDocumentsWithResponse(rsp)
 }
 
-// CreateCollectionWithBodyWithResponse request with arbitrary body returning *CreateCollectionResponse
-func (c *ClientWithResponses) CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
-	rsp, err := c.CreateCollectionWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) SearchDocumentsWithWithResponse(ctx context.Context, searchId string, body SearchDocumentsWithJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsWithResponse, error) {
+	rsp, err := c.SearchDocumentsWith(ctx, searchId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateCollectionResponse(rsp)
+	return ParseSearchDocumentsWithResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
-	rsp, err := c.CreateCollection(ctx, body, reqEditors...)
+// InsertDocumentsWithBodyWithResponse request with arbitrary body returning *InsertDocumentsResponse
+func (c *ClientWithResponses) InsertDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error) {
+	rsp, err := c.InsertDocumentsWithBody(ctx, collectionName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateCollectionResponse(rsp)
+	return ParseInsertDocumentsResponse(rsp)
+}
+
+func (c *ClientWithResponses) InsertDocumentsWithResponse(ctx context.Context, collectionName string, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error) {
+	rsp, err := c.InsertDocuments(ctx, collectionName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInsertDocumentsResponse(rsp)
+}
+
+// DeleteDocumentsWithBodyWithResponse request with arbitrary body returning *DeleteDocumentsResponse
+func (c *ClientWithResponses) DeleteDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error) {
+	rsp, err := c.DeleteDocumentsWithBody(ctx, collectionName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDocumentsResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeleteDocumentsWithResponse(ctx context.Context, collectionName string, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error) {
+	rsp, err := c.DeleteDocuments(ctx, collectionName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDocumentsResponse(rsp)
+}
+
+// ReplaceDocumentsWithBodyWithResponse request with arbitrary body returning *ReplaceDocumentsResponse
+func (c *ClientWithResponses) ReplaceDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error) {
+	rsp, err := c.ReplaceDocumentsWithBody(ctx, collectionName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceDocumentsResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReplaceDocumentsWithResponse(ctx context.Context, collectionName string, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error) {
+	rsp, err := c.ReplaceDocuments(ctx, collectionName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceDocumentsResponse(rsp)
+}
+
+// SearchDocumentsWithBodyWithResponse request with arbitrary body returning *SearchDocumentsResponse
+func (c *ClientWithResponses) SearchDocumentsWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error) {
+	rsp, err := c.SearchDocumentsWithBody(ctx, collectionName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchDocumentsResponse(rsp)
+}
+
+func (c *ClientWithResponses) SearchDocumentsWithResponse(ctx context.Context, collectionName string, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error) {
+	rsp, err := c.SearchDocuments(ctx, collectionName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchDocumentsResponse(rsp)
+}
+
+// AuditDocumentWithBodyWithResponse request with arbitrary body returning *AuditDocumentResponse
+func (c *ClientWithResponses) AuditDocumentWithBodyWithResponse(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error) {
+	rsp, err := c.AuditDocumentWithBody(ctx, collectionName, documentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuditDocumentResponse(rsp)
+}
+
+func (c *ClientWithResponses) AuditDocumentWithResponse(ctx context.Context, collectionName string, documentId string, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error) {
+	rsp, err := c.AuditDocument(ctx, collectionName, documentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuditDocumentResponse(rsp)
+}
+
+// ProofDocumentWithBodyWithResponse request with arbitrary body returning *ProofDocumentResponse
+func (c *ClientWithResponses) ProofDocumentWithBodyWithResponse(ctx context.Context, collectionName string, documentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error) {
+	rsp, err := c.ProofDocumentWithBody(ctx, collectionName, documentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseProofDocumentResponse(rsp)
+}
+
+func (c *ClientWithResponses) ProofDocumentWithResponse(ctx context.Context, collectionName string, documentId string, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error) {
+	rsp, err := c.ProofDocument(ctx, collectionName, documentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseProofDocumentResponse(rsp)
+}
+
+// DeleteIndexWithResponse request returning *DeleteIndexResponse
+func (c *ClientWithResponses) DeleteIndexWithResponse(ctx context.Context, collectionName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error) {
+	rsp, err := c.DeleteIndex(ctx, collectionName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteIndexResponse(rsp)
+}
+
+// CreateIndexWithBodyWithResponse request with arbitrary body returning *CreateIndexResponse
+func (c *ClientWithResponses) CreateIndexWithBodyWithResponse(ctx context.Context, collectionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
+	rsp, err := c.CreateIndexWithBody(ctx, collectionName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIndexResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateIndexWithResponse(ctx context.Context, collectionName string, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
+	rsp, err := c.CreateIndex(ctx, collectionName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIndexResponse(rsp)
 }
 
 // DeleteCollectionWithResponse request returning *DeleteCollectionResponse
@@ -2238,140 +2520,30 @@ func (c *ClientWithResponses) UpdateCollectionWithResponse(ctx context.Context, 
 	return ParseUpdateCollectionResponse(rsp)
 }
 
-// InsertDocumentsWithBodyWithResponse request with arbitrary body returning *InsertDocumentsResponse
-func (c *ClientWithResponses) InsertDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error) {
-	rsp, err := c.InsertDocumentsWithBody(ctx, contentType, body, reqEditors...)
+// GetCollectionsWithResponse request returning *GetCollectionsResponse
+func (c *ClientWithResponses) GetCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCollectionsResponse, error) {
+	rsp, err := c.GetCollections(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInsertDocumentsResponse(rsp)
+	return ParseGetCollectionsResponse(rsp)
 }
 
-func (c *ClientWithResponses) InsertDocumentsWithResponse(ctx context.Context, body InsertDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*InsertDocumentsResponse, error) {
-	rsp, err := c.InsertDocuments(ctx, body, reqEditors...)
+// CreateCollectionWithBodyWithResponse request with arbitrary body returning *CreateCollectionResponse
+func (c *ClientWithResponses) CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
+	rsp, err := c.CreateCollectionWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInsertDocumentsResponse(rsp)
+	return ParseCreateCollectionResponse(rsp)
 }
 
-// AuditDocumentWithBodyWithResponse request with arbitrary body returning *AuditDocumentResponse
-func (c *ClientWithResponses) AuditDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error) {
-	rsp, err := c.AuditDocumentWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
+	rsp, err := c.CreateCollection(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAuditDocumentResponse(rsp)
-}
-
-func (c *ClientWithResponses) AuditDocumentWithResponse(ctx context.Context, body AuditDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*AuditDocumentResponse, error) {
-	rsp, err := c.AuditDocument(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAuditDocumentResponse(rsp)
-}
-
-// DeleteDocumentsWithBodyWithResponse request with arbitrary body returning *DeleteDocumentsResponse
-func (c *ClientWithResponses) DeleteDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error) {
-	rsp, err := c.DeleteDocumentsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteDocumentsResponse(rsp)
-}
-
-func (c *ClientWithResponses) DeleteDocumentsWithResponse(ctx context.Context, body DeleteDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteDocumentsResponse, error) {
-	rsp, err := c.DeleteDocuments(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteDocumentsResponse(rsp)
-}
-
-// ProofDocumentWithBodyWithResponse request with arbitrary body returning *ProofDocumentResponse
-func (c *ClientWithResponses) ProofDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error) {
-	rsp, err := c.ProofDocumentWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseProofDocumentResponse(rsp)
-}
-
-func (c *ClientWithResponses) ProofDocumentWithResponse(ctx context.Context, body ProofDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*ProofDocumentResponse, error) {
-	rsp, err := c.ProofDocument(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseProofDocumentResponse(rsp)
-}
-
-// ReplaceDocumentsWithBodyWithResponse request with arbitrary body returning *ReplaceDocumentsResponse
-func (c *ClientWithResponses) ReplaceDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error) {
-	rsp, err := c.ReplaceDocumentsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseReplaceDocumentsResponse(rsp)
-}
-
-func (c *ClientWithResponses) ReplaceDocumentsWithResponse(ctx context.Context, body ReplaceDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceDocumentsResponse, error) {
-	rsp, err := c.ReplaceDocuments(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseReplaceDocumentsResponse(rsp)
-}
-
-// SearchDocumentsWithBodyWithResponse request with arbitrary body returning *SearchDocumentsResponse
-func (c *ClientWithResponses) SearchDocumentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error) {
-	rsp, err := c.SearchDocumentsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSearchDocumentsResponse(rsp)
-}
-
-func (c *ClientWithResponses) SearchDocumentsWithResponse(ctx context.Context, body SearchDocumentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchDocumentsResponse, error) {
-	rsp, err := c.SearchDocuments(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSearchDocumentsResponse(rsp)
-}
-
-// CreateIndexWithBodyWithResponse request with arbitrary body returning *CreateIndexResponse
-func (c *ClientWithResponses) CreateIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
-	rsp, err := c.CreateIndexWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateIndexResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateIndexWithResponse(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
-	rsp, err := c.CreateIndex(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateIndexResponse(rsp)
-}
-
-// DeleteIndexWithBodyWithResponse request with arbitrary body returning *DeleteIndexResponse
-func (c *ClientWithResponses) DeleteIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error) {
-	rsp, err := c.DeleteIndexWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteIndexResponse(rsp)
-}
-
-func (c *ClientWithResponses) DeleteIndexWithResponse(ctx context.Context, body DeleteIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error) {
-	rsp, err := c.DeleteIndex(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteIndexResponse(rsp)
+	return ParseCreateCollectionResponse(rsp)
 }
 
 // ParseCloseSessionResponse parses an HTTP response from a CloseSessionWithResponse call
@@ -2473,22 +2645,22 @@ func ParseOpenSessionResponse(rsp *http.Response) (*OpenSessionResponse, error) 
 	return response, nil
 }
 
-// ParseGetCollectionsResponse parses an HTTP response from a GetCollectionsWithResponse call
-func ParseGetCollectionsResponse(rsp *http.Response) (*GetCollectionsResponse, error) {
+// ParseSearchDocumentsWithResponse parses an HTTP response from a SearchDocumentsWithWithResponse call
+func ParseSearchDocumentsWithResponse(rsp *http.Response) (*SearchDocumentsWithResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetCollectionsResponse{
+	response := &SearchDocumentsWithResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelGetCollectionsResponse
+		var dest ModelSearchDocumentsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2506,22 +2678,253 @@ func ParseGetCollectionsResponse(rsp *http.Response) (*GetCollectionsResponse, e
 	return response, nil
 }
 
-// ParseCreateCollectionResponse parses an HTTP response from a CreateCollectionWithResponse call
-func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionResponse, error) {
+// ParseInsertDocumentsResponse parses an HTTP response from a InsertDocumentsWithResponse call
+func ParseInsertDocumentsResponse(rsp *http.Response) (*InsertDocumentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateCollectionResponse{
+	response := &InsertDocumentsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelCreateCollectionResponse
+		var dest ModelInsertDocumentsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDocumentsResponse parses an HTTP response from a DeleteDocumentsWithResponse call
+func ParseDeleteDocumentsResponse(rsp *http.Response) (*DeleteDocumentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDocumentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelDeleteDocumentsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplaceDocumentsResponse parses an HTTP response from a ReplaceDocumentsWithResponse call
+func ParseReplaceDocumentsResponse(rsp *http.Response) (*ReplaceDocumentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceDocumentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelReplaceDocumentsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchDocumentsResponse parses an HTTP response from a SearchDocumentsWithResponse call
+func ParseSearchDocumentsResponse(rsp *http.Response) (*SearchDocumentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchDocumentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelSearchDocumentsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuditDocumentResponse parses an HTTP response from a AuditDocumentWithResponse call
+func ParseAuditDocumentResponse(rsp *http.Response) (*AuditDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuditDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelAuditDocumentResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseProofDocumentResponse parses an HTTP response from a ProofDocumentWithResponse call
+func ParseProofDocumentResponse(rsp *http.Response) (*ProofDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ProofDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelProofDocumentResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteIndexResponse parses an HTTP response from a DeleteIndexWithResponse call
+func ParseDeleteIndexResponse(rsp *http.Response) (*DeleteIndexResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteIndexResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelDeleteIndexResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateIndexResponse parses an HTTP response from a CreateIndexWithResponse call
+func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIndexResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelCreateIndexResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2638,22 +3041,22 @@ func ParseUpdateCollectionResponse(rsp *http.Response) (*UpdateCollectionRespons
 	return response, nil
 }
 
-// ParseInsertDocumentsResponse parses an HTTP response from a InsertDocumentsWithResponse call
-func ParseInsertDocumentsResponse(rsp *http.Response) (*InsertDocumentsResponse, error) {
+// ParseGetCollectionsResponse parses an HTTP response from a GetCollectionsWithResponse call
+func ParseGetCollectionsResponse(rsp *http.Response) (*GetCollectionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &InsertDocumentsResponse{
+	response := &GetCollectionsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelInsertDocumentsResponse
+		var dest ModelGetCollectionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2671,220 +3074,22 @@ func ParseInsertDocumentsResponse(rsp *http.Response) (*InsertDocumentsResponse,
 	return response, nil
 }
 
-// ParseAuditDocumentResponse parses an HTTP response from a AuditDocumentWithResponse call
-func ParseAuditDocumentResponse(rsp *http.Response) (*AuditDocumentResponse, error) {
+// ParseCreateCollectionResponse parses an HTTP response from a CreateCollectionWithResponse call
+func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &AuditDocumentResponse{
+	response := &CreateCollectionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelAuditDocumentResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteDocumentsResponse parses an HTTP response from a DeleteDocumentsWithResponse call
-func ParseDeleteDocumentsResponse(rsp *http.Response) (*DeleteDocumentsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteDocumentsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelDeleteDocumentsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseProofDocumentResponse parses an HTTP response from a ProofDocumentWithResponse call
-func ParseProofDocumentResponse(rsp *http.Response) (*ProofDocumentResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ProofDocumentResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelProofDocumentResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseReplaceDocumentsResponse parses an HTTP response from a ReplaceDocumentsWithResponse call
-func ParseReplaceDocumentsResponse(rsp *http.Response) (*ReplaceDocumentsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ReplaceDocumentsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelReplaceDocumentsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSearchDocumentsResponse parses an HTTP response from a SearchDocumentsWithResponse call
-func ParseSearchDocumentsResponse(rsp *http.Response) (*SearchDocumentsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SearchDocumentsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelSearchDocumentsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateIndexResponse parses an HTTP response from a CreateIndexWithResponse call
-func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateIndexResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelCreateIndexResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteIndexResponse parses an HTTP response from a DeleteIndexWithResponse call
-func ParseDeleteIndexResponse(rsp *http.Response) (*DeleteIndexResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteIndexResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelDeleteIndexResponse
+		var dest ModelCreateCollectionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

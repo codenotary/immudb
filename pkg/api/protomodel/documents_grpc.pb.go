@@ -19,8 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DocumentServiceClient interface {
 	CreateCollection(ctx context.Context, in *CreateCollectionRequest, opts ...grpc.CallOption) (*CreateCollectionResponse, error)
-	GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error)
 	GetCollections(ctx context.Context, in *GetCollectionsRequest, opts ...grpc.CallOption) (*GetCollectionsResponse, error)
+	GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error)
 	UpdateCollection(ctx context.Context, in *UpdateCollectionRequest, opts ...grpc.CallOption) (*UpdateCollectionResponse, error)
 	DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error)
 	CreateIndex(ctx context.Context, in *CreateIndexRequest, opts ...grpc.CallOption) (*CreateIndexResponse, error)
@@ -50,18 +50,18 @@ func (c *documentServiceClient) CreateCollection(ctx context.Context, in *Create
 	return out, nil
 }
 
-func (c *documentServiceClient) GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error) {
-	out := new(GetCollectionResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/GetCollection", in, out, opts...)
+func (c *documentServiceClient) GetCollections(ctx context.Context, in *GetCollectionsRequest, opts ...grpc.CallOption) (*GetCollectionsResponse, error) {
+	out := new(GetCollectionsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/GetCollections", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) GetCollections(ctx context.Context, in *GetCollectionsRequest, opts ...grpc.CallOption) (*GetCollectionsResponse, error) {
-	out := new(GetCollectionsResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/GetCollections", in, out, opts...)
+func (c *documentServiceClient) GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error) {
+	out := new(GetCollectionResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/GetCollection", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +163,8 @@ func (c *documentServiceClient) ProofDocument(ctx context.Context, in *ProofDocu
 // for forward compatibility
 type DocumentServiceServer interface {
 	CreateCollection(context.Context, *CreateCollectionRequest) (*CreateCollectionResponse, error)
-	GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error)
 	GetCollections(context.Context, *GetCollectionsRequest) (*GetCollectionsResponse, error)
+	GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error)
 	UpdateCollection(context.Context, *UpdateCollectionRequest) (*UpdateCollectionResponse, error)
 	DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error)
 	CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error)
@@ -184,11 +184,11 @@ type UnimplementedDocumentServiceServer struct {
 func (UnimplementedDocumentServiceServer) CreateCollection(context.Context, *CreateCollectionRequest) (*CreateCollectionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateCollection not implemented")
 }
-func (UnimplementedDocumentServiceServer) GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCollection not implemented")
-}
 func (UnimplementedDocumentServiceServer) GetCollections(context.Context, *GetCollectionsRequest) (*GetCollectionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCollections not implemented")
+}
+func (UnimplementedDocumentServiceServer) GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCollection not implemented")
 }
 func (UnimplementedDocumentServiceServer) UpdateCollection(context.Context, *UpdateCollectionRequest) (*UpdateCollectionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateCollection not implemented")
@@ -250,24 +250,6 @@ func _DocumentService_CreateCollection_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_GetCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCollectionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DocumentServiceServer).GetCollection(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/GetCollection",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).GetCollection(ctx, req.(*GetCollectionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _DocumentService_GetCollections_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetCollectionsRequest)
 	if err := dec(in); err != nil {
@@ -282,6 +264,24 @@ func _DocumentService_GetCollections_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).GetCollections(ctx, req.(*GetCollectionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_GetCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCollectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).GetCollection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/GetCollection",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).GetCollection(ctx, req.(*GetCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -478,12 +478,12 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DocumentService_CreateCollection_Handler,
 		},
 		{
-			MethodName: "GetCollection",
-			Handler:    _DocumentService_GetCollection_Handler,
-		},
-		{
 			MethodName: "GetCollections",
 			Handler:    _DocumentService_GetCollections_Handler,
+		},
+		{
+			MethodName: "GetCollection",
+			Handler:    _DocumentService_GetCollection_Handler,
 		},
 		{
 			MethodName: "UpdateCollection",

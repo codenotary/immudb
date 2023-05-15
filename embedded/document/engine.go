@@ -599,7 +599,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 	}
 	defer sqlTx.Cancel()
 
-	table, err := getTableForCollection(sqlTx, query.Collection)
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -638,8 +638,8 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 	}
 
 	queryStmt := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.Collection, documentIdFieldName)},
-		query.Collection,
+		[]sql.Selector{sql.NewColSelector(query.CollectionName, documentIdFieldName)},
+		query.CollectionName,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
@@ -690,14 +690,14 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 		return nil, nil
 	}
 
-	txID, docIDs, err := e.upsertDocuments(ctx, sqlTx, query.Collection, docs, false)
+	txID, docIDs, err := e.upsertDocuments(ctx, sqlTx, query.CollectionName, docs, false)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, docID := range docIDs {
 		// fetch revision
-		searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.Collection, docID)
+		searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.CollectionName, docID)
 		if err != nil {
 			return nil, err
 		}
@@ -733,7 +733,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		return nil, mayTranslateError(err)
 	}
 
-	table, err := getTableForCollection(sqlTx, query.Collection)
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -744,8 +744,8 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	}
 
 	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.Collection, DocumentBLOBField)},
-		query.Collection,
+		[]sql.Selector{sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
+		query.CollectionName,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		nil,
@@ -1083,7 +1083,7 @@ func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query) e
 	}
 	defer sqlTx.Cancel()
 
-	table, err := getTableForCollection(sqlTx, query.Collection)
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
 		return err
 	}

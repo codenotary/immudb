@@ -141,7 +141,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 	for i := 1.0; i <= 20; i++ {
 		_, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{
@@ -159,7 +159,7 @@ func TestPaginationOnReader(t *testing.T) {
 		_, err = s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{
 			SearchId: "foobar",
 			Query: &protomodel.Query{
-				Collection: collectionName,
+				CollectionName: collectionName,
 				Expressions: []*protomodel.QueryExpression{
 					{
 						FieldComparisons: []*protomodel.FieldComparison{
@@ -193,7 +193,7 @@ func TestPaginationOnReader(t *testing.T) {
 		var searchID string
 
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -249,7 +249,7 @@ func TestPaginationOnReader(t *testing.T) {
 		var searchID string
 
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -330,7 +330,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 
 	for i := 1.0; i <= 20; i++ {
 		_, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{
@@ -356,7 +356,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 		for i := 1; i <= 4; i++ {
 			resp, err := s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{
 				Query: &protomodel.Query{
-					Collection: collectionName,
+					CollectionName: collectionName,
 					Expressions: []*protomodel.QueryExpression{
 						{
 							FieldComparisons: []*protomodel.FieldComparison{
@@ -431,7 +431,7 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 
 	for i := 1.0; i <= 10; i++ {
 		_, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{
@@ -451,7 +451,7 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 		var searchID string
 
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -507,7 +507,7 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 
 	t.Run("test reader with single read", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{

@@ -148,7 +148,7 @@ func TestGetDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	query := &protomodel.Query{
-		Collection: collectionName,
+		CollectionName: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -209,7 +209,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	query := &protomodel.Query{
-		Collection: collectionName,
+		CollectionName: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -281,7 +281,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with != operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -306,7 +306,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with < operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -331,7 +331,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with <= operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -356,7 +356,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with > operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -381,7 +381,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test query with >= operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -406,7 +406,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test group query with != operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -436,7 +436,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test group query with < operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -461,7 +461,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	t.Run("test group query with > operator", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -523,7 +523,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	t.Run("update document should pass without docID", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -558,7 +558,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 		// Verify that the document was updated
 		query = &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -589,7 +589,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	t.Run("update document should fail when no document is found", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -618,7 +618,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	t.Run("update document should fail with a different docID", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -676,7 +676,7 @@ func TestFloatSupport(t *testing.T) {
 
 	// query document
 	query := &protomodel.Query{
-		Collection: collectionName,
+		CollectionName: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -890,7 +890,7 @@ func TestBulkInsert(t *testing.T) {
 	require.Equal(t, uint64(2), txID)
 	require.Len(t, docIDs, 10)
 
-	reader, err := engine.GetDocuments(ctx, &protomodel.Query{Collection: collectionName}, 0)
+	reader, err := engine.GetDocuments(ctx, &protomodel.Query{CollectionName: collectionName}, 0)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -938,7 +938,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 	t.Run("test reader for multiple reads", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{
@@ -993,7 +993,7 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	query := &protomodel.Query{
-		Collection: collectionName,
+		CollectionName: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
 				FieldComparisons: []*protomodel.FieldComparison{
@@ -1100,7 +1100,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 
 	t.Run("order by single field", func(t *testing.T) {
 		query := &protomodel.Query{
-			Collection: collectionName,
+			CollectionName: collectionName,
 			Expressions: []*protomodel.QueryExpression{
 				{
 					FieldComparisons: []*protomodel.FieldComparison{

@@ -154,7 +154,7 @@ func (d *db) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateIndex(ctx, req.Collection, req.Fields, req.IsUnique)
+	err := d.documentEngine.CreateIndex(ctx, req.CollectionName, req.Fields, req.IsUnique)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (d *db) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteIndex(ctx, req.Collection, req.Fields)
+	err := d.documentEngine.DeleteIndex(ctx, req.CollectionName, req.Fields)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (d *db) InsertDocuments(ctx context.Context, req *protomodel.InsertDocument
 		return nil, ErrIllegalArguments
 	}
 
-	txID, docIDs, err := d.documentEngine.InsertDocuments(ctx, req.Collection, req.Documents)
+	txID, docIDs, err := d.documentEngine.InsertDocuments(ctx, req.CollectionName, req.Documents)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (d *db) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentReq
 		return nil, fmt.Errorf("invalid document id: %v", err)
 	}
 
-	revisions, err := d.documentEngine.AuditDocument(ctx, req.Collection, docID, req.Desc, offset, limit)
+	revisions, err := d.documentEngine.AuditDocument(ctx, req.CollectionName, docID, req.Desc, offset, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching document history: %v", err)
 	}
@@ -297,7 +297,7 @@ func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentReq
 	}
 	defer d.releaseTx(tx)
 
-	collectionID, documentIdFieldName, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.Collection, docID, req.TransactionId)
+	collectionID, documentIdFieldName, docAudit, err := d.documentEngine.GetEncodedDocument(ctx, req.CollectionName, docID, req.TransactionId)
 	if err != nil {
 		return nil, err
 	}

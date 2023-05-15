@@ -177,7 +177,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
+| collectionName | [string](#string) |  |  |
 | documentId | [string](#string) |  |  |
 | desc | [bool](#bool) |  |  |
 | page | [uint32](#uint32) |  |  |
@@ -257,7 +257,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
+| collectionName | [string](#string) |  |  |
 | fields | [string](#string) | repeated |  |
 | isUnique | [bool](#bool) |  |  |
 
@@ -334,7 +334,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
+| collectionName | [string](#string) |  |  |
 | fields | [string](#string) | repeated |  |
 
 
@@ -498,7 +498,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
+| collectionName | [string](#string) |  |  |
 | documents | [google.protobuf.Struct](#google.protobuf.Struct) | repeated |  |
 
 
@@ -546,7 +546,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
+| collectionName | [string](#string) |  |  |
 | documentId | [string](#string) |  |  |
 | transactionId | [uint64](#uint64) |  |  |
 | proofSinceTransactionId | [uint64](#uint64) |  |  |
@@ -583,7 +583,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [string](#string) |  |  |
+| collectionName | [string](#string) |  |  |
 | expressions | [QueryExpression](#immudb.model.QueryExpression) | repeated |  |
 | orderBy | [OrderByClause](#immudb.model.OrderByClause) | repeated |  |
 | limit | [uint32](#uint32) |  |  |
@@ -651,6 +651,7 @@
 | query | [Query](#immudb.model.Query) |  |  |
 | page | [uint32](#uint32) |  |  |
 | pageSize | [uint32](#uint32) |  |  |
+| keepOpen | [bool](#bool) |  |  |
 
 
 
@@ -745,8 +746,8 @@
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | CreateCollection | [CreateCollectionRequest](#immudb.model.CreateCollectionRequest) | [CreateCollectionResponse](#immudb.model.CreateCollectionResponse) |  |
-| GetCollection | [GetCollectionRequest](#immudb.model.GetCollectionRequest) | [GetCollectionResponse](#immudb.model.GetCollectionResponse) |  |
 | GetCollections | [GetCollectionsRequest](#immudb.model.GetCollectionsRequest) | [GetCollectionsResponse](#immudb.model.GetCollectionsResponse) |  |
+| GetCollection | [GetCollectionRequest](#immudb.model.GetCollectionRequest) | [GetCollectionResponse](#immudb.model.GetCollectionResponse) |  |
 | UpdateCollection | [UpdateCollectionRequest](#immudb.model.UpdateCollectionRequest) | [UpdateCollectionResponse](#immudb.model.UpdateCollectionResponse) |  |
 | DeleteCollection | [DeleteCollectionRequest](#immudb.model.DeleteCollectionRequest) | [DeleteCollectionResponse](#immudb.model.DeleteCollectionResponse) |  |
 | CreateIndex | [CreateIndexRequest](#immudb.model.CreateIndexRequest) | [CreateIndexResponse](#immudb.model.CreateIndexResponse) |  |
