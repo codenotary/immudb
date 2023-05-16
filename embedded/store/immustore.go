@@ -124,11 +124,12 @@ const Version = 1
 const MaxTxHeaderVersion = 1
 
 const (
-	metaVersion      = "VERSION"
-	metaMaxTxEntries = "MAX_TX_ENTRIES"
-	metaMaxKeyLen    = "MAX_KEY_LEN"
-	metaMaxValueLen  = "MAX_VALUE_LEN"
-	metaFileSize     = "FILE_SIZE"
+	metaVersion        = "VERSION"
+	metaMaxTxEntries   = "MAX_TX_ENTRIES"
+	metaMaxKeyLen      = "MAX_KEY_LEN"
+	metaMaxValueLen    = "MAX_VALUE_LEN"
+	metaFileSize       = "FILE_SIZE"
+	metaEmbeddedValues = "EMBEDDED_VALUES"
 )
 
 const indexDirname = "index"
@@ -240,6 +241,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
 	metadata.PutInt(metaMaxValueLen, opts.MaxValueLen)
 	metadata.PutInt(metaFileSize, opts.FileSize)
+	metadata.PutBool(metaEmbeddedValues, opts.EmbeddedValues)
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
@@ -303,6 +305,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
+
+	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
+	if !ok {
+		return nil, fmt.Errorf("corrupted commit log metadata (embedded values): %w", ErrCorruptedCLog)
+	}
 
 	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {
@@ -506,6 +513,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		inmemPrecommittedAlh:  precommittedAlh,
 		precommittedTxLogSize: precommittedTxLogSize,
 
+		embeddedValues: embeddedValues,
+
 		readOnly:              opts.ReadOnly,
 		synced:                opts.Synced,
 		syncFrequency:         opts.SyncFrequency,
@@ -514,9 +523,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		maxWaitees:            opts.MaxWaitees,
 		maxConcurrency:        opts.MaxConcurrency,
 		maxIOConcurrency:      opts.MaxIOConcurrency,
-		maxTxEntries:          maxTxEntries,
-		maxKeyLen:             maxKeyLen,
-		maxValueLen:           maxInt(maxValueLen, opts.MaxValueLen),
+
+		maxTxEntries: maxTxEntries,
+		maxKeyLen:    maxKeyLen,
+		maxValueLen:  maxValueLen,
 
 		writeTxHeaderVersion: opts.WriteTxHeaderVersion,
 
