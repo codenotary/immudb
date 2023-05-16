@@ -120,7 +120,9 @@ const lszSize = 4
 const sszSize = 2
 const offsetSize = 8
 
-const Version = 1
+// Version 2 includes `metaEmbeddedValues` into clog metadata
+const Version = 2
+
 const MaxTxHeaderVersion = 1
 
 const (
@@ -306,9 +308,18 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
+	version, ok := metadata.GetInt(metaVersion)
+	if !ok {
+		return nil, fmt.Errorf("corrupted commit log metadata (version): %w", ErrCorruptedCLog)
+	}
+
 	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (embedded values): %w", ErrCorruptedCLog)
+		if version >= 2 {
+			return nil, fmt.Errorf("corrupted commit log metadata (embedded values): %w", ErrCorruptedCLog)
+		}
+
+		embeddedValues = false
 	}
 
 	fileSize, ok := metadata.GetInt(metaFileSize)
