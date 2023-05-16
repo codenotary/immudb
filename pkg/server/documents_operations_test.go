@@ -213,6 +213,7 @@ func TestPaginationOnReader(t *testing.T) {
 				Query:    query,
 				Page:     uint32(i),
 				PageSize: 5,
+				KeepOpen: true,
 			})
 			require.NoError(t, err)
 			require.Len(t, resp.Revisions, 5)
@@ -269,6 +270,7 @@ func TestPaginationOnReader(t *testing.T) {
 				Query:    query,
 				Page:     uint32(i),
 				PageSize: 5,
+				KeepOpen: true,
 			})
 			require.NoError(t, err)
 			require.Len(t, resp.Revisions, 5)
@@ -344,7 +346,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	t.Run("test reader for multiple paginated reads without search ID should have multiple readers", func(t *testing.T) {
+	t.Run("test reader for multiple paginated reads without search ID should have no open readers", func(t *testing.T) {
 		sessionID, err := sessions.GetSessionIDFromContext(ctx)
 		require.NoError(t, err)
 
@@ -382,7 +384,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 			require.Equal(t, i, docAtRev.Document.Fields["idx"].GetNumberValue())
 		}
 
-		require.Equal(t, 4, sess.GetPaginatedDocumentReadersCount())
+		require.Zero(t, sess.GetPaginatedDocumentReadersCount())
 	})
 }
 
@@ -471,6 +473,7 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 				Query:    query,
 				Page:     uint32(i),
 				PageSize: 4,
+				KeepOpen: true,
 			})
 			require.NoError(t, err)
 			require.Len(t, resp.Revisions, 4)
