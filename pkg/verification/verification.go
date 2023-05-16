@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/document"
@@ -30,6 +29,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/proto"
 )
 
 func VerifyDocument(ctx context.Context,
@@ -72,7 +72,7 @@ func VerifyDocument(ctx context.Context,
 	}
 
 	// check encoded value is consistent with raw document
-	docBytes, err := json.Marshal(doc)
+	docBytes, err := proto.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
