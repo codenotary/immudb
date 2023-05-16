@@ -17,6 +17,7 @@ limitations under the License.
 package actions
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gavv/httpexpect/v2"
@@ -159,15 +160,14 @@ func CreateCollectionWithNameMultipleFieldsAndMultipleIndexes(expect *httpexpect
 }
 
 func createCollection(expect *httpexpect.Expect, sessionID string, payload map[string]interface{}) *httpexpect.Object {
-	expect.PUT("/collections/create").
+	expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusOK).JSON().Object().Empty()
 
-	collection := expect.GET("/collections/get").
+	collection := expect.GET(fmt.Sprintf("/collection/%s", payload["name"])).
 		WithHeader("grpc-metadata-sessionid", sessionID).
-		WithQuery("name", payload["name"]).
 		Expect().
 		Status(http.StatusOK).
 		JSON().Object()

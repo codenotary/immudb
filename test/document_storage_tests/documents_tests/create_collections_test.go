@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -158,7 +159,7 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameMultipleFieldsA
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithEmptyBody() {
 	payload := map[string]interface{}{}
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
@@ -191,7 +192,7 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithoutNameButWithField
 		},
 	}
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
@@ -203,7 +204,7 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithIntegerName() {
 		"name": 123,
 	}
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
@@ -217,15 +218,14 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneInvalidFi
 		"fields": "birth_date",
 	}
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusBadRequest).JSON().Object().NotEmpty()
 
-	s.expect.GET("/collections/get").
+	s.expect.GET(fmt.Sprintf("/collection/%s", payload["name"])).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithQuery("name", payload["name"]).
 		Expect().
 		Status(http.StatusInternalServerError).
 		JSON().Object().NotEmpty()
@@ -237,13 +237,13 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneEmptyFiel
 		"fields": "",
 	}
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusBadRequest).JSON().Object().NotEmpty()
 
-	s.expect.GET("/collections/get").
+	s.expect.GET(fmt.Sprintf("/collection/%s", payload["name"])).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithQuery("name", payload["name"]).
 		Expect().
@@ -256,23 +256,20 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithExistingName() {
 		"name": uuid.New().String(),
 	}
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusOK).JSON().Object().Empty()
 
-	s.expect.PUT("/collections/create").
+	s.expect.PUT("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusInternalServerError).JSON().Object().NotEmpty()
 
-	listPayload := map[string]interface{}{}
-
-	collections := s.expect.POST("/collections/list").
+	collections := s.expect.GET("/collections").
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithJSON(listPayload).
 		Expect().
 		Status(http.StatusOK).
 		JSON().Object()
