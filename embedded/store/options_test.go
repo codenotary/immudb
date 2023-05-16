@@ -134,6 +134,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 2, opts.WithTxLogMaxOpenedFiles(2).TxLogMaxOpenedFiles)
 	require.Equal(t, 3, opts.WithVLogMaxOpenedFiles(3).VLogMaxOpenedFiles)
 	require.Equal(t, DefaultMaxWaitees, opts.WithMaxWaitees(DefaultMaxWaitees).MaxWaitees)
+	require.Equal(t, DefaultEmbeddedValues, opts.WithEmbeddedValues(DefaultEmbeddedValues).EmbeddedValues)
 
 	timeFun := func() time.Time {
 		return time.Now()
