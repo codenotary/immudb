@@ -71,9 +71,9 @@ func (m *Metadata) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (m *Metadata) WriteTo(w io.Writer) (n int64, err error) {
-	lenb := make([]byte, 4)
-	binary.BigEndian.PutUint32(lenb, uint32(len(m.data)))
-	wn, err := writeField(lenb, w)
+	var lenb [4]byte
+	binary.BigEndian.PutUint32(lenb[:], uint32(len(m.data)))
+	wn, err := writeField(lenb[:], w)
 	n += int64(wn)
 
 	if err != nil {
@@ -100,17 +100,34 @@ func (m *Metadata) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (m *Metadata) PutInt(key string, n int) {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(n))
-	m.Put(key, b)
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], uint64(n))
+	m.Put(key, b[:])
 }
 
 func (m *Metadata) GetInt(key string) (int, bool) {
 	v, ok := m.Get(key)
 	if !ok {
-		return 0, ok
+		return 0, false
 	}
 	return int(binary.BigEndian.Uint64(v)), true
+}
+
+func (m *Metadata) PutBool(key string, v bool) {
+	var b [1]byte
+	if v {
+		b[0] = 1
+	}
+
+	m.Put(key, b[:])
+}
+
+func (m *Metadata) GetBool(key string) (bool, bool) {
+	v, ok := m.Get(key)
+	if !ok {
+		return false, false
+	}
+	return v[0] != 0, true
 }
 
 func (m *Metadata) Put(key string, value []byte) {
@@ -123,12 +140,14 @@ func (m *Metadata) Get(key string) ([]byte, bool) {
 }
 
 func readField(r io.Reader) ([]byte, error) {
-	lenb := make([]byte, 4)
-	_, err := r.Read(lenb)
+	var lenb [4]byte
+
+	_, err := r.Read(lenb[:])
 	if err != nil {
 		return nil, err
 	}
-	len := binary.BigEndian.Uint32(lenb)
+
+	len := binary.BigEndian.Uint32(lenb[:])
 
 	fb := make([]byte, len)
 	_, err = r.Read(fb)
@@ -140,9 +159,10 @@ func readField(r io.Reader) ([]byte, error) {
 }
 
 func writeField(b []byte, w io.Writer) (n int, err error) {
-	lenb := make([]byte, 4)
-	binary.BigEndian.PutUint32(lenb, uint32(len(b)))
-	wn, err := w.Write(lenb)
+	var lenb [4]byte
+
+	binary.BigEndian.PutUint32(lenb[:], uint32(len(b)))
+	wn, err := w.Write(lenb[:])
 	n += wn
 	if err != nil {
 		return n, err
