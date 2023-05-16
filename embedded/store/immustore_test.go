@@ -348,6 +348,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	t.Run("should fail reading maxTxEntries from metadata", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
+			md.PutInt(metaVersion, 1)
 			md.PutInt(metaFileSize, 1)
 			return md.Bytes()
 		}
@@ -359,6 +360,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	t.Run("should fail reading maxKeyLen from metadata", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
+			md.PutInt(metaVersion, 1)
 			md.PutInt(metaFileSize, 1)
 			md.PutInt(metaMaxTxEntries, 4)
 			return md.Bytes()
@@ -371,6 +373,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	t.Run("should fail reading maxKeyLen from metadata", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
+			md.PutInt(metaVersion, 1)
 			md.PutInt(metaFileSize, 1)
 			md.PutInt(metaMaxTxEntries, 4)
 			md.PutInt(metaMaxKeyLen, 8)
@@ -384,6 +387,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	t.Run("should fail reading cLogSize", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
+			md.PutInt(metaVersion, 1)
 			md.PutInt(metaFileSize, 1)
 			md.PutInt(metaMaxTxEntries, 4)
 			md.PutInt(metaMaxKeyLen, 8)
