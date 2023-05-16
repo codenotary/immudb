@@ -41,28 +41,43 @@ func (w *mockedIOWriter) Write(b []byte) (int, error) {
 func TestMedatada(t *testing.T) {
 	md := NewMetadata(nil)
 
-	_, found := md.Get("key")
+	_, found := md.Get("intKey")
 	require.False(t, found)
 
-	_, found = md.GetInt("key")
+	_, found = md.GetInt("intKey")
+	require.False(t, found)
+
+	_, found = md.Get("boolKey")
+	require.False(t, found)
+
+	_, found = md.GetBool("boolKey")
 	require.False(t, found)
 
 	for i := 0; i < 10; i++ {
-		md.PutInt(fmt.Sprintf("key_%d", i), i)
+		md.PutInt(fmt.Sprintf("intKey_%d", i), i)
+		md.PutBool(fmt.Sprintf("boolKey_%d", i), i%2 == 0)
 	}
 
 	for i := 0; i < 10; i++ {
-		v, found := md.GetInt(fmt.Sprintf("key_%d", i))
+		iv, found := md.GetInt(fmt.Sprintf("intKey_%d", i))
 		require.True(t, found)
-		require.Equal(t, i, v)
+		require.Equal(t, i, iv)
+
+		bv, found := md.GetBool(fmt.Sprintf("boolKey_%d", i))
+		require.True(t, found)
+		require.Equal(t, i%2 == 0, bv)
 	}
 
 	md1 := NewMetadata(md.Bytes())
 
 	for i := 0; i < 10; i++ {
-		v, found := md1.GetInt(fmt.Sprintf("key_%d", i))
+		v, found := md1.GetInt(fmt.Sprintf("intKey_%d", i))
 		require.True(t, found)
 		require.Equal(t, i, v)
+
+		bv, found := md.GetBool(fmt.Sprintf("boolKey_%d", i))
+		require.True(t, found)
+		require.Equal(t, i%2 == 0, bv)
 	}
 
 	mockedReader := &mockedIOReader{}
