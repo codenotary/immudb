@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -41,16 +42,14 @@ func (s *DeleteCollectionsTestSuite) SetupTest() {
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
 	actions.CreateCollectionWithName(s.expect, s.token, s.collection_name)
 
-	s.expect.DELETE("/collections/delete").
+	s.expect.DELETE(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusOK).
 		JSON().Object().Empty()
 
-	s.expect.GET("/collections/get").
+	s.expect.GET(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusInternalServerError)
 }
@@ -58,16 +57,14 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndOneField() {
 	actions.CreateCollectionWithNameAndOneField(s.expect, s.token, s.collection_name)
 
-	s.expect.DELETE("/collections/delete").
+	s.expect.DELETE(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusOK).
 		JSON().Object().Empty()
 
-	s.expect.GET("/collections/get").
+	s.expect.GET(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusInternalServerError)
 }
@@ -75,32 +72,28 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndOneFi
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndMultipleFields() {
 	actions.CreateCollectionWithNameAndMultipleFields(s.expect, s.token, s.collection_name)
 
-	s.expect.DELETE("/collections/delete").
+	s.expect.DELETE(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusOK).
 		JSON().Object().Empty()
 
-	s.expect.GET("/collections/get").
+	s.expect.GET(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusInternalServerError)
 }
 
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithIntegerName() {
-	s.expect.DELETE("/collections/delete").
+	s.expect.DELETE(fmt.Sprintf("/collection/%d", 123)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", 123).
 		Expect().
 		Status(http.StatusInternalServerError)
 }
 
 func (s *DeleteCollectionsTestSuite) TestDeleteNonExistingCollection() {
-	error := s.expect.DELETE("/collections/delete").
+	error := s.expect.DELETE(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).
-		WithQuery("name", s.collection_name).
 		Expect().
 		Status(http.StatusInternalServerError).
 		JSON().Object()
