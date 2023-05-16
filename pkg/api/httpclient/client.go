@@ -514,11 +514,11 @@ type SearchDocumentsJSONRequestBody = ModelSearchDocumentsRequest
 // CreateIndexJSONRequestBody defines body for CreateIndex for application/json ContentType.
 type CreateIndexJSONRequestBody = ModelCreateIndexRequest
 
-// UpdateCollectionJSONRequestBody defines body for UpdateCollection for application/json ContentType.
-type UpdateCollectionJSONRequestBody = ModelUpdateCollectionRequest
-
 // CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
 type CreateCollectionJSONRequestBody = ModelCreateCollectionRequest
+
+// UpdateCollectionJSONRequestBody defines body for UpdateCollection for application/json ContentType.
+type UpdateCollectionJSONRequestBody = ModelUpdateCollectionRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -657,6 +657,11 @@ type ClientInterface interface {
 	// GetCollection request
 	GetCollection(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateCollection request with any body
+	CreateCollectionWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateCollection(ctx context.Context, name string, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// UpdateCollection request with any body
 	UpdateCollectionWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -664,11 +669,6 @@ type ClientInterface interface {
 
 	// GetCollections request
 	GetCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateCollection request with any body
-	CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) CloseSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -971,6 +971,30 @@ func (c *Client) GetCollection(ctx context.Context, name string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateCollectionWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCollectionRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCollection(ctx context.Context, name string, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCollectionRequest(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) UpdateCollectionWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateCollectionRequestWithBody(c.Server, name, contentType, body)
 	if err != nil {
@@ -997,30 +1021,6 @@ func (c *Client) UpdateCollection(ctx context.Context, name string, body UpdateC
 
 func (c *Client) GetCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCollectionsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateCollectionRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateCollectionRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1343,7 +1343,7 @@ func NewInsertDocumentsRequestWithBody(server string, collectionName string, con
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1585,7 +1585,7 @@ func NewCreateIndexRequestWithBody(server string, collectionName string, content
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1663,6 +1663,53 @@ func NewGetCollectionRequest(server string, name string) (*http.Request, error) 
 	return req, nil
 }
 
+// NewCreateCollectionRequest calls the generic CreateCollection builder with application/json body
+func NewCreateCollectionRequest(server string, name string, body CreateCollectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateCollectionRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewCreateCollectionRequestWithBody generates requests for CreateCollection with any type of body
+func NewCreateCollectionRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/collection/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewUpdateCollectionRequest calls the generic UpdateCollection builder with application/json body
 func NewUpdateCollectionRequest(server string, name string, body UpdateCollectionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1733,46 +1780,6 @@ func NewGetCollectionsRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewCreateCollectionRequest calls the generic CreateCollection builder with application/json body
-func NewCreateCollectionRequest(server string, body CreateCollectionJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateCollectionRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateCollectionRequestWithBody generates requests for CreateCollection with any type of body
-func NewCreateCollectionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/collections")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1884,6 +1891,11 @@ type ClientWithResponsesInterface interface {
 	// GetCollection request
 	GetCollectionWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetCollectionResponse, error)
 
+	// CreateCollection request with any body
+	CreateCollectionWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
+
+	CreateCollectionWithResponse(ctx context.Context, name string, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
+
 	// UpdateCollection request with any body
 	UpdateCollectionWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error)
 
@@ -1891,11 +1903,6 @@ type ClientWithResponsesInterface interface {
 
 	// GetCollections request
 	GetCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCollectionsResponse, error)
-
-	// CreateCollection request with any body
-	CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
-
-	CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
 }
 
 type CloseSessionResponse struct {
@@ -2220,6 +2227,29 @@ func (r GetCollectionResponse) StatusCode() int {
 	return 0
 }
 
+type CreateCollectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelCreateCollectionResponse
+	JSONDefault  *RuntimeError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCollectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCollectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type UpdateCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2260,29 +2290,6 @@ func (r GetCollectionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCollectionsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateCollectionResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ModelCreateCollectionResponse
-	JSONDefault  *RuntimeError
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateCollectionResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateCollectionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2503,6 +2510,23 @@ func (c *ClientWithResponses) GetCollectionWithResponse(ctx context.Context, nam
 	return ParseGetCollectionResponse(rsp)
 }
 
+// CreateCollectionWithBodyWithResponse request with arbitrary body returning *CreateCollectionResponse
+func (c *ClientWithResponses) CreateCollectionWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
+	rsp, err := c.CreateCollectionWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCollectionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, name string, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
+	rsp, err := c.CreateCollection(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCollectionResponse(rsp)
+}
+
 // UpdateCollectionWithBodyWithResponse request with arbitrary body returning *UpdateCollectionResponse
 func (c *ClientWithResponses) UpdateCollectionWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCollectionResponse, error) {
 	rsp, err := c.UpdateCollectionWithBody(ctx, name, contentType, body, reqEditors...)
@@ -2527,23 +2551,6 @@ func (c *ClientWithResponses) GetCollectionsWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParseGetCollectionsResponse(rsp)
-}
-
-// CreateCollectionWithBodyWithResponse request with arbitrary body returning *CreateCollectionResponse
-func (c *ClientWithResponses) CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
-	rsp, err := c.CreateCollectionWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateCollectionResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
-	rsp, err := c.CreateCollection(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateCollectionResponse(rsp)
 }
 
 // ParseCloseSessionResponse parses an HTTP response from a CloseSessionWithResponse call
@@ -3008,6 +3015,39 @@ func ParseGetCollectionResponse(rsp *http.Response) (*GetCollectionResponse, err
 	return response, nil
 }
 
+// ParseCreateCollectionResponse parses an HTTP response from a CreateCollectionWithResponse call
+func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCollectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelCreateCollectionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest RuntimeError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseUpdateCollectionResponse parses an HTTP response from a UpdateCollectionWithResponse call
 func ParseUpdateCollectionResponse(rsp *http.Response) (*UpdateCollectionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -3057,39 +3097,6 @@ func ParseGetCollectionsResponse(rsp *http.Response) (*GetCollectionsResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ModelGetCollectionsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest RuntimeError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateCollectionResponse parses an HTTP response from a CreateCollectionWithResponse call
-func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateCollectionResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ModelCreateCollectionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

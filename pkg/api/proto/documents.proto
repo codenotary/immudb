@@ -375,7 +375,7 @@ message ProofDocumentResponse {
 service DocumentService {
   rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse) {
     option (google.api.http) = {
-      put: "/collections"
+      post: "/collection/{name}"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -422,7 +422,7 @@ service DocumentService {
 
   rpc CreateIndex(CreateIndexRequest) returns (CreateIndexResponse) {
     option (google.api.http) = {
-      put: "/collection/{collectionName}/index"
+      post: "/collection/{collectionName}/index"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -441,7 +441,7 @@ service DocumentService {
 
   rpc InsertDocuments(InsertDocumentsRequest) returns (InsertDocumentsResponse) {
     option (google.api.http) = {
-      put: "/collection/{collectionName}/documents"
+      post: "/collection/{collectionName}/documents"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {

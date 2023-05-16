@@ -237,7 +237,7 @@
       }
     },
     "/collection/{collectionName}/documents": {
-      "put": {
+      "post": {
         "operationId": "InsertDocuments",
         "responses": {
           "200": {
@@ -313,7 +313,7 @@
           "documents"
         ]
       },
-      "put": {
+      "post": {
         "operationId": "CreateIndex",
         "responses": {
           "200": {
@@ -401,6 +401,42 @@
             "in": "path",
             "required": true,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      },
+      "post": {
+        "operationId": "CreateCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCreateCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCreateCollectionRequest"
+            }
           }
         ],
         "tags": [
@@ -575,36 +611,6 @@
             }
           }
         },
-        "tags": [
-          "documents"
-        ]
-      },
-      "put": {
-        "operationId": "CreateCollection",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelCreateCollectionResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelCreateCollectionRequest"
-            }
-          }
-        ],
         "tags": [
           "documents"
         ]
