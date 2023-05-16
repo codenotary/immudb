@@ -21,54 +21,76 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/test/documents_storage_tests/immudbhttpclient/immudbdocuments"
+	"github.com/codenotary/immudb/pkg/api/httpclient"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateDocument(t *testing.T) {
-	client := getAuthorizedDocumentsClient()
-	id := uuid.New()
-	documentId := id.String()
+	client := getAuthorizedClient()
+
+	uuid := uuid.New()
+
 	documentToInsert := make(map[string]interface{})
-	documentToInsert["_id"] = id.String()
+	documentToInsert["uuid"] = uuid.String()
 	documentToInsert["name"] = "John"
 	documentToInsert["surname"] = "Doe"
 	documentToInsert["age"] = 30
-	documentsToInsert := []map[string]interface{}{documentToInsert}
-	collectionName := CreateAndGetStandardTestCollection(client)
 
-	req := immudbdocuments.DocumentschemaDocumentInsertRequest{
+	collectionName := getStandarizedRandomString()
+
+	err := createCollection(collectionName, client)
+	require.NoError(t, err)
+
+	req := httpclient.ModelDocumentInsertRequest{
 		Collection: &collectionName,
-		Document:   &documentsToInsert,
+		Document:   &documentToInsert,
 	}
-	response, _ := client.DocumentServiceDocumentInsertWithResponse(context.Background(), req)
-	assert.True(t, response.StatusCode() == 200)
-	page := int64(1)
-	perPage := int64(100)
-	operator := immudbdocuments.EQ
+	response, err := client.DocumentInsertWithResponse(context.Background(), req)
+	require.NoError(t, err)
+	require.True(t, response.StatusCode() == 200)
+
+	documentId := response.JSON200.DocumentId
+
 	fieldName := "_id"
-	query := []immudbdocuments.DocumentschemaDocumentQuery{
-		{
-			Field:    &fieldName,
-			Value:    &documentId,
-			Operator: &operator,
+	operator := httpclient.EQ
+
+	query := httpclient.ModelQuery{
+		Expressions: &[]httpclient.ModelQueryExpression{
+			{
+				FieldComparisons: &[]httpclient.ModelFieldComparison{
+					{
+						Field:    &fieldName,
+						Operator: &operator,
+						Value:    documentId,
+					},
+				},
+			},
 		},
 	}
-	searchReq := immudbdocuments.DocumentschemaDocumentSearchRequest{
+
+	page := int64(1)
+	perPage := int64(1)
+
+	searchReq := httpclient.ModelDocumentSearchRequest{
 		Collection: &collectionName,
+		Query:      &query,
 		Page:       &page,
 		PerPage:    &perPage,
-		Query:      &query,
 	}
-	searchResponse, _ := client.DocumentServiceDocumentSearchWithResponse(context.Background(), searchReq)
+
+	searchResponse, err := client.DocumentSearchWithResponse(context.Background(), searchReq)
+	require.NoError(t, err)
 	fmt.Println(searchResponse.StatusCode())
-	assert.True(t, searchResponse.StatusCode() == 200)
-	documents := *searchResponse.JSON200.Results
-	first := documents[0]
-	assert.True(t, first["_id"] == documentId)
-	assert.True(t, first["age"] == 30)
-	assert.True(t, first["name"] == "John")
-	assert.True(t, first["surname"] == "Doe")
+	require.True(t, searchResponse.StatusCode() == 200)
+
+	revisions := *searchResponse.JSON200.Revisions
+
+	firstDocument := (*revisions[0].Document)
+
+	require.Equal(t, *documentId, firstDocument["_id"])
+	require.Equal(t, float64(30), firstDocument["age"])
+	require.Equal(t, "John", firstDocument["name"])
+	require.Equal(t, "Doe", firstDocument["surname"])
 
 }
