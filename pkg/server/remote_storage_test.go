@@ -400,7 +400,7 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 
 	stOpts := s.databaseOptionsFrom(s.defaultDBOptions("testdb")).GetStoreOptions()
 
-	st, err := store.Open(filepath.Join(dir, "testdb"), stOpts)
+	st, err := store.Open(filepath.Join(dir, "testdb"), stOpts.WithEmbeddedValues(false))
 	require.NoError(t, err)
 
 	tx, err := st.NewWriteOnlyTx(context.Background())

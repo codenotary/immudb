@@ -51,6 +51,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 	so := options.GetStoreOptions()
 
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).
+		WithEmbeddedValues(false).
 		WithFileSize(6).
 		WithVLogCacheSize(0).
 		WithSynced(false)
@@ -113,7 +114,10 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 
 func TestTruncator(t *testing.T) {
 	options := database.DefaultOption().WithDBRootPath(t.TempDir())
-	so := options.GetStoreOptions()
+
+	so := options.GetStoreOptions().
+		WithEmbeddedValues(false)
+
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).
 		WithFileSize(6)
 	options.WithStoreOptions(so)
@@ -136,8 +140,12 @@ func TestTruncator(t *testing.T) {
 
 func TestTruncator_with_truncation_frequency(t *testing.T) {
 	options := database.DefaultOption().WithDBRootPath(t.TempDir()).WithCorruptionChecker(false)
-	so := options.GetStoreOptions()
+
+	so := options.GetStoreOptions().
+		WithEmbeddedValues(false)
+
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
@@ -195,7 +203,10 @@ func Test_getTruncationTime(t *testing.T) {
 
 func TestTruncator_with_retention_period(t *testing.T) {
 	options := database.DefaultOption().WithDBRootPath(t.TempDir())
-	so := options.GetStoreOptions()
+
+	so := options.GetStoreOptions().
+		WithEmbeddedValues(false)
+
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.WithStoreOptions(so)
 
@@ -230,7 +241,10 @@ func (m *mockTruncator) TruncateUptoTx(context.Context, uint64) error {
 
 func TestTruncator_with_nothing_to_truncate(t *testing.T) {
 	options := database.DefaultOption().WithDBRootPath(t.TempDir())
-	so := options.GetStoreOptions()
+
+	so := options.GetStoreOptions().
+		WithEmbeddedValues(false)
+
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.WithStoreOptions(so)
 
