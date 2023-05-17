@@ -71,12 +71,6 @@ func VerifyDocument(ctx context.Context,
 		return nil, fmt.Errorf("%w: document entry was not found or it was found multiple times", store.ErrInvalidProof)
 	}
 
-	// check encoded value is consistent with raw document
-	docBytes, err := proto.Marshal(doc)
-	if err != nil {
-		return nil, err
-	}
-
 	voff := sql.EncLenLen + sql.EncIDLen
 
 	// DocumentIDField
@@ -97,8 +91,15 @@ func VerifyDocument(ctx context.Context,
 		return nil, err
 	}
 
-	if !bytes.Equal(docBytes, encodedDoc.RawValue().([]byte)) {
-		return nil, fmt.Errorf("%w: the document does not match the proof provided", store.ErrInvalidProof)
+	proofDoc := &structpb.Struct{}
+
+	err = proto.Unmarshal(encodedDoc.RawValue().([]byte), proofDoc)
+	if err != nil {
+		return nil, err
+	}
+
+	if !proto.Equal(doc, proofDoc) {
+		return nil, fmt.Errorf("%w: proof is not valid for provided document", store.ErrInvalidProof)
 	}
 
 	entries := proof.VerifiableTx.Tx.Entries
