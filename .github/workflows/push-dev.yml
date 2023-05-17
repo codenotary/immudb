@@ -1,0 +1,26 @@
+name: pushCI
+
+env:
+  GO_VERSION: "1.18"
+  MIN_SUPPORTED_GO_VERSION: "1.17"
+
+on:
+  push:
+    branches:
+      - feat/objects
+      - *
+
+jobs:
+  name: build and push
+  steps:
+  - uses: actions/setup-go@v3
+    with:
+     go-version: ${{ env.GO_VERSION }}
+  - uses: actions/checkout@v3
+  - run: |
+      GITTAG=$(git rev-parse HEAD | head -c 8)
+      docker build -t codenotary/immudb-dev1:$GITTAG .
+      docker image tag codenotary/immudb-dev1:latest
+      docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
+      docker image push codenotary/immudb-dev1:$GITTAG
+      docker image push codenotary/immudb-dev1:latest
