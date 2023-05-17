@@ -8,7 +8,7 @@ on:
   push:
     branches:
       - feat/objects
-      - *
+      - "*"
 
 jobs:
   name: build and push
