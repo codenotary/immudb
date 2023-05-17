@@ -68,7 +68,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		MaxActiveTransactions:   &schema.NullableUint32{Value: 30},
 		MvccReadSetLimit:        &schema.NullableUint32{Value: 1_000},
 		MaxConcurrency:          &schema.NullableUint32{Value: 10},
-		MaxIOConcurrency:        &schema.NullableUint32{Value: 2},
+		MaxIOConcurrency:        &schema.NullableUint32{Value: 1},
 		TxLogCacheSize:          &schema.NullableUint32{Value: 2000},
 		VLogCacheSize:           &schema.NullableUint32{Value: 2200},
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: 8},
