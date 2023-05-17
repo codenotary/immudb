@@ -239,11 +239,11 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(metaVersion, Version)
+	metadata.PutBool(metaEmbeddedValues, opts.EmbeddedValues)
 	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
 	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
 	metadata.PutInt(metaMaxValueLen, opts.MaxValueLen)
 	metadata.PutInt(metaFileSize, opts.FileSize)
-	metadata.PutBool(metaEmbeddedValues, opts.EmbeddedValues)
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
@@ -279,9 +279,16 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	}
 
+	metadata = appendable.NewMetadata(cLog.Metadata())
+
+	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
+	if !ok {
+		embeddedValues = false
+	}
+
 	var vLogs []appendable.Appendable
 
-	if !opts.EmbeddedValues {
+	if !embeddedValues {
 		vLogs = make([]appendable.Appendable, opts.MaxIOConcurrency)
 		appendableOpts.WithFileExt("val")
 		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
@@ -305,10 +312,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("%w: invalid txLog or cLog", ErrIllegalArguments)
 	}
 
-	if (len(vLogs) == 0 && !opts.EmbeddedValues) || (len(vLogs) != 0 && opts.EmbeddedValues) {
-		return nil, fmt.Errorf("%w: invalid vLogs", ErrIllegalArguments)
-	}
-
 	err := opts.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrIllegalArguments, err)
@@ -318,37 +321,40 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	version, ok := metadata.GetInt(metaVersion)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (Version): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "Version")
 	}
 
 	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
 	if !ok {
 		if version >= 2 {
-			return nil, fmt.Errorf("corrupted commit log metadata (EmbeddedValues): %w", ErrCorruptedCLog)
+			return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "EmbeddedValues")
 		}
 
 		embeddedValues = false
 	}
 
+	if (len(vLogs) == 0 && !embeddedValues) || (len(vLogs) != 0 && embeddedValues) {
+		return nil, fmt.Errorf("%w: invalid vLogs", ErrIllegalArguments)
+	}
+
 	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (FileSize): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "FileSize")
 	}
 
 	maxTxEntries, ok := metadata.GetInt(metaMaxTxEntries)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (MaxTxEntries): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "MaxTxEntries")
 	}
 
 	maxKeyLen, ok := metadata.GetInt(metaMaxKeyLen)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (MaxKeyLen): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "MaxKeyLen")
 	}
 
 	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (MaxValueLen): %w", ErrCorruptedCLog)
-
+		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "MaxValueLen")
 	}
 
 	cLogSize, err := cLog.Size()

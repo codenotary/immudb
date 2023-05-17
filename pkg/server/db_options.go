@@ -55,10 +55,11 @@ type dbOptions struct {
 	WaitForIndexing              bool   `json:"waitForIndexing"`
 
 	// store options
-	FileSize     int `json:"fileSize"`     // permanent
-	MaxKeyLen    int `json:"maxKeyLen"`    // permanent
-	MaxValueLen  int `json:"maxValueLen"`  // permanent
-	MaxTxEntries int `json:"maxTxEntries"` // permanent
+	EmbeddedValues bool `json:"embeddedValues"` // permanent
+	FileSize       int  `json:"fileSize"`       // permanent
+	MaxKeyLen      int  `json:"maxKeyLen"`      // permanent
+	MaxValueLen    int  `json:"maxValueLen"`    // permanent
+	MaxTxEntries   int  `json:"maxTxEntries"`   // permanent
 
 	ExcludeCommitTime bool `json:"excludeCommitTime"`
 
@@ -139,10 +140,11 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		synced:        s.Options.synced,
 		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
 
-		FileSize:     DefaultStoreFileSize,
-		MaxKeyLen:    store.DefaultMaxKeyLen,
-		MaxValueLen:  DefaultMaxValueLen,
-		MaxTxEntries: store.DefaultMaxTxEntries,
+		EmbeddedValues: store.DefaultEmbeddedValues,
+		FileSize:       DefaultStoreFileSize,
+		MaxKeyLen:      store.DefaultMaxKeyLen,
+		MaxValueLen:    DefaultMaxValueLen,
+		MaxTxEntries:   store.DefaultMaxTxEntries,
 
 		ExcludeCommitTime: false,
 
@@ -263,6 +265,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	}
 
 	stOpts := store.DefaultOptions().
+		WithEmbeddedValues(opts.EmbeddedValues).
 		WithSynced(opts.synced).
 		WithSyncFrequency(time.Millisecond * time.Duration(opts.SyncFrequency)).
 		WithFileSize(opts.FileSize).

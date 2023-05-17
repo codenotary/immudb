@@ -276,6 +276,7 @@ func TestStoreScanWithTruncation(t *testing.T) {
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
+	options.storeOpts.EmbeddedValues = false
 
 	db := makeDbWith(t, "db", options)
 

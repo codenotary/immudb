@@ -80,6 +80,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
+	options.storeOpts.EmbeddedValues = false
 
 	db := makeDbWith(t, "db", options)
 
@@ -125,6 +126,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
+	options.storeOpts.EmbeddedValues = false
 
 	db := makeDbWith(t, "db", options)
 
@@ -183,6 +185,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
+	options.storeOpts.EmbeddedValues = false
 
 	db := makeDbWith(t, "db", options)
 
@@ -305,6 +308,7 @@ func setupCommonTest(t *testing.T) *db {
 	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(1024)
 	options.storeOpts.VLogCacheSize = 0
+	options.storeOpts.EmbeddedValues = false
 
 	db := makeDbWith(t, "db1", options)
 	return db

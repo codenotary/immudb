@@ -311,7 +311,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					if subPath == failedAppendable {
 						return nil, injectedError
 					}
-					return &mocked.MockedAppendable{}, nil
+					return &mocked.MockedAppendable{
+						MetadataFn: func() []byte { return nil },
+					}, nil
 				}))
 			require.ErrorIs(t, err, injectedError)
 		}
@@ -332,10 +334,11 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	}
 
 	cLog := &mocked.MockedAppendable{
-		CloseFn:  func() error { return nil },
-		AppendFn: func(bs []byte) (off int64, n int, err error) { return 0, len(bs), nil },
-		FlushFn:  func() error { return nil },
-		SyncFn:   func() error { return nil },
+		MetadataFn: func() []byte { return nil },
+		CloseFn:    func() error { return nil },
+		AppendFn:   func(bs []byte) (off int64, n int, err error) { return 0, len(bs), nil },
+		FlushFn:    func() error { return nil },
+		SyncFn:     func() error { return nil },
 	}
 
 	t.Run("should fail reading fileSize from metadata", func(t *testing.T) {
