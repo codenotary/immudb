@@ -1,4 +1,4 @@
-name: pushCI
+name: build-push-dev
 
 env:
   GO_VERSION: "1.18"
@@ -22,7 +22,7 @@ jobs:
     - run: |
         GITTAG=$(git rev-parse HEAD | head -c 8)
         docker build -t codenotary/immudb-dev1:$GITTAG .
-        docker image tag codenotary/immudb-dev1:latest
+        docker image tag codenotary/immudb-dev1:$GITTAG codenotary/immudb-dev1:latest
         docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
         docker image push codenotary/immudb-dev1:$GITTAG
         docker image push codenotary/immudb-dev1:latest
