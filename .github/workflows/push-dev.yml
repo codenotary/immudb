@@ -8,7 +8,7 @@ on:
   push:
     branches:
       - feat/objects
-      - "*"
+      - "chore/github-dev"
 
 jobs:
   build:
