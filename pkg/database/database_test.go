@@ -2169,7 +2169,9 @@ db := makeDb(t)
 
 func Test_database_truncate(t *testing.T) {
 	options := DefaultOption().WithDBRootPath(t.TempDir())
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).
+	options.storeOpts.
+		WithEmbeddedValues(false).
+		WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).
 		WithFileSize(8).
 		WithVLogCacheSize(0)
 
