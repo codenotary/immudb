@@ -88,9 +88,9 @@ function test_matrix_sql() {
 	print_result "$REPL" "${STATS[@]}"
 }
 
-# test_matrix_kv "immudb-standalone" "immudb-standalone" "no"
-# test_matrix_kv "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
-# test_matrix_kv "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
+test_matrix_kv "immudb-standalone" "immudb-standalone" "no"
+test_matrix_kv "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
+test_matrix_kv "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
 test_matrix_sql "immudb-standalone" "immudb-standalone" "no"
 test_matrix_sql "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
 test_matrix_sql "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
