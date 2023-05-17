@@ -40,7 +40,7 @@ const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
-const DefaultEmbeddedValues = false
+const DefaultEmbeddedValues = true
 const DefaultTxLogCacheSize = 1000
 const DefaultVLogCacheSize = 0
 const DefaultMaxWaitees = 1000
@@ -290,7 +290,9 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid MaxConcurrency", ErrInvalidOptions)
 	}
 
-	if opts.MaxIOConcurrency <= 0 || opts.MaxIOConcurrency > MaxParallelIO {
+	if opts.MaxIOConcurrency <= 0 ||
+		opts.MaxIOConcurrency > MaxParallelIO ||
+		(opts.MaxIOConcurrency > 1 && opts.EmbeddedValues) {
 		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
 	}
 

@@ -279,26 +279,34 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	}
 
-	vLogs := make([]appendable.Appendable, opts.MaxIOConcurrency)
-	appendableOpts.WithFileExt("val")
-	appendableOpts.WithCompressionFormat(opts.CompressionFormat)
-	appendableOpts.WithCompresionLevel(opts.CompressionLevel)
-	appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
+	var vLogs []appendable.Appendable
 
-	for i := 0; i < opts.MaxIOConcurrency; i++ {
-		vLog, err := appFactory(path, fmt.Sprintf("val_%d", i), appendableOpts)
-		if err != nil {
-			return nil, err
+	if !opts.EmbeddedValues {
+		vLogs = make([]appendable.Appendable, opts.MaxIOConcurrency)
+		appendableOpts.WithFileExt("val")
+		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
+		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
+		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
+
+		for i := 0; i < opts.MaxIOConcurrency; i++ {
+			vLog, err := appFactory(path, fmt.Sprintf("val_%d", i), appendableOpts)
+			if err != nil {
+				return nil, err
+			}
+			vLogs[i] = vLog
 		}
-		vLogs[i] = vLog
 	}
 
 	return OpenWith(path, vLogs, txLog, cLog, opts)
 }
 
 func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
-	if len(vLogs) == 0 || txLog == nil || cLog == nil {
-		return nil, ErrIllegalArguments
+	if txLog == nil || cLog == nil {
+		return nil, fmt.Errorf("%w: invalid txLog or cLog", ErrIllegalArguments)
+	}
+
+	if (len(vLogs) == 0 && !opts.EmbeddedValues) || (len(vLogs) != 0 && opts.EmbeddedValues) {
+		return nil, fmt.Errorf("%w: invalid vLogs", ErrIllegalArguments)
 	}
 
 	err := opts.Validate()
@@ -310,13 +318,13 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	version, ok := metadata.GetInt(metaVersion)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (version): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit log metadata (Version): %w", ErrCorruptedCLog)
 	}
 
 	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
 	if !ok {
 		if version >= 2 {
-			return nil, fmt.Errorf("corrupted commit log metadata (embedded values): %w", ErrCorruptedCLog)
+			return nil, fmt.Errorf("corrupted commit log metadata (EmbeddedValues): %w", ErrCorruptedCLog)
 		}
 
 		embeddedValues = false
@@ -324,22 +332,22 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (filesize): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit log metadata (FileSize): %w", ErrCorruptedCLog)
 	}
 
 	maxTxEntries, ok := metadata.GetInt(metaMaxTxEntries)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (max tx entries): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit log metadata (MaxTxEntries): %w", ErrCorruptedCLog)
 	}
 
 	maxKeyLen, ok := metadata.GetInt(metaMaxKeyLen)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (max key len): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit log metadata (MaxKeyLen): %w", ErrCorruptedCLog)
 	}
 
 	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
-		return nil, fmt.Errorf("corrupted commit log metadata (max value len): %w", ErrCorruptedCLog)
+		return nil, fmt.Errorf("corrupted commit log metadata (MaxValueLen): %w", ErrCorruptedCLog)
 
 	}
 
@@ -1226,6 +1234,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		if s.embeddedValues {
 			// value write is delayed to ensure values are inmediatelly followed by the associated tx header
 			doneWithValuesCh <- appendableResult{nil, nil}
+			return
 		}
 
 		offsets, err := s.appendValuesIntoAnyVLog(otx.entries)
@@ -1882,6 +1891,7 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 		if s.embeddedValues {
 			// value write is delayed to ensure values are inmediatelly followed by the associated tx header
 			doneWithValuesCh <- appendableResult{nil, nil}
+			return
 		}
 
 		offsets, err := s.appendValuesIntoAnyVLog(otx.entries)
