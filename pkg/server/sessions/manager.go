@@ -26,6 +26,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -105,7 +106,15 @@ func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error)
 
 	sessionID := base64.URLEncoding.EncodeToString(randomBytes)
 
-	sm.sessions[sessionID] = NewSession(sessionID, user, db, sm.logger)
+	var maxActiveTxn int
+	if db != nil {
+		opts := db.GetOptions()
+		maxActiveTxn = opts.GetStoreOptions().MaxActiveTransactions
+	} else {
+		maxActiveTxn = store.DefaultMaxActiveTransactions
+	}
+
+	sm.sessions[sessionID] = NewSession(sessionID, user, db, maxActiveTxn, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
 
 	return sm.sessions[sessionID], nil

@@ -285,6 +285,10 @@ func TestPaginationOnReader(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
+
+	// close session and ensure that all paginated readers are closed
+	_, err = authenticationServiceImp.CloseSession(ctx, &protomodel.CloseSessionRequest{})
+	require.NoError(t, err)
 }
 
 func TestPaginationWithoutSearchID(t *testing.T) {
@@ -386,6 +390,10 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 
 		require.Zero(t, sess.GetPaginatedDocumentReadersCount())
 	})
+
+	// close session and ensure that all paginated readers are closed
+	_, err = authServiceImp.CloseSession(ctx, &protomodel.CloseSessionRequest{})
+	require.NoError(t, err)
 }
 
 func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
@@ -553,6 +561,9 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 
 	})
 
+	// close session and ensure that all paginated readers are closed
+	_, err = authenticationServiceImp.CloseSession(ctx, &protomodel.CloseSessionRequest{})
+	require.NoError(t, err)
 }
 
 func TestDocumentInsert_WithEmptyDocument(t *testing.T) {

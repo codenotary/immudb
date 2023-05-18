@@ -21,8 +21,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
@@ -53,12 +55,18 @@ type Session struct {
 	creationTime             time.Time
 	lastActivityTime         time.Time
 	transactions             map[string]transactions.Transaction
-	paginatedDocumentReaders map[string]*PaginatedDocumentReader // map from searchID to sql.RowReader objects
+	paginatedDocumentReaders *cache.LRUCache // track searchID to sql.RowReader objects
 	log                      logger.Logger
 }
 
-func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
+func NewSession(sessionID string, user *auth.User, db database.DB, maxActiveSnapshots int, log logger.Logger) *Session {
+	if maxActiveSnapshots == 0 {
+		maxActiveSnapshots = store.DefaultMaxActiveTransactions
+	}
+
 	now := time.Now()
+	lruCache, _ := cache.NewLRUCache(maxActiveSnapshots)
+
 	return &Session{
 		id:                       sessionID,
 		user:                     user,
@@ -67,7 +75,7 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 		lastActivityTime:         now,
 		transactions:             make(map[string]transactions.Transaction),
 		log:                      log,
-		paginatedDocumentReaders: make(map[string]*PaginatedDocumentReader),
+		paginatedDocumentReaders: lruCache,
 	}
 }
 
@@ -100,12 +108,18 @@ func (s *Session) removeTransaction(transactionID string) error {
 }
 
 func (s *Session) ClosePaginatedDocumentReaders() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	merr := multierr.NewMultiErr()
 
-	for searchID := range s.paginatedDocumentReaders {
+	searchIDs := make([]string, 0)
+	if err := s.paginatedDocumentReaders.Apply(func(k, v interface{}) error {
+		searchIDs = append(searchIDs, k.(string))
+		return nil
+	}); err != nil {
+		s.log.Errorf("Error while removing paginated reader: %v", err)
+		merr.Append(err)
+	}
+
+	for _, searchID := range searchIDs {
 		if err := s.deletePaginatedDocumentReader(searchID); err != nil {
 			s.log.Errorf("Error while removing paginated reader: %v", err)
 			merr.Append(err)
@@ -227,38 +241,34 @@ func (s *Session) GetCreationTime() time.Time {
 }
 
 func (s *Session) SetPaginatedDocumentReader(searchID string, reader *PaginatedDocumentReader) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	// add the reader to the paginatedDocumentReaders map
-	s.paginatedDocumentReaders[searchID] = reader
+	s.paginatedDocumentReaders.Put(searchID, reader)
 }
 
 func (s *Session) GetPaginatedDocumentReader(searchID string) (*PaginatedDocumentReader, error) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-
 	// get the io.Reader object for the specified searchID
-	reader, ok := s.paginatedDocumentReaders[searchID]
-	if !ok {
+	val, err := s.paginatedDocumentReaders.Get(searchID)
+	if err != nil {
 		return nil, ErrPaginatedDocumentReaderNotFound
 	}
+
+	reader := val.(*PaginatedDocumentReader)
 
 	return reader, nil
 }
 
 func (s *Session) deletePaginatedDocumentReader(searchID string) error {
 	// get the io.Reader object for the specified searchID
-	reader, ok := s.paginatedDocumentReaders[searchID]
-	if !ok {
+	val, err := s.paginatedDocumentReaders.Get(searchID)
+	if err != nil {
 		return ErrPaginatedDocumentReaderNotFound
 	}
 
+	reader := val.(*PaginatedDocumentReader)
+
 	// close the reader
-	err := reader.Reader.Close()
-
-	delete(s.paginatedDocumentReaders, searchID)
-
+	err = reader.Reader.Close()
+	s.paginatedDocumentReaders.Pop(searchID)
 	if err != nil {
 		return err
 	}
@@ -267,22 +277,17 @@ func (s *Session) deletePaginatedDocumentReader(searchID string) error {
 }
 
 func (s *Session) DeletePaginatedDocumentReader(searchID string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	return s.deletePaginatedDocumentReader(searchID)
 }
 
 func (s *Session) UpdatePaginatedDocumentReader(searchID string, lastPage uint32, lastPageSize uint32) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	// get the io.Reader object for the specified searchID
-	reader, ok := s.paginatedDocumentReaders[searchID]
-	if !ok {
+	val, err := s.paginatedDocumentReaders.Get(searchID)
+	if err != nil {
 		return ErrPaginatedDocumentReaderNotFound
 	}
 
+	reader := val.(*PaginatedDocumentReader)
 	reader.LastPageNumber = lastPage
 	reader.LastPageSize = lastPageSize
 
@@ -290,5 +295,5 @@ func (s *Session) UpdatePaginatedDocumentReader(searchID string, lastPage uint32
 }
 
 func (s *Session) GetPaginatedDocumentReadersCount() int {
-	return len(s.paginatedDocumentReaders)
+	return s.paginatedDocumentReaders.EntriesCount()
 }
