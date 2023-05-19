@@ -84,13 +84,6 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithNameAndMulti
 		Status(http.StatusInternalServerError)
 }
 
-func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithIntegerName() {
-	s.expect.DELETE(fmt.Sprintf("/collection/%d", 123)).
-		WithHeader("grpc-metadata-sessionid", s.token).
-		Expect().
-		Status(http.StatusInternalServerError)
-}
-
 func (s *DeleteCollectionsTestSuite) TestDeleteNonExistingCollection() {
 	error := s.expect.DELETE(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).

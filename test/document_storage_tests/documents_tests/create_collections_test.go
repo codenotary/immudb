@@ -159,72 +159,26 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameMultipleFieldsA
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithEmptyBody() {
 	payload := map[string]interface{}{}
 
-	s.expect.PUT("/collections").
+	s.expect.POST(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
-		Status(http.StatusBadRequest).JSON().Object().NotEmpty()
-}
-
-func (s *CreateCollectionsTestSuite) TestCreateCollectionWithoutNameButWithFields() {
-	payload := map[string]interface{}{
-		"fields": []interface{}{
-			map[string]interface{}{
-				"name": "birth_date",
-				"type": "STRING",
-			},
-			map[string]interface{}{
-				"name": "first_name",
-				"type": "STRING",
-			},
-			map[string]interface{}{
-				"name": "last_name",
-				"type": "STRING",
-			},
-			map[string]interface{}{
-				"name": "gender",
-				"type": "STRING",
-			},
-			map[string]interface{}{
-				"name": "hire_date",
-				"type": "STRING",
-			},
-		},
-	}
-
-	s.expect.PUT("/collections").
-		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusBadRequest).JSON().Object().NotEmpty()
-}
-
-func (s *CreateCollectionsTestSuite) TestCreateCollectionWithIntegerName() {
-	payload := map[string]interface{}{
-		"name": 123,
-	}
-
-	s.expect.PUT("/collections").
-		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithJSON(payload).
-		Expect().
-		Status(http.StatusBadRequest).JSON().Object().NotEmpty().
-		Value("error").IsEqual("json: cannot unmarshal number into Go value of type string")
+		Status(http.StatusOK).JSON().Object().Empty()
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneInvalidField() {
+	name := uuid.New().String()
 	payload := map[string]interface{}{
-		"name":   uuid.New().String(),
 		"fields": "birth_date",
 	}
 
-	s.expect.PUT("/collections").
+	s.expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusBadRequest).JSON().Object().NotEmpty()
 
-	s.expect.GET(fmt.Sprintf("/collection/%s", payload["name"])).
+	s.expect.GET(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		Expect().
 		Status(http.StatusInternalServerError).
@@ -232,39 +186,34 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneInvalidFi
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneEmptyField() {
+	name := uuid.New().String()
 	payload := map[string]interface{}{
-		"name":   uuid.New().String(),
 		"fields": "",
 	}
 
-	s.expect.PUT("/collections").
+	s.expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusBadRequest).JSON().Object().NotEmpty()
 
-	s.expect.GET(fmt.Sprintf("/collection/%s", payload["name"])).
+	s.expect.GET(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithQuery("name", payload["name"]).
 		Expect().
 		Status(http.StatusInternalServerError).
 		JSON().Object().NotEmpty()
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithExistingName() {
-	payload := map[string]interface{}{
-		"name": uuid.New().String(),
-	}
+	name := uuid.New().String()
 
-	s.expect.PUT("/collections").
+	s.expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithJSON(payload).
 		Expect().
 		Status(http.StatusOK).JSON().Object().Empty()
 
-	s.expect.PUT("/collections").
+	s.expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
-		WithJSON(payload).
 		Expect().
 		Status(http.StatusInternalServerError).JSON().Object().NotEmpty()
 
@@ -275,7 +224,7 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithExistingName() {
 		JSON().Object()
 
 	collectionsFound := collections.Value("collections").Array().FindAll(func(index int, value *httpexpect.Value) bool {
-		return value.Object().Value("name").Raw() == payload["name"]
+		return value.Object().Value("name").Raw() == name
 	})
 
 	assert.Equal(s.T(), len(collectionsFound), 1)
