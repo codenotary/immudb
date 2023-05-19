@@ -24,16 +24,11 @@ import (
 )
 
 func CreateCollectionWithName(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
-	payload := map[string]interface{}{
-		"name": name,
-	}
-
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, nil)
 }
 
 func CreateCollectionWithNameAndOneField(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name": name,
 		"fields": []interface{}{
 			map[string]interface{}{
 				"name": "first_name",
@@ -42,21 +37,19 @@ func CreateCollectionWithNameAndOneField(expect *httpexpect.Expect, sessionID st
 		},
 	}
 
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, payload)
 }
 
 func CreateCollectionWithNameAndIdFieldName(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name":                name,
 		"documentIdFieldName": "emp_no",
 	}
 
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, payload)
 }
 
 func CreateCollectionWithNameIdFieldNameAndOneField(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name":                name,
 		"documentIdFieldName": "emp_no",
 		"fields": []interface{}{
 			map[string]interface{}{
@@ -66,12 +59,11 @@ func CreateCollectionWithNameIdFieldNameAndOneField(expect *httpexpect.Expect, s
 		},
 	}
 
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, payload)
 }
 
 func CreateCollectionWithNameOneFieldAndOneUniqueIndex(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name": name,
 		"fields": []interface{}{
 			map[string]interface{}{
 				"name": "id_number",
@@ -88,12 +80,11 @@ func CreateCollectionWithNameOneFieldAndOneUniqueIndex(expect *httpexpect.Expect
 		},
 	}
 
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, payload)
 }
 
 func CreateCollectionWithNameAndMultipleFields(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name": name,
 		"fields": []interface{}{
 			map[string]interface{}{
 				"name": "birth_date",
@@ -118,12 +109,11 @@ func CreateCollectionWithNameAndMultipleFields(expect *httpexpect.Expect, sessio
 		},
 	}
 
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, payload)
 }
 
 func CreateCollectionWithNameMultipleFieldsAndMultipleIndexes(expect *httpexpect.Expect, sessionID string, name string) *httpexpect.Object {
 	payload := map[string]interface{}{
-		"name": name,
 		"fields": []interface{}{
 			map[string]interface{}{
 				"name": "birth_date",
@@ -156,17 +146,17 @@ func CreateCollectionWithNameMultipleFieldsAndMultipleIndexes(expect *httpexpect
 		},
 	}
 
-	return createCollection(expect, sessionID, payload)
+	return createCollection(expect, sessionID, name, payload)
 }
 
-func createCollection(expect *httpexpect.Expect, sessionID string, payload map[string]interface{}) *httpexpect.Object {
-	expect.PUT("/collections").
+func createCollection(expect *httpexpect.Expect, sessionID string, name string, payload map[string]interface{}) *httpexpect.Object {
+	expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusOK).JSON().Object().Empty()
 
-	collection := expect.GET(fmt.Sprintf("/collection/%s", payload["name"])).
+	collection := expect.GET(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", sessionID).
 		Expect().
 		Status(http.StatusOK).
