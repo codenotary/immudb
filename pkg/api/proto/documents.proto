@@ -52,7 +52,8 @@ message CreateCollectionRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
       required: [
-        "name"
+        "name",
+        "documentIdFieldName"
       ]
     }
   };
@@ -174,7 +175,8 @@ message UpdateCollectionRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
       required: [
-        "name"
+        "name",
+        "documentIdFieldName"
       ]
     }
   };
@@ -291,6 +293,8 @@ message SearchDocumentsRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
       required: [
+        "searchId",
+        "query",
         "page",
         "pageSize",
         "keepOpen"
@@ -312,7 +316,7 @@ message Query {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
       required: [
-        "collectionName"
+        "collectionName",
         "expressions",
         "orderBy",
         "limit"
@@ -383,6 +387,7 @@ message SearchDocumentsResponse {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
       required: [
+        "searchId",
         "revisions"
       ]
     }
@@ -459,7 +464,9 @@ message ProofDocumentRequest {
     json_schema: {
       required: [
         "collectionName",
-        "documentId"
+        "documentId",
+        "transactionId",
+        "proofSinceTransactionId"
       ]
     }
   };
@@ -471,6 +478,18 @@ message ProofDocumentRequest {
 }
 
 message ProofDocumentResponse {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "database",
+        "collectionId",
+        "documentIdFieldName",
+        "encodedDocument",
+        "verifiableTx"
+      ]
+    }
+  };
+
   string database = 1;
   uint32 collectionId = 2;
   string documentIdFieldName = 3;
