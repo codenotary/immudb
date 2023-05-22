@@ -1066,6 +1066,9 @@ message DatabaseNullableSettings {
 
   // Truncation settings
   TruncationNullableSettings truncationSettings = 29;
+
+  // If set to true, values are stored together with the transaction header (true by default)
+  NullableBool embeddedValues = 30;
 }
 
 message ReplicationNullableSettings {

@@ -272,6 +272,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithMaxKeyLen(opts.MaxKeyLen).
 		WithMaxValueLen(opts.MaxValueLen).
 		WithMaxTxEntries(opts.MaxTxEntries).
+		WithEmbeddedValues(opts.EmbeddedValues).
 		WithWriteTxHeaderVersion(opts.WriteTxHeaderVersion).
 		WithMaxActiveTransactions(opts.MaxActiveTransactions).
 		WithMVCCReadSetLimit(opts.MVCCReadSetLimit).
@@ -315,10 +316,11 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 
 		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
 
-		FileSize:     &schema.NullableUint32{Value: uint32(opts.FileSize)},
-		MaxKeyLen:    &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
-		MaxValueLen:  &schema.NullableUint32{Value: uint32(opts.MaxValueLen)},
-		MaxTxEntries: &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
+		FileSize:       &schema.NullableUint32{Value: uint32(opts.FileSize)},
+		MaxKeyLen:      &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
+		MaxValueLen:    &schema.NullableUint32{Value: uint32(opts.MaxValueLen)},
+		MaxTxEntries:   &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
+		EmbeddedValues: &schema.NullableBool{Value: opts.EmbeddedValues},
 
 		ExcludeCommitTime: &schema.NullableBool{Value: opts.ExcludeCommitTime},
 
@@ -435,6 +437,11 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 				"max number of entries per transaction", opts.Database)
 		}
 
+		if settings.EmbeddedValues != nil {
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments,
+				"embedded values", opts.Database)
+		}
+
 		if settings.IndexSettings != nil && settings.IndexSettings.MaxNodeSize != nil {
 			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max node size", opts.Database)
 		}
@@ -536,6 +543,10 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 	if settings.MaxTxEntries != nil {
 		opts.MaxTxEntries = int(settings.MaxTxEntries.Value)
+	}
+
+	if settings.EmbeddedValues != nil {
+		opts.EmbeddedValues = settings.EmbeddedValues.Value
 	}
 
 	if settings.ExcludeCommitTime != nil {
@@ -885,6 +896,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)
 	s.Logger.Infof("%s.MaxValueLen: %v", database, opts.MaxValueLen)
 	s.Logger.Infof("%s.MaxTxEntries: %v", database, opts.MaxTxEntries)
+	s.Logger.Infof("%s.EmbeddedValues: %v", database, opts.EmbeddedValues)
 	s.Logger.Infof("%s.ExcludeCommitTime: %v", database, opts.ExcludeCommitTime)
 	s.Logger.Infof("%s.MaxActiveTransactions: %v", database, opts.MaxActiveTransactions)
 	s.Logger.Infof("%s.MVCCReadSetLimit: %v", database, opts.MVCCReadSetLimit)

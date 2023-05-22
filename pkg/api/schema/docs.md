@@ -473,6 +473,7 @@ DEPRECATED
 | mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
 | vLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for value logs |
 | truncationSettings | [TruncationNullableSettings](#immudb.schema.TruncationNullableSettings) |  | Truncation settings |
+| embeddedValues | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, values are stored together with the transaction header (true by default) |
 
 
 
