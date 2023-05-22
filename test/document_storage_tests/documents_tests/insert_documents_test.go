@@ -38,22 +38,14 @@ func (s *InsertDocumentsTestSuite) SetupTest() {
 }
 
 func (s *InsertDocumentsTestSuite) TestInsertOneDocumentWithMultipleFields() {
-	document := map[string]interface{}{
-		"birth_date": "1964-06-02",
-		"first_name": "Bezalel",
-		"last_name":  "Simmel",
-		"gender":     "F",
-		"hire_date":  "1985-11-21",
-	}
-
-	documentFound := actions.InsertOneDocumentWithMultipleFields(s.expect, s.sessionID, s.collection, document)
+	documentFound := actions.InsertOneDocumentWithMultipleFields(s.expect, s.sessionID, s.collection)
 
 	documentFound.Keys().ContainsOnly("_id", "birth_date", "first_name", "last_name", "gender", "hire_date")
-	documentFound.Value("birth_date").IsEqual(document["birth_date"])
-	documentFound.Value("first_name").IsEqual(document["first_name"])
-	documentFound.Value("last_name").IsEqual(document["last_name"])
-	documentFound.Value("gender").IsEqual(document["gender"])
-	documentFound.Value("hire_date").IsEqual(document["hire_date"])
+	documentFound.Value("birth_date").IsEqual("1964-06-02")
+	documentFound.Value("first_name").IsEqual("Bezalel")
+	documentFound.Value("last_name").IsEqual("Simmel")
+	documentFound.Value("gender").IsEqual("F")
+	documentFound.Value("hire_date").IsEqual("1985-11-21")
 }
 
 func TestInsertDocumentsSuite(t *testing.T) {

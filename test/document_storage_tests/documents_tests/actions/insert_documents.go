@@ -19,13 +19,20 @@ package actions
 import (
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/gavv/httpexpect/v2"
 )
 
-func InsertOneDocumentWithMultipleFields(expect *httpexpect.Expect, sessionID string, collection *httpexpect.Object, document map[string]interface{}) *httpexpect.Object {
+func InsertOneDocumentWithMultipleFields(expect *httpexpect.Expect, sessionID string, collection *httpexpect.Object) *httpexpect.Object {
 	collectionName := collection.Value("collection").Object().Value("name").String().Raw()
+
+	document := map[string]interface{}{
+		"birth_date": "1964-06-02",
+		"first_name": "Bezalel",
+		"last_name":  "Simmel",
+		"gender":     "F",
+		"hire_date":  "1985-11-21",
+	}
 
 	payload := map[string]interface{}{
 		"documents": []interface{}{
@@ -33,11 +40,7 @@ func InsertOneDocumentWithMultipleFields(expect *httpexpect.Expect, sessionID st
 		},
 	}
 
-	keys := reflect.ValueOf(document).MapKeys()
-	field := keys[1].String()
-	value := document[keys[1].String()]
-
-	return insertDocuments(expect, sessionID, collectionName, payload, field, value)
+	return insertDocuments(expect, sessionID, collectionName, payload, "first_name", "Bezalel")
 }
 
 func insertDocuments(expect *httpexpect.Expect, sessionID string, collectionName string, payload map[string]interface{}, field string, value interface{}) *httpexpect.Object {
