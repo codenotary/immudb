@@ -29,6 +29,11 @@ const (
 	LeafNodeType
 )
 
+// Snapshot implements a snapshot on top of a B-tree data structure.
+// It provides methods for storing and retrieving key-value pairs.
+// The snapshot maintains a consistent view of the underlying data structure.
+// It uses a lock to ensure concurrent access safety.
+// Snapshot represents a consistent view of a B-tree data structure.
 type Snapshot struct {
 	t           *TBtree
 	id          uint64
@@ -43,21 +48,31 @@ type Snapshot struct {
 	mutex sync.RWMutex
 }
 
+// Set inserts a key-value pair into the snapshot.
+// It locks the snapshot, performs the insertion, and updates the root node if necessary.
+// The method handles splitting of nodes to maintain the B-tree structure.
+// It returns an error if the insertion fails.
+// Example usage:
+//     err := snapshot.Set([]byte("key"), []byte("value"))
 func (s *Snapshot) Set(key, value []byte) error {
+	// Acquire a write lock on the snapshot
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// Create copies of the key and value to ensure immutability
 	k := make([]byte, len(key))
 	copy(k, key)
 
 	v := make([]byte, len(value))
 	copy(v, value)
 
+	// Insert the key-value pair into the root node
 	nodes, depth, err := s.root.insert([]*KVT{{K: k, V: v, T: s.ts}})
 	if err != nil {
 		return err
 	}
 
+	// Split nodes to maintain the B-tree structure
 	for len(nodes) > 1 {
 		newRoot := &innerNode{
 			t:     s.t,
@@ -74,70 +89,106 @@ func (s *Snapshot) Set(key, value []byte) error {
 		}
 	}
 
+	// Update the root node
 	s.root = nodes[0]
 
+	// Update B-tree depth metric
 	metricsBtreeDepth.WithLabelValues(s.t.path).Set(float64(depth))
 
 	return nil
 }
 
+// Get retrieves the value associated with the given key from the snapshot.
+// It locks the snapshot for reading, and delegates the retrieval to the root node.
+// The method returns the value, timestamp, hash count, and an error.
+// Example usage:
+//     value, timestamp, hashCount, err := snapshot.Get([]byte("key"))
 func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	// Check if the snapshot is closed
 	if s.closed {
 		return nil, 0, 0, ErrAlreadyClosed
 	}
 
+	// Check if the key argument is nil
 	if key == nil {
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
+	// Delegate the retrieval to the root node
 	v, ts, hc, err := s.root.get(key)
 	return cp(v), ts, hc, err
 }
 
+// History retrieves the history of a key in the snapshot.
+// It locks the snapshot for reading, and delegates the history retrieval to the root node.
+// The method returns an array of timestamps, the hash count, and an error.
+// Example usage:
+//     timestamps, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
 func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
+	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	// Check if the snapshot is closed
 	if s.closed {
 		return nil, 0, ErrAlreadyClosed
 	}
 
+	// Check if the key argument is nil
 	if key == nil {
 		return nil, 0, ErrIllegalArguments
 	}
 
+	// Check if the limit argument is less than 1
 	if limit < 1 {
 		return nil, 0, ErrIllegalArguments
 	}
 
+	// Delegate the history retrieval to the root node
 	return s.root.history(key, offset, descOrder, limit)
 }
 
+// Ts returns the timestamp associated with the root node of the snapshot.
+// It locks the snapshot for reading and returns the timestamp.
+// Example usage:
+//     timestamp := snapshot.Ts()
 func (s *Snapshot) Ts() uint64 {
+	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.root.ts()
 }
 
+// GetWithPrefix retrieves the key-value pair with a specific prefix from the snapshot.
+// It locks the snapshot for reading, and delegates the retrieval to the root node.
+// The method returns the key, value, timestamp, hash count, and an error.
+// Example usage:
+//     key, value, timestamp, hashCount, err := snapshot.GetWithPrefix([]byte("prefix"), []byte("neq"))
 func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
+	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	// Check if the snapshot is closed
 	if s.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
 
+	// Find the leaf node containing the key-value pair
 	_, leaf, off, err := s.root.findLeafNode(prefix, nil, 0, neq, false)
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
 
+	// Retrieve the leaf value at the specified offset
 	leafValue := leaf.values[off]
 
+	// Check if the prefix matches the leaf key
 	if len(prefix) > len(leafValue.key) {
 		return nil, nil, 0, 0, ErrKeyNotFound
 	}
@@ -149,25 +200,39 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value [
 	return nil, nil, 0, 0, ErrKeyNotFound
 }
 
+// NewHistoryReader creates a new history reader for the snapshot.
+// It locks the snapshot for reading and creates a new history reader based on the given specification.
+// The method returns the history reader and an error if the creation fails.
+// Example usage:
+//     reader, err := snapshot.NewHistoryReader(&HistoryReaderSpec{Key: []byte("key"), Limit: 10})
 func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
+	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	// Check if the snapshot is closed
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
 
+	// Create a new history reader with the given specification
 	reader, err := newHistoryReader(s.maxReaderID, s, spec)
 	if err != nil {
 		return nil, err
 	}
 
+	// Store the reader in the snapshot's readers map
 	s.readers[reader.id] = reader
 	s.maxReaderID++
 
 	return reader, nil
 }
 
+// NewReader creates a new reader for the snapshot.
+// It locks the snapshot for writing and creates a new reader based on the given specification.
+// The method returns the reader and an error if the creation fails.
+// Example usage:
+//     reader, err := snapshot.NewReader(ReaderSpec{Prefix: []byte("prefix"), DescOrder: true})
 func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -215,6 +280,7 @@ func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
 		}
 	}
 
+	// Create a new reader with the given specification
 	r = &Reader{
 		snapshot:      s,
 		id:            s.maxReaderID,
@@ -234,6 +300,9 @@ func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
 	return r, nil
 }
 
+// closedReader removes a closed reader from the snapshot's readers map.
+// It locks the snapshot for writing and removes the reader with the specified ID.
+// The method returns an error if the removal fails.
 func (s *Snapshot) closedReader(id int) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -242,6 +311,11 @@ func (s *Snapshot) closedReader(id int) error {
 	return nil
 }
 
+// Close closes the snapshot and releases any associated resources.
+// It locks the snapshot for writing, checks if there are any active readers, and marks the snapshot as closed.
+// The method returns an error if there are active readers.
+// Example usage:
+//     err := snapshot.Close()
 func (s *Snapshot) Close() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -264,6 +338,25 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
+// WriteTo writes the snapshot to the specified writers.
+// It locks the snapshot for writing, performs the write operation on the root node,
+// and returns the root offset, minimum offset, number of bytes written to nw and hw,
+// and an error if any.
+//
+// Parameters:
+// - nw: The writer to write the snapshot's nodes.
+// - hw: The writer to write the snapshot's history.
+// - writeOpts: The options for the write operation.
+//
+// Returns:
+// - rootOffset: The offset of the root node in the written data.
+// - minOffset: The minimum offset of all written nodes.
+// - wN: The number of bytes written to nw.
+// - wH: The number of bytes written to hw.
+// - err: An error if the write operation fails or the arguments are invalid.
+//
+// Example usage:
+// 		rootOffset, minOffset, wN, wH, err := snapshot.WriteTo(nw, hw, &WriteOpts{})
 func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, minOffset int64, wN, wH int64, err error) {
 	if nw == nil || writeOpts == nil {
 		return 0, 0, 0, 0, ErrIllegalArguments
