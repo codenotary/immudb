@@ -20,18 +20,19 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/codenotary/immudb/test/document_storage_tests/documents_tests/models"
 	"github.com/gavv/httpexpect/v2"
 )
 
-func InsertOneDocumentWithMultipleFields(expect *httpexpect.Expect, sessionID string, collection *httpexpect.Object) *httpexpect.Object {
+func InsertOneDocumentWithMultipleFields(expect *httpexpect.Expect, sessionID string, collection *httpexpect.Object) models.Employee {
 	collectionName := collection.Value("collection").Object().Value("name").String().Raw()
 
-	document := map[string]interface{}{
-		"birth_date": "1964-06-02",
-		"first_name": "Bezalel",
-		"last_name":  "Simmel",
-		"gender":     "F",
-		"hire_date":  "1985-11-21",
+	document := models.Employee{
+		BirthDate: "1964-06-02",
+		FirstName: "Bezalel",
+		LastName:  "Simmel",
+		Gender:    "F",
+		HireDate:  "1985-11-21",
 	}
 
 	payload := map[string]interface{}{
@@ -40,34 +41,16 @@ func InsertOneDocumentWithMultipleFields(expect *httpexpect.Expect, sessionID st
 		},
 	}
 
-	return insertDocuments(expect, sessionID, collectionName, payload, "first_name", "Bezalel")
+	insertDocuments(expect, sessionID, collectionName, payload, "first_name", document.FirstName)
+
+	return document
 }
 
-func insertDocuments(expect *httpexpect.Expect, sessionID string, collectionName string, payload map[string]interface{}, field string, value interface{}) *httpexpect.Object {
+func insertDocuments(expect *httpexpect.Expect, sessionID string, collectionName string, payload map[string]interface{}, field string, value interface{}) {
 	expect.POST(fmt.Sprintf("/collection/%s/documents", collectionName)).
 		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithJSON(payload).
 		Expect().
 		Status(http.StatusOK).JSON().Object().NotEmpty().
 		Keys().ContainsOnly("transactionId", "documentIds")
-
-	searchPayload := map[string]interface{}{
-		"query": map[string]interface{}{
-			"expressions": []interface{}{
-				map[string]interface{}{
-					"fieldComparisons": []interface{}{
-						map[string]interface{}{
-							"field":    field,
-							"operator": "EQ",
-							"value":    value,
-						},
-					},
-				},
-			},
-		},
-		"page":     1,
-		"pageSize": 1,
-	}
-
-	return SearchDocuments(expect, sessionID, collectionName, searchPayload)
 }
