@@ -64,7 +64,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	}
 
 	for i, pkCol := range table.PrimaryIndex().Cols() {
-		pkEncVal, err := sql.EncodeRawValueAsKey(schema.RawValue(req.SqlGetRequest.PkValues[i]), pkCol.Type(), pkCol.MaxLen())
+		pkEncVal, _, err := sql.EncodeRawValueAsKey(schema.RawValue(req.SqlGetRequest.PkValues[i]), pkCol.Type(), pkCol.MaxLen())
 		if err != nil {
 			return nil, err
 		}

@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/document"
@@ -30,10 +29,11 @@ import (
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/proto"
 )
 
 func VerifyDocument(ctx context.Context,
-	proof *protomodel.DocumentProofResponse,
+	proof *protomodel.ProofDocumentResponse,
 	doc *structpb.Struct,
 	knownState *schema.ImmutableState,
 	serverSigningPubKey *ecdsa.PublicKey,
@@ -43,9 +43,9 @@ func VerifyDocument(ctx context.Context,
 		return nil, store.ErrIllegalArguments
 	}
 
-	docID, ok := doc.Fields[proof.IdFieldName]
+	docID, ok := doc.Fields[proof.DocumentIdFieldName]
 	if !ok {
-		return nil, fmt.Errorf("%w: missing field '%s'", store.ErrIllegalArguments, proof.IdFieldName)
+		return nil, fmt.Errorf("%w: missing field '%s'", store.ErrIllegalArguments, proof.DocumentIdFieldName)
 	}
 
 	encDocKey, err := encodedKeyForDocument(proof.CollectionId, docID.GetStringValue())
@@ -72,7 +72,7 @@ func VerifyDocument(ctx context.Context,
 	}
 
 	// check encoded value is consistent with raw document
-	docBytes, err := json.Marshal(doc)
+	docBytes, err := proto.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 	valbuf := bytes.Buffer{}
 
 	rval := sql.NewBlob(docID[:])
-	encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, document.MaxDocumentIDLength)
+	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, document.MaxDocumentIDLength)
 	if err != nil {
 		return nil, err
 	}

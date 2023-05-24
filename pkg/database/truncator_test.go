@@ -647,7 +647,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	// create new document store
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), &protomodel.CollectionCreateRequest{
+	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
 			{Name: "pincode", Type: protomodel.FieldType_DOUBLE},
@@ -676,7 +676,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		query(t, "SELECT * FROM table1", 0)
 
 		// get collection
-		cinfo, err := db.GetCollection(context.Background(), &protomodel.CollectionGetRequest{
+		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
 			Name: collectionName,
 		})
 		require.NoError(t, err)
@@ -696,12 +696,14 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
 
-		res, err := db.InsertDocument(context.Background(), &protomodel.DocumentInsertRequest{
-			Collection: collectionName,
-			Document: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"pincode": {
-						Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
+		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+			CollectionName: collectionName,
+			Documents: []*structpb.Struct{
+				{
+					Fields: map[string]*structpb.Value{
+						"pincode": {
+							Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
+						},
 					},
 				},
 			},
@@ -729,12 +731,14 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Foo', 0)")
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
 
-		res, err := db.InsertDocument(context.Background(), &protomodel.DocumentInsertRequest{
-			Collection: collectionName,
-			Document: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"pincode": {
-						Kind: &structpb.Value_NumberValue{NumberValue: 999},
+		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+			CollectionName: collectionName,
+			Documents: []*structpb.Struct{
+				{
+					Fields: map[string]*structpb.Value{
+						"pincode": {
+							Kind: &structpb.Value_NumberValue{NumberValue: 999},
+						},
 					},
 				},
 			},
@@ -747,7 +751,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	t.Run("succeed loading catalog from latest schema should work", func(t *testing.T) {
 		query(t, "SELECT * FROM table1", 2)
 
-		cinfo, err := db.GetCollection(context.Background(), &protomodel.CollectionGetRequest{
+		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
 			Name: collectionName,
 		})
 		require.NoError(t, err)

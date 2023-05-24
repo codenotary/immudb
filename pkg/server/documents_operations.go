@@ -28,8 +28,8 @@ import (
 	"github.com/rs/xid"
 )
 
-func (s *ImmuServer) CollectionCreate(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "CollectionCreate")
+func (s *ImmuServer) CreateCollection(ctx context.Context, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "CreateCollection")
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +40,8 @@ func (s *ImmuServer) CollectionCreate(ctx context.Context, req *protomodel.Colle
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "CollectionUpdate")
+func (s *ImmuServer) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "UpdateCollection")
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +52,8 @@ func (s *ImmuServer) CollectionUpdate(ctx context.Context, req *protomodel.Colle
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionGet(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "CollectionGet")
+func (s *ImmuServer) GetCollection(ctx context.Context, req *protomodel.GetCollectionRequest) (*protomodel.GetCollectionResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "GetCollection")
 	if err != nil {
 		return nil, err
 	}
@@ -64,20 +64,20 @@ func (s *ImmuServer) CollectionGet(ctx context.Context, req *protomodel.Collecti
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionList(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "CollectionList")
+func (s *ImmuServer) GetCollections(ctx context.Context, req *protomodel.GetCollectionsRequest) (*protomodel.GetCollectionsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "GetCollections")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.ListCollections(ctx, req)
+	resp, err := db.GetCollections(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (s *ImmuServer) CollectionDelete(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "CollectionDelete")
+func (s *ImmuServer) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DeleteCollection")
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +88,8 @@ func (s *ImmuServer) CollectionDelete(ctx context.Context, req *protomodel.Colle
 	return resp, nil
 }
 
-func (s *ImmuServer) IndexCreate(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "IndexCreate")
+func (s *ImmuServer) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "CreateIndex")
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +100,8 @@ func (s *ImmuServer) IndexCreate(ctx context.Context, req *protomodel.IndexCreat
 	return resp, nil
 }
 
-func (s *ImmuServer) IndexDelete(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "IndexDelete")
+func (s *ImmuServer) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DeleteIndex")
 	if err != nil {
 		return nil, err
 	}
@@ -112,50 +112,36 @@ func (s *ImmuServer) IndexDelete(ctx context.Context, req *protomodel.IndexDelet
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentInsert(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentInsert")
+func (s *ImmuServer) InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "InsertDocuments")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.InsertDocument(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func (s *ImmuServer) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentInsertMany")
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := db.DocumentInsertMany(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func (s *ImmuServer) DocumentUpdate(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentUpdate")
-	if err != nil {
-		return nil, err
-	}
-	resp, err := db.UpdateDocument(ctx, req)
+	resp, err := db.InsertDocuments(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentAudit")
+func (s *ImmuServer) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "ReplaceDocuments")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.DocumentAudit(ctx, req)
+	resp, err := db.ReplaceDocuments(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (s *ImmuServer) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "AuditDocument")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := db.AuditDocument(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +149,8 @@ func (s *ImmuServer) DocumentAudit(ctx context.Context, req *protomodel.Document
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.DocumentSearchRequest) (*protomodel.DocumentSearchResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentSearch")
+func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.SearchDocumentsRequest) (*protomodel.SearchDocumentsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "SearchDocuments")
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +191,9 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 		if req.Page != pgreader.LastPageNumber+1 || req.PageSize != pgreader.LastPageSize {
 			if pgreader.Reader != nil {
 				err := pgreader.Reader.Close()
-				s.Logger.Errorf("error closing paginated reader: %s, err = %v", req.SearchId, err)
+				if err != nil {
+					s.Logger.Errorf("error closing paginated reader: %s, err = %v", req.SearchId, err)
+				}
 			}
 
 			req.Query = pgreader.Query
@@ -245,46 +233,46 @@ func (s *ImmuServer) DocumentSearch(ctx context.Context, req *protomodel.Documen
 		return nil, err
 	}
 
-	// update the pagination parameters for this query in the session
-	sess.UpdatePaginatedDocumentReader(req.SearchId, req.Page, req.PageSize)
-
-	if errors.Is(err, document.ErrNoMoreDocuments) {
+	if errors.Is(err, document.ErrNoMoreDocuments) || !req.KeepOpen {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
 		err = sess.DeletePaginatedDocumentReader(req.SearchId)
 		if err != nil {
 			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", req.SearchId, err)
 		}
 
-		return &protomodel.DocumentSearchResponse{
+		return &protomodel.SearchDocumentsResponse{
 			Revisions: docs,
 		}, nil
 	}
 
-	return &protomodel.DocumentSearchResponse{
+	// update the pagination parameters for this query in the session
+	sess.UpdatePaginatedDocumentReader(req.SearchId, req.Page, req.PageSize)
+
+	return &protomodel.SearchDocumentsResponse{
 		SearchId:  req.SearchId,
 		Revisions: docs,
 	}, nil
 }
 
-func (s *ImmuServer) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentDelete")
+func (s *ImmuServer) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DeleteDocuments")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.DocumentDelete(ctx, req)
+	resp, err := db.DeleteDocuments(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (s *ImmuServer) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
-	db, err := s.getDBFromCtx(ctx, "DocumentProof")
+func (s *ImmuServer) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "ProofDocument")
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := db.DocumentProof(ctx, req)
+	res, err := db.ProofDocument(ctx, req)
 	if err != nil {
 		return nil, err
 	}

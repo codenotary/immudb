@@ -389,7 +389,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 			return nil, err
 		}
 
-		if variableSized(col.colType) && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
+		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && col.MaxLen() > MaxKeyLen {
 			return nil, fmt.Errorf("%w: can not create index using column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 
@@ -398,7 +398,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		colIDs[i] = col.id
 	}
 
-	if indexKeyLen > MaxKeyLen {
+	if !tx.engine.lazyIndexConstraintValidation && indexKeyLen > MaxKeyLen {
 		return nil, fmt.Errorf("%w: can not create index using columns '%v'. Max key length is %d", ErrLimitedKeyType, stmt.cols, MaxKeyLen)
 	}
 
@@ -822,18 +822,30 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
+		indexKeyLen := 0
+
 		for i, col := range index.cols {
 			rval, specified := valuesByColID[col.id]
 			if !specified {
 				rval = &NullValue{t: col.colType}
 			}
 
-			encVal, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
+			encVal, n, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 			if err != nil {
 				return fmt.Errorf("%w: index on '%s' and column '%s'", err, index.Name(), col.colName)
 			}
 
+			if n > MaxKeyLen {
+				return fmt.Errorf("%w: can not index entry for column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
+			}
+
+			indexKeyLen += n
+
 			encodedValues[i+3] = encVal
+		}
+
+		if indexKeyLen > MaxKeyLen {
+			return fmt.Errorf("%w: can not index entry using columns '%v'. Max key length is %d", ErrLimitedKeyType, index.cols, MaxKeyLen)
 		}
 
 		mkey := mapKey(tx.sqlPrefix(), prefix, encodedValues...)
@@ -867,21 +879,33 @@ func EncodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 
+	indexKeyLen := 0
+
 	for _, col := range table.primaryIndex.cols {
 		rval, specified := valuesByColID[col.id]
 		if !specified || rval.IsNull() {
 			return nil, ErrPKCanNotBeNull
 		}
 
-		encVal, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
+		encVal, n, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 		if err != nil {
 			return nil, fmt.Errorf("%w: primary index of table '%s' and column '%s'", err, table.name, col.colName)
 		}
+
+		if n > MaxKeyLen {
+			return nil, fmt.Errorf("%w: invalid primary key entry for column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
+		}
+
+		indexKeyLen += n
 
 		_, err = valbuf.Write(encVal)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if indexKeyLen > MaxKeyLen {
+		return nil, fmt.Errorf("%w: invalid primary key entry using columns '%v'. Max key length is %d", ErrLimitedKeyType, table.primaryIndex.cols, MaxKeyLen)
 	}
 
 	return valbuf.Bytes(), nil
@@ -966,7 +990,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 
 			sameIndexKey = sameIndexKey && r == 0
 
-			encVal, _ := EncodeValueAsKey(currVal, col.colType, col.MaxLen())
+			encVal, _, _ := EncodeValueAsKey(currVal, col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
 		}
@@ -1274,7 +1298,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 				val = &NullValue{t: col.colType}
 			}
 
-			encVal, _ := EncodeValueAsKey(val, col.colType, col.MaxLen())
+			encVal, _, _ := EncodeValueAsKey(val, col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
 		}
@@ -2321,7 +2345,13 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			return nil, fmt.Errorf("%w: invalid limit", err)
 		}
 
-		rowReader = newLimitRowReader(rowReader, limit)
+		if limit < 0 {
+			return nil, fmt.Errorf("%w: invalid limit", ErrIllegalArguments)
+		}
+
+		if limit > 0 {
+			rowReader = newLimitRowReader(rowReader, limit)
+		}
 	}
 
 	return rowReader, nil

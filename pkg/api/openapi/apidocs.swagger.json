@@ -110,14 +110,14 @@
         "security": []
       }
     },
-    "/collections/create": {
-      "put": {
-        "operationId": "CollectionCreate",
+    "/collection/documents/search/{searchId}": {
+      "post": {
+        "operationId": "SearchDocumentsWith",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelCollectionCreateResponse"
+              "$ref": "#/definitions/modelSearchDocumentsResponse"
             }
           },
           "default": {
@@ -129,27 +129,159 @@
         },
         "parameters": [
           {
+            "name": "searchId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelCollectionCreateRequest"
+              "$ref": "#/definitions/modelSearchDocumentsRequestWith"
             }
           }
         ],
         "tags": [
-          "collections"
+          "documents"
         ]
       }
     },
-    "/collections/delete": {
+    "/collection/{collectionName}/document/{documentId}/audit": {
+      "post": {
+        "operationId": "AuditDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelAuditDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelAuditDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/document/{documentId}/proof": {
+      "post": {
+        "operationId": "ProofDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelProofDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelProofDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents": {
+      "post": {
+        "operationId": "InsertDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelInsertDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelInsertDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/index": {
       "delete": {
-        "operationId": "CollectionDelete",
+        "operationId": "DeleteIndex",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelCollectionDeleteResponse"
+              "$ref": "#/definitions/modelDeleteIndexResponse"
             }
           },
           "default": {
@@ -161,25 +293,71 @@
         },
         "parameters": [
           {
-            "name": "name",
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "fields",
             "in": "query",
             "required": false,
-            "type": "string"
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
           }
         ],
         "tags": [
-          "collections"
+          "documents"
+        ]
+      },
+      "post": {
+        "operationId": "CreateIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCreateIndexResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCreateIndexRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
         ]
       }
     },
-    "/collections/get": {
+    "/collection/{name}": {
       "get": {
-        "operationId": "CollectionGet",
+        "operationId": "GetCollection",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelCollectionGetResponse"
+              "$ref": "#/definitions/modelGetCollectionResponse"
             }
           },
           "default": {
@@ -192,24 +370,50 @@
         "parameters": [
           {
             "name": "name",
-            "in": "query",
-            "required": false,
+            "in": "path",
+            "required": true,
             "type": "string"
           }
         ],
         "tags": [
-          "collections"
+          "documents"
         ]
-      }
-    },
-    "/collections/list": {
+      },
+      "delete": {
+        "operationId": "DeleteCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelDeleteCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      },
       "post": {
-        "operationId": "CollectionList",
+        "operationId": "CreateCollection",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelCollectionListResponse"
+              "$ref": "#/definitions/modelCreateCollectionResponse"
             }
           },
           "default": {
@@ -221,27 +425,31 @@
         },
         "parameters": [
           {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelCollectionListRequest"
+              "$ref": "#/definitions/modelCreateCollectionRequest"
             }
           }
         ],
         "tags": [
-          "collections"
+          "documents"
         ]
-      }
-    },
-    "/collections/update": {
+      },
       "put": {
-        "operationId": "CollectionUpdate",
+        "operationId": "UpdateCollection",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelCollectionUpdateResponse"
+              "$ref": "#/definitions/modelUpdateCollectionResponse"
             }
           },
           "default": {
@@ -253,27 +461,33 @@
         },
         "parameters": [
           {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelCollectionUpdateRequest"
+              "$ref": "#/definitions/modelUpdateCollectionRequest"
             }
           }
         ],
         "tags": [
-          "collections"
+          "documents"
         ]
       }
     },
-    "/documents/audit": {
+    "/collection/{collectionName}/documents/delete": {
       "post": {
-        "operationId": "DocumentAudit",
+        "operationId": "DeleteDocuments",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelDocumentAuditResponse"
+              "$ref": "#/definitions/modelDeleteDocumentsResponse"
             }
           },
           "default": {
@@ -285,11 +499,17 @@
         },
         "parameters": [
           {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelDocumentAuditRequest"
+              "$ref": "#/definitions/modelDeleteDocumentsRequest"
             }
           }
         ],
@@ -298,14 +518,14 @@
         ]
       }
     },
-    "/documents/delete": {
+    "/collection/{collectionName}/documents/replace": {
       "put": {
-        "operationId": "DocumentDelete",
+        "operationId": "ReplaceDocuments",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelDocumentDeleteResponse"
+              "$ref": "#/definitions/modelReplaceDocumentsResponse"
             }
           },
           "default": {
@@ -317,43 +537,17 @@
         },
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
+            "name": "collectionName",
+            "in": "path",
             "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelDocumentDeleteRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/documents/insert": {
-      "put": {
-        "operationId": "DocumentInsert",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelDocumentInsertResponse"
-            }
+            "type": "string"
           },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
           {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelDocumentInsertRequest"
+              "$ref": "#/definitions/modelReplaceDocumentsRequest"
             }
           }
         ],
@@ -362,46 +556,14 @@
         ]
       }
     },
-    "/documents/insertmany": {
-      "put": {
-        "operationId": "DocumentInsertMany",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelDocumentInsertManyResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelDocumentInsertManyRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/documents/proof": {
+    "/collection/{collectionName}/documents/search": {
       "post": {
-        "operationId": "DocumentProof",
+        "operationId": "SearchDocuments",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelDocumentProofResponse"
+              "$ref": "#/definitions/modelSearchDocumentsResponse"
             }
           },
           "default": {
@@ -413,11 +575,17 @@
         },
         "parameters": [
           {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/modelDocumentProofRequest"
+              "$ref": "#/definitions/modelSearchDocumentsRequest"
             }
           }
         ],
@@ -426,14 +594,14 @@
         ]
       }
     },
-    "/documents/search": {
-      "post": {
-        "operationId": "DocumentSearch",
+    "/collections": {
+      "get": {
+        "operationId": "GetCollections",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/modelDocumentSearchResponse"
+              "$ref": "#/definitions/modelGetCollectionsResponse"
             }
           },
           "default": {
@@ -443,114 +611,8 @@
             }
           }
         },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelDocumentSearchRequest"
-            }
-          }
-        ],
         "tags": [
           "documents"
-        ]
-      }
-    },
-    "/documents/update": {
-      "post": {
-        "operationId": "DocumentUpdate",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelDocumentUpdateResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelDocumentUpdateRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/indexes/create": {
-      "put": {
-        "operationId": "IndexCreate",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelIndexCreateResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelIndexCreateRequest"
-            }
-          }
-        ],
-        "tags": [
-          "indexes"
-        ]
-      }
-    },
-    "/indexes/delete": {
-      "put": {
-        "operationId": "IndexDelete",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelIndexDeleteResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelIndexDeleteRequest"
-            }
-          }
-        ],
-        "tags": [
-          "indexes"
         ]
       }
     }
@@ -589,6 +651,37 @@
         }
       }
     },
+    "modelAuditDocumentRequest": {
+      "type": "object",
+      "properties": {
+        "desc": {
+          "type": "boolean"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "page",
+        "pageSize"
+      ]
+    },
+    "modelAuditDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
+        }
+      }
+    },
     "modelCloseSessionRequest": {
       "type": "object"
     },
@@ -601,7 +694,7 @@
         "name": {
           "type": "string"
         },
-        "idFieldName": {
+        "documentIdFieldName": {
           "type": "string"
         },
         "fields": {
@@ -617,71 +710,6 @@
           }
         }
       }
-    },
-    "modelCollectionCreateRequest": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "idFieldName": {
-          "type": "string"
-        },
-        "fields": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/modelField"
-          }
-        },
-        "indexes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/modelIndex"
-          }
-        }
-      }
-    },
-    "modelCollectionCreateResponse": {
-      "type": "object"
-    },
-    "modelCollectionDeleteResponse": {
-      "type": "object"
-    },
-    "modelCollectionGetResponse": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "$ref": "#/definitions/modelCollection"
-        }
-      }
-    },
-    "modelCollectionListRequest": {
-      "type": "object"
-    },
-    "modelCollectionListResponse": {
-      "type": "object",
-      "properties": {
-        "collections": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/modelCollection"
-          }
-        }
-      }
-    },
-    "modelCollectionUpdateRequest": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "idFieldName": {
-          "type": "string"
-        }
-      }
-    },
-    "modelCollectionUpdateResponse": {
-      "type": "object"
     },
     "modelComparisonOperator": {
       "type": "string",
@@ -697,12 +725,75 @@
       ],
       "default": "EQ"
     },
+    "modelCreateCollectionRequest": {
+      "type": "object",
+      "properties": {
+        "documentIdFieldName": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelField"
+          }
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelIndex"
+          }
+        }
+      }
+    },
+    "modelCreateCollectionResponse": {
+      "type": "object"
+    },
+    "modelCreateIndexRequest": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isUnique": {
+          "type": "boolean"
+        }
+      }
+    },
+    "modelCreateIndexResponse": {
+      "type": "object"
+    },
+    "modelDeleteCollectionResponse": {
+      "type": "object"
+    },
+    "modelDeleteDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "modelDeleteDocumentsResponse": {
+      "type": "object"
+    },
+    "modelDeleteIndexResponse": {
+      "type": "object"
+    },
     "modelDocumentAtRevision": {
       "type": "object",
       "properties": {
         "transactionId": {
           "type": "string",
           "format": "uint64"
+        },
+        "documentId": {
+          "type": "string"
         },
         "revision": {
           "type": "string",
@@ -716,208 +807,11 @@
         }
       }
     },
-    "modelDocumentAuditRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "documentId": {
-          "type": "string"
-        },
-        "desc": {
-          "type": "boolean"
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "pageSize": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "modelDocumentAuditResponse": {
-      "type": "object",
-      "properties": {
-        "revisions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/modelDocumentAtRevision"
-          }
-        }
-      }
-    },
-    "modelDocumentDeleteRequest": {
-      "type": "object",
-      "properties": {
-        "query": {
-          "$ref": "#/definitions/modelQuery"
-        }
-      }
-    },
-    "modelDocumentDeleteResponse": {
-      "type": "object"
-    },
-    "modelDocumentInsertManyRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "documents": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "modelDocumentInsertManyResponse": {
-      "type": "object",
-      "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "documentIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "modelDocumentInsertRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "document": {
-          "type": "object"
-        }
-      }
-    },
-    "modelDocumentInsertResponse": {
-      "type": "object",
-      "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "documentId": {
-          "type": "string"
-        }
-      }
-    },
     "modelDocumentMetadata": {
       "type": "object",
       "properties": {
         "deleted": {
           "type": "boolean"
-        }
-      }
-    },
-    "modelDocumentProofRequest": {
-      "type": "object",
-      "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "documentId": {
-          "type": "string"
-        },
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "proofSinceTransactionId": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "modelDocumentProofResponse": {
-      "type": "object",
-      "properties": {
-        "database": {
-          "type": "string"
-        },
-        "collectionId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "idFieldName": {
-          "type": "string"
-        },
-        "encodedDocument": {
-          "type": "string",
-          "format": "byte"
-        },
-        "verifiableTx": {
-          "$ref": "#/definitions/schemaVerifiableTxV2"
-        }
-      }
-    },
-    "modelDocumentSearchRequest": {
-      "type": "object",
-      "properties": {
-        "searchId": {
-          "type": "string"
-        },
-        "query": {
-          "$ref": "#/definitions/modelQuery"
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "pageSize": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "modelDocumentSearchResponse": {
-      "type": "object",
-      "properties": {
-        "searchId": {
-          "type": "string"
-        },
-        "revisions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/modelDocumentAtRevision"
-          }
-        }
-      }
-    },
-    "modelDocumentUpdateRequest": {
-      "type": "object",
-      "properties": {
-        "query": {
-          "$ref": "#/definitions/modelQuery"
-        },
-        "document": {
-          "type": "object"
-        }
-      }
-    },
-    "modelDocumentUpdateResponse": {
-      "type": "object",
-      "properties": {
-        "transactionId": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "documentId": {
-          "type": "string"
-        },
-        "revision": {
-          "type": "string",
-          "format": "uint64"
         }
       }
     },
@@ -930,7 +824,11 @@
         "type": {
           "$ref": "#/definitions/modelFieldType"
         }
-      }
+      },
+      "required": [
+        "name",
+        "type"
+      ]
     },
     "modelFieldComparison": {
       "type": "object",
@@ -942,7 +840,11 @@
           "$ref": "#/definitions/modelComparisonOperator"
         },
         "value": {}
-      }
+      },
+      "required": [
+        "field",
+        "operator"
+      ]
     },
     "modelFieldType": {
       "type": "string",
@@ -953,6 +855,25 @@
         "DOUBLE"
       ],
       "default": "STRING"
+    },
+    "modelGetCollectionResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/modelCollection"
+        }
+      }
+    },
+    "modelGetCollectionsResponse": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelCollection"
+          }
+        }
+      }
     },
     "modelIndex": {
       "type": "object",
@@ -968,42 +889,31 @@
         }
       }
     },
-    "modelIndexCreateRequest": {
+    "modelInsertDocumentsRequest": {
       "type": "object",
       "properties": {
-        "collection": {
-          "type": "string"
-        },
-        "fields": {
+        "documents": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object"
           }
-        },
-        "isUnique": {
-          "type": "boolean"
         }
       }
     },
-    "modelIndexCreateResponse": {
-      "type": "object"
-    },
-    "modelIndexDeleteRequest": {
+    "modelInsertDocumentsResponse": {
       "type": "object",
       "properties": {
-        "collection": {
-          "type": "string"
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
         },
-        "fields": {
+        "documentIds": {
           "type": "array",
           "items": {
             "type": "string"
           }
         }
       }
-    },
-    "modelIndexDeleteResponse": {
-      "type": "object"
     },
     "modelKeepAliveRequest": {
       "type": "object"
@@ -1020,14 +930,50 @@
         "desc": {
           "type": "boolean"
         }
+      },
+      "required": [
+        "field",
+        "desc"
+      ]
+    },
+    "modelProofDocumentRequest": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "proofSinceTransactionId": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "modelProofDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "collectionId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "documentIdFieldName": {
+          "type": "string"
+        },
+        "encodedDocument": {
+          "type": "string",
+          "format": "byte"
+        },
+        "verifiableTx": {
+          "$ref": "#/definitions/schemaVerifiableTxV2"
+        }
       }
     },
     "modelQuery": {
       "type": "object",
       "properties": {
-        "collection": {
-          "type": "string"
-        },
         "expressions": {
           "type": "array",
           "items": {
@@ -1039,6 +985,10 @@
           "items": {
             "$ref": "#/definitions/modelOrderByClause"
           }
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -1052,6 +1002,99 @@
           }
         }
       }
+    },
+    "modelReplaceDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        },
+        "document": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "modelReplaceDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
+        }
+      }
+    },
+    "modelSearchDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "keepOpen": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "page",
+        "pageSize"
+      ]
+    },
+    "modelSearchDocumentsRequestWith": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "keepOpen": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "page",
+        "pageSize"
+      ]
+    },
+    "modelSearchDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "searchId": {
+          "type": "string"
+        },
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
+        }
+      }
+    },
+    "modelUpdateCollectionRequest": {
+      "type": "object",
+      "properties": {
+        "documentIdFieldName": {
+          "type": "string"
+        }
+      }
+    },
+    "modelUpdateCollectionResponse": {
+      "type": "object"
     },
     "protobufAny": {
       "type": "object",

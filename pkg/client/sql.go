@@ -157,7 +157,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 			return sql.ErrCorruptedData
 		}
 
-		pkEncVal, err := sql.EncodeRawValueAsKey(schema.RawValue(pkVal), pkType, int(pkLen))
+		pkEncVal, _, err := sql.EncodeRawValueAsKey(schema.RawValue(pkVal), pkType, int(pkLen))
 		if err != nil {
 			return err
 		}

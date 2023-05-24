@@ -18,7 +18,6 @@ package document
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -38,9 +38,9 @@ type Engine struct {
 	sqlEngine *sql.Engine
 }
 
-type EncodedDocumentAtRevision struct {
+type EncodedDocument struct {
 	TxID            uint64
-	Revision        uint64
+	Revision        uint64 // revision is only set when txID == 0 and info is fetch from the index
 	KVMetadata      *store.KVMetadata
 	EncodedDocument []byte
 }
@@ -51,7 +51,11 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		return nil, err
 	}
 
-	engine, err := sql.NewEngine(store, sql.DefaultOptions().WithPrefix(opts.prefix))
+	sqlOpts := sql.DefaultOptions().
+		WithPrefix(opts.prefix).
+		WithLazyIndexConstraintValidation(true)
+
+	engine, err := sql.NewEngine(store, sqlOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -59,12 +63,12 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	return &Engine{engine}, nil
 }
 
-func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
-	if idFieldName == "" {
-		idFieldName = DefaultDocumentIDField
+func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
+	if documentIdFieldName == "" {
+		documentIdFieldName = DefaultDocumentIDField
 	}
 
-	if idFieldName == DocumentBLOBField {
+	if documentIdFieldName == DocumentBLOBField {
 		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
 	}
 
@@ -84,14 +88,14 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 	columns := make([]*sql.ColSpec, 2+len(fields))
 
 	// add primary key for document id
-	columns[0] = sql.NewColSpec(idFieldName, sql.BLOBType, MaxDocumentIDLength, false, true)
+	columns[0] = sql.NewColSpec(documentIdFieldName, sql.BLOBType, MaxDocumentIDLength, false, true)
 
 	// add columnn for blob, which stores the document as a whole
 	columns[1] = sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false)
 
 	for i, field := range fields {
-		if field.Name == idFieldName {
-			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, idFieldName)
+		if field.Name == documentIdFieldName {
+			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, documentIdFieldName)
 		}
 
 		if field.Name == DocumentBLOBField {
@@ -118,7 +122,7 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 			name,
 			false,
 			columns,
-			[]string{idFieldName},
+			[]string{documentIdFieldName},
 		)},
 		nil,
 	)
@@ -135,7 +139,7 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 			}
 		}
 
-		if len(index.Fields) == 1 && index.Fields[0] == idFieldName {
+		if len(index.Fields) == 1 && index.Fields[0] == documentIdFieldName {
 			if !index.IsUnique {
 				return fmt.Errorf("%w: index on id field must be unique", ErrIllegalArguments)
 			}
@@ -163,7 +167,26 @@ func (e *Engine) CreateCollection(ctx context.Context, name, idFieldName string,
 	return mayTranslateError(err)
 }
 
-func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection, error) {
+func (e *Engine) GetCollection(ctx context.Context, collectionName string) (*protomodel.Collection, error) {
+	opts := sql.DefaultTxOptions().
+		WithReadOnly(true).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return nil, mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	table, err := getTableForCollection(sqlTx, collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	return collectionFromTable(table), nil
+}
+
+func (e *Engine) GetCollections(ctx context.Context) ([]*protomodel.Collection, error) {
 	opts := sql.DefaultTxOptions().
 		WithReadOnly(true).
 		WithExplicitClose(true)
@@ -183,25 +206,6 @@ func (e *Engine) ListCollections(ctx context.Context) ([]*protomodel.Collection,
 	}
 
 	return collections, nil
-}
-
-func (e *Engine) GetCollection(ctx context.Context, collectionName string) (*protomodel.Collection, error) {
-	opts := sql.DefaultTxOptions().
-		WithReadOnly(true).
-		WithExplicitClose(true)
-
-	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
-	if err != nil {
-		return nil, mayTranslateError(err)
-	}
-	defer sqlTx.Cancel()
-
-	table, err := getTableForCollection(sqlTx, collectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	return collectionFromTable(table), nil
 }
 
 func docIDFieldName(table *sql.Table) string {
@@ -235,14 +239,14 @@ func getColumnForField(table *sql.Table, field string) (*sql.Column, error) {
 }
 
 func collectionFromTable(table *sql.Table) *protomodel.Collection {
-	idFieldName := docIDFieldName(table)
+	documentIdFieldName := docIDFieldName(table)
 
 	indexes := table.GetIndexes()
 
 	collection := &protomodel.Collection{
-		Name:        table.Name(),
-		IdFieldName: idFieldName,
-		Indexes:     make([]*protomodel.Index, len(indexes)),
+		Name:                table.Name(),
+		DocumentIdFieldName: documentIdFieldName,
+		Indexes:             make([]*protomodel.Index, len(indexes)),
 	}
 
 	for _, col := range table.Cols() {
@@ -252,7 +256,7 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 
 		var colType protomodel.FieldType
 
-		if col.Name() == idFieldName {
+		if col.Name() == documentIdFieldName {
 			colType = protomodel.FieldType_STRING
 		} else {
 			switch col.Type() {
@@ -289,8 +293,8 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 	return collection
 }
 
-func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, idFieldName string) error {
-	if idFieldName == DocumentBLOBField {
+func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, documentIdFieldName string) error {
+	if documentIdFieldName == DocumentBLOBField {
 		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
 	}
 
@@ -313,11 +317,11 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, id
 
 	currIDFieldName := docIDFieldName(table)
 
-	if idFieldName != "" && idFieldName != currIDFieldName {
+	if documentIdFieldName != "" && documentIdFieldName != currIDFieldName {
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			ctx,
 			sqlTx,
-			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), currIDFieldName, idFieldName)},
+			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), currIDFieldName, documentIdFieldName)},
 			nil,
 		)
 		if err != nil {
@@ -438,7 +442,7 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 }
 
 func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
-	txID, docIDs, err := e.BulkInsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
+	txID, docIDs, err := e.InsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -446,7 +450,7 @@ func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc 
 	return txID, docIDs[0], nil
 }
 
-func (e *Engine) BulkInsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
+func (e *Engine) InsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
@@ -555,7 +559,7 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 
 	for i, col := range table.Cols() {
 		if col.Name() == DocumentBLOBField {
-			bs, err := json.Marshal(doc)
+			bs, err := proto.Marshal(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -578,9 +582,9 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 	return sql.NewRowSpec(values), nil
 }
 
-func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (txID uint64, docID DocumentID, rev uint64, err error) {
+func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
 	if query == nil {
-		return 0, nil, 0, ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	if doc == nil || len(doc.Fields) == 0 {
@@ -591,108 +595,132 @@ func (e *Engine) UpdateDocument(ctx context.Context, query *protomodel.Query, do
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
 	if err != nil {
-		return 0, nil, 0, mayTranslateError(err)
+		return nil, mayTranslateError(err)
 	}
 	defer sqlTx.Cancel()
 
-	table, err := getTableForCollection(sqlTx, query.Collection)
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
-		return 0, nil, 0, err
+		return nil, err
 	}
 
-	idFieldName := docIDFieldName(table)
+	documentIdFieldName := docIDFieldName(table)
 
-	provisionedDocID, docIDProvisioned := doc.Fields[idFieldName]
+	provisionedDocID, docIDProvisioned := doc.Fields[documentIdFieldName]
 	if docIDProvisioned {
 		// inject id comparisson into query
 		idFieldComparisson := &protomodel.FieldComparison{
-			Field:    idFieldName,
+			Field:    documentIdFieldName,
 			Operator: protomodel.ComparisonOperator_EQ,
 			Value:    provisionedDocID,
 		}
 
 		if len(query.Expressions) == 0 {
-			query = &protomodel.Query{
-				Expressions: []*protomodel.QueryExpression{
-					{
-						FieldComparisons: []*protomodel.FieldComparison{
-							idFieldComparisson,
-						},
+			query.Expressions = []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						idFieldComparisson,
 					},
 				},
 			}
 		} else {
-			// id comparisson as a first expression might result in faster comparisson
-			firstExp := query.Expressions[0]
-			firstExp.FieldComparisons = append([]*protomodel.FieldComparison{idFieldComparisson}, firstExp.FieldComparisons...)
+			// id comparisson as a first comparisson might result in faster evaluation
+			// note it mas be added into every expression
+			for _, exp := range query.Expressions {
+				exp.FieldComparisons = append([]*protomodel.FieldComparison{idFieldComparisson}, exp.FieldComparisons...)
+			}
 		}
 	}
 
 	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
 	if err != nil {
-		return 0, nil, 0, err
+		return nil, err
 	}
 
 	queryStmt := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.Collection, idFieldName)},
-		query.Collection,
+		[]sql.Selector{sql.NewColSelector(query.CollectionName, documentIdFieldName)},
+		query.CollectionName,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		sql.NewInteger(1),
+		sql.NewInteger(int64(query.Limit)),
 		nil,
 	)
 
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, queryStmt, nil)
 	if err != nil {
-		return 0, nil, 0, mayTranslateError(err)
+		return nil, mayTranslateError(err)
 	}
 
-	row, err := r.Read(ctx)
-	if err != nil {
-		r.Close()
+	var docs []*structpb.Struct
 
-		if errors.Is(err, sql.ErrNoMoreRows) {
-			return 0, nil, 0, ErrDocumentNotFound
+	for {
+		row, err := r.Read(ctx)
+		if err != nil {
+			r.Close()
+
+			if errors.Is(err, sql.ErrNoMoreRows) {
+				break
+			}
+
+			return nil, mayTranslateError(err)
 		}
 
-		return 0, nil, 0, mayTranslateError(err)
+		val := row.ValuesByPosition[0].RawValue().([]byte)
+		docID, err := NewDocumentIDFromRawBytes(val)
+		if err != nil {
+			return nil, err
+		}
+
+		newDoc, err := structpb.NewStruct(doc.AsMap())
+		if err != nil {
+			return nil, err
+		}
+
+		if !docIDProvisioned {
+			// add id field to updated document
+			newDoc.Fields[documentIdFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
+		}
+
+		docs = append(docs, newDoc)
 	}
 
 	r.Close()
 
-	val := row.ValuesByPosition[0].RawValue().([]byte)
-	docID, err = NewDocumentIDFromRawBytes(val)
+	if len(docs) == 0 {
+		return nil, nil
+	}
+
+	txID, docIDs, err := e.upsertDocuments(ctx, sqlTx, query.CollectionName, docs, false)
 	if err != nil {
-		return 0, nil, 0, err
+		return nil, err
 	}
 
-	if !docIDProvisioned {
-		// add id field to updated document
-		doc.Fields[idFieldName] = structpb.NewStringValue(docID.EncodeToHexString())
+	for _, docID := range docIDs {
+		// fetch revision
+		searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.CollectionName, docID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
+		if err != nil {
+			return nil, err
+		}
+
+		encDoc, err := e.getEncodedDocument(searchKey, 0, false)
+		if err != nil {
+			return nil, err
+		}
+
+		revisions = append(revisions, &protomodel.DocumentAtRevision{
+			TransactionId: txID,
+			DocumentId:    docID.EncodeToHexString(),
+			Revision:      encDoc.Revision,
+			Metadata:      kvMetadataToProto(encDoc.KVMetadata),
+		})
 	}
 
-	txID, _, err = e.upsertDocuments(ctx, sqlTx, query.Collection, []*structpb.Struct{doc}, false)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-
-	// fetch revision
-	searchKey, err := e.getKeyForDocument(ctx, sqlTx, query.Collection, docID)
-	if err != nil {
-		return txID, docID, 0, nil
-	}
-
-	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
-	if err != nil {
-		return txID, docID, 0, nil
-	}
-
-	encDoc, err := e.getEncodedDocumentAtRevision(searchKey, 0, false)
-	if err != nil {
-		return txID, docID, 0, nil
-	}
-
-	return txID, docID, encDoc.Revision, err
+	return revisions, nil
 }
 
 func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offset int64) (DocumentReader, error) {
@@ -705,7 +733,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		return nil, mayTranslateError(err)
 	}
 
-	table, err := getTableForCollection(sqlTx, query.Collection)
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -716,11 +744,11 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	}
 
 	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.Collection, DocumentBLOBField)},
-		query.Collection,
+		[]sql.Selector{sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
+		query.CollectionName,
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		nil,
+		sql.NewInteger(int64(query.Limit)),
 		sql.NewInteger(offset),
 	)
 
@@ -734,7 +762,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	return newDocumentReader(r, func(_ DocumentReader) { sqlTx.Cancel() }), nil
 }
 
-func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, idFieldName string, docAtRevision *EncodedDocumentAtRevision, err error) {
+func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, documentIdFieldName string, encodedDoc *EncodedDocument, err error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return 0, "", nil, mayTranslateError(err)
@@ -751,16 +779,16 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 		return 0, "", nil, err
 	}
 
-	docAtRevision, err = e.getEncodedDocumentAtRevision(searchKey, txID, false)
+	encodedDoc, err = e.getEncodedDocument(searchKey, txID, false)
 	if err != nil {
 		return 0, "", nil, err
 	}
 
-	return table.ID(), docIDFieldName(table), docAtRevision, nil
+	return table.ID(), docIDFieldName(table), encodedDoc, nil
 }
 
-// DocumentAudit returns the audit history of a document.
-func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
+// AuditDocument returns the audit history of a document.
+func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, mayTranslateError(err)
@@ -785,11 +813,12 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID
 	results := make([]*protomodel.DocumentAtRevision, 0)
 
 	for _, txID := range txIDs {
-		docAtRevision, err := e.getDocumentAtRevision(searchKey, txID, false)
+		docAtRevision, err := e.getDocumentAtTransaction(searchKey, txID, false)
 		if err != nil {
 			return nil, err
 		}
 
+		docAtRevision.DocumentId = docID.EncodeToHexString()
 		docAtRevision.Revision = revision
 
 		results = append(results, docAtRevision)
@@ -804,7 +833,7 @@ func (e *Engine) DocumentAudit(ctx context.Context, collectionName string, docID
 	return results, nil
 }
 
-// generateSQLFilteringExpression generates a boolean expression from a list of expressions.
+// generateSQLFilteringExpression generates a boolean expression in Disjunctive Normal Form from a list of expressions
 func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, table *sql.Table) (sql.ValueExp, error) {
 	var outerExp sql.ValueExp
 
@@ -911,7 +940,7 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	valbuf := bytes.Buffer{}
 
 	rval := sql.NewBlob(documentID[:])
-	encVal, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, MaxDocumentIDLength)
+	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, MaxDocumentIDLength)
 	if err != nil {
 		return nil, err
 	}
@@ -934,28 +963,27 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	return searchKey, nil
 }
 
-func (e *Engine) getDocumentAtRevision(
+func (e *Engine) getDocumentAtTransaction(
 	key []byte,
 	atTx uint64,
 	skipIntegrityCheck bool,
 ) (docAtRevision *protomodel.DocumentAtRevision, err error) {
-	encDocAtRevision, err := e.getEncodedDocumentAtRevision(key, atTx, skipIntegrityCheck)
+	encDoc, err := e.getEncodedDocument(key, atTx, skipIntegrityCheck)
 	if err != nil {
 		return nil, err
 	}
 
-	if encDocAtRevision.KVMetadata != nil && encDocAtRevision.KVMetadata.Deleted() {
+	if encDoc.KVMetadata != nil && encDoc.KVMetadata.Deleted() {
 		return &protomodel.DocumentAtRevision{
-			TransactionId: encDocAtRevision.TxID,
-			Revision:      encDocAtRevision.Revision,
-			Metadata:      &protomodel.DocumentMetadata{Deleted: true},
+			TransactionId: encDoc.TxID,
+			Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		}, nil
 	}
 
 	voff := sql.EncLenLen + sql.EncIDLen
 
 	// DocumentIDField
-	_, n, err := sql.DecodeValue(encDocAtRevision.EncodedDocument[voff:], sql.BLOBType)
+	_, n, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
@@ -963,7 +991,7 @@ func (e *Engine) getDocumentAtRevision(
 	voff += n + sql.EncIDLen
 
 	// DocumentBLOBField
-	encodedDoc, _, err := sql.DecodeValue(encDocAtRevision.EncodedDocument[voff:], sql.BLOBType)
+	encodedDoc, _, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
@@ -971,23 +999,23 @@ func (e *Engine) getDocumentAtRevision(
 	docBytes := encodedDoc.RawValue().([]byte)
 
 	doc := &structpb.Struct{}
-	err = json.Unmarshal(docBytes, doc)
+	err = proto.Unmarshal(docBytes, doc)
 	if err != nil {
 		return nil, err
 	}
 
 	return &protomodel.DocumentAtRevision{
-		TransactionId: encDocAtRevision.TxID,
-		Revision:      encDocAtRevision.Revision,
+		TransactionId: encDoc.TxID,
+		Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		Document:      doc,
 	}, err
 }
 
-func (e *Engine) getEncodedDocumentAtRevision(
+func (e *Engine) getEncodedDocument(
 	key []byte,
 	atTx uint64,
 	skipIntegrityCheck bool,
-) (encDoc *EncodedDocumentAtRevision, err error) {
+) (encDoc *EncodedDocument, err error) {
 
 	var txID uint64
 	var encodedDoc []byte
@@ -1020,7 +1048,7 @@ func (e *Engine) getEncodedDocumentAtRevision(
 		}
 	}
 
-	return &EncodedDocumentAtRevision{
+	return &EncodedDocument{
 		TxID:            txID,
 		Revision:        revision,
 		KVMetadata:      md,
@@ -1043,8 +1071,8 @@ func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityChec
 	return entry.Metadata(), v, nil
 }
 
-// DeleteDocument deletes a single document matching the query
-func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) error {
+// DeleteDocuments deletes documents matching the query
+func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query) error {
 	if query == nil {
 		return ErrIllegalArguments
 	}
@@ -1055,7 +1083,7 @@ func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) er
 	}
 	defer sqlTx.Cancel()
 
-	table, err := getTableForCollection(sqlTx, query.Collection)
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
 		return err
 	}
@@ -1070,7 +1098,7 @@ func (e *Engine) DeleteDocument(ctx context.Context, query *protomodel.Query) er
 		table.Name(),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
-		sql.NewInteger(1),
+		sql.NewInteger(int64(query.Limit)),
 	)
 
 	_, _, err = e.sqlEngine.ExecPreparedStmts(

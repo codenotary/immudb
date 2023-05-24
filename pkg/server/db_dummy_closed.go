@@ -247,61 +247,55 @@ func (db *closedDB) Truncate(ts time.Duration) error {
 }
 
 // CreateCollection creates a new collection
-func (d *closedDB) CreateCollection(ctx context.Context, req *protomodel.CollectionCreateRequest) (*protomodel.CollectionCreateResponse, error) {
+func (d *closedDB) CreateCollection(ctx context.Context, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
 // GetCollection returns the collection schema
-func (d *closedDB) GetCollection(ctx context.Context, req *protomodel.CollectionGetRequest) (*protomodel.CollectionGetResponse, error) {
+func (d *closedDB) GetCollection(ctx context.Context, req *protomodel.GetCollectionRequest) (*protomodel.GetCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateCollection(ctx context.Context, req *protomodel.CollectionUpdateRequest) (*protomodel.CollectionUpdateResponse, error) {
+func (d *closedDB) GetCollections(ctx context.Context, req *protomodel.GetCollectionsRequest) (*protomodel.GetCollectionsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.CollectionDeleteRequest) (*protomodel.CollectionDeleteResponse, error) {
+func (d *closedDB) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) ListCollections(ctx context.Context, req *protomodel.CollectionListRequest) (*protomodel.CollectionListResponse, error) {
+func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) CreateIndex(ctx context.Context, req *protomodel.IndexCreateRequest) (*protomodel.IndexCreateResponse, error) {
+func (d *closedDB) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteIndex(ctx context.Context, req *protomodel.IndexDeleteRequest) (*protomodel.IndexDeleteResponse, error) {
+func (d *closedDB) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-// InsertDocument creates a new document
-func (d *closedDB) InsertDocument(ctx context.Context, req *protomodel.DocumentInsertRequest) (*protomodel.DocumentInsertResponse, error) {
+func (d *closedDB) InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentInsertMany(ctx context.Context, req *protomodel.DocumentInsertManyRequest) (*protomodel.DocumentInsertManyResponse, error) {
+func (d *closedDB) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateDocument(ctx context.Context, req *protomodel.DocumentUpdateRequest) (*protomodel.DocumentUpdateResponse, error) {
+func (d *closedDB) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentAudit(ctx context.Context, req *protomodel.DocumentAuditRequest) (*protomodel.DocumentAuditResponse, error) {
-	return nil, store.ErrAlreadyClosed
-}
-
-// SearchDocuments returns the document
 func (d *closedDB) SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentProof(ctx context.Context, req *protomodel.DocumentProofRequest) (*protomodel.DocumentProofResponse, error) {
+func (d *closedDB) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DocumentDelete(ctx context.Context, req *protomodel.DocumentDeleteRequest) (*protomodel.DocumentDeleteResponse, error) {
+func (d *closedDB) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

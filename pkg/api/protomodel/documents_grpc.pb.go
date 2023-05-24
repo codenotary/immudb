@@ -18,20 +18,19 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DocumentServiceClient interface {
-	CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionCreateResponse, error)
-	CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionGetResponse, error)
-	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
-	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error)
-	CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error)
-	IndexCreate(ctx context.Context, in *IndexCreateRequest, opts ...grpc.CallOption) (*IndexCreateResponse, error)
-	IndexDelete(ctx context.Context, in *IndexDeleteRequest, opts ...grpc.CallOption) (*IndexDeleteResponse, error)
-	DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*DocumentInsertResponse, error)
-	DocumentInsertMany(ctx context.Context, in *DocumentInsertManyRequest, opts ...grpc.CallOption) (*DocumentInsertManyResponse, error)
-	DocumentUpdate(ctx context.Context, in *DocumentUpdateRequest, opts ...grpc.CallOption) (*DocumentUpdateResponse, error)
-	DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error)
-	DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error)
-	DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*DocumentProofResponse, error)
-	DocumentDelete(ctx context.Context, in *DocumentDeleteRequest, opts ...grpc.CallOption) (*DocumentDeleteResponse, error)
+	CreateCollection(ctx context.Context, in *CreateCollectionRequest, opts ...grpc.CallOption) (*CreateCollectionResponse, error)
+	GetCollections(ctx context.Context, in *GetCollectionsRequest, opts ...grpc.CallOption) (*GetCollectionsResponse, error)
+	GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error)
+	UpdateCollection(ctx context.Context, in *UpdateCollectionRequest, opts ...grpc.CallOption) (*UpdateCollectionResponse, error)
+	DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error)
+	CreateIndex(ctx context.Context, in *CreateIndexRequest, opts ...grpc.CallOption) (*CreateIndexResponse, error)
+	DeleteIndex(ctx context.Context, in *DeleteIndexRequest, opts ...grpc.CallOption) (*DeleteIndexResponse, error)
+	InsertDocuments(ctx context.Context, in *InsertDocumentsRequest, opts ...grpc.CallOption) (*InsertDocumentsResponse, error)
+	ReplaceDocuments(ctx context.Context, in *ReplaceDocumentsRequest, opts ...grpc.CallOption) (*ReplaceDocumentsResponse, error)
+	DeleteDocuments(ctx context.Context, in *DeleteDocumentsRequest, opts ...grpc.CallOption) (*DeleteDocumentsResponse, error)
+	SearchDocuments(ctx context.Context, in *SearchDocumentsRequest, opts ...grpc.CallOption) (*SearchDocumentsResponse, error)
+	AuditDocument(ctx context.Context, in *AuditDocumentRequest, opts ...grpc.CallOption) (*AuditDocumentResponse, error)
+	ProofDocument(ctx context.Context, in *ProofDocumentRequest, opts ...grpc.CallOption) (*ProofDocumentResponse, error)
 }
 
 type documentServiceClient struct {
@@ -42,126 +41,117 @@ func NewDocumentServiceClient(cc grpc.ClientConnInterface) DocumentServiceClient
 	return &documentServiceClient{cc}
 }
 
-func (c *documentServiceClient) CollectionCreate(ctx context.Context, in *CollectionCreateRequest, opts ...grpc.CallOption) (*CollectionCreateResponse, error) {
-	out := new(CollectionCreateResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CollectionCreate", in, out, opts...)
+func (c *documentServiceClient) CreateCollection(ctx context.Context, in *CreateCollectionRequest, opts ...grpc.CallOption) (*CreateCollectionResponse, error) {
+	out := new(CreateCollectionResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CreateCollection", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) CollectionGet(ctx context.Context, in *CollectionGetRequest, opts ...grpc.CallOption) (*CollectionGetResponse, error) {
-	out := new(CollectionGetResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CollectionGet", in, out, opts...)
+func (c *documentServiceClient) GetCollections(ctx context.Context, in *GetCollectionsRequest, opts ...grpc.CallOption) (*GetCollectionsResponse, error) {
+	out := new(GetCollectionsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/GetCollections", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error) {
-	out := new(CollectionListResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CollectionList", in, out, opts...)
+func (c *documentServiceClient) GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error) {
+	out := new(GetCollectionResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/GetCollection", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error) {
-	out := new(CollectionDeleteResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CollectionDelete", in, out, opts...)
+func (c *documentServiceClient) UpdateCollection(ctx context.Context, in *UpdateCollectionRequest, opts ...grpc.CallOption) (*UpdateCollectionResponse, error) {
+	out := new(UpdateCollectionResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/UpdateCollection", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) CollectionUpdate(ctx context.Context, in *CollectionUpdateRequest, opts ...grpc.CallOption) (*CollectionUpdateResponse, error) {
-	out := new(CollectionUpdateResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CollectionUpdate", in, out, opts...)
+func (c *documentServiceClient) DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error) {
+	out := new(DeleteCollectionResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DeleteCollection", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) IndexCreate(ctx context.Context, in *IndexCreateRequest, opts ...grpc.CallOption) (*IndexCreateResponse, error) {
-	out := new(IndexCreateResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/IndexCreate", in, out, opts...)
+func (c *documentServiceClient) CreateIndex(ctx context.Context, in *CreateIndexRequest, opts ...grpc.CallOption) (*CreateIndexResponse, error) {
+	out := new(CreateIndexResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CreateIndex", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) IndexDelete(ctx context.Context, in *IndexDeleteRequest, opts ...grpc.CallOption) (*IndexDeleteResponse, error) {
-	out := new(IndexDeleteResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/IndexDelete", in, out, opts...)
+func (c *documentServiceClient) DeleteIndex(ctx context.Context, in *DeleteIndexRequest, opts ...grpc.CallOption) (*DeleteIndexResponse, error) {
+	out := new(DeleteIndexResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DeleteIndex", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentInsert(ctx context.Context, in *DocumentInsertRequest, opts ...grpc.CallOption) (*DocumentInsertResponse, error) {
-	out := new(DocumentInsertResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentInsert", in, out, opts...)
+func (c *documentServiceClient) InsertDocuments(ctx context.Context, in *InsertDocumentsRequest, opts ...grpc.CallOption) (*InsertDocumentsResponse, error) {
+	out := new(InsertDocumentsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/InsertDocuments", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentInsertMany(ctx context.Context, in *DocumentInsertManyRequest, opts ...grpc.CallOption) (*DocumentInsertManyResponse, error) {
-	out := new(DocumentInsertManyResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentInsertMany", in, out, opts...)
+func (c *documentServiceClient) ReplaceDocuments(ctx context.Context, in *ReplaceDocumentsRequest, opts ...grpc.CallOption) (*ReplaceDocumentsResponse, error) {
+	out := new(ReplaceDocumentsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ReplaceDocuments", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentUpdate(ctx context.Context, in *DocumentUpdateRequest, opts ...grpc.CallOption) (*DocumentUpdateResponse, error) {
-	out := new(DocumentUpdateResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentUpdate", in, out, opts...)
+func (c *documentServiceClient) DeleteDocuments(ctx context.Context, in *DeleteDocumentsRequest, opts ...grpc.CallOption) (*DeleteDocumentsResponse, error) {
+	out := new(DeleteDocumentsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DeleteDocuments", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentSearch(ctx context.Context, in *DocumentSearchRequest, opts ...grpc.CallOption) (*DocumentSearchResponse, error) {
-	out := new(DocumentSearchResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentSearch", in, out, opts...)
+func (c *documentServiceClient) SearchDocuments(ctx context.Context, in *SearchDocumentsRequest, opts ...grpc.CallOption) (*SearchDocumentsResponse, error) {
+	out := new(SearchDocumentsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/SearchDocuments", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentAudit(ctx context.Context, in *DocumentAuditRequest, opts ...grpc.CallOption) (*DocumentAuditResponse, error) {
-	out := new(DocumentAuditResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentAudit", in, out, opts...)
+func (c *documentServiceClient) AuditDocument(ctx context.Context, in *AuditDocumentRequest, opts ...grpc.CallOption) (*AuditDocumentResponse, error) {
+	out := new(AuditDocumentResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/AuditDocument", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *documentServiceClient) DocumentProof(ctx context.Context, in *DocumentProofRequest, opts ...grpc.CallOption) (*DocumentProofResponse, error) {
-	out := new(DocumentProofResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentProof", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *documentServiceClient) DocumentDelete(ctx context.Context, in *DocumentDeleteRequest, opts ...grpc.CallOption) (*DocumentDeleteResponse, error) {
-	out := new(DocumentDeleteResponse)
-	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DocumentDelete", in, out, opts...)
+func (c *documentServiceClient) ProofDocument(ctx context.Context, in *ProofDocumentRequest, opts ...grpc.CallOption) (*ProofDocumentResponse, error) {
+	out := new(ProofDocumentResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/ProofDocument", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,67 +162,63 @@ func (c *documentServiceClient) DocumentDelete(ctx context.Context, in *Document
 // All implementations should embed UnimplementedDocumentServiceServer
 // for forward compatibility
 type DocumentServiceServer interface {
-	CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionCreateResponse, error)
-	CollectionGet(context.Context, *CollectionGetRequest) (*CollectionGetResponse, error)
-	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
-	CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error)
-	CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error)
-	IndexCreate(context.Context, *IndexCreateRequest) (*IndexCreateResponse, error)
-	IndexDelete(context.Context, *IndexDeleteRequest) (*IndexDeleteResponse, error)
-	DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error)
-	DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error)
-	DocumentUpdate(context.Context, *DocumentUpdateRequest) (*DocumentUpdateResponse, error)
-	DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error)
-	DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error)
-	DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error)
-	DocumentDelete(context.Context, *DocumentDeleteRequest) (*DocumentDeleteResponse, error)
+	CreateCollection(context.Context, *CreateCollectionRequest) (*CreateCollectionResponse, error)
+	GetCollections(context.Context, *GetCollectionsRequest) (*GetCollectionsResponse, error)
+	GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error)
+	UpdateCollection(context.Context, *UpdateCollectionRequest) (*UpdateCollectionResponse, error)
+	DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error)
+	CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error)
+	DeleteIndex(context.Context, *DeleteIndexRequest) (*DeleteIndexResponse, error)
+	InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error)
+	ReplaceDocuments(context.Context, *ReplaceDocumentsRequest) (*ReplaceDocumentsResponse, error)
+	DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error)
+	SearchDocuments(context.Context, *SearchDocumentsRequest) (*SearchDocumentsResponse, error)
+	AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error)
+	ProofDocument(context.Context, *ProofDocumentRequest) (*ProofDocumentResponse, error)
 }
 
 // UnimplementedDocumentServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDocumentServiceServer struct {
 }
 
-func (UnimplementedDocumentServiceServer) CollectionCreate(context.Context, *CollectionCreateRequest) (*CollectionCreateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectionCreate not implemented")
+func (UnimplementedDocumentServiceServer) CreateCollection(context.Context, *CreateCollectionRequest) (*CreateCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateCollection not implemented")
 }
-func (UnimplementedDocumentServiceServer) CollectionGet(context.Context, *CollectionGetRequest) (*CollectionGetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectionGet not implemented")
+func (UnimplementedDocumentServiceServer) GetCollections(context.Context, *GetCollectionsRequest) (*GetCollectionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCollections not implemented")
 }
-func (UnimplementedDocumentServiceServer) CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectionList not implemented")
+func (UnimplementedDocumentServiceServer) GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCollection not implemented")
 }
-func (UnimplementedDocumentServiceServer) CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectionDelete not implemented")
+func (UnimplementedDocumentServiceServer) UpdateCollection(context.Context, *UpdateCollectionRequest) (*UpdateCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateCollection not implemented")
 }
-func (UnimplementedDocumentServiceServer) CollectionUpdate(context.Context, *CollectionUpdateRequest) (*CollectionUpdateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectionUpdate not implemented")
+func (UnimplementedDocumentServiceServer) DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteCollection not implemented")
 }
-func (UnimplementedDocumentServiceServer) IndexCreate(context.Context, *IndexCreateRequest) (*IndexCreateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IndexCreate not implemented")
+func (UnimplementedDocumentServiceServer) CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateIndex not implemented")
 }
-func (UnimplementedDocumentServiceServer) IndexDelete(context.Context, *IndexDeleteRequest) (*IndexDeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IndexDelete not implemented")
+func (UnimplementedDocumentServiceServer) DeleteIndex(context.Context, *DeleteIndexRequest) (*DeleteIndexResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteIndex not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentInsert(context.Context, *DocumentInsertRequest) (*DocumentInsertResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsert not implemented")
+func (UnimplementedDocumentServiceServer) InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InsertDocuments not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentInsertMany(context.Context, *DocumentInsertManyRequest) (*DocumentInsertManyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentInsertMany not implemented")
+func (UnimplementedDocumentServiceServer) ReplaceDocuments(context.Context, *ReplaceDocumentsRequest) (*ReplaceDocumentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplaceDocuments not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentUpdate(context.Context, *DocumentUpdateRequest) (*DocumentUpdateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentUpdate not implemented")
+func (UnimplementedDocumentServiceServer) DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteDocuments not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentSearch(context.Context, *DocumentSearchRequest) (*DocumentSearchResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentSearch not implemented")
+func (UnimplementedDocumentServiceServer) SearchDocuments(context.Context, *SearchDocumentsRequest) (*SearchDocumentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SearchDocuments not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentAudit(context.Context, *DocumentAuditRequest) (*DocumentAuditResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentAudit not implemented")
+func (UnimplementedDocumentServiceServer) AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AuditDocument not implemented")
 }
-func (UnimplementedDocumentServiceServer) DocumentProof(context.Context, *DocumentProofRequest) (*DocumentProofResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentProof not implemented")
-}
-func (UnimplementedDocumentServiceServer) DocumentDelete(context.Context, *DocumentDeleteRequest) (*DocumentDeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DocumentDelete not implemented")
+func (UnimplementedDocumentServiceServer) ProofDocument(context.Context, *ProofDocumentRequest) (*ProofDocumentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProofDocument not implemented")
 }
 
 // UnsafeDocumentServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -246,254 +232,236 @@ func RegisterDocumentServiceServer(s grpc.ServiceRegistrar, srv DocumentServiceS
 	s.RegisterService(&DocumentService_ServiceDesc, srv)
 }
 
-func _DocumentService_CollectionCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectionCreateRequest)
+func _DocumentService_CreateCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCollectionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).CollectionCreate(ctx, in)
+		return srv.(DocumentServiceServer).CreateCollection(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/CollectionCreate",
+		FullMethod: "/immudb.model.DocumentService/CreateCollection",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).CollectionCreate(ctx, req.(*CollectionCreateRequest))
+		return srv.(DocumentServiceServer).CreateCollection(ctx, req.(*CreateCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_CollectionGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectionGetRequest)
+func _DocumentService_GetCollections_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCollectionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).CollectionGet(ctx, in)
+		return srv.(DocumentServiceServer).GetCollections(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/CollectionGet",
+		FullMethod: "/immudb.model.DocumentService/GetCollections",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).CollectionGet(ctx, req.(*CollectionGetRequest))
+		return srv.(DocumentServiceServer).GetCollections(ctx, req.(*GetCollectionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_CollectionList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectionListRequest)
+func _DocumentService_GetCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCollectionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).CollectionList(ctx, in)
+		return srv.(DocumentServiceServer).GetCollection(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/CollectionList",
+		FullMethod: "/immudb.model.DocumentService/GetCollection",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).CollectionList(ctx, req.(*CollectionListRequest))
+		return srv.(DocumentServiceServer).GetCollection(ctx, req.(*GetCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_CollectionDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectionDeleteRequest)
+func _DocumentService_UpdateCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCollectionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).CollectionDelete(ctx, in)
+		return srv.(DocumentServiceServer).UpdateCollection(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/CollectionDelete",
+		FullMethod: "/immudb.model.DocumentService/UpdateCollection",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).CollectionDelete(ctx, req.(*CollectionDeleteRequest))
+		return srv.(DocumentServiceServer).UpdateCollection(ctx, req.(*UpdateCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_CollectionUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectionUpdateRequest)
+func _DocumentService_DeleteCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCollectionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).CollectionUpdate(ctx, in)
+		return srv.(DocumentServiceServer).DeleteCollection(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/CollectionUpdate",
+		FullMethod: "/immudb.model.DocumentService/DeleteCollection",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).CollectionUpdate(ctx, req.(*CollectionUpdateRequest))
+		return srv.(DocumentServiceServer).DeleteCollection(ctx, req.(*DeleteCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_IndexCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IndexCreateRequest)
+func _DocumentService_CreateIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateIndexRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).IndexCreate(ctx, in)
+		return srv.(DocumentServiceServer).CreateIndex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/IndexCreate",
+		FullMethod: "/immudb.model.DocumentService/CreateIndex",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).IndexCreate(ctx, req.(*IndexCreateRequest))
+		return srv.(DocumentServiceServer).CreateIndex(ctx, req.(*CreateIndexRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_IndexDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IndexDeleteRequest)
+func _DocumentService_DeleteIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteIndexRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).IndexDelete(ctx, in)
+		return srv.(DocumentServiceServer).DeleteIndex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/IndexDelete",
+		FullMethod: "/immudb.model.DocumentService/DeleteIndex",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).IndexDelete(ctx, req.(*IndexDeleteRequest))
+		return srv.(DocumentServiceServer).DeleteIndex(ctx, req.(*DeleteIndexRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_DocumentInsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentInsertRequest)
+func _DocumentService_InsertDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InsertDocumentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentInsert(ctx, in)
+		return srv.(DocumentServiceServer).InsertDocuments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentInsert",
+		FullMethod: "/immudb.model.DocumentService/InsertDocuments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentInsert(ctx, req.(*DocumentInsertRequest))
+		return srv.(DocumentServiceServer).InsertDocuments(ctx, req.(*InsertDocumentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_DocumentInsertMany_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentInsertManyRequest)
+func _DocumentService_ReplaceDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceDocumentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentInsertMany(ctx, in)
+		return srv.(DocumentServiceServer).ReplaceDocuments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentInsertMany",
+		FullMethod: "/immudb.model.DocumentService/ReplaceDocuments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentInsertMany(ctx, req.(*DocumentInsertManyRequest))
+		return srv.(DocumentServiceServer).ReplaceDocuments(ctx, req.(*ReplaceDocumentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_DocumentUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentUpdateRequest)
+func _DocumentService_DeleteDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDocumentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentUpdate(ctx, in)
+		return srv.(DocumentServiceServer).DeleteDocuments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentUpdate",
+		FullMethod: "/immudb.model.DocumentService/DeleteDocuments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentUpdate(ctx, req.(*DocumentUpdateRequest))
+		return srv.(DocumentServiceServer).DeleteDocuments(ctx, req.(*DeleteDocumentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_DocumentSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentSearchRequest)
+func _DocumentService_SearchDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchDocumentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentSearch(ctx, in)
+		return srv.(DocumentServiceServer).SearchDocuments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentSearch",
+		FullMethod: "/immudb.model.DocumentService/SearchDocuments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentSearch(ctx, req.(*DocumentSearchRequest))
+		return srv.(DocumentServiceServer).SearchDocuments(ctx, req.(*SearchDocumentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_DocumentAudit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentAuditRequest)
+func _DocumentService_AuditDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuditDocumentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentAudit(ctx, in)
+		return srv.(DocumentServiceServer).AuditDocument(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentAudit",
+		FullMethod: "/immudb.model.DocumentService/AuditDocument",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentAudit(ctx, req.(*DocumentAuditRequest))
+		return srv.(DocumentServiceServer).AuditDocument(ctx, req.(*AuditDocumentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DocumentService_DocumentProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentProofRequest)
+func _DocumentService_ProofDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProofDocumentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentProof(ctx, in)
+		return srv.(DocumentServiceServer).ProofDocument(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentProof",
+		FullMethod: "/immudb.model.DocumentService/ProofDocument",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentProof(ctx, req.(*DocumentProofRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _DocumentService_DocumentDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DocumentDeleteRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DocumentServiceServer).DocumentDelete(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/immudb.model.DocumentService/DocumentDelete",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DocumentServiceServer).DocumentDelete(ctx, req.(*DocumentDeleteRequest))
+		return srv.(DocumentServiceServer).ProofDocument(ctx, req.(*ProofDocumentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -506,60 +474,56 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DocumentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CollectionCreate",
-			Handler:    _DocumentService_CollectionCreate_Handler,
+			MethodName: "CreateCollection",
+			Handler:    _DocumentService_CreateCollection_Handler,
 		},
 		{
-			MethodName: "CollectionGet",
-			Handler:    _DocumentService_CollectionGet_Handler,
+			MethodName: "GetCollections",
+			Handler:    _DocumentService_GetCollections_Handler,
 		},
 		{
-			MethodName: "CollectionList",
-			Handler:    _DocumentService_CollectionList_Handler,
+			MethodName: "GetCollection",
+			Handler:    _DocumentService_GetCollection_Handler,
 		},
 		{
-			MethodName: "CollectionDelete",
-			Handler:    _DocumentService_CollectionDelete_Handler,
+			MethodName: "UpdateCollection",
+			Handler:    _DocumentService_UpdateCollection_Handler,
 		},
 		{
-			MethodName: "CollectionUpdate",
-			Handler:    _DocumentService_CollectionUpdate_Handler,
+			MethodName: "DeleteCollection",
+			Handler:    _DocumentService_DeleteCollection_Handler,
 		},
 		{
-			MethodName: "IndexCreate",
-			Handler:    _DocumentService_IndexCreate_Handler,
+			MethodName: "CreateIndex",
+			Handler:    _DocumentService_CreateIndex_Handler,
 		},
 		{
-			MethodName: "IndexDelete",
-			Handler:    _DocumentService_IndexDelete_Handler,
+			MethodName: "DeleteIndex",
+			Handler:    _DocumentService_DeleteIndex_Handler,
 		},
 		{
-			MethodName: "DocumentInsert",
-			Handler:    _DocumentService_DocumentInsert_Handler,
+			MethodName: "InsertDocuments",
+			Handler:    _DocumentService_InsertDocuments_Handler,
 		},
 		{
-			MethodName: "DocumentInsertMany",
-			Handler:    _DocumentService_DocumentInsertMany_Handler,
+			MethodName: "ReplaceDocuments",
+			Handler:    _DocumentService_ReplaceDocuments_Handler,
 		},
 		{
-			MethodName: "DocumentUpdate",
-			Handler:    _DocumentService_DocumentUpdate_Handler,
+			MethodName: "DeleteDocuments",
+			Handler:    _DocumentService_DeleteDocuments_Handler,
 		},
 		{
-			MethodName: "DocumentSearch",
-			Handler:    _DocumentService_DocumentSearch_Handler,
+			MethodName: "SearchDocuments",
+			Handler:    _DocumentService_SearchDocuments_Handler,
 		},
 		{
-			MethodName: "DocumentAudit",
-			Handler:    _DocumentService_DocumentAudit_Handler,
+			MethodName: "AuditDocument",
+			Handler:    _DocumentService_AuditDocument_Handler,
 		},
 		{
-			MethodName: "DocumentProof",
-			Handler:    _DocumentService_DocumentProof_Handler,
-		},
-		{
-			MethodName: "DocumentDelete",
-			Handler:    _DocumentService_DocumentDelete_Handler,
+			MethodName: "ProofDocument",
+			Handler:    _DocumentService_ProofDocument_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

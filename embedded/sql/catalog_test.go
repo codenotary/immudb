@@ -113,9 +113,10 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 		var prevEncKey []byte
 
 		for i := 0; i < 10; i++ {
-			encKey, err := EncodeRawValueAsKey(int64(i), IntegerType, 8)
+			encKey, n, err := EncodeRawValueAsKey(int64(i), IntegerType, 8)
 			require.NoError(t, err)
 			require.Greater(t, encKey, prevEncKey)
+			require.Equal(t, 8, n)
 
 			prevEncKey = encKey
 		}
@@ -125,9 +126,10 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 		var prevEncKey []byte
 
 		for _, v := range []string{"key1", "key11", "key2", "key3"} {
-			encKey, err := EncodeRawValueAsKey(v, VarcharType, 10)
+			encKey, n, err := EncodeRawValueAsKey(v, VarcharType, 10)
 			require.NoError(t, err)
 			require.Greater(t, encKey, prevEncKey)
+			require.Equal(t, len(v), n)
 
 			prevEncKey = encKey
 		}

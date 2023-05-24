@@ -96,9 +96,10 @@ const MaxNumberOfColumnsInIndex = 8
 type Engine struct {
 	store *store.ImmuStore
 
-	prefix        []byte
-	distinctLimit int
-	autocommit    bool
+	prefix                        []byte
+	distinctLimit                 int
+	autocommit                    bool
+	lazyIndexConstraintValidation bool
 
 	multidbHandler MultiDBHandler
 }
@@ -121,11 +122,12 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	e := &Engine{
-		store:          store,
-		prefix:         make([]byte, len(opts.prefix)),
-		distinctLimit:  opts.distinctLimit,
-		autocommit:     opts.autocommit,
-		multidbHandler: opts.multidbHandler,
+		store:                         store,
+		prefix:                        make([]byte, len(opts.prefix)),
+		distinctLimit:                 opts.distinctLimit,
+		autocommit:                    opts.autocommit,
+		lazyIndexConstraintValidation: opts.lazyIndexConstraintValidation,
+		multidbHandler:                opts.multidbHandler,
 	}
 
 	copy(e.prefix, opts.prefix)
