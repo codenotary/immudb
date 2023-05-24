@@ -88,12 +88,42 @@ function test_matrix_sql() {
 	print_result "$REPL" "${STATS[@]}"
 }
 
+function test_matrix_doc() {
+	SRV=$1
+	ADDR=$2
+	REPL=$3
+	STATS=()
+	> /tmp/runme.log
+	for BATCHSIZE in 1 100 1000
+	do
+		for WORKERS in 1 10 100
+		do
+		echo "BATCHSIZE $BATCHSIZE WORKERS $WORKERS REPL $REPL" | tee -a /tmp/runme.log
+		docker-compose up -d $SRV
+		sleep 5
+		docker-compose run immudb-tools-web-api \
+			-b http://$ADDR:8080 --duration $DURATION \
+			-w $WORKERS -s $BATCHSIZE \
+			2>&1 | tee -a /tmp/runme.log
+		TX=$(tail -n5 /tmp/runme.log|awk '/TX:/{print $7}')
+		TXS=$((TX/DURATION))
+		WRS=$((TX*BATCHSIZE/DURATION))
+		STATS+=( $TXS )
+		CSVLINE="$WORKERS;$BATCHSIZE;$REPL;$TXS;$WRS"
+		CSV_LINES+=( $CSVLINE )
+		echo "TXS: $TXS, WRS: $WRS, STATS: ${STATS[*]}"
+		docker-compose down --timeout 2
+		done
+	done
+	print_result "$REPL" "${STATS[@]}"
+}
+
 test_matrix_kv "immudb-standalone" "immudb-standalone" "no"
 test_matrix_kv "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
 test_matrix_kv "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
 test_matrix_sql "immudb-standalone" "immudb-standalone" "no"
 test_matrix_sql "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
-test_matrix_sql "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
+#test_matrix_sql "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
 
 printf '%s\n' "${CSV_LINES[@]}"
 
