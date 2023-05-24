@@ -18,7 +18,7 @@ function print_result() {
 	IDX=0
 	echo "#---"
 	echo "clients	batchsize	repl.	Write TX/s	Write KV/s"
-	for BATCHSIZE in 1 10 100
+	for BATCHSIZE in 1 100 1000
 	do
 		for WORKERS in 1 10 100
 		do
@@ -35,7 +35,7 @@ function test_matrix_kv() {
 	REPL=$3
 	STATS=()
 	> /tmp/runme.log
-	for BATCHSIZE in 1 10 100
+	for BATCHSIZE in 1 100 1000
 	do
 		for WORKERS in 1 10 100
 		do
@@ -64,7 +64,7 @@ function test_matrix_sql() {
 	REPL=$3
 	STATS=()
 	> /tmp/runme.log
-	for BATCHSIZE in 1 10 100
+	for BATCHSIZE in 1 100 1000
 	do
 		for WORKERS in 1 10 100
 		do
@@ -73,7 +73,7 @@ function test_matrix_sql() {
 		sleep 5
 		docker-compose run immudb-tools-sql \
 			-addr $ADDR -db perf -duration $DURATION \
-			-workers $WORKERS -txsize $BATCHSIZE \
+			-workers $WORKERS -txsize 1 -insert-size $BATCHSIZE \
 			2>&1 | tee -a /tmp/runme.log
 		WRS=$(tail -n1 /tmp/runme.log|grep -F "Total Writes"|grep -Eo '[0-9.]+ writes/s'|cut -d ' ' -f 1)
 		TXS=$(tail -n1 /tmp/runme.log|awk "/Total Writes/{print \$9/$BATCHSIZE}")
