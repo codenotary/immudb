@@ -20,11 +20,21 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/codenotary/immudb/test/document_storage_tests/documents_tests/models"
 	"github.com/gavv/httpexpect/v2"
 )
 
-func SearchDocuments(expect *httpexpect.Expect, sessionID string, collectionName string, payload map[string]interface{}) *httpexpect.Object {
-	document := expect.POST(fmt.Sprintf("/collection/%s/documents/search", collectionName)).
+func SearchDocuments(expect *httpexpect.Expect, sessionID string, collection *httpexpect.Object, fieldComparison models.FieldComparison) *httpexpect.Object {
+	fieldComparisons := []models.FieldComparison{fieldComparison}
+	expressions := models.Expressions{FieldComparisons: fieldComparisons}
+	query := models.Query{Expressions: []models.Expressions{expressions}}
+	payload := models.SearchPayload{
+		Query:    query,
+		Page:     1,
+		PageSize: 1,
+	}
+
+	document := expect.POST(fmt.Sprintf("/collection/%s/documents/search", collection.Value("collection").Object().Value("name").String().Raw())).
 		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithJSON(payload).
 		Expect().
