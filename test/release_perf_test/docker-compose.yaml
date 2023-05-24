@@ -47,3 +47,10 @@ services:
         image: immudb-tools
         entrypoint:
         - "/usr/local/bin/paralsql"
+
+    immudb-tools-web-api:
+        container_name: immudb-tools
+        image: immudb-tools
+        working_dir: "/usr/local/immudb-tools/test-web-api/"
+        network_mode: "host"
+        entrypoint: ['python', 'main.py']

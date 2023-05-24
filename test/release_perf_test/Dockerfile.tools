@@ -1,11 +1,16 @@
 FROM golang:1.19 as builder
 WORKDIR /src/immudb-tools
-RUN git clone https://github.com/codenotary/immudb-tools .
+RUN git clone --branch test/web-api-load https://github.com/codenotary/immudb-tools .
 RUN (cd stresser2 && go build)
 RUN (cd paralsql && go build)
 
-FROM debian:stable-slim
-COPY --from=builder /src/immudb-tools/stresser2/stresser2 /src/immudb-tools/paralsql/paralsql /usr/local/bin
+FROM python:3.10-slim
+COPY --from=builder /src/immudb-tools/stresser2/stresser2 /src/immudb-tools/paralsql/paralsql /usr/local/bin/
+COPY --from=builder /src/immudb-tools/test-web-api/ /usr/local/immudb-tools/test-web-api/
+RUN apt-get update && apt-get install -y curl && \
+    curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 - --version 1.4.2
+ENV PATH="$PATH:/etc/poetry/venv/bin"
+RUN cd /usr/local/immudb-tools/test-web-api/ && \
+    poetry config virtualenvs.create false && poetry install
 ENTRYPOINT ["/bin/bash", "-c"]
 CMD ["echo hello world"]
-
