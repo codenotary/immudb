@@ -102,7 +102,7 @@ function test_matrix_doc() {
 		docker-compose up -d $SRV
 		sleep 5
 		docker-compose run immudb-tools-web-api \
-			-b http://$ADDR:8080 --duration $DURATION \
+			-b http://$ADDR:8080 --duration $DURATION -db perf \
 			-w $WORKERS -s $BATCHSIZE \
 			2>&1 | tee -a /tmp/runme.log
 		TX=$(tail -n5 /tmp/runme.log|awk '/TX:/{print $7}')
