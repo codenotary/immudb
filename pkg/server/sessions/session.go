@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
 
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
@@ -35,6 +34,9 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"google.golang.org/grpc/metadata"
 )
+
+// DefaultMaxDocumentReadersCacheSize is the default maximum number of document readers to keep in cache
+const DefaultMaxDocumentReadersCacheSize = 1
 
 var (
 	ErrPaginatedDocumentReaderNotFound = errors.New("document reader not found")
@@ -48,34 +50,30 @@ type PaginatedDocumentReader struct {
 }
 
 type Session struct {
-	mux                      sync.RWMutex
-	id                       string
-	user                     *auth.User
-	database                 database.DB
-	creationTime             time.Time
-	lastActivityTime         time.Time
-	transactions             map[string]transactions.Transaction
-	paginatedDocumentReaders *cache.LRUCache // track searchID to sql.RowReader objects
-	log                      logger.Logger
+	mux              sync.RWMutex
+	id               string
+	user             *auth.User
+	database         database.DB
+	creationTime     time.Time
+	lastActivityTime time.Time
+	transactions     map[string]transactions.Transaction
+	documentReaders  *cache.LRUCache // track searchID to document.DocumentReader
+	log              logger.Logger
 }
 
-func NewSession(sessionID string, user *auth.User, db database.DB, maxActiveSnapshots int, log logger.Logger) *Session {
-	if maxActiveSnapshots == 0 {
-		maxActiveSnapshots = store.DefaultMaxActiveTransactions
-	}
-
+func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
 	now := time.Now()
-	lruCache, _ := cache.NewLRUCache(maxActiveSnapshots)
+	lruCache, _ := cache.NewLRUCache(DefaultMaxDocumentReadersCacheSize)
 
 	return &Session{
-		id:                       sessionID,
-		user:                     user,
-		database:                 db,
-		creationTime:             now,
-		lastActivityTime:         now,
-		transactions:             make(map[string]transactions.Transaction),
-		log:                      log,
-		paginatedDocumentReaders: lruCache,
+		id:               sessionID,
+		user:             user,
+		database:         db,
+		creationTime:     now,
+		lastActivityTime: now,
+		transactions:     make(map[string]transactions.Transaction),
+		log:              log,
+		documentReaders:  lruCache,
 	}
 }
 
@@ -107,11 +105,11 @@ func (s *Session) removeTransaction(transactionID string) error {
 	return ErrTransactionNotFound
 }
 
-func (s *Session) ClosePaginatedDocumentReaders() error {
+func (s *Session) CloseDocumentReaders() error {
 	merr := multierr.NewMultiErr()
 
 	searchIDs := make([]string, 0)
-	if err := s.paginatedDocumentReaders.Apply(func(k, v interface{}) error {
+	if err := s.documentReaders.Apply(func(k, v interface{}) error {
 		searchIDs = append(searchIDs, k.(string))
 		return nil
 	}); err != nil {
@@ -120,7 +118,7 @@ func (s *Session) ClosePaginatedDocumentReaders() error {
 	}
 
 	for _, searchID := range searchIDs {
-		if err := s.deletePaginatedDocumentReader(searchID); err != nil {
+		if err := s.deleteDocumentReader(searchID); err != nil {
 			s.log.Errorf("Error while removing paginated reader: %v", err)
 			merr.Append(err)
 		}
@@ -241,13 +239,13 @@ func (s *Session) GetCreationTime() time.Time {
 }
 
 func (s *Session) SetPaginatedDocumentReader(searchID string, reader *PaginatedDocumentReader) {
-	// add the reader to the paginatedDocumentReaders map
-	s.paginatedDocumentReaders.Put(searchID, reader)
+	// add the reader to the documentReaders map
+	s.documentReaders.Put(searchID, reader)
 }
 
-func (s *Session) GetPaginatedDocumentReader(searchID string) (*PaginatedDocumentReader, error) {
+func (s *Session) GetDocumentReader(searchID string) (*PaginatedDocumentReader, error) {
 	// get the io.Reader object for the specified searchID
-	val, err := s.paginatedDocumentReaders.Get(searchID)
+	val, err := s.documentReaders.Get(searchID)
 	if err != nil {
 		return nil, ErrPaginatedDocumentReaderNotFound
 	}
@@ -257,9 +255,9 @@ func (s *Session) GetPaginatedDocumentReader(searchID string) (*PaginatedDocumen
 	return reader, nil
 }
 
-func (s *Session) deletePaginatedDocumentReader(searchID string) error {
+func (s *Session) deleteDocumentReader(searchID string) error {
 	// get the io.Reader object for the specified searchID
-	val, err := s.paginatedDocumentReaders.Get(searchID)
+	val, err := s.documentReaders.Get(searchID)
 	if err != nil {
 		return ErrPaginatedDocumentReaderNotFound
 	}
@@ -268,7 +266,7 @@ func (s *Session) deletePaginatedDocumentReader(searchID string) error {
 
 	// close the reader
 	err = reader.Reader.Close()
-	s.paginatedDocumentReaders.Pop(searchID)
+	s.documentReaders.Pop(searchID)
 	if err != nil {
 		return err
 	}
@@ -276,13 +274,13 @@ func (s *Session) deletePaginatedDocumentReader(searchID string) error {
 	return nil
 }
 
-func (s *Session) DeletePaginatedDocumentReader(searchID string) error {
-	return s.deletePaginatedDocumentReader(searchID)
+func (s *Session) DeleteDocumentReader(searchID string) error {
+	return s.deleteDocumentReader(searchID)
 }
 
 func (s *Session) UpdatePaginatedDocumentReader(searchID string, lastPage uint32, lastPageSize uint32) error {
 	// get the io.Reader object for the specified searchID
-	val, err := s.paginatedDocumentReaders.Get(searchID)
+	val, err := s.documentReaders.Get(searchID)
 	if err != nil {
 		return ErrPaginatedDocumentReaderNotFound
 	}
@@ -294,6 +292,6 @@ func (s *Session) UpdatePaginatedDocumentReader(searchID string, lastPage uint32
 	return nil
 }
 
-func (s *Session) GetPaginatedDocumentReadersCount() int {
-	return s.paginatedDocumentReaders.EntriesCount()
+func (s *Session) GetDocumentReadersCount() int {
+	return s.documentReaders.EntriesCount()
 }

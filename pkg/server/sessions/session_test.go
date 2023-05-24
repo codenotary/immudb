@@ -29,7 +29,7 @@ import (
 )
 
 func TestNewSession(t *testing.T) {
-	sess := NewSession("sessID", &auth.User{}, nil, 0, logger.NewSimpleLogger("test", stdos.Stdout))
+	sess := NewSession("sessID", &auth.User{}, nil, logger.NewSimpleLogger("test", stdos.Stdout))
 	require.NotNil(t, sess)
 	require.Less(t, sess.GetCreationTime(), time.Now())
 	require.Less(t, sess.GetLastActivityTime(), time.Now())

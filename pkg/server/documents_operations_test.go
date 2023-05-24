@@ -234,7 +234,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 		sess, err := s.SessManager.GetSession(sessionID)
 		require.NoError(t, err)
-		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
+		require.Equal(t, 1, sess.GetDocumentReadersCount())
 
 		t.Run("test reader should throw no more entries when reading more entries from a reader", func(t *testing.T) {
 			_, err = s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{
@@ -388,7 +388,7 @@ func TestPaginationWithoutSearchID(t *testing.T) {
 			require.Equal(t, i, docAtRev.Document.Fields["idx"].GetNumberValue())
 		}
 
-		require.Zero(t, sess.GetPaginatedDocumentReadersCount())
+		require.Zero(t, sess.GetDocumentReadersCount())
 	})
 
 	// close session and ensure that all paginated readers are closed
@@ -497,7 +497,7 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 
 		sess, err := s.SessManager.GetSession(sessionID)
 		require.NoError(t, err)
-		require.Equal(t, 1, sess.GetPaginatedDocumentReadersCount())
+		require.Equal(t, 1, sess.GetDocumentReadersCount())
 
 		t.Run("test reader should throw no more entries when reading more entries from a reader", func(t *testing.T) {
 			resp, err := s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{
@@ -548,7 +548,7 @@ func TestPaginatedReader_NoMoreDocsFound(t *testing.T) {
 
 		sess, err := s.SessManager.GetSession(sessionID)
 		require.NoError(t, err)
-		require.Equal(t, 0, sess.GetPaginatedDocumentReadersCount())
+		require.Equal(t, 0, sess.GetDocumentReadersCount())
 
 		t.Run("test reader should throw error when search id is invalid", func(t *testing.T) {
 			_, err = s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{

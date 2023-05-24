@@ -181,7 +181,7 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 	if req.SearchId != "" {
 		var err error
 
-		if pgreader, err = sess.GetPaginatedDocumentReader(req.SearchId); err != nil {
+		if pgreader, err = sess.GetDocumentReader(req.SearchId); err != nil {
 			// invalid SearchId, return error
 			return nil, err
 		}
@@ -235,7 +235,7 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 
 	if errors.Is(err, document.ErrNoMoreDocuments) || !req.KeepOpen {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
-		err = sess.DeletePaginatedDocumentReader(req.SearchId)
+		err = sess.DeleteDocumentReader(req.SearchId)
 		if err != nil {
 			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", req.SearchId, err)
 		}
