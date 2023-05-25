@@ -5,7 +5,7 @@ services:
         image: immudb-perftest
         build:
             context: ../..
-            dockerfile: test/release_perf_test/Dockerfile
+            dockerfile: test/release_perf_test/${DOCKERFILE:-Dockerfile}
     immudb-tools:
         container_name: immudb-tools
         image: immudb-tools

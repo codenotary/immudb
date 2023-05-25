@@ -1,14 +1,35 @@
 #!/bin/bash
-docker-compose build immudb-perftest immudb-tools
-
-if [ -z "$1" ]
-then
 DURATION=600
-else
-DURATION=$1
-fi
+BUILD=1
 
+while getopts "hbd:D" arg; do
+  case $arg in
+    d)
+      DURATION=$OPTARG
+      ;;
+    b)
+      unset BUILD
+      ;;
+    D)
+      SKIPDOC=1
+      ;;
+    h | *)
+      echo "Usage:"
+      echo "$0 [ -d duration ] [ -n ] [ -D ]"
+      echo "        -d duration: duration of each test in seconds"
+      echo "        -n (nobuild): skip building of containers"
+      echo "        -D (nodocument): skip document test"
+      exit 1
+      ;;
+  esac
+done
+
+if [ $BUILD ]
+then
+docker-compose build immudb-perftest immudb-tools
+fi
 CSV_LINES=( 'client,batchsize,replication,Write TX/s,Write KV/s' )
+
 
 function print_result() {
 	local REPL=$1
@@ -105,7 +126,7 @@ function test_matrix_doc() {
 			-b http://$ADDR:8080 --duration $DURATION -db perf \
 			-w $WORKERS -s $BATCHSIZE \
 			2>&1 | tee -a /tmp/runme.log
-		TX=$(tail -n5 /tmp/runme.log|awk '/TX:/{print $7}')
+		TX=$(awk '/TX:/{print $7}' /tmp/runme.log | tail -n 1)
 		TXS=$((TX/DURATION))
 		WRS=$((TX*BATCHSIZE/DURATION))
 		STATS+=( $TXS )
@@ -127,9 +148,12 @@ test_matrix_sql "immudb-async-main immudb-async-replica" "immudb-async-main" "as
 # FIXME sql + sync is currently broken
 #test_matrix_sql "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
 
+if [ ! $SKIPDOC ]
+then
 test_matrix_doc "immudb-standalone" "immudb-standalone" "no"
 test_matrix_doc "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
 test_matrix_doc "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
+fi
 
 printf '%s\n' "${CSV_LINES[@]}"
 
