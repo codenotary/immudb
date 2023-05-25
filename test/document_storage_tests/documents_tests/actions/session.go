@@ -21,16 +21,17 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/test/document_storage_tests/documents_tests/models"
 	"github.com/gavv/httpexpect/v2"
 )
 
 func OpenSession(t *testing.T) (*httpexpect.Expect, string) {
 	baseURL := GetBaseUrl()
 
-	user := map[string]interface{}{
-		"username": "immudb",
-		"password": "immudb",
-		"database": "defaultdb",
+	user := models.User{
+		Username: "immudb",
+		Password: "immudb",
+		Database: "defaultdb",
 	}
 
 	expect := httpexpect.Default(t, baseURL)
