@@ -1,0 +1,12 @@
+FROM golang:1.18 as builder
+WORKDIR /src/immudb
+RUN git clone --branch v1.4.1 https://github.com/codenotary/immudb .
+RUN go mod download -x
+RUN rm -rf /src/webconsole/dist &&   mkdir /var/lib/immudb
+RUN GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static immuclient-static
+
+FROM debian:stable-slim
+COPY --from=builder /src/immudb/immuadmin /src/immudb/immudb /src/immudb/immuclient /usr/local/bin
+COPY test/release_perf_test/startup.sh /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/startup.sh"]
+CMD ["standalone"]
