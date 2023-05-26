@@ -1,0 +1,55 @@
+version: '3.9'
+services:
+    immudb-perftest:
+        container_name: immudb-perftest
+        image: immudb-perftest
+        build:
+            context: ../..
+            dockerfile: test/release_perf_test/${DOCKERFILE:-Dockerfile}
+    immudb-tools:
+        container_name: immudb-tools
+        image: immudb-tools
+        build:
+            context: .
+            dockerfile: ./Dockerfile.tools
+
+    immudb-standalone:
+        container_name: immudb-standalone
+        image: immudb-perftest
+        command: ["standalone"]
+
+    immudb-async-main:
+        container_name: immudb-async-main
+        image: immudb-perftest
+        command: ["asyncmain"]
+    immudb-async-replica:
+        container_name: immudb-async-replica
+        image: immudb-perftest
+        command: ["asyncreplica"]
+
+    immudb-sync-main:
+        container_name: immudb-sync-main
+        image: immudb-perftest
+        command: ["syncmain"]
+    immudb-sync-replica:
+        container_name: immudb-sync-replica
+        image: immudb-perftest
+        command: ["syncreplica"]
+
+    immudb-tools-kv:
+        container_name: immudb-tools
+        image: immudb-tools
+        entrypoint:
+        - "/usr/local/bin/stresser2"
+
+    immudb-tools-sql:
+        container_name: immudb-tools
+        image: immudb-tools
+        entrypoint:
+        - "/usr/local/bin/paralsql"
+
+    immudb-tools-web-api:
+        container_name: immudb-tools
+        image: immudb-tools
+        working_dir: "/usr/local/immudb-tools/test-web-api/"
+        entrypoint: ['python', 'main.py']
