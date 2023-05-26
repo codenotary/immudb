@@ -1,6 +1,6 @@
 FROM golang:1.19 as builder
 WORKDIR /src/immudb-tools
-RUN git clone --branch test/web-api-load https://github.com/codenotary/immudb-tools .
+RUN git clone https://github.com/codenotary/immudb-tools .
 RUN (cd stresser2 && go build)
 RUN (cd paralsql && go build)
 
