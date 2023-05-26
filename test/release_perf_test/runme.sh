@@ -1,24 +1,36 @@
 #!/bin/bash
+
 DURATION=600
 BUILD=1
+DOCTEST=1
+SQLTEST=1
+KVTEST=1
 
-while getopts "hbd:D" arg; do
+while getopts "hd:DQKB" arg; do
   case $arg in
     d)
       DURATION=$OPTARG
       ;;
-    b)
+    B)
       unset BUILD
       ;;
     D)
-      SKIPDOC=1
+      unset DOCKTEST
+      ;;
+    Q)
+      unset SQLTEST
+      ;;
+    K)
+      unset KVTEST
       ;;
     h | *)
       echo "Usage:"
-      echo "$0 [ -d duration ] [ -n ] [ -D ]"
+      echo "$0 [ -d duration ] [ -B ] [ -D ] [ -Q ] [ -K ]"
       echo "        -d duration: duration of each test in seconds"
-      echo "        -n (nobuild): skip building of containers"
+      echo "        -B (nobuild): skip building of containers"
       echo "        -D (nodocument): skip document test"
+      echo "        -Q (nosql): skip sql test"
+      echo "        -K (nokv): skip KV test"
       exit 1
       ;;
   esac
@@ -28,7 +40,7 @@ if [ $BUILD ]
 then
 docker-compose build immudb-perftest immudb-tools
 fi
-CSV_LINES=( 'client,batchsize,replication,Write TX/s,Write KV/s' )
+CSV_LINES=( 'test,client,batchsize,replication,Write TX/s,Write KV/s' )
 
 
 function print_result() {
@@ -70,7 +82,7 @@ function test_matrix_kv() {
 			-silent -summary 2>&1 | tee -a /tmp/runme.log
 		TXS=$(tail -n1 /tmp/runme.log|grep -F "TOTAL WRITE"|grep -Eo '[0-9]+ Txs/s'|cut -d ' ' -f 1)
 		STATS+=( $TXS )
-		CSVLINE="$WORKERS;$BATCHSIZE;$REPL;$TXS;$((TXS*BATCHSIZE))"
+		CSVLINE="kv;$WORKERS;$BATCHSIZE;$REPL;$TXS;$((TXS*BATCHSIZE))"
 		CSV_LINES+=( $CSVLINE )
 		echo "TXS: $TXS, STATS: ${STATS[*]}"
 		docker-compose down --timeout 2
@@ -100,7 +112,7 @@ function test_matrix_sql() {
 		TXS=$(tail -n1 /tmp/runme.log|awk "/Total Writes/{print \$9/$BATCHSIZE}")
 		TRUNC_TRS=$(echo $WRS|grep -Eo '^[0-9]+')
 		STATS+=( $TRUNC_TRS )
-		CSVLINE="$WORKERS;$BATCHSIZE;$REPL;$TXS;$WRS"
+		CSVLINE="sql;$WORKERS;$BATCHSIZE;$REPL;$TXS;$WRS"
 		CSV_LINES+=( $CSVLINE )
 		echo "TXS: $TXS, WRS: $WRS, STATS: ${STATS[*]}"
 		docker-compose down --timeout 2
@@ -130,7 +142,7 @@ function test_matrix_doc() {
 		TXS=$((TX/DURATION))
 		WRS=$((TX*BATCHSIZE/DURATION))
 		STATS+=( $TXS )
-		CSVLINE="$WORKERS;$BATCHSIZE;$REPL;$TXS;$WRS"
+		CSVLINE="doc;$WORKERS;$BATCHSIZE;$REPL;$TXS;$WRS"
 		CSV_LINES+=( $CSVLINE )
 		echo "TXS: $TXS, WRS: $WRS, STATS: ${STATS[*]}"
 		docker-compose down --timeout 2
@@ -138,17 +150,22 @@ function test_matrix_doc() {
 	done
 	print_result "$REPL" "${STATS[@]}"
 }
-
+if [ $KVTEST ]
+then
 test_matrix_kv "immudb-standalone" "immudb-standalone" "no"
 test_matrix_kv "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
 test_matrix_kv "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
+fi
 
+if [ $SQLTEST ]
+then
 test_matrix_sql "immudb-standalone" "immudb-standalone" "no"
 test_matrix_sql "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
 # FIXME sql + sync is currently broken
 #test_matrix_sql "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
+fi
 
-if [ ! $SKIPDOC ]
+if [ $DOCTEST ]
 then
 test_matrix_doc "immudb-standalone" "immudb-standalone" "no"
 test_matrix_doc "immudb-async-main immudb-async-replica" "immudb-async-main" "async"
@@ -156,5 +173,6 @@ test_matrix_doc "immudb-sync-main immudb-sync-replica" "immudb-sync-main" "sync"
 fi
 
 printf '%s\n' "${CSV_LINES[@]}"
+printf '%s\n' "${CSV_LINES[@]}" > result.csv
 
 
