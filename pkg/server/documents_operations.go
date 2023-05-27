@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/rs/xid"
 )
@@ -163,6 +164,15 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 		return nil, fmt.Errorf("%w: query or searchId must be specified, not both", ErrIllegalArguments)
 	}
 
+	if req.Page < 1 || req.PageSize < 1 {
+		return nil, fmt.Errorf("%w: invalid page or page size", ErrIllegalArguments)
+	}
+
+	if int(req.PageSize) > db.MaxResultSize() {
+		return nil, fmt.Errorf("%w: the specified page size (%d) is larger than the maximum allowed one (%d)",
+			database.ErrResultSizeLimitExceeded, req.PageSize, db.MaxResultSize())
+	}
+
 	// get the session from the context
 	sessionID, err := sessions.GetSessionIDFromContext(ctx)
 	if err != nil {
@@ -174,14 +184,17 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 		return nil, err
 	}
 
-	// check if the paginated reader for this query has already been created
+	searchID := req.SearchId
+	query := req.Query
+
 	var pgreader *sessions.PaginatedDocumentReader
 
-	// check if the incoming SearchId is valid
-	if req.SearchId != "" {
+	if searchID == "" {
+		searchID = xid.New().String()
+	} else {
 		var err error
 
-		if pgreader, err = sess.GetDocumentReader(req.SearchId); err != nil {
+		if pgreader, err = sess.GetDocumentReader(searchID); err != nil {
 			// invalid SearchId, return error
 			return nil, err
 		}
@@ -192,26 +205,20 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 			if pgreader.Reader != nil {
 				err := pgreader.Reader.Close()
 				if err != nil {
-					s.Logger.Errorf("error closing paginated reader: %s, err = %v", req.SearchId, err)
+					s.Logger.Errorf("error closing paginated reader: %s, err = %v", searchID, err)
 				}
 			}
 
-			req.Query = pgreader.Query
+			query = pgreader.Query
 			pgreader = nil
 		}
-	} else {
-		if req.Page < 1 || req.PageSize < 1 {
-			return nil, fmt.Errorf("%w: invalid page or page size", ErrIllegalArguments)
-		}
-
-		req.SearchId = xid.New().String()
 	}
 
 	if pgreader == nil {
 		// create a new reader and add it to the session
 		offset := int64((req.Page - 1) * req.PageSize)
 
-		docReader, err := db.SearchDocuments(ctx, req.Query, offset)
+		docReader, err := db.SearchDocuments(ctx, query, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -219,12 +226,12 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 		// store the reader in the session for future use
 		pgreader = &sessions.PaginatedDocumentReader{
 			Reader:         docReader,
-			Query:          req.Query,
+			Query:          query,
 			LastPageNumber: req.Page,
 			LastPageSize:   req.PageSize,
 		}
 
-		sess.SetPaginatedDocumentReader(req.SearchId, pgreader)
+		sess.SetPaginatedDocumentReader(searchID, pgreader)
 	}
 
 	// read the next page of data from the paginated reader
@@ -235,9 +242,9 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 
 	if errors.Is(err, document.ErrNoMoreDocuments) || !req.KeepOpen {
 		// end of data reached, remove the paginated reader and pagination parameters from the session
-		err = sess.DeleteDocumentReader(req.SearchId)
+		err = sess.DeleteDocumentReader(searchID)
 		if err != nil {
-			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", req.SearchId, err)
+			s.Logger.Errorf("error deleting paginated reader: %s, err = %v", searchID, err)
 		}
 
 		return &protomodel.SearchDocumentsResponse{
@@ -246,10 +253,10 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 	}
 
 	// update the pagination parameters for this query in the session
-	sess.UpdatePaginatedDocumentReader(req.SearchId, req.Page, req.PageSize)
+	sess.UpdatePaginatedDocumentReader(searchID, req.Page, req.PageSize)
 
 	return &protomodel.SearchDocumentsResponse{
-		SearchId:  req.SearchId,
+		SearchId:  searchID,
 		Revisions: docs,
 	}, nil
 }

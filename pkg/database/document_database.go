@@ -247,6 +247,11 @@ func (d *db) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentReq
 	offset := uint64((req.Page - 1) * req.PageSize)
 	limit := int(req.PageSize)
 
+	if limit > d.maxResultSize {
+		return nil, fmt.Errorf("%w: the specified page size (%d) is larger than the maximum allowed one (%d)",
+			ErrResultSizeLimitExceeded, limit, d.maxResultSize)
+	}
+
 	// verify if document id is valid
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
