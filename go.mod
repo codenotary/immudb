@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
-	github.com/prometheus/procfs v0.7.3
+	github.com/prometheus/procfs v0.10.1
 	github.com/pseudomuto/protoc-gen-doc v1.4.1
 	github.com/rakyll/statik v0.1.7
 	github.com/rogpeppe/go-internal v1.9.0
@@ -35,7 +35,7 @@ require (
 	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.7.0
 	golang.org/x/net v0.9.0
-	golang.org/x/sys v0.7.0
+	golang.org/x/sys v0.8.0
 	golang.org/x/tools/cmd/cover v0.1.0-deprecated
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
 	google.golang.org/grpc v1.54.0
