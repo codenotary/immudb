@@ -25,7 +25,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/swagger"
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
@@ -73,13 +72,6 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 	err = webconsole.SetupWebconsole(webMux, l, httpAddr)
 	if err != nil {
 		return nil, err
-	}
-
-	if s.Options.SwaggerUIEnabled {
-		err = swagger.SetupSwaggerUI(webMux, l, httpAddr)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	httpServer := &http.Server{Addr: httpAddr, Handler: webMux}
