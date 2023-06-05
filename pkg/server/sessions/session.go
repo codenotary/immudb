@@ -106,6 +106,9 @@ func (s *Session) removeTransaction(transactionID string) error {
 }
 
 func (s *Session) CloseDocumentReaders() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	merr := multierr.NewMultiErr()
 
 	searchIDs := make([]string, 0)
@@ -239,11 +242,17 @@ func (s *Session) GetCreationTime() time.Time {
 }
 
 func (s *Session) SetPaginatedDocumentReader(searchID string, reader *PaginatedDocumentReader) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	// add the reader to the documentReaders map
 	s.documentReaders.Put(searchID, reader)
 }
 
 func (s *Session) GetDocumentReader(searchID string) (*PaginatedDocumentReader, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
 	// get the io.Reader object for the specified searchID
 	val, err := s.documentReaders.Get(searchID)
 	if err != nil {
@@ -275,10 +284,16 @@ func (s *Session) deleteDocumentReader(searchID string) error {
 }
 
 func (s *Session) DeleteDocumentReader(searchID string) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	return s.deleteDocumentReader(searchID)
 }
 
 func (s *Session) UpdatePaginatedDocumentReader(searchID string, lastPage uint32, lastPageSize uint32) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	// get the io.Reader object for the specified searchID
 	val, err := s.documentReaders.Get(searchID)
 	if err != nil {
@@ -293,5 +308,8 @@ func (s *Session) UpdatePaginatedDocumentReader(searchID string, lastPage uint32
 }
 
 func (s *Session) GetDocumentReadersCount() int {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
 	return s.documentReaders.EntriesCount()
 }
