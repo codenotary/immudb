@@ -144,21 +144,18 @@ func (sm *manager) deleteSession(sessionID string) error {
 	}
 
 	merr := multierr.NewMultiErr()
-	if err := sess.RollbackTransactions(); err != nil {
-		merr.Append(err)
-	}
 
 	if err := sess.CloseDocumentReaders(); err != nil {
 		merr.Append(err)
 	}
 
-	err := merr.Reduce()
-	delete(sm.sessions, sessionID)
-	if err != nil {
-		return err
+	if err := sess.RollbackTransactions(); err != nil {
+		merr.Append(err)
 	}
 
-	return nil
+	delete(sm.sessions, sessionID)
+
+	return merr.Reduce()
 }
 
 func (sm *manager) UpdateSessionActivityTime(sessionID string) {
