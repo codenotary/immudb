@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -63,21 +62,20 @@ type DefaultMultiFileAppendableHooks struct {
 }
 
 func (d *DefaultMultiFileAppendableHooks) OpenInitialAppendable(opts *Options, singleAppOpts *singleapp.Options) (app appendable.Appendable, appID int64, err error) {
-	fis, err := ioutil.ReadDir(d.path)
+	entries, err := os.ReadDir(d.path)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	var filename string
 
-	if len(fis) > 0 {
-		filename = fis[len(fis)-1].Name()
+	if len(entries) > 0 {
+		filename = entries[len(entries)-1].Name()
 
 		appID, err = strconv.ParseInt(strings.TrimSuffix(filename, filepath.Ext(filename)), 10, 64)
 		if err != nil {
 			return nil, 0, err
 		}
-
 	} else {
 		appID = 0
 		filename = appendableName(appendableID(0, opts.fileSize), opts.fileExt)
@@ -230,13 +228,13 @@ func (mf *MultiFileAppendable) Copy(dstPath string) error {
 		return err
 	}
 
-	fis, err := ioutil.ReadDir(mf.path)
+	entries, err := os.ReadDir(mf.path)
 	if err != nil {
 		return err
 	}
 
-	for _, fd := range fis {
-		_, err = copyFile(path.Join(mf.path, fd.Name()), path.Join(dstPath, fd.Name()))
+	for _, e := range entries {
+		_, err = copyFile(path.Join(mf.path, e.Name()), path.Join(dstPath, e.Name()))
 		if err != nil {
 			return err
 		}
@@ -343,9 +341,13 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 			if err != nil {
 				return off, n, err
 			}
-			currApp.SetOffset(0)
 
 			mf.currApp = currApp
+
+			err = currApp.SetOffset(0)
+			if err != nil {
+				return off, n, err
+			}
 
 			available = mf.fileSize
 		}
@@ -436,7 +438,7 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 		// We also must flush / close current chunk since it will be reopened.
 		for id := appID; id < mf.currAppID; id++ {
 			app, err := mf.appendables.Pop(id)
-			if err == cache.ErrKeyNotFound {
+			if errors.Is(err, cache.ErrKeyNotFound) {
 				continue
 			}
 			if err != nil {
@@ -532,7 +534,7 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 	app, err := mf.appendables.Get(appID)
 
 	if err != nil {
-		if err != cache.ErrKeyNotFound {
+		if !errors.Is(err, cache.ErrKeyNotFound) {
 			return nil, err
 		}
 
@@ -584,7 +586,7 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		rn, err := app.ReadAt(bs[r:], offr%int64(mf.fileSize))
 		r += rn
 
-		if err == io.EOF && rn > 0 {
+		if errors.Is(err, io.EOF) && rn > 0 {
 			continue
 		}
 
@@ -655,7 +657,7 @@ func (mf *MultiFileAppendable) Sync() error {
 
 func (mf *MultiFileAppendable) sync() error {
 	// sync is only needed in the current appendable:
-	// - with retryable sync, non-active appendables were alredy synced
+	// - with retryable sync, non-active appendables were already synced
 	// - with non-retryable sync, data may be lost in previous flush or sync calls
 	return mf.currApp.Sync()
 }
