@@ -17,7 +17,14 @@ limitations under the License.
 package fileutils
 
 func syncDir(path string) error {
-	return nil
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	return f.Sync()
 }
 
 func syncFile(f *os.File) error {
