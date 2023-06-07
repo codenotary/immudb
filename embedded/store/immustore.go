@@ -263,6 +263,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.WithFileExt("tx")
+	appendableOpts.WithPrealloc(true)
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.TxLogMaxOpenedFiles)
 	txLog, err := appFactory(path, "tx", appendableOpts)
@@ -271,12 +272,12 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.WithFileExt("txi")
+	appendableOpts.WithPrealloc(false)
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
 	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open commit log: %w", err)
-
 	}
 
 	metadata = appendable.NewMetadata(cLog.Metadata())
@@ -291,6 +292,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	if !embeddedValues {
 		vLogs = make([]appendable.Appendable, opts.MaxIOConcurrency)
 		appendableOpts.WithFileExt("val")
+		appendableOpts.WithPrealloc(false)
 		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
 		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
 		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
