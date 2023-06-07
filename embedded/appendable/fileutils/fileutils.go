@@ -1,5 +1,5 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2023 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@ limitations under the License.
 
 package fileutils
 
+import "os"
+
 func SyncDir(paths ...string) error {
 	for _, path := range paths {
 		err := syncDir(path)
@@ -24,4 +26,8 @@ func SyncDir(paths ...string) error {
 		}
 	}
 	return nil
+}
+
+func SyncFile(f *os.File) error {
+	return syncFile(f)
 }
