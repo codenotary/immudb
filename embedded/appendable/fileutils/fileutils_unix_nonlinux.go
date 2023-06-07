@@ -1,3 +1,6 @@
+//go:build unix && !linux && !darwin
+// +build unix,!linux,!darwin
+
 /*
 Copyright 2023 Codenotary Inc. All rights reserved.
 

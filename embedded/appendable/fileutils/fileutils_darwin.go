@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 /*
 Copyright 2023 Codenotary Inc. All rights reserved.
 
@@ -15,6 +18,8 @@ limitations under the License.
 */
 
 package fileutils
+
+import "os"
 
 func syncDir(path string) error {
 	f, err := os.Open(path)

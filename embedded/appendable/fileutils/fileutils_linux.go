@@ -1,7 +1,11 @@
+//go:build linux
+// +build linux
+
 /*
 Copyright 2023 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
+
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -16,6 +20,11 @@ limitations under the License.
 
 package fileutils
 
+import (
+	"os"
+	"syscall"
+)
+
 func syncDir(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -28,5 +37,5 @@ func syncDir(path string) error {
 }
 
 func syncFile(f *os.File) error {
-	return syscall.Fdatasync(f.Fd())
+	return syscall.Fdatasync(int(f.Fd()))
 }
