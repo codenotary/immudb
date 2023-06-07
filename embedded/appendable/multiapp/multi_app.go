@@ -107,6 +107,7 @@ type MultiFileAppendable struct {
 	fileSize       int
 	fileExt        string
 	readBufferSize int
+	prealloc       bool
 
 	writeBuffer []byte // shared write-buffer only used by active appendable
 
@@ -170,6 +171,10 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		WithWriteBuffer(writeBuffer).
 		WithMetadata(m.Bytes())
 
+	if opts.prealloc {
+		appendableOpts.WithPreallocSize(opts.fileSize)
+	}
+
 	currApp, currAppID, err := hooks.OpenInitialAppendable(opts, appendableOpts)
 	if err != nil {
 		return nil, err
@@ -194,6 +199,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		fileSize:       fileSize,
 		fileExt:        opts.fileExt,
 		readBufferSize: opts.readBufferSize,
+		prealloc:       opts.prealloc,
 		writeBuffer:    writeBuffer,
 		closed:         false,
 		hooks:          hooks,
@@ -385,6 +391,10 @@ func (mf *MultiFileAppendable) openAppendable(appname string, activeChunk bool) 
 		WithCompressionFormat(mf.currApp.CompressionFormat()).
 		WithCompresionLevel(mf.currApp.CompressionLevel()).
 		WithMetadata(mf.currApp.Metadata())
+
+	if mf.prealloc {
+		appendableOpts.WithPreallocSize(mf.fileSize)
+	}
 
 	if activeChunk && !mf.readOnly {
 		appendableOpts.WithWriteBuffer(mf.writeBuffer)
