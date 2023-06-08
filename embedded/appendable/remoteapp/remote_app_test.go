@@ -366,8 +366,8 @@ func TestRemoteStorageMetrics(t *testing.T) {
 		expectedCount   int
 		expectedStorage int
 	}{
-		{"Active", 1, 169},
-		{"Remote", 4, 4 * 170},
+		{"Active", 1, 198},
+		{"Remote", 4, 4 * 199},
 		{"Uploading", 0, 0},
 	} {
 		t.Run("Checking count for "+d.state, func(t *testing.T) {
