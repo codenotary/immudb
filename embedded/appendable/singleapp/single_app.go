@@ -679,7 +679,12 @@ func (aof *AppendableFile) sync() error {
 		return err
 	}
 
-	err = fileutils.SyncFile(aof.f)
+	if aof.preallocSize == 0 {
+		err = aof.f.Sync()
+	} else {
+		err = fileutils.Fdatasync(aof.f)
+	}
+
 	if !aof.retryableSync {
 		return err
 	}

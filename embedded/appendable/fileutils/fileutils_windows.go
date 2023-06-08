@@ -25,6 +25,6 @@ func syncDir(path string) error {
 	return nil
 }
 
-func syncFile(f *os.File) error {
+func fdatasync(f *os.File) error {
 	return f.Sync()
 }
