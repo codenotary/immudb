@@ -28,6 +28,6 @@ func SyncDir(paths ...string) error {
 	return nil
 }
 
-func SyncFile(f *os.File) error {
-	return syncFile(f)
+func Fdatasync(f *os.File) error {
+	return fdatasync(f)
 }
