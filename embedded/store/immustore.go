@@ -446,7 +446,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	for {
 		err = tx.readFrom(txReader, false)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
