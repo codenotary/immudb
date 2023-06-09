@@ -272,7 +272,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.WithFileExt("txi")
-	appendableOpts.WithPrealloc(false)
+	appendableOpts.WithPrealloc(true)
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
 	cLog, err := appFactory(path, "commit", appendableOpts)
@@ -373,6 +373,43 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		}
 	}
 
+	if cLogSize > 0 {
+		// only needed when cLog is preallocated
+		// find the last non-zeroed clogEntry
+
+		left := int64(1)
+		right := cLogSize / cLogEntrySize
+
+		var b, zeroed [cLogEntrySize]byte
+
+		for left < right {
+			middle := left + ((right-left)+1)/2
+
+			_, err := cLog.ReadAt(b[:], (middle-1)*cLogEntrySize)
+			if err != nil {
+				return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
+			}
+
+			if b == zeroed {
+				// if cLogEntry is zeroed it's considered as preallocated
+				right = middle - 1
+			} else {
+				left = middle
+			}
+		}
+
+		_, err := cLog.ReadAt(b[:], (left-1)*cLogEntrySize)
+		if err != nil {
+			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
+		}
+
+		if b == zeroed {
+			cLogSize = 0
+		} else {
+			cLogSize = left * cLogEntrySize
+		}
+	}
+
 	var committedTxLogSize int64
 	var committedTxOffset int64
 	var committedTxSize int
@@ -380,13 +417,13 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	var committedTxID uint64
 
 	if cLogSize > 0 {
-		b := make([]byte, cLogEntrySize)
-		_, err := cLog.ReadAt(b, cLogSize-cLogEntrySize)
+		var b [cLogEntrySize]byte
+		_, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
 		if err != nil {
 			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
 		}
 
-		committedTxOffset = int64(binary.BigEndian.Uint64(b))
+		committedTxOffset = int64(binary.BigEndian.Uint64(b[:]))
 		committedTxSize = int(binary.BigEndian.Uint32(b[txIDSize:]))
 		committedTxLogSize = committedTxOffset + int64(committedTxSize)
 		committedTxID = uint64(cLogSize) / cLogEntrySize
