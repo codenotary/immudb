@@ -99,6 +99,7 @@ jobs:
           set -euxo pipefail
           ${IMMUCLIENT} || echo "Test #1 OK - immuclient failed to connect (no server started)"
           ${IMMUDB} -d
+          sleep 5
           ${IMMUCLIENT} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
           echo -n "immudb" | ${IMMUCLIENT} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
           ${IMMUCLIENT} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
