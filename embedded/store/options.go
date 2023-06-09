@@ -41,6 +41,7 @@ const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultEmbeddedValues = true
+const DefaultPreallocFiles = true
 const DefaultTxLogCacheSize = 1000
 const DefaultVLogCacheSize = 0
 const DefaultMaxWaitees = 1000
@@ -130,6 +131,7 @@ type Options struct {
 	CompressionFormat int
 	CompressionLevel  int
 	EmbeddedValues    bool
+	PreallocFiles     bool
 
 	// options below affect indexing
 	IndexOpts *IndexOptions
@@ -231,6 +233,7 @@ func DefaultOptions() *Options {
 		CompressionFormat: DefaultCompressionFormat,
 		CompressionLevel:  DefaultCompressionLevel,
 		EmbeddedValues:    DefaultEmbeddedValues,
+		PreallocFiles:     DefaultPreallocFiles,
 
 		IndexOpts: DefaultIndexOptions(),
 
@@ -558,6 +561,11 @@ func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 
 func (opts *Options) WithEmbeddedValues(embeddedValues bool) *Options {
 	opts.EmbeddedValues = embeddedValues
+	return opts
+}
+
+func (opts *Options) WithPreallocFiles(preallocFiles bool) *Options {
+	opts.PreallocFiles = preallocFiles
 	return opts
 }
 

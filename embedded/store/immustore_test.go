@@ -414,7 +414,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	t.Run("should fail setting cLog offset", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize - 1, nil
+			return cLogEntrySizeV1 - 1, nil
 		}
 		cLog.SetOffsetFn = func(off int64) error {
 			return injectedError
@@ -426,7 +426,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	t.Run("should truncate cLog when validating cLogSize", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize - 1, nil
+			return cLogEntrySizeV1 - 1, nil
 		}
 		cLog.SetOffsetFn = func(off int64) error {
 			return nil
@@ -441,7 +441,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	t.Run("should fail reading cLog", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize, nil
+			return cLogEntrySizeV1, nil
 		}
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 			return 0, injectedError
@@ -453,7 +453,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	t.Run("should fail reading txLogSize", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize + 1, nil
+			return cLogEntrySizeV1 + 1, nil
 		}
 		cLog.SetOffsetFn = func(off int64) error {
 			return nil
@@ -468,7 +468,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	t.Run("should fail reading txLogSize", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize, nil
+			return cLogEntrySizeV1, nil
 		}
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 			for i := 0; i < len(bs); i++ {
@@ -485,9 +485,8 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	})
 
 	t.Run("should fail validating txLogSize", func(t *testing.T) {
-
 		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize, nil
+			return cLogEntrySizeV1, nil
 		}
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 			for i := 0; i < len(bs); i++ {
@@ -504,11 +503,13 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	})
 
 	t.Run("fail to read last transaction", func(t *testing.T) {
-
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			buff := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+			buff := []byte{0, 0, 0, 0, 0, 0, 0, 1}
 			require.Less(t, off, int64(len(buff)))
 			return copy(bs, buff[off:]), nil
+		}
+		txLog.SizeFn = func() (int64, error) {
+			return 1, nil
 		}
 		txLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 			return 0, injectedError
@@ -2292,6 +2293,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(metaVersion, Version)
 	metadata.PutBool(metaEmbeddedValues, false)
+	metadata.PutBool(metaPreallocFiles, false)
 	metadata.PutInt(metaFileSize, opts.FileSize)
 	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
 	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
@@ -3060,7 +3062,9 @@ func BenchmarkExportTx(b *testing.B) {
 func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	dir := t.TempDir()
 
-	opts := DefaultOptions().WithEmbeddedValues(false)
+	opts := DefaultOptions().
+		WithEmbeddedValues(false).
+		WithPreallocFiles(false)
 
 	immuStore, err := Open(dir, opts)
 	require.NoError(t, err)
@@ -3091,6 +3095,9 @@ func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 
 		_, err = fl.Write(buff)
 		require.NoError(t, err)
+
+		err = fl.Sync()
+		require.NoError(t, err)
 	}
 
 	append("commit/00000000.txi", 11) // Commit log entry is 12 bytes, must add less than that
@@ -3119,7 +3126,11 @@ func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	dir := t.TempDir()
 
-	immuStore, err := Open(dir, DefaultOptions())
+	opts := DefaultOptions().
+		WithEmbeddedValues(false).
+		WithPreallocFiles(false)
+
+	immuStore, err := Open(dir, opts)
 	require.NoError(t, err)
 
 	tx, err := immuStore.NewWriteOnlyTx(context.Background())
@@ -3169,7 +3180,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	err = os.RemoveAll(filepath.Join(dir, "index"))
 	require.NoError(t, err)
 
-	immuStore, err = Open(dir, DefaultOptions())
+	immuStore, err = Open(dir, opts)
 	require.NoError(t, err)
 
 	err = immuStore.WaitForIndexingUpto(context.Background(), hdr1.ID)
@@ -3205,7 +3216,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 
-	immuStore, err = Open(dir, DefaultOptions())
+	immuStore, err = Open(dir, opts)
 	require.NoError(t, err)
 
 	valRef, err = immuStore.Get([]byte("key1"))
