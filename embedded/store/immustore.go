@@ -528,12 +528,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			break
 		}
 		if err != nil {
-			opts.logger.Warningf("%w: while reading pre-committed transaction: %d", err, precommittedTxID+1)
+			opts.logger.Infof("%v: discarding pre-committed transaction: %d", err, precommittedTxID+1)
 			break
 		}
 
 		if tx.header.ID != precommittedTxID+1 || tx.header.PrevAlh != precommittedAlh {
-			opts.logger.Warningf("%w: while reading pre-committed transaction: %d", ErrCorruptedData, precommittedTxID+1)
+			opts.logger.Infof("%v: discarding pre-committed transaction: %d", ErrCorruptedData, precommittedTxID+1)
 			break
 		}
 
@@ -545,7 +545,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		err = cLogBuf.put(precommittedTxID, precommittedAlh, precommittedTxLogSize, txSize)
 		if err != nil {
 			txPool.Release(tx)
-			return nil, fmt.Errorf("%w: while loading pre-committed transaction: %v", err, precommittedTxID+1)
+			return nil, fmt.Errorf("%v: while loading pre-committed transaction: %v", err, precommittedTxID+1)
 		}
 
 		precommittedTxLogSize += int64(txSize)
