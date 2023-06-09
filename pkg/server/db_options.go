@@ -56,6 +56,7 @@ type dbOptions struct {
 
 	// store options
 	EmbeddedValues bool `json:"embeddedValues"` // permanent
+	PreallocFiles  bool `json:"preallocFiles"`  // permanent
 	FileSize       int  `json:"fileSize"`       // permanent
 	MaxKeyLen      int  `json:"maxKeyLen"`      // permanent
 	MaxValueLen    int  `json:"maxValueLen"`    // permanent
@@ -141,6 +142,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
 
 		EmbeddedValues: store.DefaultEmbeddedValues,
+		PreallocFiles:  store.DefaultPreallocFiles,
 		FileSize:       DefaultStoreFileSize,
 		MaxKeyLen:      store.DefaultMaxKeyLen,
 		MaxValueLen:    DefaultMaxValueLen,
@@ -172,6 +174,8 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 	}
 
 	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
+		dbOpts.PreallocFiles = dbName != s.Options.systemAdminDBName
+
 		repOpts := s.Options.ReplicationOptions
 
 		dbOpts.Replica = repOpts != nil && repOpts.IsReplica
@@ -266,13 +270,13 @@ func (opts *dbOptions) storeOptions() *store.Options {
 
 	stOpts := store.DefaultOptions().
 		WithEmbeddedValues(opts.EmbeddedValues).
+		WithPreallocFiles(opts.PreallocFiles).
 		WithSynced(opts.synced).
 		WithSyncFrequency(time.Millisecond * time.Duration(opts.SyncFrequency)).
 		WithFileSize(opts.FileSize).
 		WithMaxKeyLen(opts.MaxKeyLen).
 		WithMaxValueLen(opts.MaxValueLen).
 		WithMaxTxEntries(opts.MaxTxEntries).
-		WithEmbeddedValues(opts.EmbeddedValues).
 		WithWriteTxHeaderVersion(opts.WriteTxHeaderVersion).
 		WithMaxActiveTransactions(opts.MaxActiveTransactions).
 		WithMVCCReadSetLimit(opts.MVCCReadSetLimit).
@@ -321,6 +325,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		MaxValueLen:    &schema.NullableUint32{Value: uint32(opts.MaxValueLen)},
 		MaxTxEntries:   &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
 		EmbeddedValues: &schema.NullableBool{Value: opts.EmbeddedValues},
+		PreallocFiles:  &schema.NullableBool{Value: opts.PreallocFiles},
 
 		ExcludeCommitTime: &schema.NullableBool{Value: opts.ExcludeCommitTime},
 
@@ -442,6 +447,11 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 				"embedded values", opts.Database)
 		}
 
+		if settings.PreallocFiles != nil {
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments,
+				"prealloc files", opts.Database)
+		}
+
 		if settings.IndexSettings != nil && settings.IndexSettings.MaxNodeSize != nil {
 			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max node size", opts.Database)
 		}
@@ -547,6 +557,10 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 	if settings.EmbeddedValues != nil {
 		opts.EmbeddedValues = settings.EmbeddedValues.Value
+	}
+
+	if settings.PreallocFiles != nil {
+		opts.PreallocFiles = settings.PreallocFiles.Value
 	}
 
 	if settings.ExcludeCommitTime != nil {
@@ -897,6 +911,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.MaxValueLen: %v", database, opts.MaxValueLen)
 	s.Logger.Infof("%s.MaxTxEntries: %v", database, opts.MaxTxEntries)
 	s.Logger.Infof("%s.EmbeddedValues: %v", database, opts.EmbeddedValues)
+	s.Logger.Infof("%s.PreallocFiles: %v", database, opts.PreallocFiles)
 	s.Logger.Infof("%s.ExcludeCommitTime: %v", database, opts.ExcludeCommitTime)
 	s.Logger.Infof("%s.MaxActiveTransactions: %v", database, opts.MaxActiveTransactions)
 	s.Logger.Infof("%s.MVCCReadSetLimit: %v", database, opts.MVCCReadSetLimit)
