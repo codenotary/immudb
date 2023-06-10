@@ -42,7 +42,8 @@ type Options struct {
 	compressionFormat int
 	compressionLevel  int
 
-	preallocSize int
+	preallocSize      int
+	createIfNotExists bool
 
 	metadata []byte
 }
@@ -52,6 +53,7 @@ func DefaultOptions() *Options {
 		readOnly:          false,
 		retryableSync:     true,
 		autoSync:          true,
+		createIfNotExists: true,
 		fileMode:          DefaultFileMode,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
@@ -107,6 +109,11 @@ func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 
 func (opts *Options) WithPreallocSize(preallocSize int) *Options {
 	opts.preallocSize = preallocSize
+	return opts
+}
+
+func (opts *Options) WithCreateIfNotExists(createIfNotExists bool) *Options {
+	opts.createIfNotExists = createIfNotExists
 	return opts
 }
 

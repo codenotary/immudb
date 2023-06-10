@@ -343,7 +343,7 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 			}
 
 			mf.currAppID++
-			currApp, err := mf.openAppendable(appendableName(mf.currAppID, mf.fileExt), true)
+			currApp, err := mf.openAppendable(appendableName(mf.currAppID, mf.fileExt), true, true)
 			if err != nil {
 				return off, n, err
 			}
@@ -381,12 +381,13 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 	return
 }
 
-func (mf *MultiFileAppendable) openAppendable(appname string, activeChunk bool) (appendable.Appendable, error) {
+func (mf *MultiFileAppendable) openAppendable(appname string, createIfNotExists, activeChunk bool) (appendable.Appendable, error) {
 	appendableOpts := singleapp.DefaultOptions().
 		WithReadOnly(mf.readOnly).
 		WithRetryableSync(mf.retryableSync).
 		WithAutoSync(mf.autoSync).
 		WithFileMode(mf.fileMode).
+		WithCreateIfNotExists(createIfNotExists).
 		WithReadBufferSize(mf.readBufferSize).
 		WithCompressionFormat(mf.currApp.CompressionFormat()).
 		WithCompresionLevel(mf.currApp.CompressionLevel()).
@@ -466,8 +467,11 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 			return err
 		}
 
-		app, err := mf.openAppendable(appendableName(appID, mf.fileExt), true)
+		app, err := mf.openAppendable(appendableName(appID, mf.fileExt), false, true)
 		if err != nil {
+			if os.IsNotExist(err) {
+				return io.EOF
+			}
 			return err
 		}
 
@@ -550,7 +554,7 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 
 		metricsCacheMiss.Inc()
 
-		app, err = mf.openAppendable(appendableName(appID, mf.fileExt), false)
+		app, err = mf.openAppendable(appendableName(appID, mf.fileExt), false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -589,6 +593,11 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		app, err := mf.appendableFor(offr)
 		if err != nil {
 			metricsReadBytes.Add(float64(r))
+
+			if os.IsNotExist(err) {
+				return r, io.EOF
+			}
+
 			metricsReadErrors.Inc()
 			return r, err
 		}
@@ -596,8 +605,13 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		rn, err := app.ReadAt(bs[r:], offr%int64(mf.fileSize))
 		r += rn
 
-		if errors.Is(err, io.EOF) && rn > 0 {
-			continue
+		if errors.Is(err, io.EOF) {
+			if rn > 0 {
+				continue
+			}
+
+			metricsReadBytes.Add(float64(r))
+			return r, err
 		}
 
 		if err != nil {
