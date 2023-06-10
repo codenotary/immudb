@@ -97,7 +97,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	_, err = os.Stat(fileName)
 	notExist := os.IsNotExist(err)
 
-	if err != nil && ((opts.readOnly && notExist) || !notExist) {
+	if err != nil && ((opts.readOnly && notExist) || (!opts.createIfNotExists && notExist) || !notExist) {
 		return nil, err
 	}
 
