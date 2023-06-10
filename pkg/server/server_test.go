@@ -462,10 +462,13 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		dbname := fmt.Sprintf("db%d", i)
 
-		db := &schema.DatabaseSettings{
-			DatabaseName: dbname,
+		dbSettings := &schema.DatabaseNullableSettings{
+			PreallocFiles: &schema.NullableBool{Value: false},
 		}
-		_, err = s.CreateDatabaseWith(ctx, db)
+		_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+			Name:     dbname,
+			Settings: dbSettings,
+		})
 		require.NoError(t, err)
 
 		uR, err := s.UseDatabase(ctx, &schema.Database{DatabaseName: dbname})
