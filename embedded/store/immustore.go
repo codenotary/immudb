@@ -389,12 +389,14 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("corrupted commit log: could not get size: %w", err)
 	}
 
-	rem := cLogSize % int64(cLogEntrySize)
-	if rem > 0 {
-		cLogSize -= rem
-		err = cLog.SetOffset(cLogSize)
-		if err != nil {
-			return nil, fmt.Errorf("corrupted commit log: could not set offset: %w", err)
+	if !preallocFiles {
+		rem := cLogSize % int64(cLogEntrySize)
+		if rem > 0 {
+			cLogSize -= rem
+			err = cLog.SetOffset(cLogSize)
+			if err != nil {
+				return nil, fmt.Errorf("corrupted commit log: could not set offset: %w", err)
+			}
 		}
 	}
 
