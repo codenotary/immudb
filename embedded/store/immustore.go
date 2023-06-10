@@ -429,7 +429,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		}
 
 		_, err := cLog.ReadAt(b, (left-1)*int64(cLogEntrySize))
-		if err != nil {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
 		}
 
