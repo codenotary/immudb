@@ -177,7 +177,6 @@ build/codegenv2:
 	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/protomodel \
 	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/protomodel \
 	  --doc_out=pkg/api/protomodel --doc_opt=markdown,docs.md \
-	  --swagger_out=logtostderr=true,allow_merge=true,simple_operation_ids=true:pkg/api/openapi \
 
 .PHONY: clean
 clean:
