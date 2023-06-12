@@ -389,7 +389,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 			return nil, err
 		}
 
-		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && col.MaxLen() > MaxKeyLen {
+		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
 			return nil, fmt.Errorf("%w: can not create index using column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 

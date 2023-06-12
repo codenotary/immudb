@@ -469,10 +469,6 @@ func (c *Column) MaxLen() int {
 		return 8
 	}
 
-	if c.maxLen == 0 {
-		return MaxKeyLen
-	}
-
 	return c.maxLen
 }
 
