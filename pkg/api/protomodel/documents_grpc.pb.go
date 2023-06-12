@@ -29,6 +29,7 @@ type DocumentServiceClient interface {
 	ReplaceDocuments(ctx context.Context, in *ReplaceDocumentsRequest, opts ...grpc.CallOption) (*ReplaceDocumentsResponse, error)
 	DeleteDocuments(ctx context.Context, in *DeleteDocumentsRequest, opts ...grpc.CallOption) (*DeleteDocumentsResponse, error)
 	SearchDocuments(ctx context.Context, in *SearchDocumentsRequest, opts ...grpc.CallOption) (*SearchDocumentsResponse, error)
+	CountDocuments(ctx context.Context, in *CountDocumentsRequest, opts ...grpc.CallOption) (*CountDocumentsResponse, error)
 	AuditDocument(ctx context.Context, in *AuditDocumentRequest, opts ...grpc.CallOption) (*AuditDocumentResponse, error)
 	ProofDocument(ctx context.Context, in *ProofDocumentRequest, opts ...grpc.CallOption) (*ProofDocumentResponse, error)
 }
@@ -140,6 +141,15 @@ func (c *documentServiceClient) SearchDocuments(ctx context.Context, in *SearchD
 	return out, nil
 }
 
+func (c *documentServiceClient) CountDocuments(ctx context.Context, in *CountDocumentsRequest, opts ...grpc.CallOption) (*CountDocumentsResponse, error) {
+	out := new(CountDocumentsResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/CountDocuments", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *documentServiceClient) AuditDocument(ctx context.Context, in *AuditDocumentRequest, opts ...grpc.CallOption) (*AuditDocumentResponse, error) {
 	out := new(AuditDocumentResponse)
 	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/AuditDocument", in, out, opts...)
@@ -173,6 +183,7 @@ type DocumentServiceServer interface {
 	ReplaceDocuments(context.Context, *ReplaceDocumentsRequest) (*ReplaceDocumentsResponse, error)
 	DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error)
 	SearchDocuments(context.Context, *SearchDocumentsRequest) (*SearchDocumentsResponse, error)
+	CountDocuments(context.Context, *CountDocumentsRequest) (*CountDocumentsResponse, error)
 	AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error)
 	ProofDocument(context.Context, *ProofDocumentRequest) (*ProofDocumentResponse, error)
 }
@@ -213,6 +224,9 @@ func (UnimplementedDocumentServiceServer) DeleteDocuments(context.Context, *Dele
 }
 func (UnimplementedDocumentServiceServer) SearchDocuments(context.Context, *SearchDocumentsRequest) (*SearchDocumentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SearchDocuments not implemented")
+}
+func (UnimplementedDocumentServiceServer) CountDocuments(context.Context, *CountDocumentsRequest) (*CountDocumentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CountDocuments not implemented")
 }
 func (UnimplementedDocumentServiceServer) AuditDocument(context.Context, *AuditDocumentRequest) (*AuditDocumentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AuditDocument not implemented")
@@ -430,6 +444,24 @@ func _DocumentService_SearchDocuments_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_CountDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CountDocumentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).CountDocuments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/CountDocuments",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).CountDocuments(ctx, req.(*CountDocumentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DocumentService_AuditDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AuditDocumentRequest)
 	if err := dec(in); err != nil {
@@ -516,6 +548,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchDocuments",
 			Handler:    _DocumentService_SearchDocuments_Handler,
+		},
+		{
+			MethodName: "CountDocuments",
+			Handler:    _DocumentService_CountDocuments_Handler,
 		},
 		{
 			MethodName: "AuditDocument",
