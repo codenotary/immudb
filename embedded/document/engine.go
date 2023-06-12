@@ -762,6 +762,52 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	return newDocumentReader(r, func(_ DocumentReader) { sqlTx.Cancel() }), nil
 }
 
+func (e *Engine) CountDocuments(ctx context.Context, query *protomodel.Query, offset int64) (int64, error) {
+	if query == nil {
+		return 0, ErrIllegalArguments
+	}
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return 0, mayTranslateError(err)
+	}
+
+	defer sqlTx.Cancel()
+
+	table, err := getTableForCollection(sqlTx, query.CollectionName)
+	if err != nil {
+		return 0, err
+	}
+
+	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
+	if err != nil {
+		return 0, err
+	}
+
+	op := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")},
+		query.CollectionName,
+		queryCondition,
+		generateSQLOrderByClauses(table, query.OrderBy),
+		sql.NewInteger(int64(query.Limit)),
+		sql.NewInteger(offset),
+	)
+
+	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, op, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	defer r.Close()
+
+	row, err := r.Read(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return row.ValuesByPosition[0].RawValue().(int64), nil
+}
+
 func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, documentIdFieldName string, encodedDoc *EncodedDocument, err error) {
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
