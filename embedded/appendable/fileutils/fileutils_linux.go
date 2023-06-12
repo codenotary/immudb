@@ -21,8 +21,8 @@ limitations under the License.
 package fileutils
 
 import (
+	"golang.org/x/sys/unix"
 	"os"
-	"syscall"
 )
 
 func syncDir(path string) error {
@@ -37,5 +37,5 @@ func syncDir(path string) error {
 }
 
 func fdatasync(f *os.File) error {
-	return syscall.Fdatasync(int(f.Fd()))
+	return unix.Fdatasync(int(f.Fd()))
 }
