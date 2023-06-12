@@ -2839,6 +2839,14 @@ type AggColSelector struct {
 	as    string
 }
 
+func NewAggColSelector(aggFn AggregateFn, table, col string) *AggColSelector {
+	return &AggColSelector{
+		aggFn: aggFn,
+		table: table,
+		col:   col,
+	}
+}
+
 func EncodeSelector(aggFn, table, col string) string {
 	return aggFn + "(" + table + "." + col + ")"
 }

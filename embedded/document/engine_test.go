@@ -177,6 +177,10 @@ func TestGetDocument(t *testing.T) {
 
 	_, err = reader.Read(ctx)
 	require.ErrorIs(t, err, ErrNoMoreDocuments)
+
+	count, err := engine.CountDocuments(ctx, query, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
 }
 
 func TestDocumentAudit(t *testing.T) {
@@ -310,6 +314,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 9)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 9, count)
 	})
 
 	t.Run("test query with < operator", func(t *testing.T) {
@@ -335,6 +343,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 9)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 9, count)
 	})
 
 	t.Run("test query with <= operator", func(t *testing.T) {
@@ -360,6 +372,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 9)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 9, count)
 	})
 
 	t.Run("test query with > operator", func(t *testing.T) {
@@ -385,6 +401,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 5)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 5, count)
 	})
 
 	t.Run("test query with >= operator", func(t *testing.T) {
@@ -410,6 +430,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 1)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, count)
 	})
 
 	t.Run("test group query with != operator", func(t *testing.T) {
@@ -440,6 +464,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 8)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 8, count)
 	})
 
 	t.Run("test group query with < operator", func(t *testing.T) {
@@ -465,6 +493,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 4)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 4, count)
 	})
 
 	t.Run("test group query with > operator", func(t *testing.T) {
@@ -495,6 +527,10 @@ func TestQueryDocuments(t *testing.T) {
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 5)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 5, count)
 	})
 }
 
