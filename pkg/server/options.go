@@ -75,14 +75,14 @@ type Options struct {
 }
 
 type RemoteStorageOptions struct {
-	S3Storage       bool
-	S3RoleBasedAuth bool
-	S3Endpoint      string
-	S3AccessKeyID   string
-	S3SecretKey     string `json:"-"`
-	S3BucketName    string
-	S3Location      string
-	S3PathPrefix    string
+	S3Storage     bool
+	S3Role        string
+	S3Endpoint    string
+	S3AccessKeyID string
+	S3SecretKey   string `json:"-"`
+	S3BucketName  string
+	S3Location    string
+	S3PathPrefix  string
 }
 
 type ReplicationOptions struct {
@@ -307,8 +307,8 @@ func (o *Options) String() string {
 	}
 	if o.RemoteStorageOptions.S3Storage {
 		opts = append(opts, "S3 storage")
-		if o.RemoteStorageOptions.S3RoleBasedAuth {
-			opts = append(opts, rightPad("   role-based", o.RemoteStorageOptions.S3RoleBasedAuth))
+		if o.RemoteStorageOptions.S3Role != "" {
+			opts = append(opts, rightPad("   role", o.RemoteStorageOptions.S3Role))
 		}
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
 		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
@@ -471,8 +471,8 @@ func (opts *RemoteStorageOptions) WithS3Storage(S3Storage bool) *RemoteStorageOp
 	return opts
 }
 
-func (opts *RemoteStorageOptions) WithS3RoleBasedAuth(S3RoleBasedAuth bool) *RemoteStorageOptions {
-	opts.S3RoleBasedAuth = S3RoleBasedAuth
+func (opts *RemoteStorageOptions) WithS3Role(S3Role string) *RemoteStorageOptions {
+	opts.S3Role = S3Role
 	return opts
 }
 
