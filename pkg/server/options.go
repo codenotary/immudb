@@ -77,14 +77,17 @@ type Options struct {
 }
 
 type RemoteStorageOptions struct {
-	S3Storage            bool
-	S3Endpoint           string
-	S3AccessKeyID        string
-	S3SecretKey          string `json:"-"`
-	S3BucketName         string
-	S3Location           string
-	S3PathPrefix         string
-	S3ExternalIdentifier bool
+	S3Storage             bool
+	S3RoleEnabled         bool
+	S3Role                string
+	S3Endpoint            string
+	S3AccessKeyID         string
+	S3SecretKey           string `json:"-"`
+	S3BucketName          string
+	S3Location            string
+	S3PathPrefix          string
+	S3ExternalIdentifier  bool
+	S3InstanceMetadataURL string
 }
 
 type ReplicationOptions struct {
@@ -319,6 +322,10 @@ func (o *Options) String() string {
 	}
 	if o.RemoteStorageOptions.S3Storage {
 		opts = append(opts, "S3 storage")
+		if o.RemoteStorageOptions.S3RoleEnabled {
+			opts = append(opts, rightPad("   role auth", o.RemoteStorageOptions.S3RoleEnabled))
+			opts = append(opts, rightPad("   role name", o.RemoteStorageOptions.S3Role))
+		}
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
 		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
 		if o.RemoteStorageOptions.S3Location != "" {
@@ -326,6 +333,7 @@ func (o *Options) String() string {
 		}
 		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
 		opts = append(opts, rightPad("   external id", o.RemoteStorageOptions.S3ExternalIdentifier))
+		opts = append(opts, rightPad("   metadata url", o.RemoteStorageOptions.S3InstanceMetadataURL))
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
 		opts = append(opts, "----------------------------------------")
@@ -486,6 +494,16 @@ func (opts *RemoteStorageOptions) WithS3Storage(S3Storage bool) *RemoteStorageOp
 	return opts
 }
 
+func (opts *RemoteStorageOptions) WithS3RoleEnabled(S3RoleEnabled bool) *RemoteStorageOptions {
+	opts.S3RoleEnabled = S3RoleEnabled
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3Role(S3Role string) *RemoteStorageOptions {
+	opts.S3Role = S3Role
+	return opts
+}
+
 func (opts *RemoteStorageOptions) WithS3Endpoint(s3Endpoint string) *RemoteStorageOptions {
 	opts.S3Endpoint = s3Endpoint
 	return opts
@@ -518,6 +536,11 @@ func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteS
 
 func (opts *RemoteStorageOptions) WithS3ExternalIdentifier(s3ExternalIdentifier bool) *RemoteStorageOptions {
 	opts.S3ExternalIdentifier = s3ExternalIdentifier
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3InstanceMetadataURL(url string) *RemoteStorageOptions {
+	opts.S3InstanceMetadataURL = url
 	return opts
 }
 
