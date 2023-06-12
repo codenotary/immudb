@@ -427,6 +427,30 @@ message DocumentMetadata {
   bool deleted = 1;
 }
 
+message CountDocumentsRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "query"
+      ]
+    }
+  };
+
+  Query query = 1;
+}
+
+message CountDocumentsResponse {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "count"
+      ]
+    }
+  };
+
+  int64 count = 1;
+}
+
 message AuditDocumentRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
@@ -607,6 +631,16 @@ service DocumentService {
         post: "/collection/documents/search/{searchId}"
         body: "*"
       }
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc CountDocuments(CountDocumentsRequest) returns (CountDocumentsResponse) {
+    option (google.api.http) = {
+      post: "/collection/{query.collectionName}/documents/count"
+      body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";

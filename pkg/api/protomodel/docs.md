@@ -17,6 +17,8 @@
     - [AuditDocumentRequest](#immudb.model.AuditDocumentRequest)
     - [AuditDocumentResponse](#immudb.model.AuditDocumentResponse)
     - [Collection](#immudb.model.Collection)
+    - [CountDocumentsRequest](#immudb.model.CountDocumentsRequest)
+    - [CountDocumentsResponse](#immudb.model.CountDocumentsResponse)
     - [CreateCollectionRequest](#immudb.model.CreateCollectionRequest)
     - [CreateCollectionResponse](#immudb.model.CreateCollectionResponse)
     - [CreateIndexRequest](#immudb.model.CreateIndexRequest)
@@ -215,6 +217,36 @@
 | documentIdFieldName | [string](#string) |  |  |
 | fields | [Field](#immudb.model.Field) | repeated |  |
 | indexes | [Index](#immudb.model.Index) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.model.CountDocumentsRequest"></a>
+
+### CountDocumentsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| query | [Query](#immudb.model.Query) |  |  |
+
+
+
+
+
+
+<a name="immudb.model.CountDocumentsResponse"></a>
+
+### CountDocumentsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| count | [int64](#int64) |  |  |
 
 
 
@@ -756,6 +788,7 @@
 | ReplaceDocuments | [ReplaceDocumentsRequest](#immudb.model.ReplaceDocumentsRequest) | [ReplaceDocumentsResponse](#immudb.model.ReplaceDocumentsResponse) |  |
 | DeleteDocuments | [DeleteDocumentsRequest](#immudb.model.DeleteDocumentsRequest) | [DeleteDocumentsResponse](#immudb.model.DeleteDocumentsResponse) |  |
 | SearchDocuments | [SearchDocumentsRequest](#immudb.model.SearchDocumentsRequest) | [SearchDocumentsResponse](#immudb.model.SearchDocumentsResponse) |  |
+| CountDocuments | [CountDocumentsRequest](#immudb.model.CountDocumentsRequest) | [CountDocumentsResponse](#immudb.model.CountDocumentsResponse) |  |
 | AuditDocument | [AuditDocumentRequest](#immudb.model.AuditDocumentRequest) | [AuditDocumentResponse](#immudb.model.AuditDocumentResponse) |  |
 | ProofDocument | [ProofDocumentRequest](#immudb.model.ProofDocumentRequest) | [ProofDocumentResponse](#immudb.model.ProofDocumentResponse) |  |
 
