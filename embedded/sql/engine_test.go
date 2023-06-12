@@ -99,6 +99,9 @@ func TestCreateTable(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR[30], PRIMARY KEY name)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, fmt.Sprintf("CREATE TABLE table2 (name VARCHAR[%d], PRIMARY KEY name)", MaxKeyLen+1), nil)
