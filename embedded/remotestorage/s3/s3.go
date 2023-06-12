@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -32,6 +33,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,17 +43,24 @@ import (
 )
 
 type Storage struct {
-	endpoint    string
-	accessKeyID string
-	secretKey   string
-	bucket      string
-	prefix      string
-	location    string
-	httpClient  *http.Client
+	endpoint      string
+	S3RoleEnabled bool
+	s3Role        string
+	accessKeyID   string
+	secretKey     string
+	bucket        string
+	prefix        string
+	location      string
+	httpClient    *http.Client
+
+	awsInstanceMetadataURL string
+	awsCredsRefreshPeriod  time.Duration
 }
 
 var (
 	ErrInvalidArguments               = errors.New("invalid arguments")
+	ErrKeyCredentialsProvided         = errors.New("remote storage configuration already includes access key and/or secret key")
+	ErrCredentialsCannotBeFound       = errors.New("cannot find credentials based on instance role remote storage")
 	ErrInvalidArgumentsOffsSize       = fmt.Errorf("%w: negative offset or zero size", ErrInvalidArguments)
 	ErrInvalidArgumentsNameStartSlash = fmt.Errorf("%w: name can not start with /", ErrInvalidArguments)
 	ErrInvalidArgumentsNameEndSlash   = fmt.Errorf("%w: name can not end with /", ErrInvalidArguments)
@@ -73,17 +82,22 @@ var (
 	ErrInvalidResponseSubPathUnescape      = fmt.Errorf("%w: error un-escaping object name", ErrInvalidResponse)
 
 	ErrTooManyRedirects = errors.New("too many redirects")
+
+	arnRoleRegex = regexp.MustCompile(`arn:.*\/(.*)`)
 )
 
 const maxRedirects = 5
 
 func Open(
 	endpoint string,
+	S3RoleEnabled bool,
+	s3Role string,
 	accessKeyID string,
 	secretKey string,
 	bucket string,
 	location string,
 	prefix string,
+	awsInstanceMetadataURL string,
 ) (remotestorage.Storage, error) {
 
 	// Endpoint must always end with '/'
@@ -106,19 +120,30 @@ func Open(
 		prefix = prefix + "/"
 	}
 
-	return &Storage{
-		endpoint:    endpoint,
-		accessKeyID: accessKeyID,
-		secretKey:   secretKey,
-		bucket:      bucket,
-		location:    location,
-		prefix:      prefix,
+	s3storage := &Storage{
+		endpoint:      endpoint,
+		S3RoleEnabled: S3RoleEnabled,
+		s3Role:        s3Role,
+		accessKeyID:   accessKeyID,
+		secretKey:     secretKey,
+		bucket:        bucket,
+		location:      location,
+		prefix:        prefix,
 		httpClient: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
 		},
-	}, nil
+		awsInstanceMetadataURL: awsInstanceMetadataURL,
+		awsCredsRefreshPeriod:  time.Minute,
+	}
+
+	err := s3storage.getRoleCredentials()
+	if err != nil {
+		return nil, err
+	}
+
+	return s3storage, nil
 }
 
 func (s *Storage) Kind() string {
@@ -689,6 +714,126 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 	}
 
 	return entries, subPaths, nil
+}
+
+func (s *Storage) getRoleCredentials() error {
+	if !s.S3RoleEnabled {
+		return nil
+	}
+
+	var err error
+	s.accessKeyID, s.secretKey, err = s.requestCredentials()
+	if err != nil {
+		return err
+	}
+
+	s3CredentialsRefreshTicker := time.NewTicker(s.awsCredsRefreshPeriod)
+	go func() {
+		for {
+			select {
+			case _ = <-s3CredentialsRefreshTicker.C:
+				accessKeyID, secretKey, err := s.requestCredentials()
+				if err != nil {
+					log.Printf("S3 role credentials lookup failed with an error: %v", err)
+					continue
+				}
+				s.accessKeyID, s.secretKey = accessKeyID, secretKey
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (s *Storage) requestCredentials() (string, string, error) {
+	tokenReq, err := http.NewRequest("PUT", fmt.Sprintf("%s%s",
+		s.awsInstanceMetadataURL,
+		"/latest/api/token",
+	), nil)
+	if err != nil {
+		return "", "", errors.New("cannot form metadata token request")
+	}
+
+	tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
+
+	tokenResp, err := http.DefaultClient.Do(tokenReq)
+	if err != nil {
+		return "", "", errors.New("cannot get metadata token")
+	}
+	defer tokenResp.Body.Close()
+
+	token, err := ioutil.ReadAll(tokenResp.Body)
+	if err != nil {
+		return "", "", errors.New("cannot read metadata token")
+	}
+
+	role := s.s3Role
+	if s.s3Role == "" {
+		roleReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s",
+			s.awsInstanceMetadataURL,
+			"/latest/meta-data/iam/info",
+		), nil)
+		if err != nil {
+			return "", "", errors.New("cannot form role name request")
+		}
+
+		roleReq.Header.Set("X-aws-ec2-metadata-token", string(token))
+		roleResp, err := http.DefaultClient.Do(roleReq)
+		if err != nil {
+			return "", "", errors.New("cannot get role name")
+		}
+		defer roleResp.Body.Close()
+
+		creds, err := ioutil.ReadAll(roleResp.Body)
+		if err != nil {
+			return "", "", errors.New("cannot read role name")
+		}
+
+		var metadata struct {
+			InstanceProfileArn string `json:"InstanceProfileArn"`
+		}
+		if err := json.Unmarshal(creds, &metadata); err != nil {
+			return "", "", errors.New("cannot parse role name")
+		}
+
+		match := arnRoleRegex.FindStringSubmatch(metadata.InstanceProfileArn)
+		if len(match) < 2 {
+			return "", "", ErrCredentialsCannotBeFound
+		}
+
+		role = match[1]
+	}
+
+	credsReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s/%s",
+		s.awsInstanceMetadataURL,
+		"/latest/meta-data/iam/security-credentials",
+		role,
+	), nil)
+	if err != nil {
+		return "", "", errors.New("cannot form role credentials request")
+	}
+
+	credsReq.Header.Set("X-aws-ec2-metadata-token", string(token))
+	credsResp, err := http.DefaultClient.Do(credsReq)
+	if err != nil {
+		return "", "", errors.New("cannot get role credentials")
+	}
+	defer credsResp.Body.Close()
+
+	creds, err := ioutil.ReadAll(credsReq.Body)
+	if err != nil {
+		return "", "", errors.New("cannot read role credentials")
+	}
+
+	var credentials struct {
+		AccessKeyID     string `json:"AccessKeyId"`
+		SecretAccessKey string `json:"SecretAccessKey"`
+	}
+	if err := json.Unmarshal(creds, &credentials); err != nil {
+		return "", "", errors.New("cannot parse role credentials")
+	}
+
+	return credentials.AccessKeyID, credentials.SecretAccessKey, nil
 }
 
 var _ remotestorage.Storage = (*Storage)(nil)

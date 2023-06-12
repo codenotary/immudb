@@ -44,14 +44,22 @@ var (
 
 func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error) {
 	if s.Options.RemoteStorageOptions.S3Storage {
+		if s.Options.RemoteStorageOptions.S3RoleEnabled &&
+			(s.Options.RemoteStorageOptions.S3AccessKeyID != "" || s.Options.RemoteStorageOptions.S3SecretKey != "") {
+			return nil, s3.ErrKeyCredentialsProvided
+		}
+
 		// S3 storage
 		return s3.Open(
 			s.Options.RemoteStorageOptions.S3Endpoint,
+			s.Options.RemoteStorageOptions.S3RoleEnabled,
+			s.Options.RemoteStorageOptions.S3Role,
 			s.Options.RemoteStorageOptions.S3AccessKeyID,
 			s.Options.RemoteStorageOptions.S3SecretKey,
 			s.Options.RemoteStorageOptions.S3BucketName,
 			s.Options.RemoteStorageOptions.S3Location,
 			s.Options.RemoteStorageOptions.S3PathPrefix,
+			s.Options.RemoteStorageOptions.S3InstanceMetadataURL,
 		)
 	}
 
