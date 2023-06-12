@@ -17,6 +17,7 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -372,4 +373,49 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 			require.Equal(t, docID, rev.Document.Fields["_id"].GetStringValue())
 		}
 	})
+}
+
+func TestDocumentDB_WithSerializedJsonDocument(t *testing.T) {
+	db := makeDocumentDb(t)
+
+	collectionName := "mycollection"
+
+	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+		Name:    collectionName,
+		Fields:  []*protomodel.Field{},
+		Indexes: []*protomodel.Index{},
+	})
+	require.NoError(t, err)
+
+	jsonDoc := `{
+        "old_record": null,
+        "record": {
+            "access_code": "1b86ff6b189f4c36a50b9073f6dfed17ee0388568a4f4651a68bf67a7c7aaf45",
+            "badge_uuid": "4ee1dbb2-544a-4e34-b99a-8003379f5d88",
+            "created_at": "2023-06-11T10:43:31.032008+00:00",
+            "id": 20,
+            "is_public": false,
+            "project_id": 1,
+            "sbom": {
+                "str": "sU2tZ3NC31H3WzlzfOvs7EsGYwLBSKTGwn3ooopNdiK4pf8eF75XWNe1aFYRGEiXwTeCc6vLFrGxAonWrMFN2AC840Wb6"
+            },
+            "vault_uuid": null
+        },
+        "schema": "public",
+        "table": "sbom",
+        "type": "INSERT"
+    }`
+
+	doc := &structpb.Struct{}
+
+	err = json.Unmarshal([]byte(jsonDoc), doc)
+	require.NoError(t, err)
+
+	_, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		CollectionName: collectionName,
+		Documents: []*structpb.Struct{
+			doc,
+		},
+	})
+	require.NoError(t, err)
 }
