@@ -6603,3 +6603,27 @@ func BenchmarkInsertInto(b *testing.B) {
 		wg.Wait()
 	}
 }
+
+func TestLikeWithNullableColumns(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE mytable (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO mytable(title) VALUES (NULL), ('title1')", nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil, "SELECT id, title FROM mytable WHERE title LIKE '.*'", nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, row.ValuesByPosition, 2)
+	require.EqualValues(t, 2, row.ValuesByPosition[0].RawValue())
+	require.EqualValues(t, "title1", row.ValuesByPosition[1].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+}

@@ -3216,6 +3216,10 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
 	}
 
+	if rval.IsNull() {
+		return &Bool{val: false}, nil
+	}
+
 	rpattern, err := bexp.pattern.reduce(tx, row, implicitTable)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
