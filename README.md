@@ -178,7 +178,7 @@ The following example shows how to run immudb with the S3 storage enabled using 
 
 ```bash
 export IMMUDB_S3_STORAGE=true
-export IMMUDB_S3_ROLE=<S3 ACCESS ROLE NAME>
+export IMMUDB_S3_ROLE_ENABLED=true
 export IMMUDB_S3_BUCKET_NAME=<BUCKET NAME>
 export IMMUDB_S3_LOCATION=<AWS S3 REGION>
 export IMMUDB_S3_PATH_PREFIX=testing-001
@@ -186,6 +186,14 @@ export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCAT
 
 ./immudb
 ```
+
+Optionally, you can specify the exact role ImmuDB should be using with:
+
+```bash
+export IMMUDB_S3_ROLE=<AWS S3 ACCESS ROLE NAME>
+```
+
+Remember, the `IMMUDB_S3_ROLE_ENABLED` parameter still should be on.
 
 You can also easily use immudb with compatible s3 alternatives
 such as the [minio](https://github.com/minio/minio) server:
