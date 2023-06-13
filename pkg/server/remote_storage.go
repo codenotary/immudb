@@ -42,6 +42,7 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 		// S3 storage
 		return s3.Open(
 			s.Options.RemoteStorageOptions.S3Endpoint,
+			s.Options.RemoteStorageOptions.S3RoleEnabled,
 			s.Options.RemoteStorageOptions.S3Role,
 			s.Options.RemoteStorageOptions.S3AccessKeyID,
 			s.Options.RemoteStorageOptions.S3SecretKey,

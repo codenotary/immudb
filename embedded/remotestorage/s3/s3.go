@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,6 +44,7 @@ import (
 
 type Storage struct {
 	endpoint                   string
+	S3RoleEnabled              bool
 	s3Role                     string
 	accessKeyID                string
 	secretKey                  string
@@ -78,6 +80,8 @@ var (
 	ErrInvalidResponseSubPathUnescape      = fmt.Errorf("%w: error un-escaping object name", ErrInvalidResponse)
 
 	ErrTooManyRedirects = errors.New("too many redirects")
+
+	arnRoleRegex = regexp.MustCompile(`arn:.*\/(.*)`)
 )
 
 const (
@@ -87,6 +91,7 @@ const (
 
 func Open(
 	endpoint string,
+	S3RoleEnabled bool,
 	s3Role string,
 	accessKeyID string,
 	secretKey string,
@@ -116,19 +121,19 @@ func Open(
 	}
 
 	s3storage := &Storage{
-		endpoint:    endpoint,
-		s3Role:      s3Role,
-		accessKeyID: accessKeyID,
-		secretKey:   secretKey,
-		bucket:      bucket,
-		location:    location,
-		prefix:      prefix,
+		endpoint:      endpoint,
+		S3RoleEnabled: S3RoleEnabled,
+		s3Role:        s3Role,
+		accessKeyID:   accessKeyID,
+		secretKey:     secretKey,
+		bucket:        bucket,
+		location:      location,
+		prefix:        prefix,
 		httpClient: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
 		},
-		s3CredentialsRefreshTicker: time.NewTicker(time.Minute),
 	}
 
 	err := s3storage.getRoleCredentials()
@@ -710,7 +715,7 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 }
 
 func (s *Storage) getRoleCredentials() error {
-	if s.s3Role == "" {
+	if !s.S3RoleEnabled {
 		return nil
 	}
 
@@ -724,10 +729,16 @@ func (s *Storage) getRoleCredentials() error {
 		return err
 	}
 
+	s.s3CredentialsRefreshTicker = time.NewTicker(time.Minute)
 	go func() {
 		select {
 		case _ = <-s.s3CredentialsRefreshTicker.C:
-			s.accessKeyID, s.secretKey, _ = s.requestCredentials()
+			accessKeyID, secretKey, err := s.requestCredentials()
+			if err != nil {
+
+			}
+
+			s.accessKeyID, s.secretKey = accessKeyID, secretKey
 		}
 	}()
 
@@ -756,10 +767,47 @@ func (s *Storage) requestCredentials() (string, string, error) {
 		return "", "", errors.New("cannot read metadata token")
 	}
 
+	role := s.s3Role
+	if s.s3Role == "" {
+		roleReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s",
+			awsInstanceMetadataURL,
+			"/latest/meta-data/iam/info",
+		), nil)
+		if err != nil {
+			return "", "", errors.New("cannot form role name request")
+		}
+
+		roleReq.Header.Set("X-aws-ec2-metadata-token", string(token))
+		roleResp, err := http.DefaultClient.Do(roleReq)
+		if err != nil {
+			return "", "", errors.New("cannot get role name")
+		}
+		defer roleResp.Body.Close()
+
+		creds, err := ioutil.ReadAll(roleResp.Body)
+		if err != nil {
+			return "", "", errors.New("cannot read role name")
+		}
+
+		var metadata struct {
+			InstanceProfileArn string `json:"InstanceProfileArn"`
+		}
+		if err := json.Unmarshal(creds, &metadata); err != nil {
+			return "", "", errors.New("cannot parse role name")
+		}
+
+		match := arnRoleRegex.FindStringSubmatch(metadata.InstanceProfileArn)
+		if len(match) < 2 {
+			return "", "", ErrCredentialsCannotBeFound
+		}
+
+		role = match[1]
+	}
+
 	credsReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s/%s",
 		awsInstanceMetadataURL,
 		"/latest/meta-data/iam/security-credentials",
-		s.s3Role,
+		role,
 	), nil)
 	if err != nil {
 		return "", "", errors.New("cannot form role credentials request")

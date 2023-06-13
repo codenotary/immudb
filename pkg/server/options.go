@@ -76,6 +76,7 @@ type Options struct {
 
 type RemoteStorageOptions struct {
 	S3Storage     bool
+	S3RoleEnabled bool
 	S3Role        string
 	S3Endpoint    string
 	S3AccessKeyID string
@@ -307,8 +308,9 @@ func (o *Options) String() string {
 	}
 	if o.RemoteStorageOptions.S3Storage {
 		opts = append(opts, "S3 storage")
-		if o.RemoteStorageOptions.S3Role != "" {
-			opts = append(opts, rightPad("   role", o.RemoteStorageOptions.S3Role))
+		if o.RemoteStorageOptions.S3RoleEnabled {
+			opts = append(opts, rightPad("   role auth", o.RemoteStorageOptions.S3RoleEnabled))
+			opts = append(opts, rightPad("   role name", o.RemoteStorageOptions.S3Role))
 		}
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
 		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
@@ -468,6 +470,11 @@ func (o *Options) WithGRPCReflectionServerEnabled(enabled bool) *Options {
 
 func (opts *RemoteStorageOptions) WithS3Storage(S3Storage bool) *RemoteStorageOptions {
 	opts.S3Storage = S3Storage
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3RoleEnabled(S3RoleEnabled bool) *RemoteStorageOptions {
+	opts.S3RoleEnabled = S3RoleEnabled
 	return opts
 }
 

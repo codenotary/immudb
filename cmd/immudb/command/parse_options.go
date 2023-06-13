@@ -85,6 +85,7 @@ func parseOptions() (options *server.Options, err error) {
 	grpcReflectionServerEnabled := viper.GetBool("grpc-reflection")
 
 	s3Storage := viper.GetBool("s3-storage")
+	s3RoleEnabled := viper.GetBool("s3-role-enabled")
 	s3Role := viper.GetString("s3-role")
 	s3Endpoint := viper.GetString("s3-endpoint")
 	s3AccessKeyID := viper.GetString("s3-access-key-id")
@@ -95,6 +96,7 @@ func parseOptions() (options *server.Options, err error) {
 
 	remoteStorageOptions := server.DefaultRemoteStorageOptions().
 		WithS3Storage(s3Storage).
+		WithS3RoleEnabled(s3RoleEnabled).
 		WithS3Role(s3Role).
 		WithS3Endpoint(s3Endpoint).
 		WithS3AccessKeyID(s3AccessKeyID).

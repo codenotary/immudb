@@ -33,6 +33,7 @@ import (
 func TestOpen(t *testing.T) {
 	s, err := Open(
 		"http://localhost:9000",
+		false,
 		"",
 		"minioadmin",
 		"minioadmin",
@@ -80,6 +81,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("bucket name can not be empty", func(t *testing.T) {
 		s, err := Open(
 			"http://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -95,6 +97,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("bucket name can not contain /", func(t *testing.T) {
 		s, err := Open(
 			"http://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -110,6 +113,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("prefix must be correctly normalized", func(t *testing.T) {
 		s, err := Open(
 			"http://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -122,6 +126,7 @@ func TestCornerCases(t *testing.T) {
 
 		s, err = Open(
 			"http://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -134,6 +139,7 @@ func TestCornerCases(t *testing.T) {
 
 		s, err = Open(
 			"http://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -148,6 +154,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid url", func(t *testing.T) {
 		s, err := Open(
 			"h**s://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -162,6 +169,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid get / put / exists path", func(t *testing.T) {
 		s, err := Open(
 			"htts://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -187,6 +195,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid get offset / size", func(t *testing.T) {
 		s, err := Open(
 			"htts://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -204,6 +213,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid role and credentials settings", func(t *testing.T) {
 		s, err := Open(
 			"htts://localhost:9000",
+			true,
 			"role",
 			"minioadmin",
 			"minioadmin",
@@ -218,6 +228,7 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid list path", func(t *testing.T) {
 		s, err := Open(
 			"https://localhost:9000",
+			false,
 			"",
 			"minioadmin",
 			"minioadmin",
@@ -240,7 +251,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, "", "", "", "bucket", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -255,7 +266,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, "", "", "", "bucket", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -270,6 +281,7 @@ func TestSignatureV4(t *testing.T) {
 	//  https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 	s, err := Open(
 		"https://examplebucket.s3.amazonaws.com",
+		false,
 		"",
 		"AKIAIOSFODNN7EXAMPLE",
 		"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
@@ -354,7 +366,7 @@ func TestHandlingRedirects(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, "", "", "", "bucket", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -737,7 +749,7 @@ func TestListEntries(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, "", "", "", "bucket", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()

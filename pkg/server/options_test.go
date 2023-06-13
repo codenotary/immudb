@@ -274,7 +274,8 @@ Default database : defaultdb
 Maintenance mode : false
 Synced mode      : true
 S3 storage
-   role          : s3-role
+   role auth     : true
+   role name     : s3-role
    endpoint      : s3-endpoint
    bucket name   : s3-bucket-name
    location      : s3-location
@@ -291,6 +292,7 @@ Superadmin default credentials
 		WithRemoteStorageOptions(
 			DefaultRemoteStorageOptions().
 				WithS3Storage(true).
+				WithS3RoleEnabled(true).
 				WithS3Role("s3-role").
 				WithS3Endpoint("s3-endpoint").
 				WithS3BucketName("s3-bucket-name").
