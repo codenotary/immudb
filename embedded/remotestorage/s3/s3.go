@@ -735,7 +735,8 @@ func (s *Storage) getRoleCredentials() error {
 		case _ = <-s.s3CredentialsRefreshTicker.C:
 			accessKeyID, secretKey, err := s.requestCredentials()
 			if err != nil {
-
+				log.Printf("S3 role credentials lookup failed with an error: %v", err)
+				return
 			}
 
 			s.accessKeyID, s.secretKey = accessKeyID, secretKey
