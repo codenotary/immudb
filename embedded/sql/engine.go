@@ -281,7 +281,7 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 			}
 		}
 
-		if currTx.committed {
+		if currTx.Committed() {
 			committedTxs = append(committedTxs, currTx)
 		}
 
