@@ -16,7 +16,10 @@ limitations under the License.
 
 package replication
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 const DefaultPrefetchTxBufferSize int = 100
@@ -63,12 +66,28 @@ func DefaultOptions() *Options {
 	}
 }
 
-func (opts *Options) Valid() bool {
-	return opts != nil &&
-		opts.streamChunkSize > 0 &&
-		opts.prefetchTxBufferSize > 0 &&
-		opts.replicationCommitConcurrency > 0 &&
-		opts.delayer != nil
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
+
+	if opts.streamChunkSize <= 0 {
+		return fmt.Errorf("%w: invalid StreamChunkSize", ErrInvalidOptions)
+	}
+
+	if opts.prefetchTxBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid PrefetchTxBufferSize", ErrInvalidOptions)
+	}
+
+	if opts.replicationCommitConcurrency <= 0 {
+		return fmt.Errorf("%w: invalid ReplicationCommitConcurrency", ErrInvalidOptions)
+	}
+
+	if opts.delayer == nil {
+		return fmt.Errorf("%w: invalid Delayer", ErrInvalidOptions)
+	}
+
+	return nil
 }
 
 // WithPrimaryDatabase sets the source database name

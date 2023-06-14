@@ -25,7 +25,7 @@ import (
 
 func TestOptions(t *testing.T) {
 	opts := &Options{}
-	require.False(t, opts.Valid())
+	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 
 	delayer := &expBackoff{
 		retryMinDelay: time.Second,
@@ -60,9 +60,9 @@ func TestOptions(t *testing.T) {
 	require.True(t, opts.waitForIndexing)
 	require.Equal(t, delayer, opts.delayer)
 
-	require.True(t, opts.Valid())
+	require.NoError(t, opts.Validate())
 
 	defaultOpts := DefaultOptions()
 	require.NotNil(t, defaultOpts)
-	require.True(t, defaultOpts.Valid())
+	require.NoError(t, defaultOpts.Validate())
 }
