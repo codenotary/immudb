@@ -1404,7 +1404,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, ctxs, err := engine.Exec(context.Background(), nil, "INSERT INTO table1(title) VALUES ('name1')", nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
-	require.True(t, ctxs[0].closed)
+	require.True(t, ctxs[0].Closed())
 	require.Equal(t, int64(1), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, int64(1), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
@@ -1439,7 +1439,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, ctxs, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(title) VALUES ('name6')", nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
-	require.True(t, ctxs[0].closed)
+	require.True(t, ctxs[0].Closed())
 	require.Equal(t, int64(6), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, int64(6), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
@@ -1454,7 +1454,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	`, nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
-	require.True(t, ctxs[0].closed)
+	require.True(t, ctxs[0].Closed())
 	require.Equal(t, int64(7), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, int64(8), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 2, ctxs[0].UpdatedRows())
@@ -6224,6 +6224,51 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
 		require.ErrorIs(t, err, store.ErrTxReadConflict)
 	})
+}
+
+func TestMVCCWithExternalCommitAllowance(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithExternalCommitAllowance(true))
+	require.NoError(t, err)
+	t.Cleanup(func() { closeStore(t, st) })
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		st.AllowCommitUpto(1)
+	}()
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, PRIMARY KEY id);", nil)
+	require.NoError(t, err)
+
+	tx1, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+	require.NoError(t, err)
+
+	tx2, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), tx2, "INSERT INTO table1 (id, title, active) VALUES (1, 'title1', true);", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), tx2, "INSERT INTO table1 (id, title, active) VALUES (2, 'title2', false);", nil)
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		st.AllowCommitUpto(2)
+	}()
+
+	_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		st.AllowCommitUpto(3)
+	}()
+
+	_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
+	require.NoError(t, err)
 }
 
 func TestConcurrentInsertions(t *testing.T) {

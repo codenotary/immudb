@@ -41,9 +41,6 @@ type SQLTx struct {
 	firstInsertedPKs map[string]int64 // first inserted PK by table name
 
 	txHeader *store.TxHeader // header is set once tx is committed
-
-	committed bool
-	closed    bool
 }
 
 func (sqlTx *SQLTx) Catalog() *Catalog {
@@ -114,20 +111,14 @@ func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
 }
 
 func (sqlTx *SQLTx) Cancel() error {
-	if sqlTx.closed {
-		return ErrAlreadyClosed
-	}
-
-	sqlTx.closed = true
-
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) Commit(ctx context.Context) (err error) {
-	sqlTx.committed = true
-	sqlTx.closed = true
-
-	sqlTx.tx.RequireMVCCOnFollowingTxs(sqlTx.mutatedCatalog)
+func (sqlTx *SQLTx) Commit(ctx context.Context) error {
+	err := sqlTx.tx.RequireMVCCOnFollowingTxs(sqlTx.mutatedCatalog)
+	if err != nil {
+		return err
+	}
 
 	// no need to wait for indexing to be up to date during commit phase
 	sqlTx.txHeader, err = sqlTx.tx.AsyncCommit(ctx)
@@ -139,7 +130,11 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) (err error) {
 }
 
 func (sqlTx *SQLTx) Closed() bool {
-	return sqlTx.closed
+	return sqlTx.tx.Closed()
+}
+
+func (sqlTx *SQLTx) Committed() bool {
+	return sqlTx.txHeader != nil
 }
 
 func (sqlTx *SQLTx) delete(key []byte) error {
