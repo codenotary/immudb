@@ -1443,7 +1443,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	if otx.hasPreconditions() {
 		var waitForIndexingUpto uint64
 
-		if otx.unsafeMVCC && s.mandatoryMVCCUpToTxID > 0 {
+		if otx.unsafeMVCC {
 			waitForIndexingUpto = s.mandatoryMVCCUpToTxID
 		} else {
 			// Preconditions must be executed with up-to-date tree
@@ -1750,19 +1750,12 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 }
 
 func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
 
 	if !s.useExternalCommitAllowance {
 		return fmt.Errorf("%w: the external commit allowance mode is not enabled", ErrIllegalState)
 	}
-
-	s.commitStateRWMutex.Lock()
-	defer s.commitStateRWMutex.Unlock()
 
 	if txID <= s.commitAllowedUpToTxID {
 		// once a commit is allowed, it cannot be revoked
@@ -2598,7 +2591,11 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 		return nil, err
 	}
 
-	if !s.useExternalCommitAllowance {
+	s.commitStateRWMutex.Lock()
+	waitForCommit := !s.useExternalCommitAllowance
+	s.commitStateRWMutex.Unlock()
+
+	if waitForCommit {
 		err = s.commitWHub.WaitFor(ctx, txHdr.ID)
 		if err == watchers.ErrAlreadyClosed {
 			return nil, ErrAlreadyClosed
@@ -2748,13 +2745,6 @@ func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, skipIntegrityChe
 }
 
 func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool, skipIntegrityCheck bool) (*TxHeader, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return nil, ErrAlreadyClosed
-	}
-
 	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
 	if err != nil {
 		return nil, err
