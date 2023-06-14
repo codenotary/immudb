@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/stream"
@@ -131,7 +132,7 @@ func DefaultOptions() *Options {
 		TokenExpiryTimeMin:          1440,
 		PgsqlServer:                 false,
 		PgsqlServerPort:             5432,
-		ReplicationOptions:          &ReplicationOptions{IsReplica: false, SyncAcks: 0},
+		ReplicationOptions:          DefaultReplicationOptions(),
 		SessionsOptions:             sessions.DefaultOptions(),
 		PProf:                       false,
 		GRPCReflectionServerEnabled: true,
@@ -141,6 +142,15 @@ func DefaultOptions() *Options {
 func DefaultRemoteStorageOptions() *RemoteStorageOptions {
 	return &RemoteStorageOptions{
 		S3Storage: false,
+	}
+}
+
+func DefaultReplicationOptions() *ReplicationOptions {
+	return &ReplicationOptions{
+		IsReplica:                    false,
+		SyncAcks:                     0,
+		PrefetchTxBufferSize:         replication.DefaultPrefetchTxBufferSize,
+		ReplicationCommitConcurrency: replication.DefaultReplicationCommitConcurrency,
 	}
 }
 
