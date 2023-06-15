@@ -9,5 +9,6 @@ RUN GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static immuclient-stati
 FROM debian:stable-slim
 COPY --from=builder /src/immudb/immuadmin /src/immudb/immudb /src/immudb/immuclient \
 	/src/immudb/test/release_perf_test/startup.sh /usr/local/bin
+RUN apt-get update && apt-get -y install netcat-traditional && apt-get clean
 ENTRYPOINT ["/usr/local/bin/startup.sh"]
 CMD ["standalone"]
