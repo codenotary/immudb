@@ -476,11 +476,11 @@ func (tx *OngoingTx) Cancel() error {
 		return ErrAlreadyClosed
 	}
 
+	tx.closed = true
+
 	if !tx.IsWriteOnly() {
 		return tx.snap.Close()
 	}
-
-	tx.closed = true
 
 	return nil
 }
