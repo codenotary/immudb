@@ -14,16 +14,16 @@ echo "Startup mode '$MODE'"
 case $MODE in
   standalone)
   (
-  sleep 3
+  while ! nc -z 127.0.0.1 3322 ; do echo "waiting"; sleep 1; done
   echo -n immudb | $IMMUADMIN login immudb
-  $IMMUADMIN database create perf --max-commit-concurrency 120
+  $IMMUADMIN database create perf --max-commit-concurrency 120 # --embedded-values=true --prealloc-files=true
   ) &
   $IMMUDB --dir /var/lib/immudb --web-server
   ;;
 
   asyncmain)
   (
-  sleep 3
+  while ! nc -z 127.0.0.1 3322 ; do echo "waiting"; sleep 1; done
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf --max-commit-concurrency 120
   ) &
@@ -31,7 +31,7 @@ case $MODE in
   ;;
   asyncreplica)
   (
-  sleep 3
+  while ! nc -z 127.0.0.1 3322 ; do echo "waiting"; sleep 1; done
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf \
     --max-commit-concurrency 120 \
@@ -47,7 +47,7 @@ case $MODE in
 
   syncmain)
   (
-  sleep 3
+  while ! nc -z 127.0.0.1 3322 ; do echo "waiting"; sleep 1; done
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf --max-commit-concurrency 120 \
     --replication-sync-enabled \
@@ -57,7 +57,7 @@ case $MODE in
   ;;
   syncreplica)
   (
-  sleep 3
+  while ! nc -z 127.0.0.1 3322 ; do echo "waiting"; sleep 1; done
   echo -n immudb | $IMMUADMIN login immudb
   $IMMUADMIN database create perf \
     --max-commit-concurrency 120 \
