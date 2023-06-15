@@ -85,6 +85,7 @@ var (
 )
 
 const (
+	awsCredsRefreshPeriod  = time.Minute
 	awsInstanceMetadataURL = "http://169.254.169.254"
 	maxRedirects           = 5
 )
@@ -729,7 +730,7 @@ func (s *Storage) getRoleCredentials() error {
 		return err
 	}
 
-	s.s3CredentialsRefreshTicker = time.NewTicker(time.Minute)
+	s.s3CredentialsRefreshTicker = time.NewTicker(awsCredsRefreshPeriod)
 	go func() {
 		select {
 		case _ = <-s.s3CredentialsRefreshTicker.C:
