@@ -58,12 +58,14 @@ func TestCreateCollection(t *testing.T) {
 			{Name: "name", Type: protomodel.FieldType_STRING},
 			{Name: "pin", Type: protomodel.FieldType_INTEGER},
 			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "address.street", Type: protomodel.FieldType_STRING},
 		},
 		[]*protomodel.Index{
 			{Fields: []string{"number"}},
 			{Fields: []string{"name"}},
 			{Fields: []string{"pin"}},
 			{Fields: []string{"country"}},
+			{Fields: []string{"address.street"}},
 		},
 	)
 	require.NoError(t, err)
@@ -82,8 +84,8 @@ func TestCreateCollection(t *testing.T) {
 	collection, err := engine.GetCollection(context.Background(), collectionName)
 	require.NoError(t, err)
 	require.Equal(t, collectionName, collection.Name)
-	require.Len(t, collection.Fields, 5)
-	require.Len(t, collection.Indexes, 5)
+	require.Len(t, collection.Fields, 6)
+	require.Len(t, collection.Indexes, 6)
 }
 
 func TestListCollections(t *testing.T) {
@@ -101,12 +103,14 @@ func TestListCollections(t *testing.T) {
 				{Name: "name", Type: protomodel.FieldType_STRING},
 				{Name: "pin", Type: protomodel.FieldType_INTEGER},
 				{Name: "country", Type: protomodel.FieldType_STRING},
+				{Name: "address.street", Type: protomodel.FieldType_STRING},
 			},
 			[]*protomodel.Index{
 				{Fields: []string{"number"}},
 				{Fields: []string{"name"}},
 				{Fields: []string{"pin"}},
 				{Fields: []string{"country"}},
+				{Fields: []string{"address.street"}},
 			},
 		)
 		require.NoError(t, err)
@@ -130,10 +134,12 @@ func TestGetDocument(t *testing.T) {
 		[]*protomodel.Field{
 			{Name: "country", Type: protomodel.FieldType_STRING},
 			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+			{Name: "address.street", Type: protomodel.FieldType_STRING},
 		},
 		[]*protomodel.Index{
 			{Fields: []string{"country"}},
 			{Fields: []string{"pincode"}},
+			{Fields: []string{"address.street"}},
 		},
 	)
 	require.NoError(t, err)
@@ -143,6 +149,11 @@ func TestGetDocument(t *testing.T) {
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
 			"pincode": structpb.NewNumberValue(2),
+			"address": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"street": structpb.NewStringValue("mainstreet"),
+				},
+			}),
 		},
 	})
 	require.NoError(t, err)
@@ -161,6 +172,11 @@ func TestGetDocument(t *testing.T) {
 						Field:    "pincode",
 						Operator: protomodel.ComparisonOperator_EQ,
 						Value:    structpb.NewNumberValue(2),
+					},
+					{
+						Field:    "address.street",
+						Operator: protomodel.ComparisonOperator_EQ,
+						Value:    structpb.NewStringValue("mainstreet"),
 					},
 				},
 			},
@@ -195,10 +211,12 @@ func TestDocumentAudit(t *testing.T) {
 		[]*protomodel.Field{
 			{Name: "country", Type: protomodel.FieldType_STRING},
 			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+			{Name: "address.street", Type: protomodel.FieldType_STRING},
 		},
 		[]*protomodel.Index{
 			{Fields: []string{"country"}},
 			{Fields: []string{"pincode"}},
+			{Fields: []string{"address.street"}},
 		},
 	)
 	require.NoError(t, err)
@@ -208,6 +226,11 @@ func TestDocumentAudit(t *testing.T) {
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
 			"pincode": structpb.NewNumberValue(2),
+			"address": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"street": structpb.NewStringValue("mainstreet"),
+				},
+			}),
 		},
 	})
 	require.NoError(t, err)
@@ -222,6 +245,11 @@ func TestDocumentAudit(t *testing.T) {
 						Operator: protomodel.ComparisonOperator_EQ,
 						Value:    structpb.NewStringValue("wonderland"),
 					},
+					{
+						Field:    "address.street",
+						Operator: protomodel.ComparisonOperator_EQ,
+						Value:    structpb.NewStringValue("mainstreet"),
+					},
 				},
 			},
 		},
@@ -232,6 +260,11 @@ func TestDocumentAudit(t *testing.T) {
 			"_id":     structpb.NewStringValue(docID.EncodeToHexString()),
 			"pincode": structpb.NewNumberValue(2),
 			"country": structpb.NewStringValue("wonderland"),
+			"address": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"street": structpb.NewStringValue("notmainstreet"),
+				},
+			}),
 		},
 	})
 	require.NoError(t, err)
@@ -255,6 +288,9 @@ func TestDocumentAudit(t *testing.T) {
 		require.Contains(t, docAudit.Document.Fields, DefaultDocumentIDField)
 		require.Contains(t, docAudit.Document.Fields, "pincode")
 		require.Contains(t, docAudit.Document.Fields, "country")
+		require.Contains(t, docAudit.Document.Fields, "address")
+		require.NotNil(t, docAudit.Document.Fields["address"].GetStructValue())
+		require.Contains(t, docAudit.Document.Fields["address"].GetStructValue().Fields, "street")
 		require.Equal(t, uint64(i+1), docAudit.Revision)
 	}
 }
@@ -272,10 +308,12 @@ func TestQueryDocuments(t *testing.T) {
 		[]*protomodel.Field{
 			{Name: "country", Type: protomodel.FieldType_STRING},
 			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
+			{Name: "address.street", Type: protomodel.FieldType_STRING},
 		},
 		[]*protomodel.Index{
 			{Fields: []string{"country"}},
 			{Fields: []string{"pincode"}},
+			{Fields: []string{"address.street"}},
 		},
 	)
 	require.NoError(t, err)
@@ -286,6 +324,11 @@ func TestQueryDocuments(t *testing.T) {
 			Fields: map[string]*structpb.Value{
 				"pincode": structpb.NewNumberValue(i),
 				"country": structpb.NewStringValue(fmt.Sprintf("country-%d", int(i))),
+				"address": structpb.NewStructValue(&structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"street": structpb.NewStringValue(fmt.Sprintf("mainstreet-%d", int(i))),
+					},
+				}),
 			},
 		})
 		require.NoError(t, err)
@@ -301,6 +344,35 @@ func TestQueryDocuments(t *testing.T) {
 							Field:    "pincode",
 							Operator: protomodel.ComparisonOperator_NE,
 							Value:    structpb.NewNumberValue(2),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 10)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Len(t, docs, 9)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 9, count)
+	})
+
+	t.Run("test query nested with != operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "address.street",
+							Operator: protomodel.ComparisonOperator_NE,
+							Value:    structpb.NewStringValue("mainstreet-3"),
 						},
 					},
 				},

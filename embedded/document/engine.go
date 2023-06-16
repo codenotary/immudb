@@ -31,8 +31,10 @@ import (
 )
 
 const (
-	DefaultDocumentIDField = "_id"
-	DocumentBLOBField      = "_doc"
+	DefaultDocumentIDField     = "_id"
+	DocumentBLOBField          = "_doc"
+	documentFieldPathSeparator = "."
+	documentMaxNestedFields    = 3
 )
 
 type Engine struct {
@@ -572,21 +574,19 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 		var rval *structpb.Value
 		var ok bool
 		if rval, ok = doc.Fields[col.Name()]; !ok {
-			fmt.Printf("CHECKING . COLUMNS, %s\n", col.Name())
-			nameParts := strings.SplitN(col.Name(), ".", 3)
+			nameParts := strings.SplitN(col.Name(), documentFieldPathSeparator, documentMaxNestedFields)
 			nestedStruct := doc
 			for j := range nameParts {
-				fmt.Printf("CHECKING . COLUMNS, LOOPING %d, %s\n", j, nameParts[j])
 				if j == len(nameParts)-1 {
 					if rval, ok = nestedStruct.Fields[nameParts[len(nameParts)-1]]; !ok {
 						rval = nil
 					}
-					fmt.Printf("Found rval %+v\n", rval)
 					break
 				}
 
 				if rval, ok = nestedStruct.Fields[nameParts[j]]; !ok {
-					return nil, fmt.Errorf("invalid fields")
+					rval = nil
+					break
 				}
 
 				nestedStruct = rval.GetStructValue()
