@@ -28,6 +28,8 @@ func TestDefaultOptions(t *testing.T) {
 
 	// Assert that the returned value is not nil
 	require.NotNil(t, opts)
+
+	require.Equal(t, DefaultDocumentMaxNestedFields, opts.maxNestedFields)
 }
 
 func TestOptionsValidate(t *testing.T) {
@@ -54,4 +56,10 @@ func TestOptionsWithPrefix(t *testing.T) {
 
 	// Assert that the returned options have the correct prefix
 	require.Equal(t, prefix, newOpts.prefix, "Expected prefix to be set in the new options")
+}
+
+func TestOptionsWithMaxNestedFields(t *testing.T) {
+	opts := DefaultOptions().WithMaxNestedFields(20)
+
+	require.Equal(t, 20, opts.maxNestedFields)
 }

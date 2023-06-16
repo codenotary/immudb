@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -34,11 +35,16 @@ const (
 	DefaultDocumentIDField     = "_id"
 	DocumentBLOBField          = "_doc"
 	documentFieldPathSeparator = "."
-	documentMaxNestedFields    = 3
 )
+
+var collectionNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_]*$`)
+var documentIDFieldNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_]*$`)
+var fieldNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_.]*$`)
 
 type Engine struct {
 	sqlEngine *sql.Engine
+
+	maxNestedFields int
 }
 
 type EncodedDocument struct {
@@ -63,16 +69,27 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		return nil, err
 	}
 
-	return &Engine{engine}, nil
+	return &Engine{
+		sqlEngine:       engine,
+		maxNestedFields: opts.maxNestedFields,
+	}, nil
 }
 
 func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
+	if !collectionNameValidation.MatchString(name) {
+		return fmt.Errorf("%w: invalid collection name '%s'", ErrIllegalArguments, name)
+	}
+
 	if documentIdFieldName == "" {
 		documentIdFieldName = DefaultDocumentIDField
 	}
 
 	if documentIdFieldName == DocumentBLOBField {
 		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
+	}
+
+	if !documentIDFieldNameValidation.MatchString(documentIdFieldName) {
+		return fmt.Errorf("%w: invalid document id field name '%s'", ErrIllegalArguments, documentIdFieldName)
 	}
 
 	// only catalog needs to be up to date
@@ -103,6 +120,10 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 
 		if field.Name == DocumentBLOBField {
 			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, DocumentBLOBField)
+		}
+
+		if !fieldNameValidation.MatchString(field.Name) {
+			return fmt.Errorf("%w: invalid field name '%s'", ErrIllegalArguments, field.Name)
 		}
 
 		sqlType, err := protomodelValueTypeToSQLValueType(field.Type)
@@ -216,8 +237,8 @@ func docIDFieldName(table *sql.Table) string {
 }
 
 func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table, error) {
-	if collectionName == "" {
-		return nil, fmt.Errorf("%w: invalid collection name", ErrIllegalArguments)
+	if !collectionNameValidation.MatchString(collectionName) {
+		return nil, fmt.Errorf("%w: invalid collection name '%s'", ErrIllegalArguments, collectionName)
 	}
 
 	table, err := sqlTx.Catalog().GetTableByName(collectionName)
@@ -229,8 +250,8 @@ func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table,
 }
 
 func getColumnForField(table *sql.Table, field string) (*sql.Column, error) {
-	if field == "" {
-		return nil, fmt.Errorf("%w: invalid field name", ErrIllegalArguments)
+	if !fieldNameValidation.MatchString(field) {
+		return nil, fmt.Errorf("%w: invalid field name '%s'", ErrIllegalArguments, field)
 	}
 
 	column, err := table.GetColumnByName(field)
@@ -299,6 +320,10 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, documentIdFieldName string) error {
 	if documentIdFieldName == DocumentBLOBField {
 		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
+	}
+
+	if documentIdFieldName != "" && !documentIDFieldNameValidation.MatchString(documentIdFieldName) {
+		return fmt.Errorf("%w: invalid document id field name '%s'", ErrIllegalArguments, documentIdFieldName)
 	}
 
 	opts := sql.DefaultTxOptions().
@@ -571,44 +596,46 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 			continue
 		}
 
-		var rval *structpb.Value
-		var ok bool
-		if rval, ok = doc.Fields[col.Name()]; !ok {
-			nameParts := strings.SplitN(col.Name(), documentFieldPathSeparator, documentMaxNestedFields)
-			nestedStruct := doc
-			for j := range nameParts {
-				if j == len(nameParts)-1 {
-					if rval, ok = nestedStruct.Fields[nameParts[len(nameParts)-1]]; !ok {
-						rval = nil
-					}
-					break
-				}
-
-				if rval, ok = nestedStruct.Fields[nameParts[j]]; !ok {
-					rval = nil
-					break
-				}
-
-				nestedStruct = rval.GetStructValue()
-				if nestedStruct == nil {
-					rval = nil
-					break
-				}
-			}
+		rval, err := e.structValueFromFieldPath(doc, col.Name())
+		if err != nil && !errors.Is(err, ErrFieldDoesNotExist) {
+			return nil, err
 		}
 
-		if rval != nil {
+		if rval == nil {
+			values[i] = &sql.NullValue{}
+		} else {
 			val, err := structValueToSqlValue(rval, col.Type())
 			if err != nil {
 				return nil, err
 			}
 			values[i] = val
-		} else {
-			values[i] = &sql.NullValue{}
 		}
 	}
 
 	return sql.NewRowSpec(values), nil
+}
+
+func (e *Engine) structValueFromFieldPath(doc *structpb.Struct, fieldPath string) (*structpb.Value, error) {
+	nestedStruct := doc
+	nestedFields := strings.SplitN(fieldPath, documentFieldPathSeparator, e.maxNestedFields)
+
+	for i, field := range nestedFields {
+		rval, ok := nestedStruct.Fields[field]
+		if !ok {
+			return nil, fmt.Errorf("%w('%s'): while reading nested field '%s'", ErrFieldDoesNotExist, fieldPath, field)
+		}
+
+		if i == len(nestedFields)-1 {
+			return rval, nil
+		}
+
+		nestedStruct = rval.GetStructValue()
+		if nestedStruct == nil {
+			return nil, fmt.Errorf("%w('%s'): while reading nested field '%s'", ErrFieldDoesNotExist, fieldPath, field)
+		}
+	}
+
+	return nil, fmt.Errorf("%w('%s')", ErrFieldDoesNotExist, fieldPath)
 }
 
 func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
