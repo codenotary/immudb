@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
@@ -568,7 +569,35 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 			continue
 		}
 
-		if rval, ok := doc.Fields[col.Name()]; ok {
+		var rval *structpb.Value
+		var ok bool
+		if rval, ok = doc.Fields[col.Name()]; !ok {
+			fmt.Printf("CHECKING . COLUMNS, %s\n", col.Name())
+			nameParts := strings.SplitN(col.Name(), ".", 3)
+			nestedStruct := doc
+			for j := range nameParts {
+				fmt.Printf("CHECKING . COLUMNS, LOOPING %d, %s\n", j, nameParts[j])
+				if j == len(nameParts)-1 {
+					if rval, ok = nestedStruct.Fields[nameParts[len(nameParts)-1]]; !ok {
+						rval = nil
+					}
+					fmt.Printf("Found rval %+v\n", rval)
+					break
+				}
+
+				if rval, ok = nestedStruct.Fields[nameParts[j]]; !ok {
+					return nil, fmt.Errorf("invalid fields")
+				}
+
+				nestedStruct = rval.GetStructValue()
+				if nestedStruct == nil {
+					rval = nil
+					break
+				}
+			}
+		}
+
+		if rval != nil {
 			val, err := structValueToSqlValue(rval, col.Type())
 			if err != nil {
 				return nil, err
