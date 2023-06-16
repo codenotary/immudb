@@ -4,8 +4,443 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.5.0-RC1"></a>
+## [v1.5.0-RC1] - 2023-06-16
+### Bug Fixes
+- build/Dockerfile.immuadmin to reduce vulnerabilities
+- build/Dockerfile.immuclient to reduce vulnerabilities
+- build/Dockerfile.immuadmin to reduce vulnerabilities
+- build/Dockerfile.rndpass to reduce vulnerabilities
+- build/Dockerfile.full to reduce vulnerabilities
+- modify tests for new object db initialisation
+- build/Dockerfile.full to reduce vulnerabilities
+- build/Dockerfile.rndpass to reduce vulnerabilities
+- table id generation
+- build/Dockerfile.immuclient to reduce vulnerabilities
+- **docs:** bump golang.org/x/net to 0.7.0 in docs and test pkg
+- **embedded/ahtree:** correct calculation of payload offset
+- **embedded/appendable:** proper closing of non-required chunks
+- **embedded/document:** support nil docs
+- **embedded/document:** proper column renaming
+- **embedded/document:** assign correct revision number
+- **embedded/document:** close readers before updating document
+- **embedded/document:** id field conversion
+- **embedded/document:** proper handling of deleted documents
+- **embedded/document:** validate doc is properly initialized
+- **embedded/document:** validate doc is properly initialized
+- **embedded/sql:** do not force columns to have max key length when unspecified
+- **embedded/sql:** include explicit close into sqlTx options
+- **embedded/sql:** multi-row conflict handling
+- **embedded/sql:** implicit conversion within expressions
+- **embedded/sql:** consider 0 as no limit
+- **embedded/sql:** parsing of exists stmt
+- **embedded/sql:** like operator supporting null values
+- **embedded/sql:** crash when RowReader.Read() returns error
+- **embedded/sql:** proper handling of parameters in row readers
+- **embedded/store:** force snapshot to include mandatory mvcc changes
+- **embedded/store:** ensure snapshot is closed for read-only txs
+- **embedded/store:** integrity checks covering empty values
+- **embedded/store:** avoid dead-lock when exporting tx with external commit allowance mode
+- **embedded/tbtree:** fix error comparison
+- **embedded/tbtree:** rollback to the most recent snapshot when insertion fails
+- **embedded/tbtree:** fix snapshot getKeyWithPrefix
+- **embedded/tbtree:** proper kv validation
+- **embedded/tbtree:** fix snapshot getKeyWithPrefix
+- **go.mod:** bump go version to 1.17 in go.mod
+- **helm:** set securityContext and podSecurityContext at correct location
+- **pkg/api:** create collection endpoint with path parameter
+- **pkg/api:** fix and implement LIKE and NOT_LIKE operator when querying documents
+- **pkg/client:** ensure ticker is properly stopped
+- **pkg/client:** return error when verifiedGet operation fails
+- **pkg/database:** read-only document API for replicas
+- **pkg/database:** skip eof error during scan
+- **pkg/database:** read from err channel
+- **pkg/database:** wrap propagated context
+- **pkg/database:** fix truncation and contemplate entry-less txs
+- **pkg/replicator:** check stream is properly initialized
+- **pkg/server:** do not set trailer metadata when replication is done with bidirectional streamming
+- **pkg/server:** ensure error propagation when sending headers
+- **pkg/server:** use grpc interceptors with grpc proxy
+- **pkg/server:** request explicit close when creating a rw sql tx
+- **pkg/server:** ensure tx is closed upon error
+- **pkg/server:** close document readers before cancelling txs
+- **pkg/server:** thread-safe doc reader during session handling
+- **pkg/stream:** handle the case when message fits in a single chunk
+- **pkg/truncator:** adjust plan logic and contemplate empty txs
+- **pkg/verification:** document comparison with proto equals
+- **push.yml:** update min go version
+
+### Changes
+- Add reformatting of protobuf file on build/codegen
+- rename DocumentBulkInsert to DocumentInsertMany
+- Update build/RELEASING.md file
+- allow multiple order by clauses
+- replace schemav2 with protomodel in truncator test
+- handle no more doc error inside response in search
+- use sys/unix package
+- remove docker test provider
+- update document with id if not nil
+- use gosec action
+- add updatecollection api
+- copy document catalogue when truncating db
+- add DocumentFindOneAndUpdate api
+- wait for immudb to get initialized
+- add test case for uncommitted tx not increasing table count
+- pass transaction to upsert function
+- check invalid search id in search request
+- add monotically increasing number to doc id generation
+- add document audit api
+- change DocumentFindOneAndUpdate to DocumentUpdate
+- return sql reader on document search
+- add order by clause in search
+- use sql statement for delete than raw query
+- add ReadN method to document reader
+- add documentReader iterator to read documents
+- remove initial swagger support
+- exclude generated code from coverage
+- exclude generated code from coverage
+- add unique search id for paginated readers
+- fix TestFloatSupport test case
+- simplified codegen
+- fix tests
+- change DeleteTableStmt to DropTableStmt
+- generate proto requests for DocumentDelete api
+- return ErrNoMoreDocuments instead of sql.ErrNoMoreRows
+- add DocumentDelete api
+- add default size for document reader lru cache
+- add lru cache for paginated readers
+- fix merge issues
+- add pagination support when fetching documents
+- fix failing verification test
+- increase test coverage for document engine
+- add bulk insert api
+- TruncateDatabase endpoint should use the same ongoing Truncator if present
+- address review comment
+- add go-acc and goveralls to ext-tools folder
+- delete columns on table deletion
+- check for column before adding index on collection update
+- add option for non unique indexes on collection
+- **ci:** improve notifications
+- **cmd/immuadmin:** flag to specify the usage of embedded values
+- **cmd/immuadmin:** add truncate cmd to immuadmin
+- **cmd/immuadmin:** modify truncation settings schema
+- **deps:** bump golang.org/x/crypto
+- **deps:** bump github.com/jaswdr/faker from 1.4.3 to 1.16.0
+- **deps:** bump securego/gosec from 2.14.0 to 2.15.0
+- **deps:** bump github.com/codenotary/immudb
+- **deps:** bump github.com/influxdata/influxdb-client-go/v2
+- **deps:** bump github.com/golang/protobuf from 1.5.2 to 1.5.3
+- **deps:** bump github.com/rogpeppe/go-internal from 1.8.0 to 1.9.0
+- **deps:** bump github.com/lib/pq from 1.10.7 to 1.10.9
+- **deps:** bump github.com/lib/pq from 1.10.2 to 1.10.7
+- **deps:** bump golang.org/x/net from 0.8.0 to 0.9.0
+- **deps:** bump github.com/rs/xid from 1.3.0 to 1.5.0
+- **deps:** bump github.com/stretchr/testify from 1.8.0 to 1.8.2
+- **deps:** bump aws-actions/configure-aws-credentials from 1 to 2
+- **deps:** bump github.com/spf13/cobra from 1.2.1 to 1.6.1
+- **deps:** bump github.com/grpc-ecosystem/grpc-gateway/v2
+- **deps:** bump google.golang.org/grpc from 1.46.2 to 1.54.0
+- **deps:** bump github.com/spf13/viper from 1.12.0 to 1.15.0
+- **embedded/ahtree:** add inline comments
+- **embedded/appendable:** fsync freebsd
+- **embedded/appendable:** automatic file creation only when appending
+- **embedded/appendable:** use fdatasync when file is preallocated
+- **embedded/appendable:** file syncing per os
+- **embedded/appendable:** support file preallocation
+- **embedded/appendable:** file syncing using fdatasync when available
+- **embedded/appendable:** minor improvements reading files
+- **embedded/appendable:** metadats with putBool
+- **embedded/document:** remove dead-code
+- **embedded/document:** add float support for doc engine
+- **embedded/document:** raw document validation
+- **embedded/document:** improve error handling
+- **embedded/document:** transactional collection update
+- **embedded/document:** support null values in indexed attributes
+- **embedded/document:** retrieval of raw document
+- **embedded/document:** move source code into dedicated files
+- **embedded/document:** use onclose callback to close the tx
+- **embedded/document:** return struct when auditing document history
+- **embedded/document:** add test to ensure key ordering in document during serialization
+- **embedded/document:** blob type not yet supported
+- **embedded/document:** catch key alredy exists  error
+- **embedded/document:** catch tx read conflict error
+- **embedded/document:** translate table already exists error
+- **embedded/document:** minor var renaming
+- **embedded/document:** fix query stmt generator and add tests
+- **embedded/document:** leverage sqlengine lazy index contraint evaluation
+- **embedded/document:** binary serialization of doc payload
+- **embedded/document:** use query limit when searching
+- **embedded/document:** wip continue with improvements
+- **embedded/document:** wip continue with improvements
+- **embedded/document:** wip continue with improvements
+- **embedded/document:** wip improvements
+- **embedded/document:** add collection deletion api support
+- **embedded/document:** minor code simplification
+- **embedded/document:** add variable length support for multiple types
+- **embedded/document:** ensure order by clauses are used when deleting and updating
+- **embedded/document:** improve error messages
+- **embedded/document:** minor code adjustments
+- **embedded/document:** transactional collection and document creation
+- **embedded/document:** improve error messages
+- **embedded/document:** possibility to specify desc order when querying document history
+- **embedded/document:** add tests for blob type
+- **embedded/document:** avoid public dependency on sql
+- **embedded/document:** add test cases for collection on doc engine
+- **embedded/document:** change querier from BinBoolExp to CmpBoolExp
+- **embedded/document:** transactional document creation
+- **embedded/document:** add document id generation
+- **embedded/document:** typo in error message
+- **embedded/htree:** allow creation of empty hash trees
+- **embedded/object:** add document abstraction
+- **embedded/object:** add collection/database statements
+- **embedded/sql:** use read-only txs whenever possible
+- **embedded/sql:** make sql engine generic for object store
+- **embedded/sql:** limit and offset boundary validation
+- **embedded/sql:** minor numeric type adjustments
+- **embedded/sql:** implicit conversion support in limit and offset clauses
+- **embedded/sql:** simplified sql tx
+- **embedded/sql:** return closed sql txs
+- **embedded/sql:** implicit conversion from varchar to int and float types
+- **embedded/sql:** upgraded row reader
+- **embedded/sql:** ddl stmts register catalog mutation
+- **embedded/sql:** snapshot reuse improvements
+- **embedded/sql:** lazy index contraint validation
+- **embedded/sql:** WIP singledb sql engine
+- **embedded/sql:** transient context
+- **embedded/sql:** validate total key length at index creation time
+- **embedded/sql:** extend max key length to 512
+- **embedded/sql:** cancellable row reader
+- **embedded/store:** add in-line documentation for store options
+- **embedded/store:** validate Eh only when integrity checks are not disabled
+- **embedded/store:** addition of a cache for values
+- **embedded/store:** consume all tx content even if integrity checks are disabled
+- **embedded/store:** optional integrity checking when reading values
+- **embedded/store:** validate Eh only when integrity checks are not disabled
+- **embedded/store:** inline comments
+- **embedded/store:** fix typo in inline comment
+- **embedded/store:** validate gets using filters
+- **embedded/store:** MVCC read-set with boundaries
+- **embedded/store:** context propagation
+- **embedded/store:** mvcc validation only if another tx was processed
+- **embedded/store:** minor changes after rebasing from master
+- **embedded/store:** simplified dualproof implementation
+- **embedded/store:** skipIntegrityCheck parameter when reading data
+- **embedded/store:** minor code improvement
+- **embedded/store:** add min limit for truncation frequency
+- **embedded/store:** use syncSnapshot to validate ongoing txs
+- **embedded/store:** unify Read and ReadBetween
+- **embedded/store:** transient context
+- **embedded/store:** tx header is returned when fully committed
+- **embedded/store:** api upgrade
+- **embedded/store:** set ctx as first argument
+- **embedded/store:** readValueAt and exportTx improvements
+- **embedded/store:** update ReadBetween
+- **embedded/store:** contextualized transactions
+- **embedded/store:** inline comments
+- **embedded/store:** snapshot reuse improvements
+- **embedded/store:** set smaller default value for indexing bulk size
+- **embedded/store:** wip mvcc validations
+- **embedded/store:** simplified indexer initialization
+- **embedded/store:** multi-tx unsafe mvcc
+- **embedded/store:** set tx as closed upon cancellation
+- **embedded/store:** wip mvcc validations
+- **embedded/store:** set ctx as first argument
+- **embedded/store:** embedded meta attribute required if version is greater than 1
+- **embedded/store:** set embedded values mode as default one
+- **embedded/store:** backward compatible embedded value mode
+- **embedded/store:** optional integrity checking when reading values
+- **embedded/store:** preallocate tx header log files
+- **embedded/store:** wip mvcc validations
+- **embedded/store:** handle eof when reading last committed tx
+- **embedded/store:** support preallocated files when reading tx data
+- **embedded/store:** wip preallocated clog
+- **embedded/store:** option to prealloc files
+- **embedded/store:** optional integrity checking
+- **embedded/store:** further in-line documentation
+- **embedded/store:** make truncation validation tolerate entryless txs
+- **embedded/store:** allow tx without entries as long as it contains metadata
+- **embedded/store:** add hashValue as fixed 32 byte size
+- **embedded/store:** add test for TxOptions
+- **embedded/store:** add min limit for truncation frequency
+- **embedded/store:** multi-tx bulk indexing
+- **embedded/store:** fix default vlog cache size and add validation for hash when reading from cache
+- **embedded/store:** safe key copy for mvcc validation
+- **embedded/store:** improve log messages when discarding precommitted transactions
+- **embedded/store:** mvcc validations
+- **embedded/store:** fix rebase issue with readValueAt for vlogcache
+- **embedded/store:** multi-timed bulk insertions
+- **embedded/store:** clog file size adjustment only when preallocation is disabled
+- **embedded/store:** added more in-line comments
+- **embedded/store:** file preallocation not enabled by default
+- **embedded/store:** propagate context usage
+- **embedded/tbtree:** parametrize snapshot creation specs
+- **embedded/tbtree:** in-line documentation
+- **embedded/tbtree:** initialize tbtree with a non-mutated leaf
+- **embedded/tbtree:** getWithPrefix
+- **embedded/tbtree:** remove unnecessary kv sorting
+- **embedded/tbtree:** add in-line documentation
+- **embedded/tbtree:** minor code improvements
+- **embedded/tbtree:** rollback not needed as updates are made in a copy
+- **embedded/tbtree:** add in-line comments
+- **embedded/tbtree:** wip reduce allocs while updating inner node
+- **embedded/tbtree:** optimized bulk insertion
+- **embedded/tbtree:** optimize snapshot renewal
+- **embedded/tbtree:** wip optimized insertion
+- **embedded/tbtree:** variable renaming after rebasing
+- **embedded/tools:** upgrade embedded tools with transient context
+- **embedded/watchers:** return context error upon cancellation
+- **embedded/watchers:** set ctx as first arg
+- **embedded/watchers:** use context instead of cancellation channel
+- **package/database:** bunch of fixes and improvements in document engine
+- **pkg:** add more tests admin truncate command
+- **pkg/api:** expose db setting to enable file preallocation
+- **pkg/api:** use ErrrIs/ErrorContains in error checks
+- **pkg/api:** rename idFieldName to documentIdFieldName
+- **pkg/api:** annotate required fields
+- **pkg/api:** use of path parameters for document-related endpoints
+- **pkg/api:** expose new store indexing options
+- **pkg/api:** document update with path parameter
+- **pkg/api:** document api improvements
+- **pkg/api:** remove bool from tx metadata conversion
+- **pkg/api:** document api improvements
+- **pkg/api:** snapshot reuse attributes
+- **pkg/api:** search api improvements
+- **pkg/api:** return txID when inserting or updating documents
+- **pkg/api:** expose MVCC read-set settings
+- **pkg/api:** remove unsupported attribute from response messages
+- **pkg/api:** revert changes in swagger spec
+- **pkg/api:** re-generated httpclient with DeleteDocument endpoint
+- **pkg/api:** singular document path for audit and proof endpoints
+- **pkg/api:** manual adjustments post-code generation
+- **pkg/api:** expose replication settings for skipping integrity checks and indexing
+- **pkg/api:** swagger gen
+- **pkg/api:** value cache settings exposed
+- **pkg/api:** annotate primitive types as required
+- **pkg/api:** endpoint renaming
+- **pkg/api:** cleaner session id header
+- **pkg/api:** minor proof request renaming
+- **pkg/api:** authorization in swagger spec
+- **pkg/api:** re-generated httpclient
+- **pkg/api:** expose support for unsafe mvcc transactions
+- **pkg/api:** expose embeddedValue database setting
+- **pkg/api:** remove generated httpclient
+- **pkg/api:** buch of implementation improvements
+- **pkg/api:** revised document and authentication apis
+- **pkg/api:** annotated required message fields
+- **pkg/api:** add tx metadata conversion
+- **pkg/api:** re-generated httpclient
+- **pkg/api:** change retention period in TruncateDatabase message to int64
+- **pkg/auth:** add document update permissions
+- **pkg/client:** minor renaming in tx options
+- **pkg/client:** move heartbeater.go to pkg/client
+- **pkg/client/cache:** improve test coverage
+- **pkg/database:** upgrade after rebasing
+- **pkg/database:** remove object store db initialisation
+- **pkg/database:** upgraded reader specs
+- **pkg/database:** add document query struct to abstract request query
+- **pkg/database:** change objectEngine to documentEngine
+- **pkg/database:** add mvcc test for truncation, parse retention period using duration
+- **pkg/database:** add more tests for truncation
+- **pkg/database:** add document store db initialisation
+- **pkg/database:** updated APIs with schema updates
+- **pkg/database:** implement GetCollection API
+- **pkg/database:** remove search through first query
+- **pkg/database:** add query parser for object to generate sql expression
+- **pkg/database:** fix truncation deletion point checks in test
+- **pkg/database:** add search document api implementation for object store
+- **pkg/database:** create document/collection from schemav2 requests
+- **pkg/database:** context propagation
+- **pkg/database:** minor document renaming
+- **pkg/database:** add and implement object db interface
+- **pkg/database:** add DocumentUpdate api
+- **pkg/database:** minor code aligments
+- **pkg/database:** add object store
+- **pkg/database:** context propagation from server to embedded layer
+- **pkg/database:** proper calculation of source tx
+- **pkg/database:** create txs with default options
+- **pkg/database:** hard limit on page size
+- **pkg/database:** check encoded value is consistent with raw document
+- **pkg/database:** document verfication
+- **pkg/database:** use _obj to hold raw document payload
+- **pkg/database:** snapshot reuse changes
+- **pkg/database:** add document engine abstraction
+- **pkg/integration:** exportTx benchmarking
+- **pkg/replication:** replicator using bidirectional streaming
+- **pkg/replication:** improve options validation
+- **pkg/replication:** skip integrity check when exporting transactions
+- **pkg/replication:** context propagation
+- **pkg/replication:** wip stream replication - only async replication working
+- **pkg/server:** multi-grpc request context propagation
+- **pkg/server:** added inline comments
+- **pkg/server:** set default replication settings
+- **pkg/server:** context propagation from grpc api to embedded package
+- **pkg/server:** upgrades after rebasing from master
+- **pkg/server:** upgrade to new insecure credentials api
+- **pkg/server:** log error when closing document reader
+- **pkg/server:** support snapshot reuse
+- **pkg/server:** close all paginated readers on close of session
+- **pkg/server:** integrate document functions with server apis
+- **pkg/server:** add pagination test for document search
+- **pkg/server:** ensure document reader is closed when swithing pages
+- **pkg/server:** minor code reuse
+- **pkg/server:** add test successful load/unload of db with truncator
+- **pkg/store:** skipIntegrityChecks parameter when reading data
+- **pkg/stream:** handle eof when sending data
+- **pkg/truncator:** return error if expiration time hasn't been met
+- **pkg/truncator:** add context to Truncate method
+- **pkg/truncator:** refactor truncator process
+- **pkg/verfication:** document verification methods
+- **pkg/verification:** strengthen proof validations
+- **pkg/verification:** minor renaming
+- **pkg/verification:** document verification using embedded identifier
+- **pkg/verification:** use proto serialization
+- **test/objects:** add tests to create collections
+- **test/objects:** use httpexpect
+- **test/objects:** add more tests to create collection
+- **test/perf:** fix version value for flag
+- **test/perf:** add immudb version to influxdb data
+- **test/perf:** add runner to results for influxdb
+- **test/perf-tests:** remove runner check
+- **test/perf-tests:** use proxy on benchmark runner
+- **test/performance:** call cleanup method
+- **test/performance-test-suite:** fix replica directory path
+- **test/performance-test-suite:** add sync benchmarks
+- **test/performance-test-suite:** changed server concrete implementation
+- **test/performance-test-suite:** replicas are able to communicate with primary
+- **test/performance-test-suite:** send results to influxdb
+- **test/performance-test-suite:** extract json from results
+- **test/performance-test-suite:** add influxdb host and toke arguments
+- **test/performance-test-suite:** use temp folders for primary, replicas and clients
+- **truncator:** add more coverage for truncator
+
+### Features
+- add vlog truncation functionality
+- **ci:** change notification
+- **embedded/document:** count documents
+- **embedded/object:** add object store to embedded pkg
+- **embedded/sql:** Initial float support
+- **embedded/sql:** limit and offset as expressions
+- **embedded/sql:** sql transaction creation with options
+- **embedded/sql:** short casting syntax
+- **embedded/sql:** wip unsafe and optimized mvcc
+- **embedded/sql:** implicit type conversion of numeric types
+- **embedded/store:** tx creation with options
+- **embedded/store:** expose GetWithPrefixAndFilters
+- **embedded/store:** embeddable values
+- **embedded/store:** unsafe mvcc mode
+- **embedded/store:** embedded values option
+- **embedded/store:** read-only transactions
+- **embedded/store:** GetWithPrefixAndFilters
+- **embedded/tbtree:** multi-timed bulk insertions
+- **pkg/api:** document proof endpoint
+- **pkg/api:** improved replace documents endpoint
+- **pkg/api:** keepOpen parameter to instruct server to maintain a document reader in memory
+- **pkg/api:** count documents endpoint
+- **pkg/client:** optional tx options are now available during the creation process
+
+
 <a name="v1.4.1"></a>
-## [v1.4.1] - 2022-11-14
+## [v1.4.1] - 2022-11-21
 ### Changes
 - **pkg/server:** Add logs for activities related to users
 
@@ -824,18 +1259,19 @@ All notable changes to this project will be documented in this file. This projec
 ## [v1.2.0-RC1] - 2021-12-07
 ### Bug Fixes
 - Update jaswdr/faker to v1.4.3 to fix build on 32-bit systems
+- **CI:** Fix building and releasing almalinux images
 - **Makefile:** Fix building immudb for specific os/arch
 - **Makefile:** Use correct version of the grpc-gateway package
+- **embedded/sql:** fix rollback stmt
+- **embedded/sql:** correct max key length validation based on specified col max length
 - **embedded/sql:** ensure determinism and no value overlaps distinct rows
 - **embedded/sql:** fix inserting calculated null values
-- **embedded/sql:** correct max key length validation based on specified col max length
-- **embedded/sql:** fix rollback stmt
 - **embedded/sql:** normalize parameters with lower case identifiers
-- **embedded/sql:** param substitution in LIKE expression
 - **embedded/sql:** Use correct statement for subquery
 - **embedded/sql:** Do not modify value returned by colsBySelector
-- **embedded/sql:** Fix SELECT * when joining with subquery
 - **embedded/sql:** distinct row reader with limit argument
+- **embedded/sql:** param substitution in LIKE expression
+- **embedded/sql:** Fix SELECT * when joining with subquery
 - **embedded/store:** release lock when tx has a conflict
 - **embedded/store:** read conflict validation
 - **embedded/store:** typo in error message
@@ -849,54 +1285,54 @@ All notable changes to this project will be documented in this file. This projec
 ### Changes
 - refining sdk client constructor and add readOnly tx guard
 - Update build/RELEASING.md documentation.
-- fix more tests
+- Remove experimental S3 warning from README
 - decoupled token service
 - token is handled internally by sdk. Remove useless code
+- fix more tests
 - remove token service from client options and fix tests
 - **cmd/immuadmin/command:** fix immuadmin token name on client creation
 - **cmd/immuclient:** deleteKeys functioin and updates after metadata-related changes
 - **cmd/immuclient:** temporary disable displaying hash in non-verified methods
 - **embeddded/tbtree:** leverage snapshot id to identify it's the current unflushed one
 - **embedded/multierr:** minor code simplification
-- **embedded/sql:** set INNER as default join type
-- **embedded/sql:** minor update after rebasing
+- **embedded/sql:** bound stmt execution to a single sqltx
 - **embedded/sql:** Alter index key prefixes
-- **embedded/sql:** wip rw transactions
+- **embedded/sql:** postponing short-circuit evaluation for safetiness
 - **embedded/sql:** remove opt_unique rule to ensure proper error message
 - **embedded/sql:** minor code simplification
-- **embedded/sql:** kept last snapshot open
+- **embedded/sql:** use order type in scanSpecs
 - **embedded/sql:** Simplify row_reader key selection
 - **embedded/sql:** Better error messages when (up|in)serting data
-- **embedded/sql:** standardized datasource aliasing
+- **embedded/sql:** method to return sql catalog
 - **embedded/sql:** wip sqlTx
 - **embedded/sql:** de-duplicate tx attributes using tx header struct
 - **embedded/sql:** fix nullable values handling
 - **embedded/sql:** rollback token
-- **embedded/sql:** set parsing verbose mode when instantiating sql engine
+- **embedded/sql:** limit row reader
+- **embedded/sql:** use int type for limit arg
+- **embedded/sql:** kept last snapshot open
 - **embedded/sql:** unsafe snapshot without flushing
 - **embedded/sql:** reusable index entries and ignore deleted index entries
-- **embedded/sql:** bound stmt execution to a single sqltx
-- **embedded/sql:** delay index sync until fetching row by its pk
 - **embedded/sql:** changes on tx closing
-- **embedded/sql:** leverage metadata for logical deletion
-- **embedded/sql:** use order type in scanSpecs
-- **embedded/sql:** cancel non-closed tx
+- **embedded/sql:** set INNER as default join type
+- **embedded/sql:** delay index sync until fetching row by its pk
+- **embedded/sql:** set parsing verbose mode when instantiating sql engine
 - **embedded/sql:** expose Cancel method
-- **embedded/sql:** wip interactive sqltx
-- **embedded/sql:** limit row reader
-- **embedded/sql:** return map with last inserted pks
-- **embedded/sql:** use int type for limit arg
-- **embedded/sql:** defer execution of onClose callback
-- **embedded/sql:** sql engine options and validations
+- **embedded/sql:** leverage metadata for logical deletion
 - **embedded/sql:** standard count(*)
-- **embedded/sql:** ddl stmts not counted in updatedRows
-- **embedded/sql:** method to return sql catalog
-- **embedded/sql:** non-thread safe tx
-- **embedded/sql:** use current db from ongoing tx
-- **embedded/sql:** postponing short-circuit evaluation for safetiness
+- **embedded/sql:** return map with last inserted pks
+- **embedded/sql:** standardized datasource aliasing
+- **embedded/sql:** defer execution of onClose callback
 - **embedded/sql:** wip sql tx preparation
+- **embedded/sql:** sql engine options and validations
+- **embedded/sql:** ddl stmts not counted in updatedRows
+- **embedded/sql:** cancel non-closed tx
+- **embedded/sql:** non-thread safe tx
+- **embedded/sql:** wip interactive sqltx
+- **embedded/sql:** use current db from ongoing tx
+- **embedded/sql:** minor update after rebasing
+- **embedded/sql:** wip rw transactions
 - **embedded/store:** entryDigest calculation including key len
-- **embedded/store:** conservative read conflict validation
 - **embedded/store:** non-thread safe ongoing tx
 - **embedded/store:** wip tx header versioning
 - **embedded/store:** expose ExistKeyWithPrefix in OngoingTx
@@ -904,35 +1340,36 @@ All notable changes to this project will be documented in this file. This projec
 - **embedded/store:** set tx as closed even on failed attempts
 - **embedded/store:** strengthen tx validations
 - **embedded/store:** GetWith method accepting filters
-- **embedded/store:** handle watchersHub closing error
+- **embedded/store:** conservative read conflict validation
 - **embedded/store:** remove currentShapshot method
-- **embedded/store:** tx header version validations and increased max number of entries
+- **embedded/store:** handle watchersHub closing error
 - **embedded/store:** threadsafe tx
-- **embedded/store:** filter out entries when filter evals to true
+- **embedded/store:** tx header version validations and increased max number of entries
 - **embedded/store:** ongoing tx api
+- **embedded/store:** filter out entries when filter evals to true
 - **embedded/store:** early tx conflict checking
 - **embedded/store:** simplified ExistKeyWithPrefix in current snapshot
 - **embedded/store:** reorder tx validations
 - **embedded/tbtree:** remove ts from snapshot struct
-- **embedded/tools:** upgrade sql stress tool
-- **embedded/tools:** update stress_tool after metadata-related changes
 - **embedded/tools:** upgrade stress tool using write-only txs
+- **embedded/tools:** update stress_tool after metadata-related changes
+- **embedded/tools:** upgrade sql stress tool
 - **pkg/api:** consider nil case during tx header serialization
 - **pkg/api:** changes in specs to include new metadata records
 - **pkg/api/schema:** increase supported types when converting to sql values
-- **pkg/client:** updates after metadata-related changes
-- **pkg/client:** avoid useless tokenservice call and add tests
 - **pkg/client:** check if token is present before injecting it
 - **pkg/client:** omit deleted flag during value decoding
+- **pkg/client:** avoid useless tokenservice call and add tests
+- **pkg/client:** updates after metadata-related changes
 - **pkg/client/clienttest:** fix immuclient mock
 - **pkg/client/tokenservice:** handlig error properly on token interceptor and fix leftovers
-- **pkg/database:** updates after metadata-related changes
-- **pkg/database:** improve readability of Database interface
 - **pkg/database:** snapshots should be up to current committed tx
-- **pkg/database:** revised locking so to ensure gracefully closing
 - **pkg/database:** implement current functionality with new tx supportt
-- **pkg/database:** return a specific error in querying
 - **pkg/database:** enforce verifiableSQLGet param validation
+- **pkg/database:** improve readability of Database interface
+- **pkg/database:** revised locking so to ensure gracefully closing
+- **pkg/database:** return a specific error in querying
+- **pkg/database:** updates after metadata-related changes
 - **pkg/database:** use new transaction support
 - **pkg/database:** limit query len result
 - **pkg/errors:**  invalid database name error converted to immuerror
@@ -944,11 +1381,11 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/server/sessions:** polish logger call
 - **pkg/server/sessions:** add sessions counter debug messages
 - **pkg/stdlib:** general improvements and polishments
-- **pkg/stdlib:** remove context injection when query or exec
 - **pkg/stdlib:** improve connection handling and allow ssl mode in connection string
-- **pkg/stdlib:** fix unit testing
-- **pkg/stdlib:** handling nil pointers when converting to immudb named params
 - **pkg/stdlib:** increase pointer values handling and testing
+- **pkg/stdlib:** fix unit testing
+- **pkg/stdlib:** remove context injection when query or exec
+- **pkg/stdlib:** handling nil pointers when converting to immudb named params
 - **stress_tool_sql:** add sessions and transaction mode
 - **stress_tool_worker_pool:** add long running stress tool
 - **test:** test backward compatibility with previous release (v1.1.0)
@@ -989,11 +1426,10 @@ All notable changes to this project will be documented in this file. This projec
 
 
 <a name="v1.1.0"></a>
-## [v1.1.0] - 2021-09-22
+## [v1.1.0] - 2021-09-21
 ### Bug Fixes
-- Minor updates to build/RELEASING.md
 - Update Dockerfile.alma maintainer field
-- **CI:** Fix building and releasing almalinux images
+- Minor updates to build/RELEASING.md
 - **Dockerfile:** Fix compiling version information in docker images
 - **Dockerfile.rndpass:** Fix building rndpass docker image
 - **embedded/sql:** suffix endKey when scan over all entries
@@ -1015,103 +1451,102 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/stdlib:** fix driver connection releasing
 
 ### Changes
-- Update RELEASING.md with documentation step.
-- remove wip warning for fully implemented features
-- Add documentation badge to README.md
-- Add documentation link at the beginning of README.md
 - Add documentation link to command line help outputs
+- Add documentation link at the beginning of README.md
+- remove wip warning for fully implemented features
 - Update codenotary maintainer info
-- Remove experimental S3 warning from README
+- Update RELEASING.md with documentation step.
+- Add documentation badge to README.md
 - **CI:** Build almalinux-based immudb image
-- **CI:** Explicitly require bash in gh action building docker images
 - **CI:** Use buildkit when building docker images
-- **Dockerfile:** Build a debian-based image for immudb next to the scratch one
-- **Dockerfile:** Use scratch as a base for immudb image
+- **CI:** Explicitly require bash in gh action building docker images
 - **Dockerfile:** Remove unused IMMUDB_DBNAME env var
 - **Dockerfile:** Update base docker images
+- **Dockerfile:** Build a debian-based image for immudb next to the scratch one
+- **Dockerfile:** Use scratch as a base for immudb image
 - **Makefile:** More explicit webconsole version
 - **Makefile:** Add darwin/amd64 target
 - **build.md:** Add info about removing webconsole/dist folder
-- **cmd/immuadmin:** remove replication flag shortcut
-- **cmd/immuadmin:** parse all db flags when preparing settings
 - **cmd/immuadmin:** improve flag description and rollback args spec
+- **cmd/immuadmin:** parse all db flags when preparing settings
+- **cmd/immuadmin:** remove replication flag shortcut
 - **cmd/immuclient:** display number of updated rows as result of sql exec
 - **cmd/immudb:** use common replication prefix
 - **docker:** Update generation of docker tags
 - **embedded:** leverage kv constraint to enforce upsert over auto-incremental pk requires row to already exist
 - **embedded/multierr:** enhace multi error implementation
-- **embedded/sql:** fix primary key supported types error message
+- **embedded/sql:** minor code refactoring
 - **embedded/sql:** get rid of limited joint implementation
-- **embedded/sql:** ignore null values when encoding row
-- **embedded/sql:** include constraint only when insert occurs without auto_incremental pk
+- **embedded/sql:** mark catalog as mutated when using auto incremental pk
+- **embedded/sql:** catalog loading requires up to date data store indexing
+- **embedded/sql:** fix max key length validation
 - **embedded/sql:** wip scan optimizations based on query condition and sorting
 - **embedded/sql:** partial progress on selector range calculation
 - **embedded/sql:** partial progress on selector range calculation
 - **embedded/sql:** expose primary key index id
-- **embedded/sql:** leverage endKey to optimize indexing scanning
-- **embedded/sql:** minor code refactoring
-- **embedded/sql:** mark catalog as mutated when using auto incremental pk
-- **embedded/sql:** fix max key length validation
-- **embedded/sql:** catalog loading requires up to date data store indexing
-- **embedded/sql:** optional parenthesis when specifying single-column index
+- **embedded/sql:** fix primary key supported types error message
+- **embedded/sql:** changed identifiers length in catalog
+- **embedded/sql:** ignore null values when encoding row
 - **embedded/sql:** disable TIMESTAMP data-type
 - **embedded/sql:** move index selection closer to data source in query statements
+- **embedded/sql:** move index spec closer to ds
+- **embedded/sql:** include constraint only when insert occurs without auto_incremental pk
 - **embedded/sql:** optimize integer key mapping
 - **embedded/sql:** use plain big-endian encoding for integer values
 - **embedded/sql:** include support for int64 parameters
 - **embedded/sql:** minor refactoring to simplify code
-- **embedded/sql:** minor code simplification
+- **embedded/sql:** leverage endKey to optimize indexing scanning
 - **embedded/sql:** use int64 as value holder for INTEGER type
 - **embedded/sql:** add further validations when encoding values as keys
-- **embedded/sql:** move index spec closer to ds
+- **embedded/sql:** remove join constraints
 - **embedded/sql:** reserve byte to support multi-ordered indexes
+- **embedded/sql:** minor code simplification
 - **embedded/sql:** index prefix function
 - **embedded/sql:** use Cols as a replacement for ColsByID
-- **embedded/sql:** changed identifiers length in catalog
 - **embedded/sql:** validate non-null pk when decoding index entry
 - **embedded/sql:** limit upsert to tables without secondary indexes
-- **embedded/sql:** remove join constraints
+- **embedded/sql:** optional parenthesis when specifying single-column index
 - **embedded/sql:** convert unmapIndexedRow into unmapRow with optional indexed value
 - **embedded/tbtree:** typo in log message
 - **embedded/tbtree:** compaction doesn't need snapshots to be closed
-- **embedded/tbtree:** return kv copies
 - **embedded/tbtree:** adjust seekKey based on prefix even when a value is set
+- **embedded/tbtree:** return kv copies
 - **embedded/tools:** update sql stress tool with exec summary
-- **pkg/api:** changed db identifiers type
 - **pkg/api:** use fresh id in proto message
 - **pkg/api:** use a map for holding latest auto-incremental pks
+- **pkg/api:** include updated rows and last inserted pks in sql exec result
 - **pkg/api:** use int64 as value holder for INTEGER type
 - **pkg/api:** use follower naming for replication credentials
-- **pkg/api:** include updated rows and last inserted pks in sql exec result
+- **pkg/api:** changed db identifiers type
 - **pkg/api:** delete deprecated clean operation
-- **pkg/client:** changed db identifiers type
 - **pkg/client:** move unit testing to integration package to avoid circular references
-- **pkg/database:** warn about data migration needed
-- **pkg/database:** minor refactoring coding conventions
-- **pkg/database:** remove active replication options from database
-- **pkg/database:** create sql db instance if not present
+- **pkg/client:** changed db identifiers type
 - **pkg/database:** minor adjustments based on multi-column indexing
-- **pkg/database:** update integration to exec summary
+- **pkg/database:** minor refactoring coding conventions
+- **pkg/database:** create sql db instance if not present
+- **pkg/database:** remove active replication options from database
 - **pkg/database:** display as unique if there is a single-column index
+- **pkg/database:** update integration to exec summary
 - **pkg/database:** include updated rows and last inserted pks in sql exec result
+- **pkg/database:** warn about data migration needed
 - **pkg/database:** warn about data migration needed
 - **pkg/database:** minor renaming after rebase
 - **pkg/pgsql/server:** adds pgsql server maxMsgSize 32MB limit
 - **pkg/pgsql/server:** add a guard on payload message len
-- **pkg/replication:** handle disconnection only within a single thread
 - **pkg/replication:** use new context for each client connection
+- **pkg/replication:** handle disconnection only within a single thread
 - **pkg/replication:** use info log level for network failures
-- **pkg/server:** followers management
+- **pkg/server:** use replica wording
 - **pkg/server:** validate replication settings
-- **pkg/server:** nil tlsConfig on default options
 - **pkg/server:** change max concurrency per database to 30
 - **pkg/server:** changed default db file size and make it customizable at db creation time
-- **pkg/server:** use replica wording
+- **pkg/server:** followers management
+- **pkg/server:** nil tlsConfig on default options
 - **pkg/stdLib:** implementing golang standard sql interfaces
-- **pkg/stdlib:** remove pinger interface implementation and increase code coverage
 - **pkg/stdlib:** increase code coverage and fix blob results scan
-- **pkg/stdlib:** immuclient options identifier(uri) is used to retrieve cached connections
+- **pkg/stdlib:** remove pinger interface implementation and increase code coverage
 - **pkg/stdlib:** simplified and hardened uri handling
+- **pkg/stdlib:** immuclient options identifier(uri) is used to retrieve cached connections
 
 ### Features
 - Dockerfile for almalinux based image
@@ -1360,151 +1795,156 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/sql:** resolve shift/reduce conflict in SELECT stmt
 
 ### Changes
-- move concrete class dblist to database package
+- fix rebase leftovers
 - fix makefile leftovers
 - bundle webconsole inside dist binaries
 - improved make dist script
-- reword wire compatibility
-- increase coverage and minor fix
-- make roadmap about pgsql wire more explicit ([#723](https://github.com/vchain-us/immudb/issues/723))
-- blank line needed after tag or interpreted as comment
-- add pgsql related flags
-- fix rebase leftovers
-- inject immudb user authentication
-- expose missing methods to REST ([#725](https://github.com/vchain-us/immudb/issues/725))
 - fix acronym uppercase
-- revert 3114f927adf4a9b62c4754d42da88173907a3a9f in order to allow insecure connection on grpc server
+- increase coverage and minor fix
+- README SDK description and links ([#717](https://github.com/vchain-us/immudb/issues/717))
+- github workflow to run stress_tool ([#714](https://github.com/vchain-us/immudb/issues/714))
+- blank line needed after tag or interpreted as comment
+- move concrete class dblist to database package
 - dblist interface is moved to database package and extended
+- add pgsql related flags
+- inject immudb user authentication
+- fix immugw support
+- expose missing methods to REST ([#725](https://github.com/vchain-us/immudb/issues/725))
+- make roadmap about pgsql wire more explicit ([#723](https://github.com/vchain-us/immudb/issues/723))
+- revert 3114f927adf4a9b62c4754d42da88173907a3a9f in order to allow insecure connection on grpc server
+- reword wire compatibility
+- **cmd/immuclient:** add describe, list, exec and query commands to immuclient shell
 - **cmd/immuclient:** query result rendering
 - **cmd/immuclient:** render raw values
-- **cmd/immuclient:** add describe, list, exec and query commands to immuclient shell
 - **cmd/immudb:** add debug info env var details
-- **cmd/immudb/command:** restore missing pgsql cmd flag
 - **cmd/immudb/command:** enabled pgsql server only in command package
+- **cmd/immudb/command:** restore missing pgsql cmd flag
 - **cmd/immudb/command:** handle tls configuration errors
 - **cmd/immudb/command:** remove parsing path option in unix
 - **embedded/cache:** thread-safe lru-cache
-- **embedded/sql:** minor refactoring to expose functionality needed for row verification
-- **embedded/sql:** keep one snapshot open and close when releasing
-- **embedded/sql:** case insensitive functions
+- **embedded/sql:** improved nullables
+- **embedded/sql:** skip tabs
 - **embedded/sql:** move sql engine under embedded package
+- **embedded/sql:** safer support for selected database
+- **embedded/sql:** minor refactoring to expose functionality needed for row verification
+- **embedded/sql:** case insensitive functions
+- **embedded/sql:** set 'x' as blob prefix
+- **embedded/sql:** store non-null values and only col ids on encoded rows
+- **embedded/sql:** keep one snapshot open and close when releasing
+- **embedded/sql:** expose functionality needed for row verification
+- **embedded/sql:** validate table is empty before index creation
 - **embedded/sql:** resolve query with current snapshot if readers are still open
 - **embedded/sql:** case insensitive identifiers
-- **embedded/sql:** store non-null values and only col ids on encoded rows
-- **embedded/sql:** expose functionality needed for row verification
-- **embedded/sql:** improved nullables
-- **embedded/sql:** safer support for selected database
-- **embedded/sql:** skip tabs
-- **embedded/sql:** set 'x' as blob prefix
-- **embedded/sql:** validate table is empty before index creation
-- **embedded/store:** log during compaction
-- **embedded/store:** use indexer state to terminate indexing goroutine
-- **embedded/store:** commitWith callback using KeyIndex interface
-- **embedded/store:** pausable indexer
+- **embedded/store:** use specified sync mode also for the incremental hash tree
 - **embedded/store:** index info to return latest indexed tx
+- **embedded/store:** use indexer state to terminate indexing goroutine
+- **embedded/store:** log during compaction
+- **embedded/store:** pausable indexer
+- **embedded/store:** commitWith callback using KeyIndex interface
 - **embedded/tbree:** postpone reader initialization until first read
-- **embedded/tbtree:** index compaction if there is not opened snapshot, open snapshot if compaction is not in already in progress
 - **embedded/tbtree:** remove dots denoting progress when flushing is not needed
 - **embedded/tbtree:** make snapshot thread-safe
+- **embedded/tbtree:** index compaction if there is not opened snapshot, open snapshot if compaction is not in already in progress
 - **embedded/watchers:** cancellable wait
-- **pkg/api:** render varchar as raw string value
-- **pkg/api:** render varchar as quoted string
-- **pkg/api:** include data needed for row verification
 - **pkg/api:** render varchar as quoted strings
 - **pkg/api:** sql api spec
+- **pkg/api:** render varchar as quoted string
+- **pkg/api:** render varchar as raw string value
+- **pkg/api:** include data needed for row verification
 - **pkg/api/schema:** Handle tools via modules ([#726](https://github.com/vchain-us/immudb/issues/726))
 - **pkg/auth:** add SQL-related permissions
 - **pkg/auth:** perm spec for row verification endpoint
-- **pkg/client:** use  to fetch current database name
 - **pkg/client:** auto convert numeric values to uint64
 - **pkg/client:** improved sql API
+- **pkg/client:** use  to fetch current database name
 - **pkg/client:** remove deprecated operations
 - **pkg/client/cache:** release lock only if locked file is present, and wait for unlock when already present
-- **pkg/database:** ensure rowReader get closed upon completion
-- **pkg/database:** close sql engine when db gets closed
-- **pkg/database:** support index compaction with sql engine in place
-- **pkg/database:** typed-value proto conversion
-- **pkg/database:** set implicit database using `UseDatabase` method
-- **pkg/database:** support for nullable values
+- **pkg/client/clienttest:** add VerifiedGetAt mock method
 - **pkg/database:** add missing copy
-- **pkg/database:** use MaxKeyScanLimit to limit query results
-- **pkg/database:** row verification against kv-entries
 - **pkg/database:** return mapped row values
-- **pkg/database:** towards prepared sql query support
-- **pkg/database:** upgrade wait for indexing api
-- **pkg/database:** upgrade ExecAll to use KeyIndex interface
+- **pkg/database:** typed-value proto conversion
 - **pkg/database:** improved parameters support
-- **pkg/database:** support multi-selected columns
-- **pkg/database:** use store-level snapshots
+- **pkg/database:** ensure rowReader get closed upon completion
+- **pkg/database:** row verification against kv-entries
+- **pkg/database:** upgrade wait for indexing api
+- **pkg/database:** towards prepared sql query support
 - **pkg/database:** make use of UseDatabase operation
+- **pkg/database:** support index compaction with sql engine in place
+- **pkg/database:** close sql engine when db gets closed
+- **pkg/database:** support for nullable values
+- **pkg/database:** set implicit database using `UseDatabase` method
+- **pkg/database:** use store-level snapshots
+- **pkg/database:** use MaxKeyScanLimit to limit query results
+- **pkg/database:** upgrade ExecAll to use KeyIndex interface
+- **pkg/database:** support multi-selected columns
 - **pkg/embedded:** introduce Snapshot at Store level
-- **pkg/pgsql:** handle parameter status and terminate messages
-- **pkg/pgsql:** bind immudb sql engine
 - **pkg/pgsql:** handle empty response and command complete message
 - **pkg/pgsql:** fix filename format
-- **pkg/pgsql:** add pgsql server wire protocol stub
+- **pkg/pgsql:** bind immudb sql engine
 - **pkg/pgsql:** use options flag to determine if pgsql server need to be launched
+- **pkg/pgsql:** add pgsql server wire protocol stub
+- **pkg/pgsql:** handle parameter status and terminate messages
 - **pkg/pgsql/client:** add jackc/pgx pgsql client for testing purpose
-- **pkg/pgsql/server:** minor fixes and leftovers
-- **pkg/pgsql/server:** enforce reserved statements checks
-- **pkg/pgsql/server:** fix connection upgrade pgsql protocol messages
-- **pkg/pgsql/server:** remove host parameter
-- **pkg/pgsql/server:** limit number of total connections and do not stop server in case of errors
-- **pkg/pgsql/server:** add missing copyright
-- **pkg/pgsql/server:** handle version statement
-- **pkg/pgsql/server:** default error in simplequery loop has error severity
-- **pkg/pgsql/server:** add debug logging messages, split session handling in multiple files
 - **pkg/pgsql/server:** improve error handling when client message is not recognized
-- **pkg/pgsql/server:** move sysdb in session constructor
-- **pkg/pgsql/server:** protect simple query flow with a mutex
+- **pkg/pgsql/server:** fix connection upgrade pgsql protocol messages
 - **pkg/pgsql/server:** handle an ssl connection request if no certificate is present on server
-- **pkg/server:** inject sqlserver in main immudb server
-- **pkg/server:** fix db mock
-- **pkg/server:** remove unused options
-- **pkg/server:** load systemdb before any other db
-- **pkg/server:** use systemdb as a shared catalog store
+- **pkg/pgsql/server:** enforce reserved statements checks
+- **pkg/pgsql/server:** move sysdb in session constructor
+- **pkg/pgsql/server:** remove host parameter
+- **pkg/pgsql/server:** add missing copyright
+- **pkg/pgsql/server:** default error in simplequery loop has error severity
+- **pkg/pgsql/server:** protect simple query flow with a mutex
+- **pkg/pgsql/server:** handle version statement
+- **pkg/pgsql/server:** limit number of total connections and do not stop server in case of errors
+- **pkg/pgsql/server:** add debug logging messages, split session handling in multiple files
+- **pkg/pgsql/server:** minor fixes and leftovers
 - **pkg/server:** remove tls configuration in server
+- **pkg/server:** fix db mock
+- **pkg/server:** use systemdb as a shared catalog store
+- **pkg/server:** inject sqlserver in main immudb server
+- **pkg/server:** load systemdb before any other db
 - **pkg/server:** renamed server reference
-- **pkg/sql:** many internal adjustments related to name binding
-- **pkg/sql:** row reader used to close the snapshot once reading is completed
+- **pkg/server:** remove unused options
 - **pkg/sql:** refactored AggregatedValue and TypedValue interfaces
-- **pkg/sql:** unify augmented and grouped row readers
-- **pkg/sql:** support for SUM aggregations
-- **pkg/sql:** row reader to support GROUP BY behaviour
 - **pkg/sql:** grammar adjustments to support aggregated columns
 - **pkg/sql:** swap LIMIT and ORDER BY parse ordering
-- **pkg/sql:** alias overriding datasource name
-- **pkg/sql:** joint column with explicit table reference
-- **pkg/sql:** support multiple spacing between statements
+- **pkg/sql:** row reader to support GROUP BY behaviour
+- **pkg/sql:** make row values externally accessible
+- **pkg/sql:** support for SUM aggregations
 - **pkg/sql:** upgrade to new store commit api
-- **pkg/sql:** towards catalog encapsulation
+- **pkg/sql:** unify augmented and grouped row readers
 - **pkg/sql:** column descriptors in row readers
 - **pkg/sql:** improve error handling
 - **pkg/sql:** return ErrNoMoreRows when reading
-- **pkg/sql:** improved null value support
-- **pkg/sql:** order-preserving result set
-- **pkg/sql:** using new KeyReaderSpec
-- **pkg/sql:** ensure use snapshot is on the range of committed txs
+- **pkg/sql:** row reader used to close the snapshot once reading is completed
+- **pkg/sql:** many internal adjustments related to name binding
+- **pkg/sql:** alias overriding datasource name
+- **pkg/sql:** joint column with explicit table reference
 - **pkg/sql:** joins limited to INNER type and equality comparison against ref table PK
 - **pkg/sql:** add comment about nested joins
-- **pkg/sql:** use token IDENTIFIER
+- **pkg/sql:** mapping using ids, ordering and renaming support
 - **pkg/sql:** composite readers
 - **pkg/sql:** wip multiple readers
 - **pkg/sql:** catch store indexing errors
 - **pkg/sql:** add generated sql parser
-- **pkg/sql:** make row values externally accessible
+- **pkg/sql:** support multiple spacing between statements
 - **pkg/sql:** remove offset param
 - **pkg/sql:** value-less indexed entries
 - **pkg/sql:** encoded value with pk entry
 - **pkg/sql:** remove alter column stmt
 - **pkg/sql:** inmem catalog with table support
 - **pkg/sql:** inmem catalog
-- **pkg/sql:** catalog construct
+- **pkg/sql:** towards catalog encapsulation
 - **pkg/sql:** primary key supported type validation
 - **pkg/sql:** use standardized transaction closures
 - **pkg/sql:** col selector with resolved datasource
 - **pkg/sql:** case insensitive reserved words
-- **pkg/sql:** mapping using ids, ordering and renaming support
+- **pkg/sql:** use token IDENTIFIER
+- **pkg/sql:** improved null value support
+- **pkg/sql:** order-preserving result set
+- **pkg/sql:** using new KeyReaderSpec
+- **pkg/sql:** ensure use snapshot is on the range of committed txs
+- **pkg/sql:** catalog construct
 - **tools/stream:** upgrade stream tools dependencies
 
 ### Code Refactoring
@@ -1606,7 +2046,7 @@ All notable changes to this project will be documented in this file. This projec
 
 
 <a name="cnlc-2.2"></a>
-## [cnlc-2.2] - 2021-04-28
+## [cnlc-2.2] - 2021-04-23
 ### Bug Fixes
 - update Discord invite link
 - readme typo and mascot placement ([#693](https://github.com/vchain-us/immudb/issues/693))
@@ -1614,16 +2054,11 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/client:** delete token file on logout only if the file exists
 
 ### Changes
-- Add benchmark to README (based on 0.9.x) ([#706](https://github.com/vchain-us/immudb/issues/706))
-- github workflow to run stress_tool ([#714](https://github.com/vchain-us/immudb/issues/714))
-- README SDK description and links ([#717](https://github.com/vchain-us/immudb/issues/717))
-- fix immugw support
 - Add roadmap
+- Add benchmark to README (based on 0.9.x) ([#706](https://github.com/vchain-us/immudb/issues/706))
 - remove grpc term from token expiration description
 - **embedded/store:** check latest indexed tx is not greater than latest committed one
-- **embedded/store:** use specified sync mode also for the incremental hash tree
 - **embedded/store:** defer lock releasing
-- **pkg/client/clienttest:** add VerifiedGetAt mock method
 - **pkg/database:** use newly exposed KeyReaderSpec
 
 ### Features
@@ -2270,6 +2705,7 @@ All notable changes to this project will be documented in this file. This projec
 <a name="v0.8.0"></a>
 ## [v0.8.0] - 2020-09-15
 ### Bug Fixes
+- fix immudb and immugw version and mangen commands errors Without this change, while immuclient and immuadmin still worked as expected, immudb and immugw version and mangen commands were throwing the following error: ./immugw version Error: flag accessed but not defined: config Usage:   immugw version [flags]
 - **pkg/client:** setBatch creates structured values
 
 ### Changes
@@ -2298,7 +2734,6 @@ All notable changes to this project will be documented in this file. This projec
 <a name="v0.7.1"></a>
 ## [v0.7.1] - 2020-08-17
 ### Bug Fixes
-- fix immudb and immugw version and mangen commands errors Without this change, while immuclient and immuadmin still worked as expected, immudb and immugw version and mangen commands were throwing the following error: ./immugw version Error: flag accessed but not defined: config Usage:   immugw version [flags]
 - fix immuclient audit-mode
 - **cmd/immuadmin/command:** fix immuadmin dbswitch
 - **pkg/client:** token service manages old token format
@@ -3146,7 +3581,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.5.0-RC1...HEAD
+[v1.5.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.1...v1.5.0-RC1
 [v1.4.1]: https://github.com/vchain-us/immudb/compare/v1.4.1-RC1...v1.4.1
 [v1.4.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.0...v1.4.1-RC1
 [v1.4.0]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC2...v1.4.0
