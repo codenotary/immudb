@@ -47,7 +47,94 @@ func makeEngine(t *testing.T) *Engine {
 func TestCreateCollection(t *testing.T) {
 	engine := makeEngine(t)
 
+	t.Run("collection creation should fail with invalid collection name", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			"1invalidCollectionName",
+			"",
+			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_DOUBLE},
+				{Name: "name", Type: protomodel.FieldType_STRING},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"number"}},
+				{Fields: []string{"name"}},
+				{Fields: []string{"pin"}},
+				{Fields: []string{"country"}},
+				{Fields: []string{"address.street"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
 	collectionName := "mycollection"
+
+	t.Run("collection creation should fail with invalid document id field name", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"invalid.docid",
+			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_DOUBLE},
+				{Name: "name", Type: protomodel.FieldType_STRING},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"number"}},
+				{Fields: []string{"name"}},
+				{Fields: []string{"pin"}},
+				{Fields: []string{"country"}},
+				{Fields: []string{"address.street"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("collection creation should fail with invalid field name", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "1number", Type: protomodel.FieldType_DOUBLE},
+				{Name: "name", Type: protomodel.FieldType_STRING},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"1number"}},
+				{Fields: []string{"name"}},
+				{Fields: []string{"pin"}},
+				{Fields: []string{"country"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("collection creation should fail with unexistent field", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_DOUBLE},
+				{Name: "name", Type: protomodel.FieldType_STRING},
+				{Name: "pin", Type: protomodel.FieldType_INTEGER},
+				{Name: "country", Type: protomodel.FieldType_STRING},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"number"}},
+				{Fields: []string{"name"}},
+				{Fields: []string{"pin"}},
+				{Fields: []string{"country"}},
+				{Fields: []string{"address.street"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrFieldDoesNotExist)
+	})
 
 	err := engine.CreateCollection(
 		context.Background(),
@@ -152,6 +239,7 @@ func TestGetDocument(t *testing.T) {
 			"address": structpb.NewStructValue(&structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"street": structpb.NewStringValue("mainstreet"),
+					"number": structpb.NewNumberValue(124),
 				},
 			}),
 		},
