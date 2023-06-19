@@ -229,6 +229,34 @@ func TestInitializeRemoteStorageDownloadIdentifier(t *testing.T) {
 	require.Equal(t, []byte{1, 2, 3, 4, 5}, id)
 }
 
+func TestInitializeRemoteStorageWithoutLocalIdentifier(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := DefaultOptions().WithDir(dir)
+	opts.RemoteStorageOptions.S3ExternalIdentifier = true
+
+	s := DefaultServer()
+
+	s.WithOptions(opts)
+
+	m := memory.Open()
+	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
+
+	err := s.Initialize()
+	require.NoError(t, err)
+
+	err = s.initializeRemoteStorage(m)
+	require.NoError(t, err)
+
+	uuidFilename := filepath.Join(dir, "immudb.identifier")
+
+	require.FileExists(t, uuidFilename)
+
+	id, err := ioutil.ReadFile(uuidFilename)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3, 4, 5}, id)
+}
+
 func TestInitializeRemoteStorageDownloadIdentifierErrorOnGet(t *testing.T) {
 	dir := t.TempDir()
 

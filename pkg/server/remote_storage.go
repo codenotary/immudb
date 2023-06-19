@@ -80,7 +80,7 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 			return err
 		}
 
-		if !fileExists(localIdentifierFile) {
+		if !fileExists(localIdentifierFile) || s.Options.RemoteStorageOptions.S3ExternalIdentifier {
 			err := ioutil.WriteFile(localIdentifierFile, remoteId, os.ModePerm)
 			if err != nil {
 				return err
