@@ -37,6 +37,13 @@ const (
 	documentFieldPathSeparator = "."
 )
 
+var reservedWords = map[string]struct{}{
+	"COLLECTION": {},
+	"FIELD":      {},
+	"INDEX":      {},
+	"DOCUMENT":   {},
+}
+
 var collectionNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_\-]*$`)
 var documentIDFieldNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_\-]*$`)
 var fieldNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_\-.]*$`)
@@ -75,21 +82,70 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}, nil
 }
 
+func caseConsistentIdentifier(id string) string {
+	return strings.ToLower(id)
+}
+
+func validateCollectionName(collectionName string) error {
+	_, isReservedWord := reservedWords[caseConsistentIdentifier(collectionName)]
+	if isReservedWord {
+		return fmt.Errorf("%w: invalid collection name '%s'", ErrReservedName, collectionName)
+	}
+
+	if !collectionNameValidation.MatchString(collectionName) {
+		return fmt.Errorf("%w: invalid collection name '%s'", ErrIllegalArguments, collectionName)
+	}
+
+	return nil
+}
+
+func validateDocumentIdFieldName(documentIdFieldName string) error {
+	_, isReservedWord := reservedWords[caseConsistentIdentifier(documentIdFieldName)]
+	if isReservedWord {
+		return fmt.Errorf("%w: invalid id field name '%s'", ErrReservedName, documentIdFieldName)
+	}
+
+	if documentIdFieldName == DocumentBLOBField {
+		return fmt.Errorf("%w: invalid id field name '%s'", ErrReservedName, documentIdFieldName)
+	}
+
+	if !documentIDFieldNameValidation.MatchString(documentIdFieldName) {
+		return fmt.Errorf("%w: invalid id field name '%s'", ErrIllegalArguments, documentIdFieldName)
+	}
+
+	return nil
+}
+
+func validateFieldName(fieldName string) error {
+	_, isReservedWord := reservedWords[caseConsistentIdentifier(fieldName)]
+	if isReservedWord {
+		return fmt.Errorf("%w: invalid field name '%s'", ErrReservedName, fieldName)
+	}
+
+	if fieldName == DocumentBLOBField {
+		return fmt.Errorf("%w: invalid field name '%s'", ErrReservedName, fieldName)
+	}
+
+	if !fieldNameValidation.MatchString(fieldName) {
+		return fmt.Errorf("%w: invalid field name '%s'", ErrIllegalArguments, fieldName)
+	}
+
+	return nil
+}
+
 func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
-	if !collectionNameValidation.MatchString(name) {
-		return fmt.Errorf("%w: invalid collection name '%s'", ErrIllegalArguments, name)
+	err := validateCollectionName(name)
+	if err != nil {
+		return err
 	}
 
 	if documentIdFieldName == "" {
 		documentIdFieldName = DefaultDocumentIDField
 	}
 
-	if documentIdFieldName == DocumentBLOBField {
-		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
-	}
-
-	if !documentIDFieldNameValidation.MatchString(documentIdFieldName) {
-		return fmt.Errorf("%w: invalid document id field name '%s'", ErrIllegalArguments, documentIdFieldName)
+	err = validateDocumentIdFieldName(documentIdFieldName)
+	if err != nil {
+		return err
 	}
 
 	// only catalog needs to be up to date
@@ -114,16 +170,13 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 	columns[1] = sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false)
 
 	for i, field := range fields {
+		err = validateFieldName(field.Name)
+		if err != nil {
+			return err
+		}
+
 		if field.Name == documentIdFieldName {
-			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, documentIdFieldName)
-		}
-
-		if field.Name == DocumentBLOBField {
-			return fmt.Errorf("%w(%s): should not be specified", ErrReservedFieldName, DocumentBLOBField)
-		}
-
-		if !fieldNameValidation.MatchString(field.Name) {
-			return fmt.Errorf("%w: invalid field name '%s'", ErrIllegalArguments, field.Name)
+			return fmt.Errorf("%w: id field name '%s' should not be specified", ErrIllegalArguments, field.Name)
 		}
 
 		sqlType, err := protomodelValueTypeToSQLValueType(field.Type)
@@ -157,10 +210,8 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 	var indexStmts []sql.SQLStmt
 
 	for _, index := range indexes {
-		for _, field := range index.Fields {
-			if field == DocumentBLOBField {
-				return fmt.Errorf("%w(%s): non-indexable field", ErrReservedFieldName, DocumentBLOBField)
-			}
+		if len(index.Fields) == 0 {
+			return fmt.Errorf("%w: no fields specified", ErrIllegalArguments)
 		}
 
 		if len(index.Fields) == 1 && index.Fields[0] == documentIdFieldName {
@@ -169,6 +220,13 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 			}
 			// idField is the primary key and so the index is automatically created
 			continue
+		}
+
+		for _, field := range index.Fields {
+			err := validateFieldName(field)
+			if err != nil {
+				return err
+			}
 		}
 
 		indexStmts = append(indexStmts, sql.NewCreateIndexStmt(name, index.Fields, index.IsUnique))
@@ -237,8 +295,9 @@ func docIDFieldName(table *sql.Table) string {
 }
 
 func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table, error) {
-	if !collectionNameValidation.MatchString(collectionName) {
-		return nil, fmt.Errorf("%w: invalid collection name '%s'", ErrIllegalArguments, collectionName)
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return nil, err
 	}
 
 	table, err := sqlTx.Catalog().GetTableByName(collectionName)
@@ -250,8 +309,9 @@ func getTableForCollection(sqlTx *sql.SQLTx, collectionName string) (*sql.Table,
 }
 
 func getColumnForField(table *sql.Table, field string) (*sql.Column, error) {
-	if !fieldNameValidation.MatchString(field) {
-		return nil, fmt.Errorf("%w: invalid field name '%s'", ErrIllegalArguments, field)
+	err := validateFieldName(field)
+	if err != nil {
+		return nil, err
 	}
 
 	column, err := table.GetColumnByName(field)
@@ -318,12 +378,16 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 }
 
 func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, documentIdFieldName string) error {
-	if documentIdFieldName == DocumentBLOBField {
-		return fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
 	}
 
-	if documentIdFieldName != "" && !documentIDFieldNameValidation.MatchString(documentIdFieldName) {
-		return fmt.Errorf("%w: invalid document id field name '%s'", ErrIllegalArguments, documentIdFieldName)
+	if documentIdFieldName != "" {
+		err := validateDocumentIdFieldName(documentIdFieldName)
+		if err != nil {
+			return err
+		}
 	}
 
 	opts := sql.DefaultTxOptions().
@@ -349,7 +413,13 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, do
 		_, _, err := e.sqlEngine.ExecPreparedStmts(
 			ctx,
 			sqlTx,
-			[]sql.SQLStmt{sql.NewRenameColumnStmt(table.Name(), currIDFieldName, documentIdFieldName)},
+			[]sql.SQLStmt{
+				sql.NewRenameColumnStmt(
+					collectionName,
+					currIDFieldName,
+					documentIdFieldName,
+				),
+			},
 			nil,
 		)
 		if err != nil {
@@ -363,6 +433,11 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, do
 
 // DeleteCollection deletes a collection.
 func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
@@ -392,6 +467,11 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 }
 
 func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields []string, isUnique bool) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
 	if len(fields) == 0 {
 		return fmt.Errorf("%w: no fields specified", ErrIllegalArguments)
 	}
@@ -409,8 +489,9 @@ func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields 
 	defer sqlTx.Cancel()
 
 	for _, field := range fields {
-		if field == DocumentBLOBField {
-			return fmt.Errorf("%w(%s): non-indexable field", ErrReservedFieldName, DocumentBLOBField)
+		err := validateFieldName(field)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -431,6 +512,11 @@ func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields 
 }
 
 func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields []string) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
 	if len(fields) == 0 {
 		return fmt.Errorf("%w: no fields specified", ErrIllegalArguments)
 	}
@@ -448,8 +534,9 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 	defer sqlTx.Cancel()
 
 	for _, field := range fields {
-		if field == DocumentBLOBField {
-			return ErrFieldDoesNotExist
+		err := validateFieldName(field)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -524,7 +611,7 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 
 		_, blobFieldProvisioned := doc.Fields[DocumentBLOBField]
 		if blobFieldProvisioned {
-			return 0, nil, fmt.Errorf("%w(%s)", ErrReservedFieldName, DocumentBLOBField)
+			return 0, nil, fmt.Errorf("%w(%s)", ErrReservedName, DocumentBLOBField)
 		}
 
 		var docID DocumentID
@@ -891,6 +978,11 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 
 // AuditDocument returns the audit history of a document.
 func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return nil, err
+	}
+
 	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, mayTranslateError(err)
