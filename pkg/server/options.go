@@ -76,13 +76,14 @@ type Options struct {
 }
 
 type RemoteStorageOptions struct {
-	S3Storage     bool
-	S3Endpoint    string
-	S3AccessKeyID string
-	S3SecretKey   string `json:"-"`
-	S3BucketName  string
-	S3Location    string
-	S3PathPrefix  string
+	S3Storage            bool
+	S3Endpoint           string
+	S3AccessKeyID        string
+	S3SecretKey          string `json:"-"`
+	S3BucketName         string
+	S3Location           string
+	S3PathPrefix         string
+	S3ExternalIdentifier bool
 }
 
 type ReplicationOptions struct {
@@ -322,6 +323,7 @@ func (o *Options) String() string {
 			opts = append(opts, rightPad("   location", o.RemoteStorageOptions.S3Location))
 		}
 		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
+		opts = append(opts, rightPad("   external id", o.RemoteStorageOptions.S3ExternalIdentifier))
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
 		opts = append(opts, "----------------------------------------")
@@ -504,6 +506,11 @@ func (opts *RemoteStorageOptions) WithS3Location(s3Location string) *RemoteStora
 
 func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteStorageOptions {
 	opts.S3PathPrefix = s3PathPrefix
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3ExternalIdentifier(s3ExternalIdentifier bool) *RemoteStorageOptions {
+	opts.S3ExternalIdentifier = s3ExternalIdentifier
 	return opts
 }
 
