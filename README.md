@@ -172,6 +172,14 @@ export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCAT
 ./immudb
 ```
 
+When working with the external storage, you can enable the option for the remote storage
+to be the primary source of identifier. This way, if ImmuDB is run using ephemeral disks,
+such as with AWS ECS Fargate, the identifier can be taken from S3. To enable that, use:
+
+```bash
+export IMMUDB_S3_EXTERNAL_IDENTIFIER=true
+```
+
 You can also easily use immudb with compatible s3 alternatives
 such as the [minio](https://github.com/minio/minio) server:
 
