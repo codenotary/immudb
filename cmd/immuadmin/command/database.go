@@ -34,7 +34,7 @@ import (
 func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
-	c.Flags().Bool("embedded-values", true, "store values in the tx header")
+	c.Flags().Bool("embedded-values", false, "store values in the tx header")
 	c.Flags().Bool("prealloc-files", false, "enable file preallocation")
 	c.Flags().Bool("replication-enabled", false, "set database as a replica") // deprecated, use replication-is-replica instead
 	c.Flags().Bool("replication-is-replica", false, "set database as a replica")
