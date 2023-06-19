@@ -38,10 +38,10 @@ const (
 )
 
 var reservedWords = map[string]struct{}{
-	"COLLECTION": {},
-	"FIELD":      {},
-	"INDEX":      {},
-	"DOCUMENT":   {},
+	"collection": {},
+	"field":      {},
+	"index":      {},
+	"document":   {},
 }
 
 var collectionNameValidation = regexp.MustCompile(`^[a-zA-Z_]+[a-zA-Z0-9_\-]*$`)
@@ -82,12 +82,8 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}, nil
 }
 
-func caseConsistentIdentifier(id string) string {
-	return strings.ToLower(id)
-}
-
 func validateCollectionName(collectionName string) error {
-	_, isReservedWord := reservedWords[caseConsistentIdentifier(collectionName)]
+	_, isReservedWord := reservedWords[strings.ToLower(collectionName)]
 	if isReservedWord {
 		return fmt.Errorf("%w: invalid collection name '%s'", ErrReservedName, collectionName)
 	}
@@ -100,7 +96,7 @@ func validateCollectionName(collectionName string) error {
 }
 
 func validateDocumentIdFieldName(documentIdFieldName string) error {
-	_, isReservedWord := reservedWords[caseConsistentIdentifier(documentIdFieldName)]
+	_, isReservedWord := reservedWords[strings.ToLower(documentIdFieldName)]
 	if isReservedWord {
 		return fmt.Errorf("%w: invalid id field name '%s'", ErrReservedName, documentIdFieldName)
 	}
@@ -117,7 +113,7 @@ func validateDocumentIdFieldName(documentIdFieldName string) error {
 }
 
 func validateFieldName(fieldName string) error {
-	_, isReservedWord := reservedWords[caseConsistentIdentifier(fieldName)]
+	_, isReservedWord := reservedWords[strings.ToLower(fieldName)]
 	if isReservedWord {
 		return fmt.Errorf("%w: invalid field name '%s'", ErrReservedName, fieldName)
 	}
