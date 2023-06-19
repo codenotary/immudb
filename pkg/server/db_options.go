@@ -174,8 +174,6 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 	}
 
 	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
-		dbOpts.PreallocFiles = dbName != s.Options.systemAdminDBName
-
 		repOpts := s.Options.ReplicationOptions
 
 		dbOpts.Replica = repOpts != nil && repOpts.IsReplica
