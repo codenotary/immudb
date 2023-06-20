@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.5.0"></a>
+## [v1.5.0] - 2023-06-20
+### Bug Fixes
+- **embedded/store:** handle replication of empty values
+
+### Changes
+- **embedded/document:** naming validations
+- **embedded/document:** allow hyphen in doc naming
+- **embedded/document:** collection and field naming validations
+- **embedded/store:** embedded values and prealloc disabled by default
+
+
 <a name="v1.5.0-RC1"></a>
 ## [v1.5.0-RC1] - 2023-06-16
 ### Bug Fixes
@@ -3581,7 +3593,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.5.0-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.5.0...HEAD
+[v1.5.0]: https://github.com/vchain-us/immudb/compare/v1.5.0-RC1...v1.5.0
 [v1.5.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.1...v1.5.0-RC1
 [v1.4.1]: https://github.com/vchain-us/immudb/compare/v1.4.1-RC1...v1.4.1
 [v1.4.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.0...v1.4.1-RC1
