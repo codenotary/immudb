@@ -2868,10 +2868,6 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (n int, err error) {
 	vLogID, offset := decodeOffset(off)
 
-	if len(b) == 0 && vLogID > 0 {
-		return 0, fmt.Errorf("%w: attempt to read empty value from a non-embedded vlog", ErrCorruptedTxData)
-	}
-
 	if !s.embeddedValues && vLogID == 0 && len(b) > 0 {
 		// it means value was not stored on any vlog i.e. a truncated transaction was replicated
 		return 0, io.EOF
@@ -2922,7 +2918,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 		}
 	}
 
-	// either value was empty (n == 0 && vLogID == 0)
+	// either value was empty (n == 0)
 	// or a non-empty value (n > 0) was read from cache or disk
 
 	if !skipIntegrityCheck && (len(b) != n || hvalue != sha256.Sum256(b[:n])) {

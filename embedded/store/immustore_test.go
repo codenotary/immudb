@@ -4937,3 +4937,30 @@ func TestCommitOfEmptyTxWithMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, txholder.Entries())
 }
+
+func TestImmudbStore_ExportTxWithEmptyValues(t *testing.T) {
+	opts := DefaultOptions().WithEmbeddedValues(false)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+
+	defer immustoreClose(t, st)
+
+	tx, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	err = tx.Set([]byte("my-key"), nil, nil)
+	require.NoError(t, err)
+
+	hdr, err := tx.Commit(context.Background())
+	require.NoError(t, err)
+
+	txholder, err := st.fetchAllocTx()
+	require.NoError(t, err)
+
+	defer st.releaseAllocTx(txholder)
+
+	_, err = st.ExportTx(hdr.ID, false, false, txholder)
+	require.NoError(t, err)
+}
