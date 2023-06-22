@@ -386,7 +386,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if maxValueLen > MaxValueLen {
-		opts.logger.Warningf("%v: lowering `MaxValueLen` down from %d to %d", maxValueLen, MaxValueLen)
+		opts.logger.Warningf("lowering `MaxValueLen` down from %d to %d", maxValueLen, MaxValueLen)
 		maxValueLen = MaxValueLen
 	}
 
