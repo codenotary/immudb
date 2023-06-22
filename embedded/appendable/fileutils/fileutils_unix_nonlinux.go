@@ -1,5 +1,5 @@
-//go:build unix && !linux && !darwin
-// +build unix,!linux,!darwin
+//go:build unix && !linux && !darwin && !freebsd
+// +build unix,!linux,!darwin,!freebsd
 
 /*
 Copyright 2023 Codenotary Inc. All rights reserved.
