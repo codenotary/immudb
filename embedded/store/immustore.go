@@ -109,7 +109,8 @@ var ErrTxNotPresentInMetadata = errors.New("tx not present in metadata")
 
 var ErrInvalidProof = errors.New("invalid proof")
 
-const MaxKeyLen = 1024 // assumed to be not lower than hash size
+const MaxKeyLen = 1024               // assumed to be not lower than hash size
+const MaxValueLen = 10 * 1024 * 1024 // 10MB max value size
 const MaxParallelIO = 127
 
 const cLogEntrySizeV1 = offsetSize + lszSize               // tx offset + hdr size
@@ -382,6 +383,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
 		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "MaxValueLen")
+	}
+
+	if maxValueLen > MaxValueLen {
+		opts.logger.Warningf("%v: lowering `MaxValueLen` down from %d to %d", maxValueLen, MaxValueLen)
+		maxValueLen = MaxValueLen
 	}
 
 	cLogSize, err := cLog.Size()
