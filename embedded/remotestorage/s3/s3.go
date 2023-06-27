@@ -43,16 +43,18 @@ import (
 )
 
 type Storage struct {
-	endpoint                   string
-	S3RoleEnabled              bool
-	s3Role                     string
-	accessKeyID                string
-	secretKey                  string
-	bucket                     string
-	prefix                     string
-	location                   string
-	httpClient                 *http.Client
-	s3CredentialsRefreshTicker *time.Ticker
+	endpoint      string
+	S3RoleEnabled bool
+	s3Role        string
+	accessKeyID   string
+	secretKey     string
+	bucket        string
+	prefix        string
+	location      string
+	httpClient    *http.Client
+
+	awsInstanceMetadataURL string
+	awsCredsRefreshPeriod  time.Duration
 }
 
 var (
@@ -84,11 +86,7 @@ var (
 	arnRoleRegex = regexp.MustCompile(`arn:.*\/(.*)`)
 )
 
-const (
-	awsCredsRefreshPeriod  = time.Minute
-	awsInstanceMetadataURL = "http://169.254.169.254"
-	maxRedirects           = 5
-)
+const maxRedirects = 5
 
 func Open(
 	endpoint string,
@@ -135,6 +133,8 @@ func Open(
 				return http.ErrUseLastResponse
 			},
 		},
+		awsInstanceMetadataURL: "http://169.254.169.254",
+		awsCredsRefreshPeriod:  time.Minute,
 	}
 
 	err := s3storage.getRoleCredentials()
@@ -730,17 +730,16 @@ func (s *Storage) getRoleCredentials() error {
 		return err
 	}
 
-	s.s3CredentialsRefreshTicker = time.NewTicker(awsCredsRefreshPeriod)
+	s3CredentialsRefreshTicker := time.NewTicker(s.awsCredsRefreshPeriod)
 	go func() {
 		select {
-		case _ = <-s.s3CredentialsRefreshTicker.C:
+		case _ = <-s3CredentialsRefreshTicker.C:
 			accessKeyID, secretKey, err := s.requestCredentials()
 			if err != nil {
 				log.Printf("S3 role credentials lookup failed with an error: %v", err)
-				return
+			} else {
+				s.accessKeyID, s.secretKey = accessKeyID, secretKey
 			}
-
-			s.accessKeyID, s.secretKey = accessKeyID, secretKey
 		}
 	}()
 
@@ -749,7 +748,7 @@ func (s *Storage) getRoleCredentials() error {
 
 func (s *Storage) requestCredentials() (string, string, error) {
 	tokenReq, err := http.NewRequest("PUT", fmt.Sprintf("%s%s",
-		awsInstanceMetadataURL,
+		s.awsInstanceMetadataURL,
 		"/latest/api/token",
 	), nil)
 	if err != nil {
@@ -772,7 +771,7 @@ func (s *Storage) requestCredentials() (string, string, error) {
 	role := s.s3Role
 	if s.s3Role == "" {
 		roleReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s",
-			awsInstanceMetadataURL,
+			s.awsInstanceMetadataURL,
 			"/latest/meta-data/iam/info",
 		), nil)
 		if err != nil {
@@ -807,7 +806,7 @@ func (s *Storage) requestCredentials() (string, string, error) {
 	}
 
 	credsReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s/%s",
-		awsInstanceMetadataURL,
+		s.awsInstanceMetadataURL,
 		"/latest/meta-data/iam/security-credentials",
 		role,
 	), nil)
