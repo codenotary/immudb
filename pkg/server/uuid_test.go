@@ -32,7 +32,7 @@ import (
 
 func TestNewUUID(t *testing.T) {
 	dir := t.TempDir()
-	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"), false)
 	require.NoError(t, err)
 	require.FileExists(t, filepath.Join(dir, IDENTIFIER_FNAME))
 
@@ -40,11 +40,19 @@ func TestNewUUID(t *testing.T) {
 	require.Equal(t, uuid.UUID, id)
 }
 
+// test for external identifier and remote storage
+func TestNoUUID(t *testing.T) {
+	dir := t.TempDir()
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"), true)
+	require.NoError(t, err)
+	require.Equal(t, xid.ID{}, id)
+}
+
 func TestExistingUUID(t *testing.T) {
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	dir := t.TempDir()
 	ioutil.WriteFile(filepath.Join(dir, IDENTIFIER_FNAME), x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"), false)
 	require.NoError(t, err)
 
 	require.FileExists(t, filepath.Join(dir, IDENTIFIER_FNAME))
@@ -62,7 +70,7 @@ func TestMigrateUUID(t *testing.T) {
 	fileInDefaultDbDir := path.Join(defaultDbDir, IDENTIFIER_FNAME)
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(fileInDefaultDbDir, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID(dir, defaultDbDir)
+	id, err := getOrSetUUID(dir, defaultDbDir, false)
 	require.NoError(t, err)
 
 	require.FileExists(t, filepath.Join(dir, IDENTIFIER_FNAME))
@@ -74,7 +82,7 @@ func TestMigrateUUID(t *testing.T) {
 
 func TestUUIDContextSetter(t *testing.T) {
 	dir := t.TempDir()
-	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"), false)
 	require.NoError(t, err)
 
 	uuid := NewUUIDContext(id)
@@ -102,7 +110,7 @@ func TestUUIDContextSetter(t *testing.T) {
 
 func TestUUIDStreamContextSetter(t *testing.T) {
 	dir := t.TempDir()
-	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"), false)
 	require.NoError(t, err)
 
 	uuid := NewUUIDContext(id)
