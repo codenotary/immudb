@@ -40,6 +40,7 @@ func TestOpen(t *testing.T) {
 		"immudb",
 		"",
 		"prefix",
+		"",
 	)
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -88,6 +89,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			"",
 		)
 		require.ErrorIs(t, err, ErrInvalidArguments)
 		require.ErrorIs(t, err, ErrInvalidArgumentsBucketEmpty)
@@ -102,6 +104,7 @@ func TestCornerCases(t *testing.T) {
 			"minioadmin",
 			"minioadmin",
 			"immudb/test",
+			"",
 			"",
 			"",
 		)
@@ -120,6 +123,7 @@ func TestCornerCases(t *testing.T) {
 			"immudb",
 			"",
 			"",
+			"",
 		)
 		require.NoError(t, err)
 		require.Equal(t, "", s.(*Storage).prefix)
@@ -133,6 +137,7 @@ func TestCornerCases(t *testing.T) {
 			"immudb",
 			"",
 			"/test/",
+			"",
 		)
 		require.NoError(t, err)
 		require.Equal(t, "test/", s.(*Storage).prefix)
@@ -146,6 +151,7 @@ func TestCornerCases(t *testing.T) {
 			"immudb",
 			"",
 			"/test",
+			"",
 		)
 		require.NoError(t, err)
 		require.Equal(t, "test/", s.(*Storage).prefix)
@@ -159,6 +165,7 @@ func TestCornerCases(t *testing.T) {
 			"minioadmin",
 			"minioadmin",
 			"bucket",
+			"",
 			"",
 			"",
 		)

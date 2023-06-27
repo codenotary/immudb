@@ -97,6 +97,7 @@ func Open(
 	bucket string,
 	location string,
 	prefix string,
+	awsInstanceMetadataURL string,
 ) (remotestorage.Storage, error) {
 
 	// Endpoint must always end with '/'
@@ -133,7 +134,7 @@ func Open(
 				return http.ErrUseLastResponse
 			},
 		},
-		awsInstanceMetadataURL: "http://169.254.169.254",
+		awsInstanceMetadataURL: awsInstanceMetadataURL,
 		awsCredsRefreshPeriod:  time.Minute,
 	}
 

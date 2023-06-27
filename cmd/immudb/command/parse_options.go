@@ -93,6 +93,7 @@ func parseOptions() (options *server.Options, err error) {
 	s3BucketName := viper.GetString("s3-bucket-name")
 	s3Location := viper.GetString("s3-location")
 	s3PathPrefix := viper.GetString("s3-path-prefix")
+	s3MetadataURL := viper.GetString("s3-instance-metadata-url")
 
 	remoteStorageOptions := server.DefaultRemoteStorageOptions().
 		WithS3Storage(s3Storage).
@@ -103,7 +104,8 @@ func parseOptions() (options *server.Options, err error) {
 		WithS3SecretKey(s3SecretKey).
 		WithS3BucketName(s3BucketName).
 		WithS3Location(s3Location).
-		WithS3PathPrefix(s3PathPrefix)
+		WithS3PathPrefix(s3PathPrefix).
+		WithS3InstanceMetadataURL(s3MetadataURL)
 
 	sessionOptions := sessions.DefaultOptions().
 		WithMaxSessions(viper.GetInt("max-sessions")).
