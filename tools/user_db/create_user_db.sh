@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # PID file to use for an initialization immudb instance.
 INIT_PID_FILE=/var/run/immudb/init.pid
@@ -16,7 +16,7 @@ INIT() {
 
    # Test if a database and/or user should be created.
    CREATE_DATABASE=0
-   if [ $USER_DATABASE != "defaultdb" ]
+   if [ "$USER_DATABASE" != "defaultdb" ]
    then
       CREATE_DATABASE=1
    fi
@@ -46,40 +46,46 @@ INIT() {
    done
 
    # Log into the immudb instance.
-   echo -n "$IMMUDB_ADMIN_PASSWORD" | immuadmin login immudb
+   echo -n "${IMMUDB_ADMIN_PASSWORD}" | immuadmin login immudb
 
    # Create it, if it is not the database created by default.
    if [ $CREATE_DATABASE -eq 1 ]
    then
-      echo "creating uesr database $IMMUDB_DATABASE"
-      if ! immuadmin database create $IMMUDB_DATABASE
+      echo "creating user database ${IMMUDB_DATABASE@Q}"
+      if ! immuadmin database create "${IMMUDB_DATABASE}"
       then
-        echo "creating database $IMMUDB_DATABASE failed"
+        echo "creating database ${IMMUDB_DATABASE@Q} failed"
         return 1
       fi
    fi
    # Create a user if configured and grant it access to the user database.
    if [ $CREATE_USER -eq 1 ]
    then
-      echo "creating user $IMMUDB_USER"
+      echo "creating user ${IMMUDB_USER@Q}"
       # Assemble expect script to create the user.
-      CREATE_USER_SCRIPT="
-spawn immuadmin user create $IMMUDB_USER readwrite $USER_DATABASE
-expect \"Choose a password for $IMMUDB_USER:\"
-send \"$IMMUDB_PASSWORD\r\"
+      CREATE_USER_SCRIPT_FORMAT='
+spawn immuadmin user create "%q" readwrite "%q"
+expect "Choose a password for %q:"
+send "%q\r"
 expect {
     timeout     { exit 1 }
     eof         { exit 1 }
-    \"Password does not meet the requirements.\"  { exit 1 }
-    \"Confirm password:\"
+    "Password does not meet the requirements."  { exit 1 }
+    "Confirm password:"
 }
-send \"$IMMUDB_PASSWORD\r\"
+send "%q\r"
 catch wait result
-exit [lindex \$result 3]
-"
+exit [lindex $result 3]
+'
+      printf -v CREATE_USER_SCRIPT "${CREATE_USER_SCRIPT_FORMAT}"\
+       "${IMMUDB_USER}" "${USER_DATABASE}"\
+       "${IMMUDB_USER}"\
+       "${IMMUDB_PASSWORD}"\
+       "${IMMUDB_PASSWORD}"
+      # Execute the expect script.
       if ! expect -c "$CREATE_USER_SCRIPT"
       then
-        echo "creating user $IMMUDB_USER failed"
+        echo "creating user ${IMMUDB_USER@Q} failed"
         return 1
       fi
    fi
