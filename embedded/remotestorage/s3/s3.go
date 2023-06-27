@@ -720,10 +720,6 @@ func (s *Storage) getRoleCredentials() error {
 		return nil
 	}
 
-	if s.accessKeyID != "" || s.secretKey != "" {
-		return ErrKeyCredentialsProvided
-	}
-
 	var err error
 	s.accessKeyID, s.secretKey, err = s.requestCredentials()
 	if err != nil {
@@ -732,12 +728,14 @@ func (s *Storage) getRoleCredentials() error {
 
 	s3CredentialsRefreshTicker := time.NewTicker(s.awsCredsRefreshPeriod)
 	go func() {
-		select {
-		case _ = <-s3CredentialsRefreshTicker.C:
-			accessKeyID, secretKey, err := s.requestCredentials()
-			if err != nil {
-				log.Printf("S3 role credentials lookup failed with an error: %v", err)
-			} else {
+		for {
+			select {
+			case _ = <-s3CredentialsRefreshTicker.C:
+				accessKeyID, secretKey, err := s.requestCredentials()
+				if err != nil {
+					log.Printf("S3 role credentials lookup failed with an error: %v", err)
+					continue
+				}
 				s.accessKeyID, s.secretKey = accessKeyID, secretKey
 			}
 		}
