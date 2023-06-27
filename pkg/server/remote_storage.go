@@ -31,10 +31,16 @@ import (
 	"github.com/codenotary/immudb/embedded/remotestorage/s3"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/rs/xid"
 )
 
+// this set of errors is grouped around remote storage identifier concept
+// and covers multiple possible scenarios or remote storage configurations
 var (
-	ErrRemoteStorageDoesNotMatch = errors.New("remote storage does not match local files")
+	ErrRemoteStorageDoesNotMatch = errors.New("remote storage does not match local files for identifiers")
+	ErrUnexpectedLocalIdentifier = errors.New("remote storage does not expect local identifier, set for remote")
+	ErrNoStorageForIdentifier    = errors.New("remote storage does not exist, unable to retrieve identifier")
+	ErrNoRemoteIdentifier        = errors.New("remote storage does not have expected identifier")
 )
 
 func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error) {
@@ -55,6 +61,9 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 
 func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) error {
 	if storage == nil {
+		if s.Options.RemoteStorageOptions.S3ExternalIdentifier {
+			return ErrNoStorageForIdentifier
+		}
 		// No remote storage
 		return nil
 	}
@@ -66,32 +75,40 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 		return err
 	}
 
+	if !hasRemoteIdentifier && s.Options.RemoteStorageOptions.S3ExternalIdentifier {
+		return ErrNoRemoteIdentifier
+	}
+
 	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
 
 	if hasRemoteIdentifier {
-
-		remoteIdStream, err := storage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
+		remoteIDStream, err := storage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
 		if err != nil {
 			return err
 		}
-		remoteId, err := ioutil.ReadAll(remoteIdStream)
-		remoteIdStream.Close()
+		remoteID, err := ioutil.ReadAll(remoteIDStream)
+		remoteIDStream.Close()
 		if err != nil {
 			return err
 		}
 
-		if !fileExists(localIdentifierFile) || s.Options.RemoteStorageOptions.S3ExternalIdentifier {
-			err := ioutil.WriteFile(localIdentifierFile, remoteId, os.ModePerm)
+		if !fileExists(localIdentifierFile) {
+			err := ioutil.WriteFile(localIdentifierFile, remoteID, os.ModePerm)
 			if err != nil {
 				return err
 			}
+			s.UUID, err = xid.FromBytes(remoteID)
 		} else {
-			localId, err := ioutil.ReadFile(localIdentifierFile)
+			if s.Options.RemoteStorageOptions.S3ExternalIdentifier {
+				return ErrUnexpectedLocalIdentifier
+			}
+
+			localID, err := ioutil.ReadFile(localIdentifierFile)
 			if err != nil {
 				return err
 			}
 
-			if !bytes.Equal(remoteId, localId) {
+			if !bytes.Equal(remoteID, localID) {
 				return ErrRemoteStorageDoesNotMatch
 			}
 		}

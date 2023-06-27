@@ -229,7 +229,38 @@ func TestInitializeRemoteStorageDownloadIdentifier(t *testing.T) {
 	require.Equal(t, []byte{1, 2, 3, 4, 5}, id)
 }
 
-func TestInitializeRemoteStorageWithoutLocalIdentifier(t *testing.T) {
+func TestInitializeWithEmptyRemoteStorage(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := DefaultOptions().WithDir(dir)
+	opts.RemoteStorageOptions.S3ExternalIdentifier = true
+
+	s := DefaultServer()
+
+	s.WithOptions(opts)
+
+	err := s.Initialize()
+	require.Error(t, ErrNoStorageForIdentifier, err)
+}
+
+func TestInitializeWithRemoteStorageWithoutIdentifier(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := DefaultOptions().WithDir(dir)
+	opts.RemoteStorageOptions.S3ExternalIdentifier = true
+
+	s := DefaultServer()
+
+	s.WithOptions(opts)
+
+	m := memory.Open()
+	s.remoteStorage = m
+
+	err := s.initializeRemoteStorage(m)
+	require.Error(t, ErrNoRemoteIdentifier, err)
+}
+
+func TestInitializeRemoteStorageWithIdentifierWhenLocalIsPresent(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().WithDir(dir)
@@ -242,10 +273,28 @@ func TestInitializeRemoteStorageWithoutLocalIdentifier(t *testing.T) {
 	m := memory.Open()
 	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
 
-	err := s.Initialize()
+	_, err := getOrSetUUID(dir, dir, false)
 	require.NoError(t, err)
 
 	err = s.initializeRemoteStorage(m)
+	require.ErrorIs(t, err, ErrUnexpectedLocalIdentifier)
+}
+
+func TestInitializeRemoteStorageWithoutLocalIdentifier(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := DefaultOptions().WithDir(dir)
+	opts.RemoteStorageOptions.S3ExternalIdentifier = true
+
+	s := DefaultServer()
+
+	s.WithOptions(opts)
+
+	m := memory.Open()
+	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
+	s.remoteStorage = m
+
+	err := s.initializeRemoteStorage(m)
 	require.NoError(t, err)
 
 	uuidFilename := filepath.Join(dir, "immudb.identifier")
@@ -333,7 +382,7 @@ func TestInitializeRemoteStorageIdentifierMismatch(t *testing.T) {
 	m := memory.Open()
 	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
 
-	_, err := getOrSetUUID(dir, dir)
+	_, err := getOrSetUUID(dir, dir, false)
 	require.NoError(t, err)
 
 	err = s.initializeRemoteStorage(m)
@@ -396,7 +445,7 @@ func TestUpdateRemoteUUID(t *testing.T) {
 
 	m := memory.Open()
 
-	uuid, err := getOrSetUUID(dir, dir)
+	uuid, err := getOrSetUUID(dir, dir, false)
 	require.NoError(t, err)
 	s.UUID = uuid
 

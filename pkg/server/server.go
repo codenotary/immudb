@@ -115,7 +115,7 @@ func (s *ImmuServer) Initialize() error {
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
 
-	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
+	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir, s.Options.RemoteStorageOptions.S3ExternalIdentifier); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
 
