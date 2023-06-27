@@ -187,7 +187,7 @@ export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCAT
 ./immudb
 ```
 
-Optionally, you can specify the exact role ImmuDB should be using with:
+Optionally, you can specify the exact role immudb should be using with:
 
 ```bash
 export IMMUDB_S3_ROLE=<AWS S3 ACCESS ROLE NAME>
