@@ -32,6 +32,7 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
     IMMUDB_USER="" \
     IMMUDB_PASSWORD="" \
+    IMMUDB_PASSWORD_FILE="" \
     IMMUDB_DATABASE="" \
     IMMUDB_PGSQL_SERVER="true" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
