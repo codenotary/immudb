@@ -54,10 +54,6 @@ func NewUUIDContext(id xid.ID) uuidContext {
 // is moved to the data directory. This function migrates the file to data directory
 // in case it exists in the default db directory.
 func getOrSetUUID(dataDir, defaultDbDir string, useExternalIdentifier bool) (xid.ID, error) {
-	if useExternalIdentifier {
-		return xid.ID{}, nil
-	}
-
 	fileInDataDir := path.Join(dataDir, IDENTIFIER_FNAME)
 	if fileExists(fileInDataDir) {
 		return getUUID(fileInDataDir)
@@ -72,6 +68,10 @@ func getOrSetUUID(dataDir, defaultDbDir string, useExternalIdentifier bool) (xid
 
 		err = moveUUIDFile(guid, fileInDataDir, fileInDefaultDbDir)
 		return guid, err
+	}
+
+	if useExternalIdentifier {
+		return xid.ID{}, nil
 	}
 
 	guid := xid.New()
