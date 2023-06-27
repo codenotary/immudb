@@ -26,6 +26,18 @@ INIT() {
       CREATE_USER=1
    fi
 
+   # Check if a secret file for the user password was specified.
+   if [ -n "$IMMUDB_PASSWORD_FILE" ]
+   then
+      if [ -f "$IMMUDB_PASSWORD_FILE" ]
+      then
+         IMMUDB_PASSWORD=$(cat "$IMMUDB_PASSWORD_FILE" | tr -d \d\r)
+      else
+         echo "file ${IMMUDB_PASSWORD_FILE} specified for IMMUDB_PASSWORD_FILE does not exist"
+         return 1
+      fi
+   fi
+   
    # Run immudb on localhost.
    if [ $CREATE_USER -eq 0 ] && [ $CREATE_DATABASE -eq 0 ]
    then
