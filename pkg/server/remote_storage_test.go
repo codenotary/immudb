@@ -240,7 +240,7 @@ func TestInitializeWithEmptyRemoteStorage(t *testing.T) {
 	s.WithOptions(opts)
 
 	err := s.Initialize()
-	require.Error(t, err, ErrNoStorageForIdentifier)
+	require.ErrorIs(t, err, ErrNoStorageForIdentifier)
 }
 
 func TestInitializeWithRemoteStorageWithoutIdentifier(t *testing.T) {
