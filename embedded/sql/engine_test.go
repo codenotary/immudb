@@ -99,6 +99,9 @@ func TestCreateTable(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR[30], PRIMARY KEY name)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, fmt.Sprintf("CREATE TABLE table2 (name VARCHAR[%d], PRIMARY KEY name)", MaxKeyLen+1), nil)
@@ -1401,7 +1404,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, ctxs, err := engine.Exec(context.Background(), nil, "INSERT INTO table1(title) VALUES ('name1')", nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
-	require.True(t, ctxs[0].closed)
+	require.True(t, ctxs[0].Closed())
 	require.Equal(t, int64(1), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, int64(1), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
@@ -1436,7 +1439,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, ctxs, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(title) VALUES ('name6')", nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
-	require.True(t, ctxs[0].closed)
+	require.True(t, ctxs[0].Closed())
 	require.Equal(t, int64(6), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, int64(6), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
@@ -1451,7 +1454,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	`, nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
-	require.True(t, ctxs[0].closed)
+	require.True(t, ctxs[0].Closed())
 	require.Equal(t, int64(7), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, int64(8), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 2, ctxs[0].UpdatedRows())
@@ -6223,6 +6226,51 @@ func TestMVCC(t *testing.T) {
 	})
 }
 
+func TestMVCCWithExternalCommitAllowance(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithExternalCommitAllowance(true))
+	require.NoError(t, err)
+	t.Cleanup(func() { closeStore(t, st) })
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		st.AllowCommitUpto(1)
+	}()
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, PRIMARY KEY id);", nil)
+	require.NoError(t, err)
+
+	tx1, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+	require.NoError(t, err)
+
+	tx2, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), tx2, "INSERT INTO table1 (id, title, active) VALUES (1, 'title1', true);", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), tx2, "INSERT INTO table1 (id, title, active) VALUES (2, 'title2', false);", nil)
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		st.AllowCommitUpto(2)
+	}()
+
+	_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		st.AllowCommitUpto(3)
+	}()
+
+	_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
+	require.NoError(t, err)
+}
+
 func TestConcurrentInsertions(t *testing.T) {
 	workers := 10
 
@@ -6599,4 +6647,28 @@ func BenchmarkInsertInto(b *testing.B) {
 
 		wg.Wait()
 	}
+}
+
+func TestLikeWithNullableColumns(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE mytable (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO mytable(title) VALUES (NULL), ('title1')", nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil, "SELECT id, title FROM mytable WHERE title LIKE '.*'", nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, row.ValuesByPosition, 2)
+	require.EqualValues(t, 2, row.ValuesByPosition[0].RawValue())
+	require.EqualValues(t, "title1", row.ValuesByPosition[1].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
 }

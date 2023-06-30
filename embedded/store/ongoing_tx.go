@@ -428,8 +428,14 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	return newOngoingTxKeyReader(tx, spec)
 }
 
-func (tx *OngoingTx) RequireMVCCOnFollowingTxs(requireMVCCOnFollowingTxs bool) {
+func (tx *OngoingTx) RequireMVCCOnFollowingTxs(requireMVCCOnFollowingTxs bool) error {
+	if tx.closed {
+		return ErrAlreadyClosed
+	}
+
 	tx.requireMVCCOnFollowingTxs = requireMVCCOnFollowingTxs
+
+	return nil
 }
 
 func (tx *OngoingTx) Commit(ctx context.Context) (*TxHeader, error) {
@@ -470,13 +476,17 @@ func (tx *OngoingTx) Cancel() error {
 		return ErrAlreadyClosed
 	}
 
+	tx.closed = true
+
 	if !tx.IsWriteOnly() {
 		return tx.snap.Close()
 	}
 
-	tx.closed = true
-
 	return nil
+}
+
+func (tx *OngoingTx) Closed() bool {
+	return tx.closed
 }
 
 func (tx *OngoingTx) hasPreconditions() bool {

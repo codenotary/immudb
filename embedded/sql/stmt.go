@@ -389,7 +389,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 			return nil, err
 		}
 
-		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && col.MaxLen() > MaxKeyLen {
+		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
 			return nil, fmt.Errorf("%w: can not create index using column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 
@@ -2839,6 +2839,14 @@ type AggColSelector struct {
 	as    string
 }
 
+func NewAggColSelector(aggFn AggregateFn, table, col string) *AggColSelector {
+	return &AggColSelector{
+		aggFn: aggFn,
+		table: table,
+		col:   col,
+	}
+}
+
 func EncodeSelector(aggFn, table, col string) string {
 	return aggFn + "(" + table + "." + col + ")"
 }
@@ -3206,6 +3214,10 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 
 	if rval.Type() != VarcharType {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
+	}
+
+	if rval.IsNull() {
+		return &Bool{val: false}, nil
 	}
 
 	rpattern, err := bexp.pattern.reduce(tx, row, implicitTable)

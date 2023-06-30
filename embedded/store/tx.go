@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"io"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/htree"
@@ -424,6 +425,11 @@ func (t *txDataReader) readHeader(maxEntries int) (*TxHeader, error) {
 	if err != nil {
 		return nil, err
 	}
+	if id == 0 {
+		// underlying file may be preallocated
+		return nil, io.EOF
+	}
+
 	header.ID = id
 
 	ts, err := t.r.ReadUint64()

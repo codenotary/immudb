@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/stream"
@@ -85,6 +86,7 @@ type RemoteStorageOptions struct {
 	S3Location            string
 	S3PathPrefix          string
 	S3InstanceMetadataURL string
+	S3ExternalIdentifier  bool
 }
 
 type ReplicationOptions struct {
@@ -134,7 +136,7 @@ func DefaultOptions() *Options {
 		TokenExpiryTimeMin:          1440,
 		PgsqlServer:                 false,
 		PgsqlServerPort:             5432,
-		ReplicationOptions:          &ReplicationOptions{IsReplica: false, SyncAcks: 0},
+		ReplicationOptions:          DefaultReplicationOptions(),
 		SessionsOptions:             sessions.DefaultOptions(),
 		PProf:                       false,
 		GRPCReflectionServerEnabled: true,
@@ -144,6 +146,15 @@ func DefaultOptions() *Options {
 func DefaultRemoteStorageOptions() *RemoteStorageOptions {
 	return &RemoteStorageOptions{
 		S3Storage: false,
+	}
+}
+
+func DefaultReplicationOptions() *ReplicationOptions {
+	return &ReplicationOptions{
+		IsReplica:                    false,
+		SyncAcks:                     0,
+		PrefetchTxBufferSize:         replication.DefaultPrefetchTxBufferSize,
+		ReplicationCommitConcurrency: replication.DefaultReplicationCommitConcurrency,
 	}
 }
 
@@ -320,6 +331,7 @@ func (o *Options) String() string {
 		}
 		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
 		opts = append(opts, rightPad("   metadata url", o.RemoteStorageOptions.S3InstanceMetadataURL))
+		opts = append(opts, rightPad("   external id", o.RemoteStorageOptions.S3ExternalIdentifier))
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
 		opts = append(opts, "----------------------------------------")
@@ -517,6 +529,11 @@ func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteS
 
 func (opts *RemoteStorageOptions) WithS3InstanceMetadataURL(url string) *RemoteStorageOptions {
 	opts.S3InstanceMetadataURL = url
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3ExternalIdentifier(s3ExternalIdentifier bool) *RemoteStorageOptions {
+	opts.S3ExternalIdentifier = s3ExternalIdentifier
 	return opts
 }
 

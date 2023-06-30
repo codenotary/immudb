@@ -1,10 +1,11 @@
-//go:build !windows
-// +build !windows
+//go:build linux
+// +build linux
 
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2023 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
+
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -19,7 +20,10 @@ limitations under the License.
 
 package fileutils
 
-import "os"
+import (
+	"golang.org/x/sys/unix"
+	"os"
+)
 
 func syncDir(path string) error {
 	f, err := os.Open(path)
@@ -30,4 +34,8 @@ func syncDir(path string) error {
 	defer f.Close()
 
 	return f.Sync()
+}
+
+func fdatasync(f *os.File) error {
+	return unix.Fdatasync(int(f.Fd()))
 }

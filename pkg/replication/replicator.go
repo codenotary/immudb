@@ -36,6 +36,7 @@ import (
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
+var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
 var ErrAlreadyRunning = errors.New("already running")
 var ErrAlreadyStopped = errors.New("already stopped")
 var ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
@@ -87,8 +88,13 @@ type TxReplicator struct {
 }
 
 func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.Logger) (*TxReplicator, error) {
-	if db == nil || logger == nil || opts == nil || !opts.Valid() {
-		return nil, ErrIllegalArguments
+	if db == nil || logger == nil {
+		return nil, fmt.Errorf("%w: no database or logger provided", ErrIllegalArguments)
+	}
+
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	return &TxReplicator{

@@ -238,6 +238,7 @@ S3 storage
    location      : s3-location
    prefix        : s3-path-prefix
    metadata url  : http://169.254.169.254
+   external id   : false
 ----------------------------------------
 Superadmin default credentials
    Username      : immudb
@@ -283,6 +284,7 @@ S3 storage
    location      : s3-location
    prefix        : s3-path-prefix
    metadata url  : http://169.254.169.254
+   external id   : false
 ----------------------------------------
 Superadmin default credentials
    Username      : immudb
@@ -302,6 +304,51 @@ Superadmin default credentials
 				WithS3Location("s3-location").
 				WithS3PathPrefix("s3-path-prefix").
 				WithS3InstanceMetadataURL("http://169.254.169.254"),
+		)
+
+	require.Equal(t, expected, op.String())
+}
+
+func TestOptionsStringWithS3ExternalIdentifier(t *testing.T) {
+	expected := `================ Config ================
+Data dir         : ./data
+Address          : 0.0.0.0:3322
+Metrics address  : 0.0.0.0:9497/metrics
+Sync replication : false
+Config file      : configs/immudb.toml
+PID file         : immu.pid
+Log file         : immu.log
+Max recv msg size: 33554432
+Auth enabled     : true
+Dev mode         : false
+Default database : defaultdb
+Maintenance mode : false
+Synced mode      : true
+S3 storage
+   endpoint      : s3-endpoint
+   bucket name   : s3-bucket-name
+   location      : s3-location
+   prefix        : s3-path-prefix
+   metadata url  : http://169.254.169.254
+   external id   : true
+----------------------------------------
+Superadmin default credentials
+   Username      : immudb
+   Password      : immudb
+========================================`
+
+	op := DefaultOptions().
+		WithPidfile("immu.pid").
+		WithLogfile("immu.log").
+		WithRemoteStorageOptions(
+			DefaultRemoteStorageOptions().
+				WithS3Storage(true).
+				WithS3Endpoint("s3-endpoint").
+				WithS3BucketName("s3-bucket-name").
+				WithS3Location("s3-location").
+				WithS3PathPrefix("s3-path-prefix").
+				WithS3InstanceMetadataURL("http://169.254.169.254").
+				WithS3ExternalIdentifier(true),
 		)
 
 	require.Equal(t, expected, op.String())

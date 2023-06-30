@@ -54,6 +54,7 @@ var maintenanceMethods = map[string]struct{}{
 	"ReplaceDocuments":    {},
 	"DeleteDocuments":     {},
 	"SearchDocuments":     {},
+	"CountDocuments":      {},
 	"AuditDocument":       {},
 	"ProofDocument":       {},
 
@@ -129,6 +130,7 @@ var methodsPermissions = map[string][]uint32{
 	"ReplaceDocuments": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"DeleteDocuments":  {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SearchDocuments":  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CountDocuments":   {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"AuditDocument":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"ProofDocument":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 

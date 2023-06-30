@@ -16,7 +16,7 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=1.4.1
+VERSION=1.5.0
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
@@ -177,7 +177,6 @@ build/codegenv2:
 	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/protomodel \
 	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/protomodel \
 	  --doc_out=pkg/api/protomodel --doc_opt=markdown,docs.md \
-	  --swagger_out=logtostderr=true,allow_merge=true,simple_operation_ids=true:pkg/api/openapi \
 
 .PHONY: clean
 clean:

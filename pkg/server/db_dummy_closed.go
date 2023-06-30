@@ -292,6 +292,10 @@ func (d *closedDB) SearchDocuments(ctx context.Context, query *protomodel.Query,
 	return nil, store.ErrAlreadyClosed
 }
 
+func (d *closedDB) CountDocuments(ctx context.Context, req *protomodel.CountDocumentsRequest) (*protomodel.CountDocumentsResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
 func (d *closedDB) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

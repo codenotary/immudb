@@ -25,7 +25,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 11M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 20M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -82,11 +82,11 @@ Click here to try out the immudb web console access in an [online demo environme
 
 ### Getting immudb running: executable
 
-You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.4.1 for linux amd64:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.5.0 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.4.1/immudb-v1.4.1-linux-amd64
-mv immudb-v1.4.1-linux-amd64 immudb
+wget https://github.com/codenotary/immudb/releases/download/v1.5.0/immudb-v1.5.0-linux-amd64
+mv immudb-v1.5.0-linux-amd64 immudb
 chmod +x immudb
 
 # run immudb in the foreground to see all output
@@ -178,7 +178,7 @@ The following example shows how to run immudb with the S3 storage enabled using 
 
 ```bash
 export IMMUDB_S3_STORAGE=true
-export IMMUDB_S3_ROLE_ENABLED=true
+export IMMUDB_S3_ROLE_ENABLED=true # use this instead of access and secret keys
 export IMMUDB_S3_BUCKET_NAME=<BUCKET NAME>
 export IMMUDB_S3_LOCATION=<AWS S3 REGION>
 export IMMUDB_S3_PATH_PREFIX=testing-001
@@ -194,6 +194,14 @@ export IMMUDB_S3_ROLE=<AWS S3 ACCESS ROLE NAME>
 ```
 
 Remember, the `IMMUDB_S3_ROLE_ENABLED` parameter still should be on.
+
+When working with the external storage, you can enable the option for the remote storage
+to be the primary source of identifier. This way, if immudb is run using ephemeral disks,
+such as with AWS ECS Fargate, the identifier can be taken from S3. To enable that, use:
+
+```bash
+export IMMUDB_S3_EXTERNAL_IDENTIFIER=true
+```
 
 You can also easily use immudb with compatible s3 alternatives
 such as the [minio](https://github.com/minio/minio) server:
@@ -221,11 +229,11 @@ docker run --net=host -it --entrypoint /bin/sh minio/mc -c "
 
 ### Connecting with immuclient
 
-You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.4.1 for linux amd64:
+You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.5.0 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.4.1/immuclient-v1.4.1-linux-amd64
-mv immuclient-v1.4.1-linux-amd64 immuclient
+wget https://github.com/codenotary/immudb/releases/download/v1.5.0/immuclient-v1.5.0-linux-amd64
+mv immuclient-v1.5.0-linux-amd64 immuclient
 chmod +x immuclient
 
 # start the interactive shell

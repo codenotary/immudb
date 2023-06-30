@@ -261,15 +261,31 @@ func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.Search
 	}, nil
 }
 
+func (s *ImmuServer) CountDocuments(ctx context.Context, req *protomodel.CountDocumentsRequest) (*protomodel.CountDocumentsResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "CountDocuments")
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := db.CountDocuments(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func (s *ImmuServer) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DeleteDocuments")
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := db.DeleteDocuments(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 

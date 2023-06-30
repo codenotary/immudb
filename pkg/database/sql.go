@@ -293,6 +293,9 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, err error) {
 	txCtx, txCancel := context.WithCancel(context.Background())
 
+	txChan := make(chan *sql.SQLTx)
+	errChan := make(chan error)
+
 	defer func() {
 		if err != nil {
 			txCancel()
@@ -302,12 +305,6 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 			}
 		}
 	}()
-
-	txChan := make(chan *sql.SQLTx)
-	defer close(txChan)
-
-	errChan := make(chan error)
-	defer close(errChan)
 
 	go func() {
 		tx, err = d.sqlEngine.NewTx(txCtx, opts)
@@ -323,11 +320,11 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 		{
 			return nil, ctx.Err()
 		}
-	case tx := <-txChan:
+	case tx = <-txChan:
 		{
 			return tx, nil
 		}
-	case err := <-errChan:
+	case err = <-errChan:
 		{
 			return nil, err
 		}

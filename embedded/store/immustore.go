@@ -112,7 +112,8 @@ var ErrInvalidProof = errors.New("invalid proof")
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 
-const cLogEntrySize = offsetSize + lszSize // tx offset & size
+const cLogEntrySizeV1 = offsetSize + lszSize               // tx offset + hdr size
+const cLogEntrySizeV2 = offsetSize + lszSize + sha256.Size // tx offset + hdr size + alh
 
 const txIDSize = 8
 const tsSize = 8
@@ -120,7 +121,7 @@ const lszSize = 4
 const sszSize = 2
 const offsetSize = 8
 
-// Version 2 includes `metaEmbeddedValues` into clog metadata
+// Version 2 includes `metaEmbeddedValues` and `metaPreallocFiles` into clog metadata
 const Version = 2
 
 const MaxTxHeaderVersion = 1
@@ -132,6 +133,7 @@ const (
 	metaMaxValueLen    = "MAX_VALUE_LEN"
 	metaFileSize       = "FILE_SIZE"
 	metaEmbeddedValues = "EMBEDDED_VALUES"
+	metaPreallocFiles  = "PREALLOC_FILES"
 )
 
 const indexDirname = "index"
@@ -153,7 +155,8 @@ type ImmuStore struct {
 	txLog      appendable.Appendable
 	txLogCache *cache.LRUCache
 
-	cLog appendable.Appendable
+	cLog          appendable.Appendable
+	cLogEntrySize int
 
 	cLogBuf *precommitBuffer
 
@@ -170,6 +173,7 @@ type ImmuStore struct {
 	commitStateRWMutex sync.RWMutex
 
 	embeddedValues        bool
+	preallocFiles         bool
 	readOnly              bool
 	synced                bool
 	syncFrequency         time.Duration
@@ -240,6 +244,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(metaVersion, Version)
 	metadata.PutBool(metaEmbeddedValues, opts.EmbeddedValues)
+	metadata.PutBool(metaPreallocFiles, opts.PreallocFiles)
 	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
 	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
 	metadata.PutInt(metaMaxValueLen, opts.MaxValueLen)
@@ -263,6 +268,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.WithFileExt("tx")
+	appendableOpts.WithPrealloc(opts.PreallocFiles)
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.TxLogMaxOpenedFiles)
 	txLog, err := appFactory(path, "tx", appendableOpts)
@@ -270,20 +276,22 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, fmt.Errorf("unable to open transaction log: %w", err)
 	}
 
+	metadata = appendable.NewMetadata(txLog.Metadata())
+
+	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
+	embeddedValues = ok && embeddedValues
+
+	preallocFiles, ok := metadata.GetBool(metaPreallocFiles)
+	preallocFiles = ok && preallocFiles
+
 	appendableOpts.WithFileExt("txi")
+	appendableOpts.WithFileSize(opts.FileSize)
+	appendableOpts.WithPrealloc(preallocFiles)
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
 	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open commit log: %w", err)
-
-	}
-
-	metadata = appendable.NewMetadata(cLog.Metadata())
-
-	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
-	if !ok {
-		embeddedValues = false
 	}
 
 	var vLogs []appendable.Appendable
@@ -291,6 +299,8 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	if !embeddedValues {
 		vLogs = make([]appendable.Appendable, opts.MaxIOConcurrency)
 		appendableOpts.WithFileExt("val")
+		appendableOpts.WithFileSize(opts.FileSize)
+		appendableOpts.WithPrealloc(false)
 		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
 		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
 		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
@@ -324,6 +334,14 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "Version")
 	}
 
+	var cLogEntrySize int
+
+	if version <= 1 {
+		cLogEntrySize = cLogEntrySizeV1
+	} else {
+		cLogEntrySize = cLogEntrySizeV2
+	}
+
 	embeddedValues, ok := metadata.GetBool(metaEmbeddedValues)
 	if !ok {
 		if version >= 2 {
@@ -331,6 +349,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		}
 
 		embeddedValues = false
+	}
+
+	preallocFiles, ok := metadata.GetBool(metaPreallocFiles)
+	if !ok {
+		if version >= 2 {
+			return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "PreallocFiles")
+		}
+
+		preallocFiles = false
 	}
 
 	if (len(vLogs) == 0 && !embeddedValues) || (len(vLogs) != 0 && embeddedValues) {
@@ -362,12 +389,54 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("corrupted commit log: could not get size: %w", err)
 	}
 
-	rem := cLogSize % cLogEntrySize
-	if rem > 0 {
-		cLogSize -= rem
-		err = cLog.SetOffset(cLogSize)
-		if err != nil {
-			return nil, fmt.Errorf("corrupted commit log: could not set offset: %w", err)
+	if !preallocFiles {
+		rem := cLogSize % int64(cLogEntrySize)
+		if rem > 0 {
+			cLogSize -= rem
+			err = cLog.SetOffset(cLogSize)
+			if err != nil {
+				return nil, fmt.Errorf("corrupted commit log: could not set offset: %w", err)
+			}
+		}
+	}
+
+	if preallocFiles {
+		if cLogSize == 0 {
+			return nil, fmt.Errorf("corrupted commit log: file should not be empty when file preallocation is enabled")
+		}
+
+		// find the last non-zeroed clogEntry
+		left := int64(1)
+		right := cLogSize / int64(cLogEntrySize)
+
+		b := make([]byte, cLogEntrySize)
+		zeroed := make([]byte, cLogEntrySize)
+
+		for left < right {
+			middle := left + ((right-left)+1)/2
+
+			_, err := cLog.ReadAt(b, (middle-1)*int64(cLogEntrySize))
+			if err != nil {
+				return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
+			}
+
+			if bytes.Equal(b, zeroed) {
+				// if cLogEntry is zeroed it's considered as preallocated
+				right = middle - 1
+			} else {
+				left = middle
+			}
+		}
+
+		_, err := cLog.ReadAt(b, (left-1)*int64(cLogEntrySize))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
+		}
+
+		if bytes.Equal(b, zeroed) {
+			cLogSize = 0
+		} else {
+			cLogSize = left * int64(cLogEntrySize)
 		}
 	}
 
@@ -377,17 +446,24 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	var committedTxID uint64
 
+	committedAlh := sha256.Sum256(nil)
+
 	if cLogSize > 0 {
 		b := make([]byte, cLogEntrySize)
-		_, err := cLog.ReadAt(b, cLogSize-cLogEntrySize)
+
+		_, err := cLog.ReadAt(b[:], cLogSize-int64(cLogEntrySize))
 		if err != nil {
 			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
 		}
 
-		committedTxOffset = int64(binary.BigEndian.Uint64(b))
+		committedTxOffset = int64(binary.BigEndian.Uint64(b[:]))
 		committedTxSize = int(binary.BigEndian.Uint32(b[txIDSize:]))
 		committedTxLogSize = committedTxOffset + int64(committedTxSize)
-		committedTxID = uint64(cLogSize) / cLogEntrySize
+		committedTxID = uint64(cLogSize) / uint64(cLogEntrySize)
+
+		if cLogEntrySize == cLogEntrySizeV2 {
+			copy(committedAlh[:], b[txIDSize+lszSize:])
+		}
 
 		txLogFileSize, err := txLog.Size()
 		if err != nil {
@@ -412,8 +488,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen)
 	txbs := make([]byte, maxTxSize)
 
-	committedAlh := sha256.Sum256(nil)
-
 	if cLogSize > 0 {
 		txReader := appendable.NewReaderFrom(txLog, committedTxOffset, committedTxSize)
 
@@ -427,7 +501,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		txPool.Release(tx)
 
-		committedAlh = tx.header.Alh()
+		if cLogEntrySize == cLogEntrySizeV1 {
+			committedAlh = tx.header.Alh()
+		}
+
+		if cLogEntrySize == cLogEntrySizeV2 {
+			if committedAlh != tx.header.Alh() {
+				return nil, fmt.Errorf("corrupted transaction log: digest mismatch in the last transaction: %w", err)
+			}
+		}
 	}
 
 	cLogBuf := newPrecommitBuffer(opts.MaxActiveTransactions)
@@ -444,16 +526,16 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	for {
 		err = tx.readFrom(txReader, false)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			opts.logger.Warningf("%w: while reading pre-committed transaction: %d", err, precommittedTxID+1)
+			opts.logger.Infof("%v: discarding pre-committed transaction: %d", err, precommittedTxID+1)
 			break
 		}
 
 		if tx.header.ID != precommittedTxID+1 || tx.header.PrevAlh != precommittedAlh {
-			opts.logger.Warningf("%w: while reading pre-committed transaction: %d", ErrCorruptedData, precommittedTxID+1)
+			opts.logger.Infof("%v: discarding pre-committed transaction: %d", ErrCorruptedData, precommittedTxID+1)
 			break
 		}
 
@@ -465,7 +547,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		err = cLogBuf.put(precommittedTxID, precommittedAlh, precommittedTxLogSize, txSize)
 		if err != nil {
 			txPool.Release(tx)
-			return nil, fmt.Errorf("%w: while loading pre-committed transaction: %v", err, precommittedTxID+1)
+			return nil, fmt.Errorf("%v: while loading pre-committed transaction: %v", err, precommittedTxID+1)
 		}
 
 		precommittedTxLogSize += int64(txSize)
@@ -527,7 +609,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsCond:        sync.NewCond(&sync.Mutex{}),
 		vLogCache:        vLogCache,
 
-		cLog: cLog,
+		cLog:          cLog,
+		cLogEntrySize: cLogEntrySize,
 
 		cLogBuf: cLogBuf,
 
@@ -539,6 +622,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		precommittedTxLogSize: precommittedTxLogSize,
 
 		embeddedValues: embeddedValues,
+		preallocFiles:  preallocFiles,
 
 		readOnly:              opts.ReadOnly,
 		synced:                opts.Synced,
@@ -1359,7 +1443,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	if otx.hasPreconditions() {
 		var waitForIndexingUpto uint64
 
-		if otx.unsafeMVCC && s.mandatoryMVCCUpToTxID > 0 {
+		if otx.unsafeMVCC {
 			waitForIndexingUpto = s.mandatoryMVCCUpToTxID
 		} else {
 			// Preconditions must be executed with up-to-date tree
@@ -1666,19 +1750,12 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 }
 
 func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
 
 	if !s.useExternalCommitAllowance {
 		return fmt.Errorf("%w: the external commit allowance mode is not enabled", ErrIllegalState)
 	}
-
-	s.commitStateRWMutex.Lock()
-	defer s.commitStateRWMutex.Unlock()
 
 	if txID <= s.commitAllowedUpToTxID {
 		// once a commit is allowed, it cannot be revoked
@@ -1718,7 +1795,7 @@ func (s *ImmuStore) mayCommit() error {
 	}
 
 	// will overwrite partially written and uncommitted data
-	err := s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
+	err := s.cLog.SetOffset(int64(s.committedTxID) * int64(s.cLogEntrySize))
 	if err != nil {
 		return err
 	}
@@ -1732,11 +1809,15 @@ func (s *ImmuStore) mayCommit() error {
 			return err
 		}
 
-		var cb [cLogEntrySize]byte
-		binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+		cb := make([]byte, s.cLogEntrySize)
+		binary.BigEndian.PutUint64(cb, uint64(txOff))
 		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 
-		_, _, err = s.cLog.Append(cb[:])
+		if s.cLogEntrySize == cLogEntrySizeV2 {
+			copy(cb[offsetSize+lszSize:], alh[:])
+		}
+
+		_, _, err = s.cLog.Append(cb)
 		if err != nil {
 			return err
 		}
@@ -2183,15 +2264,15 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 		return 0, 0, ErrIllegalArguments
 	}
 
-	off := (txID - 1) * cLogEntrySize
+	off := int64(txID-1) * int64(s.cLogEntrySize)
 
-	var cb [cLogEntrySize]byte
+	cb := make([]byte, s.cLogEntrySize)
 
-	_, err := s.cLog.ReadAt(cb[:], int64(off))
-	if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+	_, err := s.cLog.ReadAt(cb, off)
+	if errors.Is(err, multiapp.ErrAlreadyClosed) || errors.Is(err, singleapp.ErrAlreadyClosed) {
 		return 0, 0, ErrAlreadyClosed
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		// A partially readable commit record must be discarded -
 		// - it is a result of incomplete commit log write
 		// and will be overwritten on the next commit
@@ -2201,7 +2282,7 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 		return 0, 0, err
 	}
 
-	txOffset := int64(binary.BigEndian.Uint64(cb[:]))
+	txOffset := int64(binary.BigEndian.Uint64(cb))
 	txSize := int(binary.BigEndian.Uint32(cb[offsetSize:]))
 
 	return txOffset, txSize, nil
@@ -2510,7 +2591,11 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 		return nil, err
 	}
 
-	if !s.useExternalCommitAllowance {
+	s.commitStateRWMutex.Lock()
+	waitForCommit := !s.useExternalCommitAllowance
+	s.commitStateRWMutex.Unlock()
+
+	if waitForCommit {
 		err = s.commitWHub.WaitFor(ctx, txHdr.ID)
 		if err == watchers.ErrAlreadyClosed {
 			return nil, ErrAlreadyClosed
@@ -2660,13 +2745,6 @@ func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, skipIntegrityChe
 }
 
 func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool, skipIntegrityCheck bool) (*TxHeader, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return nil, ErrAlreadyClosed
-	}
-
 	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
 	if err != nil {
 		return nil, err
@@ -2790,10 +2868,6 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (n int, err error) {
 	vLogID, offset := decodeOffset(off)
 
-	if len(b) == 0 && vLogID > 0 {
-		return 0, fmt.Errorf("%w: attempt to read empty value from a non-embedded vlog", ErrCorruptedTxData)
-	}
-
 	if !s.embeddedValues && vLogID == 0 && len(b) > 0 {
 		// it means value was not stored on any vlog i.e. a truncated transaction was replicated
 		return 0, io.EOF
@@ -2844,7 +2918,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 		}
 	}
 
-	// either value was empty (n == 0 && vLogID == 0)
+	// either value was empty (n == 0)
 	// or a non-empty value (n > 0) was read from cache or disk
 
 	if !skipIntegrityCheck && (len(b) != n || hvalue != sha256.Sum256(b[:n])) {
@@ -2962,7 +3036,7 @@ func (s *ImmuStore) sync() error {
 	}
 
 	// will overwrite partially written and uncommitted data
-	err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
+	err = s.cLog.SetOffset(int64(s.committedTxID) * int64(s.cLogEntrySize))
 	if err != nil {
 		return err
 	}
@@ -2976,11 +3050,15 @@ func (s *ImmuStore) sync() error {
 			return err
 		}
 
-		var cb [cLogEntrySize]byte
-		binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+		cb := make([]byte, s.cLogEntrySize)
+		binary.BigEndian.PutUint64(cb, uint64(txOff))
 		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 
-		_, _, err = s.cLog.Append(cb[:])
+		if s.cLogEntrySize == cLogEntrySizeV2 {
+			copy(cb[offsetSize+lszSize:], alh[:])
+		}
+
+		_, _, err = s.cLog.Append(cb)
 		if err != nil {
 			return err
 		}
@@ -3093,13 +3171,6 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func maxInt(a, b int) int {
-	if a <= b {
-		return b
-	}
-	return a
 }
 
 func maxUint64(a, b uint64) uint64 {

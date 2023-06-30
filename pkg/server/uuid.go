@@ -48,11 +48,12 @@ func NewUUIDContext(id xid.ID) uuidContext {
 	return uuidContext{id}
 }
 
-// getOrSetUUID either reads the identifier file or creates it if it doesn't exist.
+// getOrSetUUID either reads the identifier file or creates it if it doesn't exist
+// unless useExternalIdentifier is set to true, in which case the local identifier file is ignored.
 // In earlier versions, the file was located inside default DB directory. Now, it
 // is moved to the data directory. This function migrates the file to data directory
 // in case it exists in the default db directory.
-func getOrSetUUID(dataDir, defaultDbDir string) (xid.ID, error) {
+func getOrSetUUID(dataDir, defaultDbDir string, useExternalIdentifier bool) (xid.ID, error) {
 	fileInDataDir := path.Join(dataDir, IDENTIFIER_FNAME)
 	if fileExists(fileInDataDir) {
 		return getUUID(fileInDataDir)
@@ -67,6 +68,10 @@ func getOrSetUUID(dataDir, defaultDbDir string) (xid.ID, error) {
 
 		err = moveUUIDFile(guid, fileInDataDir, fileInDefaultDbDir)
 		return guid, err
+	}
+
+	if useExternalIdentifier {
+		return xid.ID{}, nil
 	}
 
 	guid := xid.New()

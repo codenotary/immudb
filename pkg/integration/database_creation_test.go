@@ -65,6 +65,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		MaxValueLen:             &schema.NullableUint32{Value: 64},
 		MaxTxEntries:            &schema.NullableUint32{Value: 100},
 		EmbeddedValues:          &schema.NullableBool{Value: true},
+		PreallocFiles:           &schema.NullableBool{Value: true},
 		ExcludeCommitTime:       &schema.NullableBool{Value: false},
 		MaxActiveTransactions:   &schema.NullableUint32{Value: 30},
 		MvccReadSetLimit:        &schema.NullableUint32{Value: 1_000},
@@ -116,6 +117,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.MaxValueLen.Value, res.Settings.MaxValueLen.Value)
 	require.Equal(t, dbNullableSettings.MaxTxEntries.Value, res.Settings.MaxTxEntries.Value)
 	require.Equal(t, dbNullableSettings.EmbeddedValues.Value, res.Settings.EmbeddedValues.Value)
+	require.Equal(t, dbNullableSettings.PreallocFiles.Value, res.Settings.PreallocFiles.Value)
 	require.Equal(t, dbNullableSettings.ExcludeCommitTime.Value, res.Settings.ExcludeCommitTime.Value)
 	require.Equal(t, dbNullableSettings.MaxActiveTransactions.Value, res.Settings.MaxActiveTransactions.Value)
 	require.Equal(t, dbNullableSettings.MvccReadSetLimit.Value, res.Settings.MvccReadSetLimit.Value)

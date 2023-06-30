@@ -41,6 +41,7 @@ type Options struct {
 
 	fileMode          os.FileMode
 	fileSize          int
+	prealloc          bool
 	fileExt           string
 	metadata          []byte
 	maxOpenedFiles    int
@@ -152,6 +153,11 @@ func (opts *Options) WithWriteBufferSize(size int) *Options {
 	return opts
 }
 
+func (opts *Options) WithPrealloc(prealloc bool) *Options {
+	opts.prealloc = prealloc
+	return opts
+}
+
 func (opt *Options) GetFileExt() string {
 	return opt.fileExt
 }
@@ -166,4 +172,8 @@ func (opts *Options) GetReadBufferSize() int {
 
 func (opts *Options) GetWriteBufferSize() int {
 	return opts.writeBufferSize
+}
+
+func (opts *Options) GetPrealloc() bool {
+	return opts.prealloc
 }

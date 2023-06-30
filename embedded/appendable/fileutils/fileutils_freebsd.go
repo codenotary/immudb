@@ -1,7 +1,11 @@
+//go:build freebsd
+// +build freebsd
+
 /*
 Copyright 2023 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
+
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -18,16 +22,17 @@ package fileutils
 
 import "os"
 
-func SyncDir(paths ...string) error {
-	for _, path := range paths {
-		err := syncDir(path)
-		if err != nil {
-			return err
-		}
+func syncDir(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	defer f.Close()
+
+	return f.Sync()
 }
 
-func Fdatasync(f *os.File) error {
-	return fdatasync(f)
+func fdatasync(f *os.File) error {
+	return f.Sync()
 }

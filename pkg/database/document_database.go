@@ -49,6 +49,8 @@ type DocumentDatabase interface {
 	AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error)
 	// SearchDocuments returns the documents matching the query
 	SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error)
+	// CountDocuments returns the number of documents matching the query
+	CountDocuments(ctx context.Context, req *protomodel.CountDocumentsRequest) (*protomodel.CountDocumentsResponse, error)
 	// DeleteDocuments deletes documents maching the query
 	DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error)
 	// ProofDocument returns the proofs for a document
@@ -271,6 +273,22 @@ func (d *db) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentReq
 // SearchDocuments returns the documents matching the search request constraints
 func (d *db) SearchDocuments(ctx context.Context, query *protomodel.Query, offset int64) (document.DocumentReader, error) {
 	return d.documentEngine.GetDocuments(ctx, query, offset)
+}
+
+// CountDocuments returns the number of documents matching the query
+func (d *db) CountDocuments(ctx context.Context, req *protomodel.CountDocumentsRequest) (*protomodel.CountDocumentsResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	count, err := d.documentEngine.CountDocuments(ctx, req.Query, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.CountDocumentsResponse{
+		Count: count,
+	}, nil
 }
 
 func (d *db) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {

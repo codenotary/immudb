@@ -21,12 +21,17 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
+const DefaultDocumentMaxNestedFields = 3
+
 type Options struct {
-	prefix []byte
+	prefix          []byte
+	maxNestedFields int
 }
 
 func DefaultOptions() *Options {
-	return &Options{}
+	return &Options{
+		maxNestedFields: DefaultDocumentMaxNestedFields,
+	}
 }
 
 func (opts *Options) Validate() error {
@@ -39,5 +44,10 @@ func (opts *Options) Validate() error {
 
 func (opts *Options) WithPrefix(prefix []byte) *Options {
 	opts.prefix = prefix
+	return opts
+}
+
+func (opts *Options) WithMaxNestedFields(maxNestedFields int) *Options {
+	opts.maxNestedFields = maxNestedFields
 	return opts
 }

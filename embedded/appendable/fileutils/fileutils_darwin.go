@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 /*
 Copyright 2023 Codenotary Inc. All rights reserved.
 
@@ -18,16 +21,17 @@ package fileutils
 
 import "os"
 
-func SyncDir(paths ...string) error {
-	for _, path := range paths {
-		err := syncDir(path)
-		if err != nil {
-			return err
-		}
+func syncDir(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	defer f.Close()
+
+	return f.Sync()
 }
 
-func Fdatasync(f *os.File) error {
-	return fdatasync(f)
+func fdatasync(f *os.File) error {
+	return f.Sync()
 }
