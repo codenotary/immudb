@@ -38,7 +38,6 @@ import (
 // and covers multiple possible scenarios or remote storage configurations
 var (
 	ErrRemoteStorageDoesNotMatch = errors.New("remote storage does not match local files for identifiers")
-	ErrUnexpectedLocalIdentifier = errors.New("remote storage does not expect local identifier, set for remote")
 	ErrNoStorageForIdentifier    = errors.New("remote storage does not exist, unable to retrieve identifier")
 	ErrNoRemoteIdentifier        = errors.New("remote storage does not have expected identifier")
 )
@@ -99,10 +98,6 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 			}
 			s.UUID, err = xid.FromBytes(remoteID)
 		} else {
-			if s.Options.RemoteStorageOptions.S3ExternalIdentifier {
-				return ErrUnexpectedLocalIdentifier
-			}
-
 			localID, err := ioutil.ReadFile(localIdentifierFile)
 			if err != nil {
 				return err
