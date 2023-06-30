@@ -253,8 +253,7 @@ func TestInitializeWithRemoteStorageWithoutIdentifier(t *testing.T) {
 
 	s.WithOptions(opts)
 
-	m := memory.Open()
-	s.remoteStorage = m
+	var m remotestorage.Storage = nil
 
 	err := s.initializeRemoteStorage(m)
 	require.ErrorIs(t, err, ErrNoRemoteIdentifier)
