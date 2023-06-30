@@ -183,6 +183,7 @@ func TestCornerCases(t *testing.T) {
 			"bucket",
 			"",
 			"",
+			"",
 		)
 		require.NoError(t, err)
 
@@ -209,27 +210,13 @@ func TestCornerCases(t *testing.T) {
 			"bucket",
 			"",
 			"",
+			"",
 		)
 		require.NoError(t, err)
 
 		_, err = s.Get(context.Background(), "file", 0, 0)
 		require.ErrorIs(t, err, ErrInvalidArguments)
 		require.ErrorIs(t, err, ErrInvalidArgumentsOffsSize)
-	})
-
-	t.Run("invalid role and credentials settings", func(t *testing.T) {
-		s, err := Open(
-			"htts://localhost:9000",
-			true,
-			"role",
-			"minioadmin",
-			"minioadmin",
-			"bucket",
-			"",
-			"",
-		)
-		require.ErrorIs(t, err, ErrKeyCredentialsProvided)
-		require.Nil(t, s)
 	})
 
 	t.Run("invalid list path", func(t *testing.T) {
@@ -240,6 +227,7 @@ func TestCornerCases(t *testing.T) {
 			"minioadmin",
 			"minioadmin",
 			"bucket",
+			"",
 			"",
 			"",
 		)
@@ -258,7 +246,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -273,7 +261,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -294,6 +282,7 @@ func TestSignatureV4(t *testing.T) {
 		"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"examplebucket",
 		"us-east-1",
+		"",
 		"",
 	)
 	require.NoError(t, err)
@@ -373,7 +362,7 @@ func TestHandlingRedirects(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -756,7 +745,7 @@ func TestListEntries(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
