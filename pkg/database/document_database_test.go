@@ -21,8 +21,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/verification"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
