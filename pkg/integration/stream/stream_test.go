@@ -24,6 +24,7 @@ import (
 
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/pkg/signer"
 
 	"fmt"
 	"io"
@@ -520,10 +521,10 @@ func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
 			Size:    len([]byte(`val`)),
 		},
 	}})
-	require.ErrorContains(t, err, "signature doesn't match provided public key")
+	require.ErrorContains(t, err, signer.ErrKeyCannotBeVerified.Error())
 
 	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
-	require.ErrorContains(t, err, "signature doesn't match provided public key")
+	require.ErrorContains(t, err, signer.ErrKeyCannotBeVerified.Error())
 }
 
 func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
@@ -576,7 +577,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
-	require.ErrorContains(t, err, "signature doesn't match")
+	require.ErrorContains(t, err, signer.ErrKeyCannotBeVerified.Error())
 
 	_, err = client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
@@ -588,7 +589,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 			Size:    len([]byte(`val`)),
 		},
 	}})
-	require.ErrorContains(t, err, "signature doesn't match")
+	require.ErrorContains(t, err, signer.ErrKeyCannotBeVerified.Error())
 }
 
 func TestImmuClient_StreamerServiceErrors(t *testing.T) {
