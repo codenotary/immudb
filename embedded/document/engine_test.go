@@ -486,6 +486,9 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
+		_, err = reader.ReadN(ctx, 0)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 		require.Len(t, docs, 9)
