@@ -44,22 +44,46 @@ func TestV2Authentication(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{})
+	_, err := s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{})
+	_, err = s.UpdateCollection(ctx, &protomodel.UpdateCollectionRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{})
-	require.ErrorIs(t, err, ErrNotLoggedIn)
-
-	_, err = s.DeleteCollection(ctx, &protomodel.DeleteCollectionRequest{})
+	_, err = s.GetCollection(ctx, &protomodel.GetCollectionRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.GetCollections(ctx, &protomodel.GetCollectionsRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.GetCollection(ctx, &protomodel.GetCollectionRequest{})
+	_, err = s.DeleteCollection(ctx, &protomodel.DeleteCollectionRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.CreateIndex(ctx, &protomodel.CreateIndexRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.DeleteIndex(ctx, &protomodel.DeleteIndexRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.ReplaceDocuments(ctx, &protomodel.ReplaceDocumentsRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.AuditDocument(ctx, &protomodel.AuditDocumentRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.SearchDocuments(ctx, &protomodel.SearchDocumentsRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.CountDocuments(ctx, &protomodel.CountDocumentsRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.DeleteDocuments(ctx, &protomodel.DeleteDocumentsRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.ProofDocument(ctx, &protomodel.ProofDocumentRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	authServiceImp := &authenticationServiceImp{server: s}
