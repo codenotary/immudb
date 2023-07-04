@@ -170,6 +170,48 @@ func TestDummyClosedDatabase(t *testing.T) {
 	err = cdb.Truncate(0)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
+	_, err = cdb.CreateCollection(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.GetCollection(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.GetCollections(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.UpdateCollection(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.DeleteCollection(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.CreateIndex(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.DeleteIndex(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.InsertDocuments(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.ReplaceDocuments(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.AuditDocument(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.SearchDocuments(context.Background(), nil, 0)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.CountDocuments(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.ProofDocument(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.DeleteDocuments(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
 	err = cdb.Close()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 }
