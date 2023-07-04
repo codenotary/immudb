@@ -190,6 +190,72 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 	wg.Wait()
 }
 
+func TestImmudbStoreConcurrentCommitsWithEmbeddedValues(t *testing.T) {
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(5).
+		WithEmbeddedValues(true).
+		WithVLogCacheSize(10)
+
+	immuStore, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, immuStore)
+
+	defer immustoreClose(t, immuStore)
+
+	txCount := 100
+	eCount := 100
+
+	var wg sync.WaitGroup
+	wg.Add(10)
+
+	txs := make([]*Tx, 10)
+	for c := 0; c < 10; c++ {
+		txs[c] = tempTxHolder(t, immuStore)
+	}
+
+	for c := 0; c < 10; c++ {
+		go func(txHolder *Tx) {
+			defer wg.Done()
+
+			for c := 0; c < txCount; {
+				tx, err := immuStore.NewWriteOnlyTx(context.Background())
+				require.NoError(t, err)
+
+				for j := 0; j < eCount; j++ {
+					k := make([]byte, 8)
+					binary.BigEndian.PutUint64(k, uint64(j))
+
+					v := make([]byte, 8)
+					binary.BigEndian.PutUint64(v, uint64(c))
+
+					err = tx.Set(k, nil, v)
+					require.NoError(t, err)
+				}
+
+				hdr, err := tx.AsyncCommit(context.Background())
+				if err == ErrMaxConcurrencyLimitExceeded {
+					time.Sleep(1 * time.Millisecond)
+					continue
+				}
+				require.NoError(t, err)
+
+				err = immuStore.ReadTx(hdr.ID, false, txHolder)
+				require.NoError(t, err)
+
+				for _, e := range txHolder.Entries() {
+					_, err := immuStore.ReadValue(e)
+					require.NoError(t, err)
+				}
+
+				c++
+			}
+		}(txs[c])
+	}
+
+	wg.Wait()
+}
+
 func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
 	_, err := Open("immustore_test.go", DefaultOptions())
 	require.ErrorIs(t, err, ErrPathIsNotADirectory)
