@@ -44,6 +44,11 @@ func makeEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestEngineWithInvalidOptions(t *testing.T) {
+	_, err := store.Open(t.TempDir(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+}
+
 func TestCreateCollection(t *testing.T) {
 	engine := makeEngine(t)
 
@@ -57,6 +62,7 @@ func TestCreateCollection(t *testing.T) {
 				{Name: "name", Type: protomodel.FieldType_STRING},
 				{Name: "pin", Type: protomodel.FieldType_INTEGER},
 				{Name: "country", Type: protomodel.FieldType_STRING},
+				{Name: "active", Type: protomodel.FieldType_BOOLEAN},
 			},
 			[]*protomodel.Index{
 				{Fields: []string{"number"}},
@@ -64,6 +70,7 @@ func TestCreateCollection(t *testing.T) {
 				{Fields: []string{"pin"}},
 				{Fields: []string{"country"}},
 				{Fields: []string{"address.street"}},
+				{Fields: []string{"active"}},
 			},
 		)
 		require.ErrorIs(t, err, ErrIllegalArguments)
@@ -92,6 +99,49 @@ func TestCreateCollection(t *testing.T) {
 	})
 
 	collectionName := "my-collection"
+
+	t.Run("collection creation should fail with invalid field name", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "document", Type: protomodel.FieldType_DOUBLE},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"document"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrReservedName)
+	})
+
+	t.Run("collection creation should fail with reserved field name", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "document", Type: protomodel.FieldType_DOUBLE},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{"document"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrReservedName)
+	})
+
+	t.Run("collection creation should fail with invalid field name", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "_id", Type: protomodel.FieldType_DOUBLE},
+			},
+			nil,
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
 
 	t.Run("collection creation should fail with invalid document id field name", func(t *testing.T) {
 		err := engine.CreateCollection(
@@ -180,6 +230,47 @@ func TestCreateCollection(t *testing.T) {
 		require.ErrorIs(t, err, ErrFieldDoesNotExist)
 	})
 
+	t.Run("collection creation should fail with invalid index", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{
+				{Name: "number", Type: protomodel.FieldType_DOUBLE},
+			},
+			[]*protomodel.Index{
+				{Fields: []string{}},
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("collection creation should fail with invalid index", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{},
+			[]*protomodel.Index{
+				{Fields: []string{"_id"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("collection creation should fail with invalid index", func(t *testing.T) {
+		err := engine.CreateCollection(
+			context.Background(),
+			collectionName,
+			"",
+			[]*protomodel.Field{},
+			[]*protomodel.Index{
+				{Fields: []string{"_id", "collection"}},
+			},
+		)
+		require.ErrorIs(t, err, ErrReservedName)
+	})
+
 	err := engine.CreateCollection(
 		context.Background(),
 		collectionName,
@@ -190,6 +281,7 @@ func TestCreateCollection(t *testing.T) {
 			{Name: "pin", Type: protomodel.FieldType_INTEGER},
 			{Name: "country-code", Type: protomodel.FieldType_STRING},
 			{Name: "address.street", Type: protomodel.FieldType_STRING},
+			{Name: "active", Type: protomodel.FieldType_BOOLEAN},
 		},
 		[]*protomodel.Index{
 			{Fields: []string{"number"}},
@@ -197,6 +289,7 @@ func TestCreateCollection(t *testing.T) {
 			{Fields: []string{"pin"}},
 			{Fields: []string{"country-code"}},
 			{Fields: []string{"address.street"}},
+			{Fields: []string{"active"}},
 		},
 	)
 	require.NoError(t, err)
@@ -211,12 +304,14 @@ func TestCreateCollection(t *testing.T) {
 	)
 	require.ErrorIs(t, err, ErrCollectionAlreadyExists)
 
-	// get collection
+	_, err = engine.GetCollection(context.Background(), "unexistentCollection")
+	require.ErrorIs(t, err, ErrCollectionDoesNotExist)
+
 	collection, err := engine.GetCollection(context.Background(), collectionName)
 	require.NoError(t, err)
 	require.Equal(t, collectionName, collection.Name)
-	require.Len(t, collection.Fields, 6)
-	require.Len(t, collection.Indexes, 6)
+	require.Len(t, collection.Fields, 7)
+	require.Len(t, collection.Indexes, 7)
 }
 
 func TestListCollections(t *testing.T) {
@@ -266,16 +361,31 @@ func TestGetDocument(t *testing.T) {
 			{Name: "country", Type: protomodel.FieldType_STRING},
 			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
 			{Name: "address.street", Type: protomodel.FieldType_STRING},
+			{Name: "active", Type: protomodel.FieldType_BOOLEAN},
 		},
 		[]*protomodel.Index{
 			{Fields: []string{"country"}},
 			{Fields: []string{"pincode"}},
 			{Fields: []string{"address.street"}},
+			{Fields: []string{"active"}},
 		},
 	)
 	require.NoError(t, err)
 
-	// add document to collection
+	_, _, err = engine.InsertDocument(context.Background(), "unexistentCollectionName", &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"country": structpb.NewStringValue("wonderland"),
+			"pincode": structpb.NewNumberValue(2),
+			"address": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"street": structpb.NewStringValue("mainstreet"),
+					"number": structpb.NewNumberValue(124),
+				},
+			}),
+		},
+	})
+	require.ErrorIs(t, err, ErrCollectionDoesNotExist)
+
 	_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
@@ -706,6 +816,46 @@ func TestQueryDocuments(t *testing.T) {
 		require.EqualValues(t, 4, count)
 	})
 
+	t.Run("query should fail with invalid field name", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "1invalidFieldName",
+							Operator: protomodel.ComparisonOperator_LT,
+							Value:    structpb.NewNumberValue(5),
+						},
+					},
+				},
+			},
+		}
+
+		_, err := engine.GetDocuments(ctx, query, 0)
+		require.ErrorIs(t, err, store.ErrIllegalArguments)
+	})
+
+	t.Run("query should fail with unexistent field", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode1",
+							Operator: protomodel.ComparisonOperator_LT,
+							Value:    structpb.NewNumberValue(5),
+						},
+					},
+				},
+			},
+		}
+
+		_, err := engine.GetDocuments(ctx, query, 0)
+		require.ErrorIs(t, err, ErrFieldDoesNotExist)
+	})
+
 	t.Run("test group query with > operator", func(t *testing.T) {
 		query := &protomodel.Query{
 			CollectionName: collectionName,
@@ -1016,6 +1166,36 @@ func TestUpdateCollection(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("update collection should fail with invalid collection name", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			"1invalidCollectionName",
+			"",
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("update collection should fail with unexistent collection name", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			"unexistentCollectionName",
+			"",
+		)
+		require.ErrorIs(t, err, ErrCollectionDoesNotExist)
+	})
+
+	t.Run("update collection should fail with invalid id field name", func(t *testing.T) {
+		// update collection
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			"document",
+		)
+		require.ErrorIs(t, err, ErrReservedName)
+	})
+
 	t.Run("update collection by deleting indexes", func(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
@@ -1047,6 +1227,15 @@ func TestUpdateCollection(t *testing.T) {
 		require.Equal(t, "_docid", collection.DocumentIdFieldName)
 		require.Len(t, collection.Indexes, 5)
 	})
+
+	t.Run("update collection with invalid id field name", func(t *testing.T) {
+		err := engine.UpdateCollection(
+			context.Background(),
+			collectionName,
+			"document",
+		)
+		require.ErrorIs(t, err, ErrReservedName)
+	})
 }
 
 func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
@@ -1067,6 +1256,80 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
+	})
+
+	t.Run("create index with invalid collection name should fail", func(t *testing.T) {
+		// update collection
+		err := engine.CreateIndex(
+			context.Background(),
+			"1invalidCollectionName",
+			[]string{},
+			false,
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("create index with no fields should fail", func(t *testing.T) {
+		// update collection
+		err := engine.CreateIndex(
+			context.Background(),
+			collectionName,
+			[]string{},
+			false,
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("create index with invalid field name should fail", func(t *testing.T) {
+		// update collection
+		err := engine.CreateIndex(
+			context.Background(),
+			collectionName,
+			[]string{"1invalidFieldName"},
+			false,
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("create index with unexistent field name should fail", func(t *testing.T) {
+		// update collection
+		err := engine.CreateIndex(
+			context.Background(),
+			collectionName,
+			[]string{"unexistentFieldName"},
+			false,
+		)
+		require.ErrorIs(t, err, ErrFieldDoesNotExist)
+	})
+
+	t.Run("delete index with invalid collection name should fail", func(t *testing.T) {
+		// update collection
+		err := engine.DeleteIndex(
+			context.Background(),
+			"1invalidCollectionName",
+			[]string{"number"},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("delete index without fields should fail", func(t *testing.T) {
+		// update collection
+		err := engine.DeleteIndex(
+			context.Background(),
+			collectionName,
+			[]string{""},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("delete index with invalid field name should fail", func(t *testing.T) {
+		// update collection
+		err := engine.DeleteIndex(
+			context.Background(),
+			collectionName,
+			[]string{"1invalidFieldName"},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
 	t.Run("update collection by deleting indexes", func(t *testing.T) {
