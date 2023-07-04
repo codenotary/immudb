@@ -1022,26 +1022,10 @@ type UpdateStmt struct {
 	offset   ValueExp
 }
 
-func NewUpdateStmt(table string, where ValueExp, update *colUpdate) *UpdateStmt {
-	return &UpdateStmt{
-		tableRef: newTableRef(table, ""),
-		where:    where,
-		updates:  []*colUpdate{update},
-	}
-}
-
 type colUpdate struct {
 	col string
 	op  CmpOperator
 	val ValueExp
-}
-
-func NewColUpdate(col string, val ValueExp) *colUpdate {
-	return &colUpdate{
-		col: col,
-		op:  EQ,
-		val: val,
-	}
 }
 
 func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {

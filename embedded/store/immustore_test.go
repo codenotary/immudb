@@ -1014,6 +1014,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						valRef, err := snap.Get(k)
 						if err != nil {
 							require.ErrorIs(t, err, tbtree.ErrKeyNotFound)
+							continue
 						}
 
 						val, err := valRef.Resolve()
@@ -1026,7 +1027,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 					k := make([]byte, 8)
 					binary.BigEndian.PutUint64(k, uint64(eCount-1))
 
-					valRef1, err := immuStore.Get(k)
+					_, valRef1, err := immuStore.GetWithPrefix(k, nil)
 					require.NoError(t, err)
 
 					v1, err := valRef1.Resolve()
