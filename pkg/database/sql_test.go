@@ -178,7 +178,6 @@ func TestSQLExecAndQuery(t *testing.T) {
 		ProveSinceTx: 0,
 	})
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
-
 }
 
 func TestVerifiableSQLGet(t *testing.T) {
