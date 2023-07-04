@@ -23,6 +23,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/verification"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -290,6 +291,8 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 	})
 
+	var knownState *schema.ImmutableState
+
 	t.Run("should pass when querying documents with proof", func(t *testing.T) {
 		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
 			CollectionName: collectionName,
@@ -298,10 +301,12 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, proofRes)
 
-		newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, nil, nil)
+		knownState, err = verification.VerifyDocument(context.Background(), proofRes, doc, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
+		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, knownState.TxId)
 	})
+
+	var updatedDoc *structpb.Struct
 
 	t.Run("should pass when replacing document", func(t *testing.T) {
 		query := &protomodel.Query{
@@ -355,8 +360,8 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		revision, err := reader.Read(context.Background())
 		require.NoError(t, err)
 
-		doc = revision.Document
-		require.Equal(t, 321.0, doc.Fields["pincode"].GetNumberValue())
+		updatedDoc = revision.Document
+		require.Equal(t, 321.0, updatedDoc.Fields["pincode"].GetNumberValue())
 	})
 
 	t.Run("should pass when auditing document", func(t *testing.T) {
@@ -372,6 +377,35 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		for _, rev := range resp.Revisions {
 			require.Equal(t, docID, rev.Document.Fields["_id"].GetStringValue())
 		}
+	})
+
+	t.Run("should pass when querying updated document with proof", func(t *testing.T) {
+		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
+			CollectionName:          collectionName,
+			DocumentId:              docID,
+			ProofSinceTransactionId: knownState.TxId,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proofRes)
+
+		newState, err := verification.VerifyDocument(context.Background(), proofRes, updatedDoc, knownState, nil)
+		require.NoError(t, err)
+		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
+	})
+
+	t.Run("should pass when querying updated document with proof", func(t *testing.T) {
+		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
+			CollectionName:          collectionName,
+			DocumentId:              docID,
+			TransactionId:           knownState.TxId,
+			ProofSinceTransactionId: knownState.TxId,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proofRes)
+
+		newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, knownState, nil)
+		require.NoError(t, err)
+		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
 	})
 }
 

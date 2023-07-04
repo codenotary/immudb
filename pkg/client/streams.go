@@ -265,12 +265,9 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -382,12 +379,9 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 

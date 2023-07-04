@@ -32,6 +32,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var ErrIllegalArguments = store.ErrIllegalArguments
+
 func VerifyDocument(ctx context.Context,
 	proof *protomodel.ProofDocumentResponse,
 	doc *structpb.Struct,
@@ -40,12 +42,12 @@ func VerifyDocument(ctx context.Context,
 ) (*schema.ImmutableState, error) {
 
 	if proof == nil || doc == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	docID, ok := doc.Fields[proof.DocumentIdFieldName]
 	if !ok {
-		return nil, fmt.Errorf("%w: missing field '%s'", store.ErrIllegalArguments, proof.DocumentIdFieldName)
+		return nil, fmt.Errorf("%w: missing field '%s'", ErrIllegalArguments, proof.DocumentIdFieldName)
 	}
 
 	encDocKey, err := encodedKeyForDocument(proof.CollectionId, docID.GetStringValue())
@@ -198,12 +200,9 @@ func VerifyDocument(ctx context.Context,
 	}
 
 	if serverSigningPubKey != nil {
-		ok, err := state.CheckSignature(serverSigningPubKey)
+		err := state.CheckSignature(serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrInvalidProof
 		}
 	}
 
