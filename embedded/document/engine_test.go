@@ -45,7 +45,10 @@ func makeEngine(t *testing.T) *Engine {
 }
 
 func TestEngineWithInvalidOptions(t *testing.T) {
-	_, err := store.Open(t.TempDir(), nil)
+	_, err := NewEngine(nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = NewEngine(nil, DefaultOptions())
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
@@ -106,10 +109,10 @@ func TestCreateCollection(t *testing.T) {
 			collectionName,
 			"",
 			[]*protomodel.Field{
-				{Name: "document", Type: protomodel.FieldType_DOUBLE},
+				{Name: DocumentBLOBField, Type: protomodel.FieldType_DOUBLE},
 			},
 			[]*protomodel.Index{
-				{Fields: []string{"document"}},
+				{Fields: []string{DocumentBLOBField}},
 			},
 		)
 		require.ErrorIs(t, err, ErrReservedName)
@@ -284,6 +287,7 @@ func TestCreateCollection(t *testing.T) {
 			{Name: "active", Type: protomodel.FieldType_BOOLEAN},
 		},
 		[]*protomodel.Index{
+			{Fields: []string{"doc-id"}, IsUnique: true},
 			{Fields: []string{"number"}},
 			{Fields: []string{"name"}},
 			{Fields: []string{"pin"}},
@@ -1041,10 +1045,82 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		// Call the ReplaceDocument method
 		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
 		require.NoError(t, err)
 		require.Empty(t, revisions)
+	})
+
+	t.Run("replace document with invalid arguments should fail", func(t *testing.T) {
+		_, err := engine.ReplaceDocuments(ctx, nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("replace document with invalid collection name should fail", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: "1invalidCollectionName",
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "name",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewStringValue("Alice"),
+						},
+					},
+				},
+			},
+		}
+
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				DefaultDocumentIDField: structpb.NewStringValue("1234"),
+				"name":                 structpb.NewStringValue("Alice"),
+				"age":                  structpb.NewNumberValue(31),
+			},
+		}
+
+		_, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("replace document with empty document should succeed", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "age",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewNumberValue(31),
+						},
+					},
+				},
+			},
+		}
+
+		revisions, err := engine.ReplaceDocuments(ctx, query, nil)
+		require.NoError(t, err)
+		require.Len(t, revisions, 1)
+	})
+
+	t.Run("replace document with query without expressions should succeed", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions:    []*protomodel.QueryExpression{},
+		}
+
+		toUpdateDoc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				DefaultDocumentIDField: structpb.NewStringValue(docID.EncodeToHexString()),
+				"name":                 structpb.NewStringValue("Alice"),
+				"age":                  structpb.NewNumberValue(32),
+			},
+		}
+
+		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		require.NoError(t, err)
+		require.Len(t, revisions, 1)
 	})
 }
 
