@@ -874,11 +874,13 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 
 	table, err := getTableForCollection(sqlTx, query.CollectionName)
 	if err != nil {
+		defer sqlTx.Cancel()
 		return nil, err
 	}
 
 	queryCondition, err := generateSQLFilteringExpression(query.Expressions, table)
 	if err != nil {
+		defer sqlTx.Cancel()
 		return nil, err
 	}
 
