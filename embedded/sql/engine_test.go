@@ -314,7 +314,7 @@ func TestTimestampCasts(t *testing.T) {
 		_, _, err = engine.Exec(
 			context.Background(), nil,
 			`
-			UPDATE values_table SET ts = CAST(i AS TIMESTAMP);
+			UPDATE values_table SET ts = i::TIMESTAMP;
 		`, nil)
 		require.NoError(t, err)
 	})
