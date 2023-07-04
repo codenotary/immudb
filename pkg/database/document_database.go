@@ -251,18 +251,18 @@ func (d *db) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentReq
 
 	if limit > d.maxResultSize {
 		return nil, fmt.Errorf("%w: the specified page size (%d) is larger than the maximum allowed one (%d)",
-			ErrResultSizeLimitExceeded, limit, d.maxResultSize)
+			ErrIllegalArguments, limit, d.maxResultSize)
 	}
 
 	// verify if document id is valid
 	docID, err := document.NewDocumentIDFromHexEncodedString(req.DocumentId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid document id: %v", err)
+		return nil, fmt.Errorf("%w: invalid document id", err)
 	}
 
 	revisions, err := d.documentEngine.AuditDocument(ctx, req.CollectionName, docID, req.Desc, offset, limit)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching document history: %v", err)
+		return nil, fmt.Errorf("%w: error fetching document history", err)
 	}
 
 	return &protomodel.AuditDocumentResponse{
@@ -292,6 +292,10 @@ func (d *db) CountDocuments(ctx context.Context, req *protomodel.CountDocumentsR
 }
 
 func (d *db) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
