@@ -1196,12 +1196,9 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1377,12 +1374,9 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1573,12 +1567,9 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1757,12 +1748,9 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1930,12 +1918,9 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 

@@ -234,12 +234,9 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return err
-		}
-		if !ok {
-			return store.ErrCorruptedData
 		}
 	}
 

@@ -70,7 +70,6 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	ecdsaPK, err := signer.UnmarshalKey(state.Signature.PublicKey)
 	require.NoError(t, err)
 
-	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, ecdsaPK)
+	err = signer.Verify(state.ToBytes(), state.Signature.Signature, ecdsaPK)
 	require.NoError(t, err)
-	require.True(t, ok)
 }

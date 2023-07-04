@@ -33,12 +33,9 @@ func (c *immuClient) SignatureVerifierInterceptor(ctx context.Context, method st
 	}
 	if method == "/immudb.schema.ImmuService/CurrentState" {
 		state := reply.(*schema.ImmutableState)
-		ok, err := state.CheckSignature(c.serverSigningPubKey)
+		err := state.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to verify signature: %s", err)
-		}
-		if !ok {
-			return status.Error(codes.Canceled, "signature doesn't match provided public key")
 		}
 	}
 	return ris

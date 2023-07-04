@@ -44,9 +44,10 @@ func (state *ImmutableState) ToBytes() []byte {
 }
 
 // CheckSignature
-func (state *ImmutableState) CheckSignature(key *ecdsa.PublicKey) (ok bool, err error) {
+func (state *ImmutableState) CheckSignature(key *ecdsa.PublicKey) error {
 	if state.Signature == nil {
-		return false, errors.New("no signature found")
+		return errors.New("no signature provided")
 	}
+
 	return signer.Verify(state.ToBytes(), state.Signature.Signature, key)
 }

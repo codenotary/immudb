@@ -417,12 +417,12 @@ func (a *defaultAuditor) verifyStateSignature(
 			}
 		}
 
-		if okSig, err := serverState.CheckSignature(pk); err != nil || !okSig {
+		if err := serverState.CheckSignature(pk); err != nil {
 			return fmt.Errorf(
 				"failed to verify signature for state %s at TX %d received from server %s @ %s: "+
-					"verification result: %t, verification error: %v",
+					"verification error: %v",
 				serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress,
-				okSig, err)
+				err)
 		}
 	}
 

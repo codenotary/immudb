@@ -95,8 +95,7 @@ func TestSignature_Verify(t *testing.T) {
 	signature, publicKey, _ := s.Sign(rawMessage[:])
 	ecdsaPK, err := UnmarshalKey(publicKey)
 	require.NoError(t, err)
-	ok, err := Verify(rawMessage[:], signature, ecdsaPK)
-	require.True(t, ok)
+	err = Verify(rawMessage[:], signature, ecdsaPK)
 	require.NoError(t, err)
 }
 
@@ -108,9 +107,8 @@ func TestSignature_VerifyError(t *testing.T) {
 	_, publicKey, _ := s.Sign(rawMessage[:])
 	ecdsaPK, err := UnmarshalKey(publicKey)
 	require.NoError(t, err)
-	ok, err := Verify(rawMessage[:], []byte(`wrongsignature`), ecdsaPK)
-	require.False(t, ok)
-	require.Error(t, err)
+	err = Verify(rawMessage[:], []byte(`wrongsignature`), ecdsaPK)
+	require.ErrorIs(t, err, ErrKeyCannotBeVerified)
 }
 
 func TestSignature_VerifyFalse(t *testing.T) {
@@ -122,9 +120,8 @@ func TestSignature_VerifyFalse(t *testing.T) {
 	m, _ := asn1.Marshal(sigToMarshal)
 	ecdsaPK, err := UnmarshalKey(publicKey)
 	require.NoError(t, err)
-	ok, err := Verify(rawMessage[:], m, ecdsaPK)
-	require.False(t, ok)
-	require.NoError(t, err)
+	err = Verify(rawMessage[:], m, ecdsaPK)
+	require.ErrorIs(t, err, ErrKeyCannotBeVerified)
 }
 
 func TestUnmarshalKey_Error(t *testing.T) {
