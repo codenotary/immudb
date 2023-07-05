@@ -292,9 +292,7 @@ func (r *rawRowReader) ScanSpecs() *ScanSpecs {
 
 func (r *rawRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
 	ret := make([]ColDescriptor, len(r.colsByPos))
-	for i := range r.colsByPos {
-		ret[i] = r.colsByPos[i]
-	}
+	copy(ret, r.colsByPos)
 	return ret, nil
 }
 
