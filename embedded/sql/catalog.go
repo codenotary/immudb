@@ -953,9 +953,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			strVal, ok := convVal.(string)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a string: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a string: %w", ErrInvalidValue)
 			}
 
 			if len(strVal) > maxLen {
@@ -978,9 +976,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			intVal, ok := convVal.(int64)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not an integer: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not an integer: %w", ErrInvalidValue)
 			}
 
 			// v
@@ -1000,9 +996,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			boolVal, ok := convVal.(bool)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a boolean: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a boolean: %w", ErrInvalidValue)
 			}
 
 			// v
@@ -1018,9 +1012,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			blobVal, ok := convVal.([]byte)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a blob: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a blob: %w", ErrInvalidValue)
 			}
 
 			if len(blobVal) > maxLen {
@@ -1043,9 +1035,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			timeVal, ok := convVal.(time.Time)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a timestamp: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a timestamp: %w", ErrInvalidValue)
 			}
 
 			// v
@@ -1061,9 +1051,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			floatVal, ok := convVal.(float64)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a float: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a float: %w", ErrInvalidValue)
 			}
 
 			// Apart form the sign bit, bit representation of float64
@@ -1115,9 +1103,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			strVal, ok := convVal.(string)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a string: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a string: %w", ErrInvalidValue)
 			}
 
 			if maxLen > 0 && len(strVal) > maxLen {
@@ -1135,9 +1121,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			intVal, ok := convVal.(int64)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not an integer: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not an integer: %w", ErrInvalidValue)
 			}
 
 			// map to unsigned integer space
@@ -1152,9 +1136,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			boolVal, ok := convVal.(bool)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a boolean: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a boolean: %w", ErrInvalidValue)
 			}
 
 			// len(v) + v
@@ -1173,9 +1155,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 			if val != nil {
 				v, ok := convVal.([]byte)
 				if !ok {
-					return nil, fmt.Errorf(
-						"value is not a blob: %w", ErrInvalidValue,
-					)
+					return nil, fmt.Errorf("value is not a blob: %w", ErrInvalidValue)
 				}
 				blobVal = v
 			}
@@ -1195,9 +1175,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			timeVal, ok := convVal.(time.Time)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a timestamp: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a timestamp: %w", ErrInvalidValue)
 			}
 
 			// len(v) + v
@@ -1211,9 +1189,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			floatVal, ok := convVal.(float64)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a float: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a float: %w", ErrInvalidValue)
 			}
 
 			var encv [EncLenLen + 8]byte

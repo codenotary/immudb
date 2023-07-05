@@ -1230,6 +1230,26 @@ func TestTBTreeIncreaseTs(t *testing.T) {
 
 	require.Equal(t, uint64(3), tbtree.Ts())
 
+	for i := 1; i < 1_000; i++ {
+		err = tbtree.Insert([]byte(fmt.Sprintf("key%d", i)), []byte("v0"))
+		require.NoError(t, err)
+	}
+
+	err = tbtree.IncreaseTs(tbtree.Ts() - 1)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	err = tbtree.IncreaseTs(tbtree.Ts())
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	err = tbtree.IncreaseTs(tbtree.Ts() + 1)
+	require.NoError(t, err)
+
+	err = tbtree.Insert([]byte(fmt.Sprintf("key%d", 1000)), []byte("v0"))
+	require.NoError(t, err)
+
+	err = tbtree.IncreaseTs(tbtree.Ts() + 1)
+	require.NoError(t, err)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
