@@ -48,7 +48,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	_, client := setupTest(t)
 
 	// tx mode
-	tx, err := client.NewTx(context.Background(), immudb.UnsafeMVCC())
+	tx, err := client.NewTx(context.Background(), immudb.UnsafeMVCC(), immudb.SnapshotMustIncludeTxID(0), immudb.SnapshotRenewalPeriod(0))
 	require.NoError(t, err)
 
 	err = tx.SQLExec(context.Background(), `CREATE TABLE table1(

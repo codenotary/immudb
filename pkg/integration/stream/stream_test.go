@@ -494,8 +494,8 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 
 	_, err := client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
-			Size:    len([]byte(`key`)),
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key1`))),
+			Size:    len([]byte(`key1`)),
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
@@ -504,7 +504,25 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 	}})
 	require.NoError(t, err)
 
-	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key1`)}})
+	require.NoError(t, err)
+
+	hdr2, err := client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key2`))),
+			Size:    len([]byte(`key2`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+	require.NoError(t, err)
+
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{
+		KeyRequest:   &schema.KeyRequest{Key: []byte(`key1`)},
+		ProveSinceTx: hdr2.Id,
+	})
 	require.NoError(t, err)
 }
 
