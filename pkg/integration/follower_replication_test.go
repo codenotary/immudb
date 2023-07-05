@@ -121,6 +121,14 @@ func TestReplication(t *testing.T) {
 	err = primaryClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{Active: true, Username: "replicator"})
 	require.NoError(t, err)
 
+	_, err = primaryClient.ExportTx(context.Background(), &schema.ExportTxRequest{
+		Tx:                 uint64(1),
+		AllowPreCommitted:  false,
+		SkipIntegrityCheck: true,
+		ReplicaState:       &schema.ReplicaState{},
+	})
+	require.NoError(t, err)
+
 	// init replica client
 	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
 
