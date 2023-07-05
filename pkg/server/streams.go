@@ -260,9 +260,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
 	}
 	if err != nil {
-		return status.Errorf(
-			codes.Unknown,
-			"StreamVerifiableSet received the following error: %s", err.Error())
+		return status.Errorf(codes.Unknown, "StreamVerifiableSet received the following error: %s", err.Error())
 	}
 
 	if s.StateSigner != nil {
@@ -342,14 +340,12 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 	for _, e := range r.Entries {
 		scoreBs, err := stream.NumberToBytes(e.Score)
 		if err != nil {
-			s.Logger.Errorf(
-				"StreamZScan error: could not convert score %f to bytes: %v", e.Score, err)
+			s.Logger.Errorf("StreamZScan error: could not convert score %f to bytes: %v", e.Score, err)
 		}
 
 		atTxBs, err := stream.NumberToBytes(e.AtTx)
 		if err != nil {
-			s.Logger.Errorf(
-				"StreamZScan error: could not convert atTx %d to bytes: %v", e.AtTx, err)
+			s.Logger.Errorf("StreamZScan error: could not convert atTx %d to bytes: %v", e.AtTx, err)
 		}
 
 		ze := &stream.ZEntry{

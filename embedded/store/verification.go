@@ -86,26 +86,25 @@ func VerifyLinearAdvanceProof(
 	//         startTxID                            endTxID
 	//
 
+	// This must not happen - that's an invalid proof
 	if endTxID < startTxID {
-		// This must not happen - that's an invalid proof
 		return false
 	}
 
+	// Linear Advance Proof is not needed
 	if endTxID <= startTxID+1 {
-		// Linear Advance Proof is not needed
 		return true
 	}
 
+	// Check more preconditions that would indicate broken proof
 	if proof == nil ||
 		len(proof.LinearProofTerms) != int(endTxID-startTxID) ||
 		len(proof.InclusionProofs) != int(endTxID-startTxID)-1 {
-		// Check more preconditions that would indicate broken proof
 		return false
 	}
 
 	calculatedAlh := proof.LinearProofTerms[0] // alh at startTx+1
 	for txID := startTxID + 1; txID < endTxID; txID++ {
-
 		// Ensure the node in the chain is included in the target Merkle Tree
 		if !ahtree.VerifyInclusion(
 			proof.InclusionProofs[txID-startTxID-1],
@@ -257,12 +256,9 @@ func EntrySpecDigestFor(version int) (EntrySpecDigest, error) {
 
 func EntrySpecDigest_v0(kv *EntrySpec) [sha256.Size]byte {
 	b := make([]byte, len(kv.Key)+sha256.Size)
-
 	copy(b[:], kv.Key)
-
 	hvalue := sha256.Sum256(kv.Value)
 	copy(b[len(kv.Key):], hvalue[:])
-
 	return sha256.Sum256(b)
 }
 

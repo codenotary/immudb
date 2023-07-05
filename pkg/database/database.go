@@ -588,20 +588,15 @@ func (d *db) resolveValue(
 	}
 
 	if len(val) < 1 {
-		return nil, fmt.Errorf(
-			"%w: internal value consistency error - missing value prefix",
-			store.ErrCorruptedData,
-		)
+		return nil, fmt.Errorf("%w: internal value consistency error - missing value prefix", store.ErrCorruptedData)
 	}
 
 	// Reference lookup
 	if val[0] == ReferenceValuePrefix {
 		if len(val) < 1+8 {
-			return nil, fmt.Errorf(
-				"%w: internal value consistency error - invalid reference",
-				store.ErrCorruptedData,
-			)
+			return nil, fmt.Errorf("%w: internal value consistency error - invalid reference", store.ErrCorruptedData)
 		}
+
 		if resolved == MaxKeyResolutionLimit {
 			return nil, ErrKeyResolutionLimitReached
 		}
