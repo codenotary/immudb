@@ -144,6 +144,9 @@ func (t *EdgeCasesTestSuite) TestShouldFailOnIllegalArguments() {
 
 	_, err = OpenWith(nil, nil, nil, DefaultOptions())
 	t.Require().ErrorIs(err, ErrIllegalArguments)
+
+	_, err = OpenWith(t.pLog, t.dLog, t.cLog, nil)
+	t.Require().ErrorIs(err, ErrIllegalArguments)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailWhileQueryingCLogSize() {

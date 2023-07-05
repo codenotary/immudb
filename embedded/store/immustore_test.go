@@ -195,6 +195,7 @@ func TestImmudbStoreConcurrentCommitsWithEmbeddedValues(t *testing.T) {
 		WithSynced(false).
 		WithMaxConcurrency(5).
 		WithEmbeddedValues(true).
+		WithPreallocFiles(true).
 		WithVLogCacheSize(10)
 
 	immuStore, err := Open(t.TempDir(), opts)

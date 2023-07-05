@@ -57,6 +57,11 @@ func TestRemoteStorageSync(t *testing.T) {
 	require.NoError(t, r.Sync())
 }
 
+func TestRemoteStorageSwitchToReadOnlyMode(t *testing.T) {
+	r := remoteStorageReader{}
+	require.NoError(t, r.SwitchToReadOnlyMode())
+}
+
 func TestRemoteStorageReadAt(t *testing.T) {
 	m := memory.Open()
 	storeData(t, m, "fl", []byte{

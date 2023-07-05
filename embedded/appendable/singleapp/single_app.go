@@ -444,8 +444,8 @@ func (aof *AppendableFile) write(bs []byte) (n int, err error) {
 
 		if available == 0 {
 			if aof.retryableSync {
+				// Sync must be called to free buffer space
 				if !aof.autoSync {
-					// Sync must be called to free buffer space
 					return n, ErrBufferFull
 				}
 
@@ -690,17 +690,17 @@ func (aof *AppendableFile) sync() error {
 	}
 
 	// retryableSync
+	// Buffer space is not freed when there is an error during sync
+
+	// prevent data lost when fsync fails
+	// buffered data may be re-written in following
+	// flushing and syncing calls.
 
 	if err == nil {
 		// buffer space is freed
 		aof.wbufFlushedOffset = 0
 		aof.wbufUnwrittenOffset = 0
 	} else {
-		// Buffer space is not freed when there is an error during sync
-
-		// prevent data lost when fsync fails
-		// buffered data may be re-written in following
-		// flushing and syncing calls.
 		aof.fileOffset -= int64(aof.wbufFlushedOffset)
 		aof.seekRequired = true
 

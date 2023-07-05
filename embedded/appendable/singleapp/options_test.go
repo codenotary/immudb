@@ -61,6 +61,12 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultReadBufferSize+1, opts.WithReadBufferSize(DefaultReadBufferSize+1).GetReadBufferSize())
 	require.NoError(t, opts.Validate())
 
+	opts.WithPreallocSize(-1)
+	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
+
+	require.Equal(t, 10, opts.WithPreallocSize(10).GetPreallocSize())
+	require.NoError(t, opts.Validate())
+
 	require.False(t, opts.WithReadOnly(false).readOnly)
 	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 

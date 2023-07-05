@@ -241,8 +241,8 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 		// Replace the cached instance of appendable for the chunk
 		cp.Step(func() error {
 			oldApp, err := r.ReplaceCachedChunk(chunkID, newApp)
-			if err != nil && err != cache.ErrKeyNotFound {
-				// Couldn't replace the cache entry? Can't continue with the cleanup
+			// Couldn't replace the cache entry? Can't continue with the cleanup
+			if err != nil && !errors.Is(err, cache.ErrKeyNotFound) {
 				return err
 			}
 			if err == nil {
@@ -477,9 +477,7 @@ func (r *RemoteStorageAppendable) OpenAppendable(options *singleapp.Options, app
 			continue
 
 		case chunkState_Cleaning:
-			// Removal operation can not be interrupted,
-			// wait for it to finish
-			r.chunkUploadFinished.Wait()
+			r.chunkUploadFinished.Wait() // Removal operation can not be interrupted,wait for it to finish
 			continue
 
 		case chunkState_Remote:
@@ -496,11 +494,11 @@ func (r *RemoteStorageAppendable) OpenAppendable(options *singleapp.Options, app
 			continue
 
 		case chunkState_DownloadError:
+			// Even though the chunk couldn't be downloaded locally,
+			// it's still available remotely and we should be able to read from it
 			if activeChunk {
 				return nil, ErrCantDownload
 			}
-			// Even though the chunk couldn't be downloaded locally,
-			// it's still available remotely and we should be able to read from it
 			return r.openRemoteAppendableReader(appname)
 
 		default:
@@ -528,8 +526,8 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 			return nil, 0, err
 		}
 
+		// Sanity check
 		if r.appendableName(id) != fi.Name() {
-			// Sanity check
 			return nil, 0, ErrInvalidLocalStorage
 		}
 
@@ -553,8 +551,8 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 			return nil, 0, err
 		}
 
+		// Sanity check
 		if r.appendableName(id) != entry.Name {
-			// Sanity check
 			return nil, 0, ErrInvalidRemoteStorage
 		}
 
