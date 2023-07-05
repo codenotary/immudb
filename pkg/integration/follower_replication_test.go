@@ -77,14 +77,6 @@ func TestReplication(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	defer func() {
-		primaryServer.Stop()
-
-		time.Sleep(1 * time.Second)
-
-		replicaServer.Stop()
-	}()
-
 	// init primary client
 	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
 
@@ -200,8 +192,36 @@ func TestReplication(t *testing.T) {
 		require.ErrorContains(t, err, embedded.ErrKeyNotFound.Error())
 	})
 
+	for i := 0; i < 100; i++ {
+		_, err = primaryClient.Set(context.Background(), []byte("key1"), make([]byte, 150))
+		require.NoError(t, err)
+	}
+
+	// create database as replica in replica server
+	_, err = replicaClient.CreateDatabaseV2(context.Background(), "replicadb2", &schema.DatabaseNullableSettings{
+		MaxValueLen: &schema.NullableUint32{Value: 100},
+		ReplicationSettings: &schema.ReplicationNullableSettings{
+			Replica:         &schema.NullableBool{Value: true},
+			SyncReplication: &schema.NullableBool{Value: false},
+			PrimaryDatabase: &schema.NullableString{Value: "primarydb"},
+			PrimaryHost:     &schema.NullableString{Value: "127.0.0.1"},
+			PrimaryPort:     &schema.NullableUint32{Value: uint32(primaryPort)},
+			PrimaryUsername: &schema.NullableString{Value: "replicator"},
+			PrimaryPassword: &schema.NullableString{Value: "replicator1Pwd!"},
+		},
+	})
+	require.NoError(t, err)
+
+	time.Sleep(3 * time.Second)
+
+	primaryServer.Stop()
+
 	err = replicaClient.CloseSession(context.Background())
 	require.NoError(t, err)
+
+	time.Sleep(3 * time.Second)
+
+	replicaServer.Stop()
 }
 
 func TestSystemDBAndDefaultDBReplication(t *testing.T) {
