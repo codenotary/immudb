@@ -65,6 +65,8 @@ var testData = struct {
 func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient, context.Context) {
 	bs := servertest.NewBufconnServer(server.
 		DefaultOptions().
+		WithMetricsServer(true).
+		WithWebServer(true).
 		WithDir(filepath.Join(t.TempDir(), "data")).
 		WithAuth(true).
 		WithSigningKey("./../../test/signer/ec1.key"),
