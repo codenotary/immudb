@@ -219,13 +219,13 @@ func updateMaxLen(maxs []int, strs []string) {
 func permissionToString(permission uint32) string {
 	switch permission {
 	case auth.PermissionAdmin:
-		return fmt.Sprintf("Admin")
+		return "Admin"
 	case auth.PermissionSysAdmin:
-		return fmt.Sprintf("System Admin")
+		return "System Admin"
 	case auth.PermissionR:
-		return fmt.Sprintf("Read")
+		return "Read"
 	case auth.PermissionRW:
-		return fmt.Sprintf("Read/Write")
+		return "Read/Write"
 	default:
 		return fmt.Sprintf("unknown: %d", permission)
 	}

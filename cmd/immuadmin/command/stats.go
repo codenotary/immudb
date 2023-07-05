@@ -48,7 +48,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 func (cl *commandline) stats(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "stats",
-		Short:             fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
+		Short:             "Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.",
 		Aliases:           []string{"s"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
