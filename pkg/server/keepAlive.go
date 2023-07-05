@@ -19,10 +19,19 @@ package server
 import (
 	"context"
 
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // KeepAlive is catched by KeepAliveSessionInterceptor
 func (s *ImmuServer) KeepAlive(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
-	return new(empty.Empty), nil
+	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	s.SessManager.UpdateSessionActivityTime(sessionID)
+
+	return &emptypb.Empty{}, nil
 }

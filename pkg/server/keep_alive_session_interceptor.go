@@ -20,13 +20,13 @@ import (
 	"context"
 
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"google.golang.org/grpc"
 )
 
 func (s *ImmuServer) KeepALiveSessionStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	if auth.GetAuthTypeFromContext(ss.Context()) == auth.SessionAuth {
-		if err := s.updateSessActivityTime(ss.Context()); err != nil {
+		_, err := s.KeepAlive(ss.Context(), nil)
+		if err != nil {
 			return err
 		}
 	}
@@ -36,18 +36,10 @@ func (s *ImmuServer) KeepALiveSessionStreamInterceptor(srv interface{}, ss grpc.
 func (s *ImmuServer) KeepAliveSessionInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	if auth.GetAuthTypeFromContext(ctx) == auth.SessionAuth &&
 		info.FullMethod != "/immudb.schema.ImmuService/OpenSession" {
-		if err := s.updateSessActivityTime(ctx); err != nil {
+		_, err := s.KeepAlive(ctx, nil)
+		if err != nil {
 			return nil, err
 		}
 	}
 	return handler(ctx, req)
-}
-
-func (s *ImmuServer) updateSessActivityTime(ctx context.Context) error {
-	sessionID, err := sessions.GetSessionIDFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	s.SessManager.UpdateSessionActivityTime(sessionID)
-	return nil
 }
