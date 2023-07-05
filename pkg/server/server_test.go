@@ -2036,7 +2036,11 @@ func TestServerDatabaseTruncate(t *testing.T) {
 		DatabaseName: DefaultDBName,
 	})
 	require.NoError(t, err)
+
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
+
+	_, err = s.KeepAlive(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
 
 	t.Run("attempt to delete without retention period should fail", func(t *testing.T) {
 		_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{

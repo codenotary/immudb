@@ -715,10 +715,12 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 //
 // Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
+	c.Logger.Debugf("dialed %v", c.Options)
+
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
-		c.Logger.Debugf("dialed %v", c.Options)
 		return nil, err
 	}
+
 	return c.clientConn, nil
 }
 
@@ -2282,31 +2284,6 @@ func (c *immuClient) DatabaseListV2(ctx context.Context) (*schema.DatabaseListRe
 	}
 
 	return c.ServiceClient.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
-}
-
-// Deprecated: Please use CurrentState.
-func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.ImmutableState, error) {
-	return c.CurrentState(ctx)
-}
-
-// Deprecated: Please use VerifiedSet.
-func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
-	return c.VerifiedSet(ctx, key, value)
-}
-
-// Deprecated: Please use VerifiedGet.
-func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
-	return c.VerifiedGet(ctx, key)
-}
-
-// Deprecated: Please use VerifiedZAdd.
-func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
-	return c.VerifiedZAdd(ctx, set, score, key)
-}
-
-// Deprecated: Please use VerifiedSetReference.
-func (c *immuClient) SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error) {
-	return c.VerifiedSetReference(ctx, key, referencedKey)
 }
 
 func decodeTxEntries(entries []*schema.TxEntry) {

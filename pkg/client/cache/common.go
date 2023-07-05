@@ -44,12 +44,7 @@ func validateServerIdentityInFile(serverIdentity string, serverUUID string, iden
 
 	fl, err := lockedfile.OpenFile(identityFile, os.O_RDWR|os.O_CREATE, 0655)
 	if err != nil {
-		return fmt.Errorf(
-			"could not check the identity of the server '%s' in file '%s': %w",
-			serverIdentity,
-			identityFile,
-			err,
-		)
+		return fmt.Errorf("could not check the identity of the server '%s' in file '%s': %w", serverIdentity, identityFile, err)
 	}
 	defer fl.Close()
 
@@ -60,12 +55,7 @@ func validateServerIdentityInFile(serverIdentity string, serverUUID string, iden
 
 	stat, err := fl.Stat()
 	if err != nil {
-		return fmt.Errorf(
-			"could not check the identity of the server '%s' in file '%s': %w",
-			serverIdentity,
-			identityFile,
-			err,
-		)
+		return fmt.Errorf("could not check the identity of the server '%s' in file '%s': %w", serverIdentity, identityFile, err)
 	}
 
 	if stat.Size() == 0 {
@@ -79,22 +69,12 @@ func validateServerIdentityInFile(serverIdentity string, serverUUID string, iden
 
 		err := enc.Encode(&identityDataJson)
 		if err != nil {
-			return fmt.Errorf(
-				"could not store the identity of the server '%s' in file '%s': %w",
-				serverIdentity,
-				identityFile,
-				err,
-			)
+			return fmt.Errorf("could not store the identity of the server '%s' in file '%s': %w", serverIdentity, identityFile, err)
 		}
 
 		err = fl.Close()
 		if err != nil {
-			return fmt.Errorf(
-				"could not store the identity of the server '%s' in file '%s': %w",
-				serverIdentity,
-				identityFile,
-				err,
-			)
+			return fmt.Errorf("could not store the identity of the server '%s' in file '%s': %w", serverIdentity, identityFile, err)
 		}
 
 		return nil

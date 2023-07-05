@@ -963,9 +963,15 @@ func TestImmuClient_GetAll(t *testing.T) {
 	_, err = client.FlushIndex(ctx, 10, true)
 	require.NoError(t, err)
 
+	err = client.CompactIndex(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+
 	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)
 	require.Len(t, entries.Entries, 2)
+
+	err = client.TruncateDatabase(ctx, "defaultdb", 1*time.Hour)
+	require.ErrorContains(t, err, "database is reserved")
 }
 
 func TestImmuClient_Delete(t *testing.T) {
