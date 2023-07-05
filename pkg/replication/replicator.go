@@ -136,6 +136,8 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 		err.Error())
 
 	timer := time.NewTimer(txr.delayer.DelayAfter(txr.consecutiveFailures))
+	defer timer.Stop()
+
 	select {
 	case <-txr.context.Done():
 		timer.Stop()
@@ -247,6 +249,7 @@ func (txr *TxReplicator) replicationFailureDelay(consecutiveFailures int) bool {
 	defer txr.metrics.replicatorsInRetryDelay.Dec()
 
 	timer := time.NewTimer(txr.delayer.DelayAfter(consecutiveFailures))
+	defer timer.Stop()
 
 	select {
 	case <-txr.context.Done():
