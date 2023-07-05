@@ -343,7 +343,7 @@ func TestTimestampCasts(t *testing.T) {
 		_, err = engine.Query(context.Background(), nil, "SELECT * FROM timestamp_table WHERE id < CAST(true AS TIMESTAMP)", nil)
 		require.ErrorIs(t, err, ErrUnsupportedCast)
 
-		rowReader, err := engine.Query(context.Background(), nil, "SELECT * FROM timestamp_table WHERE ts > CAST(id AS TIMESTAMP)", nil)
+		rowReader, err := engine.Query(context.Background(), nil, "SELECT * FROM timestamp_table WHERE ts > CAST(id::INTEGER AS TIMESTAMP)", nil)
 		require.NoError(t, err)
 
 		_, err = rowReader.Read(context.Background())
