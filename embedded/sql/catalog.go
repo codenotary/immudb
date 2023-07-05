@@ -111,10 +111,6 @@ func (t *Table) ID() uint32 {
 	return t.id
 }
 
-func (t *Table) Database() *Catalog {
-	return t.catalog
-}
-
 func (t *Table) Cols() []*Column {
 	return t.cols
 }
