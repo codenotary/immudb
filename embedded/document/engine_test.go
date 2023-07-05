@@ -41,6 +41,9 @@ func makeEngine(t *testing.T) *Engine {
 	engine, err := NewEngine(st, DefaultOptions())
 	require.NoError(t, err)
 
+	err = engine.CopyCatalogToTx(context.Background(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	return engine
 }
 
@@ -429,6 +432,9 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
+	_, err = engine.GetDocuments(ctx, nil, 0)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	reader, err := engine.GetDocuments(ctx, query, 0)
 	require.NoError(t, err)
 	defer reader.Close()
@@ -439,6 +445,9 @@ func TestGetDocument(t *testing.T) {
 
 	_, err = reader.Read(ctx)
 	require.ErrorIs(t, err, ErrNoMoreDocuments)
+
+	_, err = engine.CountDocuments(ctx, nil, 0)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	count, err := engine.CountDocuments(ctx, query, 0)
 	require.NoError(t, err)
@@ -493,7 +502,7 @@ func TestDocumentAudit(t *testing.T) {
 					},
 					{
 						Field:    "address.street",
-						Operator: protomodel.ComparisonOperator_EQ,
+						Operator: protomodel.ComparisonOperator_LIKE,
 						Value:    structpb.NewStringValue("mainstreet"),
 					},
 				},
@@ -539,6 +548,22 @@ func TestDocumentAudit(t *testing.T) {
 		require.Contains(t, docAudit.Document.Fields["address"].GetStructValue().Fields, "street")
 		require.Equal(t, uint64(i+1), docAudit.Revision)
 	}
+
+	err = engine.DeleteDocuments(context.Background(), &protomodel.Query{
+		CollectionName: collectionName,
+		Expressions: []*protomodel.QueryExpression{
+			{
+				FieldComparisons: []*protomodel.FieldComparison{
+					{Field: "_id", Operator: protomodel.ComparisonOperator_EQ, Value: structpb.NewStringValue(docID.EncodeToHexString())},
+				}},
+		},
+		Limit: 1,
+	})
+	require.NoError(t, err)
+
+	res, err = engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
+	require.NoError(t, err)
+	require.Len(t, res, 3)
 }
 
 func TestQueryDocuments(t *testing.T) {
@@ -590,6 +615,11 @@ func TestQueryDocuments(t *testing.T) {
 							Field:    "pincode",
 							Operator: protomodel.ComparisonOperator_NE,
 							Value:    structpb.NewNumberValue(2),
+						},
+						{
+							Field:    "country",
+							Operator: protomodel.ComparisonOperator_NOT_LIKE,
+							Value:    structpb.NewStringValue("some_country"),
 						},
 					},
 				},
@@ -1393,7 +1423,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		err := engine.DeleteIndex(
 			context.Background(),
 			collectionName,
-			[]string{""},
+			[]string{},
 		)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
@@ -1610,6 +1640,9 @@ func TestDeleteDocument(t *testing.T) {
 	docs, err := reader.ReadN(ctx, 1)
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
+
+	err = engine.DeleteDocuments(ctx, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = engine.DeleteDocuments(ctx, query)
 	require.NoError(t, err)

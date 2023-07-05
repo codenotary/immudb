@@ -2030,6 +2030,9 @@ func TestServerDatabaseTruncate(t *testing.T) {
 
 	s.Initialize()
 
+	_, err := s.KeepAlive(context.Background(), &emptypb.Empty{})
+	require.Error(t, err)
+
 	resp, err := s.OpenSession(context.Background(), &schema.OpenSessionRequest{
 		Username:     []byte(auth.SysAdminUsername),
 		Password:     []byte(auth.SysAdminPassword),

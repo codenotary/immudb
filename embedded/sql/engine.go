@@ -439,6 +439,10 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 
 // CopyCatalogToTx copies the current sql catalog to the ongoing transaction.
 func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
+	if tx == nil {
+		return ErrIllegalArguments
+	}
+
 	catalog := newCatalog(e.prefix)
 
 	err := catalog.addSchemaToTx(e.prefix, tx)
