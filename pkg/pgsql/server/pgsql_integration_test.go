@@ -497,7 +497,7 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 	require.NoError(t, err)
 
 	var version string
-	err = db.QueryRow(("SELECT version()").Scan(&version)
+	err = db.QueryRow("SELECT version()").Scan(&version)
 	require.NoError(t, err)
 	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
 }
