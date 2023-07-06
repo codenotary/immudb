@@ -1729,6 +1729,13 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 		return 0, err
 	}
 
+	defer func() {
+		durablePrecommittedTxID, _, _ := s.durablePrecommitWHub.Status()
+		if durablePrecommittedTxID > s.inmemPrecommittedTxID {
+			s.durablePrecommitWHub.RecedeTo(s.inmemPrecommittedTxID)
+		}
+	}()
+
 	if txID-1 == s.committedTxID {
 		s.inmemPrecommittedTxID = s.committedTxID
 		s.inmemPrecommittedAlh = s.committedAlh
