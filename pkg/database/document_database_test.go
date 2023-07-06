@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/document"
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/verification"
@@ -526,6 +527,27 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, knownState, nil)
 		require.NoError(t, err)
 		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
+	})
+
+	t.Run("should fail when verifying a document with invalid id", func(t *testing.T) {
+		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
+			CollectionName:          collectionName,
+			DocumentId:              docID,
+			TransactionId:           knownState.TxId,
+			ProofSinceTransactionId: knownState.TxId,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proofRes)
+
+		_, err = verification.VerifyDocument(context.Background(), proofRes, doc, &schema.ImmutableState{
+			TxId: proofRes.VerifiableTx.DualProof.TargetTxHeader.Id + 1,
+		}, nil)
+		require.ErrorIs(t, err, store.ErrInvalidProof)
+
+		doc.Fields[proofRes.DocumentIdFieldName] = structpb.NewNullValue()
+
+		_, err = verification.VerifyDocument(context.Background(), proofRes, doc, knownState, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 }
 
