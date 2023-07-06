@@ -339,12 +339,21 @@ func TestReplicationTxDiscarding(t *testing.T) {
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:           &schema.NullableBool{Value: true},
 			SyncReplication:   &schema.NullableBool{Value: true},
-			AllowTxDiscarding: &schema.NullableBool{Value: true},
+			AllowTxDiscarding: &schema.NullableBool{Value: false},
 			PrimaryDatabase:   &schema.NullableString{Value: "primarydb"},
 			PrimaryHost:       &schema.NullableString{Value: "127.0.0.1"},
 			PrimaryPort:       &schema.NullableUint32{Value: uint32(primaryPort)},
 			PrimaryUsername:   &schema.NullableString{Value: "replicator"},
 			PrimaryPassword:   &schema.NullableString{Value: "replicator1Pwd!"},
+		},
+	})
+	require.NoError(t, err)
+
+	time.Sleep(1 * time.Second)
+
+	_, err = replicaClient.UpdateDatabaseV2(context.Background(), "replicadb", &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
+			AllowTxDiscarding: &schema.NullableBool{Value: true},
 		},
 	})
 	require.NoError(t, err)

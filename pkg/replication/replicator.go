@@ -436,7 +436,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 		if mayCommitUpToTxID > commitState.TxId {
 			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 			if err != nil {
-				if strings.Contains(err.Error(), "commit state diverged from") {
+				if strings.Contains(err.Error(), "replica commit state diverged from") {
 					txr.logger.Errorf("replica commit state at '%s' diverged from primary's", txr.db.GetName())
 					return ErrReplicaDivergedFromPrimary
 				}
