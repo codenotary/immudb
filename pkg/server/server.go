@@ -269,9 +269,8 @@ func (s *ImmuServer) Start() (err error) {
 	startedAt = time.Now()
 
 	if s.Options.MetricsServer {
-		if err := s.setUpMetricsServer(); err != nil {
-			return err
-		}
+		s.metricsServer = StartMetrics(1*time.Minute, s.Options.MetricsBind(), s.Logger, s.metricFuncServerUptimeCounter,
+			s.metricFuncComputeDBSizes, s.metricFuncComputeDBEntries, s.Options.PProf)
 		defer func() {
 			if err := s.metricsServer.Close(); err != nil {
 				s.Logger.Errorf("Failed to shutdown metric server: %s", err)
@@ -338,19 +337,6 @@ func (s *ImmuServer) setupPidFile() error {
 		}
 	}
 	return err
-}
-
-func (s *ImmuServer) setUpMetricsServer() error {
-	s.metricsServer = StartMetrics(
-		1*time.Minute,
-		s.Options.MetricsBind(),
-		s.Logger,
-		s.metricFuncServerUptimeCounter,
-		s.metricFuncComputeDBSizes,
-		s.metricFuncComputeDBEntries,
-		s.Options.PProf,
-	)
-	return nil
 }
 
 func (s *ImmuServer) setUpWebServer(ctx context.Context) error {
