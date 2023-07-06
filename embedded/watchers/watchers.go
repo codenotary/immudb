@@ -24,6 +24,7 @@ import (
 
 var ErrMaxWaitessLimitExceeded = errors.New("watchers: max waiting limit exceeded")
 var ErrAlreadyClosed = errors.New("watchers: already closed")
+var ErrIllegalState = errors.New("watchers: illegal state")
 
 type WatchersHub struct {
 	wpoints map[uint64]*waitingPoint
@@ -61,6 +62,23 @@ func (w *WatchersHub) Status() (doneUpto uint64, waiting int, err error) {
 	}
 
 	return w.doneUpto, w.waiting, nil
+}
+
+func (w *WatchersHub) RecedeTo(t uint64) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.closed {
+		return ErrAlreadyClosed
+	}
+
+	if w.doneUpto < t {
+		return ErrIllegalState
+	}
+
+	w.doneUpto = t
+
+	return nil
 }
 
 func (w *WatchersHub) DoneUpto(t uint64) error {

@@ -34,10 +34,13 @@ func TestWatchersHub(t *testing.T) {
 
 	wHub.DoneUpto(0)
 
+	err := wHub.RecedeTo(1)
+	require.ErrorIs(t, err, ErrIllegalState)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := wHub.WaitFor(ctx, 1)
+	err = wHub.WaitFor(ctx, 1)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	doneUpto, waiting, err := wHub.Status()
@@ -95,6 +98,9 @@ func TestWatchersHub(t *testing.T) {
 	err = wHub.WaitFor(context.Background(), 5)
 	require.NoError(t, err)
 
+	err = wHub.RecedeTo(5)
+	require.NoError(t, err)
+
 	wg.Add(1)
 
 	go func() {
@@ -120,6 +126,9 @@ func TestWatchersHub(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = wHub.DoneUpto(0)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	err = wHub.RecedeTo(0)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = wHub.Status()
