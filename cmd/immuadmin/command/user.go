@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -60,7 +59,13 @@ func (cl *commandline) user(cmd *cobra.Command) {
 immuadmin user create user1 readwrite mydb
 immuadmin user create user1 admin mydb`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.userCreate(args)
+			username := args[0]
+			newpassPrompt := fmt.Sprintf("Choose a password for %s:", username)
+			newpass, err := cl.getNewPassword(cmd, "new-password-file", newpassPrompt)
+			if err != nil {
+				return err
+			}
+			resp, err := cl.userCreate(args, newpass)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
@@ -69,6 +74,7 @@ immuadmin user create user1 admin mydb`,
 		},
 		Args: cobra.RangeArgs(2, 3),
 	}
+	userCreate.PersistentFlags().String("new-password-file", "", "file containing the password for the to be created user")
 	userChangePassword := &cobra.Command{
 		Use:     "changepassword",
 		Short:   "Change user password",
@@ -78,18 +84,25 @@ immuadmin user create user1 admin mydb`,
 			var resp string
 			var oldpass []byte
 			if username == auth.SysAdminUsername {
-				oldpass, err = cl.passwordReader.Read("Old password:")
+				oldpass, err = cl.getPassword(cmd, "old-password-file", "Old password:")
 				if err != nil {
-					return fmt.Errorf("Error Reading Password")
+					return fmt.Errorf("Error Reading Old Password: %v", err)
 				}
 			}
-			if resp, _, err = cl.changeUserPassword(username, oldpass); err == nil {
+			newpassPrompt := fmt.Sprintf("Choose a password for %s:", username)
+			newpass, err := cl.getNewPassword(cmd, "new-password-file", newpassPrompt)
+			if err != nil {
+				return fmt.Errorf("Error Reading New Password: %v", err)
+			}
+			if resp, _, err = cl.changeUserPassword(username, oldpass, newpass); err == nil {
 				fmt.Fprint(cmd.OutOrStdout(), resp)
 			}
 			return err
 		},
 		Args: cobra.ExactArgs(1),
 	}
+	userChangePassword.PersistentFlags().String("new-password-file", "", "file containing the new password of the user")
+	userChangePassword.PersistentFlags().String("old-password-file", "", "file containing the old password of the user")
 	userActivate := &cobra.Command{
 		Use:   "activate",
 		Short: "Activate a user",
@@ -135,25 +148,11 @@ immuadmin user create user1 admin mydb`,
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (string, []byte, error) {
-	newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
-	if err != nil {
-		return "", nil, errors.New("Error Reading Password")
-	}
-	if err = auth.IsStrongPassword(string(newpass)); err != nil {
-		return "", nil, errors.New("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
-	}
-	pass2, err := cl.passwordReader.Read("Confirm password:")
-	if err != nil {
-		return "", nil, errors.New("Error Reading Password")
-	}
-	if !bytes.Equal(newpass, pass2) {
-		return "", nil, errors.New("Passwords don't match")
-	}
-	if err := cl.immuClient.ChangePassword(cl.context, []byte(username), oldpassword, newpass); err != nil {
+func (cl *commandline) changeUserPassword(username string, oldpassword []byte, newpassword []byte) (string, []byte, error) {
+	if err := cl.immuClient.ChangePassword(cl.context, []byte(username), oldpassword, newpassword); err != nil {
 		return "", nil, err
 	}
-	return fmt.Sprintf("%s's password has been changed", username), newpass, nil
+	return fmt.Sprintf("%s's password has been changed", username), newpassword, nil
 }
 
 func (cl *commandline) userList(args []string) (string, error) {
@@ -231,7 +230,7 @@ func permissionToString(permission uint32) string {
 	}
 }
 
-func (cl *commandline) userCreate(args []string) (string, error) {
+func (cl *commandline) userCreate(args []string, password []byte) (string, error) {
 	username := args[0]
 	permissionStr := args[1]
 	var databasename string
@@ -261,22 +260,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 		return "", err
 	}
 
-	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
-	if err != nil {
-		return "", fmt.Errorf("Error Reading Password")
-	}
-	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
-	}
-	pass2, err := cl.passwordReader.Read("Confirm password:")
-	if err != nil {
-		return "", fmt.Errorf("Error Reading Password")
-	}
-	if !bytes.Equal(pass, pass2) {
-		return "", fmt.Errorf("Passwords don't match")
-	}
-
-	err = cl.immuClient.CreateUser(cl.context, []byte(username), pass, permission, databasename)
+	err = cl.immuClient.CreateUser(cl.context, []byte(username), password, permission, databasename)
 	if err != nil {
 		return "", err
 	}

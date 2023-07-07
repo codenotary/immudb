@@ -70,6 +70,10 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
 	cmd.PersistentFlags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
+	cmd.PersistentFlags().StringP("username", "u", "immudb", "user to authenticate with the server")
+	cmd.PersistentFlags().String("password-file", "", "file containing the password corresponding to the username")
+	cmd.PersistentFlags().StringP("database", "d", "defaultdb", "name of the selected database")
+	cmd.PersistentFlags().BoolP("non-interactive", "y", false, "enables non-interactive mode, every operation is performed immediately without asking for confirmation")
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
 	}

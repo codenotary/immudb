@@ -17,9 +17,14 @@ limitations under the License.
 package immuadmin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
+	"strings"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
@@ -103,16 +108,36 @@ func (cl *commandline) quit(msg interface{}) {
 }
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
-	if err := cl.immuClient.Disconnect(); err != nil {
+	if err := cl.immuClient.CloseSession(cl.context); err != nil {
 		cl.quit(err)
 	}
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
+	// Check if a username was specified.
+	username, err := cmd.Flags().GetString("username")
+	if err != nil {
 		cl.quit(err)
 	}
-	cl.immuClient.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))
+	if username == "" {
+		err = fmt.Errorf("please specify a username using the --username flag")
+		cl.quit(err)
+	}
+	// Get the corresponding password.
+	pass, err := cl.getPassword(cmd, "password-file", "Password:")
+	if err != nil {
+		cl.quit(err)
+	}
+	// Get the selected database for the session.
+	database, err := cmd.Flags().GetString("database")
+	if err != nil {
+		cl.quit(err)
+	}
+	// Open a session with the server.
+	cl.immuClient = client.NewClient().WithOptions(cl.options)
+	if err := cl.immuClient.OpenSession(cl.context, []byte(username), pass, database); err != nil {
+		cl.quit(err)
+	}
 	return
 
 }
@@ -134,6 +159,118 @@ func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string
 	}
 	if err = cl.connect(cmd, args); err != nil {
 		return err
+	}
+	return
+}
+
+// getPasswordFromFlag reads a password from the file specified by the given
+// commandline flag.
+func (cl *commandline) getPasswordFromFlag(cmd *cobra.Command, flag string) (pass []byte, err error) {
+	// Check if a file containing the password has been specified.
+	var passwordFile string
+	passwordFile, err = cmd.Flags().GetString(flag)
+	if err != nil {
+		return
+	}
+	// If no file is specified, return nothing.
+	if passwordFile == "" {
+		return
+	}
+	// Read the content of the specified file.
+	var info fs.FileInfo
+	info, err = os.Stat(passwordFile)
+	if err != nil {
+		return
+	}
+	if info.Size() > 34 {
+		err = fmt.Errorf("password file %s is larger than 34 bytes, which exceeds the the maximal password length plus a trailing new line", passwordFile)
+		return
+	}
+	pass, err = os.ReadFile(passwordFile)
+	if err != nil {
+		err = fmt.Errorf("reading password file %s failed: %v", passwordFile, err)
+		return
+	}
+	// Remove trailing new lines
+	pass = []byte(strings.TrimRight(string(pass), "\r\n"))
+	return
+}
+
+// getPassword either retrieves a password from the commandline flag, if it is
+// set, or otherwise prompts the user to enter a password. The user is only
+// prompted for a password if the command was run interactively.
+func (cl *commandline) getPassword(cmd *cobra.Command, flag string, prompt string) (pass []byte, err error) {
+	// Try to get the password from a command line flag.
+	pass, err = cl.getPasswordFromFlag(cmd, flag)
+	if err != nil {
+		return
+	}
+	// If a password could be retrieved from the command line flag, it is used.
+	if pass != nil {
+		return
+	}
+	// Determine if the command is run interactive.
+	nonInteractive, err := cmd.Flags().GetBool("non-interactive")
+	if err != nil {
+		return
+	}
+	// Prompt the user to provide the password if the command may be interactive.
+	if nonInteractive {
+		err = fmt.Errorf("please specify a password using the %s flag", flag)
+		return
+	}
+	pass, err = cl.passwordReader.Read(prompt)
+	return
+}
+
+// getNewPassword retrieves a password using a set command line flag or by
+// prompting the user to enter one. If the password was retrieved interactively,
+// the user has to confirm the chosen password by entering it twice,
+// to prevent typos. In both cases the password is checked whether it meets
+// the minimum requirements.
+func (cl *commandline) getNewPassword(cmd *cobra.Command, flag string, prompt string) (pass []byte, err error) {
+	// Try to get the password from a command line flag.
+	pass, err = cl.getPasswordFromFlag(cmd, flag)
+	if err != nil {
+		return
+	}
+	// If no password was found for the flag, prompt the user to enter one.
+	passRead := false
+	if pass == nil {
+		// Determine if the command is run interactive.
+		var nonInteractive bool
+		nonInteractive, err = cmd.Flags().GetBool("non-interactive")
+		if err != nil {
+			return
+		}
+		// Query the user for the password if the command is run interactive.
+		if nonInteractive {
+			err = fmt.Errorf("please specify a password using the %s flag", flag)
+			return
+		}
+		pass, err = cl.passwordReader.Read(prompt)
+		if err != nil {
+			return
+		}
+		// Remember that the password was entered interactively.
+		passRead = true
+	}
+	// Verify that the password meets requirements.
+	if err = auth.IsStrongPassword(string(pass)); err != nil {
+		err = fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
+		return
+	}
+	// Prompt the user for the password again to confirm it was entered correctly.
+	if passRead {
+		var pass2 []byte
+		pass2, err = cl.passwordReader.Read("Confirm password:")
+		if err != nil {
+			return
+		}
+		if !bytes.Equal(pass, pass2) {
+			err = fmt.Errorf("Passwords don't match")
+			return
+		}
 	}
 	return
 }

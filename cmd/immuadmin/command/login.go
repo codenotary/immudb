@@ -59,7 +59,12 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if string(responseWarning) == auth.WarnDefaultAdminPassword {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", responseWarning)
 
-				changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass)
+				newpass, err := cl.getNewPassword(cmd, "new-password-file", "Chooser a new password:")
+				if err != nil {
+					cl.quit(err)
+				}
+
+				changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass, newpass)
 				if err != nil {
 					cl.quit(err)
 					return err
