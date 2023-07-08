@@ -24,9 +24,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-
 	"github.com/codenotary/immudb/cmd/helper"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
@@ -62,7 +59,6 @@ type commandline struct {
 	terminalReader c.TerminalReader
 	nonInteractive bool
 	context        context.Context
-	ts             tokenservice.TokenService
 	onError        func(msg interface{})
 	os             immuos.OS
 }
@@ -89,7 +85,6 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		}
 		// here all command line options and services need to be configured by options retrieved from viper
 		cl.options = Options()
-		cl.ts = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
 		if post != nil {
 			return post(cmd, args)
 		}
@@ -119,6 +114,10 @@ func (cl *commandline) quit(msg interface{}) {
 }
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
+	// Check if client connection exists.
+	if cl.immuClient == nil || !cl.immuClient.IsConnected() {
+		return
+	}
 	if err := cl.immuClient.CloseSession(cl.context); err != nil {
 		cl.quit(err)
 	}
@@ -149,15 +148,12 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if err := cl.immuClient.OpenSession(cl.context, []byte(username), pass, database); err != nil {
 		cl.quit(err)
 	}
-	cl.immuClient.WithTokenService(cl.ts)
 	return
 }
 
 func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {
-	possiblyLoggedIn, err2 := cl.ts.IsTokenPresent()
-	if err2 != nil {
-		fmt.Println("error checking if token file exists:", err2)
-	} else if !possiblyLoggedIn {
+	possiblyLoggedIn := cl.immuClient.IsConnected()
+	if !possiblyLoggedIn {
 		err = fmt.Errorf("please login first. If elevated privileges are required to execute requested action remember to execute login as super user. Eg. sudo login immudb")
 		cl.quit(err)
 	}
