@@ -255,15 +255,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{
+			_, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{
 				DatabaseName: args[0],
 			})
 			if err != nil {
-				return err
-			}
-
-			cl.immuClient.GetOptions().CurrentDatabase = args[0]
-			if err = cl.ts.SetToken(args[0], resp.Token); err != nil {
 				return err
 			}
 
