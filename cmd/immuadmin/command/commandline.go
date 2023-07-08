@@ -59,6 +59,7 @@ type commandline struct {
 	config         c.Config
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
+	nonInteractive bool
 	context        context.Context
 	ts             tokenservice.TokenService
 	onError        func(msg interface{})
@@ -77,6 +78,11 @@ func NewCommandLine() *commandline {
 func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error) {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		if err = cl.config.LoadConfig(cmd); err != nil {
+			return err
+		}
+		// Determine if the command is run interactive.
+		cl.nonInteractive, err = cmd.Flags().GetBool("non-interactive")
+		if err != nil {
 			return err
 		}
 		// here all command line options and services need to be configured by options retrieved from viper
@@ -209,13 +215,8 @@ func (cl *commandline) getPassword(cmd *cobra.Command, flag string, prompt strin
 	if pass != nil {
 		return
 	}
-	// Determine if the command is run interactive.
-	nonInteractive, err := cmd.Flags().GetBool("non-interactive")
-	if err != nil {
-		return
-	}
 	// Prompt the user to provide the password if the command may be interactive.
-	if nonInteractive {
+	if cl.nonInteractive {
 		err = fmt.Errorf("please specify a password using the %s flag", flag)
 		return
 	}
@@ -237,14 +238,8 @@ func (cl *commandline) getNewPassword(cmd *cobra.Command, flag string, prompt st
 	// If no password was found for the flag, prompt the user to enter one.
 	passRead := false
 	if pass == nil {
-		// Determine if the command is run interactive.
-		var nonInteractive bool
-		nonInteractive, err = cmd.Flags().GetBool("non-interactive")
-		if err != nil {
-			return
-		}
 		// Query the user for the password if the command is run interactive.
-		if nonInteractive {
+		if cl.nonInteractive {
 			err = fmt.Errorf("please specify a password using the %s flag", flag)
 			return
 		}
