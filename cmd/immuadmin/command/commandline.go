@@ -90,6 +90,8 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		if len(cl.dialOptions) > 0 {
 			cl.options.WithDialOptions(cl.dialOptions)
 		}
+		// Create a client with the given options.
+		cl.immuClient = client.NewClient().WithOptions(cl.options)
 		if post != nil {
 			return post(cmd, args)
 		}
@@ -146,7 +148,6 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	// Open a session with the server.
-	cl.immuClient = client.NewClient().WithOptions(cl.options)
 	if err := cl.immuClient.OpenSession(cl.context, []byte(username), pass, database); err != nil {
 		return err
 	}

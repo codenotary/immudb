@@ -34,15 +34,12 @@ func TestCommandLine_Connect(t *testing.T) {
 	// Run the help command to initialize default command line flags.
 	cmd.SetArgs([]string{"help"})
 	err := cmd.Execute()
-	assert.Nil(t, cmdl.immuClient, "immuclient was initialized for help command")
+	assert.NotNil(t, cmdl.immuClient, "immuclient should be initialized after help command")
 	assert.NoError(t, err)
 
 	// Check that connecting with the default parameters is successful.
 	err = cmdl.connect(cmd, []string{})
 	assert.NoError(t, err, "Connecting to the immudb instance should be successful with the default test commandline.")
-	if !assert.NotNil(t, cmdl.immuClient, "immuclient of the command line should be initialized after connect.") {
-		t.FailNow()
-	}
 	assert.True(t, cmdl.immuClient.IsConnected(), "immuclient of commandline should be connected.")
 }
 
@@ -56,9 +53,6 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	// Connect to server.
 	err = cmdl.connect(cmd, []string{})
 	assert.NoError(t, err, "Connecting to the immudb instance should be successful with the default test commandline.")
-	if !assert.NotNil(t, cmdl.immuClient, "immuclient of the command line should be initialized after connect.") {
-		t.FailNow()
-	}
 	assert.True(t, cmdl.immuClient.IsConnected(), "immuclient of commandline should be connected.")
 
 	// Disconnect form server.
@@ -82,9 +76,6 @@ func TestCommandLine_Logout(t *testing.T) {
 	out, err := ioutil.ReadAll(b)
 	assert.NoError(t, err)
 	assert.Contains(t, string(out), "logged out")
-	if !assert.NotNil(t, cmdl.immuClient, "immuclient of the command line should be initialized after connect.") {
-		t.FailNow()
-	}
 	assert.False(t, cmdl.immuClient.IsConnected(), "immuclient should be disconnected after logout")
 }
 
@@ -94,7 +85,6 @@ func TestCommandLine_Connect_NonInteractive(t *testing.T) {
 	// Set the flag to run the command in non interactive mode.
 	cmd.SetArgs([]string{"help", "--non-interactive"})
 	err := cmd.Execute()
-	assert.Nil(t, cmdl.immuClient, "immuclient was initialized for help command")
 	assert.NoError(t, err)
 
 	// Get the password reader from the command line.
@@ -109,7 +99,6 @@ func TestCommandLine_Connect_NonInteractive(t *testing.T) {
 	assert.Error(t, err, "Connecting to the database in non interactive mode without specifying a password-file should fail.")
 	assert.ErrorContains(t, err, "--password-file flag", "The user should be informed about the password-file flag if the command is running interactively.")
 	assert.Equal(t, 0, pwr.Counter, "No password should be read from stdin in non interactive mode.")
-	assert.Nil(t, cmdl.immuClient, "immuclient should not initialized when no password was provided.")
 }
 
 func TestCommandLine_Connect_PasswordFile(t *testing.T) {
@@ -139,14 +128,12 @@ func TestCommandLine_Connect_PasswordFile(t *testing.T) {
 		err = cmdl.connect(cmd, []string{})
 		assert.Error(t, err, "Connecting to an immudb instance without specifying a valid file for the --password-file flag should fail.")
 		assert.Equal(t, 0, pwr.Counter, "Reading a password from stdin should not be attempted if the --password-file flag is set.")
-		assert.Nil(t, cmdl.immuClient, "immuclient should not be initialized if no password was provided.")
 	})
 
 	t.Run("existing passwordfile - wrong password", func(t *testing.T) {
 		// Remove the file with the password after the test.
 		t.Cleanup(func() {
 			os.Remove(passwordFile)
-			cmdl.immuClient = nil
 		})
 		// Write an invalid password to the password file.
 		err = os.WriteFile(passwordFile, []byte("invalid password"), fs.ModePerm)
@@ -158,7 +145,6 @@ func TestCommandLine_Connect_PasswordFile(t *testing.T) {
 		err = cmdl.connect(cmd, []string{})
 		assert.Error(t, err, "Connecting to an immudb instance with an invalid password should fail.")
 		assert.Equal(t, 0, pwr.Counter, "Reading a password from stdin should not be attempted if the --password-file flag is set.")
-		assert.NotNil(t, cmdl.immuClient, "immuclient should be initialized even if an invalid password was provided.")
 	})
 
 	t.Run("existing passwordfile - too long password", func(t *testing.T) {
@@ -178,14 +164,13 @@ func TestCommandLine_Connect_PasswordFile(t *testing.T) {
 		assert.Error(t, err, "Connecting to an immudb instance with an invalid password should fail.")
 		assert.Contains(t, err.Error(), "exceeds the the maximal password length", "The user should be informed that the content of the password file is too long to contain a valid password.")
 		assert.Equal(t, 0, pwr.Counter, "Reading a password from stdin should not be attempted if the --password-file flag is set.")
-		assert.Nil(t, cmdl.immuClient, "immuclient should not be initialized if no password was provided.")
 	})
 
 	t.Run("existing passwordfile - password with new line", func(t *testing.T) {
-		// Remove the file with the password after the test.
+		// Remove the file with the password after the test and disconnect.
 		t.Cleanup(func() {
 			os.Remove(passwordFile)
-			cmdl.immuClient = nil
+			cmdl.disconnect(cmd, []string{})
 		})
 		// Write a valid password including a trailing new line to the password file.
 		err = os.WriteFile(passwordFile, []byte(auth.SysAdminPassword+"\n"), fs.ModePerm)
@@ -197,17 +182,14 @@ func TestCommandLine_Connect_PasswordFile(t *testing.T) {
 		err = cmdl.connect(cmd, []string{})
 		assert.NoError(t, err, "Connecting to an immudb instance with a valid password should not fail.")
 		assert.Equal(t, 0, pwr.Counter, "Reading a password from stdin should not be attempted if the --password-file flag is set.")
-		if !assert.NotNil(t, cmdl.immuClient, "immuclient should be initialized if a valid password was provided.") {
-			t.FailNow()
-		}
 		assert.True(t, cmdl.immuClient.IsConnected(), "immuclient should be connected if a valid password was provided.")
 	})
 
 	t.Run("valid passwordfile", func(t *testing.T) {
-		// Remove the file with the password after the test.
+		// Remove the file with the password after the test and disconnect.
 		t.Cleanup(func() {
 			os.Remove(passwordFile)
-			cmdl.immuClient = nil
+			cmdl.disconnect(cmd, []string{})
 		})
 		err = os.WriteFile(passwordFile, []byte(auth.SysAdminPassword), fs.ModePerm)
 		if err != nil {
@@ -219,9 +201,6 @@ func TestCommandLine_Connect_PasswordFile(t *testing.T) {
 		err = cmdl.connect(cmd, []string{})
 		assert.NoError(t, err, "Connecting to an immudb instance with a valid password should not fail.")
 		assert.Equal(t, 0, pwr.Counter, "Reading a password from stdin should not be attempted if the --password-file flag is set.")
-		if !assert.NotNil(t, cmdl.immuClient, "immuclient should be initialized if a valid password was provided.") {
-			t.FailNow()
-		}
 		assert.True(t, cmdl.immuClient.IsConnected(), "immuclient should be connected if a valid password was provided.")
 	})
 }
@@ -239,6 +218,5 @@ func TestCommandLine_Connect_Database(t *testing.T) {
 	err = cmdl.connect(cmd, []string{})
 	assert.Error(t, err, "Connecting to an immudb instance with a non existing database name should fail.")
 	assert.ErrorIs(t, err, database.ErrDatabaseNotExists)
-	assert.NotNil(t, cmdl.immuClient, "immuclient should be initialized even if the database does not exist.")
 
 }
