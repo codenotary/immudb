@@ -104,10 +104,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := cl.immuClient.Logout(cl.context); err != nil {
-				cl.quit(err)
-				return err
-			}
+			cl.disconnect(cmd, args)
 			fmt.Fprintf(cmd.OutOrStdout(), "logged out\n")
 			return nil
 		},
