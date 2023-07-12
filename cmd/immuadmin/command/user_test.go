@@ -16,74 +16,37 @@ limitations under the License.
 
 package immuadmin
 
-/*
 import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
-	"google.golang.org/grpc/metadata"
 	"io/ioutil"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
 func TestUserList(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
-	bs.Start()
-defer bs.Stop()
+	_, cmd := newTestCommandLine(t)
+	// Set arguments to execute the user list command.
+	cmd.SetArgs([]string{"user", "list"})
 
-	pr := &immuclienttest.PasswordReader{
-		Pass: []string{"immudb"},
-	}
-	ctx := context.Background()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	clientb, _ := client.NewImmuClient(cliopt)
-	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", token.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	cmdl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: pr,
-		context:        ctx,
-	}
-
-	cmd, _ := cmdl.NewCmd()
-	cmdl.user(cmd)
-
+	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"user", "list"})
+	// Execute the command.
+	err := cmd.Execute()
+	assert.NoError(t, err, "Executing user list command should not fail.")
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	usrcmd := cmd.Commands()[0]
-	usrcmd.PersistentPreRunE = nil
-
-	err = cmd.Execute()
-	require.NoError(t, err)
-	msg, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	require.Contains(t, string(msg), "immudb")
+	out, err := ioutil.ReadAll(b)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "immudb")
 }
 
 func TestUserListErrors(t *testing.T) {
@@ -102,22 +65,22 @@ func TestUserListErrors(t *testing.T) {
 	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
 		return &schema.UserList{
 			Users: []*schema.User{
-				&schema.User{
+				{
 					User: []byte("immudb"),
 					Permissions: []*schema.Permission{
-						&schema.Permission{Database: "*", Permission: auth.PermissionSysAdmin},
+						{Database: "*", Permission: auth.PermissionSysAdmin},
 					},
 					Createdby: "immudb",
 					Createdat: time.Now().String(),
 					Active:    true,
 				},
-				&schema.User{
+				{
 					User: []byte("user1"),
 					Permissions: []*schema.Permission{
-						&schema.Permission{Database: "db2", Permission: auth.PermissionAdmin},
-						&schema.Permission{Database: "db3", Permission: auth.PermissionR},
-						&schema.Permission{Database: "db4", Permission: auth.PermissionRW},
-						&schema.Permission{Database: "db5", Permission: 999},
+						{Database: "db2", Permission: auth.PermissionAdmin},
+						{Database: "db3", Permission: auth.PermissionR},
+						{Database: "db4", Permission: auth.PermissionRW},
+						{Database: "db5", Permission: 999},
 					},
 					Createdby: "immudb",
 					Createdat: time.Now().String(),
@@ -132,54 +95,34 @@ func TestUserListErrors(t *testing.T) {
 }
 
 func TestUserChangePassword(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
-	bs.Start()
-defer bs.Stop()
+	cmdl, cmd := newTestCommandLine(t)
+	// Set arguments to change the password of the default user.
+	cmd.SetArgs([]string{"user", "changepassword", "immudb"})
 
-	pr := &immuclienttest.PasswordReader{
-		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
-	}
-
-	ctx := context.Background()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	clientb, _ := client.NewImmuClient(cliopt)
-	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", token.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	cmdl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: pr,
-		context:        ctx,
-	}
-
-	cmd, _ := cmdl.NewCmd()
-	cmdl.user(cmd)
-
+	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"user", "changepassword", "immudb"})
+	// Get the password reader from the command line.
+	pwr, ok := cmdl.passwordReader.(*passwordReaderMock)
+	if !assert.True(t, ok, "The password reader of the commandline should be a mock passwordReader during testing.") {
+		t.FailNow()
+	}
+	// Extend the list of password returned by the password reader.
+	// Changing the password of the SysAdmin required the current SysAdmin
+	// password. The other two passwords are newly chosen passwords.
+	pwr.Passwords = append(pwr.Passwords, auth.SysAdminPassword, "MyUser@9", "MyUser@9")
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	usrcmd := cmd.Commands()[0]
-	usrcmd.PersistentPreRunE = nil
+	// Execute the command.
+	err := cmd.Execute()
+	assert.NoError(t, err, "Executing changepassword command should not fail.")
 
-	err = cmd.Execute()
-	require.NoError(t, err)
-	msg, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	require.Contains(t, string(msg), "immudb's password has been changed")
+	out, err := ioutil.ReadAll(b)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "immudb's password has been changed")
 }
 
+/*
 func TestUserChangePasswordErrors(t *testing.T) {
 	pwReaderMock := &clienttest.PasswordReaderMock{}
 	immuClientMock := &clienttest.ImmuClientMock{}
@@ -247,59 +190,98 @@ func TestUserChangePasswordErrors(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%s's password has been changed", username), resp)
 	require.Equal(t, string(goodPass1), string(newPass))
 }
+*/
 
-func TestUserCreate(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
-	bs.Start()
-defer bs.Stop()
+func TestNewUser(t *testing.T) {
+	cmdl, cmd := newTestCommandLine(t)
 
-	pr := &immuclienttest.PasswordReader{
-		Pass: []string{"immudb"},
-	}
-	ctx := context.Background()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	clientb, _ := client.NewImmuClient(cliopt)
-	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", token.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	pr = &immuclienttest.PasswordReader{
-		Pass: []string{"MyUser@9", "MyUser@9"},
-	}
-	cmdl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: pr,
-		context:        ctx,
-	}
-
-	cmd, _ := cmdl.NewCmd()
-	cmdl.user(cmd)
-
+	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"user", "create", "newuser", "readwrite", "defaultdb"})
+	// Get the password reader from the command line.
+	pwr, ok := cmdl.passwordReader.(*passwordReaderMock)
+	if !assert.True(t, ok, "The password reader of the commandline should be a mock passwordReader during testing.") {
+		t.FailNow()
+	}
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	usrcmd := cmd.Commands()[0]
-	usrcmd.PersistentPreRunE = nil
+	t.Run("create", func(t *testing.T) {
+		// Set arguments to create a new user with access to the default database.
+		cmd.SetArgs([]string{"user", "create", "newuser", "read", "defaultdb"})
 
-	err = cmd.Execute()
-	require.NoError(t, err)
-	msg, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	require.Contains(t, string(msg), "Created user newuser")
+		// Extend the list of password returned by the password reader.
+		// The two passwords are newly chosen password and the confirmation of it.
+		pwr.Passwords = append(pwr.Passwords, "MyUser@9", "MyUser@9")
+
+		// Execute the command.
+		err := cmd.Execute()
+		assert.NoError(t, err, "Executing create new user command should not fail.")
+
+		out, err := ioutil.ReadAll(b)
+		assert.NoError(t, err)
+		assert.Contains(t, string(out), "Created user newuser")
+	})
+
+	t.Run("activate", func(t *testing.T) {
+		// Reset the output buffer.
+		b.Reset()
+
+		// Reset the password reader.
+		pwr.Reset()
+
+		// Set arguments to activate the new user.
+		cmd.SetArgs([]string{"user", "activate", "newuser"})
+
+		// Execute the command.
+		err := cmd.Execute()
+		assert.NoError(t, err, "Executing activate user command should not fail.")
+
+		out, err := ioutil.ReadAll(b)
+		assert.NoError(t, err)
+		assert.Contains(t, string(out), "User status changed successfully")
+	})
+
+	t.Run("permission", func(t *testing.T) {
+		// Reset the output buffer.
+		b.Reset()
+
+		// Reset the password reader.
+		pwr.Reset()
+
+		// Set arguments to change the permissions of the new user.
+		cmd.SetArgs([]string{"user", "permission", "grant", "newuser", "readwrite", "defaultdb"})
+
+		// Execute the command.
+		err := cmd.Execute()
+		assert.NoError(t, err, "Executing permission grant command should not fail.")
+
+		out, err := ioutil.ReadAll(b)
+		assert.NoError(t, err)
+		assert.Contains(t, string(out), "Permission changed successfully")
+	})
+
+	t.Run("deactivate", func(t *testing.T) {
+		// Reset the output buffer.
+		b.Reset()
+
+		// Reset the password reader.
+		pwr.Reset()
+
+		// Set arguments to deactivate the new user again.
+		cmd.SetArgs([]string{"user", "deactivate", "newuser"})
+
+		// Execute the command.
+		err := cmd.Execute()
+		assert.NoError(t, err, "Executing deactivate user command should not fail.")
+
+		out, err := ioutil.ReadAll(b)
+		assert.NoError(t, err)
+		assert.Contains(t, string(out), "User status changed successfully")
+	})
+
 }
 
+/*
 func TestUserCreateErrors(t *testing.T) {
 	pwReaderMock := &clienttest.PasswordReaderMock{}
 	immuClientMock := &clienttest.ImmuClientMock{}
@@ -413,67 +395,14 @@ func TestUserCreateErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf("Created user %s", username), resp)
 }
+*/
 
-func TestUserActivate(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
-	bs.Start()
-defer bs.Stop()
-
-	pr := &immuclienttest.PasswordReader{
-		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
-	}
-	ctx := context.Background()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	clientb, _ := client.NewImmuClient(cliopt)
-	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", token.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	clientb, _ = client.NewImmuClient(cliopt)
-	err = clientb.CreateDatabase(ctx, &schema.Database{
-		Databasename: "mydb",
-	})
-	require.NoError(t, err)
-	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
-	require.NoError(t, err)
-	cmdl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: pr,
-		context:        ctx,
-	}
-
-	cmd, _ := cmdl.NewCmd()
-	cmdl.user(cmd)
-
-	b := bytes.NewBufferString("")
-	cmd.SetOut(b)
-
-	cmd.SetArgs([]string{"user", "activate", "myuser"})
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	usrcmd := cmd.Commands()[0]
-	usrcmd.PersistentPreRunE = nil
-
-	err = cmd.Execute()
-	require.NoError(t, err)
-	msg, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	require.Contains(t, string(msg), "User status changed successfully")
-}
+/*
 
 func TestUserDeactivate(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
@@ -544,7 +473,7 @@ func TestUserActivateErrors(t *testing.T) {
 func TestUserPermission(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
