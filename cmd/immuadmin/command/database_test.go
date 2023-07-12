@@ -39,7 +39,7 @@ func TestDatabaseCreate(t *testing.T) {
 
 	// Execute command and verify the output contains a success message.
 	err := cmd.Execute()
-	assert.NoError(t, err, "Executing database list command should not fail.")
+	assert.NoError(t, err, "Executing database create command should not fail.")
 
 	out, err := ioutil.ReadAll(b)
 	assert.NoError(t, err)
