@@ -17,7 +17,6 @@ limitations under the License.
 package immuadmin
 
 import (
-	"context"
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -27,13 +26,12 @@ import (
 
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "login username (you will be prompted for password)",
+		Use:               "login username [database] (you will be prompted for password)",
 		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.SysAdminUsername),
 		Aliases:           []string{"l"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		PersistentPreRunE: cl.ConfigChain(nil),
+		//PersistentPostRun: nil,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cl.context
 			userStr := args[0]
 			if userStr != auth.SysAdminUsername {
 				err := fmt.Errorf("Permission denied: user %s has no admin rights", userStr)
@@ -48,61 +46,64 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				return err
 			}
 
-			responseWarning, err := cl.loginClient(ctx, user, pass)
+			// If no database name is given, the default database name is used.
+			database := "defaultdb"
+			if len(args) > 1 {
+				database = args[1]
+			}
+
+			err = cl.openSession(user, pass, database)
 			if err != nil {
 				cl.quit(err)
 				return err
 			}
-
 			c.PrintfColorW(cmd.OutOrStdout(), c.Green, "logged in\n")
 
-			if string(responseWarning) == auth.WarnDefaultAdminPassword {
-				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", responseWarning)
+			// The auth.WarnDefaultAdminPassword does not seem to be available
+			// anymore using the new OpenSession api.
+			//
+			//  ctx := cl.context
+			//  responseWarning, err := cl.loginClient(ctx, user, pass)
+			//  if err != nil {
+			//  	cl.quit(err)
+			//  	return err
+			//  }
 
-				newpass, err := cl.getNewPassword(cmd, "new-password-file", "Chooser a new password:")
-				if err != nil {
-					cl.quit(err)
-				}
+			//  if string(responseWarning) == auth.WarnDefaultAdminPassword {
+			//  	c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", responseWarning)
 
-				changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass, newpass)
-				if err != nil {
-					cl.quit(err)
-					return err
-				}
+			//  	newpass, err := cl.getNewPassword(cmd, "new-password-file", "Chooser a new password:")
+			//  	if err != nil {
+			//  		cl.quit(err)
+			//  	}
 
-				if _, err := cl.loginClient(ctx, user, newPass); err != nil {
-					cl.quit(err)
-					return err
-				}
+			//  	changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass, newpass)
+			//  	if err != nil {
+			//  		cl.quit(err)
+			//  		return err
+			//  	}
 
-				fmt.Fprint(cmd.OutOrStdout(), changedPassMsg)
-			}
+			//  	if _, err := cl.loginClient(ctx, user, newPass); err != nil {
+			//  		cl.quit(err)
+			//  		return err
+			//  	}
+
+			//  	fmt.Fprint(cmd.OutOrStdout(), changedPassMsg)
+			//  }
 
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
+		Args: cobra.RangeArgs(1, 2),
 	}
 	cmd.AddCommand(ccmd)
-}
-
-func (cl *commandline) loginClient(
-	ctx context.Context,
-	user []byte,
-	pass []byte,
-) (string, error) {
-	response, err := cl.immuClient.Login(ctx, user, pass)
-	if err != nil {
-		return "", err
-	}
-	return string(response.GetWarning()), nil
 }
 
 func (cl *commandline) logout(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "logout",
 		Aliases:           []string{"x"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		PersistentPreRunE: cl.ConfigChain(nil),
+		//PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cl.disconnect(cmd, args)
 			fmt.Fprintf(cmd.OutOrStdout(), "logged out\n")

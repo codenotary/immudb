@@ -148,11 +148,11 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	// Open a session with the server.
-	if err := cl.immuClient.OpenSession(cl.context, []byte(username), pass, database); err != nil {
-		return err
-	}
-	return
+	return cl.openSession([]byte(username), pass, database)
+}
 
+func (cl *commandline) openSession(user []byte, pass []byte, database string) error {
+	return cl.immuClient.OpenSession(cl.context, user, pass, database)
 }
 
 func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {
