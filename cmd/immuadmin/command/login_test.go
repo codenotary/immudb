@@ -60,6 +60,25 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	assert.False(t, cmdl.immuClient.IsConnected(), "immuclient should be disconnected after disconnect")
 }
 
+func TestCommandLine_Login(t *testing.T) {
+	cmdl, cmd := newTestCommandLine(t)
+	// Set arguments to execute the login command.
+	cmd.SetArgs([]string{"login", auth.SysAdminUsername})
+
+	// Set a buffer to read the command output.
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	// Execute the command.
+	err := cmd.Execute()
+	assert.NoError(t, err, "Executing login command should not fail.")
+
+	out, err := ioutil.ReadAll(b)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "logged in")
+	assert.True(t, cmdl.immuClient.IsConnected(), "immuclient of commandline should be connected after login command.")
+}
+
 func TestCommandLine_Logout(t *testing.T) {
 	cmdl, cmd := newTestCommandLine(t)
 	// Set arguments to execute the logout command.
