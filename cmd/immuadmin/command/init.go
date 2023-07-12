@@ -41,6 +41,10 @@ func Options() *client.Options {
 		WithAuth(true).
 		WithTokenFileName(tokenFileName).
 		WithMTLs(mtls)
+	dir := viper.GetString("dir")
+	if dir != "" {
+		options = options.WithDir(dir)
+	}
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().
@@ -73,6 +77,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().StringP("username", "u", "immudb", "user to authenticate with the server")
 	cmd.PersistentFlags().String("password-file", "", "file containing the password corresponding to the username")
 	cmd.PersistentFlags().StringP("database", "d", "defaultdb", "name of the selected database")
+	cmd.PersistentFlags().String("dir", "", "program file folder")
 	cmd.PersistentFlags().BoolP("non-interactive", "y", false, "enables non-interactive mode, every operation is performed immediately without asking for confirmation")
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
@@ -81,6 +86,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 		return err
 	}
 	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("dir", cmd.PersistentFlags().Lookup("dir")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
@@ -101,6 +109,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName+client.AdminTokenFileSuffix)
+	viper.SetDefault("dir", "")
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)
