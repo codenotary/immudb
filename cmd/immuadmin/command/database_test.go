@@ -1,108 +1,47 @@
 package immuadmin
 
-/*
+import (
+	"bytes"
+	"io/ioutil"
+	"regexp"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
 func TestDatabaseList(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	_, cmd := newTestCommandLine(t)
+	// Set arguments to execute the database list command.
+	cmd.SetArgs([]string{"database", "list"})
 
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	pr := &immuclienttest.PasswordReader{
-		Pass: []string{"immudb"},
-	}
-	ctx := context.Background()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = dialOptions
-	clientb, _ := client.NewImmuClient(cliopt)
-	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", token.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	cmdl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: pr,
-		context:        ctx,
-	}
-
-	cmd, _ := cmdl.NewCmd()
-	cmdl.database(cmd)
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	cmdlist := cmd.Commands()[0].Commands()[1]
-	cmdlist.PersistentPreRunE = nil
-
+	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"database", "list"})
-	err = cmd.Execute()
-	require.NoError(t, err)
-	msg, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	require.Contains(t, string(msg), "defaultdb")
+	// Execute command and verify the output contains the name of the
+	// database created by default.
+	err := cmd.Execute()
+	assert.NoError(t, err, "Executing database list command should not fail.")
+
+	out, err := ioutil.ReadAll(b)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "defaultdb")
 }
 
 func TestDatabaseCreate(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	_, cmd := newTestCommandLine(t)
+	// Set arguments to create a new database.
+	cmd.SetArgs([]string{"database", "create", "mynewdb"})
 
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	pr := &immuclienttest.PasswordReader{
-		Pass: []string{"immudb"},
-	}
-	ctx := context.Background()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = dialOptions
-	clientb, _ := client.NewImmuClient(cliopt)
-	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", token.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	cmdl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: pr,
-		context:        ctx,
-	}
-
-	cmd, _ := cmdl.NewCmd()
-
-	cmdl.database(cmd)
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	cmdlist := cmd.Commands()[0].Commands()[0]
-	cmdlist.PersistentPreRunE = nil
-
+	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"database", "create", "mynewdb"})
-	err = cmd.Execute()
-	require.NoError(t, err)
-	msg, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	require.Contains(t, string(msg), "database successfully created")
+	// Execute command and verify the output contains a success message.
+	err := cmd.Execute()
+	assert.NoError(t, err, "Executing database list command should not fail.")
+
+	out, err := ioutil.ReadAll(b)
+	assert.NoError(t, err)
+	assert.Regexp(t, regexp.MustCompile("database 'mynewdb' .* successfully created"), string(out))
 }
-*/
