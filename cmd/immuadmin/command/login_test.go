@@ -18,232 +18,289 @@ package immuadmin
 
 import (
 	"bytes"
-	"context"
+	"io/fs"
 	"io/ioutil"
-	"log"
+	"os"
+	"path"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"github.com/stretchr/testify/require"
-
-	"github.com/codenotary/immudb/cmd/helper"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client/clienttest"
-
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var pwReaderCounter = 0
-var pwReaderMock = &clienttest.PasswordReaderMock{
-	ReadF: func(msg string) ([]byte, error) {
-		var pw []byte
-		if pwReaderCounter == 0 {
-			pw = []byte(`immudb`)
-		} else {
-			pw = []byte(`Passw0rd!-`)
-		}
-		pwReaderCounter++
-		return pw, nil
-	},
+type passwordReaderMock struct {
+	Counter int
+}
+
+func (pwr *passwordReaderMock) Read(msg string) ([]byte, error) {
+	var pw []byte
+	if pwr.Counter == 0 {
+		pw = []byte(auth.SysAdminPassword)
+	} else {
+		pw = []byte(`Passw0rd!-`)
+	}
+	pwr.Counter++
+	return pw, nil
 }
 
 func TestCommandLine_Connect(t *testing.T) {
-	log.Println("TestCommandLine_Connect")
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
+	tempDir := t.TempDir()
+	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
 	bs := servertest.NewBufconnServer(options)
 
 	err := bs.Start()
-	require.NoError(t, err)
+	assert.NoError(t, err, "starting Bufconn server for immudb failed")
 	defer bs.Stop()
 
 	opts := Options().
-		WithDir(t.TempDir()).
+		WithDir(tempDir).
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		})
-	cmdl := commandline{
-		context: context.Background(),
-		options: opts,
-	}
-	err = cmdl.connect(&cobra.Command{}, []string{})
+	cmdl := NewCommandLine()
+	cmdl.options = opts
+	cmdl.passwordReader = &passwordReaderMock{}
+
+	// Create command and execute it to initialize command line flags.
+	cmd, _ := cmdl.NewCmd()
+	cmd.Execute()
+
+	err = cmdl.connect(cmd, []string{})
 	assert.NoError(t, err)
 }
 
 func TestCommandLine_Disconnect(t *testing.T) {
-	log.Println("TestCommandLine_Disconnect")
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
+	tempDir := t.TempDir()
+	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	err := bs.Start()
+	assert.NoError(t, err, "starting Bufconn server for immudb failed")
 	defer bs.Stop()
 
 	opts := Options().
-		WithDir(t.TempDir()).
+		WithDir(tempDir).
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		})
-	tkf := cmdtest.RandString()
-	cmdl := commandline{
-		options:        opts,
-		immuClient:     &scIClientMock{*new(client.ImmuClient)},
-		passwordReader: pwReaderMock,
-		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
-	}
-	_ = cmdl.connect(&cobra.Command{}, []string{})
+	cmdl := NewCommandLine()
+	cmdl.options = opts
+	cmdl.passwordReader = &passwordReaderMock{}
 
-	cmdl.disconnect(&cobra.Command{}, []string{})
+	// Create command and execute it to initialize command line flags.
+	cmd, _ := cmdl.NewCmd()
+	cmd.Execute()
 
-	err := cmdl.immuClient.Disconnect()
-	assert.Errorf(t, err, "not connected")
+	// Connect to server.
+	err = cmdl.connect(cmd, []string{})
+	assert.NoError(t, err, "connect to server failed")
+	connected := cmdl.immuClient.IsConnected()
+	assert.True(t, connected, "client is not connected after connect")
+
+	// Disconnect form server.
+	cmdl.disconnect(cmd, []string{})
+	connected = cmdl.immuClient.IsConnected()
+	assert.False(t, connected, "client is connected after disconnect")
 }
 
-type scIClientInnerMock struct {
-	cliop *client.Options
-	client.ImmuClient
-}
-
-func (c scIClientInnerMock) UpdateAuthConfig(ctx context.Context, kind auth.Kind) error {
-	return nil
-}
-func (c scIClientInnerMock) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
-	return nil
-}
-func (c scIClientInnerMock) Disconnect() error {
-	return nil
-}
-
-func (c scIClientInnerMock) GetOptions() *client.Options {
-	return c.cliop
-}
-
-func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
-	return &schema.LoginResponse{Token: "fake-token"}, nil
-}
-
-func TestCommandLine_LoginLogout(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
+func TestCommandLine_Logout(t *testing.T) {
+	tempDir := t.TempDir()
+	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	err := bs.Start()
+	assert.NoError(t, err, "starting Bufconn server for immudb failed")
 	defer bs.Stop()
 
-	cl := commandline{}
-	cmd, _ := cl.NewCmd()
-
-	cliopt := Options().
-		WithDir(t.TempDir()).
+	opts := Options().
+		WithDir(tempDir).
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		})
+	cmdl := NewCommandLine()
+	cmdl.options = opts
+	cmdl.passwordReader = &passwordReaderMock{}
 
-	tkf := cmdtest.RandString()
-	cmdl := commandline{
-		config:         helper.Config{Name: "immuadmin"},
-		options:        cliopt,
-		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
-		passwordReader: pwReaderMock,
-		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(tkf),
-	}
-	cmdl.login(cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.Register(cmd)
 
+	// Set arguments to execute the logout command.
+	cmd.SetArgs([]string{"logout"})
+
+	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
-	cmd.SetArgs([]string{"login", "immudb"})
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	logincmd := cmd.Commands()[0]
-	logincmd.PersistentPreRunE = nil
+	// Execute the command.
+	err = cmd.Execute()
+	assert.NoError(t, err, "executing logout command failed")
 
-	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
-	require.NoError(t, err)
-	assert.Contains(t, string(out), "logged in")
-	cmdlo := commandline{
-		config:         helper.Config{Name: "immuadmin"},
-		options:        cliopt,
-		immuClient:     &scIClientMock{*new(client.ImmuClient)},
-		passwordReader: pwReaderMock,
-		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(tkf),
-	}
-	b1 := bytes.NewBufferString("")
-	cl = commandline{}
-	logoutcmd, _ := cl.NewCmd()
-	logoutcmd.SetOut(b1)
-	logoutcmd.SetArgs([]string{"logout"})
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "logged out")
 
-	cmdlo.logout(logoutcmd)
-
-	// remove ConfigChain method to avoid override options
-	logoutcmd.PersistentPreRunE = nil
-	logoutcmdin := logoutcmd.Commands()[0]
-	logoutcmdin.PersistentPreRunE = nil
-
-	logoutcmd.Execute()
-	out1, err1 := ioutil.ReadAll(b1)
-	if err1 != nil {
-		t.Fatal(err1)
-	}
-	assert.Contains(t, string(out1), "logged out")
 }
 
-func TestCommandLine_CheckLoggedIn(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
+func TestCommandLine_Connect_NonInteractive(t *testing.T) {
+	tempDir := t.TempDir()
+	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	err := bs.Start()
+	assert.NoError(t, err, "starting Bufconn server for immudb failed")
 	defer bs.Stop()
 
-	cl := commandline{}
-	cmd, _ := cl.NewCmd()
-	cl.context = context.Background()
-	cl.passwordReader = pwReaderMock
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
+	opts := Options().
+		WithDir(tempDir).
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
+		})
+	cmdl := NewCommandLine()
+	cmdl.options = opts
+	pwr := passwordReaderMock{}
+	cmdl.passwordReader = &pwr
+	// Set the command line to run non interactive.
+	cmdl.nonInteractive = true
+	cmd, _ := cmdl.NewCmd()
 
-	cmd.SetArgs([]string{"login", "immudb"})
+	// Execute command to initialize command line flags.
 	cmd.Execute()
 
-	tempDir := t.TempDir()
-
-	cl.options = Options().WithDir(tempDir)
-	cl.options.DialOptions = dialOptions
-	cl.login(cmd)
-
-	cmd1 := cobra.Command{}
-	cl1 := new(commandline)
-	cl1.context = context.Background()
-	cl1.passwordReader = pwReaderMock
-	tkf := cmdtest.RandString()
-	cl1.ts = tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf)
-	dialOptions1 := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	cl1.options = Options().WithDir(tempDir)
-	cl1.options.DialOptions = dialOptions1
-	err := cl1.checkLoggedIn(&cmd1, nil)
-	assert.NoError(t, err)
+	// Connecting has to fail, as the password may not be read from the
+	// passwordReader in non interactive mode.
+	err = cmdl.connect(cmd, []string{})
+	assert.Error(t, err, "connecting to the database in non interactive mode without specifying a password file failed")
+	assert.ErrorContains(t, err, "--password-file flag", "user was not informed that the password-file flag has to be used when running interactively")
+	assert.Equal(t, 0, pwr.Counter, "reading password from stdin was attempted despite command running non interactively")
+	assert.Nil(t, cmdl.immuClient, "immuclient was initialized even though no password was provided")
 }
 
-func newHomedirServiceMock() *clienttest.HomedirServiceMock {
-	h := clienttest.DefaultHomedirServiceMock()
-	h.FileExistsInUserHomeDirF = func(pathToFile string) (bool, error) {
-		return true, nil
-	}
-	return h
+func TestCommandLine_Connect_PasswordFile(t *testing.T) {
+	tempDir := t.TempDir()
+	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	assert.NoError(t, err, "starting Bufconn server for immudb failed")
+	defer bs.Stop()
+
+	opts := Options().
+		WithDir(tempDir).
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
+		})
+	cmdl := NewCommandLine()
+	cmdl.options = opts
+	pwr := passwordReaderMock{}
+	cmdl.passwordReader = &pwr
+
+	// Create a file containing the password for connecting to immudb.
+	passwordFile := path.Join(tempDir, "immupass")
+
+	// Create a command.
+	cmd, _ := cmdl.NewCmd()
+
+	// Set the flag to read the password from the file.
+	cmd.SetArgs([]string{"--password-file", passwordFile})
+
+	// Execute command to initialize command line flags.
+	cmd.Execute()
+
+	t.Run("not existing passwordfile", func(t *testing.T) {
+		// Connecting should fail, as the password to connect to immudb
+		// cannot be read from the specified file.
+		err = cmdl.connect(cmd, []string{})
+		assert.Error(t, err, "connecting to database without specifying a valid file for the --password-file flag succeeded")
+		assert.Equal(t, 0, pwr.Counter, "reading password from stdin was attempted despite command running non interactively")
+		assert.Nil(t, cmdl.immuClient, "immuclient was initialized even though no password was provided")
+	})
+
+	t.Run("existing passwordfile - wrong password", func(t *testing.T) {
+		// Remove the file with the password after the test.
+		t.Cleanup(func() {
+			os.Remove(passwordFile)
+			cmdl.immuClient = nil
+		})
+		// Write an invalid password to the password file.
+		err = os.WriteFile(passwordFile, []byte("invalid password"), fs.ModePerm)
+		if err != nil {
+			t.Fatalf("writing password to file %s failed: %v", passwordFile, err)
+		}
+
+		// Connecting should fail, as the password to connect to immudb is wrong.
+		err = cmdl.connect(cmd, []string{})
+		assert.Error(t, err, "connecting to database without specifying a valid password in the password file succeeded")
+		assert.Equal(t, 0, pwr.Counter, "reading password from stdin was attempted despite command running non interactively")
+		assert.NotNil(t, cmdl.immuClient, "immuclient was not initialized even though a password was provided")
+	})
+
+	t.Run("existing passwordfile - too long password", func(t *testing.T) {
+		// Remove the file with the password after the test.
+		t.Cleanup(func() {
+			os.Remove(passwordFile)
+		})
+		// Write an password to the password file, which exceeds the maximum length.
+		tooLongPassword := "0123456789abcdefghijklmnopqrstuvwxyz"
+		err = os.WriteFile(passwordFile, []byte(tooLongPassword), fs.ModePerm)
+		if err != nil {
+			t.Fatalf("writing password to file %s failed: %v", passwordFile, err)
+		}
+
+		// Connecting should fail, as the password to connect to immudb is wrong.
+		err = cmdl.connect(cmd, []string{})
+		assert.Error(t, err, "connecting to database without specifying a valid password in the password file succeeded")
+		assert.Contains(t, err.Error(), "exceeds the the maximal password length")
+		assert.Equal(t, 0, pwr.Counter, "reading password from stdin was attempted despite command running non interactively")
+		assert.Nil(t, cmdl.immuClient, "immuclient was initialized even though no well formatted password was provided")
+	})
+
+	t.Run("existing passwordfile - password with new line", func(t *testing.T) {
+		// Remove the file with the password after the test.
+		t.Cleanup(func() {
+			os.Remove(passwordFile)
+			cmdl.immuClient = nil
+		})
+		// Write a valid password including a trailing new line to the password file.
+		err = os.WriteFile(passwordFile, []byte(auth.SysAdminPassword+"\n"), fs.ModePerm)
+		if err != nil {
+			t.Fatalf("writing password to file %s failed: %v", passwordFile, err)
+		}
+
+		// Connecting should fail, as the password to connect to immudb is wrong.
+		err = cmdl.connect(cmd, []string{})
+		assert.NoError(t, err, "connecting to database using the --password-file flag failed")
+		assert.Equal(t, 0, pwr.Counter, "reading password from stdin was attempted despite command running non interactively")
+		if !assert.NotNil(t, cmdl.immuClient, "immuclient was not initialized even though a password was provided") {
+			t.FailNow()
+		}
+		assert.True(t, cmdl.immuClient.IsConnected(), "immuclient is not connected despite connect function not yielding an error")
+	})
+
+	t.Run("valid passwordfile", func(t *testing.T) {
+		// Remove the file with the password after the test.
+		t.Cleanup(func() {
+			os.Remove(passwordFile)
+			cmdl.immuClient = nil
+		})
+		err = os.WriteFile(passwordFile, []byte(auth.SysAdminPassword), fs.ModePerm)
+		if err != nil {
+			t.Fatalf("writing password to file %s failed: %v", passwordFile, err)
+		}
+
+		// Connecting should be successful, as the password to connect to immudb
+		// can be read from the specified file.
+		err = cmdl.connect(cmd, []string{})
+		assert.NoError(t, err, "connecting to database using the --password-file flag failed")
+		assert.Equal(t, 0, pwr.Counter, "reading password from stdin was attempted despite command running non interactively")
+		if !assert.NotNil(t, cmdl.immuClient, "immuclient was not initialized even though a password was provided") {
+			t.FailNow()
+		}
+		assert.True(t, cmdl.immuClient.IsConnected(), "immuclient is not connected despite connect function not yielding an error")
+	})
+}
 }
