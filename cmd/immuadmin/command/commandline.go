@@ -123,26 +123,26 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	// Check if a username was specified.
 	username, err := cmd.Flags().GetString("username")
 	if err != nil {
-		cl.quit(err)
+		return err
 	}
 	if username == "" {
 		err = fmt.Errorf("please specify a username using the --username flag")
-		cl.quit(err)
+		return err
 	}
 	// Get the corresponding password.
 	pass, err := cl.getPassword(cmd, "password-file", "Password:")
 	if err != nil {
-		cl.quit(err)
+		return err
 	}
 	// Get the selected database for the session.
 	database, err := cmd.Flags().GetString("database")
 	if err != nil {
-		cl.quit(err)
+		return err
 	}
 	// Open a session with the server.
 	cl.immuClient = client.NewClient().WithOptions(cl.options)
 	if err := cl.immuClient.OpenSession(cl.context, []byte(username), pass, database); err != nil {
-		cl.quit(err)
+		return err
 	}
 	return
 
