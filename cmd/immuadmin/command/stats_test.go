@@ -18,7 +18,6 @@ package immuadmin
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -26,52 +25,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
 func TestStats_Status(t *testing.T) {
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-	cliopt := Options().WithDir(t.TempDir())
-	cliopt.DialOptions = dialOptions
-	clientb, _ := client.NewImmuClient(cliopt)
-	tkf := cmdtest.RandString()
-	cl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: &clienttest.PasswordReaderMock{},
-		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
-	}
-	cmd, _ := cl.NewCmd()
-
-	cl.status(cmd)
+	_, cmd := newTestCommandLine(t)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"status"})
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	statcmd := cmd.Commands()[0]
-	statcmd.PersistentPreRunE = nil
 
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
@@ -80,11 +43,7 @@ func TestStats_Status(t *testing.T) {
 }
 
 func TestStats_StatsText(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
+	_, cmd := newTestCommandLine(t)
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -96,33 +55,9 @@ func TestStats_StatsText(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-	cliopt := Options().WithDir(t.TempDir())
-	cliopt.DialOptions = dialOptions
-	cliopt.Address = "127.0.0.1"
-	clientb, _ := client.NewImmuClient(cliopt)
-	tkf := cmdtest.RandString()
-	cl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: &clienttest.PasswordReaderMock{},
-		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
-	}
-	cmd, _ := cl.NewCmd()
-
-	cl.stats(cmd)
-
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"stats", "--text"})
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	statcmd := cmd.Commands()[0]
-	statcmd.PersistentPreRunE = nil
 
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
@@ -131,11 +66,7 @@ func TestStats_StatsText(t *testing.T) {
 }
 
 func TestStats_StatsRaw(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
+	_, cmd := newTestCommandLine(t)
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -146,32 +77,9 @@ func TestStats_StatsRaw(t *testing.T) {
 
 	defer server.Close()
 
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-	cliopt := Options().WithDir(t.TempDir())
-	cliopt.DialOptions = dialOptions
-	cliopt.Address = "127.0.0.1"
-	clientb, _ := client.NewImmuClient(cliopt)
-	tkf := cmdtest.RandString()
-	cl := commandline{
-		options:        cliopt,
-		immuClient:     clientb,
-		passwordReader: &clienttest.PasswordReaderMock{},
-		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
-	}
-	cmd, _ := cl.NewCmd()
-	cl.stats(cmd)
-
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"stats", "--raw"})
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	statcmd := cmd.Commands()[0]
-	statcmd.PersistentPreRunE = nil
 
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
