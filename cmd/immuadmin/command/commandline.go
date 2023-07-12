@@ -215,7 +215,7 @@ func (cl *commandline) getPassword(cmd *cobra.Command, flag string, prompt strin
 	}
 	// Prompt the user to provide the password if the command may be interactive.
 	if cl.nonInteractive {
-		err = fmt.Errorf("please specify a password using the %s flag", flag)
+		err = fmt.Errorf("please specify a password using the --%s flag", flag)
 		return
 	}
 	pass, err = cl.passwordReader.Read(prompt)
