@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/cmd/helper"
+	"google.golang.org/grpc"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -59,6 +61,7 @@ type commandline struct {
 	terminalReader c.TerminalReader
 	nonInteractive bool
 	context        context.Context
+	dialOptions    []grpc.DialOption
 	onError        func(msg interface{})
 	os             immuos.OS
 }
@@ -85,6 +88,10 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		}
 		// here all command line options and services need to be configured by options retrieved from viper
 		cl.options = Options()
+		// Apply dial options, if they are set.
+		if len(cl.dialOptions) > 0 {
+			cl.options.WithDialOptions(cl.dialOptions)
+		}
 		if post != nil {
 			return post(cmd, args)
 		}
