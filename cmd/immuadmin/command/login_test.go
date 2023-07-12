@@ -303,4 +303,40 @@ func TestCommandLine_Connect_PasswordFile(t *testing.T) {
 		assert.True(t, cmdl.immuClient.IsConnected(), "immuclient is not connected despite connect function not yielding an error")
 	})
 }
+
+func TestCommandLine_Connect_Database(t *testing.T) {
+	tempDir := t.TempDir()
+	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	assert.NoError(t, err, "starting Bufconn server for immudb failed")
+	defer bs.Stop()
+
+	opts := Options().
+		WithDir(tempDir).
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
+		})
+	cmdl := NewCommandLine()
+	cmdl.options = opts
+	pwr := passwordReaderMock{}
+	cmdl.passwordReader = &pwr
+
+	// Create a command.
+	cmd, _ := cmdl.NewCmd()
+
+	// Set a flag to specify a non existing DB for the command.
+	cmd.SetArgs([]string{"--database", "invalid_db"})
+
+	// Execute command to initialize command line flags.
+	cmd.Execute()
+
+	// Connecting should be fail, as the database for which a session is opened,
+	// does not exist.
+	err = cmdl.connect(cmd, []string{})
+	assert.Error(t, err, "connecting to database without specifying a valid file for the --password-file flag succeeded")
+	assert.ErrorIs(t, err, database.ErrDatabaseNotExists)
+	assert.NotNil(t, cmdl.immuClient, "immuclient was not initialized")
+
 }
