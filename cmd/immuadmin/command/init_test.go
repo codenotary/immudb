@@ -17,6 +17,7 @@ limitations under the License.
 package immuadmin
 
 import (
+	"io"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/auth"
@@ -43,18 +44,21 @@ func TestOptionsMtls(t *testing.T) {
 }
 
 type passwordReaderMock struct {
-	Counter int
+	Counter   int
+	Passwords []string
 }
 
-func (pwr *passwordReaderMock) Read(msg string) ([]byte, error) {
-	var pw []byte
-	if pwr.Counter == 0 {
-		pw = []byte(auth.SysAdminPassword)
+func (pwr *passwordReaderMock) Read(msg string) (pw []byte, err error) {
+	if pwr.Counter < len(pwr.Passwords) {
+		pw = []byte(pwr.Passwords[pwr.Counter])
 	} else {
-		pw = []byte(`Passw0rd!-`)
+		err = io.EOF
 	}
 	pwr.Counter++
-	return pw, nil
+	return
+}
+func (pwr *passwordReaderMock) Reset() {
+	pwr.Counter = 0
 }
 
 // Initialize an immudb instance and prepare a command line to connect to it.
@@ -74,7 +78,11 @@ func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
 	cmdl.dialOptions = []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
-	pwr := &passwordReaderMock{}
+	// Initialize a mockup password reader with the default password.
+	pwr := &passwordReaderMock{
+		Counter:   0,
+		Passwords: []string{auth.SysAdminPassword},
+	}
 	cmdl.passwordReader = pwr
 
 	// Create command and execute it to initialize command line flags.
