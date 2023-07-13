@@ -32,15 +32,12 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userStr := args[0]
 			if userStr != auth.SysAdminUsername {
-				err := fmt.Errorf("Permission denied: user %s has no admin rights", userStr)
-				cl.quit(err)
-				return err
+				return fmt.Errorf("Permission denied: user %s has no admin rights", userStr)
 			}
 
 			user := []byte(userStr)
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
-				cl.quit(err)
 				return err
 			}
 
@@ -52,7 +49,6 @@ func (cl *commandline) login(cmd *cobra.Command) {
 
 			err = cl.openSession(user, pass, database)
 			if err != nil {
-				cl.quit(err)
 				return err
 			}
 			c.PrintfColorW(cmd.OutOrStdout(), c.Green, "logged in\n")
