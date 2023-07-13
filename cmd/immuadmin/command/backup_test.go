@@ -125,6 +125,44 @@ func defaultDaemonMock() *daemonMock {
 	}
 }
 
+func TestAskYN(t *testing.T) {
+	clb, cmd := newTestCommandLineBck(t)
+
+	// Get the mock term reader from the command line.
+	termReaderMock, ok := clb.TerminalReader.(*clienttest.TerminalReaderMock)
+	require.True(t, ok, "The TerminalReader of the command line should be a mockup terminal reader during testing.")
+
+	// Run the help command to initialize default command line flags.
+	cmd.SetArgs([]string{"help"})
+	err := cmd.Execute()
+	assert.NoError(t, err, "Running the help command should not cause an error.")
+
+	// Replace the terminal reader with one that always answers no.
+	termReaderMock.ReadFromTerminalYNF = func(def string) (selected string, err error) {
+		termReaderMock.Counter++
+		return "N", nil
+	}
+	prevTermReaderCounter := termReaderMock.Counter
+
+	// Verify that askYN will receive "N" from the reader.
+	answer, err := clb.askYN("test", "Y")
+	assert.NoError(t, err, "", "askYN should not fail with a mock reader.")
+	assert.Equal(t, "N", answer, "askYN should return N if a mock reader only returning N is used.")
+	assert.Equal(t, prevTermReaderCounter+1, termReaderMock.Counter, "The terminal reader should be called exactly once.")
+	prevTermReaderCounter = termReaderMock.Counter
+
+	// Reinitialize the command line flags, but set the non interactive flag.
+	cmd.SetArgs([]string{"help", "--non-interactive"})
+	err = cmd.Execute()
+	assert.NoError(t, err, "Running the help command should not cause an error.")
+
+	// Verify that askYN will always return "Y" from the reader.
+	answer, err = clb.askYN("test", "N")
+	assert.NoError(t, err, "", "askYN should never fail in interactive mode")
+	assert.Equal(t, "Y", answer, "askYN should always return Y in non interactive mode.")
+	assert.Equal(t, prevTermReaderCounter, termReaderMock.Counter, "The terminal reader should never be called in non interactive mode.")
+}
+
 /*
 
 func TestDumpToFile(t *testing.T) {
