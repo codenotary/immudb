@@ -158,31 +158,25 @@ func (cl *commandlineBck) backup(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			if err = cl.mustNotBeWorkingDir(dbDir); err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			uncompressed, err := cmd.Flags().GetBool("uncompressed")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			if err := cl.askUserConfirmation(cmd, "backup", manualStopStart); err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			backupPath, err := cl.offlineBackup(dbDir, uncompressed, manualStopStart)
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			fmt.Printf("Database backup created: %s\n", backupPath)
 			return nil
@@ -206,22 +200,18 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 			snapshotPath := args[0]
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			if err := cl.askUserConfirmation(cmd, "restore", manualStopStart); err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			autoBackupPath, err := cl.offlineRestore(snapshotPath, dbDir, manualStopStart)
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			fmt.Printf("Database restored from backup %s\n", snapshotPath)
 			fmt.Printf("A backup of the previous database has been also created: %s\n", autoBackupPath)
