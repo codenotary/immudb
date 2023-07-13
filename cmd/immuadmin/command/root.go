@@ -39,6 +39,7 @@ Environment variables:
 		SilenceErrors:     false,
 		DisableAutoGenTag: true,
 		PersistentPreRunE: cl.ConfigChain(nil),
+		PersistentPostRun: cl.disconnect,
 	}
 
 	if err := cl.configureFlags(cmd); err != nil {

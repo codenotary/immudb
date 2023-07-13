@@ -33,7 +33,6 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		Short:             "Show heartbeat status",
 		Aliases:           []string{"p"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
 
@@ -68,7 +67,6 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 		Short:             "Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.",
 		Aliases:           []string{"s"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			raw, err := cmd.Flags().GetBool("raw")
 			if err != nil {
