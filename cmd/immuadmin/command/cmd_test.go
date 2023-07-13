@@ -30,7 +30,7 @@ import (
 )
 
 func TestNewCmd(t *testing.T) {
-	cmd := newCommand()
+	cmd, _ := newCommand()
 	assert.IsType(t, cobra.Command{}, *cmd)
 }
 
@@ -65,7 +65,7 @@ func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
 	t.Cleanup(func() { bs.Stop() })
 
 	// Create a command line with the dial options to connect to the test server.
-	cmdl := NewCommandLine()
+	cmd, cmdl := newCommand()
 	cmdl.dialOptions = []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
@@ -75,27 +75,6 @@ func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
 		Passwords: []string{auth.SysAdminPassword},
 	}
 	cmdl.passwordReader = pwr
-
-	// Create command and execute it to initialize command line flags.
-	cmd, err := cmdl.NewCmd()
-	if err != nil {
-		t.Fatalf("initializing cobra command failed: %v", err)
-	}
-	cmd = cmdl.Register(cmd)
-
-	// register backup related commands
-	clb, err := newCommandlineBck(cmdl)
-	if err != nil {
-		t.Fatalf("initializing backup command failed: %v", err)
-	}
-	cmd = clb.Register(cmd)
-
-	// register hot backup related commands
-	clhb, err := newCommandlineHotBck(cmdl)
-	if err != nil {
-		t.Fatalf("initializing hot-backup command failed: %v", err)
-	}
-	cmd = clhb.Register(cmd)
 
 	return cmdl, cmd
 }
