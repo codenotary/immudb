@@ -154,7 +154,7 @@ func (cl *commandlineBck) backup(cmd *cobra.Command) {
 				cl.quit(err)
 				return nil
 			}
-			if err := cl.askUserConfirmation("backup", manualStopStart); err != nil {
+			if err := cl.askUserConfirmation(cmd, "backup", manualStopStart); err != nil {
 				cl.quit(err)
 				return nil
 			}
@@ -193,7 +193,7 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 				cl.quit(err)
 				return nil
 			}
-			if err := cl.askUserConfirmation("restore", manualStopStart); err != nil {
+			if err := cl.askUserConfirmation(cmd, "restore", manualStopStart); err != nil {
 				cl.quit(err)
 				return nil
 			}
@@ -213,7 +213,7 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bool) error {
+func (cl *commandlineBck) askUserConfirmation(cmd *cobra.Command, process string, manualStopStart bool) error {
 	if !manualStopStart {
 		fmt.Printf(
 			"Server will be stopped and then restarted during the %s process.\n"+
@@ -225,15 +225,22 @@ func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bo
 			return errors.New("Canceled")
 
 		}
-		pass, err := cl.passwordReader.Read("Enter admin password:")
+		pass, err := cl.getPassword(cmd, "password-file", "Enter admin password: ")
+		// pass, err := cl.passwordReader.Read("Enter admin password:")
 		if err != nil {
 			return err
 		}
-		_ = cl.checkLoggedInAndConnect(nil, nil)
-		defer cl.disconnect(nil, nil)
-		if _, err = cl.immuClient.Login(cl.context, []byte(auth.SysAdminUsername), pass); err != nil {
+		// Get the selected database for the session.
+		database, err := cmd.Flags().GetString("database")
+		if err != nil {
 			return err
 		}
+		// Verify the user may log into the database.
+		err = cl.openSession([]byte(auth.SysAdminUsername), pass, database)
+		if err != nil {
+			return err
+		}
+		cl.disconnect(nil, nil)
 	} else {
 		fmt.Print("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed? [y/N]: ")
 		answer, err := cl.ReadFromTerminalYN("N")
