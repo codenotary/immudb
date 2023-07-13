@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -30,17 +32,21 @@ import (
 )
 
 func TestNewCmd(t *testing.T) {
-	cmd, _ := newCommand()
+	cmd, _, _ := newCommand()
 	assert.IsType(t, cobra.Command{}, *cmd)
 }
 
 type passwordReaderMock struct {
 	Counter   int
+	Loop      bool
 	Passwords []string
 }
 
 func (pwr *passwordReaderMock) Read(msg string) (pw []byte, err error) {
-	if pwr.Counter < len(pwr.Passwords) {
+	if pwr.Loop {
+		index := pwr.Counter % len(pwr.Passwords)
+		pw = []byte(pwr.Passwords[index])
+	} else if pwr.Counter < len(pwr.Passwords) {
 		pw = []byte(pwr.Passwords[pwr.Counter])
 	} else {
 		err = io.EOF
@@ -52,8 +58,12 @@ func (pwr *passwordReaderMock) Reset() {
 	pwr.Counter = 0
 }
 
-// Initialize an immudb instance and prepare a command line to connect to it.
-func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
+func (pwr *passwordReaderMock) SetLoop(loop bool) {
+	pwr.Loop = loop
+}
+
+// Initialize an immudb instance and initialize the commands.
+func newTestCommandLines(t *testing.T) (*commandline, *commandlineBck, *cobra.Command) {
 	tempDir := t.TempDir()
 	options := server.DefaultOptions().WithAuth(true).WithDir(tempDir)
 	bs := servertest.NewBufconnServer(options)
@@ -65,7 +75,7 @@ func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
 	t.Cleanup(func() { bs.Stop() })
 
 	// Create a command line with the dial options to connect to the test server.
-	cmd, cmdl := newCommand()
+	cmd, cmdl, cmdlBck := newCommand()
 	cmdl.dialOptions = []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
@@ -76,5 +86,36 @@ func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
 	}
 	cmdl.passwordReader = pwr
 
+	return cmdl, cmdlBck, cmd
+}
+
+// Initialize an immudb instance and prepare a command line to connect to it.
+func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
+	cmdl, _, cmd := newTestCommandLines(t)
 	return cmdl, cmd
+}
+
+// Initialize an immudb instance and prepare a backup command line to connect to it.
+func newTestCommandLineBck(t *testing.T) (*commandlineBck, *cobra.Command) {
+	_, cmdlBck, cmd := newTestCommandLines(t)
+
+	// Create a mockup immudb daemon.
+	daemMock := defaultDaemonMock()
+	cmdlBck.Backupper = &backupper{
+		daemon: daemMock,
+		os:     cmdlBck.os,
+		copier: fs.NewStandardCopier(),
+		tarer:  fs.NewStandardTarer(),
+		ziper:  fs.NewStandardZiper(),
+	}
+
+	// Create a mockup terminal reader that will only answer yes.
+	termReaderMock := &clienttest.TerminalReaderMock{
+		ReadFromTerminalYNF: func(def string) (selected string, err error) {
+			return "Y", nil
+		},
+	}
+	cmdlBck.TerminalReader = termReaderMock
+
+	return cmdlBck, cmd
 }

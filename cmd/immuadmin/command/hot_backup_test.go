@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRestore(t *testing.T) {
+func TestHotRestore(t *testing.T) {
 	fmt.Println("Restore")
 	cmdl, cmd := newTestCommandLine(t)
 	// Get the password reader from the command line.
@@ -126,7 +126,7 @@ func TestRestore(t *testing.T) {
 	pwr.Reset()
 }
 
-func TestBackup(t *testing.T) {
+func TestHotBackup(t *testing.T) {
 	fmt.Println("Backup")
 	cmdl, cmd := newTestCommandLine(t)
 	// Get the password reader from the command line.
