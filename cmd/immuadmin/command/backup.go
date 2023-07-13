@@ -134,7 +134,6 @@ func (cl *commandlineBck) backup(cmd *cobra.Command) {
 		Short: "Make a copy of the database files and folders",
 		Long: "Pause the immudb server, create and save on the server machine a snapshot " +
 			"of the database files and folders (zip on Windows, tar.gz on Linux or uncompressed).",
-		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
@@ -182,7 +181,6 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 		Short: "Restore the database from a snapshot archive or folder",
 		Long: "Pause the immudb server and restore the database files and folders from a snapshot " +
 			"file (zip or tar.gz) or folder (uncompressed) residing on the server machine.",
-		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapshotPath := args[0]
 			dbDir, err := cmd.Flags().GetString("dbdir")
