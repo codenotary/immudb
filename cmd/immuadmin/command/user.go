@@ -43,7 +43,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.userList(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			fmt.Fprint(cmd.OutOrStdout(), resp)
 			return nil
@@ -66,7 +66,7 @@ immuadmin user create user1 admin mydb`,
 			}
 			resp, err := cl.userCreate(args, newpass)
 			if err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			fmt.Fprint(cmd.OutOrStdout(), resp)
 			return nil

@@ -21,7 +21,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats"
 )
 
@@ -34,7 +33,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
 			if err := cl.immuClient.HealthCheck(ctx); err != nil {
-				c.QuitWithUserError(err)
+				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "OK - server is reachable and responding to queries\n")
 			return nil
@@ -53,27 +52,27 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			raw, err := cmd.Flags().GetBool("raw")
 			if err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			options := cl.immuClient.GetOptions()
 			if raw {
 				if err := stats.ShowMetricsRaw(cmd.OutOrStderr(), options.Address); err != nil {
-					c.QuitToStdErr(err)
+					return err
 				}
 				return nil
 			}
 			text, err := cmd.Flags().GetBool("text")
 			if err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			if text {
 				if err := stats.ShowMetricsAsText(cmd.OutOrStderr(), options.Address); err != nil {
-					c.QuitToStdErr(err)
+					return err
 				}
 				return nil
 			}
 			if err := stats.ShowMetricsVisually(options.Address); err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			return nil
 		},
