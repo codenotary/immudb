@@ -50,6 +50,8 @@ func NewImmuShell(root *cobra.Command) *immuShell {
 		func(flag *pflag.Flag) {
 			rootFlags[flag] = true
 		})
+	// Do not print the usage text on every error.
+	root.SilenceUsage = true
 	// Create a new shell an store the PersistentPostRun function of the root
 	// command.
 	shell := &immuShell{
