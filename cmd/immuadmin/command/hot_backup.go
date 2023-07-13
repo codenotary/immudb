@@ -18,7 +18,6 @@ package immuadmin
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -33,7 +32,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/immuos"
 )
 
 const (
@@ -55,17 +53,12 @@ var ErrTxWrongOrder = errors.New("incorrect transaction order in file")
 var ErrTxNotInFile = errors.New("last known transaction not in file")
 
 type commandlineHotBck struct {
-	commandline
+	*commandline
 	cmd *cobra.Command
 }
 
-func newCommandlineHotBck(os immuos.OS) (*commandlineHotBck, error) {
-	cl := commandline{}
-	cl.config.Name = "immuadmin"
-	cl.context = context.Background()
-	cl.os = os
-
-	return &commandlineHotBck{commandline: cl}, nil
+func newCommandlineHotBck(cmdl *commandline) (*commandlineHotBck, error) {
+	return &commandlineHotBck{commandline: cmdl}, nil
 }
 
 func (clb *commandlineHotBck) Register(rootCmd *cobra.Command) *cobra.Command {

@@ -70,7 +70,7 @@ func NewCommandLine() *commandline {
 	cl.config.Name = "immuadmin"
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
-	//
+	cl.os = immuos.NewStandardOS()
 	return cl
 }
 
