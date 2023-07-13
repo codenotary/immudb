@@ -270,11 +270,6 @@ func TestBackup(t *testing.T) {
 
 	require.NoError(t, collector.Start())
 
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd := cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
-
 	require.Nil(t, cmd.Execute())
 	backupLog, err := collector.Stop()
 	require.NoError(t, err)
@@ -287,11 +282,6 @@ func TestBackup(t *testing.T) {
 	})
 	clb.backup(cmd)
 	require.NoError(t, collector.Start())
-
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
 
 	require.Nil(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -312,11 +302,6 @@ func TestBackup(t *testing.T) {
 	}
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
-
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -343,12 +328,6 @@ func TestBackup(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Equal(t, errGetwd, msg)
 	}
-
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	os.GetwdF = getwdFOK
 
@@ -360,12 +339,6 @@ func TestBackup(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Equal(t, errAbs1, msg)
 	}
-
-	//	// remove ConfigChain method to avoid override options
-	//	cmd.PersistentPreRunE = nil
-	//	innercmd = cmd.Commands()[0]
-	//	innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 
 	errAbs2 := errors.New("Abs error 2")
@@ -380,12 +353,6 @@ func TestBackup(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Equal(t, errAbs2, msg)
 	}
-
-	//	// remove ConfigChain method to avoid override options
-	//	cmd.PersistentPreRunE = nil
-	//	innercmd = cmd.Commands()[0]
-	//	innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 
 	os.AbsF = absFOK
@@ -401,11 +368,6 @@ func TestBackup(t *testing.T) {
 	}
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
-
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -428,11 +390,6 @@ func TestBackup(t *testing.T) {
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
 
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
 	require.NoError(t, err)
@@ -451,11 +408,6 @@ func TestBackup(t *testing.T) {
 		require.Equal(t, "Canceled", msg.(error).Error())
 	}
 
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	cmd.SetArgs([]string{
 		"backup",
@@ -465,11 +417,6 @@ func TestBackup(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Equal(t, "Canceled", msg.(error).Error())
 	}
-
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	termReaderMock.ReadFromTerminalYNF = okReadFromTerminalYNF
@@ -494,11 +441,6 @@ func TestBackup(t *testing.T) {
 		require.Equal(t, pwReadErr, msg)
 	}
 	clb.backup(cmd)
-
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	clb.passwordReader = okPwReader
@@ -532,11 +474,6 @@ func TestBackup(t *testing.T) {
 		require.Equal(t, expectedErrMsg, msg.(error).Error())
 	}
 
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 
 	// dbdir not exists
@@ -551,11 +488,6 @@ func TestBackup(t *testing.T) {
 		require.Equal(t, expectedErrMsg, msg.(error).Error())
 	}
 
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 
 	// dbdir not a dir
@@ -567,11 +499,6 @@ func TestBackup(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Equal(t, expectedErrMsg, msg.(error).Error())
 	}
-
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 
@@ -588,11 +515,6 @@ func TestBackup(t *testing.T) {
 	}
 	clb.backup(cmd)
 
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	daemMock.StopF = nil
 
@@ -605,11 +527,6 @@ func TestBackup(t *testing.T) {
 	clb.backup(cmd)
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
-
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd = cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -672,11 +589,6 @@ func TestRestore(t *testing.T) {
 	})
 	clb.restore(cmd)
 
-	//  // remove ConfigChain method to avoid override options
-	//  cmd.PersistentPreRunE = nil
-	//  innercmd := cmd.Commands()[0]
-	//  innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	deleteBackupFiles(dbDirDst)
 
@@ -687,11 +599,6 @@ func TestRestore(t *testing.T) {
 		fmt.Sprintf("--dbdir=./%s", dbDirDst),
 	})
 	clb.restore(cmd)
-
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 
@@ -705,11 +612,6 @@ func TestRestore(t *testing.T) {
 		require.Equal(t, errStat, msg)
 	}
 
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	os.StatF = statFOK
 
@@ -720,11 +622,6 @@ func TestRestore(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Equal(t, "error stopping immudb server: daemon stop error", fmt.Sprintf("%v", msg))
 	}
-
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	daemMock.StopF = nil
@@ -739,11 +636,6 @@ func TestRestore(t *testing.T) {
 		require.Contains(t, msg.(error).Error(), "Rename error 1")
 	}
 
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 
 	nbCalls := 0
@@ -757,11 +649,6 @@ func TestRestore(t *testing.T) {
 	clb.onError = func(msg interface{}) {
 		require.Contains(t, msg.(error).Error(), "Rename error 2")
 	}
-
-	// // remove ConfigChain method to avoid override options
-	// cmd.PersistentPreRunE = nil
-	// innercmd = cmd.Commands()[0]
-	// innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 
