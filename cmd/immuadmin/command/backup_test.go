@@ -363,10 +363,7 @@ func TestBackup(t *testing.T) {
 	os.GetwdF = func() (string, error) {
 		return "", errGetwd
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errGetwd, msg)
-	}
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errGetwd, cmd.Execute())
 	os.GetwdF = getwdFOK
 
 	// Abs error
@@ -374,10 +371,7 @@ func TestBackup(t *testing.T) {
 	os.AbsF = func(path string) (string, error) {
 		return "", errAbs1
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errAbs1, msg)
-	}
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errAbs1, cmd.Execute())
 
 	errAbs2 := errors.New("Abs error 2")
 	nbAbsCalls = 0
@@ -388,10 +382,7 @@ func TestBackup(t *testing.T) {
 		}
 		return "", errAbs2
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errAbs2, msg)
-	}
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errAbs2, cmd.Execute())
 
 	os.AbsF = absFOK
 
@@ -438,25 +429,21 @@ func TestBackup(t *testing.T) {
 	okReadFromTerminalYNF := termReaderMock.ReadFromTerminalYNF
 
 	// canceled
+	deleteBackupFiles(dbDir)
 	nokReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "N", nil
 	}
 	termReaderMock.ReadFromTerminalYNF = nokReadFromTerminalYNF
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "Canceled", msg.(error).Error())
-	}
 
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "Canceled")
+
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
 		"--manual-stop-start",
 	})
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "Canceled", msg.(error).Error())
-	}
+	require.Error(t, cmd.Execute(), "Canceled")
 
-	require.NoError(t, cmd.Execute())
 	termReaderMock.ReadFromTerminalYNF = okReadFromTerminalYNF
 
 	okPwReader := clb.passwordReader
@@ -475,12 +462,8 @@ func TestBackup(t *testing.T) {
 		ReadF: errPwReadF,
 	}
 	clb.passwordReader = errPwReader
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, pwReadErr, msg)
-	}
-	clb.backup(cmd)
 
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, pwReadErr, cmd.Execute())
 	clb.passwordReader = okPwReader
 
 	/*
@@ -508,11 +491,7 @@ func TestBackup(t *testing.T) {
 	})
 	expectedErrMsg :=
 		"cannot backup the current directory, please specify a subdirectory, for example ./data"
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, expectedErrMsg, msg.(error).Error())
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), expectedErrMsg)
 
 	// dbdir not exists
 	notADir := dbDir + "_not_a_dir"
@@ -522,11 +501,7 @@ func TestBackup(t *testing.T) {
 	})
 	expectedErrMsg =
 		"stat backup_test_db_dir_not_a_dir: no such file or directory"
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, expectedErrMsg, msg.(error).Error())
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), expectedErrMsg)
 
 	// dbdir not a dir
 	_, err = stdos.Create(notADir)
@@ -534,11 +509,7 @@ func TestBackup(t *testing.T) {
 	defer stdos.Remove(notADir)
 	expectedErrMsg =
 		"backup_test_db_dir_not_a_dir is not a directory"
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, expectedErrMsg, msg.(error).Error())
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), expectedErrMsg)
 
 	// daemon stop error
 	cmd.SetArgs([]string{
@@ -548,12 +519,7 @@ func TestBackup(t *testing.T) {
 	daemMock.StopF = func() (string, error) {
 		return "", errors.New("daemon stop error")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "error stopping immudb server: daemon stop error", msg.(error).Error())
-	}
-	clb.backup(cmd)
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "error stopping immudb server: daemon stop error")
 	daemMock.StopF = nil
 
 	// daemon start error
@@ -562,7 +528,6 @@ func TestBackup(t *testing.T) {
 	}
 	clb.onError = func(msg interface{}) {
 	}
-	clb.backup(cmd)
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
 
@@ -646,22 +611,14 @@ func TestRestore(t *testing.T) {
 	os.StatF = func(name string) (stdos.FileInfo, error) {
 		return nil, errStat
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errStat, msg)
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errStat, cmd.Execute())
 	os.StatF = statFOK
 
 	// daemon stop error
 	daemMock.StopF = func() (string, error) {
 		return "", errors.New("daemon stop error")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "error stopping immudb server: daemon stop error", fmt.Sprintf("%v", msg))
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "error stopping immudb server: daemon stop error")
 	daemMock.StopF = nil
 
 	// Rename errors
@@ -670,11 +627,7 @@ func TestRestore(t *testing.T) {
 	os.RenameF = func(oldpath, newpath string) error {
 		return errors.New("Rename error 1")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Contains(t, msg.(error).Error(), "Rename error 1")
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "Rename error 1")
 
 	nbCalls := 0
 	os.RenameF = func(oldpath, newpath string) error {
@@ -684,11 +637,7 @@ func TestRestore(t *testing.T) {
 		}
 		return errors.New("Rename error 2")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Contains(t, msg.(error).Error(), "Rename error 2")
-	}
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "Rename error 2")
 
 	os.RenameF = renameFOK
 }
