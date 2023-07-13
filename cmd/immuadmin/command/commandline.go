@@ -107,6 +107,7 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 	cl.stats(rootCmd)
 	cl.serverConfig(rootCmd)
 	cl.database(rootCmd)
+	cl.shell(rootCmd)
 	return rootCmd
 }
 
