@@ -32,6 +32,11 @@ func (cl *commandline) shell(cmd *cobra.Command) {
 			// Hide the shell command so that it does not show up in any
 			// help message for interactive commands.
 			cmd.Hidden = true
+			// Store the non interactive setting of the command line and set it
+			// to false. The setting is restored after the shell exits.
+			nonInteractive := cl.nonInteractive
+			cl.nonInteractive = false
+			defer func() { cl.nonInteractive = nonInteractive }()
 			// Create a new shell and run it.
 			shell := NewImmuShell(cmd.Parent())
 			shell.run()
