@@ -26,11 +26,9 @@ import (
 
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "login username [database] (you will be prompted for password)",
-		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.SysAdminUsername),
-		Aliases:           []string{"l"},
-		PersistentPreRunE: cl.ConfigChain(nil),
-		//PersistentPostRun: nil,
+		Use:     "login username [database] (you will be prompted for password)",
+		Short:   fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.SysAdminUsername),
+		Aliases: []string{"l"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userStr := args[0]
 			if userStr != auth.SysAdminUsername {
@@ -100,10 +98,8 @@ func (cl *commandline) login(cmd *cobra.Command) {
 
 func (cl *commandline) logout(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "logout",
-		Aliases:           []string{"x"},
-		PersistentPreRunE: cl.ConfigChain(nil),
-		//PersistentPostRun: cl.disconnect,
+		Use:     "logout",
+		Aliases: []string{"x"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cl.disconnect(cmd, args)
 			fmt.Fprintf(cmd.OutOrStdout(), "logged out\n")

@@ -33,7 +33,7 @@ func (cl commandline) serverConfig(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "set auth|mtls value",
 		Short:             "Update server config items: auth (none|password|cryptosig), mtls (true|false)",
-		PersistentPreRunE: cl.ConfigChain(cl.checkLoggedInAndConnect),
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
