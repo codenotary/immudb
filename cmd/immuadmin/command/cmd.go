@@ -24,12 +24,13 @@ import (
 )
 
 func Execute() {
-	if err := newCommand().Execute(); err != nil {
+	cmd, _ := newCommand()
+	if err := cmd.Execute(); err != nil {
 		c.QuitWithUserError(err)
 	}
 }
 
-func newCommand() *cobra.Command {
+func newCommand() (*cobra.Command, *commandline) {
 	version.App = "immuadmin"
 	// register admin commands
 	cml := NewCommandLine()
@@ -56,5 +57,5 @@ func newCommand() *cobra.Command {
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/"+version.App))
 	cmd.AddCommand(version.VersionCmd())
 
-	return cmd
+	return cmd, cml
 }
