@@ -81,7 +81,6 @@ func (cl *commandlineHotBck) hotBackup(cmd *cobra.Command) {
 		Long: "Backup a database to file/stream without stopping the database engine. " +
 			"Backup can run from the beginning or starting from arbitrary transaction.",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file := io.Writer(os.Stdout)
 			params, err := prepareBackupParams(cmd.Flags())
@@ -317,7 +316,6 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 		Long: "Restore saved transaction from backup file without stopping the database engine. " +
 			"Restore can restore the data from scratch or apply only the missing data.",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params, err := prepareRestoreParams(cmd.Flags())
 			if err != nil {

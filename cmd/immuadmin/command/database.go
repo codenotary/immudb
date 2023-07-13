@@ -82,7 +82,6 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"list", "create", "load", "unload", "delete", "update", "use", "flush", "compact", "truncate"},
 	}
 

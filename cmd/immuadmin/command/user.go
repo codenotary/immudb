@@ -35,7 +35,6 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Short:             "Issue all user commands",
 		Aliases:           []string{"u"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 	}
 	userListCmd := &cobra.Command{
 		Use:   "list",

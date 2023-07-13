@@ -28,7 +28,6 @@ func (cl *commandline) shell(cmd *cobra.Command) {
 		Use:               "shell",
 		Aliases:           []string{},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Hide the shell command so that it does not show up in any
 			// help message for interactive commands.

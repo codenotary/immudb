@@ -69,6 +69,10 @@ func TestCommandLine_Login(t *testing.T) {
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
+	// Remove the default post run function, which would always perform a logout
+	// after executing the command.
+	cmd.PersistentPostRun = nil
+
 	// Execute the command.
 	err := cmd.Execute()
 	assert.NoError(t, err, "Executing login command should not fail.")
@@ -87,6 +91,10 @@ func TestCommandLine_Logout(t *testing.T) {
 	// Set a buffer to read the command output.
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
+
+	// Remove the default post run function, which would always perform a logout
+	// after executing the command.
+	cmd.PersistentPostRun = nil
 
 	// Execute the command.
 	err := cmd.Execute()
