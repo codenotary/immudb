@@ -49,8 +49,6 @@ type Commandline interface {
 type CommandlineCli interface {
 	disconnect(cmd *cobra.Command, args []string)
 	connect(cmd *cobra.Command, args []string) (err error)
-	checkLoggedIn(cmd *cobra.Command, args []string) (err error)
-	checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error)
 }
 
 type commandline struct {
@@ -154,25 +152,6 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 
 func (cl *commandline) openSession(user []byte, pass []byte, database string) error {
 	return cl.immuClient.OpenSession(cl.context, user, pass, database)
-}
-
-func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {
-	possiblyLoggedIn := cl.immuClient.IsConnected()
-	if !possiblyLoggedIn {
-		err = fmt.Errorf("please login first. If elevated privileges are required to execute requested action remember to execute login as super user. Eg. sudo login immudb")
-		cl.quit(err)
-	}
-	return
-}
-
-func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
-	if err = cl.checkLoggedIn(cmd, args); err != nil {
-		return err
-	}
-	if err = cl.connect(cmd, args); err != nil {
-		return err
-	}
-	return
 }
 
 // getPasswordFromFlag reads a password from the file specified by the given
