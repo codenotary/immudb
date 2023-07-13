@@ -20,7 +20,6 @@ import (
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
 )
 
@@ -41,15 +40,14 @@ func newCommand() *cobra.Command {
 
 	cmd = cml.Register(cmd)
 	// register backup related commands
-	os := immuos.NewStandardOS()
-	clb, err := newCommandlineBck(os)
+	clb, err := newCommandlineBck(cml)
 	if err != nil {
 		c.QuitToStdErr(err)
 	}
 	cmd = clb.Register(cmd)
 
 	// register hot backup related commands
-	clhb, err := newCommandlineHotBck(os)
+	clhb, err := newCommandlineHotBck(cml)
 	if err != nil {
 		c.QuitToStdErr(err)
 	}

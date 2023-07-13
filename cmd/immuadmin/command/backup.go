@@ -17,7 +17,6 @@ limitations under the License.
 package immuadmin
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	stdos "os"
@@ -68,24 +67,19 @@ type Backupper interface {
 }
 
 type commandlineBck struct {
-	commandline
+	*commandline
 	Backupper
 	c.TerminalReader
 }
 
-func newCommandlineBck(os immuos.OS) (*commandlineBck, error) {
-	b, err := newBackupper(os)
+func newCommandlineBck(cmdl *commandline) (*commandlineBck, error) {
+	b, err := newBackupper(cmdl.os)
 	if err != nil {
 		return nil, err
 	}
-	cl := commandline{}
-	cl.config.Name = "immuadmin"
-	cl.passwordReader = c.DefaultPasswordReader
-	cl.context = context.Background()
-	cl.os = os
 	tr := c.NewTerminalReader(stdos.Stdin)
 
-	return &commandlineBck{cl, b, tr}, nil
+	return &commandlineBck{cmdl, b, tr}, nil
 }
 
 func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
@@ -93,20 +87,6 @@ func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
 	clb.backup(rootCmd)
 	clb.restore(rootCmd)
 	return rootCmd
-}
-
-func (cl *commandlineBck) ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error) {
-	return func(cmd *cobra.Command, args []string) (err error) {
-		if err = cl.config.LoadConfig(cmd); err != nil {
-			return err
-		}
-		// here all command line options and services need to be configured by options retrieved from viper
-		cl.options = Options()
-		if post != nil {
-			return post(cmd, args)
-		}
-		return nil
-	}
 }
 
 func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {

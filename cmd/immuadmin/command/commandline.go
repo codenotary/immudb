@@ -72,7 +72,7 @@ func NewCommandLine() *commandline {
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.terminalReader = c.NewTerminalReader(os.Stdin)
 	cl.context = context.Background()
-	//
+	cl.os = immuos.NewStandardOS()
 	return cl
 }
 

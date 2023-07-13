@@ -90,7 +90,21 @@ func newTestCommandLine(t *testing.T) (*commandline, *cobra.Command) {
 	if err != nil {
 		t.Fatalf("initializing cobra command failed: %v", err)
 	}
-	cmdl.Register(cmd)
+	cmd = cmdl.Register(cmd)
+
+	// register backup related commands
+	clb, err := newCommandlineBck(cmdl)
+	if err != nil {
+		t.Fatalf("initializing backup command failed: %v", err)
+	}
+	cmd = clb.Register(cmd)
+
+	// register hot backup related commands
+	clhb, err := newCommandlineHotBck(cmdl)
+	if err != nil {
+		t.Fatalf("initializing hot-backup command failed: %v", err)
+	}
+	cmd = clhb.Register(cmd)
 
 	return cmdl, cmd
 }
