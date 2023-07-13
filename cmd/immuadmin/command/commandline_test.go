@@ -16,22 +16,16 @@ limitations under the License.
 
 package immuadmin
 
-/*
 import (
-	"context"
-	"errors"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/stretchr/testify/require"
-
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 )
 
+/*
 func TestCommandline(t *testing.T) {
 	options := client.DefaultOptions()
 
@@ -103,6 +97,7 @@ func TestCommandline(t *testing.T) {
 	}
 	require.Equal(t, errNewImmuClient, cl.checkLoggedInAndConnect(cmd, nil))
 }
+*/
 
 func TestCommandline_Register(t *testing.T) {
 	c := commandline{}
@@ -124,6 +119,7 @@ func TestCommandline_ConfigChain(t *testing.T) {
 		return nil
 	}
 	cmd.Flags().StringVar(&c.config.CfgFn, "config", "", "config file")
+	cmd.Flags().BoolP("non-interactive", "y", false, "non interactive")
 	cc := c.ConfigChain(f)
 	err := cc(cmd, []string{})
 	assert.NoError(t, err)
@@ -142,4 +138,3 @@ func TestCommandline_ConfigChainErr(t *testing.T) {
 	err := cc(cmd, []string{})
 	assert.Error(t, err)
 }
-*/
