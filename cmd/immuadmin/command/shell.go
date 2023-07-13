@@ -37,6 +37,13 @@ func (cl *commandline) shell(cmd *cobra.Command) {
 			nonInteractive := cl.nonInteractive
 			cl.nonInteractive = false
 			defer func() { cl.nonInteractive = nonInteractive }()
+			// Intercept errors so that the program does not exit upon the first
+			// encountered error.
+			cl.onError = func(msg interface{}) {
+				if err, ok := msg.(error); ok {
+					cmd.ErrOrStderr().Write([]byte(err.Error()))
+				}
+			}
 			// Create a new shell and run it.
 			shell := NewImmuShell(cmd.Parent())
 			shell.run()
