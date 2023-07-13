@@ -49,6 +49,8 @@ func NewImmuShell(root *cobra.Command) *immuShell {
 	root.PersistentFlags().VisitAll(
 		func(flag *pflag.Flag) {
 			rootFlags[flag] = true
+			// Also hide the flag, as it should only be set on startup.
+			flag.Hidden = true
 		})
 	// Do not print the usage text on every error.
 	root.SilenceUsage = true
