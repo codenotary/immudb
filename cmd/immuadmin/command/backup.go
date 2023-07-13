@@ -89,6 +89,27 @@ func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
 	return rootCmd
 }
 
+func (cl *commandlineBck) askYN(prompt string, defaultValue string) (string, error) {
+	fmt.Print(prompt)
+	switch defaultValue {
+	case "y":
+		fallthrough
+	case "Y":
+		fmt.Print(" [Y/n]: ")
+	case "n":
+		fallthrough
+	case "N":
+		fmt.Print(" [y/N]: ")
+	default:
+		fmt.Print(" [y/n]: ")
+	}
+	// Always answer yes in non-interactive mode.
+	if cl.nonInteractive {
+		return "Y", nil
+	}
+	return cl.TerminalReader.ReadFromTerminalYN(defaultValue)
+}
+
 func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "dump [file]",
@@ -215,12 +236,12 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 
 func (cl *commandlineBck) askUserConfirmation(cmd *cobra.Command, process string, manualStopStart bool) error {
 	if !manualStopStart {
-		fmt.Printf(
+		prompt := fmt.Sprintf(
 			"Server will be stopped and then restarted during the %s process.\n"+
 				"NOTE: If the backup process is forcibly interrupted, a manual restart "+
 				"of the immudb service may be needed.\n"+
-				"Are you sure you want to proceed? [y/N]: ", process)
-		answer, err := cl.ReadFromTerminalYN("N")
+				"Are you sure you want to proceed?", process)
+		answer, err := cl.askYN(prompt, "N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 			return errors.New("Canceled")
 
@@ -242,8 +263,8 @@ func (cl *commandlineBck) askUserConfirmation(cmd *cobra.Command, process string
 		}
 		cl.disconnect(nil, nil)
 	} else {
-		fmt.Print("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed? [y/N]: ")
-		answer, err := cl.ReadFromTerminalYN("N")
+		prompt := fmt.Sprint("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed?")
+		answer, err := cl.askYN(prompt, "N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 			return errors.New("Canceled")
 		}
