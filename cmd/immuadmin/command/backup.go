@@ -113,7 +113,7 @@ func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "dump [file]",
 		Short:             "Dump database content to a file",
-		PersistentPreRunE: cl.ConfigChain(cl.checkLoggedInAndConnect),
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")

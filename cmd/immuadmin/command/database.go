@@ -81,16 +81,15 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Use:               "database",
 		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"list", "create", "load", "unload", "delete", "update", "use", "flush", "compact", "truncate"},
 	}
 
 	listCmd := &cobra.Command{
-		Use:               "list",
-		Short:             "List all databases",
-		Aliases:           []string{"l"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "list",
+		Short:   "List all databases",
+		Aliases: []string{"l"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immuClient.DatabaseListV2(cl.context)
 			if err != nil {
@@ -126,11 +125,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 
 	createCmd := &cobra.Command{
-		Use:               "create",
-		Short:             "Create a new database",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		Example:           "create {database_name}",
+		Use:     "create",
+		Short:   "Create a new database",
+		Example: "create {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			settings, err := prepareDatabaseNullableSettings(cmd.Flags())
 			if err != nil {
@@ -171,11 +168,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 
 	unloadCmd := &cobra.Command{
-		Use:               "unload",
-		Short:             "Unload database",
-		Example:           "unload {database_name}",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "unload",
+		Short:   "Unload database",
+		Example: "unload {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, err := cl.immuClient.UnloadDatabase(cl.context, &schema.UnloadDatabaseRequest{
 				Database: args[0],
@@ -191,11 +186,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 
 	deleteCmd := &cobra.Command{
-		Use:               "delete",
-		Short:             "Delete database (unrecoverable operation)",
-		Example:           "delete --yes-i-know-what-i-am-doing {database_name}",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "delete",
+		Short:   "Delete database (unrecoverable operation)",
+		Example: "delete --yes-i-know-what-i-am-doing {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			safetyFlag, err := cmd.Flags().GetBool("yes-i-know-what-i-am-doing")
 			if err != nil {
@@ -223,11 +216,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	deleteCmd.MarkFlagRequired("yes-i-know-what-i-am-doing")
 
 	updateCmd := &cobra.Command{
-		Use:               "update",
-		Short:             "Update database",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		Example:           "update {database_name}",
+		Use:     "update",
+		Short:   "Update database",
+		Example: "update {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			settings, err := prepareDatabaseNullableSettings(cmd.Flags())
 			if err != nil {
@@ -248,12 +239,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	addDbUpdateFlags(updateCmd)
 
 	useCmd := &cobra.Command{
-		Use:               "use",
-		Short:             "Select database",
-		Example:           "use {database_name}",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"databasename"},
+		Use:       "use",
+		Short:     "Select database",
+		Example:   "use {database_name}",
+		ValidArgs: []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{
 				DatabaseName: args[0],
@@ -269,11 +258,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 
 	flushCmd := &cobra.Command{
-		Use:               "flush",
-		Short:             "Flush database index",
-		Example:           "flush",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "flush",
+		Short:   "Flush database index",
+		Example: "flush",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cleanupPercentage, err := cmd.Flags().GetFloat32("cleanup-percentage")
 			if err != nil {
@@ -299,11 +286,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	flushCmd.Flags().Bool("synced", true, "synced mode enables physical data deletion")
 
 	compactCmd := &cobra.Command{
-		Use:               "compact",
-		Short:             "Compact database index",
-		Example:           "compact",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "compact",
+		Short:   "Compact database index",
+		Example: "compact",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := cl.immuClient.CompactIndex(cl.context, &emptypb.Empty{})
 			if err != nil {
@@ -317,11 +302,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 
 	truncateCmd := &cobra.Command{
-		Use:               "truncate",
-		Short:             "Truncate database (unrecoverable operation)",
-		Example:           "truncate --yes-i-know-what-i-am-doing {database_name} --retention-period {retention_period}",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "truncate",
+		Short:   "Truncate database (unrecoverable operation)",
+		Example: "truncate --yes-i-know-what-i-am-doing {database_name} --retention-period {retention_period}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			safetyFlag, err := cmd.Flags().GetBool("yes-i-know-what-i-am-doing")
 			if err != nil {
