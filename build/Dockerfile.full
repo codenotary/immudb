@@ -49,10 +49,6 @@ RUN addgroup --system --gid $IMMU_GID immu && \
     chmod 775 /var/run/immudb && \
     chmod 555 /usr/local/bin/create_user_db.sh
 
-RUN apt-get update && \
-    apt-get install -y expect && \
-    apt-get clean
-
 EXPOSE 3322
 EXPOSE 9497
 EXPOSE 8080
