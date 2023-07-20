@@ -186,7 +186,7 @@ func TestMetricFuncComputeLoadedDBSize(t *testing.T) {
 			return database.DefaultOption()
 		},
 	})
-
+	var sw strings.Builder
 	s := ImmuServer{
 		Options: &Options{
 			defaultDBName: "defaultdb",
@@ -197,6 +197,10 @@ func TestMetricFuncComputeLoadedDBSize(t *testing.T) {
 				return database.DefaultOption()
 			},
 		},
+		Logger: logger.NewSimpleLoggerWithLevel(
+			"TestMetricFuncComputeDBSizes",
+			&sw,
+			logger.LogError),
 	}
 	require.Equal(t,s.metricFuncComputeLoadedDBSize(),1.0)
 	require.Equal(t,s.metricFuncComputeSessionCount(),0.0)
