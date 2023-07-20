@@ -39,6 +39,8 @@ func TestStartMetrics(t *testing.T) {
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
 		func() map[string]float64 { return make(map[string]float64) },
+		func() float64 { return 1.0 },
+		func() float64 { return 2.0 },
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
@@ -59,6 +61,8 @@ func TestStartMetricsFail(t *testing.T) {
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
 		func() map[string]float64 { return make(map[string]float64) },
+		func() float64 { return 1.0 },
+		func() float64 { return 2.0 },
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)

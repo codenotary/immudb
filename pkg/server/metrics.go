@@ -59,6 +59,12 @@ type MetricsCollection struct {
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
 
 	RemoteStorageKind *prometheus.GaugeVec
+
+	computeLoadedDBSize func() float64
+	LoadedDatabases prometheus.Gauge
+
+	computeSessionCount func() float64
+	ActiveSessions  prometheus.Gauge
 }
 
 var metricsNamespace = "immudb"
@@ -97,6 +103,16 @@ func (mc *MetricsCollection) WithComputeDBEntries(f func() map[string]float64) {
 	mc.computeDBEntries = f
 }
 
+// WithLoadedDBSize ...
+func (mc *MetricsCollection) WithLoadedDBSize(f func() float64) {
+	mc.computeLoadedDBSize = f
+}
+
+// WithLoadedDBSize ...
+func (mc *MetricsCollection) WithComputeSessionCount(f func() float64) {
+	mc.computeSessionCount = f
+}
+
 // UpdateDBMetrics ...
 func (mc *MetricsCollection) UpdateDBMetrics() {
 	if mc.computeDBSizes != nil {
@@ -108,6 +124,12 @@ func (mc *MetricsCollection) UpdateDBMetrics() {
 		for db, nbEntries := range mc.computeDBEntries() {
 			mc.DBEntriesGauges.WithLabelValues(db).Set(nbEntries)
 		}
+	}
+	if mc.computeLoadedDBSize != nil {
+		mc.LoadedDatabases.Set(mc.computeLoadedDBSize())
+	}
+	if mc.computeSessionCount != nil {
+		mc.ActiveSessions.Set(mc.computeSessionCount())
 	}
 }
 
@@ -153,6 +175,20 @@ var Metrics = MetricsCollection{
 		},
 		[]string{"db", "kind"},
 	),
+	LoadedDatabases: promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "loaded_databases",
+			Help:      "Numer of loaded databases",
+		},
+	),
+	ActiveSessions: promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "active_sessions",
+			Help:      "Numer of active sessions",
+		},
+	),
 }
 
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
@@ -164,12 +200,16 @@ func StartMetrics(
 	uptimeCounter func() float64,
 	computeDBSizes func() map[string]float64,
 	computeDBEntries func() map[string]float64,
+	computeLoadedDBSize func() float64,
+	computeSessionCount func() float64,
 	addPProf bool,
 ) *http.Server {
 
 	Metrics.WithUptimeCounter(uptimeCounter)
 	Metrics.WithComputeDBSizes(computeDBSizes)
 	Metrics.WithComputeDBEntries(computeDBEntries)
+	Metrics.WithLoadedDBSize(computeLoadedDBSize)
+	Metrics.WithComputeSessionCount(computeSessionCount)
 
 	go func() {
 		Metrics.UpdateDBMetrics()

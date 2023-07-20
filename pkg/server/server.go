@@ -270,7 +270,8 @@ func (s *ImmuServer) Start() (err error) {
 
 	if s.Options.MetricsServer {
 		s.metricsServer = StartMetrics(1*time.Minute, s.Options.MetricsBind(), s.Logger, s.metricFuncServerUptimeCounter,
-			s.metricFuncComputeDBSizes, s.metricFuncComputeDBEntries, s.Options.PProf)
+			s.metricFuncComputeDBSizes, s.metricFuncComputeDBEntries, s.metricFuncComputeLoadedDBSize, s.metricFuncComputeSessionCount,
+			s.Options.PProf)
 		defer func() {
 			if err := s.metricsServer.Close(); err != nil {
 				s.Logger.Errorf("Failed to shutdown metric server: %s", err)

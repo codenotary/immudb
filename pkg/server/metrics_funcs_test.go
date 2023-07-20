@@ -175,3 +175,28 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	s.sysDB = nil
 	s.metricFuncComputeDBSizes()
 }
+
+func TestMetricFuncComputeLoadedDBSize(t *testing.T) {
+	dbList := database.NewDatabaseList()
+	dbList.Put(dbMock{
+		getNameF: func() string {
+			return "defaultdb"
+		},
+		getOptionsF: func() *database.Options {
+			return database.DefaultOption()
+		},
+	})
+
+	s := ImmuServer{
+		Options: &Options{
+			defaultDBName: "defaultdb",
+		},
+		dbList: dbList,
+		sysDB: dbMock{
+			getOptionsF: func() *database.Options {
+				return database.DefaultOption()
+			},
+		},
+	}
+	require.Equal(t,s.metricFuncComputeLoadedDBSize(),1)
+}

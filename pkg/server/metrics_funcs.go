@@ -136,3 +136,11 @@ func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]flo
 
 	return
 }
+
+func (s *ImmuServer) metricFuncComputeLoadedDBSize() float64 {
+	return float64(s.dbList.Length())
+}
+
+func (s *ImmuServer) metricFuncComputeSessionCount() float64 {
+	return float64(s.SessManager.SessionCount())
+}
