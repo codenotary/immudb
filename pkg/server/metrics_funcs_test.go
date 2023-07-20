@@ -198,5 +198,5 @@ func TestMetricFuncComputeLoadedDBSize(t *testing.T) {
 			},
 		},
 	}
-	require.Equal(t,s.metricFuncComputeLoadedDBSize(),1)
+	require.Equal(t,s.metricFuncComputeLoadedDBSize(),1.0)
 }
