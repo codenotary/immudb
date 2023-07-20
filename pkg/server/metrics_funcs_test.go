@@ -199,4 +199,5 @@ func TestMetricFuncComputeLoadedDBSize(t *testing.T) {
 		},
 	}
 	require.Equal(t,s.metricFuncComputeLoadedDBSize(),1.0)
+	require.Equal(t,s.metricFuncComputeSessionCount(),0.0)
 }

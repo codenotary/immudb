@@ -142,5 +142,10 @@ func (s *ImmuServer) metricFuncComputeLoadedDBSize() float64 {
 }
 
 func (s *ImmuServer) metricFuncComputeSessionCount() float64 {
+	if s.SessManager == nil {
+		s.Logger.Warningf(
+			"current update of session count is skipped: no session manager")
+		return 0.0
+	}
 	return float64(s.SessManager.SessionCount())
 }
