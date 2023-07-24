@@ -96,7 +96,7 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 	s, err := cli.streamSet(ctx)
 	require.NoError(t, err)
 
-	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
+	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, make([]byte, cli.Options.StreamChunkSize)))
 
 	err = kvss.Send(kvs[0])
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	s1, err := cli.streamSet(ctx)
 	require.NoError(t, err)
 
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s1, cli.Options.StreamChunkSize))
+	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s1, make([]byte, cli.Options.StreamChunkSize)))
 
 	key := []byte("key1")
 	val := []byte("val1")
@@ -138,7 +138,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	s2, err := cli.streamSet(ctx)
 	require.NoError(t, err)
 
-	kvs2 := stream.NewKvStreamSender(stream.NewMsgSender(s2, cli.Options.StreamChunkSize))
+	kvs2 := stream.NewKvStreamSender(stream.NewMsgSender(s2, make([]byte, cli.Options.StreamChunkSize)))
 
 	key2 := []byte("key2")
 	val2 := []byte("val2")
@@ -164,7 +164,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	s3, err := cli.streamSet(ctx)
 	require.NoError(t, err)
 
-	kvs3 := stream.NewKvStreamSender(stream.NewMsgSender(s3, cli.Options.StreamChunkSize))
+	kvs3 := stream.NewKvStreamSender(stream.NewMsgSender(s3, make([]byte, cli.Options.StreamChunkSize)))
 
 	key3 := []byte("key3")
 	val3 := []byte("val3")
