@@ -1259,7 +1259,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 
 	// TODO: under some circumstances, replica might not be able to do further progress until primary
 	// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
-	ctx, cancel := context.WithTimeout(ctx, d.options.storeOpts.SyncFrequency*4)
+	ctx, cancel := context.WithTimeout(ctx, d.options.storeOpts.SyncFrequency*8)
 	defer cancel()
 
 	err = d.WaitForTx(ctx, req.Tx, req.AllowPreCommitted)
