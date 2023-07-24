@@ -22,29 +22,32 @@ import (
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/stream"
 	"google.golang.org/grpc/metadata"
 )
 
 func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer) error {
-	return s.exportTx(req, txsServer, true)
+	return s.exportTx(req, txsServer, true, make([]byte, s.Options.StreamChunkSize))
 }
 
 // StreamExportTx implements the bidirectional streaming endpoint used to export transactions
 func (s *ImmuServer) StreamExportTx(stream schema.ImmuService_StreamExportTxServer) error {
+	buf := make([]byte, s.Options.StreamChunkSize)
+
 	for {
 		req, err := stream.Recv()
 		if err != nil {
 			return err
 		}
 
-		err = s.exportTx(req, stream, false)
+		err = s.exportTx(req, stream, false, buf)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func (s *ImmuServer) exportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer, setTrailer bool) error {
+func (s *ImmuServer) exportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer, setTrailer bool, buf []byte) error {
 	if req == nil || req.Tx == 0 || txsServer == nil {
 		return ErrIllegalArguments
 	}
@@ -90,14 +93,9 @@ func (s *ImmuServer) exportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		}
 	}
 
-	sender := s.StreamServiceFactory.NewMsgSender(txsServer)
+	sender := stream.NewMsgSender(txsServer, buf)
 
-	err = sender.Send(bytes.NewReader(txbs), len(txbs), streamMetadata)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return sender.Send(bytes.NewReader(txbs), len(txbs), streamMetadata)
 }
 
 func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateTxServer) error {

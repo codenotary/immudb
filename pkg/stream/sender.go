@@ -35,10 +35,10 @@ type msgSender struct {
 }
 
 // NewMsgSender returns a NewMsgSender. It can be used on server side or client side to send a message on a stream.
-func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
+func NewMsgSender(s ImmuServiceSender_Stream, buf []byte) *msgSender {
 	return &msgSender{
 		stream: s,
-		buf:    make([]byte, chunkSize),
+		buf:    buf,
 		chunk:  &schema.Chunk{},
 	}
 }
