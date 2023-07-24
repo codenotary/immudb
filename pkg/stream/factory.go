@@ -46,7 +46,7 @@ func NewStreamServiceFactory(chunkSize int) ServiceFactory {
 
 // NewMsgSender returns a MsgSender
 func (s *serviceFactory) NewMsgSender(str ImmuServiceSender_Stream) MsgSender {
-	return NewMsgSender(str, s.ChunkSize)
+	return NewMsgSender(str, make([]byte, s.ChunkSize))
 }
 
 // NewMsgReceiver returns a MsgReceiver

@@ -26,7 +26,7 @@ import (
 
 func TestNewKvStreamSender(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
-	s := NewMsgSender(sm, 4096)
+	s := NewMsgSender(sm, make([]byte, 4096))
 	kvss := NewKvStreamSender(s)
 	require.IsType(t, &kvStreamSender{}, kvss)
 }
