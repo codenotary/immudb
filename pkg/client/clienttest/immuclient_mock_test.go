@@ -69,6 +69,9 @@ func TestImmuClientMock(t *testing.T) {
 		SetF: func(context.Context, []byte, []byte) (*schema.TxHeader, error) {
 			return nil, errSet
 		},
+		SetAllF: func(context.Context, *schema.SetRequest) (*schema.TxHeader, error) {
+			return nil, errSet
+		},
 		VerifiedSetReferenceF: func(context.Context, []byte, []byte, uint64) (*schema.TxHeader, error) {
 			return nil, errVerifiedReference
 		},
@@ -105,6 +108,9 @@ func TestImmuClientMock(t *testing.T) {
 	require.ErrorIs(t, err, errVerifiedSet)
 
 	_, err = icm.Set(context.Background(), nil, nil)
+	require.ErrorIs(t, err, errSet)
+
+	_, err = icm.SetAll(context.Background(), nil)
 	require.ErrorIs(t, err, errSet)
 
 	_, err = icm.VerifiedSetReference(context.Background(), nil, nil)
