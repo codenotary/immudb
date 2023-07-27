@@ -38,7 +38,7 @@ require (
 	golang.org/x/sys v0.10.0
 	golang.org/x/tools/cmd/cover v0.1.0-deprecated
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc
-	google.golang.org/grpc v1.56.2
+	google.golang.org/grpc v1.57.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.30.0
 )
