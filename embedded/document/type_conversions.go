@@ -26,12 +26,17 @@ import (
 )
 
 var structValueToSqlValue = func(value *structpb.Value, sqlType sql.SQLValueType) (sql.ValueExp, error) {
+	if _, ok := value.GetKind().(*structpb.Value_NullValue); ok {
+		return &sql.NullValue{}, nil
+	}
+
 	switch sqlType {
 	case sql.VarcharType:
 		_, ok := value.GetKind().(*structpb.Value_StringValue)
 		if !ok {
 			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
 		}
+
 		return sql.NewVarchar(value.GetStringValue()), nil
 	case sql.IntegerType:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
