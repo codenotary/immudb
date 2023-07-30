@@ -1412,6 +1412,10 @@ type TypedValue interface {
 	IsNull() bool
 }
 
+func NewNull(t SQLValueType) *NullValue {
+	return &NullValue{t: t}
+}
+
 type NullValue struct {
 	t SQLValueType
 }

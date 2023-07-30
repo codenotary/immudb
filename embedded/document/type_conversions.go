@@ -27,7 +27,7 @@ import (
 
 var structValueToSqlValue = func(value *structpb.Value, sqlType sql.SQLValueType) (sql.ValueExp, error) {
 	if _, ok := value.GetKind().(*structpb.Value_NullValue); ok {
-		return &sql.NullValue{}, nil
+		return sql.NewNull(sql.AnyType), nil
 	}
 
 	switch sqlType {

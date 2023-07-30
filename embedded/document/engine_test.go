@@ -590,10 +590,15 @@ func TestQueryDocuments(t *testing.T) {
 	require.NoError(t, err)
 
 	// add documents to collection
-	for i := 1.0; i <= 10; i++ {
+	for i := 1.0; i <= 11; i++ {
 		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"pincode": structpb.NewNumberValue(i),
+				"pincode": func() *structpb.Value {
+					if i == 11 {
+						return structpb.NewNullValue()
+					}
+					return structpb.NewNumberValue(i)
+				}(),
 				"country": structpb.NewStringValue(fmt.Sprintf("country-%d", int(i))),
 				"address": structpb.NewStructValue(&structpb.Struct{
 					Fields: map[string]*structpb.Value{
@@ -633,13 +638,13 @@ func TestQueryDocuments(t *testing.T) {
 		_, err = reader.ReadN(ctx, 0)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		docs, err := reader.ReadN(ctx, 10)
+		docs, err := reader.ReadN(ctx, 11)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Len(t, docs, 9)
+		require.Len(t, docs, 10)
 
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
-		require.EqualValues(t, 9, count)
+		require.EqualValues(t, 10, count)
 	})
 
 	t.Run("test query nested with != operator", func(t *testing.T) {
@@ -662,13 +667,13 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		docs, err := reader.ReadN(ctx, 10)
+		docs, err := reader.ReadN(ctx, 11)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Len(t, docs, 9)
+		require.Len(t, docs, 10)
 
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
-		require.EqualValues(t, 9, count)
+		require.EqualValues(t, 10, count)
 	})
 
 	t.Run("test query with < operator", func(t *testing.T) {
@@ -691,13 +696,13 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		docs, err := reader.ReadN(ctx, 10)
+		docs, err := reader.ReadN(ctx, 11)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Len(t, docs, 9)
+		require.Len(t, docs, 10)
 
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
-		require.EqualValues(t, 9, count)
+		require.EqualValues(t, 10, count)
 	})
 
 	t.Run("test query with <= operator", func(t *testing.T) {
@@ -720,13 +725,13 @@ func TestQueryDocuments(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		docs, err := reader.ReadN(ctx, 10)
+		docs, err := reader.ReadN(ctx, 11)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Len(t, docs, 9)
+		require.Len(t, docs, 10)
 
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
-		require.EqualValues(t, 9, count)
+		require.EqualValues(t, 10, count)
 	})
 
 	t.Run("test query with > operator", func(t *testing.T) {
@@ -814,11 +819,11 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Len(t, docs, 8)
+		require.Len(t, docs, 9)
 
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
-		require.EqualValues(t, 8, count)
+		require.EqualValues(t, 9, count)
 	})
 
 	t.Run("test group query with < operator", func(t *testing.T) {
@@ -843,11 +848,11 @@ func TestQueryDocuments(t *testing.T) {
 
 		docs, err := reader.ReadN(ctx, 10)
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
-		require.Len(t, docs, 4)
+		require.Len(t, docs, 5)
 
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
-		require.EqualValues(t, 4, count)
+		require.EqualValues(t, 5, count)
 	})
 
 	t.Run("query should fail with invalid field name", func(t *testing.T) {
@@ -922,6 +927,64 @@ func TestQueryDocuments(t *testing.T) {
 		count, err := engine.CountDocuments(ctx, query, 0)
 		require.NoError(t, err)
 		require.EqualValues(t, 5, count)
+	})
+
+	t.Run("test group query with IS NULL operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewNullValue(),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 11)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Len(t, docs, 1)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, count)
+	})
+
+	t.Run("test group query with IS NOT NULL operator", func(t *testing.T) {
+		query := &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    "pincode",
+							Operator: protomodel.ComparisonOperator_NE,
+							Value:    structpb.NewNullValue(),
+						},
+					},
+				},
+			},
+		}
+
+		reader, err := engine.GetDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		docs, err := reader.ReadN(ctx, 11)
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
+		require.Len(t, docs, 10)
+
+		count, err := engine.CountDocuments(ctx, query, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 10, count)
 	})
 }
 
