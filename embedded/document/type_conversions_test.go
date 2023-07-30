@@ -41,7 +41,7 @@ func TestStructValueToSqlValue(t *testing.T) {
 	}
 	result, err = structValueToSqlValue(value, sql.VarcharType)
 	require.NoError(t, err, "Expected no error for VarcharType with NULL value")
-	require.Equal(t, &sql.NullValue{}, result, "Expected NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for IntegerType
 	value = &structpb.Value{
@@ -57,7 +57,7 @@ func TestStructValueToSqlValue(t *testing.T) {
 	}
 	result, err = structValueToSqlValue(value, sql.IntegerType)
 	require.NoError(t, err, "Expected no error for IntegerType with NULL value")
-	require.Equal(t, &sql.NullValue{}, result, "Expected NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for BLOBType
 	value = &structpb.Value{
@@ -76,7 +76,7 @@ func TestStructValueToSqlValue(t *testing.T) {
 	}
 	result, err = structValueToSqlValue(value, sql.BLOBType)
 	require.NoError(t, err, "Expected no error for BLOBType with NULL value")
-	require.Equal(t, &sql.NullValue{}, result, "Expected NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for Float64Type
 	value = &structpb.Value{
@@ -92,7 +92,7 @@ func TestStructValueToSqlValue(t *testing.T) {
 	}
 	result, err = structValueToSqlValue(value, sql.Float64Type)
 	require.NoError(t, err, "Expected no error for Float64Type with NULL value")
-	require.Equal(t, &sql.NullValue{}, result, "Expected NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for BooleanType
 	value = &structpb.Value{
@@ -108,7 +108,7 @@ func TestStructValueToSqlValue(t *testing.T) {
 	}
 	result, err = structValueToSqlValue(value, sql.BooleanType)
 	require.NoError(t, err, "Expected no error for BooleanType with NULL value")
-	require.Equal(t, &sql.NullValue{}, result, "Expected NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for unsupported type
 	value = &structpb.Value{
