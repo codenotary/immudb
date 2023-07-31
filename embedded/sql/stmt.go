@@ -768,17 +768,17 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 
 		_, err = valbuf.Write(b)
 		if err != nil {
-			return fmt.Errorf("%w; table: %s, column: %s", err, table.name, col.colName)
+			return fmt.Errorf("%w: table: %s, column: %s", err, table.name, col.colName)
 		}
 
 		encVal, err := EncodeValue(rval, col.colType, col.MaxLen())
 		if err != nil {
-			return fmt.Errorf("%w; table: %s, column: %s", err, table.name, col.colName)
+			return fmt.Errorf("%w: table: %s, column: %s", err, table.name, col.colName)
 		}
 
 		_, err = valbuf.Write(encVal)
 		if err != nil {
-			return fmt.Errorf("%w; table: %s, column: %s", err, table.name, col.colName)
+			return fmt.Errorf("%w: table: %s, column: %s", err, table.name, col.colName)
 		}
 	}
 
