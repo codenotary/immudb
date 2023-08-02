@@ -679,7 +679,7 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 
 		rval, err := e.structValueFromFieldPath(doc, col.Name())
 		if err != nil && !errors.Is(err, ErrFieldDoesNotExist) {
-			return nil, err
+			return nil, fmt.Errorf("%w: field: %s", err, col.Name())
 		}
 
 		if rval == nil {
@@ -687,7 +687,7 @@ func (e *Engine) generateRowSpecForDocument(table *sql.Table, doc *structpb.Stru
 		} else {
 			val, err := structValueToSqlValue(rval, col.Type())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w: field: %s", err, col.Name())
 			}
 			values[i] = val
 		}
