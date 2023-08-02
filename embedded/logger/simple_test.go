@@ -60,8 +60,11 @@ func TestSimpleLogger(t *testing.T) {
 }
 
 func TestLogLevelFromEnvironment(t *testing.T) {
-	defaultLevel := LogLevelFromEnvironment()
-	require.Equal(t, LogInfo, defaultLevel)
+	t.Run("unset - default to info", func(t *testing.T) {
+		t.Setenv("LOG_LEVEL", "")
+		defaultLevel := LogLevelFromEnvironment()
+		require.Equal(t, LogInfo, defaultLevel)
+	})
 
 	t.Run("error", func(t *testing.T) {
 		t.Setenv("LOG_LEVEL", "error")
