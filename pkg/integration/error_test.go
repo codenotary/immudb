@@ -18,7 +18,6 @@ package integration
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -27,13 +26,11 @@ import (
 )
 
 func TestGRPCError(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	bs, cli, _ := setupTestServerAndClientWithToken(t)
 
 	t.Run("errors with token-based auth", func(t *testing.T) {
-
 		_, err := cli.Login(context.Background(), []byte(`immudb`), []byte(`wrong`))
 
 		require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
@@ -41,7 +38,6 @@ func TestGRPCError(t *testing.T) {
 		require.Equal(t, err.(errors.ImmuError).Code(), errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
 		require.Equal(t, int32(0), err.(errors.ImmuError).RetryDelay())
 		require.NotNil(t, err.(errors.ImmuError).Stack())
-
 	})
 
 	t.Run("errors with session-based auth", func(t *testing.T) {

@@ -17,7 +17,6 @@ limitations under the License.
 package errors
 
 import (
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -59,8 +58,7 @@ func TestWrappedError_GRPCStatusEmptyCause(t *testing.T) {
 }
 
 func TestImmuError_GRPCStatusWithStack(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	ie := &immuError{
 		code:       "",

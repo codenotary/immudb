@@ -18,7 +18,6 @@ package logger_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/logger"
@@ -26,9 +25,7 @@ import (
 )
 
 func TestMemoryLogger(t *testing.T) {
-
-	os.Setenv("LOG_LEVEL", "error")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "error")
 
 	ml := logger.NewMemoryLogger()
 	defer ml.Close()

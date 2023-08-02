@@ -20,15 +20,14 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestSimpleLogger(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "error")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "error")
+
 	name := "test-simple-logger"
 	outputWriter := bytes.NewBufferString("")
 	sl := NewSimpleLogger(name, outputWriter)
@@ -63,13 +62,24 @@ func TestSimpleLogger(t *testing.T) {
 func TestLogLevelFromEnvironment(t *testing.T) {
 	defaultLevel := LogLevelFromEnvironment()
 	require.Equal(t, LogInfo, defaultLevel)
-	defer os.Unsetenv("LOG_LEVEL")
-	os.Setenv("LOG_LEVEL", "error")
-	require.Equal(t, LogError, LogLevelFromEnvironment())
-	os.Setenv("LOG_LEVEL", "warn")
-	require.Equal(t, LogWarn, LogLevelFromEnvironment())
-	os.Setenv("LOG_LEVEL", "info")
-	require.Equal(t, LogInfo, LogLevelFromEnvironment())
-	os.Setenv("LOG_LEVEL", "debug")
-	require.Equal(t, LogDebug, LogLevelFromEnvironment())
+
+	t.Run("error", func(t *testing.T) {
+		t.Setenv("LOG_LEVEL", "error")
+		require.Equal(t, LogError, LogLevelFromEnvironment())
+	})
+
+	t.Run("warn", func(t *testing.T) {
+		t.Setenv("LOG_LEVEL", "warn")
+		require.Equal(t, LogWarn, LogLevelFromEnvironment())
+	})
+
+	t.Run("info", func(t *testing.T) {
+		t.Setenv("LOG_LEVEL", "info")
+		require.Equal(t, LogInfo, LogLevelFromEnvironment())
+	})
+
+	t.Run("debug", func(t *testing.T) {
+		t.Setenv("LOG_LEVEL", "debug")
+		require.Equal(t, LogDebug, LogLevelFromEnvironment())
+	})
 }
