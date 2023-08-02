@@ -19,7 +19,6 @@ package errors_test
 import (
 	stdErrors "errors"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/errors"
@@ -28,8 +27,7 @@ import (
 )
 
 func Test_Immuerror(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "cause error"
 	err := errors.New(cause)
@@ -41,12 +39,10 @@ func Test_Immuerror(t *testing.T) {
 	require.ErrorIs(t, err, err.Cause())
 	require.Equal(t, err.RetryDelay(), int32(0))
 	require.NotNil(t, err.Stack())
-
 }
 
 func Test_WrappingError(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "std error"
 	err := errors.New(cause)
@@ -65,8 +61,7 @@ func Test_WrappingError(t *testing.T) {
 }
 
 func Test_WrappingImmuerror(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "cause error"
 	err := errors.New(cause)
@@ -83,8 +78,7 @@ func Test_WrappingImmuerror(t *testing.T) {
 }
 
 func Test_ImmuerrorIs(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "cause error"
 	err := errors.New(cause).WithCode(errors.CodInternalError)
@@ -104,8 +98,7 @@ func Test_ImmuerrorIs(t *testing.T) {
 }
 
 func Test_CauseComparisonWrappedError(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "std error"
 	err := errors.New(cause)
@@ -123,8 +116,7 @@ func Test_CauseComparisonWrappedError(t *testing.T) {
 }
 
 func Test_CauseComparisonError(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "std error"
 	err := errors.New(cause).WithCode(errors.CodSqlclientUnableToEstablishSqlConnection)
@@ -141,8 +133,7 @@ func Test_CauseComparisonError(t *testing.T) {
 }
 
 func Test_WrappingImmuerrorWithKnowCode(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "debug")
-	defer os.Unsetenv("LOG_LEVEL")
+	t.Setenv("LOG_LEVEL", "debug")
 
 	cause := "cause error"
 	err := errors.New(cause)
