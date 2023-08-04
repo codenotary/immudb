@@ -1545,6 +1545,23 @@ func TestMultiTimedBulkInsertion(t *testing.T) {
 		require.Equal(t, initialTs, tbtree.Ts())
 	})
 
+	t.Run("bulk-insertion of the same key timestamp equal to current timestamp of root should not be possible", func(t *testing.T) {
+		_, _, err = tbtree.Flush()
+		require.NoError(t, err)
+
+		err = tbtree.Insert([]byte("key3_1"), []byte("value3_1"))
+		require.NoError(t, err)
+
+		currTs := tbtree.Ts()
+
+		kvts := []*KVT{
+			{K: []byte("key3_2"), V: []byte("value3_2"), T: currTs},
+		}
+
+		err = tbtree.BulkInsert(kvts)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 }
