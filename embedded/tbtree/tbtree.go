@@ -1633,7 +1633,7 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 		if t == 0 {
 			// zero-valued timestamps are associated with current time plus one
 			t = currTs + 1
-		} else if kvt.T < currTs {
+		} else if kvt.T <= currTs { // insertion with a timestamp older or equal to the current timestamp should not be allowed
 			return fmt.Errorf("%w: specific timestamp is older than root's current timestamp", ErrIllegalArguments)
 		}
 
