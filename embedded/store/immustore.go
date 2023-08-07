@@ -860,7 +860,7 @@ func (s *ImmuStore) GetWithFilters(key []byte, indexID int, filters ...FilterFn)
 
 	indexedVal, tx, hc, err := indexer.Get(key)
 	if err != nil {
-		return nil, err
+		return nil, err 
 	}
 
 	valRef, err = s.valueRefFrom(tx, hc, indexedVal)
@@ -951,8 +951,13 @@ func (s *ImmuStore) NewTxHolderPool(poolSize int, preallocated bool) (TxPool, er
 	})
 }
 
-func (s *ImmuStore) syncSnapshot() (*Snapshot, error) {
-	snap, err := s.indexer.index.SyncSnapshot()
+func (s *ImmuStore) syncSnapshot(indexID int) (*Snapshot, error) {
+	indexer, err := s.getIndexer(indexID)
+	if err != nil {
+		return nil, err
+	}
+
+	snap, err := indexer.index.SyncSnapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -964,8 +969,13 @@ func (s *ImmuStore) syncSnapshot() (*Snapshot, error) {
 	}, nil
 }
 
-func (s *ImmuStore) Snapshot() (*Snapshot, error) {
-	snap, err := s.indexer.Snapshot()
+func (s *ImmuStore) Snapshot(indexID int) (*Snapshot, error) {
+	indexer, err := s.getIndexer(indexID)
+	if err != nil {
+		return nil, err
+	}
+
+	snap, err := indexer.Snapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -980,25 +990,30 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 // SnapshotMustIncludeTxID returns a new snapshot based on an existent dumped root (snapshot reuse).
 // Current root may be dumped if there are no previous root already stored on disk or if the dumped one was old enough.
 // If txID is 0, any snapshot may be used.
-func (s *ImmuStore) SnapshotMustIncludeTxID(ctx context.Context, txID uint64) (*Snapshot, error) {
-	return s.SnapshotMustIncludeTxIDWithRenewalPeriod(ctx, txID, 0)
+func (s *ImmuStore) SnapshotMustIncludeTxID(ctx context.Context, indexID int, txID uint64) (*Snapshot, error) {
+	return s.SnapshotMustIncludeTxIDWithRenewalPeriod(ctx, indexID, txID, 0)
 }
 
 // SnapshotMustIncludeTxIDWithRenewalPeriod returns a new snapshot based on an existent dumped root (snapshot reuse).
 // Current root may be dumped if there are no previous root already stored on disk or if the dumped one was old enough.
 // If txID is 0, any snapshot not older than renewalPeriod may be used.
 // If renewalPeriod is 0, renewal period is not taken into consideration
-func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context, txID uint64, renewalPeriod time.Duration) (*Snapshot, error) {
+func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context, indexID int, txID uint64, renewalPeriod time.Duration) (*Snapshot, error) {
 	if txID > s.LastPrecommittedTxID() {
 		return nil, fmt.Errorf("%w: txID is greater than the last precommitted transaction", ErrIllegalArguments)
 	}
 
-	err := s.WaitForIndexingUpto(ctx, txID)
+	indexer, err := s.getIndexer(indexID)
 	if err != nil {
 		return nil, err
 	}
 
-	snap, err := s.indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(txID, renewalPeriod)
+	err = indexer.WaitForIndexingUpto(ctx, txID)
+	if err != nil {
+		return nil, err
+	}
+
+	snap, err := indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(txID, renewalPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -2117,8 +2132,14 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	}
 	defer otx.Cancel()
 
-	s.indexer.Pause()
-	defer s.indexer.Resume()
+	// preCommitWith is limited to DefaultIndexID and it may be deprecated in the near future
+	indexer, err := s.getIndexer(DefaultIndexID)
+	if err != nil {
+		return nil, err
+	}
+
+	indexer.Pause()
+	defer indexer.Resume()
 
 	lastPreCommittedTxID := s.LastPrecommittedTxID()
 
@@ -2142,7 +2163,7 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	}
 
 	if otx.hasPreconditions() {
-		s.indexer.Resume()
+		indexer.Resume()
 
 		// Preconditions must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(ctx, lastPreCommittedTxID)
@@ -2155,7 +2176,7 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 			return nil, err
 		}
 
-		s.indexer.Pause()
+		indexer.Pause()
 	}
 
 	tx, err := s.fetchAllocTx()

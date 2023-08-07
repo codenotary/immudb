@@ -34,7 +34,8 @@ type metaState struct {
 	wHub *watchers.WatchersHub
 }
 
-type indexSpec struct {
+type indexSpec1 struct {
+	prefix      []byte
 	initialTxID uint64
 	finalTxID   uint64
 	initialTs   int64

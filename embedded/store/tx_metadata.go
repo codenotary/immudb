@@ -87,7 +87,8 @@ func (c *IndexDeletionChange) IsIndexCreation() bool {
 	return false
 }
 
-type IndexCreationChange struct {
+type IndexCreationChange1 struct {
+	Prefix      []byte
 	InitialTxID uint64
 	FinalTxID   uint64
 	InitialTs   int64
