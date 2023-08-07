@@ -30,8 +30,14 @@ import (
 type OngoingTx struct {
 	st *ImmuStore
 
-	snap       *Snapshot
-	readOnly   bool // MVCC validations are not needed for read-only transactions
+	ctx context.Context
+
+	snapshots map[int]*Snapshot // snapshot per index
+
+	mode                    TxMode // MVCC validations are not needed for read-only transactions
+	snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
+	snapshotRenewalPeriod   time.Duration
+
 	unsafeMVCC bool
 
 	requireMVCCOnFollowingTxs bool
@@ -41,17 +47,20 @@ type OngoingTx struct {
 
 	preconditions []Precondition
 
-	//MVCC
-	expectedGets           []expectedGet
-	expectedGetsWithPrefix []expectedGetWithPrefix
-	expectedReaders        []*expectedReader
-	readsetSize            int
+	mvccReadSets map[int]*mvccReadSet // mvcc read-set per index
 
 	metadata *TxMetadata
 
 	ts time.Time
 
 	closed bool
+}
+
+type mvccReadSet struct {
+	expectedGets           []expectedGet
+	expectedGetsWithPrefix []expectedGetWithPrefix
+	expectedReaders        []*expectedReader
+	readsetSize            int
 }
 
 type expectedGet struct {
@@ -93,6 +102,7 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 
 	tx := &OngoingTx{
 		st:           s,
+		ctx:          ctx,
 		entriesByKey: make(map[[sha256.Size]byte]int),
 		ts:           time.Now(),
 		unsafeMVCC:   opts.UnsafeMVCC,
@@ -102,44 +112,9 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 		return tx, nil
 	}
 
-	tx.readOnly = opts.Mode == ReadOnlyTx
-
-	var snapshotMustIncludeTxID uint64
-
-	if opts.SnapshotMustIncludeTxID != nil {
-		snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID(s.LastPrecommittedTxID())
-	}
-
-	mandatoryMVCCUpToTxID := s.MandatoryMVCCUpToTxID()
-
-	if mandatoryMVCCUpToTxID > snapshotMustIncludeTxID {
-		snapshotMustIncludeTxID = mandatoryMVCCUpToTxID
-	}
-
-	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(ctx, snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod)
-	if err != nil {
-		return nil, err
-	}
-
-	tx.snap = snap
-
-	// using an "interceptor" to construct the valueRef from current entries
-	// so to avoid storing more data into the snapshot
-	tx.snap.refInterceptor = func(key []byte, valRef ValueRef) ValueRef {
-		keyRef, ok := tx.entriesByKey[sha256.Sum256(key)]
-		if !ok {
-			return valRef
-		}
-
-		entrySpec := tx.entries[keyRef]
-
-		return &ongoingValRef{
-			hc:    valRef.HC(),
-			value: entrySpec.Value,
-			txmd:  tx.metadata,
-			kvmd:  entrySpec.Metadata,
-		}
-	}
+	tx.mode = opts.Mode
+	tx.snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID
+	tx.snapshotRenewalPeriod = opts.SnapshotRenewalPeriod
 
 	return tx, nil
 }
@@ -180,11 +155,11 @@ func (oref *ongoingValRef) Len() uint32 {
 }
 
 func (tx *OngoingTx) IsWriteOnly() bool {
-	return tx.snap == nil
+	return tx.mode == WriteOnlyTx
 }
 
 func (tx *OngoingTx) IsReadOnly() bool {
-	return tx.readOnly
+	return tx.mode == ReadOnlyTx
 }
 
 func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
@@ -200,12 +175,58 @@ func (tx *OngoingTx) Metadata() *TxMetadata {
 	return tx.metadata
 }
 
-func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated bool) error {
+func (tx *OngoingTx) snap(indexID int) (*Snapshot, error) {
+	snap, ok := tx.snapshots[indexID]
+	if ok {
+		return snap, nil
+	}
+
+	var snapshotMustIncludeTxID uint64
+
+	if tx.snapshotMustIncludeTxID != nil {
+		snapshotMustIncludeTxID = tx.snapshotMustIncludeTxID(tx.st.LastPrecommittedTxID())
+	}
+
+	mandatoryMVCCUpToTxID := tx.st.MandatoryMVCCUpToTxID()
+
+	if mandatoryMVCCUpToTxID > snapshotMustIncludeTxID {
+		snapshotMustIncludeTxID = mandatoryMVCCUpToTxID
+	}
+
+	snap, err := tx.st.SnapshotMustIncludeTxIDWithRenewalPeriod(tx.ctx, indexID, snapshotMustIncludeTxID, tx.snapshotRenewalPeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	// using an "interceptor" to construct the valueRef from current entries
+	// so to avoid storing more data into the snapshot
+	snap.refInterceptor = func(key []byte, valRef ValueRef) ValueRef {
+		keyRef, ok := tx.entriesByKey[sha256.Sum256(key)]
+		if !ok {
+			return valRef
+		}
+
+		entrySpec := tx.entries[keyRef]
+
+		return &ongoingValRef{
+			hc:    valRef.HC(),
+			value: entrySpec.Value,
+			txmd:  tx.metadata,
+			kvmd:  entrySpec.Metadata,
+		}
+	}
+
+	tx.snapshots[indexID] = snap
+
+	return snap, nil
+}
+
+func (tx *OngoingTx) set(key []byte, indexID int, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated bool) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
 
-	if tx.readOnly {
+	if tx.IsReadOnly() {
 		return ErrReadOnlyTx
 	}
 
@@ -233,7 +254,12 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
 		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
-		err := tx.snap.set(key, indexedValue[:])
+		snap, err := tx.snap(indexID)
+		if err != nil {
+			return err
+		}
+
+		err = snap.set(key, indexedValue[:])
 		if err != nil {
 			return err
 		}
@@ -257,9 +283,9 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	return nil
 }
 
-func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
+func (tx *OngoingTx) Set(key []byte, indexID int, md *KVMetadata, value []byte) error {
 	var hashValue [sha256.Size]byte
-	return tx.set(key, md, value, hashValue, false)
+	return tx.set(key, indexID, md, value, hashValue, false)
 }
 
 func (tx *OngoingTx) AddPrecondition(c Precondition) error {
@@ -289,7 +315,7 @@ func (tx *OngoingTx) Delete(key []byte) error {
 		return ErrAlreadyClosed
 	}
 
-	if tx.readOnly {
+	if tx.IsReadOnly() {
 		return ErrReadOnlyTx
 	}
 
@@ -323,7 +349,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 	}
 
 	valRef, err := tx.snap.GetWithFilters(key, filters...)
-	if !tx.readOnly && errors.Is(err, ErrKeyNotFound) {
+	if !tx.IsReadOnly() && errors.Is(err, ErrKeyNotFound) {
 		expectedGet := expectedGet{
 			key:     cp(key),
 			filters: filters,
@@ -340,7 +366,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 		return nil, err
 	}
 
-	if !tx.readOnly && valRef.Tx() > 0 {
+	if !tx.IsReadOnly() && valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGet := expectedGet{
 			key:        cp(key),
@@ -373,7 +399,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 	}
 
 	key, valRef, err = tx.snap.GetWithPrefixAndFilters(prefix, neq, filters...)
-	if !tx.readOnly && errors.Is(err, ErrKeyNotFound) {
+	if !tx.IsReadOnly() && errors.Is(err, ErrKeyNotFound) {
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:  cp(prefix),
 			neq:     cp(neq),
@@ -391,7 +417,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 		return nil, nil, err
 	}
 
-	if !tx.readOnly && valRef.Tx() > 0 {
+	if !tx.IsReadOnly() && valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:      cp(prefix),
@@ -421,7 +447,7 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
-	if tx.readOnly {
+	if tx.IsReadOnly() {
 		return tx.snap.NewKeyReader(spec)
 	}
 
@@ -460,7 +486,7 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 
 	tx.closed = true
 
-	if tx.readOnly {
+	if tx.IsReadOnly() {
 		return nil, ErrReadOnlyTx
 	}
 
