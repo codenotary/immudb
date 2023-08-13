@@ -32,7 +32,7 @@ type OngoingTx struct {
 
 	ctx context.Context
 
-	snapshots map[int]*Snapshot // snapshot per index
+	snapshots []*Snapshot // snapshot per index
 
 	mode                    TxMode // MVCC validations are not needed for read-only transactions
 	snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
@@ -47,7 +47,7 @@ type OngoingTx struct {
 
 	preconditions []Precondition
 
-	mvccReadSets map[int]*mvccReadSet // mvcc read-set per index
+	mvccReadSet *mvccReadSet // mvcc read-set
 
 	metadata *TxMetadata
 
@@ -175,10 +175,11 @@ func (tx *OngoingTx) Metadata() *TxMetadata {
 	return tx.metadata
 }
 
-func (tx *OngoingTx) snap(indexID int) (*Snapshot, error) {
-	snap, ok := tx.snapshots[indexID]
-	if ok {
-		return snap, nil
+func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
+	for _, snap := range tx.snapshots {
+		if len(key) >= len(snap.prefix) && bytes.Equal(snap.prefix, key[:len(snap.prefix)]) {
+			return snap, nil
+		}
 	}
 
 	var snapshotMustIncludeTxID uint64
@@ -193,7 +194,7 @@ func (tx *OngoingTx) snap(indexID int) (*Snapshot, error) {
 		snapshotMustIncludeTxID = mandatoryMVCCUpToTxID
 	}
 
-	snap, err := tx.st.SnapshotMustIncludeTxIDWithRenewalPeriod(tx.ctx, indexID, snapshotMustIncludeTxID, tx.snapshotRenewalPeriod)
+	snap, err := tx.st.SnapshotMustIncludeTxIDWithRenewalPeriod(tx.ctx, key, snapshotMustIncludeTxID, tx.snapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +217,12 @@ func (tx *OngoingTx) snap(indexID int) (*Snapshot, error) {
 		}
 	}
 
-	tx.snapshots[indexID] = snap
+	tx.snapshots = append(tx.snapshots, snap)
 
 	return snap, nil
 }
 
-func (tx *OngoingTx) set(key []byte, indexID int, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated bool) error {
+func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated bool) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -254,7 +255,7 @@ func (tx *OngoingTx) set(key []byte, indexID int, md *KVMetadata, value []byte, 
 		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
 		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
-		snap, err := tx.snap(indexID)
+		snap, err := tx.snap(key)
 		if err != nil {
 			return err
 		}
@@ -283,9 +284,9 @@ func (tx *OngoingTx) set(key []byte, indexID int, md *KVMetadata, value []byte, 
 	return nil
 }
 
-func (tx *OngoingTx) Set(key []byte, indexID int, md *KVMetadata, value []byte) error {
+func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	var hashValue [sha256.Size]byte
-	return tx.set(key, indexID, md, value, hashValue, false)
+	return tx.set(key, md, value, hashValue, false)
 }
 
 func (tx *OngoingTx) AddPrecondition(c Precondition) error {
@@ -307,7 +308,7 @@ func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 }
 
 func (tx *OngoingTx) mvccReadSetLimitReached() bool {
-	return tx.readsetSize == tx.st.mvccReadSetLimit
+	return tx.mvccReadSet.readsetSize == tx.st.mvccReadSetLimit
 }
 
 func (tx *OngoingTx) Delete(key []byte) error {
@@ -348,7 +349,12 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 		return nil, ErrWriteOnlyTx
 	}
 
-	valRef, err := tx.snap.GetWithFilters(key, filters...)
+	snap, err := tx.snap(key)
+	if err != nil {
+		return nil, err
+	}
+
+	valRef, err := snap.GetWithFilters(key, filters...)
 	if !tx.IsReadOnly() && errors.Is(err, ErrKeyNotFound) {
 		expectedGet := expectedGet{
 			key:     cp(key),
@@ -359,8 +365,8 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 			return nil, ErrMVCCReadSetLimitExceeded
 		}
 
-		tx.expectedGets = append(tx.expectedGets, expectedGet)
-		tx.readsetSize++
+		tx.mvccReadSet.expectedGets = append(tx.mvccReadSet.expectedGets, expectedGet)
+		tx.mvccReadSet.readsetSize++
 	}
 	if err != nil {
 		return nil, err
@@ -378,8 +384,8 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 			return nil, ErrMVCCReadSetLimitExceeded
 		}
 
-		tx.expectedGets = append(tx.expectedGets, expectedGet)
-		tx.readsetSize++
+		tx.mvccReadSet.expectedGets = append(tx.mvccReadSet.expectedGets, expectedGet)
+		tx.mvccReadSet.readsetSize++
 	}
 
 	return valRef, nil
@@ -398,7 +404,12 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 		return nil, nil, ErrWriteOnlyTx
 	}
 
-	key, valRef, err = tx.snap.GetWithPrefixAndFilters(prefix, neq, filters...)
+	snap, err := tx.snap(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	key, valRef, err = snap.GetWithPrefixAndFilters(prefix, neq, filters...)
 	if !tx.IsReadOnly() && errors.Is(err, ErrKeyNotFound) {
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:  cp(prefix),
@@ -410,8 +421,8 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 			return nil, nil, ErrMVCCReadSetLimitExceeded
 		}
 
-		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
-		tx.readsetSize++
+		tx.mvccReadSet.expectedGetsWithPrefix = append(tx.mvccReadSet.expectedGetsWithPrefix, expectedGetWithPrefix)
+		tx.mvccReadSet.readsetSize++
 	}
 	if err != nil {
 		return nil, nil, err
@@ -431,8 +442,8 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 			return nil, nil, ErrMVCCReadSetLimitExceeded
 		}
 
-		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
-		tx.readsetSize++
+		tx.mvccReadSet.expectedGetsWithPrefix = append(tx.mvccReadSet.expectedGetsWithPrefix, expectedGetWithPrefix)
+		tx.mvccReadSet.readsetSize++
 	}
 
 	return key, valRef, nil
@@ -447,8 +458,13 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
+	snap, err := tx.snap(spec.Prefix)
+	if err != nil {
+		return nil, err
+	}
+
 	if tx.IsReadOnly() {
-		return tx.snap.NewKeyReader(spec)
+		return snap.NewKeyReader(spec)
 	}
 
 	return newOngoingTxKeyReader(tx, spec)
@@ -478,9 +494,11 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 	}
 
 	if !tx.IsWriteOnly() {
-		err := tx.snap.Close()
-		if err != nil {
-			return nil, err
+		for _, snap := range tx.snapshots {
+			err := snap.Close()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -505,7 +523,12 @@ func (tx *OngoingTx) Cancel() error {
 	tx.closed = true
 
 	if !tx.IsWriteOnly() {
-		return tx.snap.Close()
+		for _, snap := range tx.snapshots {
+			err := snap.Close()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -517,9 +540,9 @@ func (tx *OngoingTx) Closed() bool {
 
 func (tx *OngoingTx) hasPreconditions() bool {
 	return len(tx.preconditions) > 0 ||
-		len(tx.expectedGets) > 0 ||
-		len(tx.expectedGetsWithPrefix) > 0 ||
-		len(tx.expectedReaders) > 0
+		len(tx.mvccReadSet.expectedGets) > 0 ||
+		len(tx.mvccReadSet.expectedGetsWithPrefix) > 0 ||
+		len(tx.mvccReadSet.expectedReaders) > 0
 }
 
 func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
@@ -536,118 +559,125 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
-	if tx.IsWriteOnly() || tx.snap.Ts() > st.LastPrecommittedTxID() {
-		// read-only transactions or read-write transactions when no other transaction was committed won't be invalidated
+	if tx.IsWriteOnly() {
+		// read-only transactions won't be invalidated
 		return nil
 	}
 
-	// current snapshot is fetched without flushing
-	snap, err := st.syncSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Close()
+	for _, txSnap := range tx.snapshots {
+		if txSnap.Ts() > st.LastPrecommittedTxID() {
+			// read-write transactions when no other transaction was committed won't be invalidated
+			return nil
+		}
 
-	for _, e := range tx.expectedGets {
-		valRef, err := snap.GetWithFilters(e.key, e.filters...)
-		if errors.Is(err, ErrKeyNotFound) {
-			if e.expectedTx > 0 {
+		// current snapshot is fetched without flushing
+		snap, err := st.syncSnapshot(txSnap.prefix)
+		if err != nil {
+			return err
+		}
+		defer snap.Close()
+
+		for _, e := range tx.mvccReadSet.expectedGets {
+			valRef, err := snap.GetWithFilters(e.key, e.filters...)
+			if errors.Is(err, ErrKeyNotFound) {
+				if e.expectedTx > 0 {
+					return ErrTxReadConflict
+				}
+				continue
+			}
+			if err != nil {
+				return err
+			}
+
+			if e.expectedTx != valRef.Tx() {
 				return ErrTxReadConflict
 			}
-			continue
-		}
-		if err != nil {
-			return err
 		}
 
-		if e.expectedTx != valRef.Tx() {
-			return ErrTxReadConflict
-		}
-	}
+		for _, e := range tx.mvccReadSet.expectedGetsWithPrefix {
+			key, valRef, err := snap.GetWithPrefixAndFilters(e.prefix, e.neq, e.filters...)
+			if errors.Is(err, ErrKeyNotFound) {
+				if e.expectedTx > 0 {
+					return ErrTxReadConflict
+				}
+				continue
+			}
+			if err != nil {
+				return err
+			}
 
-	for _, e := range tx.expectedGetsWithPrefix {
-		key, valRef, err := snap.GetWithPrefixAndFilters(e.prefix, e.neq, e.filters...)
-		if errors.Is(err, ErrKeyNotFound) {
-			if e.expectedTx > 0 {
+			if !bytes.Equal(e.expectedKey, key) || e.expectedTx != valRef.Tx() {
 				return ErrTxReadConflict
 			}
-			continue
-		}
-		if err != nil {
-			return err
 		}
 
-		if !bytes.Equal(e.expectedKey, key) || e.expectedTx != valRef.Tx() {
-			return ErrTxReadConflict
-		}
-	}
+		for _, eReader := range tx.mvccReadSet.expectedReaders {
+			rspec := KeyReaderSpec{
+				SeekKey:       eReader.spec.SeekKey,
+				EndKey:        eReader.spec.EndKey,
+				Prefix:        eReader.spec.Prefix,
+				InclusiveSeek: eReader.spec.InclusiveSeek,
+				InclusiveEnd:  eReader.spec.InclusiveEnd,
+				DescOrder:     eReader.spec.DescOrder,
+			}
 
-	for _, eReader := range tx.expectedReaders {
-		rspec := KeyReaderSpec{
-			SeekKey:       eReader.spec.SeekKey,
-			EndKey:        eReader.spec.EndKey,
-			Prefix:        eReader.spec.Prefix,
-			InclusiveSeek: eReader.spec.InclusiveSeek,
-			InclusiveEnd:  eReader.spec.InclusiveEnd,
-			DescOrder:     eReader.spec.DescOrder,
-		}
+			reader, err := snap.NewKeyReader(rspec)
+			if err != nil {
+				return err
+			}
 
-		reader, err := snap.NewKeyReader(rspec)
-		if err != nil {
-			return err
-		}
+			defer reader.Close()
 
-		defer reader.Close()
+			for _, eReads := range eReader.expectedReads {
+				var key []byte
+				var valRef ValueRef
 
-		for _, eReads := range eReader.expectedReads {
-			var key []byte
-			var valRef ValueRef
+				for _, eRead := range eReads {
 
-			for _, eRead := range eReads {
+					if len(key) == 0 {
+						if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
+							key, valRef, err = reader.Read()
+						} else {
+							key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
+						}
 
-				if len(key) == 0 {
-					if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
-						key, valRef, err = reader.Read()
+						if err != nil && !errors.Is(err, ErrNoMoreEntries) {
+							return err
+						}
+					}
+
+					if eRead.expectedNoMoreEntries {
+						if err == nil {
+							return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
+						}
+
+						break
+					}
+
+					if eRead.expectedTx == 0 {
+						if err == nil && bytes.Equal(eRead.expectedKey, key) {
+							// key was updated by the transaction
+							key = nil
+							valRef = nil
+						}
 					} else {
-						key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
-					}
+						if errors.Is(err, ErrNoMoreEntries) {
+							return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
+						}
 
-					if err != nil && !errors.Is(err, ErrNoMoreEntries) {
-						return err
-					}
-				}
+						if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
+							return fmt.Errorf("%w: fetching a different key or an updated one", ErrTxReadConflict)
+						}
 
-				if eRead.expectedNoMoreEntries {
-					if err == nil {
-						return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
-					}
-
-					break
-				}
-
-				if eRead.expectedTx == 0 {
-					if err == nil && bytes.Equal(eRead.expectedKey, key) {
-						// key was updated by the transaction
 						key = nil
 						valRef = nil
 					}
-				} else {
-					if errors.Is(err, ErrNoMoreEntries) {
-						return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
-					}
-
-					if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
-						return fmt.Errorf("%w: fetching a different key or an updated one", ErrTxReadConflict)
-					}
-
-					key = nil
-					valRef = nil
 				}
-			}
 
-			err = reader.Reset()
-			if err != nil {
-				return err
+				err = reader.Reset()
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sort"
 )
 
 // attributeCode is used to identify the attribute.
@@ -32,7 +31,7 @@ const (
 // attribute size is the size of the attribute in bytes.
 const (
 	truncatedUptoTxAttrSize = txIDSize
-	indexingChangesAttrSize = sszSize + MaxNumberOfIndexChangesPerTx*indexChangeSize
+	indexingChangesAttrSize = sszSize + MaxNumberOfIndexChangesPerTx*maxIndexChangeSize
 )
 
 const maxTxMetadataLen = (attrCodeSize + truncatedUptoTxAttrSize) +
@@ -68,15 +67,21 @@ func (a *truncatedUptoTxAttribute) deserialize(b []byte) (int, error) {
 }
 
 type indexingChangesAttribute struct {
-	changes map[int]IndexChange
+	changes []IndexChange
 }
 
 type IndexChange interface {
+	GetPrefix() []byte
 	IsIndexDeletion() bool
 	IsIndexCreation() bool
 }
 
 type IndexDeletionChange struct {
+	Prefix []byte
+}
+
+func (c *IndexDeletionChange) GetPrefix() []byte {
+	return c.Prefix
 }
 
 func (c *IndexDeletionChange) IsIndexDeletion() bool {
@@ -87,12 +92,16 @@ func (c *IndexDeletionChange) IsIndexCreation() bool {
 	return false
 }
 
-type IndexCreationChange1 struct {
+type IndexCreationChange struct {
 	Prefix      []byte
 	InitialTxID uint64
 	FinalTxID   uint64
 	InitialTs   int64
 	FinalTs     int64
+}
+
+func (c *IndexCreationChange) GetPrefix() []byte {
+	return c.Prefix
 }
 
 func (c *IndexCreationChange) IsIndexDeletion() bool {
@@ -103,8 +112,10 @@ func (c *IndexCreationChange) IsIndexCreation() bool {
 	return true
 }
 
-const indexChangeSize = indexIDSize + 1 /* index change type */ + indexCreationSize // size of bigger change
-const indexCreationSize = 2*txIDSize + 2*tsSize
+const maxIndexChangeSize = 1 /* index change type */ + maxIndexCreationSize // size of bigger change
+const minIndexCreationSize = sszSize + 2*txIDSize + 2*tsSize
+const maxIndexCreationSize = sszSize + MaxKeyLen + 2*txIDSize + 2*tsSize
+const minIndexDeletionSize = sszSize
 
 const indexDeletionChange = 0
 const indexCreationChange = 1
@@ -122,31 +133,31 @@ func (a *indexingChangesAttribute) serialize() []byte {
 	binary.BigEndian.PutUint16(b[i:], uint16(len(a.changes)))
 	i += sszSize
 
-	sortedIds := make([]int, len(a.changes))
-	o := 0
-
-	for id := range a.changes {
-		sortedIds[o] = id
-		o++
-	}
-
-	sort.Ints(sortedIds)
-
-	for _, id := range sortedIds {
-		change := a.changes[id]
-
-		binary.BigEndian.PutUint16(b[i:], uint16(id))
-		i += indexIDSize
-
+	for _, change := range a.changes {
 		if change.IsIndexDeletion() {
 			b[i] = indexDeletionChange
 			i++
+
+			c := change.(*IndexDeletionChange)
+
+			binary.BigEndian.PutUint16(b[i:], uint16(len(c.Prefix)))
+			i += sszSize
+
+			copy(b[i:], c.Prefix)
+			i += len(c.Prefix)
 		}
+
 		if change.IsIndexCreation() {
 			b[i] = indexCreationChange
 			i++
 
 			c := change.(*IndexCreationChange)
+
+			binary.BigEndian.PutUint16(b[i:], uint16(len(c.Prefix)))
+			i += sszSize
+
+			copy(b[i:], c.Prefix)
+			i += len(c.Prefix)
 
 			binary.BigEndian.PutUint64(b[i:], c.InitialTxID)
 			i += txIDSize
@@ -180,30 +191,45 @@ func (a *indexingChangesAttribute) deserialize(b []byte) (int, error) {
 		return n, ErrCorruptedData
 	}
 
-	a.changes = make(map[int]IndexChange, changesCount)
+	a.changes = make([]IndexChange, changesCount)
 
 	for i := 0; i < changesCount; i++ {
-		if len(b) < indexIDSize+1 {
+		if len(b) < 1 {
 			return n, ErrCorruptedData
 		}
-
-		indexID := int(binary.BigEndian.Uint16(b[n:]))
-		n += indexIDSize
 
 		changeType := b[n]
 		n++
 
 		if changeType == indexDeletionChange {
-			a.changes[indexID] = &IndexDeletionChange{}
+			if len(b) < minIndexDeletionSize {
+				return n, ErrCorruptedData
+			}
+
+			change := &IndexDeletionChange{}
+
+			prefixLen := int(binary.BigEndian.Uint16(b[n:]))
+			n += sszSize
+
+			change.Prefix = b[n : n+prefixLen]
+			n += prefixLen
+
+			a.changes[i] = change
 			continue
 		}
 
 		if changeType == indexCreationChange {
-			if len(b) < indexCreationSize {
+			if len(b) < minIndexCreationSize {
 				return n, ErrCorruptedData
 			}
 
 			change := &IndexCreationChange{}
+
+			prefixLen := int(binary.BigEndian.Uint16(b[n:]))
+			n += sszSize
+
+			change.Prefix = b[n : n+prefixLen]
+			n += prefixLen
 
 			change.InitialTxID = binary.BigEndian.Uint64(b[n:])
 			n += txIDSize
@@ -217,7 +243,7 @@ func (a *indexingChangesAttribute) deserialize(b []byte) (int, error) {
 			change.FinalTs = int64(binary.BigEndian.Uint64(b[n:]))
 			n += tsSize
 
-			a.changes[indexID] = change
+			a.changes[i] = change
 			continue
 		}
 
@@ -350,7 +376,7 @@ func (md *TxMetadata) WithTruncatedTxID(txID uint64) *TxMetadata {
 	return md
 }
 
-func (md *TxMetadata) WithIndexingChanges(indexingChanges map[int]IndexChange) *TxMetadata {
+func (md *TxMetadata) WithIndexingChanges(indexingChanges []IndexChange) *TxMetadata {
 	if len(indexingChanges) == 0 {
 		delete(md.attributes, indexingChangesAttrCode)
 		return md
@@ -363,7 +389,7 @@ func (md *TxMetadata) WithIndexingChanges(indexingChanges map[int]IndexChange) *
 	return md
 }
 
-func (md *TxMetadata) GetIndexingChanges() map[int]IndexChange {
+func (md *TxMetadata) GetIndexingChanges() []IndexChange {
 	attr, ok := md.attributes[indexingChangesAttrCode]
 	if !ok {
 		return nil
