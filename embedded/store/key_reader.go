@@ -27,6 +27,7 @@ import (
 
 type Snapshot struct {
 	st             *ImmuStore
+	prefix         []byte
 	snap           *tbtree.Snapshot
 	ts             time.Time
 	refInterceptor valueRefInterceptor

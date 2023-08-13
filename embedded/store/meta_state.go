@@ -29,12 +29,12 @@ var ErrAlreadyStopped = errors.New("already stopped")
 type metaState struct {
 	truncatedUpToTxID uint64
 
-	indexes map[int]*indexSpec
+	indexes []*indexSpec
 
 	wHub *watchers.WatchersHub
 }
 
-type indexSpec1 struct {
+type indexSpec struct {
 	prefix      []byte
 	initialTxID uint64
 	finalTxID   uint64
@@ -47,20 +47,19 @@ type metaStateOptions struct {
 
 func openMetaState(path string, opts metaStateOptions) (*metaState, error) {
 	return &metaState{
-		indexes: make(map[int]*indexSpec),
-		wHub:    watchers.New(0, MaxIndexID),
+		wHub: watchers.New(0, MaxIndexCount),
 	}, nil
 }
 
 func (m *metaState) rollbackUpTo(txID uint64) error {
-	m.indexes = make(map[int]*indexSpec)
+	m.indexes = nil
 
 	err := m.wHub.Close()
 	if err != nil {
 		return err
 	}
 
-	m.wHub = watchers.New(0, MaxIndexID)
+	m.wHub = watchers.New(0, MaxIndexCount)
 
 	return nil
 }
@@ -98,7 +97,11 @@ func (m *metaState) processTxHeader(hdr *TxHeader) error {
 	indexingChanges := hdr.Metadata.GetIndexingChanges()
 
 	if len(indexingChanges) > 0 {
-		for id, change := range indexingChanges {
+		for _, change := range indexingChanges {
+
+			// buscar el indice para el prefix en el metaState
+			change.GetPrefix()
+
 			_, indexAlreadyExists := m.indexes[id]
 
 			if change.IsIndexDeletion() {
@@ -119,6 +122,7 @@ func (m *metaState) processTxHeader(hdr *TxHeader) error {
 				c := change.(*IndexCreationChange)
 
 				m.indexes[id] = &indexSpec{
+					prefix:      c.Prefix,
 					initialTxID: c.InitialTxID,
 					finalTxID:   c.FinalTxID,
 					initialTs:   c.InitialTs,

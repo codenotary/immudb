@@ -67,15 +67,20 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 		DescOrder:     spec.DescOrder,
 	}
 
-	keyReader, err := tx.snap.NewKeyReader(rspec)
+	snap, err := tx.snap(spec.Prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	keyReader, err := snap.NewKeyReader(rspec)
 	if err != nil {
 		return nil, err
 	}
 
 	expectedReader := newExpectedReader(spec)
 
-	tx.expectedReaders = append(tx.expectedReaders, expectedReader)
-	tx.readsetSize++
+	tx.mvccReadSet.expectedReaders = append(tx.mvccReadSet.expectedReaders, expectedReader)
+	tx.mvccReadSet.readsetSize++
 
 	return &ongoingTxKeyReader{
 		tx:             tx,
@@ -104,12 +109,12 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 				expectedNoMoreEntries: true,
 			}
 
-			if r.tx.readsetSize == r.tx.st.mvccReadSetLimit {
+			if r.tx.mvccReadSet.readsetSize == r.tx.st.mvccReadSetLimit {
 				return nil, nil, ErrMVCCReadSetLimitExceeded
 			}
 
 			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
-			r.tx.readsetSize++
+			r.tx.mvccReadSet.readsetSize++
 		}
 
 		if err != nil {
@@ -123,12 +128,12 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 			expectedTx:  valRef.Tx(),
 		}
 
-		if r.tx.readsetSize == r.tx.st.mvccReadSetLimit {
+		if r.tx.mvccReadSet.readsetSize == r.tx.st.mvccReadSetLimit {
 			return nil, nil, ErrMVCCReadSetLimitExceeded
 		}
 
 		r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
-		r.tx.readsetSize++
+		r.tx.mvccReadSet.readsetSize++
 
 		filterEntry := false
 
@@ -159,14 +164,14 @@ func (r *ongoingTxKeyReader) Reset() error {
 		return err
 	}
 
-	if r.tx.readsetSize == r.tx.st.mvccReadSetLimit {
+	if r.tx.mvccReadSet.readsetSize == r.tx.st.mvccReadSetLimit {
 		return ErrMVCCReadSetLimitExceeded
 	}
 
 	r.expectedReader.expectedReads = append(r.expectedReader.expectedReads, nil)
 	r.expectedReader.i++
 
-	r.tx.readsetSize++
+	r.tx.mvccReadSet.readsetSize++
 
 	return nil
 }

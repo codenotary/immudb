@@ -35,7 +35,7 @@ import (
 )
 
 type indexer struct {
-	id int
+	prefix []byte
 
 	path string
 
@@ -88,7 +88,7 @@ var (
 	})
 )
 
-func newIndexer(id int, path string, store *ImmuStore, opts *Options) (*indexer, error) {
+func newIndexer(prefix []byte, path string, store *ImmuStore, opts *Options) (*indexer, error) {
 	if store == nil {
 		return nil, fmt.Errorf("%w: nil store", ErrIllegalArguments)
 	}
@@ -143,7 +143,7 @@ func newIndexer(id int, path string, store *ImmuStore, opts *Options) (*indexer,
 	}
 
 	indexer := &indexer{
-		id:                     id,
+		prefix:                 prefix,
 		store:                  store,
 		tx:                     tx,
 		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
