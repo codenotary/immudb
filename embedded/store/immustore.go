@@ -117,6 +117,7 @@ const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 
 const MaxIndexCount = math.MaxUint16
+const MaxIndexPrefixLen = 64
 const MaxNumberOfIndexChangesPerTx = 16
 
 const cLogEntrySizeV1 = offsetSize + lszSize               // tx offset + hdr size
@@ -727,23 +728,25 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
-	indexPath := filepath.Join(store.path, indexDirname)
+	if !opts.MultiIndexing {
+		indexPath := filepath.Join(store.path, indexDirname)
 
-	defaultIndexer, err := newIndexer(nil, indexPath, store, opts)
-	if err != nil {
-		store.Close()
-		return nil, fmt.Errorf("could not open indexer: %w", err)
+		defaultIndexer, err := newIndexer(nil, indexPath, store, opts)
+		if err != nil {
+			store.Close()
+			return nil, fmt.Errorf("could not open indexer: %w", err)
+		}
+
+		if defaultIndexer.Ts() > committedTxID {
+			store.Close()
+			return nil, fmt.Errorf("corrupted commit-log: index size is too large: %w", ErrCorruptedCLog)
+
+			// TODO: if indexing is done on pre-committed txs, the index may be rollback to a previous snapshot where it was already synced
+			// NOTE: compaction should preserve snapshot which are not synced... so to ensure rollback can be achieved
+		}
+
+		store.indexers = append(store.indexers, defaultIndexer)
 	}
-
-	if defaultIndexer.Ts() > committedTxID {
-		store.Close()
-		return nil, fmt.Errorf("corrupted commit-log: index size is too large: %w", ErrCorruptedCLog)
-
-		// TODO: if indexing is done on pre-committed txs, the index may be rollback to a previous snapshot where it was already synced
-		// NOTE: compaction should preserve snapshot which are not synced... so to ensure rollback can be achieved
-	}
-
-	store.indexers = append(store.indexers, defaultIndexer)
 
 	if store.synced {
 		go func() {
@@ -1017,7 +1020,7 @@ func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 
 	return &Snapshot{
 		st:     s,
-		prefix: prefix,
+		prefix: indexer.prefix,
 		snap:   snap,
 		ts:     time.Now(),
 	}, nil
