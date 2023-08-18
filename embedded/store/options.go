@@ -123,6 +123,8 @@ type Options struct {
 
 	UseExternalCommitAllowance bool
 
+	MultiIndexing bool
+
 	// options below are only set during initialization and stored as metadata
 	MaxTxEntries      int
 	MaxKeyLen         int
@@ -541,6 +543,11 @@ func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
 
 func (opts *Options) WithExternalCommitAllowance(useExternalCommitAllowance bool) *Options {
 	opts.UseExternalCommitAllowance = useExternalCommitAllowance
+	return opts
+}
+
+func (opts *Options) WithMultiIndexing(multiIndexing bool) *Options {
+	opts.MultiIndexing = multiIndexing
 	return opts
 }
 

@@ -17,6 +17,8 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -29,7 +31,7 @@ var ErrAlreadyStopped = errors.New("already stopped")
 type metaState struct {
 	truncatedUpToTxID uint64
 
-	indexes []*indexSpec
+	indexes map[[sha256.Size]byte]*indexSpec
 
 	wHub *watchers.WatchersHub
 }
@@ -47,7 +49,8 @@ type metaStateOptions struct {
 
 func openMetaState(path string, opts metaStateOptions) (*metaState, error) {
 	return &metaState{
-		wHub: watchers.New(0, MaxIndexCount),
+		wHub:    watchers.New(0, MaxIndexCount),
+		indexes: make(map[[sha256.Size]byte]*indexSpec),
 	}, nil
 }
 
@@ -67,6 +70,17 @@ func (m *metaState) rollbackUpTo(txID uint64) error {
 func (m *metaState) calculatedUpToTxID() uint64 {
 	doneUpToTxID, _, _ := m.wHub.Status()
 	return doneUpToTxID
+}
+
+func (m *metaState) indexPrefix(prefix []byte) (indexPrefix [sha256.Size]byte, ok bool) {
+	for p, spec := range m.indexes {
+		if len(prefix) >= len(spec.prefix) && bytes.Equal(spec.prefix, prefix[:len(spec.prefix)]) {
+			indexPrefix = p
+			ok = true
+			return
+		}
+	}
+	return
 }
 
 func (m *metaState) processTxHeader(hdr *TxHeader) error {
@@ -99,17 +113,14 @@ func (m *metaState) processTxHeader(hdr *TxHeader) error {
 	if len(indexingChanges) > 0 {
 		for _, change := range indexingChanges {
 
-			// buscar el indice para el prefix en el metaState
-			change.GetPrefix()
-
-			_, indexAlreadyExists := m.indexes[id]
+			indexPrefix, indexAlreadyExists := m.indexPrefix(change.GetPrefix())
 
 			if change.IsIndexDeletion() {
 				if !indexAlreadyExists {
 					return fmt.Errorf("%w: index does not exist", ErrCorruptedData)
 				}
 
-				delete(m.indexes, id)
+				delete(m.indexes, indexPrefix)
 
 				continue
 			}
@@ -121,7 +132,9 @@ func (m *metaState) processTxHeader(hdr *TxHeader) error {
 
 				c := change.(*IndexCreationChange)
 
-				m.indexes[id] = &indexSpec{
+				indexPrefix := sha256.Sum256(c.Prefix)
+
+				m.indexes[indexPrefix] = &indexSpec{
 					prefix:      c.Prefix,
 					initialTxID: c.InitialTxID,
 					finalTxID:   c.FinalTxID,

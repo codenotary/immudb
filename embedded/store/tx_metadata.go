@@ -114,7 +114,7 @@ func (c *IndexCreationChange) IsIndexCreation() bool {
 
 const maxIndexChangeSize = 1 /* index change type */ + maxIndexCreationSize // size of bigger change
 const minIndexCreationSize = sszSize + 2*txIDSize + 2*tsSize
-const maxIndexCreationSize = sszSize + MaxKeyLen + 2*txIDSize + 2*tsSize
+const maxIndexCreationSize = sszSize + MaxIndexPrefixLen + 2*txIDSize + 2*tsSize
 const minIndexDeletionSize = sszSize
 
 const indexDeletionChange = 0

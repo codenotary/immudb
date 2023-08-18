@@ -30,7 +30,7 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer(DefaultIndexID, t.TempDir(), nil, nil)
+	indexer, err := newIndexer(nil, t.TempDir(), nil, nil)
 	require.Nil(t, indexer)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
@@ -41,10 +41,11 @@ func TestClosedIndexerFailures(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	err = store.indexer.Close()
+	indexer, err := store.getIndexer(nil)
 	require.NoError(t, err)
 
-	indexer := store.indexer
+	err = indexer.Close()
+	require.NoError(t, err)
 
 	v, tx, hc, err := indexer.Get(nil)
 	require.Zero(t, v)
@@ -127,7 +128,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			"Closed store",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				s.Close()
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexer(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.ErrorIs(t, err, ErrAlreadyClosed)
 			},
 		},
@@ -135,7 +140,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			"No nodes folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit1"), 0777))
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexer(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.NoError(t, err)
 			},
 		},
@@ -143,7 +152,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			"No commit folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexer(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.NoError(t, err)
 			},
 		},
@@ -152,7 +165,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
 				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit1"), []byte{}, 0777))
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexer(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.NoError(t, err)
 			},
 		},

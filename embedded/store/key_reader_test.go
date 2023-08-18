@@ -53,7 +53,7 @@ func TestImmudbStoreReader(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -112,7 +112,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -176,7 +176,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -239,7 +239,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()

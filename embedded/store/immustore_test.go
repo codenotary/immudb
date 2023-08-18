@@ -278,7 +278,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	err = immuStore.Sync()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	err = immuStore.FlushIndex(DefaultIndexID, 100, true)
+	err = immuStore.FlushIndexes(100, true)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = immuStore.commit(context.Background(), &OngoingTx{entries: []*EntrySpec{
@@ -1001,7 +1001,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 			for {
 				txID, _ := immuStore.CommittedAlh()
 
-				snap, err := immuStore.SnapshotMustIncludeTxID(context.Background(), txID)
+				snap, err := immuStore.SnapshotMustIncludeTxID(context.Background(), nil, txID)
 				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
@@ -1063,10 +1063,10 @@ func TestImmudbStoreIndexing(t *testing.T) {
 		return
 	}
 
-	err = immuStore.FlushIndex(DefaultIndexID, -10, true)
+	err = immuStore.FlushIndexes(-10, true)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 
-	err = immuStore.FlushIndex(DefaultIndexID, 100, true)
+	err = immuStore.FlushIndexes(100, true)
 	require.NoError(t, err)
 
 	t.Run("latest set value should be committed", func(t *testing.T) {
@@ -1576,7 +1576,7 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	require.Equal(t, []byte{3, 2, 1}, v)
 
 	t.Run("read deleted key from snapshot should return key not found", func(t *testing.T) {
-		snap, err := immuStore.Snapshot()
+		snap, err := immuStore.Snapshot(nil)
 		require.NoError(t, err)
 		require.NotNil(t, snap)
 		defer snap.Close()
@@ -1706,7 +1706,7 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	hdr, err := immuStore.CommitWith(context.Background(), callback, true)
 	require.NoError(t, err)
 
-	ts, err := immuStore.IndexInfo(DefaultIndexID)
+	ts, err := immuStore.IndexInfo(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), ts)
 
@@ -1760,7 +1760,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	err = immuStore.CompactIndex(DefaultIndexID)
+	err = immuStore.CompactIndexes()
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -1769,7 +1769,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				snap, err := immuStore.Snapshot()
+				snap, err := immuStore.Snapshot(nil)
 				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
@@ -1823,7 +1823,7 @@ func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 
 	defer immustoreClose(t, immuStore)
 
-	err = immuStore.CompactIndex(DefaultIndexID)
+	err = immuStore.CompactIndexes()
 	require.ErrorIs(t, err, ErrCompactionUnsupported)
 }
 
@@ -3306,9 +3306,11 @@ func TestImmudbPreconditionIndexing(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("commit", func(t *testing.T) {
+		indexer, err := immuStore.getIndexer(nil)
+		require.NoError(t, err)
 
 		// First add some entries that are not indexed
-		immuStore.indexer.Pause()
+		indexer.Pause()
 
 		for i := 1; i < 100; i++ {
 			tx, err := immuStore.NewWriteOnlyTx(context.Background())
@@ -3340,7 +3342,7 @@ func TestImmudbPreconditionIndexing(t *testing.T) {
 
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			immuStore.indexer.Resume()
+			indexer.Resume()
 		}()
 
 		_, err = tx.Commit(context.Background())
@@ -3348,9 +3350,11 @@ func TestImmudbPreconditionIndexing(t *testing.T) {
 	})
 
 	t.Run("commitWith", func(t *testing.T) {
+		indexer, err := immuStore.getIndexer(nil)
+		require.NoError(t, err)
 
 		// First add some entries that are not indexed
-		immuStore.indexer.Pause()
+		indexer.Pause()
 
 		for i := 1; i < 100; i++ {
 			tx, err := immuStore.NewWriteOnlyTx(context.Background())
@@ -3365,7 +3369,7 @@ func TestImmudbPreconditionIndexing(t *testing.T) {
 
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			immuStore.indexer.Resume()
+			indexer.Resume()
 		}()
 
 		// Next prepare transaction with preconditions - this must wait for the indexer
@@ -3795,11 +3799,11 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx1.Set([]byte("key3"), nil, []byte("value"))
 		require.NoError(t, err)
 
-		_, err = tx1.Commit(context.Background())
-		require.NoError(t, err)
-
 		_, err = tx2.Get([]byte("key3"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		_, err = tx1.Commit(context.Background())
+		require.NoError(t, err)
 
 		err = tx2.Set([]byte("key3"), nil, []byte("value"))
 		require.NoError(t, err)
@@ -3827,10 +3831,10 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx2.Delete([]byte("key4"))
 		require.NoError(t, err)
 
-		_, err = tx2.Commit(context.Background())
+		_, err = tx3.Get([]byte("key4"))
 		require.NoError(t, err)
 
-		_, err = tx3.Get([]byte("key4"))
+		_, err = tx2.Commit(context.Background())
 		require.NoError(t, err)
 
 		err = tx3.Set([]byte("key4"), nil, []byte("value4"))
@@ -3874,14 +3878,14 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx1.Set([]byte("key1"), nil, []byte("value1"))
 		require.NoError(t, err)
 
-		_, err = tx1.Commit(context.Background())
-		require.NoError(t, err)
-
 		key, _, err := tx2.GetWithPrefix([]byte("key"), nil)
 		require.NoError(t, err)
 		require.Equal(t, []byte("key1"), key)
 
 		err = tx2.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx2.Commit(context.Background())
@@ -3898,14 +3902,14 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx1.Delete([]byte("key1"))
 		require.NoError(t, err)
 
-		_, err = tx1.Commit(context.Background())
-		require.NoError(t, err)
-
 		_, _, err = tx2.GetWithPrefix([]byte("key"), nil)
 		require.NoError(t, err)
 		require.Equal(t, []byte("key1"), []byte("key1"))
 
 		err = tx2.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx2.Commit(context.Background())
@@ -3937,9 +3941,6 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx2.Set([]byte("key4"), nil, []byte("value4"))
 		require.NoError(t, err)
 
-		_, err = tx2.Commit(context.Background())
-		require.NoError(t, err)
-
 		err = tx3.Set([]byte("key2"), nil, []byte("value2_2"))
 		require.NoError(t, err)
 
@@ -3964,6 +3965,9 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		}
 
 		err = r.Close()
+		require.NoError(t, err)
+
+		_, err = tx2.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx3.Commit(context.Background())
@@ -4044,9 +4048,6 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx2.Set([]byte("key5"), nil, []byte("value5"))
 		require.NoError(t, err)
 
-		_, err = tx2.Commit(context.Background())
-		require.NoError(t, err)
-
 		r, err := tx3.NewKeyReader(KeyReaderSpec{
 			Prefix: []byte("key"),
 		})
@@ -4063,6 +4064,9 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		require.NoError(t, err)
 
 		err = tx3.Set([]byte("key6"), nil, []byte("value6"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx3.Commit(context.Background())
@@ -4088,9 +4092,6 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx2.Delete([]byte("key1"))
 		require.NoError(t, err)
 
-		_, err = tx2.Commit(context.Background())
-		require.NoError(t, err)
-
 		r, err := tx3.NewKeyReader(KeyReaderSpec{
 			Prefix:  []byte("key"),
 			Filters: []FilterFn{IgnoreDeleted},
@@ -4108,6 +4109,9 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		require.NoError(t, err)
 
 		err = tx3.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx3.Commit(context.Background())
@@ -4133,9 +4137,6 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx2.Delete([]byte("key1"))
 		require.NoError(t, err)
 
-		_, err = tx2.Commit(context.Background())
-		require.NoError(t, err)
-
 		err = tx3.Delete([]byte("key1"))
 		require.NoError(t, err)
 
@@ -4153,6 +4154,9 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		}
 
 		err = r.Close()
+		require.NoError(t, err)
+
+		_, err = tx2.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx3.Commit(context.Background())
@@ -4181,9 +4185,6 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		err = tx2.Delete([]byte("key1"))
 		require.NoError(t, err)
 
-		_, err = tx2.Commit(context.Background())
-		require.NoError(t, err)
-
 		r, err := tx3.NewKeyReader(KeyReaderSpec{
 			Prefix:  []byte("key"),
 			Filters: []FilterFn{IgnoreDeleted},
@@ -4202,6 +4203,9 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		require.NoError(t, err)
 
 		err = tx3.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit(context.Background())
 		require.NoError(t, err)
 
 		_, err = tx3.Commit(context.Background())
@@ -5059,7 +5063,7 @@ func TestImmudbStore_ExportTxWithEmptyValues(t *testing.T) {
 }
 
 func TestIndexingChanges(t *testing.T) {
-	st, err := Open(t.TempDir(), DefaultOptions())
+	st, err := Open(t.TempDir(), DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	require.NotNil(t, st)
 
@@ -5068,9 +5072,7 @@ func TestIndexingChanges(t *testing.T) {
 	tx1, err := st.NewWriteOnlyTx(context.Background())
 	require.NoError(t, err)
 
-	indexingChanges1 := make(map[int]IndexChange)
-	indexingChanges1[1] = &IndexCreationChange{}
-	indexingChanges1[2] = &IndexCreationChange{}
+	indexingChanges1 := []IndexChange{&IndexCreationChange{Prefix: []byte("j")}, &IndexCreationChange{Prefix: []byte("k")}}
 
 	tx1.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges1))
 
@@ -5094,8 +5096,7 @@ func TestIndexingChanges(t *testing.T) {
 	tx2, err := st.NewWriteOnlyTx(context.Background())
 	require.NoError(t, err)
 
-	indexingChanges2 := make(map[int]IndexChange)
-	indexingChanges2[1] = &IndexDeletionChange{}
+	indexingChanges2 := []IndexChange{&IndexDeletionChange{Prefix: []byte("j")}}
 
 	tx2.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges2))
 
