@@ -684,7 +684,14 @@ func greatestKeyOfSize(size int) []byte {
 func requiredNodeSize(maxKeySize, maxValueSize int) int {
 	// space for at least two children is required for inner nodes
 	// 31 bytes are fixed in leafNode serialization while 29 bytes are fixed in innerNodes
-	return 2 * (31 + maxKeySize + maxValueSize)
+	minInnerNode := 2 * (29 + maxKeySize)
+	minLeafNode := 31 + maxKeySize + maxValueSize
+
+	if minInnerNode < minLeafNode {
+		return minLeafNode
+	}
+
+	return minInnerNode
 }
 
 func (t *TBtree) GetOptions() *Options {

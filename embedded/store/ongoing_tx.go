@@ -63,6 +63,12 @@ type mvccReadSet struct {
 	readsetSize            int
 }
 
+func (mvccReadSet *mvccReadSet) isEmpty() bool {
+	return len(mvccReadSet.expectedGets) == 0 &&
+		len(mvccReadSet.expectedGetsWithPrefix) == 0 &&
+		len(mvccReadSet.expectedReaders) == 0
+}
+
 type expectedGet struct {
 	key        []byte
 	filters    []FilterFn
@@ -108,13 +114,15 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 		unsafeMVCC:   opts.UnsafeMVCC,
 	}
 
+	tx.mode = opts.Mode
+
 	if opts.Mode == WriteOnlyTx {
 		return tx, nil
 	}
 
-	tx.mode = opts.Mode
 	tx.snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID
 	tx.snapshotRenewalPeriod = opts.SnapshotRenewalPeriod
+	tx.mvccReadSet = &mvccReadSet{}
 
 	return tx, nil
 }
@@ -404,7 +412,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 		return nil, nil, ErrWriteOnlyTx
 	}
 
-	snap, err := tx.snap(key)
+	snap, err := tx.snap(prefix)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -539,10 +547,7 @@ func (tx *OngoingTx) Closed() bool {
 }
 
 func (tx *OngoingTx) hasPreconditions() bool {
-	return len(tx.preconditions) > 0 ||
-		len(tx.mvccReadSet.expectedGets) > 0 ||
-		len(tx.mvccReadSet.expectedGetsWithPrefix) > 0 ||
-		len(tx.mvccReadSet.expectedReaders) > 0
+	return len(tx.preconditions) > 0 || (tx.mvccReadSet != nil && !tx.mvccReadSet.isEmpty())
 }
 
 func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
