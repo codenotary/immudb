@@ -345,12 +345,12 @@ func (d *db) FlushIndex(req *schema.FlushIndexRequest) error {
 		return store.ErrIllegalArguments
 	}
 
-	return d.st.FlushIndex(req.CleanupPercentage, req.Synced)
+	return d.st.FlushIndexes(req.CleanupPercentage, req.Synced)
 }
 
 // CompactIndex ...
 func (d *db) CompactIndex() error {
-	return d.st.CompactIndex()
+	return d.st.CompactIndexes()
 }
 
 // Set ...
@@ -899,12 +899,42 @@ func (d *db) Size() (uint64, error) {
 
 // Count ...
 func (d *db) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
-	return nil, fmt.Errorf("functionality not yet supported: %s", "Count")
+	if prefix == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	tx, err := d.st.NewTx(ctx, store.DefaultTxOptions().WithMode(store.ReadOnlyTx))
+	if err != nil {
+		return nil, err
+	}
+
+	keyReader, err := tx.NewKeyReader(store.KeyReaderSpec{
+		Prefix: WrapWithPrefix(prefix.Prefix, SetKeyPrefix),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	count := 0
+
+	for {
+		_, _, err := keyReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		count++
+	}
+
+	return &schema.EntryCount{Count: uint64(count)}, nil
 }
 
 // CountAll ...
 func (d *db) CountAll(ctx context.Context) (*schema.EntryCount, error) {
-	return nil, fmt.Errorf("functionality not yet supported: %s", "Count")
+	return d.Count(ctx, &schema.KeyPrefix{})
 }
 
 // TxByID ...
@@ -951,7 +981,7 @@ func (d *db) snapshotSince(ctx context.Context, txID uint64) (*store.Snapshot, e
 		waitUntilTx = currTxID
 	}
 
-	return d.st.SnapshotMustIncludeTxID(ctx, waitUntilTx)
+	return d.st.SnapshotMustIncludeTxID(ctx, nil, waitUntilTx)
 }
 
 func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot, skipIntegrityCheck bool) (*schema.Tx, error) {

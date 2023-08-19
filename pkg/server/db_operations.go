@@ -172,13 +172,23 @@ func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 }
 
 // Count ...
-func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
-	return nil, ErrNotSupported
+func (s *ImmuServer) Count(ctx context.Context, req *schema.KeyPrefix) (*schema.EntryCount, error) {
+	db, err := s.getDBFromCtx(ctx, "Scan")
+	if err != nil {
+		return nil, err
+	}
+
+	return db.Count(ctx, req)
 }
 
 // CountAll ...
 func (s *ImmuServer) CountAll(ctx context.Context, _ *empty.Empty) (*schema.EntryCount, error) {
-	return nil, ErrNotSupported
+	db, err := s.getDBFromCtx(ctx, "Scan")
+	if err != nil {
+		return nil, err
+	}
+
+	return db.CountAll(ctx)
 }
 
 // TxByID ...
