@@ -731,7 +731,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	if !opts.MultiIndexing {
 		indexPath := filepath.Join(store.path, indexDirname)
 
-		defaultIndexer, err := newIndexer(nil, indexPath, store, opts)
+		defaultIndexer, err := newIndexer(indexPath, store, nil, nil, opts)
 		if err != nil {
 			store.Close()
 			return nil, fmt.Errorf("could not open indexer: %w", err)
@@ -824,9 +824,13 @@ func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMess
 	}
 }
 
+func hasPrefix(key, prefix []byte) bool {
+	return len(key) >= len(prefix) && bytes.Equal(prefix, key[:len(prefix)])
+}
+
 func (s *ImmuStore) getIndexer(key []byte) (*indexer, error) {
 	for _, indexer := range s.indexers {
-		if len(key) >= len(indexer.prefix) && bytes.Equal(indexer.prefix, key[:len(indexer.prefix)]) {
+		if hasPrefix(key, indexer.prefix) {
 			return indexer, nil
 		}
 	}

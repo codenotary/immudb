@@ -17,7 +17,6 @@ limitations under the License.
 package store
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -74,7 +73,7 @@ func (m *metaState) calculatedUpToTxID() uint64 {
 
 func (m *metaState) indexPrefix(prefix []byte) (indexPrefix [sha256.Size]byte, ok bool) {
 	for p, spec := range m.indexes {
-		if len(prefix) >= len(spec.prefix) && bytes.Equal(spec.prefix, prefix[:len(spec.prefix)]) {
+		if hasPrefix(prefix, spec.prefix) {
 			indexPrefix = p
 			ok = true
 			return
