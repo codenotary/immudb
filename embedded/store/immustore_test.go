@@ -1706,10 +1706,6 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	hdr, err := immuStore.CommitWith(context.Background(), callback, true)
 	require.NoError(t, err)
 
-	ts, err := immuStore.IndexInfo(nil)
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), ts)
-
 	_, err = immuStore.ReadValue(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 

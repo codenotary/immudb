@@ -838,18 +838,6 @@ func (s *ImmuStore) getIndexer(key []byte) (*indexer, error) {
 	return nil, ErrNoIndexFound
 }
 
-func (s *ImmuStore) IndexInfo(prefix []byte) (uint64, error) {
-	s.indexersMux.RLock()
-	defer s.indexersMux.RUnlock()
-
-	indexer, err := s.getIndexer(prefix)
-	if err != nil {
-		return 0, err
-	}
-
-	return indexer.Ts(), nil
-}
-
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
 	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
 }
