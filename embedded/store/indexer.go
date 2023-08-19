@@ -35,7 +35,8 @@ import (
 )
 
 type indexer struct {
-	prefix []byte
+	prefix      []byte
+	entryMapper entryMapper
 
 	path string
 
@@ -46,6 +47,7 @@ type indexer struct {
 	bulkPreparationTimeout time.Duration
 
 	_kvs []*tbtree.KVT //pre-allocated for multi-tx bulk indexing
+	_val []byte        //pre-allocated buffer to read entry values while mapping
 
 	index *tbtree.TBtree
 
@@ -64,6 +66,8 @@ type indexer struct {
 	metricsLastCommittedTrx prometheus.Gauge
 	metricsLastIndexedTrx   prometheus.Gauge
 }
+
+type entryMapper = func(key []byte, value []byte) []byte
 
 type runningState = int
 
@@ -88,7 +92,7 @@ var (
 	})
 )
 
-func newIndexer(prefix []byte, path string, store *ImmuStore, opts *Options) (*indexer, error) {
+func newIndexer(path string, store *ImmuStore, prefix []byte, entryMapper entryMapper, opts *Options) (*indexer, error) {
 	if store == nil {
 		return nil, fmt.Errorf("%w: nil store", ErrIllegalArguments)
 	}
@@ -144,11 +148,13 @@ func newIndexer(prefix []byte, path string, store *ImmuStore, opts *Options) (*i
 
 	indexer := &indexer{
 		prefix:                 prefix,
+		entryMapper:            entryMapper,
 		store:                  store,
 		tx:                     tx,
 		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
 		bulkPreparationTimeout: opts.IndexOpts.BulkPreparationTimeout,
 		_kvs:                   kvs,
+		_val:                   make([]byte, store.maxValueLen),
 		path:                   path,
 		index:                  index,
 		wHub:                   wHub,
@@ -452,6 +458,23 @@ func (idx *indexer) indexSince(txID uint64) error {
 				continue
 			}
 
+			var mappedKey []byte
+
+			if idx.entryMapper == nil {
+				mappedKey = e.key()
+			} else {
+				_, err := idx.store.readValueAt(idx._val[:e.vLen], e.vOff, e.hVal, false)
+				if err != nil {
+					return err
+				}
+
+				mappedKey = idx.entryMapper(e.key(), idx._val[:e.vLen])
+			}
+
+			if !hasPrefix(mappedKey, idx.prefix) {
+				continue
+			}
+
 			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
 			var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
 			o := 0
@@ -485,7 +508,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 			copy(b[o:], kvmd)
 			o += kvmdLen
 
-			idx._kvs[indexableEntries].K = e.key()
+			idx._kvs[indexableEntries].K = mappedKey
 			idx._kvs[indexableEntries].V = b[:o]
 			idx._kvs[indexableEntries].T = txID + uint64(i)
 
