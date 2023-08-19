@@ -71,18 +71,18 @@ func (m *metaState) calculatedUpToTxID() uint64 {
 	return doneUpToTxID
 }
 
-func (m *metaState) indexPrefix(prefix []byte) (indexPrefix [sha256.Size]byte, ok bool) {
-	for p, spec := range m.indexes {
+func (m *metaState) indexSpec(prefix []byte) (*indexSpec, bool) {
+	for _, spec := range m.indexes {
 		if hasPrefix(prefix, spec.prefix) {
-			indexPrefix = p
-			ok = true
-			return
+			return spec, true
 		}
 	}
-	return
+	return nil, false
 }
 
-func (m *metaState) processTxHeader(hdr *TxHeader) error {
+type onIndexingChangeCallback = func(prefix []byte) error
+
+func (m *metaState) processTxHeader(hdr *TxHeader, onIndexCreated, onIndexDeleted onIndexingChangeCallback) error {
 	if hdr == nil {
 		return ErrIllegalArguments
 	}
@@ -112,12 +112,21 @@ func (m *metaState) processTxHeader(hdr *TxHeader) error {
 	if len(indexingChanges) > 0 {
 		for _, change := range indexingChanges {
 
-			indexPrefix, indexAlreadyExists := m.indexPrefix(change.GetPrefix())
+			spec, indexAlreadyExists := m.indexSpec(change.GetPrefix())
 
 			if change.IsIndexDeletion() {
 				if !indexAlreadyExists {
 					return fmt.Errorf("%w: index does not exist", ErrCorruptedData)
 				}
+
+				if onIndexDeleted != nil {
+					err := onIndexDeleted(spec.prefix)
+					if err != nil {
+						return err
+					}
+				}
+
+				indexPrefix := sha256.Sum256(spec.prefix)
 
 				delete(m.indexes, indexPrefix)
 
@@ -130,6 +139,13 @@ func (m *metaState) processTxHeader(hdr *TxHeader) error {
 				}
 
 				c := change.(*IndexCreationChange)
+
+				if onIndexCreated != nil {
+					err := onIndexCreated(c.Prefix)
+					if err != nil {
+						return err
+					}
+				}
 
 				indexPrefix := sha256.Sum256(c.Prefix)
 

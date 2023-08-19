@@ -30,7 +30,7 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer(t.TempDir(), nil, nil, nil, nil)
+	indexer, err := newIndexer(t.TempDir(), nil, nil)
 	require.Nil(t, indexer)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
@@ -41,7 +41,7 @@ func TestClosedIndexerFailures(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	indexer, err := store.getIndexer(nil)
+	indexer, err := store.getIndexerFor(nil)
 	require.NoError(t, err)
 
 	err = indexer.Close()
@@ -129,7 +129,7 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				s.Close()
 
-				indexer, err := s.getIndexer(nil)
+				indexer, err := s.getIndexerFor(nil)
 				require.NoError(t, err)
 
 				err = indexer.restartIndex()
@@ -141,7 +141,7 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit1"), 0777))
 
-				indexer, err := s.getIndexer(nil)
+				indexer, err := s.getIndexerFor(nil)
 				require.NoError(t, err)
 
 				err = indexer.restartIndex()
@@ -153,7 +153,7 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
 
-				indexer, err := s.getIndexer(nil)
+				indexer, err := s.getIndexerFor(nil)
 				require.NoError(t, err)
 
 				err = indexer.restartIndex()
@@ -166,7 +166,7 @@ func TestRestartIndexCornerCases(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
 				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit1"), []byte{}, 0777))
 
-				indexer, err := s.getIndexer(nil)
+				indexer, err := s.getIndexerFor(nil)
 				require.NoError(t, err)
 
 				err = indexer.restartIndex()

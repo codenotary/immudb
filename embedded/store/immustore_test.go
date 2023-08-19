@@ -3302,7 +3302,7 @@ func TestImmudbPreconditionIndexing(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("commit", func(t *testing.T) {
-		indexer, err := immuStore.getIndexer(nil)
+		indexer, err := immuStore.getIndexerFor(nil)
 		require.NoError(t, err)
 
 		// First add some entries that are not indexed
@@ -3346,7 +3346,7 @@ func TestImmudbPreconditionIndexing(t *testing.T) {
 	})
 
 	t.Run("commitWith", func(t *testing.T) {
-		indexer, err := immuStore.getIndexer(nil)
+		indexer, err := immuStore.getIndexerFor(nil)
 		require.NoError(t, err)
 
 		// First add some entries that are not indexed
@@ -5069,7 +5069,6 @@ func TestIndexingChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	indexingChanges1 := []IndexChange{&IndexCreationChange{Prefix: []byte("j")}, &IndexCreationChange{Prefix: []byte("k")}}
-
 	tx1.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges1))
 
 	hdr1, err := tx1.Commit(context.Background())
@@ -5089,15 +5088,56 @@ func TestIndexingChanges(t *testing.T) {
 
 	require.Len(t, st.metaState.indexes, 2)
 
+	err = st.InitIndexer([]byte("j"), nil)
+	require.NoError(t, err)
+
+	err = st.InitIndexer([]byte("k"), nil)
+	require.NoError(t, err)
+
 	tx2, err := st.NewWriteOnlyTx(context.Background())
 	require.NoError(t, err)
 
-	indexingChanges2 := []IndexChange{&IndexDeletionChange{Prefix: []byte("j")}}
+	err = tx2.Set([]byte("j1"), nil, []byte("val_j1"))
+	require.NoError(t, err)
 
-	tx2.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges2))
+	err = tx2.Set([]byte("k1"), nil, []byte("val_k1"))
+	require.NoError(t, err)
 
 	_, err = tx2.Commit(context.Background())
 	require.NoError(t, err)
 
+	tx3, err := st.NewTx(context.Background(), DefaultTxOptions())
+	require.NoError(t, err)
+
+	_, err = tx3.Get([]byte("j1"))
+	require.NoError(t, err)
+
+	_, err = tx3.Get([]byte("k1"))
+	require.NoError(t, err)
+
+	err = tx3.Cancel()
+	require.NoError(t, err)
+
+	tx4, err := st.NewWriteOnlyTx(context.Background())
+	require.NoError(t, err)
+
+	indexingChanges2 := []IndexChange{&IndexDeletionChange{Prefix: []byte("j")}}
+	tx4.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges2))
+
+	_, err = tx4.Commit(context.Background())
+	require.NoError(t, err)
+
 	require.Len(t, st.metaState.indexes, 1)
+
+	tx5, err := st.NewTx(context.Background(), DefaultTxOptions())
+	require.NoError(t, err)
+
+	_, err = tx5.Get([]byte("j1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, err = tx5.Get([]byte("k1"))
+	require.NoError(t, err)
+
+	err = tx5.Cancel()
+	require.NoError(t, err)
 }
