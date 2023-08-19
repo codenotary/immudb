@@ -185,7 +185,7 @@ func (tx *OngoingTx) Metadata() *TxMetadata {
 
 func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
 	for _, snap := range tx.snapshots {
-		if len(key) >= len(snap.prefix) && bytes.Equal(snap.prefix, key[:len(snap.prefix)]) {
+		if hasPrefix(key, snap.prefix) {
 			return snap, nil
 		}
 	}
@@ -359,6 +359,9 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 
 	snap, err := tx.snap(key)
 	if err != nil {
+		if errors.Is(err, ErrNoIndexFound) {
+			return nil, ErrKeyNotFound
+		}
 		return nil, err
 	}
 

@@ -36,7 +36,7 @@ import (
 
 type indexer struct {
 	prefix      []byte
-	entryMapper entryMapper
+	entryMapper EntryMapper
 
 	path string
 
@@ -67,7 +67,7 @@ type indexer struct {
 	metricsLastIndexedTrx   prometheus.Gauge
 }
 
-type entryMapper = func(key []byte, value []byte) []byte
+type EntryMapper = func(key []byte, value []byte) []byte
 
 type runningState = int
 
@@ -92,7 +92,7 @@ var (
 	})
 )
 
-func newIndexer(path string, store *ImmuStore, prefix []byte, entryMapper entryMapper, opts *Options) (*indexer, error) {
+func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) {
 	if store == nil {
 		return nil, fmt.Errorf("%w: nil store", ErrIllegalArguments)
 	}
@@ -147,8 +147,6 @@ func newIndexer(path string, store *ImmuStore, prefix []byte, entryMapper entryM
 	}
 
 	indexer := &indexer{
-		prefix:                 prefix,
-		entryMapper:            entryMapper,
 		store:                  store,
 		tx:                     tx,
 		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
@@ -166,9 +164,17 @@ func newIndexer(path string, store *ImmuStore, prefix []byte, entryMapper entryM
 	indexer.metricsLastIndexedTrx = metricsLastIndexedTrxId.WithLabelValues(dbName)
 	indexer.metricsLastCommittedTrx = metricsLastCommittedTrx.WithLabelValues(dbName)
 
-	indexer.resume()
-
 	return indexer, nil
+}
+
+func (idx *indexer) init(prefix []byte, entryMapper EntryMapper) {
+	idx.mutex.Lock()
+	defer idx.mutex.Unlock()
+
+	idx.prefix = prefix
+	idx.entryMapper = entryMapper
+
+	idx.resume()
 }
 
 func (idx *indexer) Ts() uint64 {
