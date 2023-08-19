@@ -30,7 +30,7 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer(nil, t.TempDir(), nil, nil)
+	indexer, err := newIndexer(t.TempDir(), nil, nil, nil, nil)
 	require.Nil(t, indexer)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
