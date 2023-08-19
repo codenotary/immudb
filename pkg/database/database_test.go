@@ -115,10 +115,11 @@ func TestDefaultDbCreation(t *testing.T) {
 	require.Zero(t, n)
 
 	_, err = db.Count(context.Background(), nil)
-	require.ErrorContains(t, err, "Functionality not yet supported: Count")
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.CountAll(context.Background())
-	require.ErrorContains(t, err, "Functionality not yet supported: Count")
+	res, err := db.CountAll(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 
 	dbPath := path.Join(options.GetDBRootPath(), db.GetName())
 	require.DirExists(t, dbPath)
