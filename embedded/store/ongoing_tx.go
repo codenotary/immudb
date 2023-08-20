@@ -359,7 +359,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 
 	snap, err := tx.snap(key)
 	if err != nil {
-		if errors.Is(err, ErrNoIndexFound) {
+		if errors.Is(err, ErrIndexNotFound) {
 			return nil, ErrKeyNotFound
 		}
 		return nil, err

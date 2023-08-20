@@ -111,7 +111,7 @@ var ErrTruncationInfoNotPresentInMetadata = errors.New("truncation info not pres
 
 var ErrInvalidProof = errors.New("invalid proof")
 
-var ErrNoIndexFound = errors.New("no index found")
+var ErrIndexNotFound = errors.New("index not found")
 
 var ErrMultiIndexingNotEnabled = errors.New("multi-indexing not enabled")
 
@@ -741,7 +741,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if !store.multiIndexing {
-		err := store.InitIndexer(nil, nil)
+		err := store.InitIndex(&IndexSpec{})
 		if err != nil {
 			store.Close()
 			return nil, err
@@ -830,23 +830,36 @@ func hasPrefix(key, prefix []byte) bool {
 
 func (s *ImmuStore) getIndexerFor(keyPrefix []byte) (*indexer, error) {
 	for _, indexer := range s.indexers {
-		if hasPrefix(keyPrefix, indexer.prefix) {
+		if hasPrefix(keyPrefix, indexer.Prefix()) {
 			return indexer, nil
 		}
 	}
-	return nil, ErrNoIndexFound
+	return nil, ErrIndexNotFound
 }
 
-func (s *ImmuStore) InitIndexer(prefix []byte, entryMapper EntryMapper) error {
+type IndexSpec struct {
+	Prefix       []byte
+	SourcePrefix []byte
+	InitialTxID  uint64
+	FinalTxID    uint64
+	InitialTs    int64
+	FinalTs      int64
+	EntryMapper  EntryMapper
+}
+
+func (s *ImmuStore) InitIndex(spec *IndexSpec) error {
+	if spec == nil {
+		return ErrIllegalArguments
+	}
+
+	if len(spec.Prefix) == 0 && len(spec.SourcePrefix) > 0 {
+		return fmt.Errorf("%w: empty prefix can not have a source prefix", ErrIllegalArguments)
+	}
+
 	s.indexersMux.Lock()
 	defer s.indexersMux.Unlock()
 
-	indexPrefix := sha256.Sum256(prefix)
-
-	_, indexFound := s.metaState.indexes[indexPrefix]
-	if s.multiIndexing && !indexFound {
-		return ErrNoIndexFound
-	}
+	indexPrefix := sha256.Sum256(spec.Prefix)
 
 	_, ok := s.indexers[indexPrefix]
 	if ok {
@@ -855,20 +868,31 @@ func (s *ImmuStore) InitIndexer(prefix []byte, entryMapper EntryMapper) error {
 
 	var indexPath string
 
-	if len(prefix) == 0 {
+	if len(spec.Prefix) == 0 {
 		indexPath = filepath.Join(s.path, indexDirname)
-	} else {
-		encPrefix := hex.EncodeToString(prefix)
+	} else if len(spec.SourcePrefix) == 0 {
+		encPrefix := hex.EncodeToString(spec.Prefix)
 		indexPath = filepath.Join(s.path, fmt.Sprintf("%s_%s", indexDirname, encPrefix))
+	} else {
+		sourceIndexPrefix := sha256.Sum256(spec.SourcePrefix)
+
+		_, ok := s.indexers[sourceIndexPrefix]
+		if !ok {
+			return fmt.Errorf("%w: source indexer not initialized", ErrIndexNotFound)
+		}
+
+		encSourcePrefix := hex.EncodeToString(spec.SourcePrefix)
+		encPrefix := hex.EncodeToString(spec.Prefix)
+		indexPath = filepath.Join(s.path, fmt.Sprintf("%s_%s", indexDirname, encSourcePrefix), fmt.Sprintf("%s_%s", indexDirname, encPrefix))
 	}
 
 	indexer, err := newIndexer(indexPath, s, s.opts)
 	if err != nil {
-		return fmt.Errorf("could not open indexer: %w", err)
+		return fmt.Errorf("%w: could not open indexer", err)
 	}
 
 	if indexer.Ts() > s.LastCommittedTxID() {
-		return fmt.Errorf("corrupted commit-log: index size is too large: %w", ErrCorruptedCLog)
+		return fmt.Errorf("%w: index size is too large", ErrCorruptedIndex)
 
 		// TODO: if indexing is done on pre-committed txs, the index may be rollback to a previous snapshot where it was already synced
 		// NOTE: compaction should preserve snapshot which are not synced... so to ensure rollback can be achieved
@@ -876,9 +900,30 @@ func (s *ImmuStore) InitIndexer(prefix []byte, entryMapper EntryMapper) error {
 
 	s.indexers[indexPrefix] = indexer
 
-	indexer.init(prefix, entryMapper)
+	indexer.init(spec)
 
 	return nil
+}
+
+func (s *ImmuStore) DeleteIndex(prefix []byte) error {
+	s.indexersMux.Lock()
+	defer s.indexersMux.Unlock()
+
+	indexPrefix := sha256.Sum256(prefix)
+
+	indexer, ok := s.indexers[indexPrefix]
+	if !ok {
+		return fmt.Errorf("%w: index not found", ErrIndexNotFound)
+	}
+
+	err := indexer.Close()
+	if err != nil {
+		return err
+	}
+
+	delete(s.indexers, indexPrefix)
+
+	return os.RemoveAll(indexer.path)
 }
 
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
@@ -888,7 +933,7 @@ func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
 func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexer, err := s.getIndexerFor(key)
 	if err != nil {
-		if errors.Is(err, ErrNoIndexFound) {
+		if errors.Is(err, ErrIndexNotFound) {
 			return nil, ErrKeyNotFound
 		}
 
@@ -928,7 +973,7 @@ func (s *ImmuStore) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef
 func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	indexer, err := s.getIndexerFor(prefix)
 	if err != nil {
-		if errors.Is(err, ErrNoIndexFound) {
+		if errors.Is(err, ErrIndexNotFound) {
 			return nil, nil, ErrKeyNotFound
 		}
 
@@ -964,7 +1009,7 @@ func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters .
 func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
 	indexer, err := s.getIndexerFor(key)
 	if err != nil {
-		if errors.Is(err, ErrNoIndexFound) {
+		if errors.Is(err, ErrIndexNotFound) {
 			return nil, 0, ErrKeyNotFound
 		}
 
@@ -1067,7 +1112,7 @@ func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 
 	return &Snapshot{
 		st:     s,
-		prefix: indexer.prefix,
+		prefix: indexer.Prefix(),
 		snap:   snap,
 		ts:     time.Now(),
 	}, nil
@@ -1161,7 +1206,7 @@ func (s *ImmuStore) syncMetaState() error {
 			return err
 		}
 
-		err = s.metaState.processTxHeader(hdr, nil, nil)
+		err = s.metaState.processTxHeader(hdr)
 		if err != nil {
 			return err
 		}
@@ -1869,28 +1914,7 @@ func (s *ImmuStore) performPrecommit(tx *Tx, entries []*EntrySpec, ts int64, blT
 		return err
 	}
 
-	onIndexDeletedCallback := func(prefix []byte) error {
-		s.indexersMux.Lock()
-		defer s.indexersMux.Unlock()
-
-		indexPrefix := sha256.Sum256(prefix)
-
-		indexer, ok := s.indexers[indexPrefix]
-		if !ok {
-			return fmt.Errorf("%w: index not found", ErrUnexpectedError)
-		}
-
-		err = indexer.Close()
-		if err != nil {
-			return err
-		}
-
-		delete(s.indexers, indexPrefix)
-
-		return os.RemoveAll(indexer.path)
-	}
-
-	err = s.metaState.processTxHeader(tx.header, nil, onIndexDeletedCallback)
+	err = s.metaState.processTxHeader(tx.header)
 	if err != nil {
 		return err
 	}
@@ -2168,7 +2192,7 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	// preCommitWith is limited to default index and it may be deprecated in the near future
 	indexer, err := s.getIndexerFor(nil)
 	if err != nil {
-		if errors.Is(err, ErrNoIndexFound) {
+		if errors.Is(err, ErrIndexNotFound) {
 			return nil, ErrKeyNotFound
 		}
 		return nil, err

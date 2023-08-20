@@ -73,27 +73,11 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 
 	require.False(t, desmd.IsEmpty())
 
-	changes := desmd.GetIndexingChanges()
-	require.Nil(t, changes)
-
-	desmd.WithIndexingChanges(nil)
-	changes = desmd.GetIndexingChanges()
-	require.Nil(t, changes)
-
-	specChanges := []IndexChange{
-		&IndexDeletionChange{},
-		&IndexCreationChange{},
-	}
-	desmd.WithIndexingChanges(specChanges)
-	changes = desmd.GetIndexingChanges()
-	require.Len(t, changes, 2)
-
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Less(t, len(bs), maxTxMetadataLen)
+	require.LessOrEqual(t, len(bs), maxTxMetadataLen)
 
 	err = desmd.ReadFrom(bs)
 	require.NoError(t, err)
 	require.True(t, desmd.HasTruncatedTxID())
-	require.Len(t, desmd.GetIndexingChanges(), 2)
 }

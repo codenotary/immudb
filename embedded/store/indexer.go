@@ -35,13 +35,13 @@ import (
 )
 
 type indexer struct {
-	prefix      []byte
-	entryMapper EntryMapper
-
 	path string
 
 	store *ImmuStore
-	tx    *Tx
+
+	spec *IndexSpec
+
+	tx *Tx
 
 	maxBulkSize            int
 	bulkPreparationTimeout time.Duration
@@ -167,14 +167,17 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 	return indexer, nil
 }
 
-func (idx *indexer) init(prefix []byte, entryMapper EntryMapper) {
+func (idx *indexer) init(spec *IndexSpec) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
 
-	idx.prefix = prefix
-	idx.entryMapper = entryMapper
+	idx.spec = spec
 
 	idx.resume()
+}
+
+func (idx *indexer) Prefix() []byte {
+	return idx.spec.Prefix
 }
 
 func (idx *indexer) Ts() uint64 {
@@ -466,7 +469,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 
 			var mappedKey []byte
 
-			if idx.entryMapper == nil {
+			if idx.spec.EntryMapper == nil {
 				mappedKey = e.key()
 			} else {
 				_, err := idx.store.readValueAt(idx._val[:e.vLen], e.vOff, e.hVal, false)
@@ -474,10 +477,10 @@ func (idx *indexer) indexSince(txID uint64) error {
 					return err
 				}
 
-				mappedKey = idx.entryMapper(e.key(), idx._val[:e.vLen])
+				mappedKey = idx.spec.EntryMapper(e.key(), idx._val[:e.vLen])
 			}
 
-			if !hasPrefix(mappedKey, idx.prefix) {
+			if !hasPrefix(mappedKey, idx.spec.Prefix) {
 				continue
 			}
 
