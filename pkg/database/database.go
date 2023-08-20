@@ -200,6 +200,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	stOpts := op.GetStoreOptions().
 		WithLogger(log).
+		WithMultiIndexing(true).
 		WithExternalCommitAllowance(op.syncReplication)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
@@ -294,6 +295,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	stOpts := op.GetStoreOptions().
 		WithExternalCommitAllowance(op.syncReplication).
+		WithMultiIndexing(true).
 		WithLogger(log)
 
 	dbi.st, err = store.Open(dbDir, stOpts)

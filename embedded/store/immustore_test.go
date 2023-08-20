@@ -719,7 +719,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					}, nil
 				}),
 		)
-		require.ErrorIs(t, err, ErrCorruptedCLog)
+		require.ErrorIs(t, err, ErrCorruptedIndex)
 	})
 
 	mockedApps := []*mocked.MockedAppendable{vLog, txLog, cLog}
@@ -5065,52 +5065,51 @@ func TestIndexingChanges(t *testing.T) {
 
 	defer immustoreClose(t, st)
 
+	err = st.InitIndex(&IndexSpec{
+		Prefix: []byte("j"),
+	})
+	require.NoError(t, err)
+
+	err = st.InitIndex(&IndexSpec{
+		Prefix: []byte("k"),
+	})
+	require.NoError(t, err)
+
 	tx1, err := st.NewWriteOnlyTx(context.Background())
 	require.NoError(t, err)
 
-	indexingChanges1 := []IndexChange{&IndexCreationChange{Prefix: []byte("j")}, &IndexCreationChange{Prefix: []byte("k")}}
-	tx1.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges1))
-
-	hdr1, err := tx1.Commit(context.Background())
+	err = tx1.Set([]byte("j1"), nil, []byte("val_j1"))
 	require.NoError(t, err)
 
-	txPool, err := st.NewTxHolderPool(1, true)
+	err = tx1.Set([]byte("k1"), nil, []byte("val_k1"))
 	require.NoError(t, err)
 
-	txholder, err := txPool.Alloc()
+	_, err = tx1.Commit(context.Background())
 	require.NoError(t, err)
 
-	defer txPool.Release(txholder)
-
-	err = st.ReadTx(hdr1.ID, false, txholder)
-	require.NoError(t, err)
-	require.Empty(t, txholder.Entries())
-
-	require.Len(t, st.metaState.indexes, 2)
-
-	err = st.InitIndexer([]byte("j"), nil)
+	tx2, err := st.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
 
-	err = st.InitIndexer([]byte("k"), nil)
+	_, err = tx2.Get([]byte("j1"))
 	require.NoError(t, err)
 
-	tx2, err := st.NewWriteOnlyTx(context.Background())
+	_, err = tx2.Get([]byte("k1"))
 	require.NoError(t, err)
 
-	err = tx2.Set([]byte("j1"), nil, []byte("val_j1"))
+	err = tx2.Cancel()
 	require.NoError(t, err)
 
-	err = tx2.Set([]byte("k1"), nil, []byte("val_k1"))
+	err = st.DeleteIndex([]byte("j"))
 	require.NoError(t, err)
 
-	_, err = tx2.Commit(context.Background())
-	require.NoError(t, err)
+	err = st.DeleteIndex([]byte("j"))
+	require.ErrorIs(t, err, ErrIndexNotFound)
 
 	tx3, err := st.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
 
 	_, err = tx3.Get([]byte("j1"))
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, err = tx3.Get([]byte("k1"))
 	require.NoError(t, err)
@@ -5118,26 +5117,20 @@ func TestIndexingChanges(t *testing.T) {
 	err = tx3.Cancel()
 	require.NoError(t, err)
 
-	tx4, err := st.NewWriteOnlyTx(context.Background())
+	err = st.InitIndex(&IndexSpec{
+		Prefix: []byte("j"),
+	})
 	require.NoError(t, err)
 
-	indexingChanges2 := []IndexChange{&IndexDeletionChange{Prefix: []byte("j")}}
-	tx4.WithMetadata(NewTxMetadata().WithIndexingChanges(indexingChanges2))
-
-	_, err = tx4.Commit(context.Background())
+	tx4, err := st.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
 
-	require.Len(t, st.metaState.indexes, 1)
-
-	tx5, err := st.NewTx(context.Background(), DefaultTxOptions())
+	_, err = tx4.Get([]byte("j1"))
 	require.NoError(t, err)
 
-	_, err = tx5.Get([]byte("j1"))
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	_, err = tx5.Get([]byte("k1"))
+	_, err = tx4.Get([]byte("k1"))
 	require.NoError(t, err)
 
-	err = tx5.Cancel()
+	err = tx4.Cancel()
 	require.NoError(t, err)
 }

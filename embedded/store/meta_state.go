@@ -17,7 +17,6 @@ limitations under the License.
 package store
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -30,17 +29,7 @@ var ErrAlreadyStopped = errors.New("already stopped")
 type metaState struct {
 	truncatedUpToTxID uint64
 
-	indexes map[[sha256.Size]byte]*indexSpec
-
 	wHub *watchers.WatchersHub
-}
-
-type indexSpec struct {
-	prefix      []byte
-	initialTxID uint64
-	finalTxID   uint64
-	initialTs   int64
-	finalTs     int64
 }
 
 type metaStateOptions struct {
@@ -48,13 +37,12 @@ type metaStateOptions struct {
 
 func openMetaState(path string, opts metaStateOptions) (*metaState, error) {
 	return &metaState{
-		wHub:    watchers.New(0, MaxIndexCount),
-		indexes: make(map[[sha256.Size]byte]*indexSpec),
+		wHub: watchers.New(0, MaxIndexCount),
 	}, nil
 }
 
 func (m *metaState) rollbackUpTo(txID uint64) error {
-	m.indexes = nil
+	m.truncatedUpToTxID = 0
 
 	err := m.wHub.Close()
 	if err != nil {
@@ -71,18 +59,7 @@ func (m *metaState) calculatedUpToTxID() uint64 {
 	return doneUpToTxID
 }
 
-func (m *metaState) indexSpec(prefix []byte) (*indexSpec, bool) {
-	for _, spec := range m.indexes {
-		if hasPrefix(prefix, spec.prefix) {
-			return spec, true
-		}
-	}
-	return nil, false
-}
-
-type onIndexingChangeCallback = func(prefix []byte) error
-
-func (m *metaState) processTxHeader(hdr *TxHeader, onIndexCreated, onIndexDeleted onIndexingChangeCallback) error {
+func (m *metaState) processTxHeader(hdr *TxHeader) error {
 	if hdr == nil {
 		return ErrIllegalArguments
 	}
@@ -105,63 +82,6 @@ func (m *metaState) processTxHeader(hdr *TxHeader, onIndexCreated, onIndexDelete
 		m.truncatedUpToTxID = truncatedUpToTxID
 	} else if !errors.Is(err, ErrTruncationInfoNotPresentInMetadata) {
 		return err
-	}
-
-	indexingChanges := hdr.Metadata.GetIndexingChanges()
-
-	if len(indexingChanges) > 0 {
-		for _, change := range indexingChanges {
-
-			spec, indexAlreadyExists := m.indexSpec(change.GetPrefix())
-
-			if change.IsIndexDeletion() {
-				if !indexAlreadyExists {
-					return fmt.Errorf("%w: index does not exist", ErrCorruptedData)
-				}
-
-				if onIndexDeleted != nil {
-					err := onIndexDeleted(spec.prefix)
-					if err != nil {
-						return err
-					}
-				}
-
-				indexPrefix := sha256.Sum256(spec.prefix)
-
-				delete(m.indexes, indexPrefix)
-
-				continue
-			}
-
-			if change.IsIndexCreation() {
-				if indexAlreadyExists {
-					return fmt.Errorf("%w: index already exists", ErrCorruptedData)
-				}
-
-				c := change.(*IndexCreationChange)
-
-				if onIndexCreated != nil {
-					err := onIndexCreated(c.Prefix)
-					if err != nil {
-						return err
-					}
-				}
-
-				indexPrefix := sha256.Sum256(c.Prefix)
-
-				m.indexes[indexPrefix] = &indexSpec{
-					prefix:      c.Prefix,
-					initialTxID: c.InitialTxID,
-					finalTxID:   c.FinalTxID,
-					initialTs:   c.InitialTs,
-					finalTs:     c.FinalTs,
-				}
-
-				continue
-			}
-
-			return fmt.Errorf("%w: it may be due to an unsupported metadata change", ErrUnexpectedError)
-		}
 	}
 
 	m.wHub.DoneUpto(hdr.ID)
