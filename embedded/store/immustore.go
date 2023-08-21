@@ -2189,17 +2189,13 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	}
 	defer otx.Cancel()
 
-	// preCommitWith is limited to default index and it may be deprecated in the near future
-	indexer, err := s.getIndexerFor(nil)
-	if err != nil {
-		if errors.Is(err, ErrIndexNotFound) {
-			return nil, ErrKeyNotFound
-		}
-		return nil, err
-	}
+	s.indexersMux.Lock()
+	defer s.indexersMux.Unlock()
 
-	indexer.Pause()
-	defer indexer.Resume()
+	for _, indexer := range s.indexers {
+		indexer.Pause()
+		defer indexer.Resume()
+	}
 
 	lastPreCommittedTxID := s.LastPrecommittedTxID()
 
@@ -2223,7 +2219,9 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	}
 
 	if otx.hasPreconditions() {
-		indexer.Resume()
+		for _, indexer := range s.indexers {
+			indexer.Resume()
+		}
 
 		// Preconditions must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(ctx, lastPreCommittedTxID)
@@ -2236,7 +2234,9 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 			return nil, err
 		}
 
-		indexer.Pause()
+		for _, indexer := range s.indexers {
+			indexer.Pause()
+		}
 	}
 
 	tx, err := s.fetchAllocTx()

@@ -669,8 +669,8 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
-		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
+		err = NewVlogTruncator(db).TruncateUptoTx(context.Background(), hdr.ID)
+		require.NoError(t, err)
 
 		// should add two extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -724,8 +724,8 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
-		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
+		err = NewVlogTruncator(db).TruncateUptoTx(context.Background(), hdr.ID)
+		require.NoError(t, err)
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
