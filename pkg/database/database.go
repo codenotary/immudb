@@ -208,6 +208,16 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, logErr(dbi.Logger, "unable to open database: %s", err)
 	}
 
+	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix, SQLPrefix, DocumentPrefix} {
+		err := dbi.st.InitIndex(&store.IndexSpec{
+			Prefix: []byte{prefix},
+		})
+		if err != nil {
+			dbi.st.Close()
+			return nil, logErr(dbi.Logger, "unable to open database: %s", err)
+		}
+	}
+
 	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, op.replica)
 
 	sqlOpts := sql.DefaultOptions().
@@ -301,6 +311,16 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "unable to open database: %s", err)
+	}
+
+	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix, SQLPrefix, DocumentPrefix} {
+		err := dbi.st.InitIndex(&store.IndexSpec{
+			Prefix: []byte{prefix},
+		})
+		if err != nil {
+			dbi.st.Close()
+			return nil, logErr(dbi.Logger, "unable to open database: %s", err)
+		}
 	}
 
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
@@ -872,7 +892,7 @@ func (d *db) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema
 
 // GetAll ...
 func (d *db) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.Entries, error) {
-	snap, err := d.snapshotSince(ctx, req.SinceTx)
+	snap, err := d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -955,7 +975,7 @@ func (d *db) TxByID(ctx context.Context, req *schema.TxRequest) (*schema.Tx, err
 	defer d.releaseTx(tx)
 
 	if !req.KeepReferencesUnresolved {
-		snap, err = d.snapshotSince(ctx, req.SinceTx)
+		snap, err = d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
 		if err != nil {
 			return nil, err
 		}
@@ -971,7 +991,7 @@ func (d *db) TxByID(ctx context.Context, req *schema.TxRequest) (*schema.Tx, err
 	return d.serializeTx(tx, req.EntriesSpec, snap, true)
 }
 
-func (d *db) snapshotSince(ctx context.Context, txID uint64) (*store.Snapshot, error) {
+func (d *db) snapshotSince(ctx context.Context, prefix []byte, txID uint64) (*store.Snapshot, error) {
 	currTxID, _ := d.st.CommittedAlh()
 
 	if txID > currTxID {
@@ -983,7 +1003,7 @@ func (d *db) snapshotSince(ctx context.Context, txID uint64) (*store.Snapshot, e
 		waitUntilTx = currTxID
 	}
 
-	return d.st.SnapshotMustIncludeTxID(ctx, nil, waitUntilTx)
+	return d.st.SnapshotMustIncludeTxID(ctx, prefix, waitUntilTx)
 }
 
 func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot, skipIntegrityCheck bool) (*schema.Tx, error) {
@@ -1388,7 +1408,7 @@ func (d *db) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxReque
 	var err error
 
 	if !req.KeepReferencesUnresolved {
-		snap, err = d.snapshotSince(ctx, req.SinceTx)
+		snap, err = d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
 		if err != nil {
 			return nil, err
 		}
@@ -1465,7 +1485,7 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 		limit = d.maxResultSize
 	}
 
-	snap, err := d.snapshotSince(ctx, req.SinceTx)
+	snap, err := d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
