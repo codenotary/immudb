@@ -158,13 +158,13 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
 
-	snap, err := d.snapshotSince(ctx, req.SinceTx)
+	zsnap, err := d.snapshotSince(ctx, []byte{SortedSetKeyPrefix}, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
-	defer snap.Close()
+	defer zsnap.Close()
 
-	r, err := snap.NewKeyReader(
+	r, err := zsnap.NewKeyReader(
 		store.KeyReaderSpec{
 			SeekKey:       seekKey,
 			Prefix:        prefix,
@@ -177,6 +177,12 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 		return nil, err
 	}
 	defer r.Close()
+
+	kvsnap, err := d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer kvsnap.Close()
 
 	entries := &schema.ZEntries{}
 
@@ -208,7 +214,7 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		e, err := d.getAtTx(key, atTx, 1, snap, 0, true)
+		e, err := d.getAtTx(key, atTx, 1, kvsnap, 0, true)
 		if errors.Is(err, store.ErrKeyNotFound) {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue

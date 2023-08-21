@@ -49,7 +49,6 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 	}
 
 	seekKey := req.SeekKey
-
 	if len(seekKey) > 0 {
 		seekKey = EncodeKey(req.SeekKey)
 	}
@@ -59,7 +58,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 		endKey = EncodeKey(req.EndKey)
 	}
 
-	snap, err := d.snapshotSince(ctx, req.SinceTx)
+	snap, err := d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}

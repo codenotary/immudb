@@ -105,6 +105,8 @@ func (v *vlogTruncator) commitCatalog(ctx context.Context, txID uint64) (*store.
 	// setting the metadata to record the transaction upto which the log was truncated
 	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(txID))
 
+	tx.RequireMVCCOnFollowingTxs(true)
+
 	// commit catalogue as a new transaction
 	return tx.Commit(ctx)
 }

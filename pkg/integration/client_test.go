@@ -1195,15 +1195,17 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 func TestImmuClient_Count(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.Count(ctx, []byte(`key1`))
-	require.ErrorContains(t, err, server.ErrNotSupported.Error())
+	res, err := client.Count(ctx, []byte(`key1`))
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.CountAll(ctx)
-	require.ErrorContains(t, err, server.ErrNotSupported.Error())
+	res, err := client.CountAll(ctx)
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 }
 
 /*
