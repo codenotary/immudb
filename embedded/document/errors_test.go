@@ -36,7 +36,6 @@ func TestMayTranslateError(t *testing.T) {
 		{sql.ErrNoMoreRows, ErrNoMoreDocuments},
 		{sql.ErrColumnAlreadyExists, ErrFieldAlreadyExists},
 		{sql.ErrColumnDoesNotExist, ErrFieldDoesNotExist},
-		{sql.ErrLimitedIndexCreation, ErrLimitedIndexCreation},
 		{store.ErrTxReadConflict, ErrConflict},
 		{store.ErrKeyAlreadyExists, ErrConflict},
 		{errCustom, errCustom},

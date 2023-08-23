@@ -67,7 +67,8 @@ type indexer struct {
 	metricsLastIndexedTrx   prometheus.Gauge
 }
 
-type EntryMapper = func(key []byte, value []byte) []byte
+type EntryMapper = func(key []byte, value []byte) ([]byte, error)
+type EntryUpdateProcessor = func(key []byte, prevValue []byte) error
 
 type runningState = int
 
@@ -177,7 +178,7 @@ func (idx *indexer) init(spec *IndexSpec) {
 }
 
 func (idx *indexer) Prefix() []byte {
-	return idx.spec.Prefix
+	return idx.spec.TargetPrefix
 }
 
 func (idx *indexer) Ts() uint64 {
@@ -467,6 +468,10 @@ func (idx *indexer) indexSince(txID uint64) error {
 				continue
 			}
 
+			if !hasPrefix(e.key(), idx.spec.SourcePrefix) {
+				continue
+			}
+
 			var mappedKey []byte
 
 			if idx.spec.EntryMapper == nil {
@@ -477,11 +482,31 @@ func (idx *indexer) indexSince(txID uint64) error {
 					return err
 				}
 
-				mappedKey = idx.spec.EntryMapper(e.key(), idx._val[:e.vLen])
+				mappedKey, err = idx.spec.EntryMapper(e.key(), idx._val[:e.vLen])
+				if err != nil {
+					return err
+				}
 			}
 
-			if !hasPrefix(mappedKey, idx.spec.Prefix) {
+			if !hasPrefix(mappedKey, idx.spec.TargetPrefix) {
 				continue
+			}
+
+			if idx.spec.EntryUpdateProcessor != nil {
+				prevValRef, err := idx.store.Get(e.key())
+				if err == nil {
+					prevVal, err := prevValRef.Resolve()
+					if err != nil {
+						return err
+					}
+
+					err = idx.spec.EntryUpdateProcessor(e.key(), prevVal)
+					if err != nil {
+						return err
+					}
+				} else if !errors.Is(err, ErrKeyNotFound) {
+					return err
+				}
 			}
 
 			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd

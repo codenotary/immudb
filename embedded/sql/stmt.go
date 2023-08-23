@@ -31,25 +31,14 @@ import (
 )
 
 const (
-	//catalogDatabasePrefix = "CTL.DATABASE." // (key=CTL.DATABASE.{1}, value={dbNAME}) // deprecated entries
+	catalogPrefix       = "CTL."
 	catalogTablePrefix  = "CTL.TABLE."  // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
 	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
-	PIndexPrefix        = "R."          // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
-	SIndexPrefix        = "E."          // (key=E.{1}{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+, value={})
-	UIndexPrefix        = "N."          // (key=N.{1}{tableID}{indexID}({null}({val}{padding}{valLen})?)+, value={({pkVal}{padding}{pkValLen})+})
 
-	// Old prefixes that must not be reused:
-	//  `CATALOG.DATABASE.`
-	//  `CATALOG.TABLE.`
-	//  `CATALOG.COLUMN.`
-	//  `CATALOG.INDEX.`
-	//  `P.` 				primary indexes without null support
-	//  `S.` 				secondary indexes without null support
-	//  `U.` 				secondary unique indexes without null support
-	//  `PINDEX.` 			single-column primary indexes
-	//  `SINDEX.` 			single-column secondary indexes
-	//  `UINDEX.` 			single-column secondary unique indexes
+	PIndexPrefix = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
+
+	SIndexPrefix = "S" // (key=S{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+, value={})
 )
 
 const PKIndexID = uint32(0)
@@ -264,7 +253,7 @@ func persistColumn(col *Column, tx *SQLTx) error {
 
 	copy(v[5:], []byte(col.Name()))
 
-	mappedKey := mapKey(
+	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogColumnPrefix,
 		EncodeID(1),
@@ -320,7 +309,7 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
+	mappedKey := MapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
 
 	err = tx.set(mappedKey, nil, []byte(table.name))
 	if err != nil {
@@ -410,18 +399,6 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, err
 	}
 
-	// check table is empty
-	{
-		pkPrefix := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID))
-		existKey, err := tx.existKeyWith(pkPrefix, pkPrefix)
-		if err != nil {
-			return nil, err
-		}
-		if existKey {
-			return nil, ErrLimitedIndexCreation
-		}
-	}
-
 	// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
 	// TODO: currently only ASC order is supported
 	colSpecLen := EncIDLen + 1
@@ -436,7 +413,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		copy(encodedValues[1+i*colSpecLen:], EncodeID(col.id))
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
+	mappedKey := MapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
 
 	err = tx.set(mappedKey, nil, encodedValues)
 	if err != nil {
@@ -681,7 +658,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		}
 
 		// primary index entry
-		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+		mkey := MapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 		_, err = tx.get(mkey)
 		if err != nil && err != store.ErrKeyNotFound {
@@ -703,7 +680,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			}
 		}
 
-		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table, !stmt.isInsert)
+		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table)
 		if err != nil {
 			return nil, err
 		}
@@ -712,32 +689,9 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	return tx, nil
 }
 
-func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
-	var reusableIndexEntries map[uint32]struct{}
-
-	if reuseIndex && len(table.indexes) > 1 {
-		currPKRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
-		if err != nil && err != ErrNoMoreRows {
-			return err
-		}
-
-		if err == nil {
-			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.ValuesBySelector))
-
-			for _, col := range table.cols {
-				encSel := EncodeSelector("", table.name, col.colName)
-				currValuesByColID[col.id] = currPKRow.ValuesBySelector[encSel]
-			}
-
-			reusableIndexEntries, err = tx.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
+func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
 	// primary index entry
-	mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+	mkey := MapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 	valbuf := bytes.Buffer{}
 
@@ -787,36 +741,15 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 		return err
 	}
 
-	// create entries for secondary indexes
+	// validate entries for secondary indexes
 	for _, index := range table.indexes {
-		if index.IsPrimary() {
+		if index.IsPrimary() || !index.IsUnique() {
 			continue
 		}
 
-		if reusableIndexEntries != nil {
-			_, reusable := reusableIndexEntries[index.id]
-			if reusable {
-				continue
-			}
-		}
-
-		var prefix string
-		var encodedValues [][]byte
-		var val []byte
-
-		if index.IsUnique() {
-			prefix = UIndexPrefix
-			encodedValues = make([][]byte, 3+len(index.cols))
-			val = pkEncVals
-		} else {
-			prefix = SIndexPrefix
-			encodedValues = make([][]byte, 4+len(index.cols))
-			encodedValues[len(encodedValues)-1] = pkEncVals
-		}
-
-		encodedValues[0] = EncodeID(1)
-		encodedValues[1] = EncodeID(table.id)
-		encodedValues[2] = EncodeID(index.id)
+		encodedValues := make([][]byte, 2+len(index.cols))
+		encodedValues[0] = EncodeID(table.id)
+		encodedValues[1] = EncodeID(index.id)
 
 		indexKeyLen := 0
 
@@ -837,28 +770,21 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 
 			indexKeyLen += n
 
-			encodedValues[i+3] = encVal
+			encodedValues[i+2] = encVal
 		}
 
 		if indexKeyLen > MaxKeyLen {
 			return fmt.Errorf("%w: can not index entry using columns '%v'. Max key length is %d", ErrLimitedKeyType, index.cols, MaxKeyLen)
 		}
 
-		mkey := mapKey(tx.sqlPrefix(), prefix, encodedValues...)
+		mkey := MapKey(tx.sqlPrefix(), SIndexPrefix, encodedValues...)
 
-		if index.IsUnique() {
-			// mkey must not exist
-			_, err := tx.get(mkey)
-			if err == nil {
-				return store.ErrKeyAlreadyExists
-			}
-			if err != store.ErrKeyNotFound {
-				return err
-			}
+		// no other equivalent entry should be already indexed
+		_, _, err := tx.getWithPrefix(mkey, nil)
+		if err == nil {
+			return store.ErrKeyAlreadyExists
 		}
-
-		err = tx.set(mkey, nil, val)
-		if err != nil {
+		if !errors.Is(err, store.ErrKeyNotFound) {
 			return err
 		}
 	}
@@ -930,79 +856,6 @@ func (tx *SQLTx) fetchPKRow(ctx context.Context, table *Table, valuesByColID map
 	}()
 
 	return r.Read(ctx)
-}
-
-// deprecateIndexEntries mark previous index entries as deleted
-func (tx *SQLTx) deprecateIndexEntries(
-	pkEncVals []byte,
-	currValuesByColID, newValuesByColID map[uint32]TypedValue,
-	table *Table) (reusableIndexEntries map[uint32]struct{}, err error) {
-
-	reusableIndexEntries = make(map[uint32]struct{})
-
-	for _, index := range table.indexes {
-		if index.IsPrimary() {
-			continue
-		}
-
-		var prefix string
-		var encodedValues [][]byte
-
-		if index.IsUnique() {
-			prefix = UIndexPrefix
-			encodedValues = make([][]byte, 3+len(index.cols))
-		} else {
-			prefix = SIndexPrefix
-			encodedValues = make([][]byte, 4+len(index.cols))
-			encodedValues[len(encodedValues)-1] = pkEncVals
-		}
-
-		encodedValues[0] = EncodeID(1)
-		encodedValues[1] = EncodeID(table.id)
-		encodedValues[2] = EncodeID(index.id)
-
-		// existent index entry is deleted only if it differs from existent one
-		sameIndexKey := true
-
-		for i, col := range index.cols {
-			currVal, specified := currValuesByColID[col.id]
-			if !specified {
-				currVal = &NullValue{t: col.colType}
-			}
-
-			newVal, specified := newValuesByColID[col.id]
-			if !specified {
-				newVal = &NullValue{t: col.colType}
-			}
-
-			r, err := currVal.Compare(newVal)
-			if err != nil {
-				return nil, err
-			}
-
-			sameIndexKey = sameIndexKey && r == 0
-
-			encVal, _, _ := EncodeValueAsKey(currVal, col.colType, col.MaxLen())
-
-			encodedValues[i+3] = encVal
-		}
-
-		// mark existent index entry as deleted
-		if sameIndexKey {
-			reusableIndexEntries[index.id] = struct{}{}
-		} else {
-			md := store.NewKVMetadata()
-
-			md.AsDeleted(true)
-
-			err = tx.set(mapKey(tx.sqlPrefix(), prefix, encodedValues...), md, nil)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return reusableIndexEntries, nil
 }
 
 type UpdateStmt struct {
@@ -1151,7 +1004,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		}
 
 		// primary index entry
-		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+		mkey := MapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 		// mkey must exist
 		_, err = tx.get(mkey)
@@ -1159,7 +1012,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			return nil, err
 		}
 
-		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table, true)
+		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table)
 		if err != nil {
 			return nil, err
 		}
@@ -1247,19 +1100,11 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
 	for _, index := range table.indexes {
-		var prefix string
 		var encodedValues [][]byte
 
-		if index.IsUnique() {
-			if index.IsPrimary() {
-				prefix = PIndexPrefix
-			} else {
-				prefix = UIndexPrefix
-			}
-
+		if index.IsPrimary() {
 			encodedValues = make([][]byte, 3+len(index.cols))
 		} else {
-			prefix = SIndexPrefix
 			encodedValues = make([][]byte, 4+len(index.cols))
 			encodedValues[len(encodedValues)-1] = pkEncVals
 		}
@@ -1283,7 +1128,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 
 		md.AsDeleted(true)
 
-		err := tx.set(mapKey(tx.sqlPrefix(), prefix, encodedValues...), md, nil)
+		err := tx.set(MapKey(tx.sqlPrefix(), index.prefix(), encodedValues...), md, nil)
 		if err != nil {
 			return err
 		}
@@ -4106,7 +3951,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	// delete indexes
 	indexes := table.GetIndexes()
 	for _, index := range indexes {
-		mappedKey := mapKey(
+		mappedKey := MapKey(
 			tx.sqlPrefix(),
 			catalogIndexPrefix,
 			EncodeID(1),
@@ -4122,7 +3967,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	// delete columns
 	cols := table.ColumnsByID()
 	for _, col := range cols {
-		mappedKey := mapKey(
+		mappedKey := MapKey(
 			tx.sqlPrefix(),
 			catalogColumnPrefix,
 			EncodeID(1),
@@ -4137,7 +3982,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	}
 
 	// delete table
-	mappedKey := mapKey(
+	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogTablePrefix,
 		EncodeID(1),
@@ -4203,7 +4048,7 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	}
 
 	// delete index
-	indexKey := mapKey(
+	indexKey := MapKey(
 		tx.sqlPrefix(),
 		catalogIndexPrefix,
 		EncodeID(1),

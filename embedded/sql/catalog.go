@@ -183,6 +183,10 @@ func (i *Index) IncludesCol(colID uint32) bool {
 	return ok
 }
 
+func (i *Index) catalogPrefix() []byte {
+	return i.table.catalog.prefix
+}
+
 func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValueRange) bool {
 	// all columns before colID must be fixedValues otherwise the index can not be used
 	for _, col := range i.cols {
@@ -203,10 +207,6 @@ func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValue
 func (i *Index) prefix() string {
 	if i.IsPrimary() {
 		return PIndexPrefix
-	}
-
-	if i.IsUnique() {
-		return UIndexPrefix
 	}
 
 	return SIndexPrefix
@@ -493,7 +493,7 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 
 func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
+		Prefix:  MapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired},
 	}
 
@@ -584,7 +584,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    MapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
 
@@ -603,7 +603,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 }
 
 func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -663,7 +663,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 }
 
 func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
+	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -830,14 +830,24 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		return nil, ErrCorruptedData
 	}
 
-	if len(enc) <= EncIDLen*3 {
+	if index.IsPrimary() && len(enc) <= EncIDLen*3 {
+		return nil, ErrCorruptedData
+	}
+
+	if !index.IsPrimary() && len(enc) <= EncIDLen*2 {
 		return nil, ErrCorruptedData
 	}
 
 	off := 0
 
-	dbID := binary.BigEndian.Uint32(enc[off:])
-	off += EncIDLen
+	var dbID uint32
+
+	if index.IsPrimary() {
+		dbID = binary.BigEndian.Uint32(enc[off:])
+		off += EncIDLen
+	} else {
+		dbID = 1
+	}
 
 	tableID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
@@ -883,10 +893,6 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 
 func variableSizedType(sqlType SQLValueType) bool {
 	return sqlType == VarcharType || sqlType == BLOBType
-}
-
-func mapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
-	return MapKey(prefix, mappingPrefix, encValues...)
 }
 
 func MapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
@@ -1280,7 +1286,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 // addSchemaToTx adds the schema to the ongoing transaction.
 func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
+	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
@@ -1331,7 +1337,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 // addSchemaToTx adds the schema of the catalog to the given transaction.
 func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
+		Prefix:  MapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
@@ -1400,7 +1406,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 
 // addColSpecsToTx adds the column specs of the given table to the given transaction.
 func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
+	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
