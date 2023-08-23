@@ -5065,13 +5065,13 @@ func TestIndexingChanges(t *testing.T) {
 
 	defer immustoreClose(t, st)
 
-	err = st.InitIndex(&IndexSpec{
-		Prefix: []byte("j"),
+	err = st.InitIndexing(&IndexSpec{
+		TargetPrefix: []byte("j"),
 	})
 	require.NoError(t, err)
 
-	err = st.InitIndex(&IndexSpec{
-		Prefix: []byte("k"),
+	err = st.InitIndexing(&IndexSpec{
+		TargetPrefix: []byte("k"),
 	})
 	require.NoError(t, err)
 
@@ -5117,8 +5117,8 @@ func TestIndexingChanges(t *testing.T) {
 	err = tx3.Cancel()
 	require.NoError(t, err)
 
-	err = st.InitIndex(&IndexSpec{
-		Prefix: []byte("j"),
+	err = st.InitIndexing(&IndexSpec{
+		TargetPrefix: []byte("j"),
 	})
 	require.NoError(t, err)
 
@@ -5132,5 +5132,20 @@ func TestIndexingChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	err = tx4.Cancel()
+	require.NoError(t, err)
+
+	err = st.CloseIndexing([]byte("k"))
+	require.NoError(t, err)
+
+	tx5, err := st.NewTx(context.Background(), DefaultTxOptions())
+	require.NoError(t, err)
+
+	_, err = tx5.Get([]byte("j1"))
+	require.NoError(t, err)
+
+	_, err = tx5.Get([]byte("k1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	err = tx5.Cancel()
 	require.NoError(t, err)
 }

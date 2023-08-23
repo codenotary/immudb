@@ -191,7 +191,14 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 }
 
 func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
-	prefix := mapKey(sqlPrefix, scanSpecs.Index.prefix(), EncodeID(1), EncodeID(table.id), EncodeID(scanSpecs.Index.id))
+	var prefix []byte
+
+	if scanSpecs.Index.IsPrimary() {
+		// TODO: EncodeID(1) is currently kept to provide backwards data compatibility
+		prefix = MapKey(sqlPrefix, scanSpecs.Index.prefix(), EncodeID(1), EncodeID(table.id), EncodeID(scanSpecs.Index.id))
+	} else {
+		prefix = MapKey(sqlPrefix, scanSpecs.Index.prefix(), EncodeID(table.id), EncodeID(scanSpecs.Index.id))
+	}
 
 	var loKey []byte
 	var loKeyReady bool
@@ -398,23 +405,12 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 			return nil, err
 		}
 	} else {
-		var encPKVals []byte
-
-		v, err = vref.Resolve()
+		encPKVals, err := unmapIndexEntry(r.scanSpecs.Index, r.tx.engine.prefix, mkey)
 		if err != nil {
 			return nil, err
 		}
 
-		if r.scanSpecs.Index.IsUnique() {
-			encPKVals = v
-		} else {
-			encPKVals, err = unmapIndexEntry(r.scanSpecs.Index, r.tx.engine.prefix, mkey)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		vref, err = r.tx.get(mapKey(r.tx.engine.prefix, PIndexPrefix, EncodeID(1), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
+		vref, err = r.tx.get(MapKey(r.tx.engine.prefix, PIndexPrefix, EncodeID(1), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
 		if err != nil {
 			return nil, err
 		}

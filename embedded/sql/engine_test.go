@@ -45,7 +45,7 @@ func closeStore(t *testing.T, st *store.ImmuStore) {
 }
 
 func setupCommonTest(t *testing.T) *Engine {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -56,7 +56,7 @@ func setupCommonTest(t *testing.T) *Engine {
 }
 
 func TestCreateDatabaseWithoutMultiDBHandler(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -71,7 +71,7 @@ func TestCreateDatabaseWithoutMultiDBHandler(t *testing.T) {
 }
 
 func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -88,7 +88,7 @@ func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
 }
 
 func TestCreateTable(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -932,7 +932,7 @@ func TestAddColumn(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -987,7 +987,7 @@ func TestAddColumn(t *testing.T) {
 	})
 
 	t.Run("reopen-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -1016,7 +1016,7 @@ func TestRenameColumn(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -1076,7 +1076,7 @@ func TestRenameColumn(t *testing.T) {
 	})
 
 	t.Run("reopen-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -1152,11 +1152,11 @@ func TestCreateIndex(t *testing.T) {
 	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(active)", nil)
-	require.ErrorIs(t, err, ErrLimitedIndexCreation)
+	require.NoError(t, err)
 }
 
 func TestUpsertInto(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1461,7 +1461,7 @@ func TestAutoIncrementPK(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1570,7 +1570,7 @@ func TestErrorDuringDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1727,7 +1727,7 @@ func TestTransactions(t *testing.T) {
 }
 
 func TestTransactionsEdgeCases(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1960,7 +1960,7 @@ func TestEncodeValue(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -2325,7 +2325,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryCornerCases(t *testing.T) {
-	opts := store.DefaultOptions()
+	opts := store.DefaultOptions().WithMultiIndexing(true)
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
 
 	st, err := store.Open(t.TempDir(), opts)
@@ -2380,7 +2380,7 @@ func TestQueryCornerCases(t *testing.T) {
 }
 
 func TestQueryDistinct(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -3123,7 +3123,7 @@ func TestIndexing(t *testing.T) {
 }
 
 func TestExecCornerCases(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -3177,7 +3177,7 @@ func TestQueryWithNullables(t *testing.T) {
 }
 
 func TestOrderBy(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -4117,7 +4117,7 @@ func TestNestedJoins(t *testing.T) {
 }
 
 func TestReOpening(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -4202,7 +4202,7 @@ func TestSubQuery(t *testing.T) {
 }
 
 func TestJoinsWithSubquery(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -4282,7 +4282,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 }
 
 func TestInferParameters(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -5565,7 +5565,7 @@ func TestTemporalQueriesDeletedRows(t *testing.T) {
 }
 
 func TestMultiDBCatalogQueries(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -6227,7 +6227,7 @@ func TestMVCC(t *testing.T) {
 }
 
 func TestMVCCWithExternalCommitAllowance(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithExternalCommitAllowance(true))
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true).WithExternalCommitAllowance(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -6274,7 +6274,7 @@ func TestMVCCWithExternalCommitAllowance(t *testing.T) {
 func TestConcurrentInsertions(t *testing.T) {
 	workers := 10
 
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMaxConcurrency(workers))
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true).WithMaxConcurrency(workers))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -6356,7 +6356,7 @@ func TestSQLTxWithClosedContext(t *testing.T) {
 }
 
 func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *store.ImmuStore) {
-	st, err := store.Open(t.TempDir(), sopts)
+	st, err := store.Open(t.TempDir(), sopts.WithMultiIndexing(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -6572,6 +6572,7 @@ func BenchmarkInsertInto(b *testing.B) {
 	eCount := 100
 
 	opts := store.DefaultOptions().
+		WithMultiIndexing(true).
 		WithSynced(true).
 		WithMaxActiveTransactions(100).
 		WithMaxConcurrency(workerCount)

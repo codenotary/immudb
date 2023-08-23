@@ -101,13 +101,8 @@ func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) er
 	return sqlTx.tx.Set(key, metadata, value)
 }
 
-func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
-	_, _, err := sqlTx.tx.GetWithPrefix(prefix, neq)
-	if errors.Is(err, store.ErrKeyNotFound) {
-		return false, nil
-	}
-
-	return err == nil, err
+func (sqlTx *SQLTx) getWithPrefix(prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {
+	return sqlTx.tx.GetWithPrefix(prefix, neq)
 }
 
 func (sqlTx *SQLTx) Cancel() error {

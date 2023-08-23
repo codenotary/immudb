@@ -208,9 +208,9 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, logErr(dbi.Logger, "unable to open database: %s", err)
 	}
 
-	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix, SQLPrefix, DocumentPrefix} {
-		err := dbi.st.InitIndex(&store.IndexSpec{
-			Prefix: []byte{prefix},
+	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix} {
+		err := dbi.st.InitIndexing(&store.IndexSpec{
+			TargetPrefix: []byte{prefix},
 		})
 		if err != nil {
 			dbi.st.Close()
@@ -313,9 +313,9 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "unable to open database: %s", err)
 	}
 
-	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix, SQLPrefix, DocumentPrefix} {
-		err := dbi.st.InitIndex(&store.IndexSpec{
-			Prefix: []byte{prefix},
+	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix} {
+		err := dbi.st.InitIndexing(&store.IndexSpec{
+			TargetPrefix: []byte{prefix},
 		})
 		if err != nil {
 			dbi.st.Close()
