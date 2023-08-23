@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -79,7 +80,6 @@ var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing parameter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
 var ErrDuplicatedParameters = errors.New("duplicated parameters")
-var ErrLimitedIndexCreation = errors.New("index creation is only supported on empty tables")
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
@@ -111,8 +111,8 @@ type MultiDBHandler interface {
 	ExecPreparedStmts(ctx context.Context, opts *TxOptions, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
 }
 
-func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
-	if store == nil {
+func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
+	if st == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -122,7 +122,7 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	e := &Engine{
-		store:                         store,
+		store:                         st,
 		prefix:                        make([]byte, len(opts.prefix)),
 		distinctLimit:                 opts.distinctLimit,
 		autocommit:                    opts.autocommit,
@@ -131,6 +131,15 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	copy(e.prefix, opts.prefix)
+
+	for _, prefix := range []string{catalogPrefix, PIndexPrefix} {
+		err = st.InitIndexing(&store.IndexSpec{
+			TargetPrefix: append(e.prefix, []byte(prefix)...),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// TODO: find a better way to handle parsing errors
 	yyErrorVerbose = true
@@ -170,6 +179,44 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		return nil, err
 	}
 
+	for _, table := range catalog.GetTables() {
+		primaryIndex := table.primaryIndex
+
+		pkEntryPrefix := MapKey(
+			e.prefix,
+			primaryIndex.prefix(),
+			EncodeID(1),
+			EncodeID(table.id),
+			EncodeID(primaryIndex.id),
+		)
+
+		for _, index := range table.indexes {
+			if index.IsPrimary() {
+				continue
+			}
+
+			secondaryEntryPrefix := MapKey(
+				e.prefix,
+				index.prefix(),
+				EncodeID(table.id),
+				EncodeID(index.id),
+			)
+
+			err = e.store.InitIndexing(&store.IndexSpec{
+				SourcePrefix: pkEntryPrefix,
+				EntryMapper:  secondaryIndexEntryMapperFor(index),
+
+				TargetPrefix: secondaryEntryPrefix,
+			})
+			if errors.Is(err, store.ErrIndexAlreadyInitialized) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &SQLTx{
 		engine:           e,
 		opts:             opts,
@@ -178,6 +225,84 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		lastInsertedPKs:  make(map[string]int64),
 		firstInsertedPKs: make(map[string]int64),
 	}, nil
+}
+
+func secondaryIndexEntryMapperFor(index *Index) store.EntryMapper {
+	// (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
+	// key=S{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+
+
+	encodedValues := make([][]byte, 2+len(index.cols)+1)
+	encodedValues[0] = EncodeID(index.table.id)
+	encodedValues[1] = EncodeID(index.id)
+
+	values := make(map[uint32]TypedValue, len(index.cols))
+
+	for _, col := range index.cols {
+		values[col.id] = &NullValue{t: col.colType}
+	}
+
+	valueExtractor := func(value []byte) error {
+		voff := 0
+
+		cols := int(binary.BigEndian.Uint32(value[voff:]))
+		voff += EncLenLen
+
+		for i := 0; i < cols; i++ {
+			if len(value) < EncIDLen {
+				return fmt.Errorf("key is lower than required")
+			}
+
+			colID := binary.BigEndian.Uint32(value[voff:])
+			voff += EncIDLen
+
+			col, err := index.table.GetColumnByID(colID)
+			if err != nil {
+				return err
+			}
+
+			val, n, err := DecodeValue(value[voff:], col.colType)
+			if err != nil {
+				return err
+			}
+
+			voff += n
+
+			if !index.IncludesCol(colID) {
+				continue
+			}
+
+			values[colID] = val
+		}
+
+		return nil
+	}
+
+	return func(key, value []byte) ([]byte, error) {
+		catalogPrefix := index.catalogPrefix()
+
+		if len(key) < len(catalogPrefix)+len(PIndexPrefix)+3*EncIDLen {
+			return nil, fmt.Errorf("key is lower than required")
+		}
+
+		pkEncVals := key[len(catalogPrefix)+len(PIndexPrefix)+3*EncIDLen:] // remove R.{1}{tableID}{0} from the key
+		encodedValues[len(encodedValues)-1] = pkEncVals
+
+		err := valueExtractor(value)
+		if err != nil {
+			return nil, err
+		}
+
+		for i, col := range index.cols {
+			encKey, _, err := EncodeValueAsKey(values[col.id], col.Type(), col.MaxLen())
+			if err != nil {
+				return nil, err
+			}
+
+			encodedValues[2+i] = encKey
+		}
+
+		return MapKey(index.catalogPrefix(), SIndexPrefix, encodedValues...), nil
+	}
 }
 
 func (e *Engine) Exec(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error) {

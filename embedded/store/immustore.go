@@ -112,8 +112,7 @@ var ErrTruncationInfoNotPresentInMetadata = errors.New("truncation info not pres
 var ErrInvalidProof = errors.New("invalid proof")
 
 var ErrIndexNotFound = errors.New("index not found")
-
-var ErrMultiIndexingNotEnabled = errors.New("multi-indexing not enabled")
+var ErrIndexAlreadyInitialized = errors.New("index already initialized")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
@@ -741,7 +740,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if !store.multiIndexing {
-		err := store.InitIndex(&IndexSpec{})
+		err := store.InitIndexing(&IndexSpec{})
 		if err != nil {
 			store.Close()
 			return nil, err
@@ -838,52 +837,44 @@ func (s *ImmuStore) getIndexerFor(keyPrefix []byte) (*indexer, error) {
 }
 
 type IndexSpec struct {
-	Prefix       []byte
-	SourcePrefix []byte
-	InitialTxID  uint64
-	FinalTxID    uint64
-	InitialTs    int64
-	FinalTs      int64
-	EntryMapper  EntryMapper
+	SourcePrefix         []byte
+	EntryMapper          EntryMapper
+	EntryUpdateProcessor EntryUpdateProcessor
+
+	TargetPrefix []byte
+
+	InitialTxID uint64
+	FinalTxID   uint64
+	InitialTs   int64
+	FinalTs     int64
 }
 
-func (s *ImmuStore) InitIndex(spec *IndexSpec) error {
+func (s *ImmuStore) InitIndexing(spec *IndexSpec) error {
 	if spec == nil {
 		return ErrIllegalArguments
 	}
 
-	if len(spec.Prefix) == 0 && len(spec.SourcePrefix) > 0 {
+	if len(spec.TargetPrefix) == 0 && len(spec.SourcePrefix) > 0 {
 		return fmt.Errorf("%w: empty prefix can not have a source prefix", ErrIllegalArguments)
 	}
 
 	s.indexersMux.Lock()
 	defer s.indexersMux.Unlock()
 
-	indexPrefix := sha256.Sum256(spec.Prefix)
+	indexPrefix := sha256.Sum256(spec.TargetPrefix)
 
 	_, ok := s.indexers[indexPrefix]
 	if ok {
-		return fmt.Errorf("%w: indexer already initialized", ErrIllegalState)
+		return ErrIndexAlreadyInitialized
 	}
 
 	var indexPath string
 
-	if len(spec.Prefix) == 0 {
+	if len(spec.TargetPrefix) == 0 {
 		indexPath = filepath.Join(s.path, indexDirname)
-	} else if len(spec.SourcePrefix) == 0 {
-		encPrefix := hex.EncodeToString(spec.Prefix)
-		indexPath = filepath.Join(s.path, fmt.Sprintf("%s_%s", indexDirname, encPrefix))
 	} else {
-		sourceIndexPrefix := sha256.Sum256(spec.SourcePrefix)
-
-		_, ok := s.indexers[sourceIndexPrefix]
-		if !ok {
-			return fmt.Errorf("%w: source indexer not initialized", ErrIndexNotFound)
-		}
-
-		encSourcePrefix := hex.EncodeToString(spec.SourcePrefix)
-		encPrefix := hex.EncodeToString(spec.Prefix)
-		indexPath = filepath.Join(s.path, fmt.Sprintf("%s_%s", indexDirname, encSourcePrefix), fmt.Sprintf("%s_%s", indexDirname, encPrefix))
+		encPrefix := hex.EncodeToString(spec.TargetPrefix)
+		indexPath = filepath.Join(s.path, fmt.Sprintf("%s_%s", indexDirname, encPrefix))
 	}
 
 	indexer, err := newIndexer(indexPath, s, s.opts)
@@ -901,6 +892,27 @@ func (s *ImmuStore) InitIndex(spec *IndexSpec) error {
 	s.indexers[indexPrefix] = indexer
 
 	indexer.init(spec)
+
+	return nil
+}
+
+func (s *ImmuStore) CloseIndexing(prefix []byte) error {
+	s.indexersMux.Lock()
+	defer s.indexersMux.Unlock()
+
+	indexPrefix := sha256.Sum256(prefix)
+
+	indexer, ok := s.indexers[indexPrefix]
+	if !ok {
+		return fmt.Errorf("%w: index not found", ErrIndexNotFound)
+	}
+
+	err := indexer.Close()
+	if err != nil {
+		return err
+	}
+
+	delete(s.indexers, indexPrefix)
 
 	return nil
 }
