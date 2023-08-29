@@ -837,9 +837,8 @@ func (s *ImmuStore) getIndexerFor(keyPrefix []byte) (*indexer, error) {
 }
 
 type IndexSpec struct {
-	SourcePrefix         []byte
-	EntryMapper          EntryMapper
-	EntryUpdateProcessor EntryUpdateProcessor
+	SourcePrefix []byte
+	EntryMapper  EntryMapper
 
 	TargetPrefix []byte
 
@@ -934,6 +933,8 @@ func (s *ImmuStore) DeleteIndex(prefix []byte) error {
 	}
 
 	delete(s.indexers, indexPrefix)
+
+	s.logger.Infof("deleting index path: '%s' ...", indexer.path)
 
 	return os.RemoveAll(indexer.path)
 }

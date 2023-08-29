@@ -68,7 +68,6 @@ type indexer struct {
 }
 
 type EntryMapper = func(key []byte, value []byte) ([]byte, error)
-type EntryUpdateProcessor = func(key []byte, prevValue []byte) error
 
 type runningState = int
 
@@ -440,6 +439,37 @@ func (idx *indexer) doIndexing() {
 	}
 }
 
+func serializeIndexableEntry(b []byte, txmd []byte, e *TxEntry, kvmd []byte) int {
+	n := 0
+
+	txmdLen := len(txmd)
+
+	binary.BigEndian.PutUint32(b[n:], uint32(e.vLen))
+	n += lszSize
+
+	binary.BigEndian.PutUint64(b[n:], uint64(e.vOff))
+	n += offsetSize
+
+	copy(b[n:], e.hVal[:])
+	n += sha256.Size
+
+	binary.BigEndian.PutUint16(b[n:], uint16(txmdLen))
+	n += sszSize
+
+	copy(b[n:], txmd)
+	n += txmdLen
+
+	kvmdLen := len(kvmd)
+
+	binary.BigEndian.PutUint16(b[n:], uint16(kvmdLen))
+	n += sszSize
+
+	copy(b[n:], kvmd)
+	n += kvmdLen
+
+	return n
+}
+
 func (idx *indexer) indexSince(txID uint64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), idx.bulkPreparationTimeout)
 	defer cancel()
@@ -461,8 +491,6 @@ func (idx *indexer) indexSince(txID uint64) error {
 			txmd = idx.tx.header.Metadata.Bytes()
 		}
 
-		txmdLen := len(txmd)
-
 		for _, e := range txEntries {
 			if e.md != nil && e.md.NonIndexable() {
 				continue
@@ -472,81 +500,107 @@ func (idx *indexer) indexSince(txID uint64) error {
 				continue
 			}
 
-			var mappedKey []byte
+			if e.Metadata() == nil || !e.Metadata().Deleted() {
+				var mappedKey []byte
 
-			if idx.spec.EntryMapper == nil {
-				mappedKey = e.key()
-			} else {
-				_, err := idx.store.readValueAt(idx._val[:e.vLen], e.vOff, e.hVal, false)
+				if idx.spec.EntryMapper == nil {
+					mappedKey = e.key()
+				} else {
+					_, err := idx.store.readValueAt(idx._val[:e.vLen], e.vOff, e.hVal, false)
+					if err != nil {
+						return err
+					}
+
+					mappedKey, err = idx.spec.EntryMapper(e.key(), idx._val[:e.vLen])
+					if err != nil {
+						return err
+					}
+				}
+
+				if !hasPrefix(mappedKey, idx.spec.TargetPrefix) {
+					continue
+				}
+
+				// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmds
+				var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
+
+				var kvmd []byte
+
+				if e.Metadata() != nil {
+					kvmd = e.Metadata().Bytes()
+				}
+
+				n := serializeIndexableEntry(b[:], txmd, e, kvmd)
+
+				idx._kvs[indexableEntries].K = mappedKey
+				idx._kvs[indexableEntries].V = b[:n]
+				idx._kvs[indexableEntries].T = txID + uint64(i)
+
+				indexableEntries++
+			}
+
+			if idx.spec.EntryMapper != nil && txID > 1 {
+				// wait for source indexer to be up to date
+				sourceIndexer, err := idx.store.getIndexerFor(e.key())
 				if err != nil {
 					return err
 				}
 
-				mappedKey, err = idx.spec.EntryMapper(e.key(), idx._val[:e.vLen])
+				err = sourceIndexer.WaitForIndexingUpto(ctx, txID-1)
 				if err != nil {
 					return err
 				}
-			}
 
-			if !hasPrefix(mappedKey, idx.spec.TargetPrefix) {
-				continue
-			}
-
-			if idx.spec.EntryUpdateProcessor != nil {
-				prevValRef, err := idx.store.Get(e.key())
+				// the previous entry as of txID must be deleted from the target index
+				prevTxID, _, err := sourceIndexer.index.GetBetween(e.key(), 1, txID-1)
 				if err == nil {
-					prevVal, err := prevValRef.Resolve()
+					prevEntry, prevTxHdr, err := idx.store.ReadTxEntry(prevTxID, e.key(), false)
 					if err != nil {
 						return err
 					}
 
-					err = idx.spec.EntryUpdateProcessor(e.key(), prevVal)
+					_, err = idx.store.readValueAt(idx._val[:prevEntry.vLen], prevEntry.vOff, prevEntry.hVal, false)
 					if err != nil {
 						return err
 					}
+
+					mappedPrevKey, err := idx.spec.EntryMapper(e.key(), idx._val[:prevEntry.vLen])
+					if err != nil {
+						return err
+					}
+
+					var txmd []byte
+
+					if prevTxHdr.Metadata != nil {
+						txmd = prevTxHdr.Metadata.Bytes()
+					}
+
+					var kvmd *KVMetadata
+
+					if prevEntry.Metadata() != nil {
+						kvmd = prevEntry.Metadata()
+					} else {
+						kvmd = NewKVMetadata()
+					}
+
+					kvmd.AsDeleted(true)
+					if err != nil {
+						return err
+					}
+
+					var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
+
+					n := serializeIndexableEntry(b[:], txmd, prevEntry, kvmd.Bytes())
+
+					idx._kvs[indexableEntries].K = mappedPrevKey
+					idx._kvs[indexableEntries].V = b[:n]
+					idx._kvs[indexableEntries].T = txID + uint64(i)
+
+					indexableEntries++
 				} else if !errors.Is(err, ErrKeyNotFound) {
 					return err
 				}
 			}
-
-			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
-			var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
-			o := 0
-
-			binary.BigEndian.PutUint32(b[o:], uint32(e.vLen))
-			o += lszSize
-
-			binary.BigEndian.PutUint64(b[o:], uint64(e.vOff))
-			o += offsetSize
-
-			copy(b[o:], e.hVal[:])
-			o += sha256.Size
-
-			binary.BigEndian.PutUint16(b[o:], uint16(txmdLen))
-			o += sszSize
-
-			copy(b[o:], txmd)
-			o += txmdLen
-
-			var kvmd []byte
-
-			if e.md != nil {
-				kvmd = e.md.Bytes()
-			}
-
-			kvmdLen := len(kvmd)
-
-			binary.BigEndian.PutUint16(b[o:], uint16(kvmdLen))
-			o += sszSize
-
-			copy(b[o:], kvmd)
-			o += kvmdLen
-
-			idx._kvs[indexableEntries].K = mappedKey
-			idx._kvs[indexableEntries].V = b[:o]
-			idx._kvs[indexableEntries].T = txID + uint64(i)
-
-			indexableEntries++
 		}
 
 		bulkSize++
