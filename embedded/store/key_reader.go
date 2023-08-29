@@ -202,6 +202,7 @@ type ValueRef interface {
 	KVMetadata() *KVMetadata
 	HVal() [sha256.Size]byte
 	Len() uint32
+	VOff() int64
 }
 
 type valueRef struct {
@@ -343,6 +344,10 @@ func (v *valueRef) HVal() [sha256.Size]byte {
 
 func (v *valueRef) Len() uint32 {
 	return v.valLen
+}
+
+func (v *valueRef) VOff() int64 {
+	return v.vOff
 }
 
 type storeKeyReader struct {

@@ -691,7 +691,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
 	// primary index entry
-	mkey := MapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+	mkey := MapKey(tx.sqlPrefix(), table.primaryIndex.prefix(), EncodeID(1), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 	valbuf := bytes.Buffer{}
 
@@ -777,11 +777,11 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 			return fmt.Errorf("%w: can not index entry using columns '%v'. Max key length is %d", ErrLimitedKeyType, index.cols, MaxKeyLen)
 		}
 
-		mkey := MapKey(tx.sqlPrefix(), SIndexPrefix, encodedValues...)
+		smkey := MapKey(tx.sqlPrefix(), index.prefix(), encodedValues...)
 
 		// no other equivalent entry should be already indexed
-		_, _, err := tx.getWithPrefix(mkey, nil)
-		if err == nil {
+		_, valRef, err := tx.getWithPrefix(smkey, nil)
+		if err == nil && (valRef.KVMetadata() == nil || !valRef.KVMetadata().Deleted()) {
 			return store.ErrKeyAlreadyExists
 		}
 		if !errors.Is(err, store.ErrKeyNotFound) {
@@ -1100,14 +1100,11 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
 	for _, index := range table.indexes {
-		var encodedValues [][]byte
-
-		if index.IsPrimary() {
-			encodedValues = make([][]byte, 3+len(index.cols))
-		} else {
-			encodedValues = make([][]byte, 4+len(index.cols))
-			encodedValues[len(encodedValues)-1] = pkEncVals
+		if !index.IsPrimary() {
+			continue
 		}
+
+		encodedValues := make([][]byte, 3+len(index.cols))
 
 		encodedValues[0] = EncodeID(1)
 		encodedValues[1] = EncodeID(table.id)
@@ -3948,20 +3945,16 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	// delete indexes
-	indexes := table.GetIndexes()
-	for _, index := range indexes {
-		mappedKey := MapKey(
-			tx.sqlPrefix(),
-			catalogIndexPrefix,
-			EncodeID(1),
-			EncodeID(table.id),
-			EncodeID(index.id),
-		)
-		err = tx.delete(mappedKey)
-		if err != nil {
-			return nil, err
-		}
+	// delete table
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogTablePrefix,
+		EncodeID(1),
+		EncodeID(table.id),
+	)
+	err = tx.delete(mappedKey)
+	if err != nil {
+		return nil, err
 	}
 
 	// delete columns
@@ -3981,16 +3974,36 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		}
 	}
 
-	// delete table
-	mappedKey := MapKey(
-		tx.sqlPrefix(),
-		catalogTablePrefix,
-		EncodeID(1),
-		EncodeID(table.id),
-	)
-	err = tx.delete(mappedKey)
-	if err != nil {
-		return nil, err
+	// delete indexes
+	indexes := table.GetIndexes()
+	for _, index := range indexes {
+		mappedKey := MapKey(
+			tx.sqlPrefix(),
+			catalogIndexPrefix,
+			EncodeID(1),
+			EncodeID(table.id),
+			EncodeID(index.id),
+		)
+		err = tx.delete(mappedKey)
+		if err != nil {
+			return nil, err
+		}
+
+		if index.IsPrimary() {
+			continue
+		}
+
+		indexKey := MapKey(
+			tx.sqlPrefix(),
+			index.prefix(),
+			EncodeID(table.id),
+			EncodeID(index.id),
+		)
+
+		err = tx.engine.store.DeleteIndex(indexKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	tx.mutatedCatalog = true
@@ -4000,12 +4013,12 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 
 // DropIndexStmt represents a statement to delete a table.
 type DropIndexStmt struct {
-	table   string
-	columns []string
+	table string
+	cols  []string
 }
 
-func NewDropIndexStmt(table string, columns []string) *DropIndexStmt {
-	return &DropIndexStmt{table: table, columns: columns}
+func NewDropIndexStmt(table string, cols []string) *DropIndexStmt {
+	return &DropIndexStmt{table: table, cols: cols}
 }
 
 func (stmt *DropIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -4027,9 +4040,9 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	cols := make([]*Column, len(stmt.columns))
+	cols := make([]*Column, len(stmt.cols))
 
-	for i, colName := range stmt.columns {
+	for i, colName := range stmt.cols {
 		col, err := table.GetColumnByName(colName)
 		if err != nil {
 			return nil, err
@@ -4048,19 +4061,28 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	}
 
 	// delete index
-	indexKey := MapKey(
+	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogIndexPrefix,
 		EncodeID(1),
 		EncodeID(table.id),
 		EncodeID(index.id),
 	)
-	err = tx.delete(indexKey)
+	err = tx.delete(mappedKey)
 	if err != nil {
 		return nil, err
 	}
 
 	tx.mutatedCatalog = true
 
-	return tx, nil
+	indexKey := MapKey(
+		tx.sqlPrefix(),
+		index.prefix(),
+		EncodeID(table.id),
+		EncodeID(index.id),
+	)
+
+	err = tx.engine.store.DeleteIndex(indexKey)
+
+	return tx, err
 }
