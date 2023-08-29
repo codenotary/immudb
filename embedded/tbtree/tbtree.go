@@ -226,6 +226,7 @@ type pathNode struct {
 type node interface {
 	insert(kvts []*KVT) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
+	getBetween(key []byte, initialTs, finalTs uint64) (ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error)
 	findLeafNode(seekKey []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	minKey() []byte
@@ -944,6 +945,21 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 
 	v, ts, hc, err := t.root.get(key)
 	return cp(v), ts, hc, err
+}
+
+func (t *TBtree) GetBetween(key []byte, initialTs, finalTs uint64) (ts uint64, hc uint64, err error) {
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
+
+	if t.closed {
+		return 0, 0, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return 0, 0, ErrIllegalArguments
+	}
+
+	return t.root.getBetween(key, initialTs, finalTs)
 }
 
 func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
@@ -1931,6 +1947,10 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err err
 	return n.nodes[n.indexOf(key)].get(key)
 }
 
+func (n *innerNode) getBetween(key []byte, initialTs, finalTs uint64) (ts uint64, hc uint64, err error) {
+	return n.nodes[n.indexOf(key)].getBetween(key, initialTs, finalTs)
+}
+
 func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error) {
 	return n.nodes[n.indexOf(key)].history(key, offset, descOrder, limit)
 }
@@ -2139,6 +2159,14 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error
 	return n.get(key)
 }
 
+func (r *nodeRef) getBetween(key []byte, initialTs, finalTs uint64) (ts uint64, hc uint64, err error) {
+	n, err := r.t.nodeAt(r.off, true)
+	if err != nil {
+		return 0, 0, err
+	}
+	return n.getBetween(key, initialTs, finalTs)
+}
+
 func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
@@ -2231,16 +2259,19 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 		if found {
 			lv := l.values[i]
 
-			if kvt.T <= lv.ts {
+			if kvt.T < lv.ts {
 				// The validation can be done upfront at bulkInsert,
 				// but postponing it could reduce resource requirements during the earlier stages,
 				// resulting in higher performance due to concurrency.
-				return nil, 0, fmt.Errorf("%w: attempt to insert a value without a newer timestamp", ErrIllegalArguments)
+				return nil, 0, fmt.Errorf("%w: attempt to insert a value without an older timestamp", ErrIllegalArguments)
 			}
 
 			lv.value = kvt.V
-			lv.ts = kvt.T
-			lv.tss = append([]uint64{kvt.T}, lv.tss...)
+
+			if kvt.T > lv.ts {
+				lv.ts = kvt.T
+				lv.tss = append([]uint64{kvt.T}, lv.tss...)
+			}
 		} else {
 			values := make([]*leafValue, len(l.values)+1)
 
@@ -2279,6 +2310,18 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 
 	leafValue := l.values[i]
 	return leafValue.value, leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+}
+
+func (l *leafNode) getBetween(key []byte, initialTs, finalTs uint64) (ts uint64, hc uint64, err error) {
+	i, found := l.indexOf(key)
+
+	if !found {
+		return 0, 0, ErrKeyNotFound
+	}
+
+	leafValue := l.values[i]
+
+	return leafValue.lastUpdateBetween(l.t.hLog, initialTs, finalTs)
 }
 
 func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]uint64, uint64, error) {
