@@ -30,6 +30,7 @@ import (
 
 var reservedWords = map[string]int{
 	"CREATE":         CREATE,
+	"DROP":           DROP,
 	"USE":            USE,
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
