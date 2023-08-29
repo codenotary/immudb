@@ -69,7 +69,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     onConflict *OnConflictDo
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
+%token CREATE DROP USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
@@ -211,6 +211,11 @@ ddlstmt:
         $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
     }
 |
+    DROP TABLE IDENTIFIER
+    {
+        $$ = &DropTableStmt{table: $3}
+    }
+|
     CREATE INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
     {
         $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7}
@@ -219,6 +224,11 @@ ddlstmt:
     CREATE UNIQUE INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
     {
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
+    }
+|
+    DROP INDEX ON IDENTIFIER '(' ids ')'
+    {
+        $$ = &DropIndexStmt{table: $4, cols: $6}
     }
 |
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
