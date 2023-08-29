@@ -162,6 +162,10 @@ func (oref *ongoingValRef) Len() uint32 {
 	return uint32(len(oref.value))
 }
 
+func (oref *ongoingValRef) VOff() int64 {
+	return 0
+}
+
 func (tx *OngoingTx) IsWriteOnly() bool {
 	return tx.mode == WriteOnlyTx
 }
