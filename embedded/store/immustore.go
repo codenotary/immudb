@@ -837,10 +837,11 @@ func (s *ImmuStore) getIndexerFor(keyPrefix []byte) (*indexer, error) {
 }
 
 type IndexSpec struct {
-	SourcePrefix []byte
-	EntryMapper  EntryMapper
+	SourcePrefix      []byte
+	SourceEntryMapper EntryMapper
 
-	TargetPrefix []byte
+	TargetEntryMapper EntryMapper
+	TargetPrefix      []byte
 
 	InitialTxID uint64
 	FinalTxID   uint64

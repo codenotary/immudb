@@ -31,7 +31,7 @@ import (
 
 // Catalog represents a database catalog containing metadata for all tables in the database.
 type Catalog struct {
-	prefix []byte
+	enginePrefix []byte
 
 	tables       []*Table
 	tablesByID   map[uint32]*Table
@@ -73,9 +73,9 @@ type Column struct {
 	notNull       bool
 }
 
-func newCatalog(prefix []byte) *Catalog {
+func newCatalog(enginePrefix []byte) *Catalog {
 	return &Catalog{
-		prefix:       prefix,
+		enginePrefix: enginePrefix,
 		tables:       make([]*Table, 0),
 		tablesByID:   make(map[uint32]*Table),
 		tablesByName: make(map[string]*Table),
@@ -183,8 +183,8 @@ func (i *Index) IncludesCol(colID uint32) bool {
 	return ok
 }
 
-func (i *Index) catalogPrefix() []byte {
-	return i.table.catalog.prefix
+func (i *Index) enginePrefix() []byte {
+	return i.table.catalog.enginePrefix
 }
 
 func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValueRange) bool {
@@ -202,14 +202,6 @@ func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValue
 		return false
 	}
 	return false
-}
-
-func (i *Index) prefix() string {
-	if i.IsPrimary() {
-		return PIndexPrefix
-	}
-
-	return SIndexPrefix
 }
 
 func (i *Index) Name() string {
@@ -493,7 +485,7 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 
 func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  MapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
+		Prefix:  MapKey(catlg.enginePrefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired},
 	}
 
@@ -512,7 +504,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(catlg.prefix, mkey)
+		dbID, tableID, err := unmapTableID(catlg.enginePrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -531,7 +523,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			continue
 		}
 
-		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.prefix)
+		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.enginePrefix)
 		if err != nil {
 			return err
 		}
@@ -550,32 +542,9 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(catlg.prefix, tx)
+		err = table.loadIndexes(catlg.enginePrefix, tx)
 		if err != nil {
 			return err
-		}
-
-		if table.autoIncrementPK {
-			encMaxPK, err := loadMaxPK(catlg.prefix, tx, table)
-			if errors.Is(err, store.ErrNoMoreEntries) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-
-			if len(encMaxPK) != 9 {
-				return ErrCorruptedData
-			}
-
-			if encMaxPK[0] != KeyValPrefixNotNull {
-				return ErrCorruptedData
-			}
-
-			// map to signed integer space
-			encMaxPK[1] ^= 0x80
-
-			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK[1:]))
 		}
 	}
 
@@ -584,7 +553,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    MapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    MapKey(sqlPrefix, mappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id)),
 		DescOrder: true,
 	}
 
@@ -825,29 +794,16 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		return nil, ErrIllegalArguments
 	}
 
-	enc, err := trimPrefix(sqlPrefix, mkey, []byte(index.prefix()))
+	enc, err := trimPrefix(sqlPrefix, mkey, []byte(mappedPrefix))
 	if err != nil {
 		return nil, ErrCorruptedData
 	}
 
-	if index.IsPrimary() && len(enc) <= EncIDLen*3 {
-		return nil, ErrCorruptedData
-	}
-
-	if !index.IsPrimary() && len(enc) <= EncIDLen*2 {
+	if len(enc) <= EncIDLen*2 {
 		return nil, ErrCorruptedData
 	}
 
 	off := 0
-
-	var dbID uint32
-
-	if index.IsPrimary() {
-		dbID = binary.BigEndian.Uint32(enc[off:])
-		off += EncIDLen
-	} else {
-		dbID = 1
-	}
 
 	tableID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
@@ -855,32 +811,30 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 	indexID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	if dbID != 1 || tableID != index.table.id || indexID != index.id {
+	if tableID != index.table.id || indexID != index.id {
 		return nil, ErrCorruptedData
 	}
 
-	if !index.IsPrimary() {
-		//read index values
-		for _, col := range index.cols {
-			if enc[off] == KeyValPrefixNull {
-				off += 1
-				continue
-			}
-			if enc[off] != KeyValPrefixNotNull {
-				return nil, ErrCorruptedData
-			}
+	//read index values
+	for _, col := range index.cols {
+		if enc[off] == KeyValPrefixNull {
 			off += 1
-
-			maxLen := col.MaxLen()
-			if variableSizedType(col.colType) {
-				maxLen += EncLenLen
-			}
-			if len(enc)-off < maxLen {
-				return nil, ErrCorruptedData
-			}
-
-			off += maxLen
+			continue
 		}
+		if enc[off] != KeyValPrefixNotNull {
+			return nil, ErrCorruptedData
+		}
+		off += 1
+
+		maxLen := col.MaxLen()
+		if variableSizedType(col.colType) {
+			maxLen += EncLenLen
+		}
+		if len(enc)-off < maxLen {
+			return nil, ErrCorruptedData
+		}
+
+		off += maxLen
 	}
 
 	//PK cannot be nil

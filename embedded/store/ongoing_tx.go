@@ -263,17 +263,17 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	}
 
 	// updates are not needed because valueRef are resolved with the "interceptor"
-	if !tx.IsWriteOnly() && !isKeyUpdate {
+	if !tx.IsWriteOnly() && !isKeyUpdate && (md == nil || !md.NonIndexable()) {
 		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
 		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
 		snap, err := tx.snap(key)
-		if err != nil {
-			return err
-		}
-
-		err = snap.set(key, indexedValue[:])
-		if err != nil {
+		if err == nil {
+			err = snap.set(key, indexedValue[:])
+			if err != nil {
+				return err
+			}
+		} else if !errors.Is(err, ErrIndexNotFound) {
 			return err
 		}
 	}
