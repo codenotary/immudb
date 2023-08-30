@@ -132,13 +132,12 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 
 	copy(e.prefix, opts.prefix)
 
-	for _, prefix := range []string{catalogPrefix, PIndexPrefix} {
-		err = st.InitIndexing(&store.IndexSpec{
-			TargetPrefix: append(e.prefix, []byte(prefix)...),
-		})
-		if err != nil {
-			return nil, err
-		}
+	err = st.InitIndexing(&store.IndexSpec{
+		SourcePrefix: append(e.prefix, []byte(catalogPrefix)...),
+		TargetPrefix: append(e.prefix, []byte(catalogPrefix)...),
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO: find a better way to handle parsing errors
@@ -182,31 +181,49 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	for _, table := range catalog.GetTables() {
 		primaryIndex := table.primaryIndex
 
-		pkEntryPrefix := MapKey(
+		rowEntryPrefix := MapKey(
 			e.prefix,
-			primaryIndex.prefix(),
+			rowPrefix,
 			EncodeID(1),
+			EncodeID(table.id),
+			EncodeID(0),
+		)
+
+		mappedPKEntryPrefix := MapKey(
+			e.prefix,
+			mappedPrefix,
 			EncodeID(table.id),
 			EncodeID(primaryIndex.id),
 		)
+
+		err = e.store.InitIndexing(&store.IndexSpec{
+			SourcePrefix: rowEntryPrefix,
+
+			TargetEntryMapper: indexEntryMapperFor(primaryIndex),
+			TargetPrefix:      mappedPKEntryPrefix,
+		})
+		if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
+			return nil, err
+		}
 
 		for _, index := range table.indexes {
 			if index.IsPrimary() {
 				continue
 			}
 
-			secondaryEntryPrefix := MapKey(
+			mappedEntryPrefix := MapKey(
 				e.prefix,
-				index.prefix(),
+				mappedPrefix,
 				EncodeID(table.id),
 				EncodeID(index.id),
 			)
 
 			err = e.store.InitIndexing(&store.IndexSpec{
-				SourcePrefix: pkEntryPrefix,
-				EntryMapper:  secondaryIndexEntryMapperFor(index),
+				SourcePrefix:      rowEntryPrefix,
+				SourceEntryMapper: indexEntryMapperFor(primaryIndex),
 
-				TargetPrefix: secondaryEntryPrefix,
+				TargetEntryMapper: indexEntryMapperFor(index),
+				TargetPrefix:      mappedEntryPrefix,
 			})
 			if errors.Is(err, store.ErrIndexAlreadyInitialized) {
 				continue
@@ -214,6 +231,29 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 			if err != nil {
 				return nil, err
 			}
+		}
+
+		if table.autoIncrementPK {
+			encMaxPK, err := loadMaxPK(e.prefix, tx, table)
+			if errors.Is(err, store.ErrNoMoreEntries) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			if len(encMaxPK) != 9 {
+				return nil, ErrCorruptedData
+			}
+
+			if encMaxPK[0] != KeyValPrefixNotNull {
+				return nil, ErrCorruptedData
+			}
+
+			// map to signed integer space
+			encMaxPK[1] ^= 0x80
+
+			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK[1:]))
 		}
 	}
 
@@ -227,14 +267,9 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	}, nil
 }
 
-func secondaryIndexEntryMapperFor(index *Index) store.EntryMapper {
+func indexEntryMapperFor(index *Index) store.EntryMapper {
 	// (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
-	// key=S{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+
-
-	encodedValues := make([][]byte, 2+len(index.cols)+1)
-	encodedValues[0] = EncodeID(index.table.id)
-	encodedValues[1] = EncodeID(index.id)
-
+	// key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+
 	values := make(map[uint32]TypedValue, len(index.cols))
 
 	for _, col := range index.cols {
@@ -256,7 +291,9 @@ func secondaryIndexEntryMapperFor(index *Index) store.EntryMapper {
 			voff += EncIDLen
 
 			col, err := index.table.GetColumnByID(colID)
-			if err != nil {
+			if errors.Is(err, ErrColumnDoesNotExist) {
+				continue
+			} else if err != nil {
 				return err
 			}
 
@@ -277,14 +314,18 @@ func secondaryIndexEntryMapperFor(index *Index) store.EntryMapper {
 		return nil
 	}
 
-	return func(key, value []byte) ([]byte, error) {
-		catalogPrefix := index.catalogPrefix()
+	encodedValues := make([][]byte, 2+len(index.cols)+1)
+	encodedValues[0] = EncodeID(index.table.id)
+	encodedValues[1] = EncodeID(index.id)
 
-		if len(key) < len(catalogPrefix)+len(PIndexPrefix)+3*EncIDLen {
+	return func(key, value []byte) ([]byte, error) {
+		enginePrefix := index.enginePrefix()
+
+		if len(key) < len(enginePrefix)+EncIDLen+len(rowPrefix)+2*EncIDLen {
 			return nil, fmt.Errorf("key is lower than required")
 		}
 
-		pkEncVals := key[len(catalogPrefix)+len(PIndexPrefix)+3*EncIDLen:] // remove R.{1}{tableID}{0} from the key
+		pkEncVals := key[len(enginePrefix)+EncIDLen+len(rowPrefix)+2*EncIDLen:] // remove R.{1}{tableID}{0} from the key
 		encodedValues[len(encodedValues)-1] = pkEncVals
 
 		err := valueExtractor(value)
@@ -301,7 +342,7 @@ func secondaryIndexEntryMapperFor(index *Index) store.EntryMapper {
 			encodedValues[2+i] = encKey
 		}
 
-		return MapKey(index.catalogPrefix(), SIndexPrefix, encodedValues...), nil
+		return MapKey(index.enginePrefix(), mappedPrefix, encodedValues...), nil
 	}
 }
 

@@ -191,14 +191,7 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 }
 
 func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
-	var prefix []byte
-
-	if scanSpecs.Index.IsPrimary() {
-		// TODO: EncodeID(1) is currently kept to provide backwards data compatibility
-		prefix = MapKey(sqlPrefix, scanSpecs.Index.prefix(), EncodeID(1), EncodeID(table.id), EncodeID(scanSpecs.Index.id))
-	} else {
-		prefix = MapKey(sqlPrefix, scanSpecs.Index.prefix(), EncodeID(table.id), EncodeID(scanSpecs.Index.id))
-	}
+	prefix := MapKey(sqlPrefix, mappedPrefix, EncodeID(table.id), EncodeID(scanSpecs.Index.id))
 
 	var loKey []byte
 	var loKeyReady bool
@@ -378,7 +371,7 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 		return nil, err
 	}
 
-	var mkey []byte
+	//var mkey []byte
 	var vref store.ValueRef
 
 	// evaluation of txRange is postponed to allow parameters to be provided after rowReader initialization
@@ -388,37 +381,17 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 	}
 
 	if r.txRange == nil {
-		mkey, vref, err = r.reader.Read()
+		_, vref, err = r.reader.Read() //mkey
 	} else {
-		mkey, vref, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID)
+		_, vref, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID) //mkey
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	var v []byte
-
-	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.scanSpecs.Index.IsPrimary() {
-		v, err = vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		encPKVals, err := unmapIndexEntry(r.scanSpecs.Index, r.tx.engine.prefix, mkey)
-		if err != nil {
-			return nil, err
-		}
-
-		vref, err = r.tx.get(MapKey(r.tx.engine.prefix, PIndexPrefix, EncodeID(1), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
-		if err != nil {
-			return nil, err
-		}
-
-		v, err = vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
+	v, err := vref.Resolve()
+	if err != nil {
+		return nil, err
 	}
 
 	valuesByPosition := make([]TypedValue, len(r.table.Cols()))

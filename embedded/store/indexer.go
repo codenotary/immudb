@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -470,6 +471,19 @@ func serializeIndexableEntry(b []byte, txmd []byte, e *TxEntry, kvmd []byte) int
 	return n
 }
 
+func (idx *indexer) mapKey(key []byte, vLen int, vOff int64, hVal [sha256.Size]byte, mapper EntryMapper) (mappedKey []byte, err error) {
+	if mapper == nil {
+		return key, nil
+	}
+
+	_, err = idx.store.readValueAt(idx._val[:vLen], vOff, hVal, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapper(key, idx._val[:vLen])
+}
+
 func (idx *indexer) indexSince(txID uint64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), idx.bulkPreparationTimeout)
 	defer cancel()
@@ -500,49 +514,43 @@ func (idx *indexer) indexSince(txID uint64) error {
 				continue
 			}
 
-			if e.Metadata() == nil || !e.Metadata().Deleted() {
-				var mappedKey []byte
-
-				if idx.spec.EntryMapper == nil {
-					mappedKey = e.key()
-				} else {
-					_, err := idx.store.readValueAt(idx._val[:e.vLen], e.vOff, e.hVal, false)
-					if err != nil {
-						return err
-					}
-
-					mappedKey, err = idx.spec.EntryMapper(e.key(), idx._val[:e.vLen])
-					if err != nil {
-						return err
-					}
-				}
-
-				if !hasPrefix(mappedKey, idx.spec.TargetPrefix) {
-					continue
-				}
-
-				// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmds
-				var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
-
-				var kvmd []byte
-
-				if e.Metadata() != nil {
-					kvmd = e.Metadata().Bytes()
-				}
-
-				n := serializeIndexableEntry(b[:], txmd, e, kvmd)
-
-				idx._kvs[indexableEntries].K = mappedKey
-				idx._kvs[indexableEntries].V = b[:n]
-				idx._kvs[indexableEntries].T = txID + uint64(i)
-
-				indexableEntries++
+			sourceKey, err := idx.mapKey(e.key(), e.vLen, e.vOff, e.hVal, idx.spec.SourceEntryMapper)
+			if err != nil {
+				return err
 			}
 
-			if idx.spec.EntryMapper != nil && txID > 1 {
+			targetKey, err := idx.mapKey(sourceKey, e.vLen, e.vOff, e.hVal, idx.spec.TargetEntryMapper)
+			if err != nil {
+				return err
+			}
+
+			if !hasPrefix(targetKey, idx.spec.TargetPrefix) {
+				return fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
+			}
+
+			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmds
+			var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
+
+			var kvmd []byte
+
+			if e.Metadata() != nil {
+				kvmd = e.Metadata().Bytes()
+			}
+
+			n := serializeIndexableEntry(b[:], txmd, e, kvmd)
+
+			idx._kvs[indexableEntries].K = targetKey
+			idx._kvs[indexableEntries].V = b[:n]
+			idx._kvs[indexableEntries].T = txID + uint64(i)
+
+			indexableEntries++
+
+			if txID > 1 {
 				// wait for source indexer to be up to date
-				sourceIndexer, err := idx.store.getIndexerFor(e.key())
-				if err != nil {
+				sourceIndexer, err := idx.store.getIndexerFor(sourceKey)
+				if errors.Is(err, ErrIndexNotFound) {
+					continue
+				} else if err != nil {
 					return err
 				}
 
@@ -552,7 +560,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 				}
 
 				// the previous entry as of txID must be deleted from the target index
-				prevTxID, _, err := sourceIndexer.index.GetBetween(e.key(), 1, txID-1)
+				prevTxID, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
 				if err == nil {
 					prevEntry, prevTxHdr, err := idx.store.ReadTxEntry(prevTxID, e.key(), false)
 					if err != nil {
@@ -564,9 +572,17 @@ func (idx *indexer) indexSince(txID uint64) error {
 						return err
 					}
 
-					mappedPrevKey, err := idx.spec.EntryMapper(e.key(), idx._val[:prevEntry.vLen])
+					targetPrevKey, err := idx.mapKey(sourceKey, prevEntry.vLen, prevEntry.vOff, prevEntry.hVal, idx.spec.TargetEntryMapper)
 					if err != nil {
 						return err
+					}
+
+					if bytes.Equal(sourceKey, targetPrevKey) {
+						continue
+					}
+
+					if !hasPrefix(targetPrevKey, idx.spec.TargetPrefix) {
+						return fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
 					}
 
 					var txmd []byte
@@ -592,7 +608,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 
 					n := serializeIndexableEntry(b[:], txmd, prevEntry, kvmd.Bytes())
 
-					idx._kvs[indexableEntries].K = mappedPrevKey
+					idx._kvs[indexableEntries].K = targetPrevKey
 					idx._kvs[indexableEntries].V = b[:n]
 					idx._kvs[indexableEntries].T = txID + uint64(i)
 
