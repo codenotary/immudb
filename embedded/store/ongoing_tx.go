@@ -576,8 +576,6 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		return nil
 	}
 
-	return nil //TODO: remove
-
 	for _, txSnap := range tx.snapshots {
 		if txSnap.Ts() > st.LastPrecommittedTxID() {
 			// read-write transactions when no other transaction was committed won't be invalidated
