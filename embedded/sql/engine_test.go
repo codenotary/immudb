@@ -4819,14 +4819,13 @@ func TestUnmapIndexEntry(t *testing.T) {
 	require.Nil(t, encPKVals)
 
 	encPKVals, err = unmapIndexEntry(&Index{id: PKIndexID, unique: true}, e.prefix, []byte(
-		"e-prefix.R.\x80a",
+		"e-prefix.M.\x80a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Nil(t, encPKVals)
 
 	fullValue := append(
-		[]byte("e-prefix.E."),
-		0x00, 0x00, 0x00, 0x01,
+		[]byte("e-prefix.M."),
 		0x11, 0x12, 0x13, 0x14,
 		0x00, 0x00, 0x00, 0x02,
 		0x80,
@@ -4920,6 +4919,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 		require.NoError(t, err)
 		return ret
 	}
+
 	query := func(t *testing.T, stmt string, expectedRows ...*Row) {
 		reader, err := engine.Query(context.Background(), nil, stmt, nil)
 		require.NoError(t, err)
