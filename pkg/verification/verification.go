@@ -231,7 +231,7 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 
 	return sql.MapKey(
 		[]byte{3}, // database.DocumentPrefix
-		sql.PIndexPrefix,
+		sql.RowPrefix,
 		sql.EncodeID(1), // fixed database identifier
 		sql.EncodeID(collectionID),
 		sql.EncodeID(0), // pk index id

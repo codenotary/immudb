@@ -78,10 +78,10 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
-		sql.PIndexPrefix,
-		sql.EncodeID(1),
+		sql.MappedPrefix,
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes(),
 		valbuf.Bytes())
 
 	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, true)

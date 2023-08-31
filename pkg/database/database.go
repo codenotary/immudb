@@ -210,6 +210,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix} {
 		err := dbi.st.InitIndexing(&store.IndexSpec{
+			SourcePrefix: []byte{prefix},
 			TargetPrefix: []byte{prefix},
 		})
 		if err != nil {
@@ -315,6 +316,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	for _, prefix := range []byte{SetKeyPrefix, SortedSetKeyPrefix} {
 		err := dbi.st.InitIndexing(&store.IndexSpec{
+			SourcePrefix: []byte{prefix},
 			TargetPrefix: []byte{prefix},
 		})
 		if err != nil {
