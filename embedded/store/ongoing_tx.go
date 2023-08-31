@@ -42,8 +42,9 @@ type OngoingTx struct {
 
 	requireMVCCOnFollowingTxs bool
 
-	entries      []*EntrySpec
-	entriesByKey map[[sha256.Size]byte]int
+	entries          []*EntrySpec
+	transientEntries map[int]*EntrySpec
+	entriesByKey     map[[sha256.Size]byte]int
 
 	preconditions []Precondition
 
@@ -107,11 +108,12 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 	}
 
 	tx := &OngoingTx{
-		st:           s,
-		ctx:          ctx,
-		entriesByKey: make(map[[sha256.Size]byte]int),
-		ts:           time.Now(),
-		unsafeMVCC:   opts.UnsafeMVCC,
+		st:               s,
+		ctx:              ctx,
+		transientEntries: make(map[int]*EntrySpec),
+		entriesByKey:     make(map[[sha256.Size]byte]int),
+		ts:               time.Now(),
+		unsafeMVCC:       opts.UnsafeMVCC,
 	}
 
 	tx.mode = opts.Mode
@@ -219,7 +221,10 @@ func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
 			return valRef
 		}
 
-		entrySpec := tx.entries[keyRef]
+		entrySpec, transient := tx.transientEntries[keyRef]
+		if !transient {
+			entrySpec = tx.entries[keyRef]
+		}
 
 		return &ongoingValRef{
 			hc:    valRef.HC(),
@@ -234,7 +239,7 @@ func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
 	return snap, nil
 }
 
-func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated, isDerived bool) error {
+func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated, isTransient bool) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -290,7 +295,9 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		tx.entries[keyRef] = e
 	} else {
 
-		if !isDerived {
+		if isTransient {
+			tx.transientEntries[len(tx.entriesByKey)] = e
+		} else {
 			tx.entries = append(tx.entries, e)
 		}
 
@@ -305,7 +312,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return tx.set(key, md, value, hashValue, false, false)
 }
 
-func (tx *OngoingTx) SetDerived(key []byte, md *KVMetadata, value []byte) error {
+func (tx *OngoingTx) SetTransient(key []byte, md *KVMetadata, value []byte) error {
 	var hashValue [sha256.Size]byte
 	return tx.set(key, md, value, hashValue, false, true)
 }
