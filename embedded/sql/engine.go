@@ -271,7 +271,7 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 	// key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+
 	valuesByColID := make(map[uint32]TypedValue, len(index.cols))
 
-	for _, col := range index.cols {
+	for _, col := range index.table.cols {
 		valuesByColID[col.id] = &NullValue{t: col.colType}
 	}
 
