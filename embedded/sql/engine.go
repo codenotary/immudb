@@ -199,7 +199,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		err = e.store.InitIndexing(&store.IndexSpec{
 			SourcePrefix: rowEntryPrefix,
 
-			TargetEntryMapper: indexEntryMapperFor(primaryIndex),
+			TargetEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
 			TargetPrefix:      mappedPKEntryPrefix,
 		})
 		if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
@@ -220,9 +220,8 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 			err = e.store.InitIndexing(&store.IndexSpec{
 				SourcePrefix:      rowEntryPrefix,
-				SourceEntryMapper: indexEntryMapperFor(primaryIndex),
-
-				TargetEntryMapper: indexEntryMapperFor(index),
+				SourceEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
+				TargetEntryMapper: indexEntryMapperFor(index, primaryIndex),
 				TargetPrefix:      mappedEntryPrefix,
 			})
 			if errors.Is(err, store.ErrIndexAlreadyInitialized) {
@@ -267,13 +266,13 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	}, nil
 }
 
-func indexEntryMapperFor(index *Index) store.EntryMapper {
-	// (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
-	// key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+
-	values := make(map[uint32]TypedValue, len(index.cols))
+func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
+	// value={count (colID valLen val)+})
+	// key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+
+	valuesByColID := make(map[uint32]TypedValue, len(index.cols))
 
 	for _, col := range index.cols {
-		values[col.id] = &NullValue{t: col.colType}
+		valuesByColID[col.id] = &NullValue{t: col.colType}
 	}
 
 	valueExtractor := func(value []byte) error {
@@ -304,11 +303,7 @@ func indexEntryMapperFor(index *Index) store.EntryMapper {
 
 			voff += n
 
-			if !index.IncludesCol(colID) {
-				continue
-			}
-
-			values[colID] = val
+			valuesByColID[colID] = val
 		}
 
 		return nil
@@ -319,28 +314,26 @@ func indexEntryMapperFor(index *Index) store.EntryMapper {
 	encodedValues[1] = EncodeID(index.id)
 
 	return func(key, value []byte) ([]byte, error) {
-		enginePrefix := index.enginePrefix()
-
-		if len(key) < len(enginePrefix)+EncIDLen+len(RowPrefix)+2*EncIDLen {
-			return nil, fmt.Errorf("key is lower than required")
-		}
-
-		pkEncVals := key[len(enginePrefix)+EncIDLen+len(RowPrefix)+2*EncIDLen:] // remove R.{1}{tableID}{0} from the key
-		encodedValues[len(encodedValues)-1] = pkEncVals
-
 		err := valueExtractor(value)
 		if err != nil {
 			return nil, err
 		}
 
 		for i, col := range index.cols {
-			encKey, _, err := EncodeValueAsKey(values[col.id], col.Type(), col.MaxLen())
+			encKey, _, err := EncodeValueAsKey(valuesByColID[col.id], col.Type(), col.MaxLen())
 			if err != nil {
 				return nil, err
 			}
 
 			encodedValues[2+i] = encKey
 		}
+
+		pkEncVals, err := encodedKey(primaryIndex, valuesByColID)
+		if err != nil {
+			return nil, err
+		}
+
+		encodedValues[len(encodedValues)-1] = pkEncVals
 
 		return MapKey(index.enginePrefix(), MappedPrefix, encodedValues...), nil
 	}

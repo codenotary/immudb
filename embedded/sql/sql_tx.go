@@ -101,8 +101,8 @@ func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) er
 	return sqlTx.tx.Set(key, metadata, value)
 }
 
-func (sqlTx *SQLTx) setDerived(key []byte, metadata *store.KVMetadata, value []byte) error {
-	return sqlTx.tx.SetDerived(key, metadata, value)
+func (sqlTx *SQLTx) setTransient(key []byte, metadata *store.KVMetadata, value []byte) error {
+	return sqlTx.tx.SetTransient(key, metadata, value)
 }
 
 func (sqlTx *SQLTx) getWithPrefix(prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {

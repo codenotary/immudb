@@ -652,7 +652,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			valuesByColID[colID] = rval
 		}
 
-		pkEncVals, err := encodedPK(table, valuesByColID)
+		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
 		}
@@ -826,7 +826,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 			}
 		}
 
-		err = tx.setDerived(smkey, nil, encodedRowValue) // only-indexable
+		err = tx.setTransient(smkey, nil, encodedRowValue) // only-indexable
 		if err != nil {
 			return err
 		}
@@ -837,12 +837,12 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 	return nil
 }
 
-func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error) {
+func encodedKey(index *Index, valuesByColID map[uint32]TypedValue) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 
 	indexKeyLen := 0
 
-	for _, col := range table.primaryIndex.cols {
+	for _, col := range index.cols {
 		rval, specified := valuesByColID[col.id]
 		if !specified || rval.IsNull() {
 			return nil, ErrPKCanNotBeNull
@@ -850,11 +850,11 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 
 		encVal, n, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
 		if err != nil {
-			return nil, fmt.Errorf("%w: primary index of table '%s' and column '%s'", err, table.name, col.colName)
+			return nil, fmt.Errorf("%w: index of table '%s' and column '%s'", err, index.table.name, col.colName)
 		}
 
 		if n > MaxKeyLen {
-			return nil, fmt.Errorf("%w: invalid primary key entry for column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
+			return nil, fmt.Errorf("%w: invalid key entry for column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 
 		indexKeyLen += n
@@ -866,7 +866,7 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 	}
 
 	if indexKeyLen > MaxKeyLen {
-		return nil, fmt.Errorf("%w: invalid primary key entry using columns '%v'. Max key length is %d", ErrLimitedKeyType, table.primaryIndex.cols, MaxKeyLen)
+		return nil, fmt.Errorf("%w: invalid key entry using columns '%v'. Max key length is %d", ErrLimitedKeyType, index.cols, MaxKeyLen)
 	}
 
 	return valbuf.Bytes(), nil
@@ -1108,7 +1108,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			valuesByColID[col.id] = rval
 		}
 
-		pkEncVals, err := encodedPK(table, valuesByColID)
+		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
 		}
@@ -1192,7 +1192,7 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			valuesByColID[col.id] = row.ValuesBySelector[encSel]
 		}
 
-		pkEncVals, err := encodedPK(table, valuesByColID)
+		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
 		}
