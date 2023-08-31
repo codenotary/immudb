@@ -1143,10 +1143,10 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 
 	searchKey = sql.MapKey(
 		e.sqlEngine.GetPrefix(),
-		sql.PIndexPrefix,
-		sql.EncodeID(1),
+		sql.MappedPrefix,
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(table.PrimaryIndex().ID()),
+		pkEncVals,
 		pkEncVals,
 	)
 

@@ -183,7 +183,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 		rowEntryPrefix := MapKey(
 			e.prefix,
-			rowPrefix,
+			RowPrefix,
 			EncodeID(1),
 			EncodeID(table.id),
 			EncodeID(0),
@@ -191,7 +191,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 		mappedPKEntryPrefix := MapKey(
 			e.prefix,
-			mappedPrefix,
+			MappedPrefix,
 			EncodeID(table.id),
 			EncodeID(primaryIndex.id),
 		)
@@ -213,7 +213,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 			mappedEntryPrefix := MapKey(
 				e.prefix,
-				mappedPrefix,
+				MappedPrefix,
 				EncodeID(table.id),
 				EncodeID(index.id),
 			)
@@ -321,11 +321,11 @@ func indexEntryMapperFor(index *Index) store.EntryMapper {
 	return func(key, value []byte) ([]byte, error) {
 		enginePrefix := index.enginePrefix()
 
-		if len(key) < len(enginePrefix)+EncIDLen+len(rowPrefix)+2*EncIDLen {
+		if len(key) < len(enginePrefix)+EncIDLen+len(RowPrefix)+2*EncIDLen {
 			return nil, fmt.Errorf("key is lower than required")
 		}
 
-		pkEncVals := key[len(enginePrefix)+EncIDLen+len(rowPrefix)+2*EncIDLen:] // remove R.{1}{tableID}{0} from the key
+		pkEncVals := key[len(enginePrefix)+EncIDLen+len(RowPrefix)+2*EncIDLen:] // remove R.{1}{tableID}{0} from the key
 		encodedValues[len(encodedValues)-1] = pkEncVals
 
 		err := valueExtractor(value)
@@ -342,7 +342,7 @@ func indexEntryMapperFor(index *Index) store.EntryMapper {
 			encodedValues[2+i] = encKey
 		}
 
-		return MapKey(index.enginePrefix(), mappedPrefix, encodedValues...), nil
+		return MapKey(index.enginePrefix(), MappedPrefix, encodedValues...), nil
 	}
 }
 

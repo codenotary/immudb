@@ -553,7 +553,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    MapKey(sqlPrefix, mappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id)),
+		Prefix:    MapKey(sqlPrefix, MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id)),
 		DescOrder: true,
 	}
 
@@ -794,7 +794,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		return nil, ErrIllegalArguments
 	}
 
-	enc, err := trimPrefix(sqlPrefix, mkey, []byte(mappedPrefix))
+	enc, err := trimPrefix(sqlPrefix, mkey, []byte(MappedPrefix))
 	if err != nil {
 		return nil, ErrCorruptedData
 	}
