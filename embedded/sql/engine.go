@@ -269,13 +269,8 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 	// value={count (colID valLen val)+})
 	// key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+
-	valuesByColID := make(map[uint32]TypedValue, len(index.cols))
 
-	for _, col := range index.table.cols {
-		valuesByColID[col.id] = &NullValue{t: col.colType}
-	}
-
-	valueExtractor := func(value []byte) error {
+	valueExtractor := func(value []byte, valuesByColID map[uint32]TypedValue) error {
 		voff := 0
 
 		cols := int(binary.BigEndian.Uint32(value[voff:]))
@@ -314,7 +309,13 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 	encodedValues[1] = EncodeID(index.id)
 
 	return func(key, value []byte) ([]byte, error) {
-		err := valueExtractor(value)
+		valuesByColID := make(map[uint32]TypedValue, len(index.cols))
+
+		for _, col := range index.table.cols {
+			valuesByColID[col.id] = &NullValue{t: col.colType}
+		}
+
+		err := valueExtractor(value, valuesByColID)
 		if err != nil {
 			return nil, err
 		}
