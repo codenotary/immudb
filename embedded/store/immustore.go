@@ -2859,9 +2859,9 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipInte
 	for _, e := range entries {
 		var err error
 		if isTruncated {
-			err = txSpec.set(e.Key, e.Metadata, nil, digest(e.Value), isTruncated)
+			err = txSpec.set(e.Key, e.Metadata, nil, digest(e.Value), isTruncated, false)
 		} else {
-			err = txSpec.set(e.Key, e.Metadata, e.Value, e.HashValue, isTruncated)
+			err = txSpec.set(e.Key, e.Metadata, e.Value, e.HashValue, isTruncated, false)
 		}
 		if err != nil {
 			return nil, err

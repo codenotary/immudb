@@ -170,7 +170,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
-		sql.PIndexPrefix,
+		sql.RowPrefix,
 		sql.EncodeID(dbID),
 		sql.EncodeID(tableID),
 		sql.EncodeID(sql.PKIndexID),

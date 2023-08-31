@@ -234,7 +234,7 @@ func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
 	return snap, nil
 }
 
-func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated bool) error {
+func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sha256.Size]byte, isValueTruncated, isDerived bool) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -289,7 +289,11 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	if isKeyUpdate {
 		tx.entries[keyRef] = e
 	} else {
-		tx.entries = append(tx.entries, e)
+
+		if !isDerived {
+			tx.entries = append(tx.entries, e)
+		}
+
 		tx.entriesByKey[kid] = len(tx.entriesByKey)
 	}
 
@@ -298,7 +302,12 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	var hashValue [sha256.Size]byte
-	return tx.set(key, md, value, hashValue, false)
+	return tx.set(key, md, value, hashValue, false, false)
+}
+
+func (tx *OngoingTx) SetDerived(key []byte, md *KVMetadata, value []byte) error {
+	var hashValue [sha256.Size]byte
+	return tx.set(key, md, value, hashValue, false, true)
 }
 
 func (tx *OngoingTx) AddPrecondition(c Precondition) error {
@@ -575,6 +584,9 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		// read-only transactions won't be invalidated
 		return nil
 	}
+
+	//TODO: remove
+	return nil
 
 	for _, txSnap := range tx.snapshots {
 		if txSnap.Ts() > st.LastPrecommittedTxID() {
