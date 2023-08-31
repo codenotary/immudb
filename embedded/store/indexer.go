@@ -577,7 +577,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 						return err
 					}
 
-					if bytes.Equal(sourceKey, targetPrevKey) {
+					if bytes.Equal(targetKey, targetPrevKey) {
 						continue
 					}
 
