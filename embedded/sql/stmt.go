@@ -680,7 +680,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			}
 		}
 
-		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table)
+		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table, !stmt.isInsert)
 		if err != nil {
 			return nil, err
 		}
@@ -736,7 +736,28 @@ func (tx *SQLTx) encodeRowValue(valuesByColID map[uint32]TypedValue, table *Tabl
 	return valbuf.Bytes(), nil
 }
 
-func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
+func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
+	var reusableIndexEntries map[uint32]struct{}
+
+	if reuseIndex && len(table.indexes) > 1 {
+		currPKRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
+		if err == nil {
+			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.ValuesBySelector))
+
+			for _, col := range table.cols {
+				encSel := EncodeSelector("", table.name, col.colName)
+				currValuesByColID[col.id] = currPKRow.ValuesBySelector[encSel]
+			}
+
+			reusableIndexEntries, err = tx.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table)
+			if err != nil {
+				return err
+			}
+		} else if !errors.Is(err, ErrNoMoreRows) {
+			return err
+		}
+	}
+
 	rowKey := MapKey(tx.sqlPrefix(), rowPrefix, EncodeID(1), EncodeID(table.id), EncodeID(0), pkEncVals)
 
 	encodedRowValue, err := tx.encodeRowValue(valuesByColID, table)
@@ -749,10 +770,17 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 		return err
 	}
 
-	// validate entries for secondary indexes
+	// create in-memory and validate entries for secondary indexes
 	for _, index := range table.indexes {
-		if index.IsPrimary() || !index.IsUnique() {
+		if index.IsPrimary() {
 			continue
+		}
+
+		if reusableIndexEntries != nil {
+			_, reusable := reusableIndexEntries[index.id]
+			if reusable {
+				continue
+			}
 		}
 
 		encodedValues := make([][]byte, 2+len(index.cols))
@@ -788,11 +816,18 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 		smkey := MapKey(tx.sqlPrefix(), mappedPrefix, encodedValues...)
 
 		// no other equivalent entry should be already indexed
-		_, valRef, err := tx.getWithPrefix(smkey, nil)
-		if err == nil && (valRef.KVMetadata() == nil || !valRef.KVMetadata().Deleted()) {
-			return store.ErrKeyAlreadyExists
+		if index.IsUnique() {
+			_, valRef, err := tx.getWithPrefix(smkey, nil)
+			if err == nil && (valRef.KVMetadata() == nil || !valRef.KVMetadata().Deleted()) {
+				return store.ErrKeyAlreadyExists
+			}
+			if !errors.Is(err, store.ErrKeyNotFound) {
+				return err
+			}
 		}
-		if !errors.Is(err, store.ErrKeyNotFound) {
+
+		err = tx.set(smkey, nil, encodedRowValue) // TODO: not commiteable - only-indexable
+		if err != nil {
 			return err
 		}
 	}
@@ -864,6 +899,73 @@ func (tx *SQLTx) fetchPKRow(ctx context.Context, table *Table, valuesByColID map
 	}()
 
 	return r.Read(ctx)
+}
+
+// deprecateIndexEntries mark previous index entries as deleted
+func (tx *SQLTx) deprecateIndexEntries(
+	pkEncVals []byte,
+	currValuesByColID, newValuesByColID map[uint32]TypedValue,
+	table *Table) (reusableIndexEntries map[uint32]struct{}, err error) {
+
+	encodedRowValue, err := tx.encodeRowValue(currValuesByColID, table)
+	if err != nil {
+		return nil, err
+	}
+
+	reusableIndexEntries = make(map[uint32]struct{})
+
+	for _, index := range table.indexes {
+		if index.IsPrimary() {
+			continue
+		}
+
+		encodedValues := make([][]byte, 2+len(index.cols)+1)
+		encodedValues[0] = EncodeID(table.id)
+		encodedValues[1] = EncodeID(index.id)
+		encodedValues[len(encodedValues)-1] = pkEncVals
+
+		// existent index entry is deleted only if it differs from existent one
+		sameIndexKey := true
+
+		for i, col := range index.cols {
+			currVal, specified := currValuesByColID[col.id]
+			if !specified {
+				currVal = &NullValue{t: col.colType}
+			}
+
+			newVal, specified := newValuesByColID[col.id]
+			if !specified {
+				newVal = &NullValue{t: col.colType}
+			}
+
+			r, err := currVal.Compare(newVal)
+			if err != nil {
+				return nil, err
+			}
+
+			sameIndexKey = sameIndexKey && r == 0
+
+			encVal, _, _ := EncodeValueAsKey(currVal, col.colType, col.MaxLen())
+
+			encodedValues[i+3] = encVal
+		}
+
+		// mark existent index entry as deleted
+		if sameIndexKey {
+			reusableIndexEntries[index.id] = struct{}{}
+		} else {
+			md := store.NewKVMetadata()
+
+			md.AsDeleted(true)
+
+			err = tx.set(MapKey(tx.sqlPrefix(), mappedPrefix, encodedValues...), md, encodedRowValue)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return reusableIndexEntries, nil
 }
 
 type UpdateStmt struct {
@@ -1020,7 +1122,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			return nil, err
 		}
 
-		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table)
+		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table, true)
 		if err != nil {
 			return nil, err
 		}

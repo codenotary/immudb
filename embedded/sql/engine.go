@@ -136,7 +136,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		SourcePrefix: append(e.prefix, []byte(catalogPrefix)...),
 		TargetPrefix: append(e.prefix, []byte(catalogPrefix)...),
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 		return nil, err
 	}
 
