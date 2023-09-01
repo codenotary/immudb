@@ -1445,12 +1445,12 @@ func TestLastUpdateBetween(t *testing.T) {
 	require.NotNil(t, leaf)
 	require.GreaterOrEqual(t, len(leaf.values), off)
 
-	_, _, err = leaf.values[off].lastUpdateBetween(nil, 1, 0)
+	_, _, _, err = leaf.values[off].lastUpdateBetween(nil, 1, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	for i := 0; i < keyUpdatesCount; i++ {
 		for f := i; f < keyUpdatesCount; f++ {
-			tx, hc, err := leaf.values[off].lastUpdateBetween(nil, uint64(i+1), uint64(f+1))
+			_, tx, hc, err := leaf.values[off].lastUpdateBetween(nil, uint64(i+1), uint64(f+1))
 			require.NoError(t, err)
 			require.Equal(t, uint64(f), hc)
 			require.Equal(t, uint64(f+1), tx)

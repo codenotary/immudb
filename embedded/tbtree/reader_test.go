@@ -42,7 +42,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	_, _, _, _, err = r.Read()
 	require.ErrorIs(t, err, ErrNoMoreEntries)
 
-	_, _, _, err = r.ReadBetween(1, 1)
+	_, _, _, _, err = r.ReadBetween(1, 1)
 	require.ErrorIs(t, err, ErrNoMoreEntries)
 }
 
@@ -200,7 +200,7 @@ func TestReaderAscendingScanAsBefore(t *testing.T) {
 	require.ErrorIs(t, err, ErrReadersNotClosed)
 
 	for {
-		k, _, hc, err := reader.ReadBetween(0, 1001)
+		k, _, _, hc, err := reader.ReadBetween(0, 1001)
 		if err != nil {
 			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
@@ -213,7 +213,7 @@ func TestReaderAscendingScanAsBefore(t *testing.T) {
 	err = reader.Close()
 	require.NoError(t, err)
 
-	_, _, _, err = reader.ReadBetween(0, 0)
+	_, _, _, _, err = reader.ReadBetween(0, 0)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = reader.Close()
@@ -231,9 +231,10 @@ func TestReaderAsBefore(t *testing.T) {
 	require.NoError(t, err)
 
 	key := []byte{0, 0, 0, 250}
+	value := []byte{0, 0, 0, 251}
 
 	for i := 0; i < 10; i++ {
-		err = tbtree.Insert(key, key)
+		err = tbtree.Insert(key, value)
 		require.NoError(t, err)
 	}
 
@@ -254,9 +255,10 @@ func TestReaderAsBefore(t *testing.T) {
 	reader, err := snapshot.NewReader(rspec)
 	require.NoError(t, err)
 
-	k, ts, hc, err := reader.ReadBetween(1, 9)
+	k, v, ts, hc, err := reader.ReadBetween(1, 9)
 	require.NoError(t, err)
 	require.Equal(t, key, k)
+	require.Equal(t, value, v)
 	require.Equal(t, uint64(9), ts)
 	require.Equal(t, uint64(9), hc)
 
@@ -403,7 +405,7 @@ func TestReaderDescendingScanAsBefore(t *testing.T) {
 	i := 0
 	prevk := reader.seekKey
 	for {
-		k, _, hc, err := reader.ReadBetween(0, uint64(keyCount))
+		k, _, _, hc, err := reader.ReadBetween(0, uint64(keyCount))
 		if err != nil {
 			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
