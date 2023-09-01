@@ -592,9 +592,6 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		return nil
 	}
 
-	//TODO: remove
-	return nil
-
 	for _, txSnap := range tx.snapshots {
 		if txSnap.Ts() > st.LastPrecommittedTxID() {
 			// read-write transactions when no other transaction was committed won't be invalidated
@@ -609,6 +606,10 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		defer snap.Close()
 
 		for _, e := range tx.mvccReadSet.expectedGets {
+			if !hasPrefix(e.key, txSnap.prefix) {
+				continue
+			}
+
 			valRef, err := snap.GetWithFilters(e.key, e.filters...)
 			if errors.Is(err, ErrKeyNotFound) {
 				if e.expectedTx > 0 {
@@ -626,6 +627,10 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 
 		for _, e := range tx.mvccReadSet.expectedGetsWithPrefix {
+			if !hasPrefix(e.prefix, txSnap.prefix) {
+				continue
+			}
+
 			key, valRef, err := snap.GetWithPrefixAndFilters(e.prefix, e.neq, e.filters...)
 			if errors.Is(err, ErrKeyNotFound) {
 				if e.expectedTx > 0 {
@@ -643,6 +648,10 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 
 		for _, eReader := range tx.mvccReadSet.expectedReaders {
+			if !hasPrefix(eReader.spec.Prefix, txSnap.prefix) {
+				continue
+			}
+
 			rspec := KeyReaderSpec{
 				SeekKey:       eReader.spec.SeekKey,
 				EndKey:        eReader.spec.EndKey,
