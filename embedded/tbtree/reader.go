@@ -60,18 +60,18 @@ func (r *Reader) Reset() error {
 	return nil
 }
 
-func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint64, err error) {
+func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, value []byte, ts, hc uint64, err error) {
 	if r.closed {
-		return nil, 0, 0, ErrAlreadyClosed
+		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
 
 	if r.leafNode == nil {
 		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 		if errors.Is(err, ErrKeyNotFound) {
-			return nil, 0, 0, ErrNoMoreEntries
+			return nil, nil, 0, 0, ErrNoMoreEntries
 		}
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, nil, 0, 0, err
 		}
 
 		r.path = path
@@ -84,7 +84,7 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 		if (!r.descOrder && len(r.leafNode.values) == r.leafOffset) || (r.descOrder && r.leafOffset < 0) {
 			for {
 				if len(r.path) == 0 {
-					return nil, 0, 0, ErrNoMoreEntries
+					return nil, nil, 0, 0, ErrNoMoreEntries
 				}
 
 				parent := r.path[len(r.path)-1]
@@ -102,7 +102,7 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 				}
 
 				if err != nil {
-					return nil, 0, 0, err
+					return nil, nil, 0, 0, err
 				}
 
 				r.path = path
@@ -128,11 +128,11 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 			cmp := bytes.Compare(r.endKey, leafValue.key)
 
 			if r.descOrder && (cmp > 0 || (cmp == 0 && !r.inclusiveEnd)) {
-				return nil, 0, 0, ErrNoMoreEntries
+				return nil, nil, 0, 0, ErrNoMoreEntries
 			}
 
 			if !r.descOrder && (cmp < 0 || (cmp == 0 && !r.inclusiveEnd)) {
-				return nil, 0, 0, ErrNoMoreEntries
+				return nil, nil, 0, 0, ErrNoMoreEntries
 			}
 		}
 
@@ -147,9 +147,9 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 			continue
 		}
 
-		ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
+		value, ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
 		if err == nil {
-			return cp(leafValue.key), ts, hc, nil
+			return cp(leafValue.key), cp(value), ts, hc, nil
 		}
 	}
 }
@@ -241,7 +241,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 			continue
 		}
 
-		return cp(leafValue.key), cp(leafValue.value), leafValue.ts, leafValue.hCount, nil
+		return cp(leafValue.key), cp(leafValue.timedValue().value), leafValue.timedValue().ts, leafValue.hCount, nil
 	}
 }
 

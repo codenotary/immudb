@@ -53,7 +53,8 @@ type Snapshot struct {
 // The method handles splitting of nodes to maintain the B-tree structure.
 // It returns an error if the insertion fails.
 // Example usage:
-//     err := snapshot.Set([]byte("key"), []byte("value"))
+//
+//	err := snapshot.Set([]byte("key"), []byte("value"))
 func (s *Snapshot) Set(key, value []byte) error {
 	// Acquire a write lock on the snapshot
 	s.mutex.Lock()
@@ -102,7 +103,8 @@ func (s *Snapshot) Set(key, value []byte) error {
 // It locks the snapshot for reading, and delegates the retrieval to the root node.
 // The method returns the value, timestamp, hash count, and an error.
 // Example usage:
-//     value, timestamp, hashCount, err := snapshot.Get([]byte("key"))
+//
+//	value, timestamp, hashCount, err := snapshot.Get([]byte("key"))
 func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
@@ -127,8 +129,9 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 // It locks the snapshot for reading, and delegates the history retrieval to the root node.
 // The method returns an array of timestamps, the hash count, and an error.
 // Example usage:
-//     timestamps, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
+//
+//	timestamps, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []timedValue, hCount uint64, err error) {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -155,7 +158,8 @@ func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int)
 // Ts returns the timestamp associated with the root node of the snapshot.
 // It locks the snapshot for reading and returns the timestamp.
 // Example usage:
-//     timestamp := snapshot.Ts()
+//
+//	timestamp := snapshot.Ts()
 func (s *Snapshot) Ts() uint64 {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
@@ -168,7 +172,8 @@ func (s *Snapshot) Ts() uint64 {
 // It locks the snapshot for reading, and delegates the retrieval to the root node.
 // The method returns the key, value, timestamp, hash count, and an error.
 // Example usage:
-//     key, value, timestamp, hashCount, err := snapshot.GetWithPrefix([]byte("prefix"), []byte("neq"))
+//
+//	key, value, timestamp, hashCount, err := snapshot.GetWithPrefix([]byte("prefix"), []byte("neq"))
 func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
@@ -194,7 +199,7 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value [
 	}
 
 	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
-		return leafValue.key, cp(leafValue.value), leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+		return leafValue.key, cp(leafValue.timedValue().value), leafValue.timedValue().ts, leafValue.hCount + uint64(len(leafValue.timedValues)), nil
 	}
 
 	return nil, nil, 0, 0, ErrKeyNotFound
@@ -204,7 +209,8 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value [
 // It locks the snapshot for reading and creates a new history reader based on the given specification.
 // The method returns the history reader and an error if the creation fails.
 // Example usage:
-//     reader, err := snapshot.NewHistoryReader(&HistoryReaderSpec{Key: []byte("key"), Limit: 10})
+//
+//	reader, err := snapshot.NewHistoryReader(&HistoryReaderSpec{Key: []byte("key"), Limit: 10})
 func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
@@ -232,7 +238,8 @@ func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, er
 // It locks the snapshot for writing and creates a new reader based on the given specification.
 // The method returns the reader and an error if the creation fails.
 // Example usage:
-//     reader, err := snapshot.NewReader(ReaderSpec{Prefix: []byte("prefix"), DescOrder: true})
+//
+//	reader, err := snapshot.NewReader(ReaderSpec{Prefix: []byte("prefix"), DescOrder: true})
 func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -315,7 +322,8 @@ func (s *Snapshot) closedReader(id int) error {
 // It locks the snapshot for writing, checks if there are any active readers, and marks the snapshot as closed.
 // The method returns an error if there are active readers.
 // Example usage:
-//     err := snapshot.Close()
+//
+//	err := snapshot.Close()
 func (s *Snapshot) Close() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -356,7 +364,8 @@ func (s *Snapshot) Close() error {
 // - err: An error if the write operation fails or the arguments are invalid.
 //
 // Example usage:
-// 		rootOffset, minOffset, wN, wH, err := snapshot.WriteTo(nw, hw, &WriteOpts{})
+//
+//	rootOffset, minOffset, wN, wH, err := snapshot.WriteTo(nw, hw, &WriteOpts{})
 func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, minOffset int64, wN, wH int64, err error) {
 	if nw == nil || writeOpts == nil {
 		return 0, 0, 0, 0, ErrIllegalArguments
@@ -485,33 +494,41 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 	accH := int64(0)
 
 	for _, v := range l.values {
+		timedValue := v.timedValue()
+
 		binary.BigEndian.PutUint16(buf[bi:], uint16(len(v.key)))
 		bi += 2
 
 		copy(buf[bi:], v.key)
 		bi += len(v.key)
 
-		binary.BigEndian.PutUint16(buf[bi:], uint16(len(v.value)))
+		binary.BigEndian.PutUint16(buf[bi:], uint16(len(timedValue.value)))
 		bi += 2
 
-		copy(buf[bi:], v.value)
-		bi += len(v.value)
+		copy(buf[bi:], timedValue.value)
+		bi += len(timedValue.value)
 
-		binary.BigEndian.PutUint64(buf[bi:], v.ts)
+		binary.BigEndian.PutUint64(buf[bi:], timedValue.ts)
 		bi += 8
 
 		hOff := v.hOff
-		hCount := v.hCount + uint64(len(v.tss))
+		hCount := v.hCount + uint64(len(v.timedValues))
 
-		if len(v.tss) > 0 {
-			hbuf := make([]byte, 4+len(v.tss)*8+8)
+		if len(v.timedValues) > 0 {
+			hbuf := make([]byte, 4+len(v.timedValues)*8+8)
 			hi := 0
 
-			binary.BigEndian.PutUint32(hbuf[hi:], uint32(len(v.tss)))
+			binary.BigEndian.PutUint32(hbuf[hi:], uint32(len(v.timedValues)))
 			hi += 4
 
-			for _, ts := range v.tss {
-				binary.BigEndian.PutUint64(hbuf[hi:], uint64(ts))
+			for _, tv := range v.timedValues {
+				binary.BigEndian.PutUint16(hbuf[hi:], uint16(len(tv.value)))
+				hi += 4
+
+				copy(hbuf[hi:], tv.value)
+				hi += len(tv.value)
+
+				binary.BigEndian.PutUint64(hbuf[hi:], uint64(tv.ts))
 				hi += 8
 			}
 
@@ -535,7 +552,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 		bi += 8
 
 		if writeOpts.commitLog {
-			v.tss = nil
+			v.timedValues = nil
 			v.hOff = hOff
 			v.hCount = hCount
 		}
