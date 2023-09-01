@@ -80,6 +80,7 @@ var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing parameter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
 var ErrDuplicatedParameters = errors.New("duplicated parameters")
+var ErrLimitedIndexCreation = errors.New("unique index creation is only supported on empty tables")
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
