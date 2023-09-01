@@ -5066,11 +5066,13 @@ func TestIndexingChanges(t *testing.T) {
 	defer immustoreClose(t, st)
 
 	err = st.InitIndexing(&IndexSpec{
+		SourcePrefix: []byte("j"),
 		TargetPrefix: []byte("j"),
 	})
 	require.NoError(t, err)
 
 	err = st.InitIndexing(&IndexSpec{
+		SourcePrefix: []byte("k"),
 		TargetPrefix: []byte("k"),
 	})
 	require.NoError(t, err)
@@ -5118,6 +5120,7 @@ func TestIndexingChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	err = st.InitIndexing(&IndexSpec{
+		SourcePrefix: []byte("j"),
 		TargetPrefix: []byte("j"),
 	})
 	require.NoError(t, err)
