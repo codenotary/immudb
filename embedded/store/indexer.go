@@ -135,10 +135,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		wHub = watchers.New(0, opts.MaxWaitees)
 	}
 
-	tx, err := store.fetchAllocTx()
-	if err != nil {
-		return nil, err
-	}
+	tx := NewTx(opts.MaxTxEntries, opts.MaxKeyLen)
 
 	kvs := make([]*tbtree.KVT, store.maxTxEntries*opts.IndexOpts.MaxBulkSize)
 	for i := range kvs {
@@ -267,7 +264,6 @@ func (idx *indexer) Close() error {
 
 	idx.stop()
 	idx.wHub.Close()
-	idx.store.releaseAllocTx(idx.tx)
 
 	idx.closed = true
 

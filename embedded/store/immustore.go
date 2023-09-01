@@ -484,7 +484,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	txPool, err := newTxPool(txPoolOptions{
-		poolSize:     opts.MaxConcurrency + 1, // one extra tx pre-allocation for indexing thread
+		poolSize:     opts.MaxConcurrency,
 		maxTxEntries: maxTxEntries,
 		maxKeyLen:    maxKeyLen,
 		preallocated: true,
