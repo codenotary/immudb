@@ -27,7 +27,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -117,10 +116,6 @@ var ErrIndexAlreadyInitialized = errors.New("index already initialized")
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 
-const MaxIndexCount = math.MaxUint16
-const MaxIndexPrefixLen = 64
-const MaxNumberOfIndexChangesPerTx = 16
-
 const cLogEntrySizeV1 = offsetSize + lszSize               // tx offset + hdr size
 const cLogEntrySizeV2 = offsetSize + lszSize + sha256.Size // tx offset + hdr size + alh
 
@@ -145,7 +140,6 @@ const (
 	metaPreallocFiles  = "PREALLOC_FILES"
 )
 
-const metaDirname = "meta"
 const indexDirname = "index"
 const ahtDirname = "aht"
 
@@ -217,8 +211,6 @@ type ImmuStore struct {
 	inmemPrecommitWHub   *watchers.WatchersHub
 	durablePrecommitWHub *watchers.WatchersHub
 	commitWHub           *watchers.WatchersHub
-
-	metaState *metaState
 
 	indexers    map[[sha256.Size]byte]*indexer
 	indexersMux sync.RWMutex
@@ -610,13 +602,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
-	metaPath := filepath.Join(path, metaDirname)
-
-	metaState, err := openMetaState(metaPath, metaStateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("could not open meta state: %w", err)
-	}
-
 	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
 	if err != nil {
 		return nil, err
@@ -669,8 +654,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		useExternalCommitAllowance: opts.UseExternalCommitAllowance,
 		commitAllowedUpToTxID:      committedTxID,
 
-		aht:       aht,
-		metaState: metaState,
+		aht: aht,
 
 		inmemPrecommitWHub:   watchers.New(0, opts.MaxActiveTransactions+1), // syncer (TODO: indexer may wait here instead)
 		durablePrecommitWHub: watchers.New(0, opts.MaxActiveTransactions+opts.MaxWaitees),
@@ -700,24 +684,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		if err != nil {
 			store.Close()
 			return nil, fmt.Errorf("binary-linking syncing failed: %w", err)
-		}
-	}
-
-	if store.metaState.calculatedUpToTxID() > precommittedTxID {
-		err = store.metaState.rollbackUpTo(precommittedTxID)
-		if err != nil {
-			store.Close()
-			return nil, fmt.Errorf("corrupted commit-log: can not truncate meta-state: %w", err)
-		}
-	}
-
-	if store.metaState.calculatedUpToTxID() == precommittedTxID {
-		store.logger.Infof("meta-state up to date at '%s'", store.path)
-	} else {
-		err = store.syncMetaState()
-		if err != nil {
-			store.Close()
-			return nil, fmt.Errorf("meta-state syncing failed: %w", err)
 		}
 	}
 
@@ -1198,39 +1164,6 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	}
 
 	s.logger.Infof("binary-linking up to date at '%s'", s.path)
-
-	return nil
-}
-
-func (s *ImmuStore) syncMetaState() error {
-	s.logger.Infof("syncing meta-state at '%s'...", s.path)
-
-	tx, err := s.fetchAllocTx()
-	if err != nil {
-		return err
-	}
-	defer s.releaseAllocTx(tx)
-
-	for {
-		hdr, err := s.ReadTxHeader(s.metaState.calculatedUpToTxID()+1, false, false)
-		if errors.Is(err, ErrTxNotFound) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		err = s.metaState.processTxHeader(hdr)
-		if err != nil {
-			return err
-		}
-
-		if tx.header.ID%1000 == 0 {
-			s.logger.Infof("meta-state at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
-		}
-	}
-
-	s.logger.Infof("meta-state up to date at '%s'", s.path)
 
 	return nil
 }
@@ -1924,11 +1857,6 @@ func (s *ImmuStore) performPrecommit(tx *Tx, entries []*EntrySpec, ts int64, blT
 		return err
 	}
 	_, _, err = s.aht.Append(alh[:])
-	if err != nil {
-		return err
-	}
-
-	err = s.metaState.processTxHeader(tx.header)
 	if err != nil {
 		return err
 	}
@@ -3407,11 +3335,6 @@ func (s *ImmuStore) Close() error {
 
 	for _, indexer := range s.indexers {
 		err := indexer.Close()
-		merr.Append(err)
-	}
-
-	if s.metaState != nil {
-		err := s.metaState.close()
 		merr.Append(err)
 	}
 
