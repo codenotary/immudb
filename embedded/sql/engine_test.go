@@ -5944,10 +5944,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
@@ -5964,10 +5964,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id > 0", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id > 0", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6027,10 +6027,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		_, _, err = engine.Exec(context.Background(), tx2, "DELETE FROM table1 WHERE id > 0", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx2, "DELETE FROM table1 WHERE id > 0", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A2');", nil)
@@ -6073,10 +6073,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', true, x'0A10');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6107,10 +6107,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (11, 'title11', true, x'0A11');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6181,10 +6181,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (12, 'title12', true, x'0A12');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 ORDER BY id DESC LIMIT 1 OFFSET 1", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 ORDER BY id DESC LIMIT 1 OFFSET 1", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
