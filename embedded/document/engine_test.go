@@ -27,7 +27,7 @@ import (
 )
 
 func makeEngine(t *testing.T) *Engine {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
