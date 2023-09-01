@@ -1151,6 +1151,9 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(name, age) VALUES ('name2', 10)", nil)
 	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE UNIQUE INDEX ON table1(active)", nil)
+	require.ErrorIs(t, err, ErrLimitedIndexCreation)
+
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(active)", nil)
 	require.NoError(t, err)
 }

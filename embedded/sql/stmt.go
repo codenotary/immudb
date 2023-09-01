@@ -391,8 +391,19 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, fmt.Errorf("%w: can not create index using columns '%v'. Max key length is %d", ErrLimitedKeyType, stmt.cols, MaxKeyLen)
 	}
 
+	if stmt.unique && table.primaryIndex != nil {
+		// check table is empty
+		pkPrefix := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id))
+		_, _, err := tx.getWithPrefix(pkPrefix, nil)
+		if err == nil {
+			return nil, ErrLimitedIndexCreation
+		} else if !errors.Is(err, store.ErrKeyNotFound) {
+			return nil, err
+		}
+	}
+
 	index, err := table.newIndex(stmt.unique, colIDs)
-	if err == ErrIndexAlreadyExists && stmt.ifNotExists {
+	if errors.Is(err, ErrIndexAlreadyExists) && stmt.ifNotExists {
 		return tx, nil
 	}
 	if err != nil {
@@ -661,7 +672,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		mappedPKey := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals, pkEncVals)
 
 		_, err = tx.get(mappedPKey)
-		if err != nil && err != store.ErrKeyNotFound {
+		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
 			return nil, err
 		}
 
@@ -820,8 +831,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 			_, valRef, err := tx.getWithPrefix(smkey, nil)
 			if err == nil && (valRef.KVMetadata() == nil || !valRef.KVMetadata().Deleted()) {
 				return store.ErrKeyAlreadyExists
-			}
-			if !errors.Is(err, store.ErrKeyNotFound) {
+			} else if !errors.Is(err, store.ErrKeyNotFound) {
 				return err
 			}
 		}
@@ -1071,7 +1081,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 
 	for {
 		row, err := rowReader.Read(ctx)
-		if err == ErrNoMoreRows {
+		if errors.Is(err, ErrNoMoreRows) {
 			break
 		} else if err != nil {
 			return nil, err
@@ -1178,7 +1188,7 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 	for {
 		row, err := rowReader.Read(ctx)
-		if err == ErrNoMoreRows {
+		if errors.Is(err, ErrNoMoreRows) {
 			break
 		}
 		if err != nil {
