@@ -131,7 +131,7 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 // Example usage:
 //
 //	timestamps, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []timedValue, hCount uint64, err error) {
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error) {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -199,7 +199,7 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value [
 	}
 
 	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
-		return leafValue.key, cp(leafValue.timedValue().value), leafValue.timedValue().ts, leafValue.historyCount(), nil
+		return leafValue.key, cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.historyCount(), nil
 	}
 
 	return nil, nil, 0, 0, ErrKeyNotFound
@@ -502,13 +502,13 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 		copy(buf[bi:], v.key)
 		bi += len(v.key)
 
-		binary.BigEndian.PutUint16(buf[bi:], uint16(len(timedValue.value)))
+		binary.BigEndian.PutUint16(buf[bi:], uint16(len(timedValue.Value)))
 		bi += 2
 
-		copy(buf[bi:], timedValue.value)
-		bi += len(timedValue.value)
+		copy(buf[bi:], timedValue.Value)
+		bi += len(timedValue.Value)
 
-		binary.BigEndian.PutUint64(buf[bi:], timedValue.ts)
+		binary.BigEndian.PutUint64(buf[bi:], timedValue.Ts)
 		bi += 8
 
 		hOff := writeOpts.BaseHLogOffset
@@ -522,11 +522,11 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 
 			for _, tv := range v.timedValues[1:] {
 
-				binary.Write(hbuf, binary.BigEndian, uint16(len(tv.value)))
+				binary.Write(hbuf, binary.BigEndian, uint16(len(tv.Value)))
 
-				hbuf.Write(tv.value)
+				hbuf.Write(tv.Value)
 
-				binary.Write(hbuf, binary.BigEndian, uint64(tv.ts))
+				binary.Write(hbuf, binary.BigEndian, uint64(tv.Ts))
 			}
 
 			binary.Write(hbuf, binary.BigEndian, uint64(v.hOff))
