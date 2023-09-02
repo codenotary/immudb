@@ -501,9 +501,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 			require.Equal(t, uint64(1), hc1)
 		}
 
-		tss, _, err := snapshot.History(k, 0, true, 1)
+		tvs, _, err := snapshot.History(k, 0, true, 1)
 		require.NoError(t, err)
-		require.Equal(t, ts, tss[0])
+		require.Equal(t, ts, tvs[0].ts)
 
 		err = snapshot.Close()
 		require.NoError(t, err)
@@ -1155,6 +1155,9 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
 	require.NoError(t, err)
 
+	err = tbtree.Insert([]byte("k0"), []byte("v00"))
+	require.NoError(t, err)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
@@ -1163,7 +1166,7 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
-	_, _, _, err = tbtree.Get([]byte("k0"))
+	_, _, err = tbtree.History([]byte("k0"), 0, true, 2)
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	err = tbtree.Close()
@@ -1452,7 +1455,7 @@ func TestLastUpdateBetween(t *testing.T) {
 		for f := i; f < keyUpdatesCount; f++ {
 			_, tx, hc, err := leaf.values[off].lastUpdateBetween(nil, uint64(i+1), uint64(f+1))
 			require.NoError(t, err)
-			require.Equal(t, uint64(f), hc)
+			require.Equal(t, uint64(f+1), hc)
 			require.Equal(t, uint64(f+1), tx)
 		}
 	}
