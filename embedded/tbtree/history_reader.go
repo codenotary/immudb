@@ -53,7 +53,7 @@ func newHistoryReader(id int, snap *Snapshot, spec *HistoryReaderSpec) (*History
 	}, nil
 }
 
-func (r *HistoryReader) Read() ([]timedValue, error) {
+func (r *HistoryReader) Read() ([]TimedValue, error) {
 	if r.closed {
 		return nil, ErrAlreadyClosed
 	}

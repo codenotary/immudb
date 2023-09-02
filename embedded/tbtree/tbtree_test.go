@@ -503,7 +503,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 		tvs, _, err := snapshot.History(k, 0, true, 1)
 		require.NoError(t, err)
-		require.Equal(t, ts, tvs[0].ts)
+		require.Equal(t, ts, tvs[0].Ts)
 
 		err = snapshot.Close()
 		require.NoError(t, err)
