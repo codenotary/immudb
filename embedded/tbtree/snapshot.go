@@ -199,7 +199,7 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value [
 	}
 
 	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
-		return leafValue.key, cp(leafValue.timedValue().value), leafValue.timedValue().ts, leafValue.hCount + uint64(len(leafValue.timedValues)), nil
+		return leafValue.key, cp(leafValue.timedValue().value), leafValue.timedValue().ts, leafValue.historyCount(), nil
 	}
 
 	return nil, nil, 0, 0, ErrKeyNotFound
@@ -494,7 +494,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 	accH := int64(0)
 
 	for _, v := range l.values {
-		timedValue := v.timedValue()
+		timedValue := v.timedValues[0]
 
 		binary.BigEndian.PutUint16(buf[bi:], uint16(len(v.key)))
 		bi += 2
@@ -511,36 +511,32 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 		binary.BigEndian.PutUint64(buf[bi:], timedValue.ts)
 		bi += 8
 
-		hOff := v.hOff
-		hCount := v.hCount + uint64(len(v.timedValues))
+		hOff := writeOpts.BaseHLogOffset
 
-		if len(v.timedValues) > 0 {
-			hbuf := make([]byte, 4+len(v.timedValues)*8+8)
-			hi := 0
+		hCount := v.historyCount()
 
-			binary.BigEndian.PutUint32(hbuf[hi:], uint32(len(v.timedValues)))
-			hi += 4
+		if hCount > 1 {
+			hbuf := new(bytes.Buffer)
 
-			for _, tv := range v.timedValues {
-				binary.BigEndian.PutUint16(hbuf[hi:], uint16(len(tv.value)))
-				hi += 4
+			binary.Write(hbuf, binary.BigEndian, uint32(len(v.timedValues)-1))
 
-				copy(hbuf[hi:], tv.value)
-				hi += len(tv.value)
+			for _, tv := range v.timedValues[1:] {
 
-				binary.BigEndian.PutUint64(hbuf[hi:], uint64(tv.ts))
-				hi += 8
+				binary.Write(hbuf, binary.BigEndian, uint16(len(tv.value)))
+
+				hbuf.Write(tv.value)
+
+				binary.Write(hbuf, binary.BigEndian, uint64(tv.ts))
 			}
 
-			binary.BigEndian.PutUint64(hbuf[hi:], uint64(v.hOff))
-			hi += 8
+			binary.Write(hbuf, binary.BigEndian, uint64(v.hOff))
 
-			n, err := hw.Write(hbuf)
+			n, err := hw.Write(hbuf.Bytes())
 			if err != nil {
 				return 0, 0, 0, int64(n), err
 			}
 
-			hOff = writeOpts.BaseHLogOffset + accH
+			hOff += accH
 
 			accH += int64(n)
 		}
@@ -548,13 +544,13 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 		binary.BigEndian.PutUint64(buf[bi:], uint64(hOff))
 		bi += 8
 
-		binary.BigEndian.PutUint64(buf[bi:], hCount)
+		binary.BigEndian.PutUint64(buf[bi:], hCount-1)
 		bi += 8
 
 		if writeOpts.commitLog {
-			v.timedValues = nil
+			v.timedValues = v.timedValues[:1]
 			v.hOff = hOff
-			v.hCount = hCount
+			v.hCount = hCount - 1
 		}
 	}
 
