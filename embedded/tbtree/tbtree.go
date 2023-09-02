@@ -1005,7 +1005,7 @@ func (t *TBtree) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []b
 
 	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
 		currValue := leafValue.timedValue()
-		return leafValue.key, cp(currValue.value), currValue.ts, leafValue.hCount + uint64(len(leafValue.timedValues)), nil
+		return leafValue.key, cp(currValue.value), currValue.ts, leafValue.historyCount(), nil
 	}
 
 	return nil, nil, 0, 0, ErrKeyNotFound
@@ -2277,8 +2277,6 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 			values[i] = &leafValue{
 				key:         kvt.K,
 				timedValues: []timedValue{{value: kvt.V, ts: kvt.T}},
-				hOff:        -1,
-				hCount:      0,
 			}
 
 			copy(values[i+1:], l.values[i:])
@@ -2306,7 +2304,7 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	leafValue := l.values[i]
 	timedValue := leafValue.timedValue()
 
-	return timedValue.value, timedValue.ts, leafValue.hCount + uint64(len(leafValue.timedValues)), nil
+	return timedValue.value, timedValue.ts, leafValue.historyCount(), nil
 }
 
 func (l *leafNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
@@ -2330,7 +2328,7 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]t
 
 	leafValue := l.values[i]
 
-	hCount := leafValue.hCount + uint64(len(leafValue.timedValues))
+	hCount := leafValue.historyCount()
 
 	if offset == hCount {
 		return nil, 0, ErrNoMoreEntries
@@ -2613,6 +2611,10 @@ func (lv *leafValue) timedValue() timedValue {
 	return lv.timedValues[0]
 }
 
+func (lv *leafValue) historyCount() uint64 {
+	return lv.hCount + uint64(len(lv.timedValues))
+}
+
 func (lv *leafValue) size() int {
 	return 16 + len(lv.key) + len(lv.timedValue().value)
 }
@@ -2628,7 +2630,7 @@ func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, fi
 		}
 
 		if tv.ts <= finalTs {
-			return tv.value, tv.ts, lv.hCount + uint64(len(lv.timedValues)-i-1), nil
+			return tv.value, tv.ts, lv.historyCount() - uint64(i), nil
 		}
 	}
 
