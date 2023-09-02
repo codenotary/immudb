@@ -104,7 +104,7 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 		require.Len(t, tvs, itCount)
 
 		for i := 0; i < itCount; i++ {
-			require.Equal(t, uint64(250+1+i*keyCount), tvs[i].ts)
+			require.Equal(t, uint64(250+1+i*keyCount), tvs[i].Ts)
 		}
 	}
 }
@@ -157,7 +157,7 @@ func TestHistoryReaderDescendingScan(t *testing.T) {
 		require.Len(t, tvs, itCount)
 
 		for i := 0; i < itCount; i++ {
-			require.Equal(t, uint64(250+1+i*keyCount), tvs[len(tvs)-1-i].ts)
+			require.Equal(t, uint64(250+1+i*keyCount), tvs[len(tvs)-1-i].Ts)
 		}
 	}
 }
