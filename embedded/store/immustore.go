@@ -1001,12 +1001,26 @@ func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int
 		return nil, 0, err
 	}
 
+	valRefs = make([]ValueRef, len(timedValues))
+
+	rev := offset + 1
+	if descOrder {
+		rev = hCount - offset
+	}
+
 	for i, timedValue := range timedValues {
-		val, err := s.valueRefFrom(timedValue.Ts, hCount-uint64(i), timedValue.Value)
+		val, err := s.valueRefFrom(timedValue.Ts, rev, timedValue.Value)
 		if err != nil {
 			return nil, 0, err
 		}
-		valRefs = append(valRefs, val)
+
+		valRefs[i] = val
+
+		if descOrder {
+			rev--
+		} else {
+			rev++
+		}
 	}
 
 	return valRefs, hCount, nil
