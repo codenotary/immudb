@@ -150,6 +150,8 @@ func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int)
 		return nil, 0, err
 	}
 
+	valRefs = make([]ValueRef, len(timedValues))
+
 	for i, timedValue := range timedValues {
 		valRef, err := s.st.valueRefFrom(timedValue.Ts, hCount-uint64(i), timedValue.Value)
 		if err != nil {
@@ -160,7 +162,7 @@ func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int)
 			valRef = s.refInterceptor(key, valRef)
 		}
 
-		valRefs = append(valRefs, valRef)
+		valRefs[i] = valRef
 	}
 
 	return valRefs, hCount, nil
