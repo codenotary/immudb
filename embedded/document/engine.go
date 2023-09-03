@@ -844,7 +844,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 			return nil, err
 		}
 
-		encDoc, err := e.getEncodedDocument(searchKey, 0, false)
+		encDoc, err := e.getEncodedDocument(searchKey, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -964,7 +964,7 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 		return 0, "", nil, err
 	}
 
-	encodedDoc, err = e.getEncodedDocument(searchKey, txID, false)
+	encodedDoc, err = e.getEncodedDocument(searchKey, txID)
 	if err != nil {
 		return 0, "", nil, err
 	}
@@ -998,7 +998,7 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 	results := make([]*protomodel.DocumentAtRevision, 0)
 
 	for _, valRef := range valRefs {
-		docAtRevision, err := e.getDocument(searchKey, valRef, false)
+		docAtRevision, err := e.getDocument(searchKey, valRef)
 		if err != nil {
 			return nil, err
 		}
@@ -1142,12 +1142,7 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	return searchKey, nil
 }
 
-func (e *Engine) getDocument(
-	key []byte,
-	valRef store.ValueRef,
-	skipIntegrityCheck bool,
-) (docAtRevision *protomodel.DocumentAtRevision, err error) {
-
+func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *protomodel.DocumentAtRevision, err error) {
 	encodedDocVal, err := valRef.Resolve()
 	if err != nil {
 		return nil, mayTranslateError(err)
@@ -1198,64 +1193,29 @@ func (e *Engine) getDocument(
 	}, err
 }
 
-func (e *Engine) getEncodedDocument(
-	key []byte,
-	atTx uint64,
-	skipIntegrityCheck bool,
-) (encDoc *EncodedDocument, err error) {
+func (e *Engine) getEncodedDocument(key []byte, atTx uint64) (encDoc *EncodedDocument, err error) {
+	var valRef store.ValueRef
 
-	var txID uint64
-	var encodedDoc []byte
-	var md *store.KVMetadata
-	var revision uint64
-
-	index := e.sqlEngine.GetStore()
 	if atTx == 0 {
-		valRef, err := index.Get(key)
-		if err != nil {
-			return nil, mayTranslateError(err)
-		}
-
-		txID = valRef.Tx()
-
-		md = valRef.KVMetadata()
-
-		encodedDoc, err = valRef.Resolve()
-		if err != nil {
-			return nil, mayTranslateError(err)
-		}
-
-		// Revision can be calculated from the history count
-		revision = valRef.HC()
+		valRef, err = e.sqlEngine.GetStore().Get(key)
 	} else {
-		txID = atTx
-		md, encodedDoc, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
-		if err != nil {
-			return nil, err
-		}
+		valRef, err = e.sqlEngine.GetStore().GetBetween(key, atTx, atTx)
+	}
+	if err != nil {
+		return nil, mayTranslateError(err)
+	}
+
+	encodedDoc, err := valRef.Resolve()
+	if err != nil {
+		return nil, mayTranslateError(err)
 	}
 
 	return &EncodedDocument{
-		TxID:            txID,
-		Revision:        revision,
-		KVMetadata:      md,
+		TxID:            valRef.Tx(),
+		Revision:        valRef.HC(),
+		KVMetadata:      valRef.KVMetadata(),
 		EncodedDocument: encodedDoc,
 	}, err
-}
-
-func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
-	store := e.sqlEngine.GetStore()
-	entry, _, err := store.ReadTxEntry(atTx, key, skipIntegrityCheck)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	v, err := store.ReadValue(entry)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return entry.Metadata(), v, nil
 }
 
 // DeleteDocuments deletes documents matching the query

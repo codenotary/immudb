@@ -241,7 +241,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 			continue
 		}
 
-		return cp(leafValue.key), cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.hCount, nil
+		return cp(leafValue.key), cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.historyCount(), nil
 	}
 }
 
