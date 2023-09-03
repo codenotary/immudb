@@ -144,8 +144,26 @@ func (s *Snapshot) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ..
 	return key, valRef, nil
 }
 
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
-	return s.snap.History(key, offset, descOrder, limit)
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (valRefs []ValueRef, hCount uint64, err error) {
+	timedValues, hCount, err := s.snap.History(key, offset, descOrder, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for i, timedValue := range timedValues {
+		valRef, err := s.st.valueRefFrom(timedValue.Ts, hCount-uint64(i), timedValue.Value)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		if s.refInterceptor != nil {
+			valRef = s.refInterceptor(key, valRef)
+		}
+
+		valRefs = append(valRefs, valRef)
+	}
+
+	return valRefs, hCount, nil
 }
 
 func (s *Snapshot) Ts() uint64 {
@@ -362,25 +380,14 @@ type storeKeyReader struct {
 
 func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
 	for {
-		key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
+		key, indexedVal, tx, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		e, header, err := r.snap.st.ReadTxEntry(ktxID, key, false)
+		val, err = r.snap.st.valueRefFrom(tx, hc, indexedVal)
 		if err != nil {
 			return nil, nil, err
-		}
-
-		val = &valueRef{
-			tx:     header.ID,
-			hc:     hc,
-			hVal:   e.hVal,
-			vOff:   int64(e.vOff),
-			valLen: uint32(e.vLen),
-			txmd:   header.Metadata,
-			kvmd:   e.md,
-			st:     r.snap.st,
 		}
 
 		valRef := r.refInterceptor(key, val)

@@ -1773,24 +1773,16 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 						k := make([]byte, 8)
 						binary.BigEndian.PutUint64(k, uint64(j))
 
-						txIDs, hCount, err := snap.History(k, 0, false, txCount)
+						valRefs, hCount, err := snap.History(k, 0, false, txCount)
 						require.NoError(t, err)
-						require.EqualValues(t, snap.Ts(), len(txIDs))
+						require.EqualValues(t, snap.Ts(), len(valRefs))
 						require.EqualValues(t, snap.Ts(), hCount)
 
-						for _, txID := range txIDs {
+						for _, valRef := range valRefs {
 							v := make([]byte, 8)
-							binary.BigEndian.PutUint64(v, txID-1)
+							binary.BigEndian.PutUint64(v, valRef.Tx()-1)
 
-							tx := tempTxHolder(t, immuStore)
-
-							err = immuStore.ReadTx(txID, false, tx)
-							require.NoError(t, err)
-
-							entry, err := tx.EntryOf(k)
-							require.NoError(t, err)
-
-							val, err := immuStore.ReadValue(entry)
+							val, err := valRef.Resolve()
 							require.NoError(t, err)
 							require.Equal(t, v, val)
 						}

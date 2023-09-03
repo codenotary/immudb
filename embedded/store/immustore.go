@@ -986,7 +986,7 @@ func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters .
 	return key, valRef, nil
 }
 
-func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
+func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (valRefs []ValueRef, hCount uint64, err error) {
 	indexer, err := s.getIndexerFor(key)
 	if err != nil {
 		if errors.Is(err, ErrIndexNotFound) {
@@ -996,7 +996,20 @@ func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int
 		return nil, 0, err
 	}
 
-	return indexer.History(key, offset, descOrder, limit)
+	timedValues, hCount, err := indexer.History(key, offset, descOrder, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for i, timedValue := range timedValues {
+		val, err := s.valueRefFrom(timedValue.Ts, hCount-uint64(i), timedValue.Value)
+		if err != nil {
+			return nil, 0, err
+		}
+		valRefs = append(valRefs, val)
+	}
+
+	return valRefs, hCount, nil
 }
 
 func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
