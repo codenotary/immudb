@@ -513,9 +513,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 
 		hOff := writeOpts.BaseHLogOffset
 
-		hCount := v.historyCount()
-
-		if hCount > 1 {
+		if len(v.timedValues) > 1 {
 			hbuf := new(bytes.Buffer)
 
 			binary.Write(hbuf, binary.BigEndian, uint32(len(v.timedValues)-1))
@@ -543,6 +541,8 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 
 		binary.BigEndian.PutUint64(buf[bi:], uint64(hOff))
 		bi += 8
+
+		hCount := v.historyCount()
 
 		binary.BigEndian.PutUint64(buf[bi:], hCount-1)
 		bi += 8
