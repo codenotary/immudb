@@ -579,7 +579,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64, skipIntegrityCheck bool
 		desc = true
 	}
 
-	txs, hCount, err := d.st.History(key, offset, desc, 1)
+	valRefs, hCount, err := d.st.History(key, offset, desc, 1)
 	if errors.Is(err, store.ErrNoMoreEntries) || errors.Is(err, store.ErrOffsetOutOfRange) {
 		return nil, ErrInvalidRevision
 	}
@@ -591,7 +591,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64, skipIntegrityCheck bool
 		atRevision = int64(hCount) + atRevision
 	}
 
-	entry, err = d.getAtTx(key, txs[0], 0, d.st, uint64(atRevision), skipIntegrityCheck)
+	entry, err = d.getAtTx(key, valRefs[0].Tx(), 0, d.st, uint64(atRevision), skipIntegrityCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -1562,27 +1562,17 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 
 	key := EncodeKey(req.Key)
 
-	txs, hCount, err := d.st.History(key, req.Offset, req.Desc, limit)
+	valRefs, hCount, err := d.st.History(key, req.Offset, req.Desc, limit)
 	if err != nil && err != store.ErrOffsetOutOfRange {
 		return nil, err
 	}
 
 	list := &schema.Entries{
-		Entries: make([]*schema.Entry, len(txs)),
+		Entries: make([]*schema.Entry, len(valRefs)),
 	}
 
-	revision := req.Offset + 1
-	if req.Desc {
-		revision = hCount - req.Offset
-	}
-
-	for i, txID := range txs {
-		entry, _, err := d.st.ReadTxEntry(txID, key, false)
-		if err != nil {
-			return nil, err
-		}
-
-		val, err := d.st.ReadValue(entry)
+	for i, valRef := range valRefs {
+		val, err := valRef.Resolve()
 		if err != nil && err != store.ErrExpiredEntry {
 			return nil, err
 		}
@@ -1591,18 +1581,12 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 		}
 
 		list.Entries[i] = &schema.Entry{
-			Tx:       txID,
+			Tx:       valRef.Tx(),
 			Key:      req.Key,
-			Metadata: schema.KVMetadataToProto(entry.Metadata()),
+			Metadata: schema.KVMetadataToProto(valRef.KVMetadata()),
 			Value:    val,
 			Expired:  errors.Is(err, store.ErrExpiredEntry),
-			Revision: revision,
-		}
-
-		if req.Desc {
-			revision--
-		} else {
-			revision++
+			Revision: valRef.HC(),
 		}
 	}
 

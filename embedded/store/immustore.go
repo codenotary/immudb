@@ -906,6 +906,23 @@ func (s *ImmuStore) DeleteIndex(prefix []byte) error {
 	return os.RemoveAll(indexer.path)
 }
 
+func (s *ImmuStore) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (valRef ValueRef, err error) {
+	indexer, err := s.getIndexerFor(key)
+	if err != nil {
+		if errors.Is(err, ErrIndexNotFound) {
+			return nil, ErrKeyNotFound
+		}
+		return nil, err
+	}
+
+	indexedVal, tx, hc, err := indexer.index.GetBetween(key, initialTxID, finalTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.valueRefFrom(tx, hc, indexedVal)
+}
+
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
 	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
 }
@@ -916,7 +933,6 @@ func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef Valu
 		if errors.Is(err, ErrIndexNotFound) {
 			return nil, ErrKeyNotFound
 		}
-
 		return nil, err
 	}
 
