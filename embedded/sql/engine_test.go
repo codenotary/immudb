@@ -5678,14 +5678,19 @@ func (h *multidbHandlerMock) ExecPreparedStmts(
 func TestSingleDBCatalogQueries(t *testing.T) {
 	engine := setupCommonTest(t)
 
+	_, _, err := engine.Exec(context.Background(), nil, `
+		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
+		
+		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
+	`, nil)
+	require.NoError(t, err)
+
 	tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), tx, `
-		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
 		CREATE INDEX ON mytable1(title);
 	
-		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
 		CREATE INDEX ON mytable2(name);
 		CREATE UNIQUE INDEX ON mytable2(name, active);
 	`, nil)
