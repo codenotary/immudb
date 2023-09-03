@@ -196,7 +196,7 @@ func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 	return idx.index.Get(key)
 }
 
-func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
+func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, hCount uint64, err error) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
 
@@ -556,7 +556,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 				}
 
 				// the previous entry as of txID must be deleted from the target index
-				prevTxID, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
+				_, prevTxID, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
 				if err == nil {
 					prevEntry, prevTxHdr, err := idx.store.ReadTxEntry(prevTxID, e.key(), false)
 					if err != nil {
