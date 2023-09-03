@@ -395,6 +395,9 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		// check table is empty
 		pkPrefix := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id))
 		_, _, err := tx.getWithPrefix(pkPrefix, nil)
+		if errors.Is(err, store.ErrIndexNotFound) {
+			return nil, ErrTableDoesNotExist
+		}
 		if err == nil {
 			return nil, ErrLimitedIndexCreation
 		} else if !errors.Is(err, store.ErrKeyNotFound) {
