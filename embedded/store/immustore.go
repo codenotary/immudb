@@ -2131,6 +2131,7 @@ func (s *ImmuStore) CommitWith(ctx context.Context, callback func(txID uint64, i
 
 type KeyIndex interface {
 	Get(key []byte) (valRef ValueRef, err error)
+	GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error)
 	GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
 	GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error)
 	GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error)
@@ -2142,6 +2143,10 @@ type unsafeIndex struct {
 
 func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
 	return index.GetWithFilters(key, IgnoreDeleted, IgnoreExpired)
+}
+
+func (index *unsafeIndex) GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
+	return index.st.GetBetween(key, initialTxID, finalTxID)
 }
 
 func (index *unsafeIndex) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, error) {

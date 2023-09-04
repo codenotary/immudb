@@ -82,6 +82,24 @@ func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
 	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
 }
 
+func (s *Snapshot) GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
+	indexedVal, tx, hc, err := s.snap.GetBetween(key, initialTxID, finalTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	valRef, err = s.st.valueRefFrom(tx, hc, indexedVal)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.refInterceptor != nil {
+		return s.refInterceptor(key, valRef), nil
+	}
+
+	return valRef, nil
+}
+
 func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
