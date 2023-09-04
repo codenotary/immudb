@@ -917,6 +917,7 @@ func (d *db) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.Entry
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Cancel()
 
 	keyReader, err := tx.NewKeyReader(store.KeyReaderSpec{
 		Prefix: WrapWithPrefix(prefix.Prefix, SetKeyPrefix),
@@ -924,6 +925,7 @@ func (d *db) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.Entry
 	if err != nil {
 		return nil, err
 	}
+	defer keyReader.Close()
 
 	count := 0
 

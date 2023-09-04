@@ -1280,10 +1280,11 @@ func TestServerDbOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Count(ctx, nil)
-	require.ErrorIs(t, err, ErrNotSupported)
+	require.Contains(t, err.Error(), store.ErrIllegalArguments.Error())
 
-	_, err = s.CountAll(ctx, nil)
-	require.ErrorIs(t, err, ErrNotSupported)
+	res, err := s.CountAll(ctx, nil)
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)

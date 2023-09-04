@@ -101,7 +101,15 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		return nil, err
 	}
 
-	inclusionProof, err := tx.Proof(e.Key)
+	sourceKey := sql.MapKey(
+		[]byte{SQLPrefix},
+		sql.RowPrefix,
+		sql.EncodeID(1), // fixed database identifier
+		sql.EncodeID(table.ID()),
+		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes())
+
+	inclusionProof, err := tx.Proof(sourceKey)
 	if err != nil {
 		return nil, err
 	}
