@@ -613,12 +613,13 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 			DefaultOptions().
 				WithEmbeddedValues(false).
 				WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
-					if strings.HasPrefix(subPath, "index/") {
+					if strings.HasSuffix(rootPath, "index") {
 						return nil, injectedError
 					}
 					return &mocked.MockedAppendable{
-						SizeFn:  func() (int64, error) { return 0, nil },
-						CloseFn: func() error { return nil },
+						SizeFn:      func() (int64, error) { return 0, nil },
+						CloseFn:     func() error { return nil },
+						SetOffsetFn: func(off int64) error { return nil },
 					}, nil
 				}),
 		)
@@ -664,11 +665,11 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					}
 
 					switch subPath {
-					case "index/nodes":
+					case "nodes":
 						return nLog, nil
-					case "index/history":
+					case "history":
 						return hLog, nil
-					case "index/commit":
+					case "commit":
 						return &mocked.MockedAppendable{
 							SizeFn: func() (int64, error) {
 								// One clog entry
