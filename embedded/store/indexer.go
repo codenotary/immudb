@@ -121,7 +121,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
-			return opts.appFactory(store.path, filepath.Join(indexDirname, subPath), appOpts)
+			return opts.appFactory(rootPath, subPath, appOpts)
 		})
 	}
 
@@ -299,7 +299,7 @@ func (idx *indexer) CompactIndex() (err error) {
 	}()
 
 	_, err = idx.index.Compact()
-	if err == tbtree.ErrAlreadyClosed {
+	if errors.Is(err, tbtree.ErrAlreadyClosed) {
 		return ErrAlreadyClosed
 	}
 	if err != nil {
@@ -314,7 +314,7 @@ func (idx *indexer) FlushIndex(cleanupPercentage float32, synced bool) (err erro
 	defer idx.compactionMutex.Unlock()
 
 	_, _, err = idx.index.FlushWith(cleanupPercentage, synced)
-	if err == tbtree.ErrAlreadyClosed {
+	if errors.Is(err, tbtree.ErrAlreadyClosed) {
 		return ErrAlreadyClosed
 	}
 	if err != nil {
