@@ -533,38 +533,24 @@ func (d *db) getAtTx(
 	revision uint64,
 	skipIntegrityCheck bool,
 ) (entry *schema.Entry, err error) {
-	var txID uint64
-	var val []byte
-	var md *store.KVMetadata
+
+	var valRef store.ValueRef
 
 	if atTx == 0 {
-		valRef, err := index.Get(key)
-		if err != nil {
-			return nil, err
-		}
-
-		txID = valRef.Tx()
-
-		md = valRef.KVMetadata()
-
-		val, err = valRef.Resolve()
-		if err != nil {
-			return nil, err
-		}
-
-		// Revision can be calculated from the history count
-		revision = valRef.HC()
-
+		valRef, err = index.Get(key)
 	} else {
-		txID = atTx
-
-		md, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
-		if err != nil {
-			return nil, err
-		}
+		valRef, err = index.GetBetween(key, atTx, atTx)
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return d.resolveValue(key, val, resolved, txID, md, index, revision, skipIntegrityCheck)
+	val, err := valRef.Resolve()
+	if err != nil {
+		return nil, err
+	}
+
+	return d.resolveValue(key, val, resolved, valRef.Tx(), valRef.KVMetadata(), index, valRef.HC(), skipIntegrityCheck)
 }
 
 func (d *db) getAtRevision(key []byte, atRevision int64, skipIntegrityCheck bool) (entry *schema.Entry, err error) {
@@ -663,7 +649,7 @@ func (d *db) resolveValue(
 	}, nil
 }
 
-func (d *db) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
+func (d *db) readMetadataAndValueK(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
 	entry, _, err := d.st.ReadTxEntry(atTx, key, skipIntegrityCheck)
 	if err != nil {
 		return nil, nil, err
