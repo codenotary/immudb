@@ -170,37 +170,26 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 }
 
 func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
-	var txID uint64
-	var md *store.KVMetadata
-	var val []byte
+	var valRef store.ValueRef
 
 	if atTx == 0 {
-		valRef, err := index.Get(key)
-		if err != nil {
-			return nil, err
-		}
-
-		txID = valRef.Tx()
-
-		md = valRef.KVMetadata()
-
-		val, err = valRef.Resolve()
-		if err != nil {
-			return nil, err
-		}
+		valRef, err = index.Get(key)
 	} else {
-		txID = atTx
+		valRef, err = index.GetBetween(key, atTx, atTx)
+	}
+	if err != nil {
+		return nil, err
+	}
 
-		md, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
-		if err != nil {
-			return nil, err
-		}
+	val, err := valRef.Resolve()
+	if err != nil {
+		return nil, err
 	}
 
 	return &schema.SQLEntry{
-		Tx:       txID,
+		Tx:       valRef.Tx(),
 		Key:      key,
-		Metadata: schema.KVMetadataToProto(md),
+		Metadata: schema.KVMetadataToProto(valRef.KVMetadata()),
 		Value:    val,
 	}, err
 }

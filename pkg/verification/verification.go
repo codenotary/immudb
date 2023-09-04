@@ -34,6 +34,8 @@ import (
 
 var ErrIllegalArguments = store.ErrIllegalArguments
 
+const documentPrefix = 3 // database.DocumentPrefix
+
 func VerifyDocument(ctx context.Context,
 	proof *protomodel.ProofDocumentResponse,
 	doc *structpb.Struct,
@@ -230,11 +232,11 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 	pkEncVals := valbuf.Bytes()
 
 	return sql.MapKey(
-		[]byte{3}, // database.DocumentPrefix
+		[]byte{documentPrefix},
 		sql.RowPrefix,
 		sql.EncodeID(1), // fixed database identifier
 		sql.EncodeID(collectionID),
-		sql.EncodeID(0), // pk index id
+		sql.EncodeID(sql.PKIndexID),
 		pkEncVals,
 	), nil
 }
