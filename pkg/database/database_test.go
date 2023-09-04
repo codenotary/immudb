@@ -1803,9 +1803,8 @@ func TestRevisionGetConsistency(t *testing.T) {
 			require.Len(t, scanResults.Entries, 1)
 			require.Equal(t, []byte("value_0"), scanResults.Entries[0].Value)
 
-			// Found references do not have revision value calculated
-			require.EqualValues(t, 0, entryFromGet.Revision)
-			require.EqualValues(t, 0, scanResults.Entries[0].Revision)
+			require.EqualValues(t, 1, entryFromGet.Revision)
+			require.EqualValues(t, 1, scanResults.Entries[0].Revision)
 
 			require.EqualValues(t, i+1, entryFromGet.ReferencedBy.Revision)
 			require.EqualValues(t, i+1, scanResults.Entries[0].ReferencedBy.Revision)
