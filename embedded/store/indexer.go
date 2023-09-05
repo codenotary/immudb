@@ -208,6 +208,9 @@ func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int
 }
 
 func (idx *indexer) Snapshot() (*tbtree.Snapshot, error) {
+	idx.compactionMutex.Lock()
+	defer idx.compactionMutex.Unlock()
+
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
 
@@ -218,12 +221,20 @@ func (idx *indexer) Snapshot() (*tbtree.Snapshot, error) {
 	return idx.index.Snapshot()
 }
 
-func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(txID uint64, renewalPeriod time.Duration) (*tbtree.Snapshot, error) {
+func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context, txID uint64, renewalPeriod time.Duration) (*tbtree.Snapshot, error) {
+	idx.compactionMutex.Lock()
+	defer idx.compactionMutex.Unlock()
+
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
 
 	if idx.closed {
 		return nil, ErrAlreadyClosed
+	}
+
+	err := idx.WaitForIndexingUpto(ctx, txID)
+	if err != nil {
+		return nil, err
 	}
 
 	return idx.index.SnapshotMustIncludeTsWithRenewalPeriod(txID, renewalPeriod)

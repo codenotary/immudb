@@ -60,6 +60,13 @@ func TestTransaction_SetAndGet(t *testing.T) {
 		);`, nil)
 	require.NoError(t, err)
 
+	txH, err := tx.Commit(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, txH)
+
+	tx, err = client.NewTx(context.Background(), immudb.UnsafeMVCC(), immudb.SnapshotMustIncludeTxID(0), immudb.SnapshotRenewalPeriod(0))
+	require.NoError(t, err)
+
 	params := make(map[string]interface{})
 	params["id"] = 1
 	params["title"] = "title1"
@@ -73,7 +80,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	txH, err := tx.Commit(context.Background())
+	txH, err = tx.Commit(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, txH)
 
