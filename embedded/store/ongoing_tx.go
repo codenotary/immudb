@@ -489,12 +489,12 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
-	snap, err := tx.snap(spec.Prefix)
-	if err != nil {
-		return nil, err
-	}
-
 	if tx.IsReadOnly() {
+		snap, err := tx.snap(spec.Prefix)
+		if err != nil {
+			return nil, err
+		}
+
 		return snap.NewKeyReader(spec)
 	}
 
