@@ -58,6 +58,11 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 		return nil, ErrMVCCReadSetLimitExceeded
 	}
 
+	snap, err := tx.snap(spec.Prefix)
+	if err != nil {
+		return nil, err
+	}
+
 	rspec := KeyReaderSpec{
 		SeekKey:       spec.SeekKey,
 		EndKey:        spec.EndKey,
@@ -65,11 +70,6 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 		InclusiveSeek: spec.InclusiveSeek,
 		InclusiveEnd:  spec.InclusiveEnd,
 		DescOrder:     spec.DescOrder,
-	}
-
-	snap, err := tx.snap(spec.Prefix)
-	if err != nil {
-		return nil, err
 	}
 
 	keyReader, err := snap.NewKeyReader(rspec)
