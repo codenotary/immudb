@@ -1123,12 +1123,7 @@ func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 		return nil, err
 	}
 
-	err = indexer.WaitForIndexingUpto(ctx, txID)
-	if err != nil {
-		return nil, err
-	}
-
-	snap, err := indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(txID, renewalPeriod)
+	snap, err := indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(ctx, txID, renewalPeriod)
 	if err != nil {
 		return nil, err
 	}
