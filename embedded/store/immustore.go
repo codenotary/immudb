@@ -915,11 +915,6 @@ func (s *ImmuStore) GetBetween(ctx context.Context, key []byte, initialTxID uint
 		return nil, err
 	}
 
-	err = indexer.WaitForIndexingUpto(ctx, finalTxID)
-	if err != nil {
-		return nil, err
-	}
-
 	indexedVal, tx, hc, err := indexer.GetBetween(key, initialTxID, finalTxID)
 	if err != nil {
 		return nil, err
