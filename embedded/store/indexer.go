@@ -185,6 +185,10 @@ func (idx *indexer) Ts() uint64 {
 	return idx.index.Ts()
 }
 
+func (idx *indexer) SyncSnapshot() (*tbtree.Snapshot, error) {
+	return idx.index.SyncSnapshot()
+}
+
 func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
@@ -194,6 +198,17 @@ func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 	}
 
 	return idx.index.Get(key)
+}
+
+func (idx *indexer) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (value []byte, tx uint64, hc uint64, err error) {
+	idx.mutex.Lock()
+	defer idx.mutex.Unlock()
+
+	if idx.closed {
+		return nil, 0, 0, ErrAlreadyClosed
+	}
+
+	return idx.index.GetBetween(key, initialTxID, finalTxID)
 }
 
 func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, hCount uint64, err error) {

@@ -906,7 +906,7 @@ func (s *ImmuStore) DeleteIndex(prefix []byte) error {
 	return os.RemoveAll(indexer.path)
 }
 
-func (s *ImmuStore) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (valRef ValueRef, err error) {
+func (s *ImmuStore) GetBetween(ctx context.Context, key []byte, initialTxID uint64, finalTxID uint64) (valRef ValueRef, err error) {
 	indexer, err := s.getIndexerFor(key)
 	if err != nil {
 		if errors.Is(err, ErrIndexNotFound) {
@@ -915,7 +915,12 @@ func (s *ImmuStore) GetBetween(key []byte, initialTxID uint64, finalTxID uint64)
 		return nil, err
 	}
 
-	indexedVal, tx, hc, err := indexer.index.GetBetween(key, initialTxID, finalTxID)
+	err = indexer.WaitForIndexingUpto(ctx, finalTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	indexedVal, tx, hc, err := indexer.GetBetween(key, initialTxID, finalTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -923,11 +928,11 @@ func (s *ImmuStore) GetBetween(key []byte, initialTxID uint64, finalTxID uint64)
 	return s.valueRefFrom(tx, hc, indexedVal)
 }
 
-func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
+func (s *ImmuStore) Get(ctx context.Context, key []byte) (valRef ValueRef, err error) {
+	return s.GetWithFilters(ctx, key, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+func (s *ImmuStore) GetWithFilters(ctx context.Context, key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexer, err := s.getIndexerFor(key)
 	if err != nil {
 		if errors.Is(err, ErrIndexNotFound) {
@@ -962,11 +967,11 @@ func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef Valu
 	return valRef, nil
 }
 
-func (s *ImmuStore) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return s.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+func (s *ImmuStore) GetWithPrefix(ctx context.Context, prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return s.GetWithPrefixAndFilters(ctx, prefix, neq, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+func (s *ImmuStore) GetWithPrefixAndFilters(ctx context.Context, prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	indexer, err := s.getIndexerFor(prefix)
 	if err != nil {
 		if errors.Is(err, ErrIndexNotFound) {
@@ -1070,7 +1075,7 @@ func (s *ImmuStore) syncSnapshot(prefix []byte) (*Snapshot, error) {
 		return nil, err
 	}
 
-	snap, err := indexer.index.SyncSnapshot()
+	snap, err := indexer.SyncSnapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -1690,7 +1695,7 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 			return nil, err
 		}
 
-		err = otx.checkPreconditions(s)
+		err = otx.checkPreconditions(ctx, s)
 		if err != nil {
 			return nil, err
 		}
@@ -2125,35 +2130,35 @@ func (s *ImmuStore) CommitWith(ctx context.Context, callback func(txID uint64, i
 }
 
 type KeyIndex interface {
-	Get(key []byte) (valRef ValueRef, err error)
-	GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error)
-	GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
-	GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error)
-	GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error)
+	Get(ctx context.Context, key []byte) (valRef ValueRef, err error)
+	GetBetween(ctx context.Context, key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error)
+	GetWithFilters(ctx context.Context, key []byte, filters ...FilterFn) (valRef ValueRef, err error)
+	GetWithPrefix(ctx context.Context, prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error)
+	GetWithPrefixAndFilters(ctx context.Context, prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error)
 }
 
 type unsafeIndex struct {
 	st *ImmuStore
 }
 
-func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
-	return index.GetWithFilters(key, IgnoreDeleted, IgnoreExpired)
+func (index *unsafeIndex) Get(ctx context.Context, key []byte) (ValueRef, error) {
+	return index.GetWithFilters(ctx, key, IgnoreDeleted, IgnoreExpired)
 }
 
-func (index *unsafeIndex) GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
-	return index.st.GetBetween(key, initialTxID, finalTxID)
+func (index *unsafeIndex) GetBetween(ctx context.Context, key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
+	return index.st.GetBetween(ctx, key, initialTxID, finalTxID)
 }
 
-func (index *unsafeIndex) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, error) {
-	return index.st.GetWithFilters(key, filters...)
+func (index *unsafeIndex) GetWithFilters(ctx context.Context, key []byte, filters ...FilterFn) (ValueRef, error) {
+	return index.st.GetWithFilters(ctx, key, filters...)
 }
 
-func (index *unsafeIndex) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return index.st.GetWithPrefixAndFilters(prefix, neq, IgnoreDeleted, IgnoreExpired)
+func (index *unsafeIndex) GetWithPrefix(ctx context.Context, prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return index.st.GetWithPrefixAndFilters(ctx, prefix, neq, IgnoreDeleted, IgnoreExpired)
 }
 
-func (index *unsafeIndex) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
-	return index.st.GetWithPrefixAndFilters(prefix, neq, filters...)
+func (index *unsafeIndex) GetWithPrefixAndFilters(ctx context.Context, prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+	return index.st.GetWithPrefixAndFilters(ctx, prefix, neq, filters...)
 }
 
 func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
@@ -2214,7 +2219,7 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 			return nil, err
 		}
 
-		err = otx.checkPreconditions(s)
+		err = otx.checkPreconditions(ctx, s)
 		if err != nil {
 			return nil, err
 		}

@@ -162,7 +162,7 @@ func main() {
 			}
 			defer snap.Close()
 
-			valRef, err := snap.Get([]byte(*key))
+			valRef, err := snap.Get(context.Background(), []byte(*key))
 			if err != nil {
 				panic(err)
 			}
