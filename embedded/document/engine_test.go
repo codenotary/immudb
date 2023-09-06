@@ -534,6 +534,9 @@ func TestDocumentAudit(t *testing.T) {
 		require.Equal(t, uint64(2), doc.Revision)
 	})
 
+	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(context.Background(), revisions[0].TransactionId)
+	require.NoError(t, err)
+
 	// get document audit
 	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
 	require.NoError(t, err)
