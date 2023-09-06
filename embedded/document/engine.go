@@ -1201,6 +1201,9 @@ func (e *Engine) getEncodedDocument(key []byte, atTx uint64) (encDoc *EncodedDoc
 	} else {
 		valRef, err = e.sqlEngine.GetStore().GetBetween(key, atTx, atTx)
 	}
+	if errors.Is(err, store.ErrKeyNotFound) {
+		return nil, ErrDocumentNotFound
+	}
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}

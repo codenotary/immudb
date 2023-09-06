@@ -534,9 +534,6 @@ func TestDocumentAudit(t *testing.T) {
 		require.Equal(t, uint64(2), doc.Revision)
 	})
 
-	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(context.Background(), revisions[0].TransactionId)
-	require.NoError(t, err)
-
 	// get document audit
 	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
 	require.NoError(t, err)
@@ -563,6 +560,11 @@ func TestDocumentAudit(t *testing.T) {
 		Limit: 1,
 	})
 	require.NoError(t, err)
+
+	t.Run("get encoded document should return error with deleted docID", func(t *testing.T) {
+		_, _, _, err := engine.GetEncodedDocument(context.Background(), collectionName, docID, 0)
+		require.ErrorIs(t, err, ErrDocumentNotFound)
+	})
 
 	res, err = engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
 	require.NoError(t, err)
