@@ -394,7 +394,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	if stmt.unique && table.primaryIndex != nil {
 		// check table is empty
 		pkPrefix := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id))
-		_, _, err := tx.getWithPrefix(pkPrefix, nil)
+		_, _, err := tx.getWithPrefix(ctx, pkPrefix, nil)
 		if errors.Is(err, store.ErrIndexNotFound) {
 			return nil, ErrTableDoesNotExist
 		}
@@ -674,7 +674,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		// pk entry
 		mappedPKey := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals, pkEncVals)
 
-		_, err = tx.get(mappedPKey)
+		_, err = tx.get(ctx, mappedPKey)
 		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
 			return nil, err
 		}
@@ -831,7 +831,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 
 		// no other equivalent entry should be already indexed
 		if index.IsUnique() {
-			_, valRef, err := tx.getWithPrefix(smkey, nil)
+			_, valRef, err := tx.getWithPrefix(ctx, smkey, nil)
 			if err == nil && (valRef.KVMetadata() == nil || !valRef.KVMetadata().Deleted()) {
 				return store.ErrKeyAlreadyExists
 			} else if !errors.Is(err, store.ErrKeyNotFound) {
@@ -1130,7 +1130,7 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		mkey := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals, pkEncVals)
 
 		// mkey must exist
-		_, err = tx.get(mkey)
+		_, err = tx.get(ctx, mkey)
 		if err != nil {
 			return nil, err
 		}
@@ -4079,7 +4079,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(1),
 		EncodeID(table.id),
 	)
-	err = tx.delete(mappedKey)
+	err = tx.delete(ctx, mappedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4095,7 +4095,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(col.id),
 			[]byte(col.colType),
 		)
-		err = tx.delete(mappedKey)
+		err = tx.delete(ctx, mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4111,7 +4111,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(table.id),
 			EncodeID(index.id),
 		)
-		err = tx.delete(mappedKey)
+		err = tx.delete(ctx, mappedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -4195,7 +4195,7 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(table.id),
 		EncodeID(index.id),
 	)
-	err = tx.delete(mappedKey)
+	err = tx.delete(ctx, mappedKey)
 	if err != nil {
 		return nil, err
 	}

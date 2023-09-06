@@ -174,7 +174,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 	catalog := newCatalog(e.prefix)
 
-	err = catalog.load(tx)
+	err = catalog.load(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		}
 
 		if table.autoIncrementPK {
-			encMaxPK, err := loadMaxPK(e.prefix, tx, table)
+			encMaxPK, err := loadMaxPK(ctx, e.prefix, tx, table)
 			if errors.Is(err, store.ErrNoMoreEntries) {
 				continue
 			}
@@ -606,7 +606,7 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 
 	catalog := newCatalog(e.prefix)
 
-	err := catalog.addSchemaToTx(e.prefix, tx)
+	err := catalog.addSchemaToTx(ctx, e.prefix, tx)
 	if err != nil {
 		return err
 	}

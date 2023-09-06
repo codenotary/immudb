@@ -839,12 +839,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 			return nil, err
 		}
 
-		err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
-		if err != nil {
-			return nil, err
-		}
-
-		encDoc, err := e.getEncodedDocument(searchKey, 0)
+		encDoc, err := e.getEncodedDocument(ctx, searchKey, txID)
 		if err != nil {
 			return nil, err
 		}
@@ -964,7 +959,7 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 		return 0, "", nil, err
 	}
 
-	encodedDoc, err = e.getEncodedDocument(searchKey, txID)
+	encodedDoc, err = e.getEncodedDocument(ctx, searchKey, txID)
 	if err != nil {
 		return 0, "", nil, err
 	}
@@ -1193,14 +1188,8 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *
 	}, err
 }
 
-func (e *Engine) getEncodedDocument(key []byte, atTx uint64) (encDoc *EncodedDocument, err error) {
-	var valRef store.ValueRef
-
-	if atTx == 0 {
-		valRef, err = e.sqlEngine.GetStore().Get(key)
-	} else {
-		valRef, err = e.sqlEngine.GetStore().GetBetween(key, atTx, atTx)
-	}
+func (e *Engine) getEncodedDocument(ctx context.Context, key []byte, atTx uint64) (encDoc *EncodedDocument, err error) {
+	valRef, err := e.sqlEngine.GetStore().GetBetween(ctx, key, atTx, atTx)
 	if errors.Is(err, store.ErrKeyNotFound) {
 		return nil, ErrDocumentNotFound
 	}

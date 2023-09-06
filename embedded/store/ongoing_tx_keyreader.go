@@ -16,7 +16,10 @@ limitations under the License.
 
 package store
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 type expectedReader struct {
 	spec          KeyReaderSpec
@@ -90,16 +93,16 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 	}, nil
 }
 
-func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
-	return r.ReadBetween(0, 0)
+func (r *ongoingTxKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, err error) {
+	return r.ReadBetween(ctx, 0, 0)
 }
 
-func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, valRef ValueRef, err error) {
+func (r *ongoingTxKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID uint64) (key []byte, valRef ValueRef, err error) {
 	for {
 		if initialTxID == 0 && finalTxID == 0 {
-			key, valRef, err = r.keyReader.Read()
+			key, valRef, err = r.keyReader.Read(ctx)
 		} else {
-			key, valRef, err = r.keyReader.ReadBetween(initialTxID, finalTxID)
+			key, valRef, err = r.keyReader.ReadBetween(ctx, initialTxID, finalTxID)
 		}
 
 		if errors.Is(err, ErrNoMoreEntries) {

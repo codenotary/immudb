@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -57,8 +58,8 @@ var (
 )
 
 type KeyReader interface {
-	Read() (key []byte, val ValueRef, err error)
-	ReadBetween(initialTxID uint64, finalTxID uint64) (key []byte, val ValueRef, err error)
+	Read(ctx context.Context) (key []byte, val ValueRef, err error)
+	ReadBetween(ctx context.Context, initialTxID uint64, finalTxID uint64) (key []byte, val ValueRef, err error)
 	Reset() error
 	Close() error
 }
@@ -78,11 +79,11 @@ func (s *Snapshot) set(key, value []byte) error {
 	return s.snap.Set(key, value)
 }
 
-func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
+func (s *Snapshot) Get(ctx context.Context, key []byte) (valRef ValueRef, err error) {
+	return s.GetWithFilters(ctx, key, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *Snapshot) GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
+func (s *Snapshot) GetBetween(ctx context.Context, key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.GetBetween(key, initialTxID, finalTxID)
 	if err != nil {
 		return nil, err
@@ -100,7 +101,7 @@ func (s *Snapshot) GetBetween(key []byte, initialTxID, finalTxID uint64) (valRef
 	return valRef, nil
 }
 
-func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+func (s *Snapshot) GetWithFilters(ctx context.Context, key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
 		return nil, err
@@ -129,11 +130,11 @@ func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef Value
 	return valRef, nil
 }
 
-func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return s.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+func (s *Snapshot) GetWithPrefix(ctx context.Context, prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return s.GetWithPrefixAndFilters(ctx, prefix, neq, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *Snapshot) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+func (s *Snapshot) GetWithPrefixAndFilters(ctx context.Context, prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	key, indexedVal, tx, hc, err := s.snap.GetWithPrefix(prefix, neq)
 	if err != nil {
 		return nil, nil, err
@@ -398,7 +399,7 @@ type storeKeyReader struct {
 	skipped uint64
 }
 
-func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
+func (r *storeKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
 	for {
 		key, indexedVal, tx, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
@@ -435,7 +436,7 @@ func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte,
 	}
 }
 
-func (r *storeKeyReader) Read() (key []byte, val ValueRef, err error) {
+func (r *storeKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, err error) {
 	for {
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
