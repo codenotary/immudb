@@ -1189,7 +1189,18 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *
 }
 
 func (e *Engine) getEncodedDocument(ctx context.Context, key []byte, atTx uint64) (encDoc *EncodedDocument, err error) {
-	valRef, err := e.sqlEngine.GetStore().GetBetween(ctx, key, atTx, atTx)
+	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, atTx)
+	if err != nil {
+		return nil, err
+	}
+
+	var valRef store.ValueRef
+
+	if atTx == 0 {
+		valRef, err = e.sqlEngine.GetStore().Get(ctx, key)
+	} else {
+		valRef, err = e.sqlEngine.GetStore().GetBetween(ctx, key, atTx, atTx)
+	}
 	if errors.Is(err, store.ErrKeyNotFound) {
 		return nil, ErrDocumentNotFound
 	}
