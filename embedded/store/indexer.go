@@ -284,7 +284,7 @@ func (idx *indexer) Close() error {
 func (idx *indexer) WaitForIndexingUpto(ctx context.Context, txID uint64) error {
 	if idx.wHub != nil {
 		err := idx.wHub.WaitFor(ctx, txID)
-		if err == watchers.ErrAlreadyClosed {
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
 			return ErrAlreadyClosed
 		}
 		return err
@@ -302,7 +302,7 @@ func (idx *indexer) CompactIndex() (err error) {
 	defer func() {
 		if err == nil {
 			idx.store.logger.Infof("index '%s' sucessfully compacted", idx.store.path)
-		} else if err == tbtree.ErrCompactionThresholdNotReached {
+		} else if errors.Is(err, tbtree.ErrCompactionThresholdNotReached) {
 			idx.store.logger.Infof("compaction of index '%s' not needed: %v", idx.store.path, err)
 		} else {
 			idx.store.logger.Warningf("%v: while compacting index '%s'", err, idx.store.path)
@@ -437,7 +437,7 @@ func (idx *indexer) doIndexing() {
 		idx.stateCond.L.Unlock()
 
 		err = idx.indexSince(lastIndexedTx + 1)
-		if err == ErrAlreadyClosed || err == tbtree.ErrAlreadyClosed {
+		if errors.Is(err, ErrAlreadyClosed) || errors.Is(err, tbtree.ErrAlreadyClosed) {
 			return
 		}
 		if err != nil {

@@ -620,6 +620,8 @@ func TestSnapshotRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), snapc)
 
+	require.Equal(t, uint64(3), tree.Ts())
+
 	err = tree.Close()
 	require.NoError(t, err)
 
