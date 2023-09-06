@@ -562,8 +562,25 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("get encoded document should return error with deleted docID", func(t *testing.T) {
-		_, _, _, err := engine.GetEncodedDocument(context.Background(), collectionName, docID, 0)
-		require.ErrorIs(t, err, ErrDocumentNotFound)
+		docReader, err := engine.GetDocuments(context.Background(), &protomodel.Query{
+			CollectionName: collectionName,
+			Expressions: []*protomodel.QueryExpression{
+				{
+					FieldComparisons: []*protomodel.FieldComparison{
+						{
+							Field:    DefaultDocumentIDField,
+							Operator: protomodel.ComparisonOperator_EQ,
+							Value:    structpb.NewStringValue(docID.EncodeToHexString()),
+						},
+					},
+				},
+			},
+		}, 0)
+		require.NoError(t, err)
+		defer docReader.Close()
+
+		_, err = docReader.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreDocuments)
 	})
 
 	res, err = engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
