@@ -83,7 +83,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 	entries := &schema.Entries{}
 
 	for l := 1; l <= limit; l++ {
-		key, valRef, err := r.Read()
+		key, valRef, err := r.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -91,7 +91,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 			return nil, err
 		}
 
-		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, valRef.HC(), true)
+		e, err := d.getAtTx(ctx, key, valRef.Tx(), 0, snap, valRef.HC(), true)
 		if errors.Is(err, store.ErrKeyNotFound) {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue
