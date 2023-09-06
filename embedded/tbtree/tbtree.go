@@ -129,7 +129,7 @@ func (e *cLogEntry) serialize() []byte {
 }
 
 func (e *cLogEntry) isValid() bool {
-	return e.initialHLogSize <= e.finalNLogSize &&
+	return e.initialNLogSize <= e.finalNLogSize &&
 		e.rootNodeSize > 0 &&
 		int64(e.rootNodeSize) <= e.finalNLogSize &&
 		e.initialHLogSize <= e.finalHLogSize
@@ -587,7 +587,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	for cLogSize > 0 {
 		var b [cLogEntrySize]byte
 		n, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			cLogSize -= int64(n)
 			break
 		}
@@ -605,7 +605,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 		if !mustDiscard {
 			nLogChecksum, nerr := appendable.Checksum(t.nLog, cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
-			if nerr != nil && nerr != io.EOF {
+			if nerr != nil && !errors.Is(nerr, io.EOF) {
 				return nil, fmt.Errorf("%w: while calculating nodes log checksum at '%s'", nerr, path)
 			}
 
@@ -614,8 +614,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 				return nil, fmt.Errorf("%w: while calculating history log checksum at '%s'", herr, path)
 			}
 
-			mustDiscard = nerr == io.EOF ||
-				herr == io.EOF ||
+			mustDiscard = errors.Is(nerr, io.EOF) ||
+				errors.Is(herr, io.EOF) ||
 				nLogChecksum != cLogEntry.nLogChecksum ||
 				hLogChecksum != cLogEntry.hLogChecksum
 
@@ -1091,7 +1091,7 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 		metricsFlushedNodesTotal,
 		metricsFlushedEntriesLastCycle,
 		metricsFlushedEntriesTotal,
-		"Flushing",
+		"flushing",
 		t.root.ts(),
 		time.Minute,
 	)
@@ -1350,7 +1350,7 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
-	_, _, err := t.flushTree(0, false, false, "Compact")
+	_, _, err := t.flushTree(0, false, false, "compact")
 	if err != nil {
 		return 0, err
 	}
@@ -1376,7 +1376,7 @@ func (t *TBtree) Compact() (uint64, error) {
 		metricsCompactedNodesTotal,
 		metricsCompactedEntriesLastCycle,
 		metricsCompactedEntriesTotal,
-		"Dumping",
+		"dumping",
 		snap.Ts(),
 		time.Minute,
 	)
