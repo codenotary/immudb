@@ -84,7 +84,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		valbuf.Bytes(),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, true)
+	e, err := d.sqlGetAt(ctx, pkKey, req.SqlGetRequest.AtTx, d.st, true)
 	if err != nil {
 		return nil, err
 	}
@@ -177,13 +177,13 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	}, nil
 }
 
-func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
+func (d *db) sqlGetAt(ctx context.Context, key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
 	var valRef store.ValueRef
 
 	if atTx == 0 {
-		valRef, err = index.Get(key)
+		valRef, err = index.Get(ctx, key)
 	} else {
-		valRef, err = index.GetBetween(key, atTx, atTx)
+		valRef, err = index.GetBetween(ctx, key, atTx, atTx)
 	}
 	if err != nil {
 		return nil, err

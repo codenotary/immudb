@@ -106,7 +106,7 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 
 				if !req.NoWait {
 					// check key does not exists or it's already a reference
-					entry, err := d.getAtTx(EncodeKey(x.Ref.Key), 0, 0, index, 0, true)
+					entry, err := d.getAtTx(ctx, EncodeKey(x.Ref.Key), 0, 0, index, 0, true)
 					if err != nil && err != store.ErrKeyNotFound {
 						return nil, nil, err
 					}
@@ -116,7 +116,7 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 
 					if !exists || x.Ref.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAtTx(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, 0, true)
+						refEntry, err := d.getAtTx(ctx, EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, 0, true)
 						if err != nil {
 							return nil, nil, err
 						}
@@ -169,7 +169,7 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 				if !req.NoWait {
 					if !exists || x.ZAdd.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAtTx(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, 0, true)
+						refEntry, err := d.getAtTx(ctx, EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, 0, true)
 						if err != nil {
 							return nil, nil, err
 						}
