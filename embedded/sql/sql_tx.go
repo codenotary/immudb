@@ -93,8 +93,8 @@ func (sqlTx *SQLTx) newKeyReader(rSpec store.KeyReaderSpec) (store.KeyReader, er
 	return sqlTx.tx.NewKeyReader(rSpec)
 }
 
-func (sqlTx *SQLTx) get(key []byte) (store.ValueRef, error) {
-	return sqlTx.tx.Get(key)
+func (sqlTx *SQLTx) get(ctx context.Context, key []byte) (store.ValueRef, error) {
+	return sqlTx.tx.Get(ctx, key)
 }
 
 func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) error {
@@ -105,8 +105,8 @@ func (sqlTx *SQLTx) setTransient(key []byte, metadata *store.KVMetadata, value [
 	return sqlTx.tx.SetTransient(key, metadata, value)
 }
 
-func (sqlTx *SQLTx) getWithPrefix(prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {
-	return sqlTx.tx.GetWithPrefix(prefix, neq)
+func (sqlTx *SQLTx) getWithPrefix(ctx context.Context, prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {
+	return sqlTx.tx.GetWithPrefix(ctx, prefix, neq)
 }
 
 func (sqlTx *SQLTx) Cancel() error {
@@ -136,6 +136,6 @@ func (sqlTx *SQLTx) Committed() bool {
 	return sqlTx.txHeader != nil
 }
 
-func (sqlTx *SQLTx) delete(key []byte) error {
-	return sqlTx.tx.Delete(key)
+func (sqlTx *SQLTx) delete(ctx context.Context, key []byte) error {
+	return sqlTx.tx.Delete(ctx, key)
 }

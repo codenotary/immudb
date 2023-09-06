@@ -526,6 +526,9 @@ func TestDocumentAudit(t *testing.T) {
 	require.Len(t, revisions, 1)
 	require.Equal(t, uint64(2), revisions[0].Revision)
 
+	err = engine.sqlEngine.GetStore().WaitForIndexingUpto(context.Background(), revisions[0].TransactionId)
+	require.NoError(t, err)
+
 	t.Run("get encoded document should pass with valid docID", func(t *testing.T) {
 		_, field, doc, err := engine.GetEncodedDocument(context.Background(), collectionName, docID, 0)
 		require.NoError(t, err)

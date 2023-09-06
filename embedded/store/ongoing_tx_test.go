@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -51,11 +52,11 @@ func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 
 	otx := &OngoingTx{}
 
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.NoError(t, err)
 
 	otx.preconditions = []Precondition{nil}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrInvalidPrecondition)
 	require.ErrorIs(t, err, ErrInvalidPreconditionNull)
 
@@ -65,19 +66,19 @@ func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustNotExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
 	}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 

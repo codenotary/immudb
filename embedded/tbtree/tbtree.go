@@ -2629,7 +2629,7 @@ func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, fi
 			return nil, 0, 0, ErrKeyNotFound
 		}
 
-		if tv.Ts <= finalTs {
+		if finalTs == 0 || tv.Ts <= finalTs {
 			return tv.Value, tv.Ts, lv.historyCount() - uint64(i), nil
 		}
 	}

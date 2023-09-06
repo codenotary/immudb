@@ -339,7 +339,7 @@ func (tx *OngoingTx) mvccReadSetLimitReached() bool {
 	return tx.mvccReadSet.readsetSize == tx.st.mvccReadSetLimit
 }
 
-func (tx *OngoingTx) Delete(key []byte) error {
+func (tx *OngoingTx) Delete(ctx context.Context, key []byte) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -348,7 +348,7 @@ func (tx *OngoingTx) Delete(key []byte) error {
 		return ErrReadOnlyTx
 	}
 
-	valRef, err := tx.Get(key)
+	valRef, err := tx.Get(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -364,11 +364,11 @@ func (tx *OngoingTx) Delete(key []byte) error {
 	return tx.Set(key, md, nil)
 }
 
-func (tx *OngoingTx) Get(key []byte) (ValueRef, error) {
-	return tx.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
+func (tx *OngoingTx) Get(ctx context.Context, key []byte) (ValueRef, error) {
+	return tx.GetWithFilters(ctx, key, IgnoreExpired, IgnoreDeleted)
 }
 
-func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, error) {
+func (tx *OngoingTx) GetWithFilters(ctx context.Context, key []byte, filters ...FilterFn) (ValueRef, error) {
 	if tx.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -385,7 +385,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 		return nil, err
 	}
 
-	valRef, err := snap.GetWithFilters(key, filters...)
+	valRef, err := snap.GetWithFilters(ctx, key, filters...)
 	if !tx.IsReadOnly() && errors.Is(err, ErrKeyNotFound) {
 		expectedGet := expectedGet{
 			key:     cp(key),
@@ -422,11 +422,11 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 	return valRef, nil
 }
 
-func (tx *OngoingTx) GetWithPrefix(prefix, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return tx.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+func (tx *OngoingTx) GetWithPrefix(ctx context.Context, prefix, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return tx.GetWithPrefixAndFilters(ctx, prefix, neq, IgnoreExpired, IgnoreDeleted)
 }
 
-func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+func (tx *OngoingTx) GetWithPrefixAndFilters(ctx context.Context, prefix, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	if tx.closed {
 		return nil, nil, ErrAlreadyClosed
 	}
@@ -440,7 +440,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 		return nil, nil, err
 	}
 
-	key, valRef, err = snap.GetWithPrefixAndFilters(prefix, neq, filters...)
+	key, valRef, err = snap.GetWithPrefixAndFilters(ctx, prefix, neq, filters...)
 	if !tx.IsReadOnly() && errors.Is(err, ErrKeyNotFound) {
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:  cp(prefix),
@@ -573,12 +573,12 @@ func (tx *OngoingTx) hasPreconditions() bool {
 	return len(tx.preconditions) > 0 || (tx.mvccReadSet != nil && !tx.mvccReadSet.isEmpty())
 }
 
-func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
+func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) error {
 	for _, c := range tx.preconditions {
 		if c == nil {
 			return ErrInvalidPreconditionNull
 		}
-		ok, err := c.Check(st)
+		ok, err := c.Check(ctx, st)
 		if err != nil {
 			return fmt.Errorf("error checking %s precondition: %w", c, err)
 		}
@@ -610,7 +610,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 				continue
 			}
 
-			valRef, err := snap.GetWithFilters(e.key, e.filters...)
+			valRef, err := snap.GetWithFilters(ctx, e.key, e.filters...)
 			if errors.Is(err, ErrKeyNotFound) {
 				if e.expectedTx > 0 {
 					return ErrTxReadConflict
@@ -631,7 +631,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 				continue
 			}
 
-			key, valRef, err := snap.GetWithPrefixAndFilters(e.prefix, e.neq, e.filters...)
+			key, valRef, err := snap.GetWithPrefixAndFilters(ctx, e.prefix, e.neq, e.filters...)
 			if errors.Is(err, ErrKeyNotFound) {
 				if e.expectedTx > 0 {
 					return ErrTxReadConflict
@@ -676,9 +676,9 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 
 					if len(key) == 0 {
 						if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
-							key, valRef, err = reader.Read()
+							key, valRef, err = reader.Read(ctx)
 						} else {
-							key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
+							key, valRef, err = reader.ReadBetween(ctx, eRead.initialTxID, eRead.finalTxID)
 						}
 
 						if err != nil && !errors.Is(err, ErrNoMoreEntries) {

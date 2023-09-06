@@ -381,9 +381,9 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 	}
 
 	if r.txRange == nil {
-		_, vref, err = r.reader.Read() //mkey
+		_, vref, err = r.reader.Read(ctx) //mkey
 	} else {
-		_, vref, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID) //mkey
+		_, vref, err = r.reader.ReadBetween(ctx, r.txRange.initialTxID, r.txRange.finalTxID) //mkey
 	}
 	if err != nil {
 		return nil, err

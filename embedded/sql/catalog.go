@@ -18,6 +18,7 @@ package sql
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -483,7 +484,7 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 	return maxLen >= 0
 }
 
-func (catlg *Catalog) load(tx *store.OngoingTx) error {
+func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  MapKey(catlg.enginePrefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired},
@@ -496,7 +497,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	defer tableReader.Close()
 
 	for {
-		mkey, vref, err := tableReader.Read()
+		mkey, vref, err := tableReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -523,7 +524,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			continue
 		}
 
-		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.enginePrefix)
+		colSpecs, err := loadColSpecs(ctx, dbID, tableID, tx, catlg.enginePrefix)
 		if err != nil {
 			return err
 		}
@@ -542,7 +543,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(catlg.enginePrefix, tx)
+		err = table.loadIndexes(ctx, catlg.enginePrefix, tx)
 		if err != nil {
 			return err
 		}
@@ -551,7 +552,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	return nil
 }
 
-func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
+func loadMaxPK(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
 		Prefix:    MapKey(sqlPrefix, MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id)),
 		DescOrder: true,
@@ -563,7 +564,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 	}
 	defer pkReader.Close()
 
-	mkey, _, err := pkReader.Read()
+	mkey, _, err := pkReader.Read(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +572,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
-func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
+func loadColSpecs(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
 	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
@@ -588,7 +589,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 	specs = make([]*ColSpec, 0)
 
 	for {
-		mkey, vref, err := colSpecReader.Read()
+		mkey, vref, err := colSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -631,7 +632,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 	return
 }
 
-func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (table *Table) loadIndexes(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
 	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
@@ -646,7 +647,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 	defer idxSpecReader.Close()
 
 	for {
-		mkey, vref, err := idxSpecReader.Read()
+		mkey, vref, err := idxSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -1239,7 +1240,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 }
 
 // addSchemaToTx adds the schema to the ongoing transaction.
-func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (t *Table) addIndexesToTx(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
 	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
@@ -1254,7 +1255,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	defer idxSpecReader.Close()
 
 	for {
-		mkey, vref, err := idxSpecReader.Read()
+		mkey, vref, err := idxSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -1289,7 +1290,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 }
 
 // addSchemaToTx adds the schema of the catalog to the given transaction.
-func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (catlg *Catalog) addSchemaToTx(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  MapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
@@ -1302,7 +1303,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 	defer tableReader.Close()
 
 	for {
-		mkey, vref, err := tableReader.Read()
+		mkey, vref, err := tableReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -1320,7 +1321,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 		}
 
 		// read col specs into tx
-		colSpecs, err := addColSpecsToTx(tx, sqlPrefix, tableID)
+		colSpecs, err := addColSpecsToTx(ctx, tx, sqlPrefix, tableID)
 		if err != nil {
 			return err
 		}
@@ -1348,7 +1349,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 		}
 
 		// read index specs into tx
-		err = table.addIndexesToTx(sqlPrefix, tx)
+		err = table.addIndexesToTx(ctx, sqlPrefix, tx)
 		if err != nil {
 			return err
 		}
@@ -1359,7 +1360,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 }
 
 // addColSpecsToTx adds the column specs of the given table to the given transaction.
-func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
+func addColSpecsToTx(ctx context.Context, tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
 	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
@@ -1376,7 +1377,7 @@ func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (spe
 	specs = make([]*ColSpec, 0)
 
 	for {
-		mkey, vref, err := colSpecReader.Read()
+		mkey, vref, err := colSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}

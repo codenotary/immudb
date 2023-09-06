@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"context"
 	"errors"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -29,7 +30,7 @@ type Precondition interface {
 	Validate(st *ImmuStore) error
 
 	// Check performs the validation on a current state of the database
-	Check(idx KeyIndex) (bool, error)
+	Check(ctx context.Context, idx KeyIndex) (bool, error)
 }
 
 type PreconditionKeyMustExist struct {
@@ -50,8 +51,8 @@ func (cs *PreconditionKeyMustExist) Validate(st *ImmuStore) error {
 	return nil
 }
 
-func (cs *PreconditionKeyMustExist) Check(idx KeyIndex) (bool, error) {
-	_, err := idx.Get(cs.Key)
+func (cs *PreconditionKeyMustExist) Check(ctx context.Context, idx KeyIndex) (bool, error) {
+	_, err := idx.Get(ctx, cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
 	}
@@ -77,8 +78,8 @@ func (cs *PreconditionKeyMustNotExist) Validate(st *ImmuStore) error {
 	return nil
 }
 
-func (cs *PreconditionKeyMustNotExist) Check(idx KeyIndex) (bool, error) {
-	_, err := idx.Get(cs.Key)
+func (cs *PreconditionKeyMustNotExist) Check(ctx context.Context, idx KeyIndex) (bool, error) {
+	_, err := idx.Get(ctx, cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
 	}
@@ -109,9 +110,9 @@ func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
 	return nil
 }
 
-func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx KeyIndex) (bool, error) {
+func (cs *PreconditionKeyNotModifiedAfterTx) Check(ctx context.Context, idx KeyIndex) (bool, error) {
 	// get the latest entry (it could be deleted or even expired)
-	valRef, err := idx.GetWithFilters(cs.Key)
+	valRef, err := idx.GetWithFilters(ctx, cs.Key)
 	if err != nil && errors.Is(err, ErrKeyNotFound) {
 		// key does not exist thus not modified at all
 		return true, nil
