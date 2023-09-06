@@ -62,7 +62,7 @@ type indexer struct {
 	closed bool
 
 	compactionMutex sync.Mutex
-	mutex           sync.Mutex
+	rwmutex         sync.RWMutex
 
 	metricsLastCommittedTrx prometheus.Gauge
 	metricsLastIndexedTrx   prometheus.Gauge
@@ -166,8 +166,8 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 }
 
 func (idx *indexer) init(spec *IndexSpec) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.Lock()
+	defer idx.rwmutex.Unlock()
 
 	idx.spec = spec
 
@@ -179,19 +179,22 @@ func (idx *indexer) Prefix() []byte {
 }
 
 func (idx *indexer) Ts() uint64 {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	return idx.index.Ts()
 }
 
 func (idx *indexer) SyncSnapshot() (*tbtree.Snapshot, error) {
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
+
 	return idx.index.SyncSnapshot()
 }
 
 func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, 0, 0, ErrAlreadyClosed
@@ -201,8 +204,8 @@ func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 }
 
 func (idx *indexer) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (value []byte, tx uint64, hc uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, 0, 0, ErrAlreadyClosed
@@ -212,8 +215,8 @@ func (idx *indexer) GetBetween(key []byte, initialTxID uint64, finalTxID uint64)
 }
 
 func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, hCount uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, 0, ErrAlreadyClosed
@@ -226,8 +229,8 @@ func (idx *indexer) Snapshot() (*tbtree.Snapshot, error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, ErrAlreadyClosed
@@ -240,8 +243,8 @@ func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, ErrAlreadyClosed
@@ -256,8 +259,8 @@ func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 }
 
 func (idx *indexer) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, tx uint64, hc uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
@@ -267,8 +270,8 @@ func (idx *indexer) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value 
 }
 
 func (idx *indexer) Sync() error {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
@@ -281,8 +284,8 @@ func (idx *indexer) Close() error {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
@@ -371,8 +374,8 @@ func (idx *indexer) resume() {
 }
 
 func (idx *indexer) restartIndex() error {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.Lock()
+	defer idx.rwmutex.Unlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
