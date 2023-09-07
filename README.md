@@ -18,7 +18,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 [![Discord](https://img.shields.io/discord/831257098368319569)](https://discord.gg/EWeCbkjZVu)
-[![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://www.codenotary.com/join)
+[![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://www.codenotary.com/job)
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/codenotary)](https://artifacthub.io/packages/search?repo=codenotary)
@@ -249,11 +249,11 @@ We have SDKs available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
 2. Golang ([golang sdk](https://pkg.go.dev/github.com/codenotary/immudb/pkg/client), [Gorm adapter](https://github.com/codenotary/immugorm))
-3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+3. .net [immudb4net](https://github.com/codenotary/immudb4net)
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
-To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/jumpstart.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
+To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/immudb.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
 
 Our [immudb Playground](https://play.codenotary.com) provides a guided environment to learn the Python SDK.
 
