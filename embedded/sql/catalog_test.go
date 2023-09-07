@@ -137,8 +137,6 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 }
 
 func TestCatalogTableLength(t *testing.T) {
-	// db := newCatalog(nil)
-
 	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)

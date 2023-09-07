@@ -4123,7 +4123,9 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(index.id),
 		)
 
-		err = tx.engine.store.DeleteIndex(indexKey)
+		err = tx.addOnCommittedCallback(func(sqlTx *SQLTx) error {
+			return sqlTx.engine.store.DeleteIndex(indexKey)
+		})
 		if err != nil {
 			return nil, err
 		}
