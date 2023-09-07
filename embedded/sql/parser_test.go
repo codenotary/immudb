@@ -281,6 +281,14 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
 			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
 		},
+		{
+			input: "DROP TABLE table1",
+			expectedOutput: []SQLStmt{
+				&DropTableStmt{
+					table: "table1",
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -328,6 +336,15 @@ func TestCreateIndexStmt(t *testing.T) {
 			input:          "CREATE UNIQUE INDEX ON table1(id, title)",
 			expectedOutput: []SQLStmt{&CreateIndexStmt{unique: true, table: "table1", cols: []string{"id", "title"}}},
 			expectedError:  nil,
+		},
+		{
+			input: "DROP INDEX ON table1(id, title)",
+			expectedOutput: []SQLStmt{
+				&DropIndexStmt{
+					table: "table1",
+					cols:  []string{"id", "title"},
+				}},
+			expectedError: nil,
 		},
 	}
 

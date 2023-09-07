@@ -354,6 +354,9 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				require.Equal(t, expectedTs, ts1)
 
 				require.Equal(t, uint64(i), hc)
+
+				_, _, _, err := tbtree.GetBetween(k, 1, ts1)
+				require.NoError(t, err)
 			}
 
 			if j == kCount-1 {
@@ -949,6 +952,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, err = tbtree.Get([]byte("key"))
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	_, _, _, err = tbtree.GetBetween([]byte("key"), 1, 2)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, _, err = tbtree.GetWithPrefix([]byte("key"), nil)
