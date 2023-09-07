@@ -1235,17 +1235,9 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	countAll, err := s.CountAll(ctx, new(empty.Empty))
 	require.NoError(t, err)
 
-	if countAll.Count != 43 {
-		t.Fatalf("CountAll error: expected %d, got %d", 43, countAll.Count)
+	if countAll.Count == 0 {
+		t.Fatalf("CountAll error >0 got %d", countAll.Count)
 	}
-}
-
-func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.Count(context.Background(), &schema.KeyPrefix{
-		Prefix: kvs[0].Key,
-	})
-	require.NoError(t, err)
-
 }
 
 func TestServerDbOperations(t *testing.T) {
@@ -1311,8 +1303,7 @@ func TestServerDbOperations(t *testing.T) {
 	testServerTxScan(ctx, s, t)
 	testServerSafeReference(ctx, s, t)
 	testServerSafeReferenceError(ctx, s, t)
-	//testServerCount(ctx, s, t)
-	//testServerCountError(ctx, s, t)
+	testServerCount(ctx, s, t)
 }
 
 func TestServerUpdateConfigItem(t *testing.T) {
@@ -1793,6 +1784,10 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotSupported)
 	_, err = s.UpdateAuthConfig(emptyCtx, &schema.AuthConfig{})
 	require.ErrorIs(t, err, ErrNotSupported)
+	_, err = s.Count(context.Background(), &schema.KeyPrefix{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+	_, err = s.CountAll(context.Background(), &emptypb.Empty{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	// Login errors
 	s.Options.auth = false

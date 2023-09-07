@@ -37,8 +37,7 @@ func makeDocumentDb(t *testing.T) *db {
 
 	dbName := "doc_test_db"
 	options := DefaultOption().
-		WithDBRootPath(rootPath).
-		WithCorruptionChecker(false)
+		WithDBRootPath(rootPath)
 
 	options.storeOpts.IndexOpts.WithCompactionThld(2)
 

@@ -437,6 +437,9 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(ctx context.Context, prefix, neq []
 
 	snap, err := tx.snap(prefix)
 	if err != nil {
+		if errors.Is(err, ErrIndexNotFound) {
+			return nil, nil, ErrKeyNotFound
+		}
 		return nil, nil, err
 	}
 

@@ -139,7 +139,7 @@ func TestTruncator(t *testing.T) {
 }
 
 func TestTruncator_with_truncation_frequency(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir()).WithCorruptionChecker(false)
+	options := database.DefaultOption().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)

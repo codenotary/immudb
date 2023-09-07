@@ -64,7 +64,6 @@ type DB interface {
 	SetSyncReplication(enabled bool)
 
 	MaxResultSize() int
-	UseTimeFunc(timeFunc store.TimeFunc) error
 
 	// State
 	Health() (waitingCount int, lastReleaseAt time.Time)
@@ -359,11 +358,6 @@ func (d *db) MaxResultSize() int {
 	return d.maxResultSize
 }
 
-// UseTimeFunc ...
-func (d *db) UseTimeFunc(timeFunc store.TimeFunc) error {
-	return d.st.UseTimeFunc(timeFunc)
-}
-
 func (d *db) FlushIndex(req *schema.FlushIndexRequest) error {
 	if req == nil {
 		return store.ErrIllegalArguments
@@ -649,20 +643,6 @@ func (d *db) resolveValue(
 		Value:    TrimPrefix(val),
 		Revision: revision,
 	}, nil
-}
-
-func (d *db) readMetadataAndValueK(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
-	entry, _, err := d.st.ReadTxEntry(atTx, key, skipIntegrityCheck)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	v, err := d.st.ReadValue(entry)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return entry.Metadata(), v, nil
 }
 
 func (d *db) Health() (waitingCount int, lastReleaseAt time.Time) {

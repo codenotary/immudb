@@ -38,8 +38,6 @@ type Options struct {
 	syncReplication bool
 	syncAcks        int // only if !replica
 
-	corruptionChecker bool
-
 	readTxPoolSize int
 
 	// TruncationFrequency determines how frequently to truncate data from the database.
@@ -68,17 +66,6 @@ func (o *Options) WithDBRootPath(Path string) *Options {
 // GetDbRootPath returns the directory in which this database resides
 func (o *Options) GetDBRootPath() string {
 	return o.dbRootPath
-}
-
-// WithCorruptionChecker sets if corruption checker should start for this database instance
-func (o *Options) WithCorruptionChecker(cc bool) *Options {
-	o.corruptionChecker = cc
-	return o
-}
-
-// GetCorruptionChecker returns if corruption checker should start for this database instance
-func (o *Options) GetCorruptionChecker() bool {
-	return o.corruptionChecker
 }
 
 // WithStoreOptions sets backing store options
