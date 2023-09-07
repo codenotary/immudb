@@ -4116,10 +4116,6 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			return nil, err
 		}
 
-		if index.IsPrimary() {
-			continue
-		}
-
 		indexKey := MapKey(
 			tx.sqlPrefix(),
 			MappedPrefix,
