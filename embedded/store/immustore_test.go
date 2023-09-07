@@ -5091,6 +5091,12 @@ func TestIndexingChanges(t *testing.T) {
 	_, err = tx2.Get(context.Background(), []byte("k1"))
 	require.NoError(t, err)
 
+	_, err = tx2.Get(context.Background(), []byte("k2"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, err = tx2.GetWithPrefixAndFilters(context.Background(), []byte("k2"), []byte("k2"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
 	err = tx2.Cancel()
 	require.NoError(t, err)
 
@@ -5142,6 +5148,22 @@ func TestIndexingChanges(t *testing.T) {
 	_, err = tx5.Get(context.Background(), []byte("k1"))
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
+	_, err = st.GetBetween(context.Background(), []byte("k1"), 1, 1)
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, err = tx5.GetWithPrefixAndFilters(context.Background(), []byte("k1"), []byte("k1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
 	err = tx5.Cancel()
 	require.NoError(t, err)
+
+	_, err = st.Get(context.Background(), []byte("m1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, err = st.GetBetween(context.Background(), []byte("m1"), 1, 2)
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, err = st.GetWithPrefixAndFilters(context.Background(), []byte("k1"), []byte("k1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
 }

@@ -58,7 +58,7 @@ var kvs = []*schema.KeyValue{
 func makeDb(t *testing.T) *db {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2))
 
 	return makeDbWith(t, "db", options)

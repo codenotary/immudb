@@ -206,6 +206,9 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
+	_, _, _, err = i.GetBetween(dummy, 1, 2)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
+
 	_, _, _, _, err = i.GetWithPrefix(dummy, dummy)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 

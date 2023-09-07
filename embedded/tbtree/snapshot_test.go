@@ -54,6 +54,9 @@ func TestSnapshotSerialization(t *testing.T) {
 	_, _, _, err = snapshot.Get(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
+	_, _, _, err = snapshot.GetBetween(nil, 1, 2)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	_, _, err = snapshot.History(nil, 0, false, 1)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
@@ -102,6 +105,9 @@ func TestSnapshotClosing(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, err = snapshot.Get([]byte{})
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	_, _, _, err = snapshot.GetBetween([]byte{}, 1, 1)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = snapshot.History([]byte{}, 0, false, 1)
@@ -167,6 +173,12 @@ func TestSnapshotIsolation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotZero(t, ts)
 
+		_, _, _, err = snap1.GetBetween([]byte("key1"), 1, snap1.Ts())
+		require.NoError(t, err)
+
+		_, _, _, err = snap2.GetBetween([]byte("key1"), 1, snap2.Ts())
+		require.NoError(t, err)
+
 		_, _, _, _, err = snap1.GetWithPrefix([]byte("key3"), nil)
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
@@ -211,6 +223,12 @@ func TestSnapshotIsolation(t *testing.T) {
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = snap2.Get([]byte("key1_snap1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, _, err = snap1.GetBetween([]byte("key1_snap2"), 1, snap1.Ts())
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, _, err = snap2.GetBetween([]byte("key1_snap1"), 1, snap2.Ts())
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = tbtree.Get([]byte("key1_snap1"))
