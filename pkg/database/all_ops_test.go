@@ -457,7 +457,7 @@ func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(context.Background(), aOps)
-	require.ErrorIs(t, err, store.ErrKeyNotFound)
+	require.ErrorIs(t, err, store.ErrTxNotFound)
 }
 
 func TestExecAllOpsNilElementFound(t *testing.T) {

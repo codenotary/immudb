@@ -529,23 +529,48 @@ func (d *db) getAtTx(
 	skipIntegrityCheck bool,
 ) (entry *schema.Entry, err error) {
 
-	var valRef store.ValueRef
+	var txID uint64
+	var val []byte
+	var md *store.KVMetadata
 
 	if atTx == 0 {
-		valRef, err = index.Get(ctx, key)
+		valRef, err := index.Get(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+
+		txID = valRef.Tx()
+		revision = valRef.HC()
+		md = valRef.KVMetadata()
+
+		val, err = valRef.Resolve()
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		valRef, err = index.GetBetween(ctx, key, atTx, atTx)
-	}
-	if err != nil {
-		return nil, err
+		txID = atTx
+
+		md, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	val, err := valRef.Resolve()
+	return d.resolveValue(ctx, key, val, resolved, txID, md, index, revision, skipIntegrityCheck)
+}
+
+func (d *db) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
+	entry, _, err := d.st.ReadTxEntry(atTx, key, skipIntegrityCheck)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return d.resolveValue(ctx, key, val, resolved, valRef.Tx(), valRef.KVMetadata(), index, valRef.HC(), skipIntegrityCheck)
+	v, err := d.st.ReadValue(entry)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return entry.Metadata(), v, nil
 }
 
 func (d *db) getAtRevision(ctx context.Context, key []byte, atRevision int64, skipIntegrityCheck bool) (entry *schema.Entry, err error) {
