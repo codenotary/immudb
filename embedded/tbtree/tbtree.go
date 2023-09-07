@@ -1019,7 +1019,7 @@ func (t *TBtree) Sync() error {
 		return ErrAlreadyClosed
 	}
 
-	_, _, err := t.flushTree(0, true, false, "Sync")
+	_, _, err := t.flushTree(0, true, false, "sync")
 	return err
 }
 
@@ -1035,7 +1035,7 @@ func (t *TBtree) FlushWith(cleanupPercentage float32, synced bool) (wN, wH int64
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree(cleanupPercentage, synced, true, "FlushWith")
+	return t.flushTree(cleanupPercentage, synced, true, "flushWith")
 }
 
 type appendableWriter struct {
@@ -1530,7 +1530,7 @@ func (t *TBtree) Close() error {
 
 	merrors := multierr.NewMultiErr()
 
-	_, _, err := t.flushTree(0, true, false, "Close")
+	_, _, err := t.flushTree(0, true, false, "close")
 	merrors.Append(err)
 
 	err = t.nLog.Close()
@@ -1571,7 +1571,7 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 	t.insertionCountSinceCleanup++
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "IncreaseTs")
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "increaseTs")
 		return err
 	}
 
@@ -1716,7 +1716,7 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 	t.insertionCountSinceCleanup += len(immutableKVTs)
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "BulkInsert")
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "bulkInsert")
 		return err
 	}
 
@@ -1791,7 +1791,7 @@ func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(ts uint64, renewalPeriod
 
 		if snapshotRenewalNeeded {
 			// a new snapshot is dumped on disk including current root
-			_, _, err := t.flushTree(t.cleanupPercentage, false, false, "SnapshotSince")
+			_, _, err := t.flushTree(t.cleanupPercentage, false, false, "snapshotSince")
 			if err != nil {
 				return nil, err
 			}

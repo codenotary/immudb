@@ -21,6 +21,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/store"
 )
 
@@ -41,7 +42,11 @@ type SQLTx struct {
 	firstInsertedPKs map[string]int64 // first inserted PK by table name
 
 	txHeader *store.TxHeader // header is set once tx is committed
+
+	onCommittedCallbacks []onCommittedCallback
 }
+
+type onCommittedCallback = func(sqlTx *SQLTx) error
 
 func (sqlTx *SQLTx) Catalog() *Catalog {
 	return sqlTx.catalog
@@ -125,7 +130,14 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 		return err
 	}
 
-	return nil
+	merr := multierr.NewMultiErr()
+
+	for _, onCommitCallback := range sqlTx.onCommittedCallbacks {
+		err := onCommitCallback(sqlTx)
+		merr.Append(err)
+	}
+
+	return merr.Reduce()
 }
 
 func (sqlTx *SQLTx) Closed() bool {
@@ -138,4 +150,14 @@ func (sqlTx *SQLTx) Committed() bool {
 
 func (sqlTx *SQLTx) delete(ctx context.Context, key []byte) error {
 	return sqlTx.tx.Delete(ctx, key)
+}
+
+func (sqlTx *SQLTx) addOnCommittedCallback(callback onCommittedCallback) error {
+	if callback == nil {
+		return ErrIllegalArguments
+	}
+
+	sqlTx.onCommittedCallbacks = append(sqlTx.onCommittedCallbacks, callback)
+
+	return nil
 }
