@@ -58,6 +58,18 @@ func TestImmudbStoreReader(t *testing.T) {
 
 	defer snap.Close()
 
+	for i := 0; i < txCount; i++ {
+		for j := 0; j < eCount; j++ {
+			var k [8]byte
+			binary.BigEndian.PutUint64(k[:], uint64(j))
+
+			valRef, err := snap.GetBetween(context.Background(), k[:], 1, uint64(i+1))
+			require.NoError(t, err)
+
+			require.EqualValues(t, i+1, valRef.Tx())
+		}
+	}
+
 	reader, err := snap.NewKeyReader(KeyReaderSpec{})
 	require.NoError(t, err)
 
