@@ -52,6 +52,7 @@ var ErrNewColumnMustBeNullable = errors.New("new column must be nullable")
 var ErrIndexAlreadyExists = errors.New("index already exists")
 var ErrMaxNumberOfColumnsInIndexExceeded = errors.New("number of columns in multi-column index exceeded")
 var ErrNoAvailableIndex = errors.New("no available index")
+var ErrIndexNotFound = errors.New("index not found")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrInferredMultipleTypes = errors.New("inferred multiple types")
@@ -207,7 +208,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 			return nil, err
 		}
 
-		for _, index := range table.indexes {
+		for _, index := range table.GetIndexes() {
 			if index.IsPrimary() {
 				continue
 			}
