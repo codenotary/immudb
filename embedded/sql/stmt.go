@@ -753,7 +753,7 @@ func (tx *SQLTx) encodeRowValue(valuesByColID map[uint32]TypedValue, table *Tabl
 func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
 	var reusableIndexEntries map[uint32]struct{}
 
-	if reuseIndex && len(table.indexes) > 1 {
+	if reuseIndex && len(table.GetIndexes()) > 1 {
 		currPKRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
 		if err == nil {
 			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.ValuesBySelector))
@@ -785,7 +785,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 	}
 
 	// create in-memory and validate entries for secondary indexes
-	for _, index := range table.indexes {
+	for _, index := range table.GetIndexes() {
 		if index.IsPrimary() {
 			continue
 		}
@@ -927,7 +927,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 
 	reusableIndexEntries = make(map[uint32]struct{})
 
-	for _, index := range table.indexes {
+	for _, index := range table.GetIndexes() {
 		if index.IsPrimary() {
 			continue
 		}
@@ -1227,7 +1227,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 		return err
 	}
 
-	for _, index := range table.indexes {
+	for _, index := range table.GetIndexes() {
 		if !index.IsPrimary() {
 			continue
 		}
@@ -2193,12 +2193,13 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			return nil, err
 		}
 
-		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
+		colName := stmt.orderBy[0].sel.col
+
+		indexed, err := table.IsIndexed(colName)
 		if err != nil {
 			return nil, err
 		}
 
-		_, indexed := table.indexesByColID[col.id]
 		if !indexed {
 			return nil, ErrLimitedOrderBy
 		}
@@ -2370,9 +2371,9 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 			cols[i] = col
 		}
 
-		index, ok := table.indexesByName[indexName(table.name, cols)]
-		if !ok {
-			return nil, ErrNoAvailableIndex
+		index, err := table.GetIndexByName(indexName(table.name, cols))
+		if err != nil {
+			return nil, err
 		}
 
 		preferredIndex = index
@@ -2395,7 +2396,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 			return nil, err
 		}
 
-		for _, idx := range table.indexesByColID[col.id] {
+		for _, idx := range table.GetIndexesByColID(col.id) {
 			if idx.sortableUsing(col.id, rangesByColID) {
 				if preferredIndex == nil || idx.id == preferredIndex.id {
 					sortingIndex = idx
@@ -3962,7 +3963,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 		}
 
 		var unique bool
-		for _, index := range table.IndexesByColID(c.ID()) {
+		for _, index := range table.GetIndexesByColID(c.ID()) {
 			if index.IsUnique() && len(index.Cols()) == 1 {
 				unique = true
 				break
@@ -4028,9 +4029,9 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 		return nil, err
 	}
 
-	values := make([][]ValueExp, len(table.indexes))
+	values := make([][]ValueExp, len(table.GetIndexes()))
 
-	for i, index := range table.indexes {
+	for i, index := range table.GetIndexes() {
 		values[i] = []ValueExp{
 			&Varchar{val: table.name},
 			&Varchar{val: index.Name()},
@@ -4131,6 +4132,11 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		}
 	}
 
+	err = tx.catalog.deleteTable(table)
+	if err != nil {
+		return nil, err
+	}
+
 	tx.mutatedCatalog = true
 
 	return tx, nil
@@ -4181,10 +4187,6 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	if index.IsPrimary() {
-		return nil, fmt.Errorf("%w: primary key index can NOT be deleted", ErrIllegalArguments)
-	}
-
 	// delete index
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
@@ -4198,8 +4200,6 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	tx.mutatedCatalog = true
-
 	indexKey := MapKey(
 		tx.sqlPrefix(),
 		MappedPrefix,
@@ -4207,7 +4207,19 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		EncodeID(index.id),
 	)
 
-	err = tx.engine.store.DeleteIndex(indexKey)
+	err = tx.addOnCommittedCallback(func(sqlTx *SQLTx) error {
+		return sqlTx.engine.store.DeleteIndex(indexKey)
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return tx, err
+	err = table.deleteIndex(index)
+	if err != nil {
+		return nil, err
+	}
+
+	tx.mutatedCatalog = true
+
+	return tx, nil
 }
