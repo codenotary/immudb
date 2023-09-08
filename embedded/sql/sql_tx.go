@@ -144,10 +144,6 @@ func (sqlTx *SQLTx) Closed() bool {
 	return sqlTx.tx.Closed()
 }
 
-func (sqlTx *SQLTx) Committed() bool {
-	return sqlTx.txHeader != nil
-}
-
 func (sqlTx *SQLTx) delete(ctx context.Context, key []byte) error {
 	return sqlTx.tx.Delete(ctx, key)
 }
