@@ -259,7 +259,7 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 		}
 
 		var unique bool
-		for _, index := range table.IndexesByColID(c.ID()) {
+		for _, index := range table.GetIndexesByColID(c.ID()) {
 			if index.IsUnique() && len(index.Cols()) == 1 {
 				unique = true
 				break

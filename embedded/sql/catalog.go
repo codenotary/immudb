@@ -37,7 +37,8 @@ type Catalog struct {
 	tables       []*Table
 	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
-	tableCount   uint32 // The tableCount variable is used to assign unique ids to new tables as they are created.
+
+	tableCount uint32 // The tableCount variable is used to assign unique ids to new tables as they are created.
 }
 
 type Table struct {
@@ -54,6 +55,8 @@ type Table struct {
 	autoIncrementPK bool
 	maxPK           int64
 	indexCount      uint32
+
+	deleted bool
 }
 
 type Index struct {
@@ -62,6 +65,8 @@ type Index struct {
 	unique   bool
 	cols     []*Column
 	colsByID map[uint32]*Column
+
+	deleted bool
 }
 
 type Column struct {
@@ -84,17 +89,25 @@ func newCatalog(enginePrefix []byte) *Catalog {
 }
 
 func (catlg *Catalog) ExistTable(table string) bool {
-	_, exists := catlg.tablesByName[table]
-	return exists
+	t, exists := catlg.tablesByName[table]
+	return exists && !t.deleted
 }
 
 func (catlg *Catalog) GetTables() []*Table {
-	return catlg.tables
+	var ts []*Table
+
+	for _, t := range catlg.tables {
+		if !t.deleted {
+			ts = append(ts, t)
+		}
+	}
+
+	return ts
 }
 
 func (catlg *Catalog) GetTableByName(name string) (*Table, error) {
 	table, exists := catlg.tablesByName[name]
-	if !exists {
+	if !exists || table.deleted {
 		return nil, fmt.Errorf("%w (%s)", ErrTableDoesNotExist, name)
 	}
 	return table, nil
@@ -102,7 +115,7 @@ func (catlg *Catalog) GetTableByName(name string) (*Table, error) {
 
 func (catlg *Catalog) GetTableByID(id uint32) (*Table, error) {
 	table, exists := catlg.tablesByID[id]
-	if !exists {
+	if !exists || table.deleted {
 		return nil, ErrTableDoesNotExist
 	}
 	return table, nil
@@ -134,13 +147,7 @@ func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
 		return false, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, colName)
 	}
 
-	_, ok := t.indexesByColID[c.id]
-
-	return ok, nil
-}
-
-func (t *Table) IndexesByColID(colID uint32) []*Index {
-	return t.indexesByColID[colID]
+	return len(t.GetIndexesByColID(c.id)) > 0, nil
 }
 
 func (t *Table) GetColumnByName(name string) (*Column, error) {
@@ -164,7 +171,27 @@ func (t *Table) ColumnsByID() map[uint32]*Column {
 }
 
 func (t *Table) GetIndexes() []*Index {
-	return t.indexes
+	var idxs []*Index
+
+	for _, idx := range t.indexes {
+		if !idx.deleted {
+			idxs = append(idxs, idx)
+		}
+	}
+
+	return idxs
+}
+
+func (t *Table) GetIndexesByColID(colID uint32) []*Index {
+	var idxs []*Index
+
+	for _, idx := range t.indexesByColID[colID] {
+		if !idx.deleted {
+			idxs = append(idxs, idx)
+		}
+	}
+
+	return idxs
 }
 
 func (i *Index) IsPrimary() bool {
@@ -215,8 +242,8 @@ func (i *Index) ID() uint32 {
 
 func (t *Table) GetIndexByName(name string) (*Index, error) {
 	idx, exists := t.indexesByName[name]
-	if !exists {
-		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableIndex, name)
+	if !exists || idx.deleted {
+		return nil, fmt.Errorf("%w (%s)", ErrIndexNotFound, name)
 	}
 	return idx, nil
 }
@@ -314,6 +341,11 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 	catlg.tableCount += 1
 
 	return table, nil
+}
+
+func (catlg *Catalog) deleteTable(table *Table) error {
+	table.deleted = true
+	return nil
 }
 
 func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error) {
@@ -432,6 +464,16 @@ func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
 	t.colsByName[newName] = col
 
 	return col, nil
+}
+
+func (t *Table) deleteIndex(index *Index) error {
+	if index.IsPrimary() {
+		return fmt.Errorf("%w: primary key index can NOT be deleted", ErrIllegalArguments)
+	}
+
+	index.deleted = true
+
+	return nil
 }
 
 func (c *Column) ID() uint32 {
