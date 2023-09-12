@@ -112,7 +112,7 @@ jobs:
       if: runner.os != 'Windows'
 
     - name: Install qemu binaries
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@v3
       if: matrix.qemu-binfmt
 
     - name: Run immudb in the background
