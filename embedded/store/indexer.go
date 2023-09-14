@@ -570,7 +570,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 
 			indexableEntries++
 
-			if txID > 1 {
+			if idx.spec.InjectiveMapping && txID > 1 {
 				// wait for source indexer to be up to date
 				sourceIndexer, err := idx.store.getIndexerFor(sourceKey)
 				if errors.Is(err, ErrIndexNotFound) {
