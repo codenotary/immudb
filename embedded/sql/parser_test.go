@@ -250,7 +250,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR[50], ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR(50), ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",

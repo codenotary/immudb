@@ -468,6 +468,11 @@ opt_max_len:
     {
         $$ = $2
     }
+|
+    '(' INTEGER ')'
+    {
+        $$ = $2
+    }
 
 opt_auto_increment:
     {
