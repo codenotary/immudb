@@ -579,7 +579,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 					return err
 				}
 
-				err = sourceIndexer.WaitForIndexingUpto(ctx, txID-1)
+				err = sourceIndexer.WaitForIndexingUpto(context.Background(), txID-1)
 				if err != nil {
 					return err
 				}

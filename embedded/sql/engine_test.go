@@ -6597,17 +6597,10 @@ func BenchmarkInsertInto(b *testing.B) {
 		b.Fail()
 	}
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE db1;", nil)
-	if err != nil {
-		b.Fail()
-	}
-
-	_, _, err = engine.Exec(context.Background(), nil, "USE DATABASE db1;", nil)
-	if err != nil {
-		b.Fail()
-	}
-
-	_, ctxs, err := engine.Exec(context.Background(), nil, "CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);", nil)
+	_, ctxs, err := engine.Exec(context.Background(), nil, `
+			CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);
+			CREATE INDEX ON mytable1(title);
+	`, nil)
 	if err != nil {
 		b.Fail()
 	}
