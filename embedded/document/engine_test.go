@@ -18,6 +18,7 @@ package document
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -25,6 +26,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+var docPrefix = []byte{3}
 
 func makeEngine(t *testing.T) *Engine {
 	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
@@ -38,7 +41,7 @@ func makeEngine(t *testing.T) *Engine {
 		}
 	})
 
-	engine, err := NewEngine(st, DefaultOptions())
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(docPrefix))
 	require.NoError(t, err)
 
 	err = engine.CopyCatalogToTx(context.Background(), nil)
@@ -1851,4 +1854,68 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 			i--
 		}
 	})
+}
+
+func BenchmarkInsertion(b *testing.B) {
+	stOpts := store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithMaxConcurrency(100)
+
+	st, err := store.Open(b.TempDir(), stOpts)
+	require.NoError(b, err)
+
+	defer func() {
+		err := st.Close()
+		if !b.Failed() {
+			// Do not pollute error output if test has already failed
+			require.NoError(b, err)
+		}
+	}()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(docPrefix))
+	require.NoError(b, err)
+
+	collectionName := "mycollection"
+
+	err = engine.CreateCollection(
+		context.Background(),
+		collectionName,
+		"",
+		[]*protomodel.Field{
+			{Name: "number", Type: protomodel.FieldType_DOUBLE},
+			{Name: "age", Type: protomodel.FieldType_DOUBLE},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"number", "age"}},
+		},
+	)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+
+	noOfWorkers := 100
+	noOfDocs := 10
+
+	for it := 0; it < 1; it++ {
+		var wg sync.WaitGroup
+		wg.Add(noOfWorkers)
+
+		for w := 0; w < noOfWorkers; w++ {
+			go func(w int) {
+				for i := 1; i <= noOfDocs; i++ {
+					_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"number": structpb.NewNumberValue(float64(w*noOfDocs + i)),
+						},
+					})
+					if err != nil {
+						b.Fail()
+					}
+				}
+				wg.Done()
+			}(w)
+		}
+
+		wg.Wait()
+	}
 }
