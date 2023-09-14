@@ -37,6 +37,7 @@ var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnAlreadyExists = errors.New("column already exists")
+var ErrCantDropIndexedColumn = errors.New("can not drop indexed column")
 var ErrSameOldAndNewColumnName = errors.New("same old and new column names")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrFunctionDoesNotExist = errors.New("function does not exist")
@@ -61,6 +62,7 @@ var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
 var ErrLimitedGroupBy = errors.New("group by requires ordering by the grouping column")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
+var ErrBrokenCatalogColSpecExpirable = fmt.Errorf("%w: catalog column entry set as expirable", ErrCorruptedData)
 var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrInvalidTypes = errors.New("invalid types")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
@@ -215,7 +217,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 			return nil, err
 		}
 
-		for _, index := range table.GetIndexes() {
+		for _, index := range table.indexes {
 			if index.IsPrimary() {
 				continue
 			}

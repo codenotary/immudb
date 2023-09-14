@@ -33,38 +33,44 @@ func TestDecodeRowErrors(t *testing.T) {
 		n        string
 		data     []byte
 		colTypes map[uint32]sql.SQLValueType
+		maxColID uint32
 	}{
 		{
 			"No data",
 			nil,
 			nil,
+			0,
 		},
 		{
 			"Short buffer",
 			[]byte{1},
 			tMap{},
+			0,
 		},
 		{
 			"Short buffer on type",
 			[]byte{0, 0, 0, 1, 0, 0, 1},
 			tMap{},
+			0,
 		},
 		{
 			"Missing type",
 			[]byte{0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
 			tMap{},
+			0,
 		},
 		{
 			"Invalid value",
-			[]byte{0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+			[]byte{0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0},
 			tMap{
 				1: sql.VarcharType,
 			},
+			1,
 		},
 	} {
 		t.Run(d.n, func(t *testing.T) {
-			row, err := decodeRow(d.data, d.colTypes)
-			require.True(t, errors.Is(err, sql.ErrCorruptedData))
+			row, err := decodeRow(d.data, d.colTypes, d.maxColID)
+			require.ErrorIs(t, err, sql.ErrCorruptedData)
 			require.Nil(t, row)
 		})
 	}
