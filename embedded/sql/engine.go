@@ -118,6 +118,10 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		return nil, ErrIllegalArguments
 	}
 
+	if !st.MultiIndexingEnabled() {
+		return nil, fmt.Errorf("%w: multi-indexing must be enabled", ErrIllegalArguments)
+	}
+
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
