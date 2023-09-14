@@ -237,7 +237,68 @@ func (stmt *UseSnapshotStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	return nil, ErrNoSupported
 }
 
-func persistColumn(col *Column, tx *SQLTx) error {
+type CreateTableStmt struct {
+	table       string
+	ifNotExists bool
+	colsSpec    []*ColSpec
+	pkColNames  []string
+}
+
+func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkColNames []string) *CreateTableStmt {
+	return &CreateTableStmt{table: table, ifNotExists: ifNotExists, colsSpec: colsSpec, pkColNames: pkColNames}
+}
+
+func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if stmt.ifNotExists && tx.catalog.ExistTable(stmt.table) {
+		return tx, nil
+	}
+
+	colSpecs := make(map[uint32]*ColSpec, len(stmt.colsSpec))
+	for i, cs := range stmt.colsSpec {
+		colSpecs[uint32(i)+1] = cs
+	}
+
+	table, err := tx.catalog.newTable(stmt.table, colSpecs, uint32(len(colSpecs)))
+	if err != nil {
+		return nil, err
+	}
+
+	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
+	_, err = createIndexStmt.execAt(ctx, tx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, col := range table.cols {
+		if col.autoIncrement {
+			if len(table.primaryIndex.cols) > 1 || col.id != table.primaryIndex.cols[0].id {
+				return nil, ErrLimitedAutoIncrement
+			}
+		}
+
+		err := persistColumn(tx, col)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	mappedKey := MapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
+
+	err = tx.set(mappedKey, nil, []byte(table.name))
+	if err != nil {
+		return nil, err
+	}
+
+	tx.mutatedCatalog = true
+
+	return tx, nil
+}
+
+func persistColumn(tx *SQLTx, col *Column) error {
 	//{auto_incremental | nullable}{maxLen}{colNAME})
 	v := make([]byte, 1+4+len(col.colName))
 
@@ -263,62 +324,6 @@ func persistColumn(col *Column, tx *SQLTx) error {
 	)
 
 	return tx.set(mappedKey, nil, v)
-}
-
-type CreateTableStmt struct {
-	table       string
-	ifNotExists bool
-	colsSpec    []*ColSpec
-	pkColNames  []string
-}
-
-func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkColNames []string) *CreateTableStmt {
-	return &CreateTableStmt{table: table, ifNotExists: ifNotExists, colsSpec: colsSpec, pkColNames: pkColNames}
-}
-
-func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
-	return nil
-}
-
-func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if stmt.ifNotExists && tx.catalog.ExistTable(stmt.table) {
-		return tx, nil
-	}
-
-	table, err := tx.catalog.newTable(stmt.table, stmt.colsSpec)
-	if err != nil {
-		return nil, err
-	}
-
-	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
-	_, err = createIndexStmt.execAt(ctx, tx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, col := range table.Cols() {
-		if col.autoIncrement {
-			if len(table.primaryIndex.cols) > 1 || col.id != table.primaryIndex.cols[0].id {
-				return nil, ErrLimitedAutoIncrement
-			}
-		}
-
-		err := persistColumn(col, tx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	mappedKey := MapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
-
-	err = tx.set(mappedKey, nil, []byte(table.name))
-	if err != nil {
-		return nil, err
-	}
-
-	tx.mutatedCatalog = true
-
-	return tx, nil
 }
 
 type ColSpec struct {
@@ -459,7 +464,7 @@ func (stmt *AddColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		return nil, err
 	}
 
-	err = persistColumn(col, tx)
+	err = persistColumn(tx, col)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +499,7 @@ func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 		return nil, err
 	}
 
-	err = persistColumn(col, tx)
+	err = persistColumn(tx, col)
 	if err != nil {
 		return nil, err
 	}
@@ -502,6 +507,58 @@ func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 	tx.mutatedCatalog = true
 
 	return tx, nil
+}
+
+type DropColumnStmt struct {
+	table   string
+	colName string
+}
+
+func NewDropColumnStmt(table, colName string) *DropColumnStmt {
+	return &DropColumnStmt{table: table, colName: colName}
+}
+
+func (stmt *DropColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *DropColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.GetColumnByName(stmt.colName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = table.deleteColumn(col)
+	if err != nil {
+		return nil, err
+	}
+
+	err = persistColumnDeletion(ctx, tx, col)
+	if err != nil {
+		return nil, err
+	}
+
+	tx.mutatedCatalog = true
+
+	return tx, nil
+}
+
+func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogColumnPrefix,
+		EncodeID(1),
+		EncodeID(col.table.id),
+		EncodeID(col.id),
+		[]byte(col.colType),
+	)
+
+	return tx.delete(ctx, mappedKey)
 }
 
 type UpsertIntoStmt struct {
@@ -753,7 +810,7 @@ func (tx *SQLTx) encodeRowValue(valuesByColID map[uint32]TypedValue, table *Tabl
 func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
 	var reusableIndexEntries map[uint32]struct{}
 
-	if reuseIndex && len(table.GetIndexes()) > 1 {
+	if reuseIndex && len(table.indexes) > 1 {
 		currPKRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
 		if err == nil {
 			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.ValuesBySelector))
@@ -785,7 +842,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 	}
 
 	// create in-memory and validate entries for secondary indexes
-	for _, index := range table.GetIndexes() {
+	for _, index := range table.indexes {
 		if index.IsPrimary() {
 			continue
 		}
@@ -927,7 +984,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 
 	reusableIndexEntries = make(map[uint32]struct{})
 
-	for _, index := range table.GetIndexes() {
+	for _, index := range table.indexes {
 		if index.IsPrimary() {
 			continue
 		}
@@ -1227,7 +1284,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 		return err
 	}
 
-	for _, index := range table.GetIndexes() {
+	for _, index := range table.indexes {
 		if !index.IsPrimary() {
 			continue
 		}
@@ -2396,7 +2453,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 			return nil, err
 		}
 
-		for _, idx := range table.GetIndexesByColID(col.id) {
+		for _, idx := range table.indexesByColID[col.id] {
 			if idx.sortableUsing(col.id, rangesByColID) {
 				if preferredIndex == nil || idx.id == preferredIndex.id {
 					sortingIndex = idx
@@ -3963,7 +4020,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 		}
 
 		var unique bool
-		for _, index := range table.GetIndexesByColID(c.ID()) {
+		for _, index := range table.indexesByColID[c.id] {
 			if index.IsUnique() && len(index.Cols()) == 1 {
 				unique = true
 				break
@@ -4029,9 +4086,9 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 		return nil, err
 	}
 
-	values := make([][]ValueExp, len(table.GetIndexes()))
+	values := make([][]ValueExp, len(table.indexes))
 
-	for i, index := range table.GetIndexes() {
+	for i, index := range table.indexes {
 		values[i] = []ValueExp{
 			&Varchar{val: table.name},
 			&Varchar{val: index.Name()},
@@ -4103,8 +4160,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	}
 
 	// delete indexes
-	indexes := table.GetIndexes()
-	for _, index := range indexes {
+	for _, index := range table.indexes {
 		mappedKey := MapKey(
 			tx.sqlPrefix(),
 			catalogIndexPrefix,
@@ -4123,7 +4179,6 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 			EncodeID(table.id),
 			EncodeID(index.id),
 		)
-
 		err = tx.addOnCommittedCallback(func(sqlTx *SQLTx) error {
 			return sqlTx.engine.store.DeleteIndex(indexKey)
 		})

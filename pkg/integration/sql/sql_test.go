@@ -219,13 +219,34 @@ func TestImmuClient_SQL(t *testing.T) {
 			}
 		})
 
-		t.Run("add column key", func(t *testing.T) {
+		t.Run("add column", func(t *testing.T) {
 			_, err := client.SQLExec(ctx, `
 				ALTER TABLE table1 ADD COLUMN id INTEGER
 				`, nil)
 			require.NoError(t, err)
 
+			_, err = client.SQLExec(ctx, `
+				INSERT INTO table1(id2, id, active, title2) VALUES(4, 44, false, 'new row')
+			`, nil)
+			require.NoError(t, err)
+
 			res, err := client.SQLQuery(ctx, "SELECT id2, id, active, title2 FROM table1", nil, true)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			for _, row := range res.Rows {
+				err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("drop column", func(t *testing.T) {
+			_, err := client.SQLExec(ctx, `
+				ALTER TABLE table1 DROP COLUMN id
+			`, nil)
+			require.NoError(t, err)
+
+			res, err := client.SQLQuery(ctx, "SELECT id2, active, title2 FROM table1", nil, true)
 			require.NoError(t, err)
 			require.NotNil(t, res)
 

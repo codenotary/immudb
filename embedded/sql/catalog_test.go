@@ -40,19 +40,25 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByName("table1")
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("", nil)
+	_, err = db.newTable("", nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", nil)
+	_, err = db.newTable("table1", nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", []*ColSpec{})
+	_, err = db.newTable("table1", map[uint32]*ColSpec{}, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "id", colType: IntegerType}})
+	_, err = db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+		2: {colName: "id", colType: IntegerType},
+	}, 2)
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
+	table, err := db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+		2: {colName: "title", colType: IntegerType},
+	}, 2)
 	require.NoError(t, err)
 	require.Equal(t, "table1", table.Name())
 
@@ -73,7 +79,10 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByID(2)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
+	_, err = db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+		2: {colName: "title", colType: IntegerType},
+	}, 2)
 	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	indexed, err := table.IsIndexed("id")
@@ -164,7 +173,7 @@ func TestCatalogTableLength(t *testing.T) {
 			require.NoError(t, err)
 			defer tx.Cancel()
 
-			require.Equal(t, totalTablesCount, tx.catalog.tableCount)
+			require.Equal(t, totalTablesCount, tx.catalog.maxTableID)
 		}
 	})
 
@@ -175,10 +184,12 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		for _, v := range []string{"table1", "table2", "table3"} {
-			_, err := catlog.newTable(v, []*ColSpec{{colName: "id", colType: IntegerType}})
+			_, err := catlog.newTable(v, map[uint32]*ColSpec{
+				1: {colName: "id", colType: IntegerType},
+			}, 1)
 			require.ErrorIs(t, err, ErrTableAlreadyExists)
 		}
-		require.Equal(t, totalTablesCount, catlog.tableCount)
+		require.Equal(t, totalTablesCount, catlog.maxTableID)
 	})
 
 	t.Run("table count should increase on using newTable function on catalog", func(t *testing.T) {
@@ -188,10 +199,13 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		for _, v := range []string{"table4", "table5", "table6"} {
-			_, err := catlog.newTable(v, []*ColSpec{{colName: "id", colType: IntegerType}})
+			_, err := catlog.newTable(v, map[uint32]*ColSpec{
+				1: {colName: "id", colType: IntegerType},
+			}, 1,
+			)
 			require.NoError(t, err)
 		}
-		require.Equal(t, totalTablesCount+3, catlog.tableCount)
+		require.Equal(t, totalTablesCount+3, catlog.maxTableID)
 	})
 
 	t.Run("table count should increase on adding new table", func(t *testing.T) {
@@ -229,7 +243,7 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		// ensure that catalog has been reloaded with deleted table count
-		require.Equal(t, totalTablesCount, catlog.tableCount)
+		require.Equal(t, totalTablesCount, catlog.maxTableID)
 
 		for _, v := range activeTables {
 			require.True(t, catlog.ExistTable(v))
@@ -287,7 +301,7 @@ func TestCatalogTableLength(t *testing.T) {
 		require.NoError(t, err)
 
 		// cancel the transaction instead of committing it
-		require.Equal(t, totalTablesCount+1, stx.catalog.tableCount)
+		require.Equal(t, totalTablesCount+1, stx.catalog.maxTableID)
 		require.NoError(t, stx.Cancel())
 
 		// reload a fresh catalog
@@ -297,7 +311,7 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		// table count should not increase
-		require.Equal(t, totalTablesCount, catlog.tableCount)
+		require.Equal(t, totalTablesCount, catlog.maxTableID)
 	})
 
 }
