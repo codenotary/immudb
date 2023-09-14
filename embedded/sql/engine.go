@@ -135,8 +135,9 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 	copy(e.prefix, opts.prefix)
 
 	err = st.InitIndexing(&store.IndexSpec{
-		SourcePrefix: append(e.prefix, []byte(catalogPrefix)...),
-		TargetPrefix: append(e.prefix, []byte(catalogPrefix)...),
+		SourcePrefix:     append(e.prefix, []byte(catalogPrefix)...),
+		TargetPrefix:     append(e.prefix, []byte(catalogPrefix)...),
+		InjectiveMapping: true,
 	})
 	if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 		return nil, err
@@ -203,6 +204,8 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 			TargetEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
 			TargetPrefix:      mappedPKEntryPrefix,
+
+			InjectiveMapping: true,
 		})
 		if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 			return nil, err
@@ -225,6 +228,8 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 				SourceEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
 				TargetEntryMapper: indexEntryMapperFor(index, primaryIndex),
 				TargetPrefix:      mappedEntryPrefix,
+
+				InjectiveMapping: true,
 			})
 			if errors.Is(err, store.ErrIndexAlreadyInitialized) {
 				continue
