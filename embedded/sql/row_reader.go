@@ -163,10 +163,10 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		tableAlias = table.name
 	}
 
-	colsByPos := make([]ColDescriptor, len(table.Cols()))
-	colsBySel := make(map[string]ColDescriptor, len(table.Cols()))
+	colsByPos := make([]ColDescriptor, len(table.cols))
+	colsBySel := make(map[string]ColDescriptor, len(table.cols))
 
-	for i, c := range table.Cols() {
+	for i, c := range table.cols {
 		colDescriptor := ColDescriptor{
 			Table:  tableAlias,
 			Column: c.colName,
@@ -394,10 +394,10 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 		return nil, err
 	}
 
-	valuesByPosition := make([]TypedValue, len(r.table.Cols()))
-	valuesBySelector := make(map[string]TypedValue, len(r.table.Cols()))
+	valuesByPosition := make([]TypedValue, len(r.table.cols))
+	valuesBySelector := make(map[string]TypedValue, len(r.table.cols))
 
-	for i, col := range r.table.Cols() {
+	for i, col := range r.table.cols {
 		v := &NullValue{t: col.colType}
 
 		valuesByPosition[i] = v
@@ -413,7 +413,7 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 	cols := int(binary.BigEndian.Uint32(v[voff:]))
 	voff += EncLenLen
 
-	for i := 0; i < cols; i++ {
+	for i, pos := 0, 0; i < cols; i++ {
 		if len(v) < EncIDLen {
 			return nil, ErrCorruptedData
 		}
@@ -422,6 +422,16 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 		voff += EncIDLen
 
 		col, err := r.table.GetColumnByID(colID)
+		if errors.Is(err, ErrColumnDoesNotExist) && colID <= r.table.maxColID {
+			// Dropped column, skip it
+			vlen, n, err := DecodeValueLength(v[voff:])
+			if err != nil {
+				return nil, err
+			}
+			voff += n + vlen
+
+			continue
+		}
 		if err != nil {
 			return nil, ErrCorruptedData
 		}
@@ -433,7 +443,9 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 
 		voff += n
 
-		valuesByPosition[i] = val
+		valuesByPosition[pos] = val
+		pos++
+
 		valuesBySelector[EncodeSelector("", r.tableAlias, col.colName)] = val
 	}
 

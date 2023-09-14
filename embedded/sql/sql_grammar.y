@@ -240,6 +240,11 @@ ddlstmt:
     {
         $$ = &RenameColumnStmt{table: $3, oldName: $6, newName: $8}
     }
+|
+    ALTER TABLE IDENTIFIER DROP COLUMN IDENTIFIER
+    {
+        $$ = &DropColumnStmt{table: $3, colName: $6}
+    }
 
 opt_if_not_exists:
     {
