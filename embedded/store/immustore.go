@@ -809,6 +809,8 @@ type IndexSpec struct {
 	TargetEntryMapper EntryMapper
 	TargetPrefix      []byte
 
+	InjectiveMapping bool
+
 	InitialTxID uint64
 	FinalTxID   uint64
 	InitialTs   int64
