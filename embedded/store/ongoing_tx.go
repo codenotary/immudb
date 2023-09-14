@@ -292,7 +292,11 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	}
 
 	if isKeyUpdate {
-		tx.entries[keyRef] = e
+		if isTransient {
+			tx.transientEntries[keyRef] = e
+		} else {
+			tx.entries[keyRef] = e
+		}
 	} else {
 
 		if isTransient {
