@@ -1044,6 +1044,10 @@ func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int
 	return valRefs, hCount, nil
 }
 
+func (s *ImmuStore) MultiIndexingEnabled() bool {
+	return s.multiIndexing
+}
+
 func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
 	if timeFunc == nil {
 		return ErrIllegalArguments
@@ -1121,6 +1125,11 @@ func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 	}
 
 	indexer, err := s.getIndexerFor(prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	err = indexer.WaitForIndexingUpto(ctx, txID)
 	if err != nil {
 		return nil, err
 	}

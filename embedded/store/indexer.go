@@ -250,11 +250,6 @@ func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 		return nil, ErrAlreadyClosed
 	}
 
-	err := idx.WaitForIndexingUpto(ctx, txID)
-	if err != nil {
-		return nil, err
-	}
-
 	return idx.index.SnapshotMustIncludeTsWithRenewalPeriod(txID, renewalPeriod)
 }
 
