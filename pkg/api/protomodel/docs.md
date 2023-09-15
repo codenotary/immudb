@@ -763,6 +763,7 @@
 | BOOLEAN | 1 |  |
 | INTEGER | 2 |  |
 | DOUBLE | 3 |  |
+| UUID | 4 |  |
 
 
  

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/google/uuid"
 )
 
 const (
@@ -54,6 +55,7 @@ const (
 	IntegerType   SQLValueType = "INTEGER"
 	BooleanType   SQLValueType = "BOOLEAN"
 	VarcharType   SQLValueType = "VARCHAR"
+	UUIDType      SQLValueType = "UUID"
 	BLOBType      SQLValueType = "BLOB"
 	Float64Type   SQLValueType = "FLOAT"
 	TimestampType SQLValueType = "TIMESTAMP"
@@ -111,6 +113,7 @@ const (
 
 const (
 	NowFnCall       string = "NOW"
+	UUIDFnCall      string = "RANDOM_UUID"
 	DatabasesFnCall string = "DATABASES"
 	TablesFnCall    string = "TABLES"
 	ColumnsFnCall   string = "COLUMNS"
@@ -1723,6 +1726,72 @@ func (v *Varchar) Compare(val TypedValue) (int, error) {
 	return bytes.Compare([]byte(v.val), []byte(rval)), nil
 }
 
+type UUID struct {
+	val uuid.UUID
+}
+
+func NewUUID(val uuid.UUID) *UUID {
+	return &UUID{val: val}
+}
+
+func (v *UUID) Type() SQLValueType {
+	return UUIDType
+}
+
+func (v *UUID) IsNull() bool {
+	return false
+}
+
+func (v *UUID) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return UUIDType, nil
+}
+
+func (v *UUID) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != UUIDType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, UUIDType, t)
+	}
+
+	return nil
+}
+
+func (v *UUID) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *UUID) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	return v, nil
+}
+
+func (v *UUID) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return v
+}
+
+func (v *UUID) isConstant() bool {
+	return true
+}
+
+func (v *UUID) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (v *UUID) RawValue() interface{} {
+	return v.val
+}
+
+func (v *UUID) Compare(val TypedValue) (int, error) {
+	if val.IsNull() {
+		return 1, nil
+	}
+
+	if val.Type() != UUIDType {
+		return 0, ErrNotComparableValues
+	}
+
+	rval := val.RawValue().(uuid.UUID)
+
+	return bytes.Compare(v.val[:], rval[:]), nil
+}
+
 type Bool struct {
 	val bool
 }
@@ -1951,6 +2020,10 @@ func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLV
 		return TimestampType, nil
 	}
 
+	if strings.ToUpper(v.fn) == UUIDFnCall {
+		return UUIDType, nil
+	}
+
 	return AnyType, fmt.Errorf("%w: unknown function %s", ErrIllegalArguments, v.fn)
 }
 
@@ -1958,6 +2031,14 @@ func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, par
 	if strings.ToUpper(v.fn) == NowFnCall {
 		if t != TimestampType {
 			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, TimestampType, t)
+		}
+
+		return nil
+	}
+
+	if strings.ToUpper(v.fn) == UUIDFnCall {
+		if t != UUIDType {
+			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, UUIDType, t)
 		}
 
 		return nil
@@ -1988,6 +2069,13 @@ func (v *FnCall) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, 
 			return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, NowFnCall, len(v.params))
 		}
 		return &Timestamp{val: tx.Timestamp().Truncate(time.Microsecond).UTC()}, nil
+	}
+
+	if strings.ToUpper(v.fn) == UUIDFnCall {
+		if len(v.params) > 0 {
+			return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, UUIDFnCall, len(v.params))
+		}
+		return &UUID{val: uuid.New()}, nil
 	}
 
 	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)

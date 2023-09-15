@@ -345,6 +345,10 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
 		}
+	case sql.UUIDType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
+		}
 	case sql.BooleanType:
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.RawValue().(bool)}}
