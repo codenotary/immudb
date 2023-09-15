@@ -355,13 +355,32 @@ func TestTimestampCasts(t *testing.T) {
 	})
 }
 
-func TestUUIDType(t *testing.T) {
+func TestUUIDAsPK(t *testing.T) {
 	engine := setupCommonTest(t)
 
 	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS uuid_table(id UUID, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
 	sel := EncodeSelector("", "uuid_table", "id")
+
+	t.Run("UUID as PK", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id) VALUES(RANDOM_UUID())", nil)
+		require.NoError(t, err)
+
+		_, err := engine.InferParameters(context.Background(), nil, "SELECT id FROM uuid_table WHERE id = NOW()")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+	})
 
 	t.Run("must accept RANDOM_UUID() as an UUID", func(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id) VALUES(RANDOM_UUID())", nil)
@@ -371,6 +390,32 @@ func TestUUIDType(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidTypes)
 
 		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+	})
+
+}
+
+func TestUUIDNonPK(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE uuid_table(id INTEGER, u UUID, t VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	sel := EncodeSelector("", "uuid_table", "u")
+
+	t.Run("UUID as non PK", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, u, t) VALUES(1, RANDOM_UUID(), 't')", nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT u FROM uuid_table", nil)
 		require.NoError(t, err)
 		defer r.Close()
 
