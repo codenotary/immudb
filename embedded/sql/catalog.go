@@ -1373,9 +1373,9 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 				return nil, 0, ErrCorruptedData
 			}
 
-			u, err := uuid.FromBytes(b[voff:])
+			u, err := uuid.FromBytes(b[voff : voff+16])
 			if err != nil {
-
+				return nil, 0, fmt.Errorf("%w: %s", ErrCorruptedData, err.Error())
 			}
 
 			voff += vlen
