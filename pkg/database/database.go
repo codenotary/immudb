@@ -138,8 +138,6 @@ type DB interface {
 	DocumentDatabase
 }
 
-type uuid = string
-
 type replicaState struct {
 	precommittedTxID uint64
 	precommittedAlh  [sha256.Size]byte
@@ -164,7 +162,7 @@ type db struct {
 
 	txPool store.TxPool
 
-	replicaStates      map[uuid]*replicaState
+	replicaStates      map[string]*replicaState
 	replicaStatesMutex sync.Mutex
 }
 
@@ -176,10 +174,10 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	log.Infof("opening database '%s' {replica = %v}...", dbName, op.replica)
 
-	var replicaStates map[uuid]*replicaState
+	var replicaStates map[string]*replicaState
 	// replica states are only managed in primary with synchronous replication
 	if !op.replica && op.syncAcks > 0 {
-		replicaStates = make(map[uuid]*replicaState, op.syncAcks)
+		replicaStates = make(map[string]*replicaState, op.syncAcks)
 	}
 
 	dbi := &db{
@@ -277,10 +275,10 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	log.Infof("creating database '%s' {replica = %v}...", dbName, op.replica)
 
-	var replicaStates map[uuid]*replicaState
+	var replicaStates map[string]*replicaState
 	// replica states are only managed in primary with synchronous replication
 	if !op.replica && op.syncAcks > 0 {
-		replicaStates = make(map[uuid]*replicaState, op.syncAcks)
+		replicaStates = make(map[string]*replicaState, op.syncAcks)
 	}
 
 	dbi := &db{
@@ -1647,7 +1645,7 @@ func (d *db) AsReplica(asReplica, syncReplication bool, syncAcks int) {
 	if asReplica {
 		d.replicaStates = nil
 	} else if syncAcks > 0 {
-		d.replicaStates = make(map[uuid]*replicaState, syncAcks)
+		d.replicaStates = make(map[string]*replicaState, syncAcks)
 	}
 
 	d.st.SetExternalCommitAllowance(syncReplication)

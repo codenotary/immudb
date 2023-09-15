@@ -160,6 +160,10 @@ func zeroForType(t SQLValueType) TypedValue {
 		{
 			return &Varchar{}
 		}
+	case UUIDType:
+		{
+			return &UUID{}
+		}
 	case BLOBType:
 		{
 			return &Blob{}
