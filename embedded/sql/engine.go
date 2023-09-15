@@ -193,9 +193,9 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		rowEntryPrefix := MapKey(
 			e.prefix,
 			RowPrefix,
-			EncodeID(1),
+			EncodeID(DatabaseID),
 			EncodeID(table.id),
-			EncodeID(0),
+			EncodeID(primaryIndex.id),
 		)
 
 		mappedPKEntryPrefix := MapKey(
