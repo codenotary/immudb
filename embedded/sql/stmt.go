@@ -42,6 +42,7 @@ const (
 	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
 )
 
+const DatabaseID = uint32(1) // deprecated but left to maintain backwards compatibility
 const PKIndexID = uint32(0)
 
 const (
@@ -289,7 +290,7 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
-	mappedKey := MapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(1), EncodeID(table.id))
+	mappedKey := MapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(DatabaseID), EncodeID(table.id))
 
 	err = tx.set(mappedKey, nil, []byte(table.name))
 	if err != nil {
@@ -320,7 +321,7 @@ func persistColumn(tx *SQLTx, col *Column) error {
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogColumnPrefix,
-		EncodeID(1),
+		EncodeID(DatabaseID),
 		EncodeID(col.table.id),
 		EncodeID(col.id),
 		[]byte(col.colType),
@@ -435,7 +436,7 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		copy(encodedValues[1+i*colSpecLen:], EncodeID(col.id))
 	}
 
-	mappedKey := MapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(index.id))
+	mappedKey := MapKey(tx.sqlPrefix(), catalogIndexPrefix, EncodeID(DatabaseID), EncodeID(table.id), EncodeID(index.id))
 
 	err = tx.set(mappedKey, nil, encodedValues)
 	if err != nil {
@@ -555,7 +556,7 @@ func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogColumnPrefix,
-		EncodeID(1),
+		EncodeID(DatabaseID),
 		EncodeID(col.table.id),
 		EncodeID(col.id),
 		[]byte(col.colType),
@@ -832,7 +833,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 		}
 	}
 
-	rowKey := MapKey(tx.sqlPrefix(), RowPrefix, EncodeID(1), EncodeID(table.id), EncodeID(0), pkEncVals)
+	rowKey := MapKey(tx.sqlPrefix(), RowPrefix, EncodeID(DatabaseID), EncodeID(table.id), EncodeID(PKIndexID), pkEncVals)
 
 	encodedRowValue, err := tx.encodeRowValue(valuesByColID, table)
 	if err != nil {
@@ -1293,7 +1294,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 		}
 
 		encodedValues := make([][]byte, 3+len(index.cols))
-		encodedValues[0] = EncodeID(1)
+		encodedValues[0] = EncodeID(DatabaseID)
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
@@ -4222,7 +4223,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogTablePrefix,
-		EncodeID(1),
+		EncodeID(DatabaseID),
 		EncodeID(table.id),
 	)
 	err = tx.delete(ctx, mappedKey)
@@ -4236,7 +4237,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		mappedKey := MapKey(
 			tx.sqlPrefix(),
 			catalogColumnPrefix,
-			EncodeID(1),
+			EncodeID(DatabaseID),
 			EncodeID(col.table.id),
 			EncodeID(col.id),
 			[]byte(col.colType),
@@ -4252,7 +4253,7 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		mappedKey := MapKey(
 			tx.sqlPrefix(),
 			catalogIndexPrefix,
-			EncodeID(1),
+			EncodeID(DatabaseID),
 			EncodeID(table.id),
 			EncodeID(index.id),
 		)
@@ -4334,7 +4335,7 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogIndexPrefix,
-		EncodeID(1),
+		EncodeID(DatabaseID),
 		EncodeID(table.id),
 		EncodeID(index.id),
 	)
