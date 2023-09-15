@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type converterFunc func(TypedValue) (TypedValue, error)
@@ -88,6 +90,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
 			ErrUnsupportedCast,
 		)
+
 	}
 
 	if dst == Float64Type {
@@ -123,6 +126,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			"%w: only INTEGER and VARCHAR types can be cast as FLOAT",
 			ErrUnsupportedCast,
 		)
+
 	}
 
 	if dst == IntegerType {
@@ -158,6 +162,112 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			"%w: only INTEGER and VARCHAR types can be cast as INTEGER",
 			ErrUnsupportedCast,
 		)
+
+	}
+
+	if dst == UUIDType {
+
+		if src == VarcharType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: UUIDType}, nil
+				}
+
+				strVal := val.RawValue().(string)
+
+				u, err := uuid.Parse(strVal)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"%w: can not cast string '%s' as an UUID",
+						ErrUnsupportedCast,
+						val.RawValue().(string),
+					)
+				}
+
+				return &UUID{val: u}, nil
+			}, nil
+		}
+
+		if src == BLOBType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: UUIDType}, nil
+				}
+
+				bs := val.RawValue().([]byte)
+
+				u, err := uuid.FromBytes(bs)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"%w: can not cast blob '%s' as an UUID",
+						ErrUnsupportedCast,
+						val.RawValue().(string),
+					)
+				}
+
+				return &UUID{val: u}, nil
+			}, nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: only BLOB and VARCHAR types can be cast as UUID",
+			ErrUnsupportedCast,
+		)
+
+	}
+
+	if dst == BLOBType {
+
+		if src == VarcharType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: BLOBType}, nil
+				}
+
+				strVal := val.RawValue().(string)
+
+				return &Blob{val: []byte(strVal)}, nil
+			}, nil
+		}
+
+		if src == UUIDType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: BLOBType}, nil
+				}
+
+				u := val.RawValue().(uuid.UUID)
+
+				return &Blob{val: u[:]}, nil
+			}, nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: only UUID and VARCHAR types can be cast as BLOB",
+			ErrUnsupportedCast,
+		)
+
+	}
+
+	if dst == VarcharType {
+
+		if src == UUIDType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+
+				u := val.RawValue().(uuid.UUID)
+
+				return &Varchar{val: u.String()}, nil
+			}, nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: only UUID type can be cast as VARCHAR",
+			ErrUnsupportedCast,
+		)
+
 	}
 
 	return nil, fmt.Errorf(

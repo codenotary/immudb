@@ -21,6 +21,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
+	"github.com/google/uuid"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -38,6 +39,18 @@ var structValueToSqlValue = func(value *structpb.Value, sqlType sql.SQLValueType
 		}
 
 		return sql.NewVarchar(value.GetStringValue()), nil
+	case sql.UUIDType:
+		_, ok := value.GetKind().(*structpb.Value_StringValue)
+		if !ok {
+			return nil, fmt.Errorf("%w: expecting value of type %s", ErrUnexpectedValue, sqlType)
+		}
+
+		u, err := uuid.Parse(value.GetStringValue())
+		if err != nil {
+			return nil, fmt.Errorf("%w: can not parse '%s' as an UUID", err, value.GetStringValue())
+		}
+
+		return sql.NewUUID(u), nil
 	case sql.IntegerType:
 		_, ok := value.GetKind().(*structpb.Value_NumberValue)
 		if !ok {
@@ -77,6 +90,8 @@ var protomodelValueTypeToSQLValueType = func(stype protomodel.FieldType) (sql.SQ
 	switch stype {
 	case protomodel.FieldType_STRING:
 		return sql.VarcharType, nil
+	case protomodel.FieldType_UUID:
+		return sql.UUIDType, nil
 	case protomodel.FieldType_INTEGER:
 		return sql.IntegerType, nil
 	case protomodel.FieldType_DOUBLE:
@@ -92,6 +107,8 @@ var sqlValueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
 	switch stype {
 	case sql.VarcharType:
 		return sql.MaxKeyLen, nil
+	case sql.UUIDType:
+		return 0, nil
 	case sql.IntegerType:
 		return 0, nil
 	case sql.BLOBType:

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/google/uuid"
 )
 
 // Catalog represents a database catalog containing metadata for all tables in the database.
@@ -559,6 +560,8 @@ func (c *Column) MaxLen() int {
 		return 8
 	case Float64Type:
 		return 8
+	case UUIDType:
+		return 16
 	}
 
 	return c.maxLen
@@ -582,6 +585,8 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 		return maxLen == 0 || maxLen == 8
 	case TimestampType:
 		return maxLen == 0 || maxLen == 8
+	case UUIDType:
+		return maxLen == 0 || maxLen == 16
 	}
 
 	return maxLen >= 0
@@ -875,6 +880,7 @@ func asType(t string) (SQLValueType, error) {
 		t == Float64Type ||
 		t == BooleanType ||
 		t == VarcharType ||
+		t == UUIDType ||
 		t == BLOBType ||
 		t == TimestampType {
 		return t, nil
@@ -1098,6 +1104,20 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			return encv, len(blobVal), nil
 		}
+	case UUIDType:
+		{
+			uuidVal, ok := convVal.(uuid.UUID)
+			if !ok {
+				return nil, 0, fmt.Errorf("value is not an UUID: %w", ErrInvalidValue)
+			}
+
+			// notnull + value
+			encv := make([]byte, 17)
+			encv[0] = KeyValPrefixNotNull
+			copy(encv[1:], uuidVal[:])
+
+			return encv, 16, nil
+		}
 	case TimestampType:
 		{
 			if maxLen != 8 {
@@ -1242,6 +1262,20 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 
 			return encv[:], nil
 		}
+	case UUIDType:
+		{
+			uuidVal, ok := convVal.(uuid.UUID)
+			if !ok {
+				return nil, fmt.Errorf("value is not an UUID: %w", ErrInvalidValue)
+			}
+
+			// len(v) + v
+			var encv [EncLenLen + 16]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(16))
+			copy(encv[EncLenLen:], uuidVal[:])
+
+			return encv[:], nil
+		}
 	case TimestampType:
 		{
 			timeVal, ok := convVal.(time.Time)
@@ -1332,6 +1366,21 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			voff += vlen
 
 			return &Blob{val: v}, voff, nil
+		}
+	case UUIDType:
+		{
+			if vlen != 16 {
+				return nil, 0, ErrCorruptedData
+			}
+
+			u, err := uuid.FromBytes(b[voff:])
+			if err != nil {
+
+			}
+
+			voff += vlen
+
+			return &UUID{val: u}, voff, nil
 		}
 	case TimestampType:
 		{
