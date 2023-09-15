@@ -344,6 +344,8 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 				colType = protomodel.FieldType_BOOLEAN
 			case sql.VarcharType:
 				colType = protomodel.FieldType_STRING
+			case sql.UUIDType:
+				colType = protomodel.FieldType_UUID
 			case sql.IntegerType:
 				colType = protomodel.FieldType_INTEGER
 			case sql.Float64Type:

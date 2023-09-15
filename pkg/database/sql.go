@@ -26,6 +26,8 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+
+	"github.com/google/uuid"
 )
 
 func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
@@ -270,7 +272,7 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 		var maxLen string
 
 		if c.MaxLen() > 0 && (c.Type() == sql.VarcharType || c.Type() == sql.BLOBType) {
-			maxLen = fmt.Sprintf("[%d]", c.MaxLen())
+			maxLen = fmt.Sprintf("(%d)", c.MaxLen())
 		}
 
 		res.Rows = append(res.Rows, &schema.Row{
@@ -486,6 +488,11 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	case sql.VarcharType:
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
+		}
+	case sql.UUIDType:
+		{
+			u := tv.RawValue().(uuid.UUID)
+			return &schema.SQLValue{Value: &schema.SQLValue_S{S: u.String()}}
 		}
 	case sql.BooleanType:
 		{
