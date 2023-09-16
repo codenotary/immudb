@@ -28,6 +28,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/verification"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -135,6 +136,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
 			Name: defaultCollectionName,
 			Fields: []*protomodel.Field{
+				{Name: "uuid", Type: protomodel.FieldType_UUID},
 				{Name: "number", Type: protomodel.FieldType_INTEGER},
 				{Name: "name", Type: protomodel.FieldType_STRING},
 				{Name: "pin", Type: protomodel.FieldType_INTEGER},
@@ -150,6 +152,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 
 		expectedFieldKeys := []*protomodel.Field{
 			{Name: "_id", Type: protomodel.FieldType_STRING},
+			{Name: "uuid", Type: protomodel.FieldType_UUID},
 			{Name: "number", Type: protomodel.FieldType_INTEGER},
 			{Name: "name", Type: protomodel.FieldType_STRING},
 			{Name: "pin", Type: protomodel.FieldType_INTEGER},
@@ -320,15 +323,11 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
-			{
-				Name: "pincode",
-				Type: protomodel.FieldType_INTEGER,
-			},
+			{Name: "uuid", Type: protomodel.FieldType_UUID},
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
 		},
 		Indexes: []*protomodel.Index{
-			{
-				Fields: []string{"pincode"},
-			},
+			{Fields: []string{"pincode"}},
 		},
 	})
 	require.NoError(t, err)
@@ -344,14 +343,20 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 	var res *protomodel.InsertDocumentsResponse
 	var docID string
+
+	u, err := uuid.NewUUID()
+	require.NoError(t, err)
+
 	t.Run("should pass when adding documents", func(t *testing.T) {
-		var err error
 		// add document to collection
 		res, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{
+						"uuid": {
+							Kind: &structpb.Value_StringValue{StringValue: u.String()},
+						},
 						"pincode": {
 							Kind: &structpb.Value_NumberValue{NumberValue: 123},
 						},
@@ -400,6 +405,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.NoError(t, err)
 
 		doc = revision.Document
+		require.Equal(t, u.String(), doc.Fields["uuid"].GetStringValue())
 		require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 	})
 
