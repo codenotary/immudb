@@ -253,7 +253,7 @@ func indexName(tableName string, cols []*Column) string {
 
 	buf.WriteString(tableName)
 
-	buf.WriteString("[")
+	buf.WriteString("(")
 
 	for c, col := range cols {
 		buf.WriteString(col.colName)
@@ -263,7 +263,7 @@ func indexName(tableName string, cols []*Column) string {
 		}
 	}
 
-	buf.WriteString("]")
+	buf.WriteString(")")
 
 	return buf.String()
 }
