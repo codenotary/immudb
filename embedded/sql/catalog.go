@@ -73,7 +73,7 @@ type Column struct {
 	id            uint32
 	colName       string
 	colType       SQLValueType
-	maxLen        int
+	maxLen        []int
 	autoIncrement bool
 	notNull       bool
 }
@@ -323,6 +323,15 @@ func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, maxCol
 			return nil, ErrLimitedAutoIncrement
 		}
 
+		if len(cs.maxLen) == 0 {
+			maxLen, err := DefaultMaxLenForType(cs.colType)
+			if err != nil {
+				return nil, err
+			}
+
+			cs.maxLen = maxLen
+		}
+
 		if !validMaxLenForType(cs.maxLen, cs.colType) {
 			return nil, ErrLimitedMaxLen
 		}
@@ -442,6 +451,15 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 		return nil, fmt.Errorf("%w (%s)", ErrNewColumnMustBeNullable, spec.colName)
 	}
 
+	if len(spec.maxLen) == 0 {
+		maxLen, err := DefaultMaxLenForType(spec.colType)
+		if err != nil {
+			return nil, err
+		}
+
+		spec.maxLen = maxLen
+	}
+
 	if !validMaxLenForType(spec.maxLen, spec.colType) {
 		return nil, fmt.Errorf("%w (%s)", ErrLimitedMaxLen, spec.colName)
 	}
@@ -550,20 +568,7 @@ func (c *Column) Type() SQLValueType {
 	return c.colType
 }
 
-func (c *Column) MaxLen() int {
-	switch c.colType {
-	case BooleanType:
-		return 1
-	case IntegerType:
-		return 8
-	case TimestampType:
-		return 8
-	case Float64Type:
-		return 8
-	case UUIDType:
-		return 16
-	}
-
+func (c *Column) MaxLen() []int {
 	return c.maxLen
 }
 
@@ -575,21 +580,64 @@ func (c *Column) IsAutoIncremental() bool {
 	return c.autoIncrement
 }
 
-func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
-	switch sqlType {
+func (c *Column) MaxEncodingLen() (int, error) {
+	switch c.colType {
 	case BooleanType:
-		return maxLen <= 1
+		return 1, nil
 	case IntegerType:
-		return maxLen == 0 || maxLen == 8
-	case Float64Type:
-		return maxLen == 0 || maxLen == 8
+		return 8, nil
 	case TimestampType:
-		return maxLen == 0 || maxLen == 8
+		return 8, nil
+	case Float64Type:
+		return 8, nil
 	case UUIDType:
-		return maxLen == 0 || maxLen == 16
+		return 16, nil
+	case VarcharType, BLOBType:
+		if len(c.maxLen) == 0 {
+			return 0, nil
+		}
+		if len(c.maxLen) > 1 {
+			return 0, fmt.Errorf("%w: invalid maxLen for type %s", ErrUnexpected, c.colType)
+		}
+
+		return c.maxLen[0], nil
 	}
 
-	return maxLen >= 0
+	return 0, fmt.Errorf("%w: MaxEncodingLen() undefined for type %s", ErrUnexpected, c.colType)
+}
+
+func DefaultMaxLenForType(sqlType SQLValueType) ([]int, error) {
+	switch sqlType {
+	case BooleanType:
+		return []int{1}, nil
+	case IntegerType, Float64Type, TimestampType:
+		return []int{8}, nil
+	case UUIDType:
+		return []int{16}, nil
+	case DecimalType:
+		return defaultDecimalPrecisionAndScale, nil
+	case VarcharType, BLOBType:
+		return []int{0}, nil
+	}
+
+	return nil, fmt.Errorf("%w(%s)", ErrUnsupportedType, sqlType)
+}
+
+func validMaxLenForType(maxLen []int, sqlType SQLValueType) bool {
+	switch sqlType {
+	case BooleanType:
+		return len(maxLen) == 1 && maxLen[0] == 1
+	case IntegerType, Float64Type, TimestampType:
+		return len(maxLen) == 1 && maxLen[0] == 8
+	case UUIDType:
+		return len(maxLen) == 1 && maxLen[0] == 16
+	case DecimalType:
+		return len(maxLen) == 2 && maxLen[0] > 0 && maxLen[1] > 0
+	}
+
+	// VARCHAR OR BLOB types
+
+	return len(maxLen) == 1 && maxLen[0] >= 0
 }
 
 func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
@@ -736,10 +784,31 @@ func loadColSpecs(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx
 			return nil, 0, fmt.Errorf("%w: mismatch on database or table ids", ErrCorruptedData)
 		}
 
+		voff := 1
+
+		maxLen := make([]int, 1, 2)
+
+		maxLen[0] = int(binary.BigEndian.Uint32(v[voff:]))
+		voff += EncLenLen
+
+		if v[0]&twoPartMaxLenFlag == 0 {
+			// backward compatibility
+			if maxLen[0] == 0 {
+				len, err := DefaultMaxLenForType(colType)
+				if err != nil {
+					return nil, 0, err
+				}
+				maxLen[0] = len[0]
+			}
+		} else {
+			maxLen = append(maxLen, int(binary.BigEndian.Uint32(v[voff:])))
+			voff += EncLenLen
+		}
+
 		specs[colID] = &ColSpec{
-			colName:       string(v[5:]),
+			colName:       string(v[voff:]),
 			colType:       colType,
-			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
+			maxLen:        maxLen,
 			autoIncrement: v[0]&autoIncrementFlag != 0,
 			notNull:       v[0]&nullableFlag != 0,
 		}
@@ -943,15 +1012,19 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		}
 		off += 1
 
-		maxLen := col.MaxLen()
-		if variableSizedType(col.colType) {
-			maxLen += EncLenLen
+		maxEncodingLen, err := col.MaxEncodingLen()
+		if err != nil {
+			return nil, err
 		}
-		if len(enc)-off < maxLen {
+
+		if variableSizedType(col.colType) {
+			maxEncodingLen += EncLenLen
+		}
+		if len(enc)-off < maxEncodingLen {
 			return nil, ErrCorruptedData
 		}
 
-		off += maxLen
+		off += maxEncodingLen
 	}
 
 	//PK cannot be nil
@@ -1003,17 +1076,14 @@ const (
 	KeyValPrefixUpperBound byte = 0xFF
 )
 
-func EncodeValueAsKey(val TypedValue, colType SQLValueType, maxLen int) ([]byte, int, error) {
+func EncodeValueAsKey(val TypedValue, colType SQLValueType, maxLen []int) ([]byte, int, error) {
 	return EncodeRawValueAsKey(val.RawValue(), colType, maxLen)
 }
 
 // EncodeRawValueAsKey encodes a value in a b-tree meaningful way.
-func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, int, error) {
-	if maxLen <= 0 {
-		return nil, 0, ErrInvalidValue
-	}
-	if maxLen > MaxKeyLen {
-		return nil, 0, ErrMaxKeyLengthExceeded
+func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen []int) ([]byte, int, error) {
+	if !validMaxLenForType(maxLen, colType) {
+		return nil, 0, fmt.Errorf("%w: invalid length for type '%s'", ErrIllegalArguments, colType)
 	}
 
 	convVal, err := mayApplyImplicitConversion(val, colType)
@@ -1028,17 +1098,21 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 	switch colType {
 	case VarcharType:
 		{
+			if maxLen[0] > MaxKeyLen {
+				return nil, 0, ErrMaxKeyLengthExceeded
+			}
+
 			strVal, ok := convVal.(string)
 			if !ok {
 				return nil, 0, fmt.Errorf("value is not a string: %w", ErrInvalidValue)
 			}
 
-			if len(strVal) > maxLen {
+			if len(strVal) > maxLen[0] {
 				return nil, 0, ErrMaxLengthExceeded
 			}
 
 			// notnull + value + padding + len(value)
-			encv := make([]byte, 1+maxLen+EncLenLen)
+			encv := make([]byte, 1+maxLen[0]+EncLenLen)
 			encv[0] = KeyValPrefixNotNull
 			copy(encv[1:], []byte(strVal))
 			binary.BigEndian.PutUint32(encv[len(encv)-EncLenLen:], uint32(len(strVal)))
@@ -1047,10 +1121,6 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		}
 	case IntegerType:
 		{
-			if maxLen != 8 {
-				return nil, 0, ErrCorruptedData
-			}
-
 			intVal, ok := convVal.(int64)
 			if !ok {
 				return nil, 0, fmt.Errorf("value is not an integer: %w", ErrInvalidValue)
@@ -1067,10 +1137,6 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		}
 	case BooleanType:
 		{
-			if maxLen != 1 {
-				return nil, 0, ErrCorruptedData
-			}
-
 			boolVal, ok := convVal.(bool)
 			if !ok {
 				return nil, 0, fmt.Errorf("value is not a boolean: %w", ErrInvalidValue)
@@ -1087,17 +1153,21 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		}
 	case BLOBType:
 		{
+			if maxLen[0] > MaxKeyLen {
+				return nil, 0, ErrMaxKeyLengthExceeded
+			}
+
 			blobVal, ok := convVal.([]byte)
 			if !ok {
 				return nil, 0, fmt.Errorf("value is not a blob: %w", ErrInvalidValue)
 			}
 
-			if len(blobVal) > maxLen {
+			if len(blobVal) > maxLen[0] {
 				return nil, 0, ErrMaxLengthExceeded
 			}
 
 			// notnull + value + padding + len(value)
-			encv := make([]byte, 1+maxLen+EncLenLen)
+			encv := make([]byte, 1+maxLen[0]+EncLenLen)
 			encv[0] = KeyValPrefixNotNull
 			copy(encv[1:], []byte(blobVal))
 			binary.BigEndian.PutUint32(encv[len(encv)-EncLenLen:], uint32(len(blobVal)))
@@ -1120,10 +1190,6 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		}
 	case TimestampType:
 		{
-			if maxLen != 8 {
-				return nil, 0, ErrCorruptedData
-			}
-
 			timeVal, ok := convVal.(time.Time)
 			if !ok {
 				return nil, 0, fmt.Errorf("value is not a timestamp: %w", ErrInvalidValue)
@@ -1174,12 +1240,12 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 	return nil, 0, ErrInvalidValue
 }
 
-func EncodeValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeValue(val TypedValue, colType SQLValueType, maxLen []int) ([]byte, error) {
 	return EncodeRawValue(val.RawValue(), colType, maxLen)
 }
 
 // EncodeRawValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
-func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeRawValue(val interface{}, colType SQLValueType, maxLen []int) ([]byte, error) {
 	convVal, err := mayApplyImplicitConversion(val, colType)
 	if err != nil {
 		return nil, err
@@ -1197,8 +1263,14 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 				return nil, fmt.Errorf("value is not a string: %w", ErrInvalidValue)
 			}
 
-			if maxLen > 0 && len(strVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
+			if len(maxLen) > 0 && maxLen[0] != 0 {
+				if len(maxLen) != 1 {
+					return nil, fmt.Errorf("%w: invalid maxLen for type '%s", ErrIllegalArguments, colType)
+				}
+
+				if len(strVal) > maxLen[0] {
+					return nil, ErrMaxLengthExceeded
+				}
 			}
 
 			// len(v) + v
@@ -1251,8 +1323,14 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 				blobVal = v
 			}
 
-			if maxLen > 0 && len(blobVal) > maxLen {
-				return nil, ErrMaxLengthExceeded
+			if len(maxLen) > 0 && maxLen[0] != 0 {
+				if len(maxLen) != 1 {
+					return nil, fmt.Errorf("%w: invalid maxLen for type '%s", ErrIllegalArguments, colType)
+				}
+
+				if len(blobVal) > maxLen[0] {
+					return nil, ErrMaxLengthExceeded
+				}
 			}
 
 			// len(v) + v
@@ -1582,15 +1660,27 @@ func addColSpecsToTx(ctx context.Context, tx *store.OngoingTx, sqlPrefix []byte,
 			return nil, 0, ErrCorruptedData
 		}
 
+		voff := 1
+
+		maxLen := make([]int, 1, 2)
+
+		maxLen[0] = int(binary.BigEndian.Uint32(v[voff:]))
+		voff += EncLenLen
+
+		if v[0]&twoPartMaxLenFlag != 0 {
+			maxLen = append(maxLen, int(binary.BigEndian.Uint32(v[voff:])))
+			voff += EncLenLen
+		}
+
 		err = tx.Set(mkey, nil, v)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		specs[colID] = &ColSpec{
-			colName:       string(v[5:]),
+			colName:       string(v[voff:]),
 			colType:       colType,
-			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
+			maxLen:        maxLen,
 			autoIncrement: v[0]&autoIncrementFlag != 0,
 			notNull:       v[0]&nullableFlag != 0,
 		}

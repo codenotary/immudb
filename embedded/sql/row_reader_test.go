@@ -33,7 +33,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 		cols: []*Column{
 			{
 				id:     4,
-				maxLen: 0,
+				maxLen: []int{0},
 			},
 		},
 	}

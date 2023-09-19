@@ -152,12 +152,21 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 			return sql.ErrCorruptedData
 		}
 
+		len := make([]int, 1, 2)
+
 		pkLen, ok := vEntry.ColLenById[pkID]
 		if !ok {
 			return sql.ErrCorruptedData
 		}
 
-		pkEncVal, _, err := sql.EncodeRawValueAsKey(schema.RawValue(pkVal), pkType, int(pkLen))
+		len[0] = int(pkLen)
+
+		pkLen2, ok := vEntry.ColLenById[pkID]
+		if ok {
+			len = append(len, int(pkLen2))
+		}
+
+		pkEncVal, _, err := sql.EncodeRawValueAsKey(schema.RawValue(pkVal), pkType, len)
 		if err != nil {
 			return err
 		}

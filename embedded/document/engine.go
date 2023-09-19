@@ -160,10 +160,10 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 	columns := make([]*sql.ColSpec, 2+len(fields))
 
 	// add primary key for document id
-	columns[0] = sql.NewColSpec(documentIdFieldName, sql.BLOBType, MaxDocumentIDLength, false, true)
+	columns[0] = sql.NewColSpec(documentIdFieldName, sql.BLOBType, []int{MaxDocumentIDLength}, false, true)
 
 	// add columnn for blob, which stores the document as a whole
-	columns[1] = sql.NewColSpec(DocumentBLOBField, sql.BLOBType, 0, false, false)
+	columns[1] = sql.NewColSpec(DocumentBLOBField, sql.BLOBType, []int{0}, false, false)
 
 	for i, field := range fields {
 		err = validateFieldName(field.Name)
@@ -1116,7 +1116,7 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	valbuf := bytes.Buffer{}
 
 	rval := sql.NewBlob(documentID[:])
-	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, MaxDocumentIDLength)
+	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, []int{MaxDocumentIDLength})
 	if err != nil {
 		return nil, err
 	}

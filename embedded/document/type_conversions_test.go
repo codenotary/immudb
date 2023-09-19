@@ -172,43 +172,43 @@ func TestSQLValueTypeDefaultLength(t *testing.T) {
 	testCases := []struct {
 		name      string
 		valueType sql.SQLValueType
-		length    int
+		length    []int
 		expectErr error
 	}{
 		{
 			name:      "varchar",
 			valueType: sql.VarcharType,
-			length:    sql.MaxKeyLen,
+			length:    []int{sql.MaxKeyLen},
 			expectErr: nil,
 		},
 		{
 			name:      "integer",
 			valueType: sql.IntegerType,
-			length:    0,
+			length:    []int{8},
 			expectErr: nil,
 		},
 		{
 			name:      "blob",
 			valueType: sql.BLOBType,
-			length:    sql.MaxKeyLen,
+			length:    []int{sql.MaxKeyLen},
 			expectErr: nil,
 		},
 		{
 			name:      "float64",
 			valueType: sql.Float64Type,
-			length:    0,
+			length:    []int{8},
 			expectErr: nil,
 		},
 		{
 			name:      "boolean",
 			valueType: sql.BooleanType,
-			length:    0,
+			length:    []int{1},
 			expectErr: nil,
 		},
 		{
 			name:      "unsupported",
 			valueType: "unknown",
-			length:    0,
+			length:    nil,
 			expectErr: fmt.Errorf("%w(%s)", ErrUnsupportedType, "unknown"),
 		},
 	}

@@ -220,7 +220,7 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 	valbuf := bytes.Buffer{}
 
 	rval := sql.NewBlob(docID[:])
-	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, document.MaxDocumentIDLength)
+	encVal, _, err := sql.EncodeRawValueAsKey(rval.RawValue(), sql.BLOBType, []int{document.MaxDocumentIDLength})
 	if err != nil {
 		return nil, err
 	}

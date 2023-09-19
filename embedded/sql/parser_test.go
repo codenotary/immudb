@@ -268,7 +268,7 @@ func TestCreateTableStmt(t *testing.T) {
 					ifNotExists: false,
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
-						{colName: "name", colType: VarcharType, maxLen: 50},
+						{colName: "name", colType: VarcharType, maxLen: []int{50}},
 						{colName: "ts", colType: TimestampType},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},

@@ -65,6 +65,7 @@ var ErrCorruptedData = store.ErrCorruptedData
 var ErrBrokenCatalogColSpecExpirable = fmt.Errorf("%w: catalog column entry set as expirable", ErrCorruptedData)
 var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrInvalidTypes = errors.New("invalid types")
+var ErrUnsupportedType = errors.New("unsupported type")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
 var ErrInvalidCondition = errors.New("invalid condition")
 var ErrHavingClauseRequiresGroupClause = errors.New("having clause requires group clause")
@@ -96,6 +97,8 @@ const EncIDLen = 4
 const EncLenLen = 4
 
 const MaxNumberOfColumnsInIndex = 8
+
+var defaultDecimalPrecisionAndScale = []int{3, 4}
 
 type Engine struct {
 	store *store.ImmuStore
@@ -281,7 +284,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 	// value={count (colID valLen val)+})
-	// key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+
+	// key=M.{tableID}{indexID}(({null|not_null})({val}{padding}{valLen})?)+
 
 	valueExtractor := func(value []byte, valuesByColID map[uint32]TypedValue) error {
 		voff := 0

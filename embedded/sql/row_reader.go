@@ -92,7 +92,7 @@ func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 			continue
 		}
 
-		encVal, err := EncodeValue(v, v.Type(), 0)
+		encVal, err := EncodeValue(v, v.Type(), nil)
 		if err != nil {
 			return d, err
 		}

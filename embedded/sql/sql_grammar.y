@@ -30,6 +30,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     datasource DataSource
     colsSpec []*ColSpec
     colSpec *ColSpec
+    integerList []int
     cols []*ColSelector
     rows []*RowSpec
     row *RowSpec
@@ -130,7 +131,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <binExp> binExp
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset
-%type <integer> opt_max_len
+%type <integerList> opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -456,22 +457,32 @@ colsSpec:
 colSpec:
     IDENTIFIER TYPE opt_max_len opt_not_null opt_auto_increment
     {
-        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), notNull: $4, autoIncrement: $5}
+        $$ = &ColSpec{colName: $1, colType: $2, maxLen: $3, notNull: $4, autoIncrement: $5}
     }
 
 opt_max_len:
     {
-        $$ = 0
+        $$ = nil
     }
 |
     '[' INTEGER ']'
     {
-        $$ = $2
+        $$ = []int{int($2)}
     }
 |
     '(' INTEGER ')'
     {
-        $$ = $2
+        $$ = []int{int($2)}
+    }
+|
+    '[' INTEGER ',' INTEGER ']'
+    {
+        $$ = []int{int($2), int($4)}
+    }
+|
+    '(' INTEGER ',' INTEGER ')'
+    {
+        $$ = []int{int($2), int($4)}
     }
 
 opt_auto_increment:

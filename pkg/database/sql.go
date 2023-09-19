@@ -151,12 +151,17 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	colIdsByName := make(map[string]uint32, len(table.ColsByName()))
 	colTypesByID := make(map[uint32]string, len(table.Cols()))
 	colLenByID := make(map[uint32]int32, len(table.Cols()))
+	colLen2ByID := make(map[uint32]int32, len(table.Cols()))
 
 	for _, col := range table.Cols() {
 		colNamesByID[col.ID()] = col.Name()
 		colIdsByName[sql.EncodeSelector("", table.Name(), col.Name())] = col.ID()
 		colTypesByID[col.ID()] = col.Type()
-		colLenByID[col.ID()] = int32(col.MaxLen())
+		colLenByID[col.ID()] = int32(col.MaxLen()[0])
+
+		if len(col.MaxLen()) == 2 {
+			colLen2ByID[col.ID()] = int32(col.MaxLen()[1])
+		}
 	}
 
 	pkIDs := make([]uint32, len(table.PrimaryIndex().Cols()))
@@ -176,6 +181,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		ColIdsByName:   colIdsByName,
 		ColTypesById:   colTypesByID,
 		ColLenById:     colLenByID,
+		ColLen2ById:    colLen2ByID,
 		MaxColId:       table.GetMaxColID(),
 	}, nil
 }
@@ -271,8 +277,10 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 
 		var maxLen string
 
-		if c.MaxLen() > 0 && (c.Type() == sql.VarcharType || c.Type() == sql.BLOBType) {
-			maxLen = fmt.Sprintf("(%d)", c.MaxLen())
+		if c.Type() == sql.VarcharType || c.Type() == sql.BLOBType {
+			maxLen = fmt.Sprintf("(%d)", c.MaxLen()[0])
+		} else if c.Type() == sql.DecimalType {
+			maxLen = fmt.Sprintf("(%d, %d)", c.MaxLen()[0], c.MaxLen()[1])
 		}
 
 		res.Rows = append(res.Rows, &schema.Row{

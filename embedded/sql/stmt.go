@@ -39,7 +39,7 @@ const (
 
 	RowPrefix = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
 
-	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
+	MappedPrefix = "M." // (key=M.{tableID}{indexID}((null|not_null)({val}{padding}{valLen})?)+, value={count (colID valLen val)+})
 )
 
 const DatabaseID = uint32(1) // deprecated but left to maintain backwards compatibility
@@ -48,6 +48,7 @@ const PKIndexID = uint32(0)
 const (
 	nullableFlag      byte = 1 << iota
 	autoIncrementFlag byte = 1 << iota
+	twoPartMaxLenFlag byte = 1 << iota
 )
 
 type SQLValueType = string
@@ -59,12 +60,13 @@ const (
 	UUIDType      SQLValueType = "UUID"
 	BLOBType      SQLValueType = "BLOB"
 	Float64Type   SQLValueType = "FLOAT"
+	DecimalType   SQLValueType = "DECIMAL"
 	TimestampType SQLValueType = "TIMESTAMP"
 	AnyType       SQLValueType = "ANY"
 )
 
 func IsNumericType(t SQLValueType) bool {
-	return t == IntegerType || t == Float64Type
+	return t == IntegerType || t == Float64Type || t == DecimalType
 }
 
 type AggregateFn = string
@@ -303,8 +305,9 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 }
 
 func persistColumn(tx *SQLTx, col *Column) error {
-	//{auto_incremental | nullable}{maxLen}{colNAME})
-	v := make([]byte, 1+4+len(col.colName))
+	//{auto_incremental | nullable | two_part_max_len}{maxLen}{maxLen}?{colNAME})
+	v := make([]byte, 1+2*EncLenLen+len(col.colName))
+	voff := 0
 
 	if col.autoIncrement {
 		v[0] = v[0] | autoIncrementFlag
@@ -314,9 +317,35 @@ func persistColumn(tx *SQLTx, col *Column) error {
 		v[0] = v[0] | nullableFlag
 	}
 
-	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
+	if col.colType == DecimalType {
+		v[0] = v[0] | twoPartMaxLenFlag
+	}
 
-	copy(v[5:], []byte(col.Name()))
+	voff++
+
+	if col.colType == DecimalType {
+		if len(col.maxLen) != 2 {
+			return fmt.Errorf("%w: invalid decimal precision and scale", ErrIllegalArguments)
+		}
+
+		binary.BigEndian.PutUint32(v[voff:], uint32(col.maxLen[0]))
+		voff += EncLenLen
+
+		binary.BigEndian.PutUint32(v[voff:], uint32(col.maxLen[1]))
+		voff += EncLenLen
+	} else {
+
+		if len(col.maxLen) == 0 {
+			binary.BigEndian.PutUint32(v[voff:], 0)
+		} else {
+			binary.BigEndian.PutUint32(v[voff:], uint32(col.maxLen[0]))
+		}
+
+		voff += EncLenLen
+	}
+
+	copy(v[voff:], []byte(col.Name()))
+	voff += len(col.Name())
 
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
@@ -327,18 +356,18 @@ func persistColumn(tx *SQLTx, col *Column) error {
 		[]byte(col.colType),
 	)
 
-	return tx.set(mappedKey, nil, v)
+	return tx.set(mappedKey, nil, v[:voff])
 }
 
 type ColSpec struct {
 	colName       string
 	colType       SQLValueType
-	maxLen        int
+	maxLen        []int
 	autoIncrement bool
 	notNull       bool
 }
 
-func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement bool, notNull bool) *ColSpec {
+func NewColSpec(name string, colType SQLValueType, maxLen []int, autoIncrement bool, notNull bool) *ColSpec {
 	return &ColSpec{
 		colName:       name,
 		colType:       colType,
@@ -387,11 +416,16 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 			return nil, err
 		}
 
-		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
+		maxEncodingLen, err := col.MaxEncodingLen()
+		if err != nil {
+			return nil, err
+		}
+
+		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && (maxEncodingLen == 0 || maxEncodingLen > MaxKeyLen) {
 			return nil, fmt.Errorf("%w: can not create index using column '%s'. Max key length for variable columns is %d", ErrLimitedKeyType, col.colName, MaxKeyLen)
 		}
 
-		indexKeyLen += col.MaxLen()
+		indexKeyLen += maxEncodingLen
 
 		colIDs[i] = col.id
 	}
@@ -797,7 +831,7 @@ func (tx *SQLTx) encodeRowValue(valuesByColID map[uint32]TypedValue, table *Tabl
 			return nil, fmt.Errorf("%w: table: %s, column: %s", err, table.name, col.colName)
 		}
 
-		encVal, err := EncodeValue(rval, col.colType, col.MaxLen())
+		encVal, err := EncodeValue(rval, col.colType, col.maxLen)
 		if err != nil {
 			return nil, fmt.Errorf("%w: table: %s, column: %s", err, table.name, col.colName)
 		}
@@ -870,7 +904,7 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 				rval = &NullValue{t: col.colType}
 			}
 
-			encVal, n, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
+			encVal, n, err := EncodeValueAsKey(rval, col.colType, col.maxLen)
 			if err != nil {
 				return fmt.Errorf("%w: index on '%s' and column '%s'", err, index.Name(), col.colName)
 			}
@@ -922,7 +956,7 @@ func encodedKey(index *Index, valuesByColID map[uint32]TypedValue) ([]byte, erro
 			return nil, ErrPKCanNotBeNull
 		}
 
-		encVal, n, err := EncodeValueAsKey(rval, col.colType, col.MaxLen())
+		encVal, n, err := EncodeValueAsKey(rval, col.colType, col.maxLen)
 		if err != nil {
 			return nil, fmt.Errorf("%w: index of table '%s' and column '%s'", err, index.table.name, col.colName)
 		}
@@ -1019,7 +1053,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 
 			sameIndexKey = sameIndexKey && r == 0
 
-			encVal, _, _ := EncodeValueAsKey(currVal, col.colType, col.MaxLen())
+			encVal, _, _ := EncodeValueAsKey(currVal, col.colType, col.maxLen)
 
 			encodedValues[i+3] = encVal
 		}
@@ -1304,7 +1338,7 @@ func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]T
 				val = &NullValue{t: col.colType}
 			}
 
-			encVal, _, _ := EncodeValueAsKey(val, col.colType, col.MaxLen())
+			encVal, _, _ := EncodeValueAsKey(val, col.colType, col.maxLen)
 
 			encodedValues[i+3] = encVal
 		}
@@ -4057,7 +4091,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 		},
 		{
 			Column: "max_length",
-			Type:   IntegerType,
+			Type:   VarcharType,
 		},
 		{
 			Column: "nullable",
@@ -4116,11 +4150,19 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 			}
 		}
 
+		var maxLen string
+
+		if len(c.maxLen) == 1 {
+			maxLen = fmt.Sprintf("%d", c.maxLen[0])
+		} else {
+			maxLen = fmt.Sprintf("(%d, %d)", c.maxLen[0], c.maxLen[1])
+		}
+
 		values[i] = []ValueExp{
 			&Varchar{val: table.name},
 			&Varchar{val: c.colName},
 			&Varchar{val: c.colType},
-			&Integer{val: int64(c.MaxLen())},
+			&Varchar{val: maxLen},
 			&Bool{val: c.IsNullable()},
 			&Bool{val: c.autoIncrement},
 			&Bool{val: indexed},

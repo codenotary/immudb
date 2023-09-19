@@ -103,23 +103,12 @@ var protomodelValueTypeToSQLValueType = func(stype protomodel.FieldType) (sql.SQ
 	return "", fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 }
 
-var sqlValueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
-	switch stype {
-	case sql.VarcharType:
-		return sql.MaxKeyLen, nil
-	case sql.UUIDType:
-		return 0, nil
-	case sql.IntegerType:
-		return 0, nil
-	case sql.BLOBType:
-		return sql.MaxKeyLen, nil
-	case sql.Float64Type:
-		return 0, nil
-	case sql.BooleanType:
-		return 0, nil
+var sqlValueTypeDefaultLength = func(stype sql.SQLValueType) ([]int, error) {
+	if stype == sql.VarcharType || stype == sql.BLOBType {
+		return []int{sql.MaxKeyLen}, nil
 	}
 
-	return 0, fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
+	return sql.DefaultMaxLenForType(stype)
 }
 
 func kvMetadataToProto(kvMetadata *store.KVMetadata) *protomodel.DocumentMetadata {

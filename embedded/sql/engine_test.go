@@ -2108,151 +2108,151 @@ func TestUseSnapshot(t *testing.T) {
 }
 
 func TestEncodeValue(t *testing.T) {
-	b, err := EncodeValue(&Integer{val: int64(1)}, IntegerType, 0)
+	b, err := EncodeValue(&Integer{val: int64(1)}, IntegerType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue(&Integer{val: int64(1)}, BooleanType, 0)
+	b, err = EncodeValue(&Integer{val: int64(1)}, BooleanType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Integer{val: int64(1)}, VarcharType, 0)
+	b, err = EncodeValue(&Integer{val: int64(1)}, VarcharType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Integer{val: int64(1)}, BLOBType, 0)
+	b, err = EncodeValue(&Integer{val: int64(1)}, BLOBType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Integer{val: int64(1)}, "invalid type", 0)
+	b, err = EncodeValue(&Integer{val: int64(1)}, "invalid type", nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Bool{val: true}, BooleanType, 0)
+	b, err = EncodeValue(&Bool{val: true}, BooleanType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue(&Bool{val: true}, IntegerType, 0)
+	b, err = EncodeValue(&Bool{val: true}, IntegerType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Varchar{val: "title"}, VarcharType, 0)
+	b, err = EncodeValue(&Varchar{val: "title"}, VarcharType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue(&Blob{val: []byte{}}, BLOBType, 0)
+	b, err = EncodeValue(&Blob{val: []byte{}}, BLOBType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue(&Blob{val: nil}, BLOBType, 0)
+	b, err = EncodeValue(&Blob{val: nil}, BLOBType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
 	// Max allowed key size is 32 bytes
-	b, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, 32)
+	b, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, []int{32})
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue(&Varchar{val: "01234567890123456789012345678902"}, VarcharType, 0)
+	_, err = EncodeValue(&Varchar{val: "01234567890123456789012345678902"}, VarcharType, nil)
 	require.NoError(t, err)
 
-	_, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, 0)
+	_, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, nil)
 	require.NoError(t, err)
 
 	b, err = EncodeValue(&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
-	}, BLOBType, 32)
+	}, BLOBType, []int{32})
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
 	_, err = EncodeValue(&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1},
-	}, BLOBType, 0)
+	}, BLOBType, nil)
 	require.NoError(t, err)
 
 	_, err = EncodeValue(&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
-	}, BLOBType, 0)
+	}, BLOBType, nil)
 	require.NoError(t, err)
 
-	b, err = EncodeValue((&Integer{val: 1}), IntegerType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), IntegerType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue((&Bool{val: true}), IntegerType, 0)
+	b, err = EncodeValue((&Bool{val: true}), IntegerType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Bool{val: true}), BooleanType, 0)
+	b, err = EncodeValue((&Bool{val: true}), BooleanType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}), BooleanType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), BooleanType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Varchar{val: "title"}), VarcharType, 0)
+	b, err = EncodeValue((&Varchar{val: "title"}), VarcharType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}), VarcharType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), VarcharType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Blob{val: []byte{}}), BLOBType, 50)
+	b, err = EncodeValue((&Blob{val: []byte{}}), BLOBType, []int{50})
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue((&Blob{val: nil}), BLOBType, 50)
+	b, err = EncodeValue((&Blob{val: nil}), BLOBType, []int{50})
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}), BLOBType, 50)
+	b, err = EncodeValue((&Integer{val: 1}), BLOBType, []int{50})
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Integer{val: 1}), "invalid type", 50)
+	b, err = EncodeValue((&Integer{val: 1}), "invalid type", []int{50})
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
 	// Max allowed key size is 32 bytes
-	b, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}), VarcharType, 32)
+	b, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}), VarcharType, []int{32})
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue((&Varchar{val: "01234567890123456789012345678902"}), VarcharType, 256)
+	_, err = EncodeValue((&Varchar{val: "01234567890123456789012345678902"}), VarcharType, []int{256})
 	require.NoError(t, err)
 
-	_, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}), VarcharType, 256)
+	_, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}), VarcharType, []int{256})
 	require.NoError(t, err)
 
 	b, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}}), BLOBType, 32)
+	}}), BLOBType, []int{32})
 	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
 	_, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
-	}}), BLOBType, 256)
+	}}), BLOBType, []int{256})
 	require.NoError(t, err)
 
 	_, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}}), BLOBType, 256)
+	}}), BLOBType, []int{256})
 	require.NoError(t, err)
 
-	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1000)}), TimestampType, 0)
+	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1000)}), TimestampType, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue((&Integer{val: 1}), TimestampType, 0)
+	b, err = EncodeValue((&Integer{val: 1}), TimestampType, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 }
@@ -5141,7 +5141,7 @@ func TestUnmapIndexEntry(t *testing.T) {
 		id:     2,
 		unique: false,
 		cols: []*Column{
-			{id: 3, colType: VarcharType, maxLen: 10},
+			{id: 3, colType: VarcharType, maxLen: []int{10}},
 		},
 	}
 
@@ -5159,53 +5159,55 @@ func TestUnmapIndexEntry(t *testing.T) {
 }
 
 func TestEncodeAsKeyEdgeCases(t *testing.T) {
-	_, _, err := EncodeValueAsKey(&NullValue{}, IntegerType, 0)
-	require.ErrorIs(t, err, ErrInvalidValue)
+	encVal, n, err := EncodeValueAsKey(&NullValue{}, IntegerType, []int{8})
+	require.NoError(t, err)
+	require.Zero(t, n)
+	require.Equal(t, []byte{KeyValPrefixNull}, encVal)
 
-	_, _, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, MaxKeyLen+1)
+	_, _, err = EncodeValueAsKey(&Varchar{val: "a"}, VarcharType, []int{MaxKeyLen + 1})
 	require.ErrorIs(t, err, ErrMaxKeyLengthExceeded)
 
-	_, _, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", MaxKeyLen)
+	_, _, err = EncodeValueAsKey(&Varchar{val: "a"}, "NOTATYPE", []int{MaxKeyLen})
 	require.ErrorIs(t, err, ErrInvalidValue)
 
 	t.Run("varchar cases", func(t *testing.T) {
-		_, _, err = EncodeValueAsKey(&Bool{val: true}, VarcharType, 10)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, VarcharType, []int{10})
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, VarcharType, 1)
+		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, VarcharType, []int{1})
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
 
 	t.Run("integer cases", func(t *testing.T) {
-		_, _, err = EncodeValueAsKey(&Bool{val: true}, IntegerType, 8)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, IntegerType, []int{8})
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, _, err = EncodeValueAsKey(&Integer{val: int64(10)}, IntegerType, 4)
-		require.ErrorIs(t, err, ErrCorruptedData)
+		_, _, err = EncodeValueAsKey(&Integer{val: int64(10)}, IntegerType, []int{4})
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
 	t.Run("boolean cases", func(t *testing.T) {
-		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, BooleanType, 1)
+		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, BooleanType, []int{1})
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, _, err = EncodeValueAsKey(&Bool{val: true}, BooleanType, 2)
-		require.ErrorIs(t, err, ErrCorruptedData)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, BooleanType, []int{2})
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
 	t.Run("blob cases", func(t *testing.T) {
-		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, BLOBType, 3)
+		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, BLOBType, []int{3})
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, _, err = EncodeValueAsKey(&Blob{val: []byte{1, 2, 3}}, BLOBType, 2)
+		_, _, err = EncodeValueAsKey(&Blob{val: []byte{1, 2, 3}}, BLOBType, []int{2})
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
 
 	t.Run("timestamp cases", func(t *testing.T) {
-		_, _, err = EncodeValueAsKey(&Bool{val: true}, TimestampType, 8)
+		_, _, err = EncodeValueAsKey(&Bool{val: true}, TimestampType, []int{8})
 		require.ErrorIs(t, err, ErrInvalidValue)
 
-		_, _, err = EncodeValueAsKey(&Integer{val: int64(10)}, TimestampType, 4)
-		require.ErrorIs(t, err, ErrCorruptedData)
+		_, _, err = EncodeValueAsKey(&Integer{val: int64(10)}, TimestampType, []int{4})
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 }
 
@@ -6115,7 +6117,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.Equal(t, "mytable1", row.ValuesBySelector["(columns.table)"].RawValue())
 		require.Equal(t, "id", row.ValuesBySelector["(columns.name)"].RawValue())
 		require.Equal(t, IntegerType, row.ValuesBySelector["(columns.type)"].RawValue())
-		require.Equal(t, int64(8), row.ValuesBySelector["(columns.max_length)"].RawValue())
+		require.Equal(t, "8", row.ValuesBySelector["(columns.max_length)"].RawValue())
 		require.False(t, row.ValuesBySelector["(columns.nullable)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(columns.auto_increment)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(columns.indexed)"].RawValue().(bool))
@@ -6127,7 +6129,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.Equal(t, "mytable1", row.ValuesBySelector["(columns.table)"].RawValue())
 		require.Equal(t, "title", row.ValuesBySelector["(columns.name)"].RawValue())
 		require.Equal(t, VarcharType, row.ValuesBySelector["(columns.type)"].RawValue())
-		require.Equal(t, int64(256), row.ValuesBySelector["(columns.max_length)"].RawValue())
+		require.Equal(t, "256", row.ValuesBySelector["(columns.max_length)"].RawValue())
 		require.True(t, row.ValuesBySelector["(columns.nullable)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(columns.auto_increment)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(columns.indexed)"].RawValue().(bool))
@@ -6149,7 +6151,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.Equal(t, "mytable2", row.ValuesBySelector["(columns.table)"].RawValue())
 		require.Equal(t, "id", row.ValuesBySelector["(columns.name)"].RawValue())
 		require.Equal(t, IntegerType, row.ValuesBySelector["(columns.type)"].RawValue())
-		require.Equal(t, int64(8), row.ValuesBySelector["(columns.max_length)"].RawValue())
+		require.Equal(t, "8", row.ValuesBySelector["(columns.max_length)"].RawValue())
 		require.False(t, row.ValuesBySelector["(columns.nullable)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(columns.auto_increment)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(columns.indexed)"].RawValue().(bool))
@@ -6161,7 +6163,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.Equal(t, "mytable2", row.ValuesBySelector["(columns.table)"].RawValue())
 		require.Equal(t, "name", row.ValuesBySelector["(columns.name)"].RawValue())
 		require.Equal(t, VarcharType, row.ValuesBySelector["(columns.type)"].RawValue())
-		require.Equal(t, int64(100), row.ValuesBySelector["(columns.max_length)"].RawValue())
+		require.Equal(t, "100", row.ValuesBySelector["(columns.max_length)"].RawValue())
 		require.True(t, row.ValuesBySelector["(columns.nullable)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(columns.auto_increment)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(columns.indexed)"].RawValue().(bool))
@@ -6173,7 +6175,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.Equal(t, "mytable2", row.ValuesBySelector["(columns.table)"].RawValue())
 		require.Equal(t, "active", row.ValuesBySelector["(columns.name)"].RawValue())
 		require.Equal(t, BooleanType, row.ValuesBySelector["(columns.type)"].RawValue())
-		require.Equal(t, int64(1), row.ValuesBySelector["(columns.max_length)"].RawValue())
+		require.Equal(t, "1", row.ValuesBySelector["(columns.max_length)"].RawValue())
 		require.True(t, row.ValuesBySelector["(columns.nullable)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(columns.auto_increment)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(columns.indexed)"].RawValue().(bool))

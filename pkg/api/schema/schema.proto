@@ -1297,6 +1297,7 @@ message VerifiableSQLEntry {
 
   // Mapping of column IDs to their length constraints
   map<uint32, int32> ColLenById = 11;
+  map<uint32, int32> ColLen2ById = 13; // decimal scale
 
   // Variable is used to assign unique ids to new columns as they are created
   uint32 MaxColId = 12;
