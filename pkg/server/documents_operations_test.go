@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -920,6 +921,8 @@ func TestDocuments(t *testing.T) {
 		require.Len(t, res.DocumentIds, 1)
 		docID = res.DocumentIds[0]
 	})
+
+	time.Sleep(100 * time.Millisecond)
 
 	t.Run("should pass when auditing document", func(t *testing.T) {
 		resp, err := s.AuditDocument(ctx, &protomodel.AuditDocumentRequest{
