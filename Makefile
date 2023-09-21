@@ -97,7 +97,7 @@ immuadmin:
 	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
-immudb: build webconsole
+immudb: webconsole swagger
 	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
 .PHONY: immutest
