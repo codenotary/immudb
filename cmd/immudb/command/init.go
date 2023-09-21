@@ -86,6 +86,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Minute, "sessions guard check interval")
 	cmd.Flags().MarkHidden("sessions-guard-check-interval")
 	cmd.Flags().Bool("grpc-reflection", options.GRPCReflectionServerEnabled, "GRPC reflection server enabled")
+	cmd.Flags().Bool("swaggerui", options.SwaggerUIEnabled, "Swagger UI enabled")
 
 	flagNameMapping := map[string]string{
 		"replication-enabled":           "replication-is-replica",

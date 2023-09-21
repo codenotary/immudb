@@ -20,7 +20,10 @@ VERSION=1.5.0
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
+SWAGGER?=false
 FIPSENABLED?=false
+SWAGGERUIVERSION=4.15.5
+SWAGGERUILINK="https://github.com/swagger-api/swagger-ui/archive/refs/tags/v${SWAGGERUIVERSION}.tar.gz"
 
 PWD = $(shell pwd)
 GO ?= go
@@ -50,15 +53,19 @@ V_BUILD_NAME ?= ""
 V_BUILD_FLAG = -o $(V_BUILD_NAME)
 
 GRPC_GATEWAY_VERSION := $(shell go list -m -versions github.com/grpc-ecosystem/grpc-gateway | awk -F ' ' '{print $$NF}')
+SWAGGER_BUILDTAG=
 WEBCONSOLE_BUILDTAG=
 FIPS_BUILDTAG=
 ifdef WEBCONSOLE
 WEBCONSOLE_BUILDTAG=webconsole
 endif
-ifeq ($(FIPSENABLED),true)
-FIPS_BUILDTAG=fips
+ifeq ($(SWAGGER),true)
+SWAGGER_BUILDTAG=swagger
 endif
-IMMUDB_BUILD_TAGS=-tags "$(WEBCONSOLE_BUILDTAG) $(FIPS_BUILDTAG)"
+ifeq ($(FIPSENABLED),true)
+FIPS_BUILDTAG=swagger
+endif
+IMMUDB_BUILD_TAGS=-tags "$(SWAGGER_BUILDTAG) $(WEBCONSOLE_BUILDTAG) $(FIPS_BUILDTAG)"
 
 .PHONY: all
 all: immudb immuclient immuadmin immutest
@@ -181,10 +188,29 @@ build/codegenv2:
 	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/protomodel \
 	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/protomodel \
 	  --doc_out=pkg/api/protomodel --doc_opt=markdown,docs.md \
+	  --swagger_out=logtostderr=true,allow_merge=true,simple_operation_ids=true:pkg/api/openapi \
+
+./swagger/dist:
+	rm -rf swagger/dist/
+	curl -L $(SWAGGERUILINK) | tar -xz -C swagger
+	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
+	cp pkg/api/openapi/apidocs.swagger.json swagger/dist/apidocs.swagger.json
+	cp pkg/api/schema/schema.swagger.json swagger/dist/schema.swagger.json
+	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
+
+.PHONY: swagger
+ifeq ($(SWAGGER),true)
+swagger: ./swagger/dist
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
+else
+swagger:
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
+endif
+
 
 .PHONY: clean
 clean:
-	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist
+	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist ./swagger/dist
 
 .PHONY: man
 man:
