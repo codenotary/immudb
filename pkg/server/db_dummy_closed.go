@@ -268,6 +268,14 @@ func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.DeleteC
 	return nil, store.ErrAlreadyClosed
 }
 
+func (d *closedDB) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
 func (d *closedDB) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

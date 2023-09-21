@@ -188,6 +188,38 @@ message UpdateCollectionRequest {
 
 message UpdateCollectionResponse {}
 
+message AddFieldRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collectionName",
+        "field"
+      ]
+    }
+  };
+
+  string collectionName = 1;
+  Field field = 2;
+}
+
+message AddFieldResponse {}
+
+message RemoveFieldRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collectionName",
+        "fieldName"
+      ]
+    }
+  };
+
+  string collectionName = 1;
+  string fieldName = 2;
+}
+
+message RemoveFieldResponse {}
+
 message CreateIndexRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: {
@@ -564,6 +596,25 @@ service DocumentService {
   rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse) {
     option (google.api.http) = {
       delete: "/collection/{name}"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc AddField(AddFieldRequest) returns (AddFieldResponse) {
+    option (google.api.http) = {
+      post: "/collection/{collectionName}/field"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc RemoveField(RemoveFieldRequest) returns (RemoveFieldResponse) {
+    option (google.api.http) = {
+      delete: "/collection/{collectionName}/field/{fieldName}"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";

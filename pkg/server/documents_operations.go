@@ -74,6 +74,24 @@ func (s *ImmuServer) DeleteCollection(ctx context.Context, req *protomodel.Delet
 	return db.DeleteCollection(ctx, req)
 }
 
+func (s *ImmuServer) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "AddField")
+	if err != nil {
+		return nil, err
+	}
+
+	return db.AddField(ctx, req)
+}
+
+func (s *ImmuServer) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "RemoveField")
+	if err != nil {
+		return nil, err
+	}
+
+	return db.RemoveField(ctx, req)
+}
+
 func (s *ImmuServer) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "CreateIndex")
 	if err != nil {
