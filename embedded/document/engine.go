@@ -464,6 +464,61 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 	return mayTranslateError(err)
 }
 
+func (e *Engine) AddField(ctx context.Context, collectionName string, field *protomodel.Field) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
+	if field == nil {
+		return fmt.Errorf("%w: no field specified", ErrIllegalArguments)
+	}
+
+	err = validateFieldName(field.Name)
+	if err != nil {
+		return err
+	}
+
+	sqlType, err := protomodelValueTypeToSQLValueType(field.Type)
+	if err != nil {
+		return err
+	}
+
+	colLen, err := sqlValueTypeDefaultLength(sqlType)
+	if err != nil {
+		return err
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	colSpec := sql.NewColSpec(field.Name, sqlType, colLen, false, false)
+
+	addColumnStmt := sql.NewAddColumnStmt(collectionName, colSpec)
+
+	_, _, err = e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		sqlTx,
+		[]sql.SQLStmt{addColumnStmt},
+		nil,
+	)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
+}
+
 func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields []string, isUnique bool) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
