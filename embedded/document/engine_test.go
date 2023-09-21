@@ -1499,6 +1499,33 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		require.ErrorIs(t, err, ErrFieldDoesNotExist)
 	})
 
+	t.Run("create index with a new field name should succeed", func(t *testing.T) {
+		err := engine.AddField(
+			context.Background(),
+			collectionName,
+			&protomodel.Field{
+				Name: "newFieldName",
+				Type: protomodel.FieldType_INTEGER,
+			},
+		)
+		require.NoError(t, err)
+
+		err = engine.CreateIndex(
+			context.Background(),
+			collectionName,
+			[]string{"newFieldName"},
+			false,
+		)
+		require.NoError(t, err)
+
+		err = engine.DeleteIndex(
+			context.Background(),
+			collectionName,
+			[]string{"newFieldName"},
+		)
+		require.NoError(t, err)
+	})
+
 	t.Run("delete index with invalid collection name should fail", func(t *testing.T) {
 		// update collection
 		err := engine.DeleteIndex(

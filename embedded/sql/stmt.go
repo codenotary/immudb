@@ -453,6 +453,10 @@ type AddColumnStmt struct {
 	colSpec *ColSpec
 }
 
+func NewAddColumnStmt(table string, colSpec *ColSpec) *AddColumnStmt {
+	return &AddColumnStmt{table: table, colSpec: colSpec}
+}
+
 func (stmt *AddColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
