@@ -110,7 +110,7 @@
         "security": []
       }
     },
-    "/collection/documents/search": {
+    "/collection/{collectionName}/documents/search": {
       "post": {
         "operationId": "SearchDocuments",
         "responses": {
@@ -128,6 +128,12 @@
           }
         },
         "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -692,44 +698,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/modelReplaceDocumentsRequest"
-            }
-          }
-        ],
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/collection/{collectionName}/documents/search": {
-      "post": {
-        "operationId": "SearchDocuments",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/modelSearchDocumentsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "collectionName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelSearchDocumentsRequest"
             }
           }
         ],
@@ -1307,12 +1275,6 @@
     "modelSearchDocumentsRequestWith": {
       "type": "object",
       "properties": {
-        "searchId": {
-          "type": "string"
-        },
-        "query": {
-          "$ref": "#/definitions/modelQuery"
-        },
         "page": {
           "type": "integer",
           "format": "int64"
@@ -1326,8 +1288,6 @@
         }
       },
       "required": [
-        "searchId",
-        "query",
         "page",
         "pageSize",
         "keepOpen"
