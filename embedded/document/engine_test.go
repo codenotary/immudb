@@ -21,6 +21,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/stretchr/testify/require"
@@ -1497,6 +1498,13 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			false,
 		)
 		require.ErrorIs(t, err, ErrFieldDoesNotExist)
+
+		err = engine.RemoveField(
+			context.Background(),
+			collectionName,
+			"unexistentFieldName",
+		)
+		require.ErrorIs(t, err, ErrFieldDoesNotExist)
 	})
 
 	t.Run("create index with a new field name should succeed", func(t *testing.T) {
@@ -1510,6 +1518,16 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		err = engine.AddField(
+			context.Background(),
+			collectionName,
+			&protomodel.Field{
+				Name: "newFieldName",
+				Type: protomodel.FieldType_BOOLEAN,
+			},
+		)
+		require.ErrorIs(t, err, ErrFieldAlreadyExists)
+
 		err = engine.CreateIndex(
 			context.Background(),
 			collectionName,
@@ -1518,12 +1536,33 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		err = engine.RemoveField(
+			context.Background(),
+			collectionName,
+			"newFieldName",
+		)
+		require.ErrorIs(t, err, sql.ErrCantDropIndexedColumn)
+
 		err = engine.DeleteIndex(
 			context.Background(),
 			collectionName,
 			[]string{"newFieldName"},
 		)
 		require.NoError(t, err)
+
+		err = engine.RemoveField(
+			context.Background(),
+			collectionName,
+			"newFieldName",
+		)
+		require.NoError(t, err)
+
+		err = engine.RemoveField(
+			context.Background(),
+			collectionName,
+			"newFieldName",
+		)
+		require.ErrorIs(t, err, ErrFieldDoesNotExist)
 	})
 
 	t.Run("delete index with invalid collection name should fail", func(t *testing.T) {

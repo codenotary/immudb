@@ -519,6 +519,45 @@ func (e *Engine) AddField(ctx context.Context, collectionName string, field *pro
 	return mayTranslateError(err)
 }
 
+func (e *Engine) RemoveField(ctx context.Context, collectionName string, fieldName string) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
+	err = validateFieldName(fieldName)
+	if err != nil {
+		return err
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	dropColumnStmt := sql.NewDropColumnStmt(collectionName, fieldName)
+
+	_, _, err = e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		sqlTx,
+		[]sql.SQLStmt{dropColumnStmt},
+		nil,
+	)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
+}
+
 func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields []string, isUnique bool) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
