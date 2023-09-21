@@ -185,6 +185,12 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.DeleteCollection(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
+	_, err = cdb.AddField(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	_, err = cdb.RemoveField(context.Background(), nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
 	_, err = cdb.CreateIndex(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 

@@ -37,6 +37,10 @@ type DocumentDatabase interface {
 	UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error)
 	// DeleteCollection deletes a collection
 	DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error)
+	// AddField adds a new field in a collection
+	AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error)
+	// RemoveField removes a field from a collection
+	RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error)
 	// CreateIndex creates an index for a collection
 	CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error)
 	// DeleteIndex deletes an index from a collection
@@ -141,6 +145,44 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollect
 	}
 
 	return &protomodel.DeleteCollectionResponse{}, nil
+}
+
+// AddField adds a new field in a collection
+func (d *db) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
+	err := d.documentEngine.AddField(ctx, req.CollectionName, req.Field)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.AddFieldResponse{}, nil
+}
+
+// RemoveField removes a field from a collection
+func (d *db) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.documentEngine.RemoveField(ctx, req.CollectionName, req.FieldName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protomodel.RemoveFieldResponse{}, nil
 }
 
 // CreateIndex creates an index for a collection
