@@ -1,0 +1,1639 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "immudb REST API v2",
+    "description": "Authorization API",
+    "version": "version not set"
+  },
+  "basePath": "/api/v2",
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/authorization/session/close": {
+      "post": {
+        "operationId": "CloseSession",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCloseSessionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCloseSessionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/authorization/session/keepalive": {
+      "post": {
+        "operationId": "KeepAlive",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelKeepAliveResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelKeepAliveRequest"
+            }
+          }
+        ],
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/authorization/session/open": {
+      "post": {
+        "operationId": "OpenSession",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/immudbmodelOpenSessionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/immudbmodelOpenSessionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "authorization"
+        ],
+        "security": []
+      }
+    },
+    "/collection/documents/search": {
+      "post": {
+        "operationId": "SearchDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelSearchDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelSearchDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/documents/searchWith/{searchId}": {
+      "post": {
+        "operationId": "SearchDocumentsWith",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelSearchDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "searchId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelSearchDocumentsRequestWith"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/document/{documentId}/audit": {
+      "post": {
+        "operationId": "AuditDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelAuditDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelAuditDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/document/{documentId}/proof": {
+      "post": {
+        "operationId": "ProofDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelProofDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelProofDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents": {
+      "post": {
+        "operationId": "InsertDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelInsertDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelInsertDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/index": {
+      "delete": {
+        "operationId": "DeleteIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelDeleteIndexResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      },
+      "post": {
+        "operationId": "CreateIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCreateIndexResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCreateIndexRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{name}": {
+      "get": {
+        "operationId": "GetCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelGetCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      },
+      "delete": {
+        "operationId": "DeleteCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelDeleteCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      },
+      "post": {
+        "operationId": "CreateCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCreateCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCreateCollectionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      },
+      "put": {
+        "operationId": "UpdateCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelUpdateCollectionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelUpdateCollectionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents/count": {
+      "post": {
+        "operationId": "CountDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelCountDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCountDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents/delete": {
+      "post": {
+        "operationId": "DeleteDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelDeleteDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelDeleteDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents/replace": {
+      "put": {
+        "operationId": "ReplaceDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelReplaceDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelReplaceDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collection/{collectionName}/documents/search": {
+      "post": {
+        "operationId": "SearchDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelSearchDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collectionName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelSearchDocumentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/collections": {
+      "get": {
+        "operationId": "GetCollections",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/modelGetCollectionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "immudbmodelOpenSessionRequest": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "immudbmodelOpenSessionResponse": {
+      "type": "object",
+      "properties": {
+        "sessionID": {
+          "type": "string"
+        },
+        "serverUUID": {
+          "type": "string"
+        },
+        "expirationTimestamp": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "inactivityTimestamp": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "modelAuditDocumentRequest": {
+      "type": "object",
+      "properties": {
+        "desc": {
+          "type": "boolean"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "collectionName",
+        "documentId",
+        "desc",
+        "page",
+        "pageSize"
+      ]
+    },
+    "modelAuditDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
+        }
+      },
+      "required": [
+        "revisions"
+      ]
+    },
+    "modelCloseSessionRequest": {
+      "type": "object"
+    },
+    "modelCloseSessionResponse": {
+      "type": "object"
+    },
+    "modelCollection": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "documentIdFieldName": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelField"
+          }
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelIndex"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "documentIdFieldName",
+        "fields",
+        "indexes"
+      ]
+    },
+    "modelComparisonOperator": {
+      "type": "string",
+      "enum": [
+        "EQ",
+        "NE",
+        "LT",
+        "LE",
+        "GT",
+        "GE",
+        "LIKE",
+        "NOT_LIKE"
+      ],
+      "default": "EQ"
+    },
+    "modelCountDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "modelCountDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "count"
+      ]
+    },
+    "modelCreateCollectionRequest": {
+      "type": "object",
+      "properties": {
+        "documentIdFieldName": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelField"
+          }
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelIndex"
+          }
+        }
+      },
+      "required": [
+        "documentIdFieldName"
+      ]
+    },
+    "modelCreateCollectionResponse": {
+      "type": "object"
+    },
+    "modelCreateIndexRequest": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isUnique": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "fields",
+        "isUnique"
+      ]
+    },
+    "modelCreateIndexResponse": {
+      "type": "object"
+    },
+    "modelDeleteCollectionResponse": {
+      "type": "object"
+    },
+    "modelDeleteDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "modelDeleteDocumentsResponse": {
+      "type": "object"
+    },
+    "modelDeleteIndexResponse": {
+      "type": "object"
+    },
+    "modelDocumentAtRevision": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "documentId": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "metadata": {
+          "$ref": "#/definitions/modelDocumentMetadata"
+        },
+        "document": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "transactionId",
+        "documentId",
+        "revision"
+      ]
+    },
+    "modelDocumentMetadata": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ]
+    },
+    "modelField": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/modelFieldType"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "modelFieldComparison": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/definitions/modelComparisonOperator"
+        },
+        "value": {}
+      },
+      "required": [
+        "field",
+        "operator",
+        "value"
+      ]
+    },
+    "modelFieldType": {
+      "type": "string",
+      "enum": [
+        "STRING",
+        "BOOLEAN",
+        "INTEGER",
+        "DOUBLE"
+      ],
+      "default": "STRING"
+    },
+    "modelGetCollectionResponse": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "$ref": "#/definitions/modelCollection"
+        }
+      },
+      "required": [
+        "collection"
+      ]
+    },
+    "modelGetCollectionsResponse": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelCollection"
+          }
+        }
+      },
+      "required": [
+        "collections"
+      ]
+    },
+    "modelIndex": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isUnique": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "fields",
+        "isUnique"
+      ]
+    },
+    "modelInsertDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "documents"
+      ]
+    },
+    "modelInsertDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "documentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "transactionId",
+        "documentIds"
+      ]
+    },
+    "modelKeepAliveRequest": {
+      "type": "object"
+    },
+    "modelKeepAliveResponse": {
+      "type": "object"
+    },
+    "modelOrderByClause": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "field",
+        "desc"
+      ]
+    },
+    "modelProofDocumentRequest": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "proofSinceTransactionId": {
+          "type": "string",
+          "format": "uint64"
+        }
+      },
+      "required": [
+        "collectionName",
+        "documentId",
+        "transactionId",
+        "proofSinceTransactionId"
+      ]
+    },
+    "modelProofDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "collectionId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "documentIdFieldName": {
+          "type": "string"
+        },
+        "encodedDocument": {
+          "type": "string",
+          "format": "byte"
+        },
+        "verifiableTx": {
+          "$ref": "#/definitions/schemaVerifiableTxV2"
+        }
+      },
+      "required": [
+        "database",
+        "collectionId",
+        "documentIdFieldName",
+        "encodedDocument",
+        "verifiableTx"
+      ]
+    },
+    "modelQuery": {
+      "type": "object",
+      "properties": {
+        "expressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelQueryExpression"
+          }
+        },
+        "orderBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelOrderByClause"
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "expressions",
+        "orderBy",
+        "limit"
+      ]
+    },
+    "modelQueryExpression": {
+      "type": "object",
+      "properties": {
+        "fieldComparisons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelFieldComparison"
+          }
+        }
+      },
+      "required": [
+        "fieldComparisons"
+      ]
+    },
+    "modelReplaceDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        },
+        "document": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "query",
+        "document"
+      ]
+    },
+    "modelReplaceDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
+        }
+      },
+      "required": [
+        "revisions"
+      ]
+    },
+    "modelSearchDocumentsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "keepOpen": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "query",
+        "page",
+        "pageSize",
+        "keepOpen"
+      ]
+    },
+    "modelSearchDocumentsRequestWith": {
+      "type": "object",
+      "properties": {
+        "searchId": {
+          "type": "string"
+        },
+        "query": {
+          "$ref": "#/definitions/modelQuery"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "keepOpen": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "searchId",
+        "query",
+        "page",
+        "pageSize",
+        "keepOpen"
+      ]
+    },
+    "modelSearchDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "searchId": {
+          "type": "string"
+        },
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelDocumentAtRevision"
+          }
+        }
+      },
+      "required": [
+        "searchId",
+        "revisions"
+      ]
+    },
+    "modelUpdateCollectionRequest": {
+      "type": "object",
+      "properties": {
+        "documentIdFieldName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentIdFieldName"
+      ]
+    },
+    "modelUpdateCollectionResponse": {
+      "type": "object"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string",
+          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
+        },
+        "value": {
+          "type": "string",
+          "format": "byte",
+          "description": "Must be a valid serialized protocol buffer of the above specified type."
+        }
+      },
+      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\nExample 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\nExample 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := anypb.New(foo)\n     if err != nil {\n       ...\n     }\n     ...\n     foo := \u0026pb.Foo{}\n     if err := any.UnmarshalTo(foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\n The JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "schemaDualProofV2": {
+      "type": "object",
+      "properties": {
+        "sourceTxHeader": {
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Header of the source (earlier) transaction"
+        },
+        "targetTxHeader": {
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Header of the target (latter) transaction"
+        },
+        "inclusionProof": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          },
+          "title": "Inclusion proof of the source transaction hash in the main Merkle Tree"
+        },
+        "consistencyProof": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          },
+          "title": "Consistency proof between Merkle Trees in the source and target transactions"
+        }
+      },
+      "title": "DualProofV2 contains inclusion and consistency proofs"
+    },
+    "schemaEntry": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Transaction id at which the target value was set (i.e. not the reference transaction id)"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte",
+          "title": "Key of the target value (i.e. not the reference entry)"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte",
+          "title": "Value"
+        },
+        "referencedBy": {
+          "$ref": "#/definitions/schemaReference",
+          "title": "If the request was for a reference, this field will keep information about the reference entry"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Metadata of the target entry (i.e. not the reference entry)"
+        },
+        "expired": {
+          "type": "boolean",
+          "title": "If set to true, this entry has expired and the value is not retrieved"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Key's revision, in case of GetAt it will be 0"
+        }
+      }
+    },
+    "schemaExpiration": {
+      "type": "object",
+      "properties": {
+        "expiresAt": {
+          "type": "string",
+          "format": "int64",
+          "title": "Entry expiration time (unix timestamp in seconds)"
+        }
+      }
+    },
+    "schemaKVMetadata": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "title": "True if this entry denotes a logical deletion"
+        },
+        "expiration": {
+          "$ref": "#/definitions/schemaExpiration",
+          "title": "Entry expiration information"
+        },
+        "nonIndexable": {
+          "type": "boolean",
+          "title": "If set to true, this entry will not be indexed and will only be accessed through GetAt calls"
+        }
+      }
+    },
+    "schemaReference": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Transaction if when the reference key was set"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte",
+          "title": "Reference key"
+        },
+        "atTx": {
+          "type": "string",
+          "format": "uint64",
+          "title": "At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Metadata of the reference entry"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Revision of the reference entry"
+        }
+      }
+    },
+    "schemaSignature": {
+      "type": "object",
+      "properties": {
+        "publicKey": {
+          "type": "string",
+          "format": "byte"
+        },
+        "signature": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "schemaTx": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Transaction header"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTxEntry"
+          },
+          "title": "Raw entry values"
+        },
+        "kvEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaEntry"
+          },
+          "title": "KV entries in the transaction (parsed)"
+        },
+        "zEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaZEntry"
+          },
+          "title": "Sorted Set entries in the transaction (parsed)"
+        }
+      }
+    },
+    "schemaTxEntry": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte",
+          "title": "Raw key value (contains 1-byte prefix for kind of the key)"
+        },
+        "hValue": {
+          "type": "string",
+          "format": "byte",
+          "title": "Value hash"
+        },
+        "vLen": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Value length"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Entry metadata"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte",
+          "description": "value, must be ignored when len(value) == 0 and vLen \u003e 0.\nOtherwise sha256(value) must be equal to hValue."
+        }
+      }
+    },
+    "schemaTxHeader": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Transaction ID"
+        },
+        "prevAlh": {
+          "type": "string",
+          "format": "byte",
+          "title": "State value (Accumulative Hash - Alh) of the previous transaction"
+        },
+        "ts": {
+          "type": "string",
+          "format": "int64",
+          "title": "Unix timestamp of the transaction (in seconds)"
+        },
+        "nentries": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Number of entries in a transaction"
+        },
+        "eH": {
+          "type": "string",
+          "format": "byte",
+          "title": "Entries Hash - cumulative hash of all entries in the transaction"
+        },
+        "blTxId": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Binary linking tree transaction ID\n(ID of last transaction already in the main Merkle Tree)"
+        },
+        "blRoot": {
+          "type": "string",
+          "format": "byte",
+          "title": "Binary linking tree root (Root hash of the Merkle Tree)"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Header version"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaTxMetadata",
+          "title": "Transaction metadata"
+        }
+      }
+    },
+    "schemaTxMetadata": {
+      "type": "object",
+      "properties": {
+        "truncatedTxID": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Entry expiration information"
+        }
+      },
+      "title": "TxMetadata contains metadata set to whole transaction"
+    },
+    "schemaVerifiableTxV2": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "$ref": "#/definitions/schemaTx",
+          "title": "Transaction to verify"
+        },
+        "dualProof": {
+          "$ref": "#/definitions/schemaDualProofV2",
+          "title": "Proof for the transaction"
+        },
+        "signature": {
+          "$ref": "#/definitions/schemaSignature",
+          "title": "Signature for the new state value"
+        }
+      }
+    },
+    "schemaZEntry": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte",
+          "title": "Name of the sorted set"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte",
+          "title": "Referenced key"
+        },
+        "entry": {
+          "$ref": "#/definitions/schemaEntry",
+          "title": "Referenced entry"
+        },
+        "score": {
+          "type": "number",
+          "format": "double",
+          "title": "Sorted set element's score"
+        },
+        "atTx": {
+          "type": "string",
+          "format": "uint64",
+          "title": "At which transaction the key is bound,\n0 if reference is not bound and should read the most recent reference"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "ApiKeyAuth": {
+      "type": "apiKey",
+      "description": "Session Identifier",
+      "name": "sessionid",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}
