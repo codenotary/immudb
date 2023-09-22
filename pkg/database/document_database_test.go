@@ -145,10 +145,18 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
+		})
+		require.NoError(t, err)
+
 		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
 			Name: defaultCollectionName,
 		})
 		require.NoError(t, err)
+
+		collection := cinfo.Collection
 
 		expectedFieldKeys := []*protomodel.Field{
 			{Name: "_id", Type: protomodel.FieldType_STRING},
@@ -157,9 +165,28 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 			{Name: "name", Type: protomodel.FieldType_STRING},
 			{Name: "pin", Type: protomodel.FieldType_INTEGER},
 			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "extra_field", Type: protomodel.FieldType_UUID},
 		}
 
-		collection := cinfo.Collection
+		for i, idxType := range expectedFieldKeys {
+			require.Equal(t, idxType.Name, collection.Fields[i].Name)
+			require.Equal(t, idxType.Type, collection.Fields[i].Type)
+		}
+
+		_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{
+			CollectionName: defaultCollectionName,
+			FieldName:      "extra_field",
+		})
+		require.NoError(t, err)
+
+		expectedFieldKeys = []*protomodel.Field{
+			{Name: "_id", Type: protomodel.FieldType_STRING},
+			{Name: "uuid", Type: protomodel.FieldType_UUID},
+			{Name: "number", Type: protomodel.FieldType_INTEGER},
+			{Name: "name", Type: protomodel.FieldType_STRING},
+			{Name: "pin", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+		}
 
 		for i, idxType := range expectedFieldKeys {
 			require.Equal(t, idxType.Name, collection.Fields[i].Name)
