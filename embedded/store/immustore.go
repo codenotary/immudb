@@ -794,6 +794,9 @@ func hasPrefix(key, prefix []byte) bool {
 }
 
 func (s *ImmuStore) getIndexerFor(keyPrefix []byte) (*indexer, error) {
+	s.indexersMux.RLock()
+	defer s.indexersMux.RUnlock()
+
 	for _, indexer := range s.indexers {
 		if hasPrefix(keyPrefix, indexer.Prefix()) {
 			return indexer, nil
