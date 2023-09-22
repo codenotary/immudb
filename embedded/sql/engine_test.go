@@ -57,6 +57,15 @@ func setupCommonTest(t *testing.T) *Engine {
 	return engine
 }
 
+func TestCreateDatabaseWithoutMultiIndexingEnabled(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(false))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	_, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.ErrorIs(t, err, ErrMultiIndexingNotEnabled)
+}
+
 func TestCreateDatabaseWithoutMultiDBHandler(t *testing.T) {
 	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)

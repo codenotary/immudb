@@ -28,6 +28,7 @@ import (
 
 var ErrNoSupported = errors.New("not supported")
 var ErrIllegalArguments = store.ErrIllegalArguments
+var ErrMultiIndexingNotEnabled = fmt.Errorf("%w: multi-indexing must be enabled", store.ErrIllegalState)
 var ErrParsingError = errors.New("parsing error")
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
 var ErrUnspecifiedMultiDBHandler = fmt.Errorf("%w: unspecified multidbHanlder", store.ErrIllegalState)
@@ -121,7 +122,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	if !st.MultiIndexingEnabled() {
-		return nil, fmt.Errorf("%w: multi-indexing must be enabled", ErrIllegalArguments)
+		return nil, ErrMultiIndexingNotEnabled
 	}
 
 	err := opts.Validate()
