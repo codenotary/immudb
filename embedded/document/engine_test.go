@@ -18,6 +18,7 @@ package document
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 
@@ -1505,6 +1506,60 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			"unexistentFieldName",
 		)
 		require.ErrorIs(t, err, ErrFieldDoesNotExist)
+	})
+
+	t.Run("adding invalid field should fail", func(t *testing.T) {
+		err := engine.AddField(
+			context.Background(),
+			"1invalidCollectionName",
+			&protomodel.Field{
+				Name: "newFieldName",
+				Type: protomodel.FieldType_INTEGER,
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		err = engine.AddField(
+			context.Background(),
+			collectionName,
+			&protomodel.Field{
+				Name: "1invalidFieldName",
+				Type: protomodel.FieldType_INTEGER,
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		err = engine.AddField(
+			context.Background(),
+			collectionName,
+			&protomodel.Field{
+				Name: "newFieldName",
+				Type: protomodel.FieldType(math.MaxInt16),
+			},
+		)
+		require.ErrorIs(t, err, ErrUnsupportedType)
+	})
+
+	t.Run("removing invalid field should fail", func(t *testing.T) {
+		err := engine.AddField(
+			context.Background(),
+			"1invalidCollectionName",
+			&protomodel.Field{
+				Name: "newFieldName",
+				Type: protomodel.FieldType_INTEGER,
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		err = engine.AddField(
+			context.Background(),
+			collectionName,
+			&protomodel.Field{
+				Name: "1invalidFieldName",
+				Type: protomodel.FieldType_INTEGER,
+			},
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
 	t.Run("create index with a new field name should succeed", func(t *testing.T) {
