@@ -60,6 +60,12 @@ func TestV2Authentication(t *testing.T) {
 	_, err = s.DeleteCollection(ctx, &protomodel.DeleteCollectionRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
+	_, err = s.AddField(ctx, &protomodel.AddFieldRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
+	_, err = s.RemoveField(ctx, &protomodel.RemoveFieldRequest{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+
 	_, err = s.CreateIndex(ctx, &protomodel.CreateIndexRequest{})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
@@ -696,7 +702,6 @@ func TestCollections(t *testing.T) {
 	defaultCollectionName := "mycollection"
 
 	t.Run("should pass when creating a collection", func(t *testing.T) {
-
 		_, err := s.CreateCollection(ctx, &protomodel.CreateCollectionRequest{
 			Name: defaultCollectionName,
 			Fields: []*protomodel.Field{
@@ -705,6 +710,30 @@ func TestCollections(t *testing.T) {
 				{Name: "pin", Type: protomodel.FieldType_INTEGER},
 				{Name: "country", Type: protomodel.FieldType_STRING},
 			},
+		})
+		require.NoError(t, err)
+
+		_, err = s.AddField(ctx, &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+			Field: &protomodel.Field{
+				Name: "extra_field",
+				Type: protomodel.FieldType_UUID,
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = s.AddField(ctx, &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+			Field: &protomodel.Field{
+				Name: "extra_field1",
+				Type: protomodel.FieldType_STRING,
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = s.RemoveField(ctx, &protomodel.RemoveFieldRequest{
+			CollectionName: defaultCollectionName,
+			FieldName:      "extra_field1",
 		})
 		require.NoError(t, err)
 
@@ -720,6 +749,7 @@ func TestCollections(t *testing.T) {
 			{Name: "name", Type: protomodel.FieldType_STRING},
 			{Name: "pin", Type: protomodel.FieldType_INTEGER},
 			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "extra_field", Type: protomodel.FieldType_UUID},
 		}
 
 		collection := cinfo.Collection
