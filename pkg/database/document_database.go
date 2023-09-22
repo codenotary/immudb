@@ -156,6 +156,10 @@ func (d *db) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*pr
 		return nil, ErrIsReplica
 	}
 
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	err := d.documentEngine.AddField(ctx, req.CollectionName, req.Field)
 	if err != nil {
 		return nil, err

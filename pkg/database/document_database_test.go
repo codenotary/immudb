@@ -111,6 +111,12 @@ func TestDocumentDB_WritesOnReplica(t *testing.T) {
 	_, err = db.DeleteCollection(context.Background(), &protomodel.DeleteCollectionRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
+	_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
 	_, err = db.CreateIndex(context.Background(), &protomodel.CreateIndexRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
@@ -145,11 +151,25 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		_, err = db.AddField(context.Background(), nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+		})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
 		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
 			CollectionName: defaultCollectionName,
 			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
 		})
 		require.NoError(t, err)
+
+		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
+		})
+		require.ErrorIs(t, err, document.ErrFieldAlreadyExists)
 
 		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
 			Name: defaultCollectionName,
@@ -173,11 +193,20 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 			require.Equal(t, idxType.Type, collection.Fields[i].Type)
 		}
 
+		_, err = db.RemoveField(context.Background(), nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
 		_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{
 			CollectionName: defaultCollectionName,
 			FieldName:      "extra_field",
 		})
 		require.NoError(t, err)
+
+		_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{
+			CollectionName: defaultCollectionName,
+			FieldName:      "extra_field",
+		})
+		require.ErrorIs(t, err, document.ErrFieldDoesNotExist)
 
 		expectedFieldKeys = []*protomodel.Field{
 			{Name: "_id", Type: protomodel.FieldType_STRING},
