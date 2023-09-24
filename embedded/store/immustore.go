@@ -2188,8 +2188,8 @@ func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64
 	}
 	defer otx.Cancel()
 
-	s.indexersMux.Lock()
-	defer s.indexersMux.Unlock()
+	s.indexersMux.RLock()
+	defer s.indexersMux.RUnlock()
 
 	for _, indexer := range s.indexers {
 		indexer.Pause()
