@@ -247,7 +247,7 @@ func (db *closedDB) Truncate(ts time.Duration) error {
 }
 
 // CreateCollection creates a new collection
-func (d *closedDB) CreateCollection(ctx context.Context, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
+func (d *closedDB) CreateCollection(ctx context.Context, username string, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

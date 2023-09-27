@@ -170,7 +170,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	err = cdb.Truncate(0)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.CreateCollection(context.Background(), nil)
+	_, err = cdb.CreateCollection(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.GetCollection(context.Background(), nil)
