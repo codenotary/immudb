@@ -35,7 +35,12 @@ func (s *ImmuServer) CreateCollection(ctx context.Context, req *protomodel.Creat
 		return nil, err
 	}
 
-	return db.CreateCollection(ctx, req)
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	return db.CreateCollection(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
