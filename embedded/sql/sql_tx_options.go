@@ -29,6 +29,7 @@ type TxOptions struct {
 	SnapshotRenewalPeriod   time.Duration
 	ExplicitClose           bool
 	UnsafeMVCC              bool
+	Extra                   []byte
 }
 
 func DefaultTxOptions() *TxOptions {
@@ -73,5 +74,10 @@ func (opts *TxOptions) WithExplicitClose(explicitClose bool) *TxOptions {
 
 func (opts *TxOptions) WithUnsafeMVCC(unsafeMVCC bool) *TxOptions {
 	opts.UnsafeMVCC = unsafeMVCC
+	return opts
+}
+
+func (opts *TxOptions) WithExtra(data []byte) *TxOptions {
+	opts.Extra = data
 	return opts
 }
