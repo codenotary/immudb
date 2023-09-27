@@ -652,7 +652,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	// create new document store
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
 			{Name: "pincode", Type: protomodel.FieldType_DOUBLE},
