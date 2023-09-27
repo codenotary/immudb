@@ -71,6 +71,15 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), v)
 
+	require.Nil(t, desmd.Extra())
+
+	extraData := []byte("extra-data")
+
+	err = desmd.WithExtra(extraData)
+	require.NoError(t, err)
+
+	require.Equal(t, extraData, desmd.Extra())
+
 	require.False(t, desmd.IsEmpty())
 
 	bs = desmd.Bytes()
