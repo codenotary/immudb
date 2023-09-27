@@ -400,7 +400,7 @@ func TestGetDocument(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, _, err = engine.InsertDocument(context.Background(), "unexistentCollectionName", &structpb.Struct{
+	_, _, err = engine.InsertDocument(context.Background(), "admin", "unexistentCollectionName", &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
 			"pincode": structpb.NewNumberValue(2),
@@ -414,7 +414,7 @@ func TestGetDocument(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrCollectionDoesNotExist)
 
-	_, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	_, docID, err := engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
 			"pincode": structpb.NewNumberValue(2),
@@ -499,7 +499,7 @@ func TestDocumentAudit(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	txID, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	txID, docID, err := engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"country": structpb.NewStringValue("wonderland"),
 			"pincode": structpb.NewNumberValue(2),
@@ -532,7 +532,7 @@ func TestDocumentAudit(t *testing.T) {
 		},
 	}
 
-	revisions, err := engine.ReplaceDocuments(context.Background(), query, &structpb.Struct{
+	revisions, err := engine.ReplaceDocuments(context.Background(), "admin", query, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"_id":     structpb.NewStringValue(docID.EncodeToHexString()),
 			"pincode": structpb.NewNumberValue(2),
@@ -574,7 +574,7 @@ func TestDocumentAudit(t *testing.T) {
 		require.Equal(t, uint64(i+1), docAudit.Revision)
 	}
 
-	err = engine.DeleteDocuments(context.Background(), &protomodel.Query{
+	err = engine.DeleteDocuments(context.Background(), "admin", &protomodel.Query{
 		CollectionName: collectionName,
 		Expressions: []*protomodel.QueryExpression{
 			{
@@ -639,7 +639,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 11; i++ {
-		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"pincode": func() *structpb.Value {
 					if i == 11 {
@@ -1060,7 +1060,7 @@ func TestDocumentUpdate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txID, docID, err := engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	txID, docID, err := engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"name": structpb.NewStringValue("Alice"),
 			"age":  structpb.NewNumberValue(30),
@@ -1089,7 +1089,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		revisions, err := engine.ReplaceDocuments(ctx, query, &structpb.Struct{
+		revisions, err := engine.ReplaceDocuments(ctx, "admin", query, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"name": structpb.NewStringValue("Alice"),
 				"age":  structpb.NewNumberValue(31),
@@ -1158,7 +1158,7 @@ func TestDocumentUpdate(t *testing.T) {
 		}
 
 		// Test error case when no documents are found
-		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		revisions, err := engine.ReplaceDocuments(ctx, "admin", query, toUpdateDoc)
 		require.NoError(t, err)
 		require.Empty(t, revisions)
 	})
@@ -1187,13 +1187,13 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		revisions, err := engine.ReplaceDocuments(ctx, "admin", query, toUpdateDoc)
 		require.NoError(t, err)
 		require.Empty(t, revisions)
 	})
 
 	t.Run("replace document with invalid arguments should fail", func(t *testing.T) {
-		_, err := engine.ReplaceDocuments(ctx, nil, nil)
+		_, err := engine.ReplaceDocuments(ctx, "admin", nil, nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
@@ -1221,7 +1221,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		_, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		_, err := engine.ReplaceDocuments(ctx, "admin", query, toUpdateDoc)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
@@ -1241,7 +1241,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		revisions, err := engine.ReplaceDocuments(ctx, query, nil)
+		revisions, err := engine.ReplaceDocuments(ctx, "admin", query, nil)
 		require.NoError(t, err)
 		require.Len(t, revisions, 1)
 	})
@@ -1260,7 +1260,7 @@ func TestDocumentUpdate(t *testing.T) {
 			},
 		}
 
-		revisions, err := engine.ReplaceDocuments(ctx, query, toUpdateDoc)
+		revisions, err := engine.ReplaceDocuments(ctx, "admin", query, toUpdateDoc)
 		require.NoError(t, err)
 		require.Len(t, revisions, 1)
 	})
@@ -1287,7 +1287,7 @@ func TestFloatSupport(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"number": structpb.NewNumberValue(3.1),
 		},
@@ -1342,7 +1342,7 @@ func TestDeleteCollection(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 10; i++ {
-		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"number": structpb.NewNumberValue(i),
 			},
@@ -1351,7 +1351,7 @@ func TestDeleteCollection(t *testing.T) {
 	}
 
 	t.Run("delete collection and check if it is empty", func(t *testing.T) {
-		err = engine.DeleteCollection(context.Background(), collectionName)
+		err = engine.DeleteCollection(context.Background(), "admin", collectionName)
 		require.NoError(t, err)
 
 		collectionList, err := engine.GetCollections(context.Background())
@@ -1391,6 +1391,7 @@ func TestUpdateCollection(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
+			"admin",
 			"1invalidCollectionName",
 			"",
 		)
@@ -1401,6 +1402,7 @@ func TestUpdateCollection(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
+			"admin",
 			"unexistentCollectionName",
 			"",
 		)
@@ -1411,6 +1413,7 @@ func TestUpdateCollection(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"document",
 		)
@@ -1421,6 +1424,7 @@ func TestUpdateCollection(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 		)
@@ -1437,6 +1441,7 @@ func TestUpdateCollection(t *testing.T) {
 		// update collection
 		err := engine.UpdateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"_docid",
 		)
@@ -1452,6 +1457,7 @@ func TestUpdateCollection(t *testing.T) {
 	t.Run("update collection with invalid id field name", func(t *testing.T) {
 		err := engine.UpdateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"document",
 		)
@@ -1486,6 +1492,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.CreateIndex(
 			context.Background(),
+			"admin",
 			"1invalidCollectionName",
 			[]string{},
 			false,
@@ -1497,6 +1504,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.CreateIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{},
 			false,
@@ -1508,6 +1516,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.CreateIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"1invalidFieldName"},
 			false,
@@ -1519,6 +1528,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.CreateIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"unexistentFieldName"},
 			false,
@@ -1527,6 +1537,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.RemoveField(
 			context.Background(),
+			"admin",
 			collectionName,
 			"unexistentFieldName",
 		)
@@ -1536,6 +1547,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 	t.Run("adding invalid field should fail", func(t *testing.T) {
 		err := engine.AddField(
 			context.Background(),
+			"admin",
 			"1invalidCollectionName",
 			&protomodel.Field{
 				Name: "newFieldName",
@@ -1546,6 +1558,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.AddField(
 			context.Background(),
+			"admin",
 			collectionName,
 			&protomodel.Field{
 				Name: "1invalidFieldName",
@@ -1556,6 +1569,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.AddField(
 			context.Background(),
+			"admin",
 			collectionName,
 			&protomodel.Field{
 				Name: "newFieldName",
@@ -1568,6 +1582,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 	t.Run("removing invalid field should fail", func(t *testing.T) {
 		err := engine.AddField(
 			context.Background(),
+			"admin",
 			"1invalidCollectionName",
 			&protomodel.Field{
 				Name: "newFieldName",
@@ -1578,6 +1593,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.AddField(
 			context.Background(),
+			"admin",
 			collectionName,
 			&protomodel.Field{
 				Name: "1invalidFieldName",
@@ -1609,6 +1625,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.AddField(
 			context.Background(),
+			"admin",
 			collectionName,
 			&protomodel.Field{
 				Name: "active",
@@ -1619,6 +1636,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.AddField(
 			context.Background(),
+			"admin",
 			collectionName,
 			&protomodel.Field{
 				Name: "active",
@@ -1629,6 +1647,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.CreateIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"active"},
 			false,
@@ -1649,6 +1668,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.RemoveField(
 			context.Background(),
+			"admin",
 			collectionName,
 			"active",
 		)
@@ -1656,6 +1676,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.DeleteIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"active"},
 		)
@@ -1663,6 +1684,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.RemoveField(
 			context.Background(),
+			"admin",
 			collectionName,
 			"active",
 		)
@@ -1670,6 +1692,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.RemoveField(
 			context.Background(),
+			"admin",
 			collectionName,
 			"active",
 		)
@@ -1680,6 +1703,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.DeleteIndex(
 			context.Background(),
+			"admin",
 			"1invalidCollectionName",
 			[]string{"number"},
 		)
@@ -1690,6 +1714,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.DeleteIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{},
 		)
@@ -1700,6 +1725,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.DeleteIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"1invalidFieldName"},
 		)
@@ -1710,6 +1736,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.DeleteIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"number"},
 		)
@@ -1725,6 +1752,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		// update collection
 		err := engine.CreateIndex(
 			context.Background(),
+			"admin",
 			collectionName,
 			[]string{"number"},
 			false,
@@ -1774,7 +1802,7 @@ func TestBulkInsert(t *testing.T) {
 		docs = append(docs, doc)
 	}
 
-	txID, docIDs, err := engine.InsertDocuments(ctx, collectionName, docs)
+	txID, docIDs, err := engine.InsertDocuments(ctx, "admin", collectionName, docs)
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), txID)
 	require.Len(t, docIDs, 10)
@@ -1817,7 +1845,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 	// add documents to collection
 	for i := 1.0; i <= 20; i++ {
-		_, _, err = engine.InsertDocument(ctx, collectionName, &structpb.Struct{
+		_, _, err = engine.InsertDocument(ctx, "admin", collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"country": structpb.NewStringValue(fmt.Sprintf("country-%d", int(i))),
 				"pincode": structpb.NewNumberValue(i),
@@ -1874,7 +1902,7 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	// add document to collection
-	_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+	_, _, err = engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"pincode": structpb.NewNumberValue(2),
 			"country": structpb.NewStringValue("wonderland"),
@@ -1911,10 +1939,10 @@ func TestDeleteDocument(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
 
-	err = engine.DeleteDocuments(ctx, nil)
+	err = engine.DeleteDocuments(ctx, "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	err = engine.DeleteDocuments(ctx, query)
+	err = engine.DeleteDocuments(ctx, "admin", query)
 	require.NoError(t, err)
 
 	reader, err = engine.GetDocuments(ctx, query, 0)
@@ -1993,7 +2021,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 	noOfDocs := 5
 
 	for i := 1; i <= noOfDocs; i++ {
-		_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+		_, _, err = engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"number": structpb.NewNumberValue(float64(i)),
 			},
@@ -2085,7 +2113,7 @@ func BenchmarkInsertion(b *testing.B) {
 		for w := 0; w < noOfWorkers; w++ {
 			go func(w int) {
 				for i := 1; i <= noOfDocs; i++ {
-					_, _, err = engine.InsertDocument(context.Background(), collectionName, &structpb.Struct{
+					_, _, err = engine.InsertDocument(context.Background(), "admin", collectionName, &structpb.Struct{
 						Fields: map[string]*structpb.Value{
 							"number": structpb.NewNumberValue(float64(w*noOfDocs + i)),
 						},

@@ -376,7 +376,7 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 	return collection
 }
 
-func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, documentIdFieldName string) error {
+func (e *Engine) UpdateCollection(ctx context.Context, username, collectionName string, documentIdFieldName string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -391,6 +391,7 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, do
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -431,7 +432,7 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, do
 }
 
 // DeleteCollection deletes a collection.
-func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
+func (e *Engine) DeleteCollection(ctx context.Context, username, collectionName string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -439,6 +440,7 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -465,7 +467,7 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 	return mayTranslateError(err)
 }
 
-func (e *Engine) AddField(ctx context.Context, collectionName string, field *protomodel.Field) error {
+func (e *Engine) AddField(ctx context.Context, username, collectionName string, field *protomodel.Field) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -492,6 +494,7 @@ func (e *Engine) AddField(ctx context.Context, collectionName string, field *pro
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -520,7 +523,7 @@ func (e *Engine) AddField(ctx context.Context, collectionName string, field *pro
 	return mayTranslateError(err)
 }
 
-func (e *Engine) RemoveField(ctx context.Context, collectionName string, fieldName string) error {
+func (e *Engine) RemoveField(ctx context.Context, username, collectionName string, fieldName string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -533,6 +536,7 @@ func (e *Engine) RemoveField(ctx context.Context, collectionName string, fieldNa
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -559,7 +563,7 @@ func (e *Engine) RemoveField(ctx context.Context, collectionName string, fieldNa
 	return mayTranslateError(err)
 }
 
-func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields []string, isUnique bool) error {
+func (e *Engine) CreateIndex(ctx context.Context, username, collectionName string, fields []string, isUnique bool) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -571,6 +575,7 @@ func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields 
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -604,7 +609,7 @@ func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields 
 	return mayTranslateError(err)
 }
 
-func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields []string) error {
+func (e *Engine) DeleteIndex(ctx context.Context, username, collectionName string, fields []string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -616,6 +621,7 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -649,8 +655,8 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 	return mayTranslateError(err)
 }
 
-func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
-	txID, docIDs, err := e.InsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
+func (e *Engine) InsertDocument(ctx context.Context, username, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
+	txID, docIDs, err := e.InsertDocuments(ctx, username, collectionName, []*structpb.Struct{doc})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -658,9 +664,10 @@ func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc 
 	return txID, docIDs[0], nil
 }
 
-func (e *Engine) InsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
+func (e *Engine) InsertDocuments(ctx context.Context, username, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0)
 
@@ -816,7 +823,7 @@ func (e *Engine) structValueFromFieldPath(doc *structpb.Struct, fieldPath string
 	return nil, fmt.Errorf("%w('%s')", ErrFieldDoesNotExist, fieldPath)
 }
 
-func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
+func (e *Engine) ReplaceDocuments(ctx context.Context, username string, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
 	if query == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -827,7 +834,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 		}
 	}
 
-	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExtra([]byte(username)))
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
@@ -1323,12 +1330,12 @@ func (e *Engine) getEncodedDocument(ctx context.Context, key []byte, atTx uint64
 }
 
 // DeleteDocuments deletes documents matching the query
-func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query) error {
+func (e *Engine) DeleteDocuments(ctx context.Context, username string, query *protomodel.Query) error {
 	if query == nil {
 		return ErrIllegalArguments
 	}
 
-	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExtra([]byte(username)))
 	if err != nil {
 		return mayTranslateError(err)
 	}
