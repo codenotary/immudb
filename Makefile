@@ -221,7 +221,7 @@ man:
 
 .PHONY: prerequisites
 prerequisites:
-	$(GO) mod tidy
+	$(GO) mod tidy -compat=1.17
 	cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 ########################## releases scripts ############################################################################
