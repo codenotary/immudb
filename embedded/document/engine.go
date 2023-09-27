@@ -129,7 +129,7 @@ func validateFieldName(fieldName string) error {
 	return nil
 }
 
-func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
+func (e *Engine) CreateCollection(ctx context.Context, username, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
 	err := validateCollectionName(name)
 	if err != nil {
 		return err
@@ -147,6 +147,7 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 	// only catalog needs to be up to date
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)

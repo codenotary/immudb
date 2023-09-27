@@ -66,6 +66,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid collection name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			"1invalidCollectionName",
 			"",
 			[]*protomodel.Field{
@@ -90,6 +91,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid collection name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			"collection",
 			"",
 			[]*protomodel.Field{
@@ -114,6 +116,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid field name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -129,6 +132,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with reserved field name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -144,6 +148,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid field name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -157,6 +162,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid document id field name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"invalid.docid",
 			[]*protomodel.Field{
@@ -179,6 +185,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid document id field name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			DocumentBLOBField,
 			[]*protomodel.Field{
@@ -201,6 +208,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid field name", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -222,6 +230,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with unexistent field", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -244,6 +253,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid index", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -259,6 +269,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid index", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{},
@@ -272,6 +283,7 @@ func TestCreateCollection(t *testing.T) {
 	t.Run("collection creation should fail with invalid index", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{},
@@ -284,6 +296,7 @@ func TestCreateCollection(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"doc-id",
 		[]*protomodel.Field{
@@ -309,6 +322,7 @@ func TestCreateCollection(t *testing.T) {
 	// creating collection with the same name should throw error
 	err = engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		nil,
@@ -334,6 +348,7 @@ func TestListCollections(t *testing.T) {
 	for _, collectionName := range collections {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -367,6 +382,7 @@ func TestGetDocument(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -466,6 +482,7 @@ func TestDocumentAudit(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -604,6 +621,7 @@ func TestQueryDocuments(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1028,6 +1046,7 @@ func TestDocumentUpdate(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1255,6 +1274,7 @@ func TestFloatSupport(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1308,6 +1328,7 @@ func TestDeleteCollection(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1347,6 +1368,7 @@ func TestUpdateCollection(t *testing.T) {
 	t.Run("create collection and add index", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -1445,6 +1467,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 	t.Run("create collection and add index", func(t *testing.T) {
 		err := engine.CreateCollection(
 			context.Background(),
+			"admin",
 			collectionName,
 			"",
 			[]*protomodel.Field{
@@ -1724,6 +1747,7 @@ func TestBulkInsert(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1777,6 +1801,7 @@ func TestPaginationOnReader(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1842,7 +1867,7 @@ func TestDeleteDocument(t *testing.T) {
 	engine := makeEngine(t)
 	// create collection
 	collectionName := "mycollection"
-	err := engine.CreateCollection(context.Background(), collectionName, "", []*protomodel.Field{
+	err := engine.CreateCollection(context.Background(), "admin", collectionName, "", []*protomodel.Field{
 		{Name: "pincode", Type: protomodel.FieldType_INTEGER},
 		{Name: "country", Type: protomodel.FieldType_STRING},
 	}, nil)
@@ -1906,6 +1931,7 @@ func TestGetCollection(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -1951,6 +1977,7 @@ func TestGetDocuments_WithOrderBy(t *testing.T) {
 
 	err := engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
@@ -2033,6 +2060,7 @@ func BenchmarkInsertion(b *testing.B) {
 
 	err = engine.CreateCollection(
 		context.Background(),
+		"admin",
 		collectionName,
 		"",
 		[]*protomodel.Field{
