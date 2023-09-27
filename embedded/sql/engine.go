@@ -181,6 +181,16 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		return nil, err
 	}
 
+	if len(opts.Extra) > 0 {
+		txmd := store.NewTxMetadata()
+		err := txmd.WithExtra(opts.Extra)
+		if err != nil {
+			return nil, err
+		}
+
+		tx.WithMetadata(txmd)
+	}
+
 	catalog := newCatalog(e.prefix)
 
 	err = catalog.load(ctx, tx)
