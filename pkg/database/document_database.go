@@ -32,7 +32,7 @@ type DocumentDatabase interface {
 	// GetCollections returns the list of collection schemas
 	GetCollections(ctx context.Context, req *protomodel.GetCollectionsRequest) (*protomodel.GetCollectionsResponse, error)
 	// CreateCollection creates a new collection
-	CreateCollection(ctx context.Context, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error)
+	CreateCollection(ctx context.Context, username string, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error)
 	// UpdateCollection updates an existing collection
 	UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error)
 	// DeleteCollection deletes a collection
@@ -62,7 +62,7 @@ type DocumentDatabase interface {
 }
 
 // CreateCollection creates a new collection
-func (d *db) CreateCollection(ctx context.Context, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
+func (d *db) CreateCollection(ctx context.Context, username string, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -74,7 +74,7 @@ func (d *db) CreateCollection(ctx context.Context, req *protomodel.CreateCollect
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateCollection(ctx, req.Name, req.DocumentIdFieldName, req.Fields, req.Indexes)
+	err := d.documentEngine.CreateCollection(ctx, username, req.Name, req.DocumentIdFieldName, req.Fields, req.Indexes)
 	if err != nil {
 		return nil, err
 	}

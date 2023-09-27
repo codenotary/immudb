@@ -60,7 +60,7 @@ func makeDocumentDb(t *testing.T) *db {
 func TestDocumentDB_InvalidParameters(t *testing.T) {
 	db := makeDocumentDb(t)
 
-	_, err := db.CreateCollection(context.Background(), nil)
+	_, err := db.CreateCollection(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.GetCollection(context.Background(), nil)
@@ -102,7 +102,7 @@ func TestDocumentDB_WritesOnReplica(t *testing.T) {
 
 	db.AsReplica(true, false, 0)
 
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{})
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = db.UpdateCollection(context.Background(), &protomodel.UpdateCollectionRequest{})
@@ -139,7 +139,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	defaultCollectionName := "mycollection"
 
 	t.Run("should pass when creating a collection", func(t *testing.T) {
-		_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+		_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 			Name: defaultCollectionName,
 			Fields: []*protomodel.Field{
 				{Name: "uuid", Type: protomodel.FieldType_UUID},
@@ -340,7 +340,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		collections := []string{"mycollection1", "mycollection2", "mycollection3"}
 
 		for _, collectionName := range collections {
-			_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+			_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 				Name: collectionName,
 				Fields: []*protomodel.Field{
 					{Name: "number", Type: protomodel.FieldType_INTEGER},
@@ -376,7 +376,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
 			{Name: "uuid", Type: protomodel.FieldType_UUID},
@@ -653,7 +653,7 @@ func TestDocumentDB_WithSerializedJsonDocument(t *testing.T) {
 
 	collectionName := "mycollection"
 
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 		Name:    collectionName,
 		Fields:  []*protomodel.Field{},
 		Indexes: []*protomodel.Index{},
