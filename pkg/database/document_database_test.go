@@ -66,22 +66,22 @@ func TestDocumentDB_InvalidParameters(t *testing.T) {
 	_, err = db.GetCollection(context.Background(), nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.UpdateCollection(context.Background(), nil)
+	_, err = db.UpdateCollection(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.DeleteCollection(context.Background(), nil)
+	_, err = db.DeleteCollection(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.CreateIndex(context.Background(), nil)
+	_, err = db.CreateIndex(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.DeleteIndex(context.Background(), nil)
+	_, err = db.DeleteIndex(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.InsertDocuments(context.Background(), nil)
+	_, err = db.InsertDocuments(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.ReplaceDocuments(context.Background(), nil)
+	_, err = db.ReplaceDocuments(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.AuditDocument(context.Background(), nil)
@@ -90,7 +90,7 @@ func TestDocumentDB_InvalidParameters(t *testing.T) {
 	_, err = db.CountDocuments(context.Background(), nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.DeleteDocuments(context.Background(), nil)
+	_, err = db.DeleteDocuments(context.Background(), "admin", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.ProofDocument(context.Background(), nil)
@@ -105,31 +105,31 @@ func TestDocumentDB_WritesOnReplica(t *testing.T) {
 	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.UpdateCollection(context.Background(), &protomodel.UpdateCollectionRequest{})
+	_, err = db.UpdateCollection(context.Background(), "admin", &protomodel.UpdateCollectionRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.DeleteCollection(context.Background(), &protomodel.DeleteCollectionRequest{})
+	_, err = db.DeleteCollection(context.Background(), "admin", &protomodel.DeleteCollectionRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{})
+	_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{})
+	_, err = db.RemoveField(context.Background(), "admin", &protomodel.RemoveFieldRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.CreateIndex(context.Background(), &protomodel.CreateIndexRequest{})
+	_, err = db.CreateIndex(context.Background(), "admin", &protomodel.CreateIndexRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.DeleteIndex(context.Background(), &protomodel.DeleteIndexRequest{})
+	_, err = db.DeleteIndex(context.Background(), "admin", &protomodel.DeleteIndexRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{})
+	_, err = db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.ReplaceDocuments(context.Background(), &protomodel.ReplaceDocumentsRequest{})
+	_, err = db.ReplaceDocuments(context.Background(), "admin", &protomodel.ReplaceDocumentsRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 
-	_, err = db.DeleteDocuments(context.Background(), &protomodel.DeleteDocumentsRequest{})
+	_, err = db.DeleteDocuments(context.Background(), "admin", &protomodel.DeleteDocumentsRequest{})
 	require.ErrorIs(t, err, ErrIsReplica)
 }
 
@@ -151,21 +151,21 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = db.AddField(context.Background(), nil)
+		_, err = db.AddField(context.Background(), "admin", nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
+		_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{
 			CollectionName: defaultCollectionName,
 		})
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
+		_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{
 			CollectionName: defaultCollectionName,
 			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
 		})
 		require.NoError(t, err)
 
-		_, err = db.AddField(context.Background(), &protomodel.AddFieldRequest{
+		_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{
 			CollectionName: defaultCollectionName,
 			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
 		})
@@ -193,16 +193,16 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 			require.Equal(t, idxType.Type, collection.Fields[i].Type)
 		}
 
-		_, err = db.RemoveField(context.Background(), nil)
+		_, err = db.RemoveField(context.Background(), "admin", nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{
+		_, err = db.RemoveField(context.Background(), "admin", &protomodel.RemoveFieldRequest{
 			CollectionName: defaultCollectionName,
 			FieldName:      "extra_field",
 		})
 		require.NoError(t, err)
 
-		_, err = db.RemoveField(context.Background(), &protomodel.RemoveFieldRequest{
+		_, err = db.RemoveField(context.Background(), "admin", &protomodel.RemoveFieldRequest{
 			CollectionName: defaultCollectionName,
 			FieldName:      "extra_field",
 		})
@@ -239,7 +239,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when adding an index to the collection", func(t *testing.T) {
-		_, err := db.CreateIndex(context.Background(), &protomodel.CreateIndexRequest{
+		_, err := db.CreateIndex(context.Background(), "admin", &protomodel.CreateIndexRequest{
 			CollectionName: defaultCollectionName,
 			Fields:         []string{"number"},
 		})
@@ -265,7 +265,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when deleting an index to the collection", func(t *testing.T) {
-		_, err := db.DeleteIndex(context.Background(), &protomodel.DeleteIndexRequest{
+		_, err := db.DeleteIndex(context.Background(), "admin", &protomodel.DeleteIndexRequest{
 			CollectionName: defaultCollectionName,
 			Fields:         []string{"number"},
 		})
@@ -291,7 +291,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when updating a collection", func(t *testing.T) {
-		_, err := db.UpdateCollection(context.Background(), &protomodel.UpdateCollectionRequest{
+		_, err := db.UpdateCollection(context.Background(), "admin", &protomodel.UpdateCollectionRequest{
 			Name:                defaultCollectionName,
 			DocumentIdFieldName: "foo",
 		})
@@ -308,14 +308,14 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when deleting documents", func(t *testing.T) {
-		_, err := db.DeleteDocuments(context.Background(), &protomodel.DeleteDocumentsRequest{
+		_, err := db.DeleteDocuments(context.Background(), "admin", &protomodel.DeleteDocumentsRequest{
 			Query: &protomodel.Query{
 				CollectionName: defaultCollectionName,
 			},
 		})
 		require.NoError(t, err)
 
-		_, err = db.DeleteDocuments(context.Background(), &protomodel.DeleteDocumentsRequest{
+		_, err = db.DeleteDocuments(context.Background(), "admin", &protomodel.DeleteDocumentsRequest{
 			Query: &protomodel.Query{
 				CollectionName: "1invalidCollectionName",
 			},
@@ -324,7 +324,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when deleting collection", func(t *testing.T) {
-		_, err := db.DeleteCollection(context.Background(), &protomodel.DeleteCollectionRequest{
+		_, err := db.DeleteCollection(context.Background(), "admin", &protomodel.DeleteCollectionRequest{
 			Name: defaultCollectionName,
 		})
 		require.NoError(t, err)
@@ -390,7 +390,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 	t.Run("should fail with empty document", func(t *testing.T) {
 		// add document to collection
-		_, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		_, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents:      nil,
 		})
@@ -405,7 +405,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 	t.Run("should pass when adding documents", func(t *testing.T) {
 		// add document to collection
-		res, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		res, err = db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
@@ -498,7 +498,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 			},
 		}
 
-		resp, err := db.ReplaceDocuments(context.Background(), &protomodel.ReplaceDocumentsRequest{
+		resp, err := db.ReplaceDocuments(context.Background(), "admin", &protomodel.ReplaceDocumentsRequest{
 			Query: query,
 			Document: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -684,7 +684,7 @@ func TestDocumentDB_WithSerializedJsonDocument(t *testing.T) {
 	err = json.Unmarshal([]byte(jsonDoc), doc)
 	require.NoError(t, err)
 
-	_, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+	_, err = db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 		CollectionName: collectionName,
 		Documents: []*structpb.Struct{
 			doc,

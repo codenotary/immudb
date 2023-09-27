@@ -701,7 +701,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
 
-		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		res, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
@@ -736,7 +736,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Foo', 0)")
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
 
-		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		res, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
