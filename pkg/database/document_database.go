@@ -34,21 +34,21 @@ type DocumentDatabase interface {
 	// CreateCollection creates a new collection
 	CreateCollection(ctx context.Context, username string, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error)
 	// UpdateCollection updates an existing collection
-	UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error)
+	UpdateCollection(ctx context.Context, username string, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error)
 	// DeleteCollection deletes a collection
-	DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error)
+	DeleteCollection(ctx context.Context, username string, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error)
 	// AddField adds a new field in a collection
-	AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error)
+	AddField(ctx context.Context, username string, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error)
 	// RemoveField removes a field from a collection
-	RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error)
+	RemoveField(ctx context.Context, username string, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error)
 	// CreateIndex creates an index for a collection
-	CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error)
+	CreateIndex(ctx context.Context, username string, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error)
 	// DeleteIndex deletes an index from a collection
-	DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error)
+	DeleteIndex(ctx context.Context, username string, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error)
 	// InsertDocuments creates new documents
-	InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error)
+	InsertDocuments(ctx context.Context, username string, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error)
 	// ReplaceDocuments replaces documents matching the query
-	ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error)
+	ReplaceDocuments(ctx context.Context, username string, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error)
 	// AuditDocument returns the document audit history
 	AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error)
 	// SearchDocuments returns the documents matching the query
@@ -56,7 +56,7 @@ type DocumentDatabase interface {
 	// CountDocuments returns the number of documents matching the query
 	CountDocuments(ctx context.Context, req *protomodel.CountDocumentsRequest) (*protomodel.CountDocumentsResponse, error)
 	// DeleteDocuments deletes documents maching the query
-	DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error)
+	DeleteDocuments(ctx context.Context, username string, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error)
 	// ProofDocument returns the proofs for a document
 	ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error)
 }
@@ -106,7 +106,7 @@ func (d *db) GetCollections(ctx context.Context, _ *protomodel.GetCollectionsReq
 }
 
 // UpdateCollection updates an existing collection
-func (d *db) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
+func (d *db) UpdateCollection(ctx context.Context, username string, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -118,7 +118,7 @@ func (d *db) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollect
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.UpdateCollection(ctx, req.Name, req.DocumentIdFieldName)
+	err := d.documentEngine.UpdateCollection(ctx, username, req.Name, req.DocumentIdFieldName)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (d *db) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollect
 }
 
 // DeleteCollection deletes a collection
-func (d *db) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
+func (d *db) DeleteCollection(ctx context.Context, username string, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -139,7 +139,7 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollect
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteCollection(ctx, req.Name)
+	err := d.documentEngine.DeleteCollection(ctx, username, req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (d *db) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollect
 }
 
 // AddField adds a new field in a collection
-func (d *db) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
+func (d *db) AddField(ctx context.Context, username string, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -160,7 +160,7 @@ func (d *db) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*pr
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.AddField(ctx, req.CollectionName, req.Field)
+	err := d.documentEngine.AddField(ctx, username, req.CollectionName, req.Field)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (d *db) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*pr
 }
 
 // RemoveField removes a field from a collection
-func (d *db) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
+func (d *db) RemoveField(ctx context.Context, username string, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -181,7 +181,7 @@ func (d *db) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.RemoveField(ctx, req.CollectionName, req.FieldName)
+	err := d.documentEngine.RemoveField(ctx, username, req.CollectionName, req.FieldName)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (d *db) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest
 }
 
 // CreateIndex creates an index for a collection
-func (d *db) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
+func (d *db) CreateIndex(ctx context.Context, username string, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -202,7 +202,7 @@ func (d *db) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.CreateIndex(ctx, req.CollectionName, req.Fields, req.IsUnique)
+	err := d.documentEngine.CreateIndex(ctx, username, req.CollectionName, req.Fields, req.IsUnique)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (d *db) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest
 }
 
 // DeleteIndex deletes an index from a collection
-func (d *db) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
+func (d *db) DeleteIndex(ctx context.Context, username string, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -223,7 +223,7 @@ func (d *db) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteIndex(ctx, req.CollectionName, req.Fields)
+	err := d.documentEngine.DeleteIndex(ctx, username, req.CollectionName, req.Fields)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (d *db) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest
 }
 
 // InsertDocuments inserts multiple documents
-func (d *db) InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
+func (d *db) InsertDocuments(ctx context.Context, username string, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -244,7 +244,7 @@ func (d *db) InsertDocuments(ctx context.Context, req *protomodel.InsertDocument
 		return nil, ErrIllegalArguments
 	}
 
-	txID, docIDs, err := d.documentEngine.InsertDocuments(ctx, req.CollectionName, req.Documents)
+	txID, docIDs, err := d.documentEngine.InsertDocuments(ctx, username, req.CollectionName, req.Documents)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (d *db) InsertDocuments(ctx context.Context, req *protomodel.InsertDocument
 }
 
 // ReplaceDocuments replaces documents matching the query
-func (d *db) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
+func (d *db) ReplaceDocuments(ctx context.Context, username string, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -273,7 +273,7 @@ func (d *db) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocume
 		return nil, ErrIllegalArguments
 	}
 
-	revisions, err := d.documentEngine.ReplaceDocuments(ctx, req.Query, req.Document)
+	revisions, err := d.documentEngine.ReplaceDocuments(ctx, username, req.Query, req.Document)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +337,7 @@ func (d *db) CountDocuments(ctx context.Context, req *protomodel.CountDocumentsR
 	}, nil
 }
 
-func (d *db) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
+func (d *db) DeleteDocuments(ctx context.Context, username string, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
 	if d.isReplica() {
 		return nil, ErrIsReplica
 	}
@@ -346,7 +346,7 @@ func (d *db) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocument
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.documentEngine.DeleteDocuments(ctx, req.Query)
+	err := d.documentEngine.DeleteDocuments(ctx, username, req.Query)
 	if err != nil {
 		return nil, err
 	}
