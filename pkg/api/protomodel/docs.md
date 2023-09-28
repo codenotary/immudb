@@ -427,6 +427,7 @@
 | revision | [uint64](#uint64) |  |  |
 | metadata | [DocumentMetadata](#immudb.model.DocumentMetadata) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| username | [string](#string) |  |  |
 
 
 
