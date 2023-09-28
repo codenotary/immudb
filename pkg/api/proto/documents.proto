@@ -446,6 +446,7 @@ message DocumentAtRevision {
   uint64 revision = 3;
   DocumentMetadata metadata = 4;
   google.protobuf.Struct document = 5;
+  string username = 6;
 }
 
 message DocumentMetadata {

@@ -970,6 +970,9 @@
         },
         "document": {
           "type": "object"
+        },
+        "username": {
+          "type": "string"
         }
       },
       "required": [
