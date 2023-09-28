@@ -1449,6 +1449,8 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			"",
 			[]*protomodel.Field{
 				{Name: "number", Type: protomodel.FieldType_DOUBLE},
+				{Name: "title", Type: protomodel.FieldType_STRING},
+				{Name: "amount", Type: protomodel.FieldType_INTEGER},
 			},
 			[]*protomodel.Index{
 				{Fields: []string{"number"}},
@@ -1563,12 +1565,24 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 	})
 
 	t.Run("create index with a new field name should succeed", func(t *testing.T) {
-		err := engine.AddField(
+		_, _, err := engine.InsertDocument(
+			context.Background(),
+			collectionName,
+			&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"number": structpb.NewNumberValue(1),
+					"title":  structpb.NewStringValue("title1"),
+					"amount": structpb.NewNumberValue(10),
+				},
+			})
+		require.NoError(t, err)
+
+		err = engine.AddField(
 			context.Background(),
 			collectionName,
 			&protomodel.Field{
-				Name: "newFieldName",
-				Type: protomodel.FieldType_INTEGER,
+				Name: "active",
+				Type: protomodel.FieldType_BOOLEAN,
 			},
 		)
 		require.NoError(t, err)
@@ -1577,45 +1591,64 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			context.Background(),
 			collectionName,
 			&protomodel.Field{
-				Name: "newFieldName",
+				Name: "active",
 				Type: protomodel.FieldType_BOOLEAN,
 			},
 		)
 		require.ErrorIs(t, err, ErrFieldAlreadyExists)
 
+		err = engine.RemoveField(
+			context.Background(),
+			collectionName,
+			"title",
+		)
+		require.NoError(t, err)
+
 		err = engine.CreateIndex(
 			context.Background(),
 			collectionName,
-			[]string{"newFieldName"},
+			[]string{"active"},
 			false,
 		)
+		require.NoError(t, err)
+
+		_, _, err = engine.InsertDocument(
+			context.Background(),
+			collectionName,
+			&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"number": structpb.NewNumberValue(1),
+					"title":  structpb.NewStringValue("title1"),
+					"amount": structpb.NewNumberValue(10),
+				},
+			})
 		require.NoError(t, err)
 
 		err = engine.RemoveField(
 			context.Background(),
 			collectionName,
-			"newFieldName",
+			"active",
 		)
 		require.ErrorIs(t, err, sql.ErrCantDropIndexedColumn)
 
 		err = engine.DeleteIndex(
 			context.Background(),
 			collectionName,
-			[]string{"newFieldName"},
+			[]string{"active"},
 		)
 		require.NoError(t, err)
 
 		err = engine.RemoveField(
 			context.Background(),
 			collectionName,
-			"newFieldName",
+			"active",
 		)
 		require.NoError(t, err)
 
 		err = engine.RemoveField(
 			context.Background(),
 			collectionName,
-			"newFieldName",
+			"active",
 		)
 		require.ErrorIs(t, err, ErrFieldDoesNotExist)
 	})
