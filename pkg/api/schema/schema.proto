@@ -369,6 +369,8 @@ message TxHeader {
 message TxMetadata {
   // Entry expiration information
   uint64 truncatedTxID = 1;
+  // Extra data
+  bytes extra = 2;
 }
 
 // LinearProof contains the linear part of the proof (outside the main Merkle Tree)

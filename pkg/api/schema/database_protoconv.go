@@ -179,6 +179,8 @@ func TxMetadataToProto(md *store.TxMetadata) *TxMetadata {
 		txmd.TruncatedTxID = txID
 	}
 
+	txmd.Extra = md.Extra()
+
 	return txmd
 }
 
@@ -253,6 +255,8 @@ func TxMetadataFromProto(md *TxMetadata) *store.TxMetadata {
 	if md.TruncatedTxID > 0 {
 		txmd.WithTruncatedTxID(md.TruncatedTxID)
 	}
+
+	txmd.WithExtra(md.Extra)
 
 	return txmd
 }
