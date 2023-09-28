@@ -1254,9 +1254,16 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *
 		EncodedDocument: encodedDocVal,
 	}
 
+	var username string
+
+	if valRef.TxMetadata() != nil {
+		username = string(valRef.TxMetadata().Extra())
+	}
+
 	if encDoc.KVMetadata != nil && encDoc.KVMetadata.Deleted() {
 		return &protomodel.DocumentAtRevision{
 			TransactionId: encDoc.TxID,
+			Username:      username,
 			Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		}, nil
 	}
@@ -1287,6 +1294,7 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *
 
 	return &protomodel.DocumentAtRevision{
 		TransactionId: encDoc.TxID,
+		Username:      username,
 		Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		Document:      doc,
 	}, err

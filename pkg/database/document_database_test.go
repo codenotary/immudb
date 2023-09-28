@@ -558,6 +558,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 		for _, rev := range resp.Revisions {
 			require.Equal(t, docID, rev.Document.Fields["_id"].GetStringValue())
+			require.Equal(t, "admin", rev.Username)
 		}
 	})
 
