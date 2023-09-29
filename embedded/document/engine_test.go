@@ -1606,6 +1606,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 	t.Run("create index with a new field name should succeed", func(t *testing.T) {
 		_, _, err := engine.InsertDocument(
 			context.Background(),
+			"admin",
 			collectionName,
 			&structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -1618,6 +1619,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		err = engine.RemoveField(
 			context.Background(),
+			"admin",
 			collectionName,
 			"title",
 		)
@@ -1656,6 +1658,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 
 		_, _, err = engine.InsertDocument(
 			context.Background(),
+			"admin",
 			collectionName,
 			&structpb.Struct{
 				Fields: map[string]*structpb.Value{
