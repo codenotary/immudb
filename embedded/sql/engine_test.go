@@ -1268,16 +1268,19 @@ func TestAlterTableDropColumn(t *testing.T) {
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN active", nil)
 			require.NoError(t, err)
 
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 ADD COLUMN deprecated BOOLEAN", nil)
+			require.NoError(t, err)
+
 			tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 			require.NoError(t, err)
 
 			catTable, err := tx.catalog.GetTableByName("table1")
 			require.NoError(t, err)
 
-			require.Len(t, catTable.cols, 4)
-			require.Len(t, catTable.colsByID, 4)
-			require.Len(t, catTable.colsByName, 4)
-			require.EqualValues(t, catTable.maxColID, 5)
+			require.Len(t, catTable.cols, 5)
+			require.Len(t, catTable.colsByID, 5)
+			require.Len(t, catTable.colsByName, 5)
+			require.EqualValues(t, catTable.maxColID, 6)
 
 			err = tx.Cancel()
 			require.NoError(t, err)
@@ -1297,8 +1300,8 @@ func TestAlterTableDropColumn(t *testing.T) {
 			for i := 0; i < 3; i++ {
 				row, err := res.Read(context.Background())
 				require.NoError(t, err)
-				require.Len(t, row.ValuesByPosition, 4)
-				require.Len(t, row.ValuesBySelector, 4)
+				require.Len(t, row.ValuesByPosition, 5)
+				require.Len(t, row.ValuesBySelector, 5)
 			}
 
 			_, err = res.Read(context.Background())
@@ -1318,10 +1321,10 @@ func TestAlterTableDropColumn(t *testing.T) {
 			catTable, err := tx.catalog.GetTableByName("table1")
 			require.NoError(t, err)
 
-			require.Len(t, catTable.cols, 3)
-			require.Len(t, catTable.colsByID, 3)
-			require.Len(t, catTable.colsByName, 3)
-			require.EqualValues(t, catTable.maxColID, 5)
+			require.Len(t, catTable.cols, 4)
+			require.Len(t, catTable.colsByID, 4)
+			require.Len(t, catTable.colsByName, 4)
+			require.EqualValues(t, catTable.maxColID, 6)
 
 			err = tx.Cancel()
 			require.NoError(t, err)
@@ -1340,8 +1343,8 @@ func TestAlterTableDropColumn(t *testing.T) {
 			for i := 0; i < 3; i++ {
 				row, err := res.Read(context.Background())
 				require.NoError(t, err)
-				require.Len(t, row.ValuesByPosition, 3)
-				require.Len(t, row.ValuesBySelector, 3)
+				require.Len(t, row.ValuesByPosition, 4)
+				require.Len(t, row.ValuesBySelector, 4)
 			}
 
 			_, err = res.Read(context.Background())
@@ -1361,11 +1364,11 @@ func TestAlterTableDropColumn(t *testing.T) {
 			catTable, err := tx.catalog.GetTableByName("table1")
 			require.NoError(t, err)
 
-			require.Len(t, catTable.cols, 4)
-			require.Len(t, catTable.colsByID, 4)
-			require.Len(t, catTable.colsByName, 4)
-			require.EqualValues(t, 6, catTable.colsByName["active"].id)
-			require.EqualValues(t, 6, catTable.maxColID)
+			require.Len(t, catTable.cols, 5)
+			require.Len(t, catTable.colsByID, 5)
+			require.Len(t, catTable.colsByName, 5)
+			require.EqualValues(t, 7, catTable.colsByName["active"].id)
+			require.EqualValues(t, 7, catTable.maxColID)
 
 			err = tx.Cancel()
 			require.NoError(t, err)
