@@ -1450,7 +1450,7 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			[]*protomodel.Field{
 				{Name: "number", Type: protomodel.FieldType_DOUBLE},
 				{Name: "title", Type: protomodel.FieldType_STRING},
-				{Name: "amount", Type: protomodel.FieldType_INTEGER},
+				{Name: "comment", Type: protomodel.FieldType_STRING},
 			},
 			[]*protomodel.Index{
 				{Fields: []string{"number"}},
@@ -1570,11 +1570,18 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			collectionName,
 			&structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"number": structpb.NewNumberValue(1),
-					"title":  structpb.NewStringValue("title1"),
-					"amount": structpb.NewNumberValue(10),
+					"number":  structpb.NewNumberValue(1),
+					"title":   structpb.NewStringValue("title1"),
+					"comment": structpb.NewStringValue("some comment"),
 				},
 			})
+		require.NoError(t, err)
+
+		err = engine.RemoveField(
+			context.Background(),
+			collectionName,
+			"title",
+		)
 		require.NoError(t, err)
 
 		err = engine.AddField(
@@ -1597,13 +1604,6 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		)
 		require.ErrorIs(t, err, ErrFieldAlreadyExists)
 
-		err = engine.RemoveField(
-			context.Background(),
-			collectionName,
-			"title",
-		)
-		require.NoError(t, err)
-
 		err = engine.CreateIndex(
 			context.Background(),
 			collectionName,
@@ -1617,9 +1617,9 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 			collectionName,
 			&structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"number": structpb.NewNumberValue(1),
-					"title":  structpb.NewStringValue("title1"),
-					"amount": structpb.NewNumberValue(10),
+					"number":  structpb.NewNumberValue(1),
+					"title":   structpb.NewStringValue("title1"),
+					"comment": structpb.NewStringValue("some comment"),
 				},
 			})
 		require.NoError(t, err)
