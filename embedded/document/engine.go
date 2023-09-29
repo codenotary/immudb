@@ -1285,6 +1285,10 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *
 }
 
 func (e *Engine) getEncodedDocument(ctx context.Context, key []byte, atTx uint64) (encDoc *EncodedDocument, err error) {
+	if atTx > e.sqlEngine.GetStore().LastPrecommittedTxID() {
+		return nil, store.ErrTxNotFound
+	}
+
 	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, atTx)
 	if err != nil {
 		return nil, err
