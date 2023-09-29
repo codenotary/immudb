@@ -300,6 +300,8 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 
 			col, err := index.table.GetColumnByID(colID)
 			if errors.Is(err, ErrColumnDoesNotExist) {
+				vlen := int(binary.BigEndian.Uint32(value[voff:]))
+				voff += EncLenLen + vlen
 				continue
 			} else if err != nil {
 				return err
