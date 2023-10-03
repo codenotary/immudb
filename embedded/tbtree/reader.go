@@ -22,17 +22,22 @@ import (
 )
 
 type Reader struct {
-	snapshot      *Snapshot
-	id            int
-	seekKey       []byte
-	endKey        []byte
-	prefix        []byte
-	inclusiveSeek bool
-	inclusiveEnd  bool
-	descOrder     bool
-	path          path
-	leafNode      *leafNode
-	leafOffset    int
+	snapshot       *Snapshot
+	id             int
+	seekKey        []byte
+	endKey         []byte
+	prefix         []byte
+	inclusiveSeek  bool
+	inclusiveEnd   bool
+	includeHistory bool
+	descOrder      bool
+
+	path       path
+	leafNode   *leafNode
+	leafOffset int
+
+	leafValue *leafValue
+	hoff      int
 
 	offset  uint64
 	skipped uint64
@@ -41,13 +46,14 @@ type Reader struct {
 }
 
 type ReaderSpec struct {
-	SeekKey       []byte
-	EndKey        []byte
-	Prefix        []byte
-	InclusiveSeek bool
-	InclusiveEnd  bool
-	DescOrder     bool
-	Offset        uint64
+	SeekKey        []byte
+	EndKey         []byte
+	Prefix         []byte
+	InclusiveSeek  bool
+	InclusiveEnd   bool
+	IncludeHistory bool
+	DescOrder      bool
+	Offset         uint64
 }
 
 func (r *Reader) Reset() error {
@@ -175,73 +181,107 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 	}
 
 	for {
-		if (!r.descOrder && len(r.leafNode.values) == r.leafOffset) || (r.descOrder && r.leafOffset < 0) {
-			for {
-				if len(r.path) == 0 {
+		if r.leafValue == nil {
+
+			if (!r.descOrder && len(r.leafNode.values) == r.leafOffset) || (r.descOrder && r.leafOffset < 0) {
+				for {
+					if len(r.path) == 0 {
+						return nil, nil, 0, 0, ErrNoMoreEntries
+					}
+
+					parent := r.path[len(r.path)-1]
+
+					var parentPath []*pathNode
+					if len(r.path) > 1 {
+						parentPath = r.path[:len(r.path)-1]
+					}
+
+					path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
+
+					if errors.Is(err, ErrKeyNotFound) {
+						r.path = r.path[:len(r.path)-1]
+						continue
+					}
+
+					if err != nil {
+						return nil, nil, 0, 0, err
+					}
+
+					r.path = path
+					r.leafNode = leaf
+					r.leafOffset = off
+					break
+				}
+			}
+		}
+
+		if r.leafValue == nil {
+			leafValue := r.leafNode.values[r.leafOffset]
+
+			if r.descOrder {
+				r.leafOffset--
+			} else {
+				r.leafOffset++
+			}
+
+			if !r.inclusiveSeek && bytes.Equal(r.seekKey, leafValue.key) {
+				continue
+			}
+
+			if len(r.endKey) > 0 {
+				cmp := bytes.Compare(r.endKey, leafValue.key)
+
+				if r.descOrder && (cmp > 0 || (cmp == 0 && !r.inclusiveEnd)) {
 					return nil, nil, 0, 0, ErrNoMoreEntries
 				}
 
-				parent := r.path[len(r.path)-1]
-
-				var parentPath []*pathNode
-				if len(r.path) > 1 {
-					parentPath = r.path[:len(r.path)-1]
+				if !r.descOrder && (cmp < 0 || (cmp == 0 && !r.inclusiveEnd)) {
+					return nil, nil, 0, 0, ErrNoMoreEntries
 				}
-
-				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
-
-				if errors.Is(err, ErrKeyNotFound) {
-					r.path = r.path[:len(r.path)-1]
-					continue
-				}
-
-				if err != nil {
-					return nil, nil, 0, 0, err
-				}
-
-				r.path = path
-				r.leafNode = leaf
-				r.leafOffset = off
-				break
 			}
+
+			// prefix mismatch
+			if len(r.prefix) > 0 &&
+				(len(leafValue.key) < len(r.prefix) || !bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)])) {
+				continue
+			}
+
+			if r.skipped < r.offset {
+				r.skipped++
+				continue
+			}
+
+			r.leafValue = leafValue
 		}
 
-		leafValue := r.leafNode.values[r.leafOffset]
-
-		if r.descOrder {
-			r.leafOffset--
-		} else {
-			r.leafOffset++
-		}
-
-		if !r.inclusiveSeek && bytes.Equal(r.seekKey, leafValue.key) {
+		if r.leafValue == nil {
 			continue
 		}
 
-		if len(r.endKey) > 0 {
-			cmp := bytes.Compare(r.endKey, leafValue.key)
+		if !r.includeHistory {
+			leafValue := r.leafValue
+			r.leafValue = nil
 
-			if r.descOrder && (cmp > 0 || (cmp == 0 && !r.inclusiveEnd)) {
-				return nil, nil, 0, 0, ErrNoMoreEntries
-			}
-
-			if !r.descOrder && (cmp < 0 || (cmp == 0 && !r.inclusiveEnd)) {
-				return nil, nil, 0, 0, ErrNoMoreEntries
-			}
+			return cp(leafValue.key), cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.historyCount(), nil
 		}
 
-		// prefix mismatch
-		if len(r.prefix) > 0 &&
-			(len(leafValue.key) < len(r.prefix) || !bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)])) {
+		tvs, hc, err := r.leafValue.history(r.leafValue.key, uint64(r.hoff), r.descOrder, 1, r.leafNode.t.hLog)
+		if errors.Is(err, ErrNoMoreEntries) {
+			r.leafValue = nil
+			r.hoff = 0
 			continue
+		} else if err != nil {
+			return nil, nil, 0, 0, err
 		}
+
+		r.hoff++
 
 		if r.skipped < r.offset {
 			r.skipped++
 			continue
 		}
 
-		return cp(leafValue.key), cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.historyCount(), nil
+		return cp(r.leafValue.key), cp(tvs[0].Value), tvs[0].Ts, hc, nil
 	}
 }
 
