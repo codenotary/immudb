@@ -899,10 +899,7 @@ func (s *ImmuStore) DeleteIndex(prefix []byte) error {
 		return fmt.Errorf("%w: index not found", ErrIndexNotFound)
 	}
 
-	err := indexer.Close()
-	if err != nil {
-		return err
-	}
+	indexer.Close()
 
 	delete(s.indexers, indexPrefix)
 
