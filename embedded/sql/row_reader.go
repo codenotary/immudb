@@ -41,9 +41,10 @@ type RowReader interface {
 }
 
 type ScanSpecs struct {
-	Index         *Index
-	rangesByColID map[uint32]*typedValueRange
-	DescOrder     bool
+	Index          *Index
+	rangesByColID  map[uint32]*typedValueRange
+	IncludeHistory bool
+	DescOrder      bool
 }
 
 type Row struct {
@@ -250,13 +251,14 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 	}
 
 	return &store.KeyReaderSpec{
-		SeekKey:       seekKey,
-		InclusiveSeek: true,
-		EndKey:        endKey,
-		InclusiveEnd:  true,
-		Prefix:        prefix,
-		DescOrder:     scanSpecs.DescOrder,
-		Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		SeekKey:        seekKey,
+		InclusiveSeek:  true,
+		EndKey:         endKey,
+		InclusiveEnd:   true,
+		Prefix:         prefix,
+		DescOrder:      scanSpecs.DescOrder,
+		Filters:        []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		IncludeHistory: scanSpecs.IncludeHistory,
 	}, nil
 }
 
