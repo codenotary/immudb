@@ -65,14 +65,15 @@ type KeyReader interface {
 }
 
 type KeyReaderSpec struct {
-	SeekKey       []byte
-	EndKey        []byte
-	Prefix        []byte
-	InclusiveSeek bool
-	InclusiveEnd  bool
-	DescOrder     bool
-	Filters       []FilterFn
-	Offset        uint64
+	SeekKey        []byte
+	EndKey         []byte
+	Prefix         []byte
+	InclusiveSeek  bool
+	InclusiveEnd   bool
+	IncludeHistory bool
+	DescOrder      bool
+	Filters        []FilterFn
+	Offset         uint64
 }
 
 func (s *Snapshot) set(key, value []byte) error {
@@ -197,12 +198,13 @@ func (s *Snapshot) Close() error {
 
 func (s *Snapshot) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	r, err := s.snap.NewReader(tbtree.ReaderSpec{
-		SeekKey:       spec.SeekKey,
-		EndKey:        spec.EndKey,
-		Prefix:        spec.Prefix,
-		InclusiveSeek: spec.InclusiveSeek,
-		InclusiveEnd:  spec.InclusiveEnd,
-		DescOrder:     spec.DescOrder,
+		SeekKey:        spec.SeekKey,
+		EndKey:         spec.EndKey,
+		Prefix:         spec.Prefix,
+		InclusiveSeek:  spec.InclusiveSeek,
+		InclusiveEnd:   spec.InclusiveEnd,
+		IncludeHistory: spec.IncludeHistory,
+		DescOrder:      spec.DescOrder,
 	})
 	if err != nil {
 		return nil, err
@@ -228,6 +230,7 @@ func (s *Snapshot) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		snap:           s,
 		reader:         r,
 		filters:        spec.Filters,
+		includeHistory: spec.IncludeHistory,
 		refInterceptor: refInterceptor,
 		offset:         spec.Offset,
 	}, nil
@@ -393,6 +396,8 @@ type storeKeyReader struct {
 	snap           *Snapshot
 	reader         *tbtree.Reader
 	filters        []FilterFn
+	includeHistory bool
+
 	refInterceptor valueRefInterceptor
 
 	offset  uint64
@@ -415,11 +420,13 @@ func (r *storeKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID
 
 		filterEntry := false
 
-		for _, filter := range r.filters {
-			err = filter(valRef, r.snap.ts)
-			if err != nil {
-				filterEntry = true
-				break
+		if !r.includeHistory {
+			for _, filter := range r.filters {
+				err = filter(valRef, r.snap.ts)
+				if err != nil {
+					filterEntry = true
+					break
+				}
 			}
 		}
 
@@ -452,11 +459,13 @@ func (r *storeKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, er
 
 		filterEntry := false
 
-		for _, filter := range r.filters {
-			err = filter(valRef, r.snap.ts)
-			if err != nil {
-				filterEntry = true
-				break
+		if !r.includeHistory {
+			for _, filter := range r.filters {
+				err = filter(valRef, r.snap.ts)
+				if err != nil {
+					filterEntry = true
+					break
+				}
 			}
 		}
 
