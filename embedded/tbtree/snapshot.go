@@ -305,16 +305,17 @@ func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
 
 	// Create a new reader with the given specification
 	r = &Reader{
-		snapshot:      s,
-		id:            s.maxReaderID,
-		seekKey:       seekKey,
-		endKey:        endKey,
-		prefix:        spec.Prefix,
-		inclusiveSeek: inclusiveSeek,
-		inclusiveEnd:  inclusiveEnd,
-		descOrder:     spec.DescOrder,
-		offset:        spec.Offset,
-		closed:        false,
+		snapshot:       s,
+		id:             s.maxReaderID,
+		seekKey:        seekKey,
+		endKey:         endKey,
+		prefix:         spec.Prefix,
+		inclusiveSeek:  inclusiveSeek,
+		inclusiveEnd:   inclusiveEnd,
+		includeHistory: spec.IncludeHistory,
+		descOrder:      spec.DescOrder,
+		offset:         spec.Offset,
+		closed:         false,
 	}
 
 	s.readers[r.id] = r

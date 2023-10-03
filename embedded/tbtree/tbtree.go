@@ -2328,7 +2328,11 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]T
 
 	leafValue := l.values[i]
 
-	hCount := leafValue.historyCount()
+	return leafValue.history(key, offset, desc, limit, l.t.hLog)
+}
+
+func (lv *leafValue) history(key []byte, offset uint64, desc bool, limit int, hLog appendable.Appendable) ([]TimedValue, uint64, error) {
+	hCount := lv.historyCount()
 
 	if offset == hCount {
 		return nil, 0, ErrNoMoreEntries
@@ -2352,24 +2356,24 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]T
 		initAt = hCount - offset - uint64(timedValuesLen)
 	}
 
-	if initAt < uint64(len(leafValue.timedValues)) {
-		for i := int(initAt); i < len(leafValue.timedValues) && tssOff < timedValuesLen; i++ {
+	if initAt < uint64(len(lv.timedValues)) {
+		for i := int(initAt); i < len(lv.timedValues) && tssOff < timedValuesLen; i++ {
 			if desc {
-				timedValues[tssOff] = leafValue.timedValues[i]
+				timedValues[tssOff] = lv.timedValues[i]
 			} else {
-				timedValues[timedValuesLen-1-tssOff] = leafValue.timedValues[i]
+				timedValues[timedValuesLen-1-tssOff] = lv.timedValues[i]
 			}
 
 			tssOff++
 		}
 	}
 
-	hOff := leafValue.hOff
+	hOff := lv.hOff
 
-	ti := uint64(len(leafValue.timedValues))
+	ti := uint64(len(lv.timedValues))
 
 	for tssOff < timedValuesLen {
-		r := appendable.NewReaderFrom(l.t.hLog, hOff, DefaultMaxNodeSize)
+		r := appendable.NewReaderFrom(hLog, hOff, DefaultMaxNodeSize)
 
 		hc, err := r.ReadUint32()
 		if err != nil {
