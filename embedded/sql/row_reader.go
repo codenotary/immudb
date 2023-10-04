@@ -164,8 +164,29 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		tableAlias = table.name
 	}
 
-	colsByPos := make([]ColDescriptor, len(table.cols))
-	colsBySel := make(map[string]ColDescriptor, len(table.cols))
+	var colsByPos []ColDescriptor
+	var colsBySel map[string]ColDescriptor
+
+	var off int
+
+	if scanSpecs.IncludeHistory {
+		colsByPos = make([]ColDescriptor, 1+len(table.cols))
+		colsBySel = make(map[string]ColDescriptor, 1+len(table.cols))
+
+		colDescriptor := ColDescriptor{
+			Table:  tableAlias,
+			Column: revCol,
+			Type:   IntegerType,
+		}
+
+		colsByPos[0] = colDescriptor
+		colsBySel[colDescriptor.Selector()] = colDescriptor
+
+		off = 1
+	} else {
+		colsByPos = make([]ColDescriptor, len(table.cols))
+		colsBySel = make(map[string]ColDescriptor, len(table.cols))
+	}
 
 	for i, c := range table.cols {
 		colDescriptor := ColDescriptor{
@@ -174,7 +195,7 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 			Type:   c.colType,
 		}
 
-		colsByPos[i] = colDescriptor
+		colsByPos[off+i] = colDescriptor
 		colsBySel[colDescriptor.Selector()] = colDescriptor
 	}
 
@@ -396,14 +417,20 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 		return nil, err
 	}
 
-	valuesByPosition := make([]TypedValue, len(r.table.cols))
-	valuesBySelector := make(map[string]TypedValue, len(r.table.cols))
+	valuesByPosition := make([]TypedValue, len(r.colsByPos))
+	valuesBySelector := make(map[string]TypedValue, len(r.colsBySel))
 
-	for i, col := range r.table.cols {
-		v := &NullValue{t: col.colType}
+	for i, col := range r.colsByPos {
+		var val TypedValue
 
-		valuesByPosition[i] = v
-		valuesBySelector[EncodeSelector("", r.tableAlias, col.colName)] = v
+		if col.Column == revCol {
+			val = &Integer{val: int64(vref.HC())}
+		} else {
+			val = &NullValue{t: col.Type}
+		}
+
+		valuesByPosition[i] = val
+		valuesBySelector[col.Selector()] = val
 	}
 
 	if len(v) < EncLenLen {

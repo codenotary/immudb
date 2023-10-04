@@ -314,6 +314,10 @@ func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, maxCol
 			continue
 		}
 
+		if cs.colName == revCol {
+			return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+		}
+
 		_, colExists := table.colsByName[cs.colName]
 		if colExists {
 			return nil, ErrDuplicatedColumn
@@ -434,6 +438,10 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 }
 
 func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
+	if spec.colName == revCol {
+		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+	}
+
 	if spec.autoIncrement {
 		return nil, fmt.Errorf("%w (%s)", ErrLimitedAutoIncrement, spec.colName)
 	}
@@ -471,6 +479,10 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 }
 
 func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
+	if newName == revCol {
+		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+	}
+
 	if oldName == newName {
 		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewColumnName, oldName)
 	}
