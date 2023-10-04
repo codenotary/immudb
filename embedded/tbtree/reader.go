@@ -281,7 +281,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 			continue
 		}
 
-		return cp(r.leafValue.key), cp(tvs[0].Value), tvs[0].Ts, hc, nil
+		return cp(r.leafValue.key), cp(tvs[0].Value), tvs[0].Ts, hc - uint64(r.hoff) + 1, nil
 	}
 }
 
