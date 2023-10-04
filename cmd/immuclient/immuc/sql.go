@@ -120,6 +120,7 @@ func renderTableResult(resp *schema.SQLQueryResult) string {
 		consoleTable.Append(row)
 	}
 
+	consoleTable.SetAutoFormatHeaders(false)
 	consoleTable.Render()
 	return result.String()
 }
