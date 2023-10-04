@@ -2272,7 +2272,6 @@ type DataSource interface {
 
 type SelectStmt struct {
 	distinct  bool
-	history   bool
 	selectors []Selector
 	ds        DataSource
 	indexOn   []string
@@ -2566,7 +2565,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 	return &ScanSpecs{
 		Index:          sortingIndex,
 		rangesByColID:  rangesByColID,
-		IncludeHistory: stmt.history,
+		IncludeHistory: tableRef.history,
 		DescOrder:      descOrder,
 	}, nil
 }
@@ -2657,9 +2656,10 @@ func newTableRef(table string, as string) *tableRef {
 }
 
 type tableRef struct {
-	table  string
-	period period
-	as     string
+	table   string
+	history bool
+	period  period
+	as      string
 }
 
 type period struct {

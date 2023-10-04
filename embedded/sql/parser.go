@@ -34,6 +34,8 @@ var reservedWords = map[string]int{
 	"USE":            USE,
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
+	"HISTORY":        HISTORY,
+	"OF":             OF,
 	"SINCE":          SINCE,
 	"AFTER":          AFTER,
 	"BEFORE":         BEFORE,
