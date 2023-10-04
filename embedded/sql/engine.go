@@ -47,6 +47,7 @@ var ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary key
 var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max length")
 var ErrDuplicatedColumn = errors.New("duplicated column")
 var ErrInvalidColumn = errors.New("invalid column")
+var ErrReservedWord = errors.New("reserved word")
 var ErrPKCanNotBeNull = errors.New("primary key can not be null")
 var ErrPKCanNotBeUpdated = errors.New("primary key can not be updated")
 var ErrNotNullableColumnCannotBeNull = errors.New("not nullable column can not be null")

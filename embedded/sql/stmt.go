@@ -50,6 +50,8 @@ const (
 	autoIncrementFlag byte = 1 << iota
 )
 
+const revCol = "_rev"
+
 type SQLValueType = string
 
 const (
@@ -3470,7 +3472,7 @@ func (bexp *CmpBoolExp) isConstant() bool {
 func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	matchingFunc := func(left, right ValueExp) (*ColSelector, ValueExp, bool) {
 		s, isSel := bexp.left.(*ColSelector)
-		if isSel && bexp.right.isConstant() {
+		if isSel && s.col != revCol && bexp.right.isConstant() {
 			return s, right, true
 		}
 		return nil, nil, false
