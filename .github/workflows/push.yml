@@ -57,10 +57,6 @@ jobs:
         - uses: actions/checkout@v3
         - name: Build binaries
           run: WEBCONSOLE=default make dist
-        - name: Notarize git repository
-          uses: docker://codenotary/cas
-          with:
-            args: n git://. --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
         - id: list-binaries
           run: |
             echo "matrix=$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')" >> $GITHUB_OUTPUT
@@ -214,10 +210,6 @@ jobs:
           with:
             name: immudb-binaries
             path: dist
-        - name: Notarize binaries
-          uses: docker://codenotary/cas
-          with:
-            args: n dist/${{ matrix.binary }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
 
   images:
       name: Build and notarize Docker Images
@@ -299,45 +291,6 @@ jobs:
 
             docker logout
 
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }}
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }}
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
 
   coveralls:
     name: Publish coverage
