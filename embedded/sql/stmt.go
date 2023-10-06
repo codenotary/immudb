@@ -2564,6 +2564,10 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		return nil, ErrNoAvailableIndex
 	}
 
+	if tableRef.history && !sortingIndex.IsPrimary() {
+		return nil, fmt.Errorf("%w: historical queries are supported over primary index", ErrIllegalArguments)
+	}
+
 	return &ScanSpecs{
 		Index:          sortingIndex,
 		rangesByColID:  rangesByColID,
