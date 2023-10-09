@@ -34,6 +34,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 
 	"github.com/stretchr/testify/require"
 )
@@ -1125,7 +1126,11 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 
 func TestTBTreeReOpen(t *testing.T) {
 	dir := t.TempDir()
-	tbtree, err := Open(dir, DefaultOptions())
+
+	opts := DefaultOptions().WithMaxKeySize(2).WithMaxValueSize(2)
+	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
+
+	tbtree, err := Open(dir, opts)
 	require.NoError(t, err)
 
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
@@ -1134,14 +1139,16 @@ func TestTBTreeReOpen(t *testing.T) {
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
-	err = tbtree.Insert([]byte("k1"), []byte("v1"))
-	require.NoError(t, err)
+	for i := 1; i < 10; i++ {
+		err = tbtree.Insert([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		require.NoError(t, err)
+	}
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 
 	t.Run("reopening btree after gracefully close should read all data", func(t *testing.T) {
-		tbtree, err := Open(dir, DefaultOptions())
+		tbtree, err := Open(dir, opts)
 		require.NoError(t, err)
 
 		_, _, _, err = tbtree.Get([]byte("k0"))
@@ -1149,6 +1156,45 @@ func TestTBTreeReOpen(t *testing.T) {
 
 		_, _, _, err = tbtree.Get([]byte("k1"))
 		require.NoError(t, err)
+
+		root, isInnerNode := tbtree.root.(*innerNode)
+		require.True(t, isInnerNode)
+
+		childNodeRef := root.nodes[0].(*nodeRef)
+
+		require.False(t, childNodeRef.mutated())
+		require.Positive(t, childNodeRef.minOffset())
+		require.Positive(t, childNodeRef.offset())
+
+		sz, err := childNodeRef.size()
+		require.NoError(t, err)
+		require.Positive(t, sz)
+
+		_, err = childNodeRef.setTs(root.ts())
+		require.NoError(t, err)
+
+		childNodeRef.off = -1
+
+		_, _, err = childNodeRef.insert(nil)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, _, err = childNodeRef.get(nil)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, _, err = childNodeRef.getBetween(nil, 1, 1)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, err = childNodeRef.history(nil, 0, true, 1)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, _, err = childNodeRef.findLeafNode(nil, nil, 0, nil, true)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, err = childNodeRef.setTs(root.ts())
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, err = childNodeRef.size()
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
 
 		err = tbtree.Close()
 		require.NoError(t, err)
