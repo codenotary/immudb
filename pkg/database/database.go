@@ -1046,8 +1046,7 @@ func (d *db) serializeTx(ctx context.Context, tx *store.Tx, spec *schema.Entries
 
 				kve, err := d.resolveValue(ctx, e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0, skipIntegrityCheck)
 				if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrExpiredEntry) {
-					// ignore deleted ones (referenced key may have been deleted)
-					break
+					break // ignore deleted ones (referenced key may have been deleted)
 				}
 				if err != nil {
 					return nil, err

@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestSession_OpenCloseSession(t *testing.T) {
@@ -46,7 +47,13 @@ func TestSession_OpenCloseSession(t *testing.T) {
 	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 
+	err = client.CloseSession(context.Background())
+	require.Error(t, err)
+
 	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	client.GetServiceClient().KeepAlive(context.Background(), &emptypb.Empty{})
 	require.NoError(t, err)
 
 	entry, err := client.Get(context.Background(), []byte("myKey"))
