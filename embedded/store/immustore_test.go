@@ -1089,6 +1089,13 @@ func TestImmudbStoreIndexing(t *testing.T) {
 		val, err := valRef.Resolve()
 		require.NoError(t, err)
 		require.Equal(t, []byte("value2"), val)
+
+		key, _, err := immuStore.GetWithPrefix(context.Background(), []byte("k"), []byte("k"))
+		require.NoError(t, err)
+		require.Equal(t, []byte("key"), key)
+
+		_, err = immuStore.GetBetween(context.Background(), []byte("key"), 1, valRef.Tx())
+		require.NoError(t, err)
 	})
 }
 
