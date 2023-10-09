@@ -92,13 +92,8 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 		}
 
 		e, err := d.getAtTx(ctx, key, valRef.Tx(), 0, snap, valRef.HC(), true)
-		if errors.Is(err, store.ErrKeyNotFound) {
-			// ignore deleted ones (referenced key may have been deleted)
-			continue
-		}
-		if errors.Is(err, io.EOF) {
-			// ignore truncated values (referenced value may have been truncated)
-			continue
+		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, io.EOF) {
+			continue // ignore deleted or truncated ones (referenced key may have been deleted or truncated)
 		}
 		if err != nil {
 			return nil, err

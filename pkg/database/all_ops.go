@@ -99,9 +99,7 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 				_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
 				if req.NoWait && !exists {
-					return nil, nil, fmt.Errorf(
-						"%w: can not create a reference to a key that was not set in the same transaction",
-						ErrNoWaitOperationMustBeSelfContained)
+					return nil, nil, fmt.Errorf("%w: can not create a reference to a key that was not set in the same transaction", ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				if !req.NoWait {
@@ -161,9 +159,7 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 				_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
 				if req.NoWait && !exists {
-					return nil, nil, fmt.Errorf(
-						"%w: can not create a reference into a set for a key that was not set in the same transaction",
-						ErrNoWaitOperationMustBeSelfContained)
+					return nil, nil, fmt.Errorf("%w: can not create a reference into a set for a key that was not set in the same transaction", ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				if !req.NoWait {
