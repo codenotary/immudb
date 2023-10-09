@@ -2036,6 +2036,9 @@ func TestServerDatabaseTruncate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	_, err = s.KeepAlive(context.Background(), &emptypb.Empty{})
+	require.Error(t, err)
+
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
 
 	_, err = s.KeepAlive(ctx, &emptypb.Empty{})
