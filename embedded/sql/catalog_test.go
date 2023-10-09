@@ -279,6 +279,8 @@ func TestCatalogTableLength(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, totalTablesCount, tab.id)
 
+		_, err = tab.GetIndexByName("invalid_index")
+		require.ErrorIs(t, err, ErrIndexNotFound)
 	})
 
 	t.Run("cancelling a transaction should not increase table count", func(t *testing.T) {

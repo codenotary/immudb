@@ -1243,6 +1243,9 @@ func TestAlterTableDropColumn(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		_, _, err = engine.Exec(context.Background(), nil, "DROP INDEX ON table1(id)", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
 		t.Run("fail to drop indexed from table that does not exist", func(t *testing.T) {
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table2 DROP COLUMN active", nil)
 			require.ErrorIs(t, err, ErrTableDoesNotExist)
