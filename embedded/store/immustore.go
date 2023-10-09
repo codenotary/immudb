@@ -2482,8 +2482,7 @@ func (s *ImmuStore) LinearAdvanceProof(sourceTxID, targetTxID uint64, targetBlTx
 	}
 
 	if targetTxID <= sourceTxID+1 {
-		// Additional proof is not needed
-		return nil, nil
+		return nil, nil // Additional proof is not needed
 	}
 
 	tx, err := s.fetchAllocTx()
@@ -2545,10 +2544,11 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	if errors.Is(err, multiapp.ErrAlreadyClosed) || errors.Is(err, singleapp.ErrAlreadyClosed) {
 		return 0, 0, ErrAlreadyClosed
 	}
+
+	// A partially readable commit record must be discarded -
+	// - it is a result of incomplete commit-log write
+	// and will be overwritten on the next commit
 	if errors.Is(err, io.EOF) {
-		// A partially readable commit record must be discarded -
-		// - it is a result of incomplete commit-log write
-		// and will be overwritten on the next commit
 		return 0, 0, ErrTxNotFound
 	}
 	if err != nil {
@@ -3142,8 +3142,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 	vLogID, offset := decodeOffset(off)
 
 	if !s.embeddedValues && vLogID == 0 && len(b) > 0 {
-		// it means value was not stored on any vlog i.e. a truncated transaction was replicated
-		return 0, io.EOF
+		return 0, io.EOF // it means value was not stored on any vlog i.e. a truncated transaction was replicated
 	}
 
 	if len(b) > 0 {
@@ -3152,12 +3151,9 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, s
 		if s.vLogCache != nil {
 			val, err := s.vLogCache.Get(off)
 			if err == nil {
-				// the requested value was found in the value cache
-				bval := val.([]byte)
-
+				bval := val.([]byte) // the requested value was found in the value cache
 				copy(b, bval)
 				n = len(bval)
-
 				foundInTheCache = true
 			} else if !errors.Is(err, cache.ErrKeyNotFound) {
 				return 0, err
@@ -3580,8 +3576,8 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 		var i uint64 = minTxID
 		for i > 0 && len(tombstones) != s.MaxIOConcurrency() {
 			err := back(i)
+			// if there is an error reading a transaction, stop the traversal and return the error.
 			if err != nil && !errors.Is(err, ErrTxEntryIndexOutOfRange) /* tx has entries*/ {
-				// if there is an error reading a transaction, stop the traversal and return the error.
 				s.logger.Errorf("failed to fetch transaction %d {traversal=back, err = %v}", i, err)
 				return err
 			}
