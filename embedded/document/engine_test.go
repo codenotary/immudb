@@ -1538,6 +1538,22 @@ func TestCollectionUpdateWithDeletedIndex(t *testing.T) {
 		err = engine.RemoveField(
 			context.Background(),
 			"admin",
+			"1invalidCollectionName",
+			"comment",
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		err = engine.RemoveField(
+			context.Background(),
+			"admin",
+			collectionName,
+			"1invalidFieldName",
+		)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		err = engine.RemoveField(
+			context.Background(),
+			"admin",
 			collectionName,
 			"unexistentFieldName",
 		)
