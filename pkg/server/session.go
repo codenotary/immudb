@@ -60,7 +60,6 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		(!u.HasPermission(r.DatabaseName, auth.PermissionAdmin)) &&
 		(!u.HasPermission(r.DatabaseName, auth.PermissionR)) &&
 		(!u.HasPermission(r.DatabaseName, auth.PermissionRW)) {
-
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
