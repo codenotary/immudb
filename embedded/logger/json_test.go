@@ -30,8 +30,14 @@ import (
 
 func TestJSONLogger(t *testing.T) {
 	t.Run("log", func(t *testing.T) {
+		logger, err := NewJSONLogger(nil)
+		require.NoError(t, err)
+
+		logger.SetLogLevel(LogDebug)
+		require.EqualValues(t, LogDebug, logger.level)
+
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
+		logger, err = NewJSONLogger(&Options{
 			Name:   "test",
 			Output: &buf,
 		})
