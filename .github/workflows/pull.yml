@@ -151,8 +151,8 @@ jobs:
 
           export PATH=$PATH:$(go env GOPATH)/bin
           set -o pipefail
-          ./ext-tools/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools,webconsole,protomodel,schema,swagger --tags minio || true
-          cat coverage.txt | grep -v "schema" | grep -v "protomodel" | grep -v "swagger" | grep -v "webserver.go" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" | grep -v "webconsole" > coverage.out
+          ./ext-tools/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,fs,cmdtest,sservice,version,tools,webconsole,protomodel,schema,swagger --tags minio || true
+          cat coverage.txt | grep -v "test" | grep -v "schema" | grep -v "protomodel" | grep -v "swagger" | grep -v "webserver.go" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "fs" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" | grep -v "webconsole" > coverage.out
           ./ext-tools/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
           # Stop minio
