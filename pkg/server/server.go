@@ -427,8 +427,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	if err == nil {
 		s.sysDB, err = database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
-			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+
-				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
+			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
 		}
 
@@ -523,8 +522,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	if err == nil {
 		db, err := database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
-			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+
-				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
+			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
 		}
 

@@ -5574,7 +5574,10 @@ func TestTemporalQueries(t *testing.T) {
 func TestHistoricalQueries(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil)
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, title VARCHAR[50], _rev INTEGER, PRIMARY KEY id)", nil)
+	require.ErrorIs(t, err, ErrReservedWord)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(title)", nil)

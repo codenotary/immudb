@@ -1103,8 +1103,7 @@ func (d *db) serializeTx(ctx context.Context, tx *store.Tx, spec *schema.Entries
 				if snap != nil {
 					entry, err = d.getAtTx(ctx, key, atTx, 1, snap, 0, skipIntegrityCheck)
 					if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrExpiredEntry) {
-						// ignore deleted ones (referenced key may have been deleted)
-						break
+						break // ignore deleted ones (referenced key may have been deleted)
 					}
 					if err != nil {
 						return nil, err
@@ -1244,8 +1243,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 		if req.ReplicaState.CommittedTxID > 0 {
 			// validate replica commit state
 			if req.ReplicaState.CommittedTxID > committedTxID {
-				return nil, committedTxID, committedAlh,
-					fmt.Errorf("%w: replica commit state diverged from primary's", ErrReplicaDivergedFromPrimary)
+				return nil, committedTxID, committedAlh, fmt.Errorf("%w: replica commit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
 			// integrityCheck is currently required to validate Alh
@@ -1257,16 +1255,14 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 			replicaCommittedAlh := schema.DigestFromProto(req.ReplicaState.CommittedAlh)
 
 			if expectedReplicaCommitHdr.Alh() != replicaCommittedAlh {
-				return nil, expectedReplicaCommitHdr.ID, expectedReplicaCommitHdr.Alh(),
-					fmt.Errorf("%w: replica commit state diverged from primary's", ErrReplicaDivergedFromPrimary)
+				return nil, expectedReplicaCommitHdr.ID, expectedReplicaCommitHdr.Alh(), fmt.Errorf("%w: replica commit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 		}
 
 		if req.ReplicaState.PrecommittedTxID > 0 {
 			// validate replica precommit state
 			if req.ReplicaState.PrecommittedTxID > preCommittedTxID {
-				return nil, committedTxID, committedAlh,
-					fmt.Errorf("%w: replica precommit state diverged from primary's", ErrReplicaDivergedFromPrimary)
+				return nil, committedTxID, committedAlh, fmt.Errorf("%w: replica precommit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
 			// integrityCheck is currently required to validate Alh
@@ -1278,8 +1274,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 			replicaPreCommittedAlh := schema.DigestFromProto(req.ReplicaState.PrecommittedAlh)
 
 			if expectedReplicaPrecommitHdr.Alh() != replicaPreCommittedAlh {
-				return nil, expectedReplicaPrecommitHdr.ID, expectedReplicaPrecommitHdr.Alh(),
-					fmt.Errorf("%w: replica precommit state diverged from primary's", ErrReplicaDivergedFromPrimary)
+				return nil, expectedReplicaPrecommitHdr.ID, expectedReplicaPrecommitHdr.Alh(), fmt.Errorf("%w: replica precommit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
 			// primary will provide commit state to the replica so it can commit pre-committed transactions
