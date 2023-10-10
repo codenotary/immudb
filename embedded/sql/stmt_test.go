@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -216,6 +217,22 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 		},
 		{
 			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Bool{val: true}},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &UUID{val: uuid.New()},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  UUIDType,
+			expectedError: nil,
+		},
+		{
+			exp:           &UUID{val: uuid.New()},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -686,6 +703,7 @@ func TestIsConstant(t *testing.T) {
 	require.True(t, (&Varchar{}).isConstant())
 	require.True(t, (&Bool{}).isConstant())
 	require.True(t, (&Blob{}).isConstant())
+	require.True(t, (&UUID{}).isConstant())
 	require.True(t, (&Timestamp{}).isConstant())
 	require.True(t, (&Param{}).isConstant())
 	require.False(t, (&ColSelector{}).isConstant())
@@ -960,5 +978,56 @@ func TestFloat64Type(t *testing.T) {
 	require.Equal(t, ts, v)
 
 	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
+}
+
+func TestUUIDType(t *testing.T) {
+
+	id := &UUID{val: uuid.New()}
+
+	t.Run("comparison functions", func(t *testing.T) {
+		cmp, err := id.Compare(&UUID{val: id.val})
+		require.NoError(t, err)
+		require.Equal(t, 0, cmp)
+
+		cmp, err = id.Compare(&UUID{val: uuid.New()})
+		require.NoError(t, err)
+		require.NotZero(t, cmp)
+
+		cmp, err = id.Compare(&NullValue{t: UUIDType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = id.Compare(&NullValue{t: AnyType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		_, err = id.Compare(&Float64{})
+		require.ErrorIs(t, err, ErrNotComparableValues)
+	})
+
+	err := id.requiresType(UUIDType, map[string]ColDescriptor{}, map[string]string{}, "")
+	require.NoError(t, err)
+
+	err = id.requiresType(IntegerType, map[string]ColDescriptor{}, map[string]string{}, "")
+	require.ErrorIs(t, err, ErrInvalidTypes)
+
+	v, err := id.substitute(map[string]interface{}{})
+	require.NoError(t, err)
+	require.Equal(t, id, v)
+
+	v = id.reduceSelectors(&Row{}, "")
+	require.Equal(t, id, v)
+
+	err = id.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
+
+	err = (&NullValue{}).selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
+
+	err = (&Integer{}).selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
+
+	err = (&Varchar{}).selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
 	require.NoError(t, err)
 }
