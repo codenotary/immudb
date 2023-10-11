@@ -578,7 +578,7 @@ func TestDocumentAudit(t *testing.T) {
 	})
 
 	// get document audit
-	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
+	res, err := engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10, true)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
 
@@ -626,7 +626,7 @@ func TestDocumentAudit(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoMoreDocuments)
 	})
 
-	res, err = engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10)
+	res, err = engine.AuditDocument(context.Background(), collectionName, docID, false, 0, 10, true)
 	require.NoError(t, err)
 	require.Len(t, res, 3)
 }

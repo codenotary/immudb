@@ -1072,7 +1072,7 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 }
 
 // AuditDocument returns the audit history of a document.
-func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
+func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int, includePayload bool) ([]*protomodel.DocumentAtRevision, error) {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return nil, err
@@ -1097,12 +1097,18 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 	results := make([]*protomodel.DocumentAtRevision, 0)
 
 	for _, valRef := range valRefs {
-		docAtRevision, err := e.getDocument(searchKey, valRef)
+		docAtRevision, err := e.getDocument(searchKey, valRef, includePayload)
+		if err != nil {
+			return nil, err
+		}
+
+		hdr, err := e.sqlEngine.GetStore().ReadTxHeader(valRef.Tx(), false, false)
 		if err != nil {
 			return nil, err
 		}
 
 		docAtRevision.DocumentId = docID.EncodeToHexString()
+		docAtRevision.Ts = hdr.Ts
 		docAtRevision.Revision = valRef.HC()
 
 		results = append(results, docAtRevision)
@@ -1241,10 +1247,14 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 	return searchKey, nil
 }
 
-func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *protomodel.DocumentAtRevision, err error) {
-	encodedDocVal, err := valRef.Resolve()
-	if err != nil {
-		return nil, mayTranslateError(err)
+func (e *Engine) getDocument(key []byte, valRef store.ValueRef, includePayload bool) (docAtRevision *protomodel.DocumentAtRevision, err error) {
+	var encodedDocVal []byte
+
+	if includePayload {
+		encodedDocVal, err = valRef.Resolve()
+		if err != nil {
+			return nil, mayTranslateError(err)
+		}
 	}
 
 	encDoc := &EncodedDocument{
@@ -1268,28 +1278,32 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef) (docAtRevision *
 		}, nil
 	}
 
-	voff := sql.EncLenLen + sql.EncIDLen
+	var doc *structpb.Struct
 
-	// DocumentIDField
-	_, n, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
-	if err != nil {
-		return nil, mayTranslateError(err)
-	}
+	if includePayload {
+		voff := sql.EncLenLen + sql.EncIDLen
 
-	voff += n + sql.EncIDLen
+		// DocumentIDField
+		_, n, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
+		if err != nil {
+			return nil, mayTranslateError(err)
+		}
 
-	// DocumentBLOBField
-	encodedDoc, _, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
-	if err != nil {
-		return nil, mayTranslateError(err)
-	}
+		voff += n + sql.EncIDLen
 
-	docBytes := encodedDoc.RawValue().([]byte)
+		// DocumentBLOBField
+		encodedDoc, _, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
+		if err != nil {
+			return nil, mayTranslateError(err)
+		}
 
-	doc := &structpb.Struct{}
-	err = proto.Unmarshal(docBytes, doc)
-	if err != nil {
-		return nil, err
+		docBytes := encodedDoc.RawValue().([]byte)
+
+		doc = &structpb.Struct{}
+		err = proto.Unmarshal(docBytes, doc)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &protomodel.DocumentAtRevision{
