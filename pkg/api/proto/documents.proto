@@ -447,6 +447,7 @@ message DocumentAtRevision {
   DocumentMetadata metadata = 4;
   google.protobuf.Struct document = 5;
   string username = 6;
+  int64 ts = 7;
 }
 
 message DocumentMetadata {
@@ -493,7 +494,8 @@ message AuditDocumentRequest {
         "documentId",
         "desc",
         "page",
-        "pageSize"
+        "pageSize",
+        "omitPayload"
       ]
     }
   };
@@ -503,6 +505,7 @@ message AuditDocumentRequest {
   bool desc = 3;
   uint32 page = 4;
   uint32 pageSize = 5;
+  bool omitPayload = 6;
 }
 
 message AuditDocumentResponse {

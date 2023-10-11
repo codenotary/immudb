@@ -790,12 +790,16 @@
         "pageSize": {
           "type": "integer",
           "format": "int64"
+        },
+        "omitPayload": {
+          "type": "boolean"
         }
       },
       "required": [
         "desc",
         "page",
-        "pageSize"
+        "pageSize",
+        "omitPayload"
       ]
     },
     "modelAuditDocumentResponse": {
@@ -973,6 +977,10 @@
         },
         "username": {
           "type": "string"
+        },
+        "ts": {
+          "type": "string",
+          "format": "int64"
         }
       },
       "required": [
