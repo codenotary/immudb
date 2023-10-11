@@ -78,7 +78,7 @@ jobs:
       - name: Build with webconsole
         run: |
           sudo apt update && sudo apt install curl -y
-          WEBCONSOLE=default make all
+          WEBCONSOLE=default SWAGGER=true make all
         if: "!matrix.noWebconsole"
 
       - name: Build without webconsole
