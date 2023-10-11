@@ -4,6 +4,150 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9.0-RC1"></a>
+## [v1.9.0-RC1] - 2023-10-11
+### Bug Fixes
+- correct immudb name in readme
+- allow the local id to be used if present even if remote flag is on
+- apply fixes discussed in PR
+- insertion ts for key-values should not be equal to the current root ts
+- **Makefile:** remove webconsole tag from immuclient/immuadmin builds
+- **embedded/appendable:** explicit freebsd build clauses
+- **embedded/document:** ensure multi-indexing is enabled
+- **embedded/document:** avoid waiting for tx to be committed
+- **embedded/sql:** advance position when decoding value at deleted column
+- **embedded/store:** use correct index path
+- **embedded/store:** handle transient key update
+- **embedded/store:** read lock when fetching indexer
+- **embedded/store:** precommitted transaction discarding recedes durable state
+- **embedded/store:** read lock when pausing indexers
+- **embedded/tbtree:** snapshot validation
+- **embedded/tbtree:** consider offset for history count calculation
+- **embedded/tbtree:** proper _rev calculation
+- **pkg/server:** buffer reuse
+
+### Changes
+- build with swaggerui
+- unnecessary use of fmt.Sprintf
+- use copy instead of a loop
+- align covered packages when pulling and merging
+- unnecessary use of fmt.Sprintf
+- **cmd/immuclient:** display raw column selector in table header
+- **deps:** bump golang.org/x/net from 0.10.0 to 0.12.0
+- **deps:** bump golang.org/x/crypto from 0.10.0 to 0.11.0
+- **deps:** bump golang.org/x/crypto from 0.13.0 to 0.14.0
+- **deps:** bump golang.org/x/crypto from 0.12.0 to 0.13.0
+- **deps:** bump golang.org/x/sys from 0.9.0 to 0.10.0
+- **deps:** bump golang.org/x/net from 0.14.0 to 0.15.0
+- **deps:** bump google.golang.org/grpc
+- **deps:** bump golang.org/x/sys from 0.11.0 to 0.12.0
+- **deps:** bump google.golang.org/grpc in /test/e2e/truncation
+- **deps:** bump google.golang.org/grpc
+- **deps:** bump golang.org/x/net from 0.15.0 to 0.17.0
+- **deps:** bump github.com/grpc-ecosystem/grpc-gateway/v2
+- **deps:** bump securego/gosec from 2.15.0 to 2.17.0
+- **deps:** bump golang.org/x/sys from 0.10.0 to 0.11.0
+- **deps:** bump golang.org/x/crypto from 0.7.0 to 0.10.0
+- **deps:** bump golang.org/x/net from 0.12.0 to 0.13.0
+- **deps:** bump google.golang.org/grpc from 1.55.0 to 1.56.2
+- **deps:** bump golang.org/x/net from 0.13.0 to 0.14.0
+- **embedded/document:** register username when applying a change
+- **embedded/document:** enable multi-indexing in doc engine tests
+- **embedded/document:** encoded document using valRef
+- **embedded/document:** attach username when auditing document
+- **embedded/sql:** post-commit physical index deletion
+- **embedded/sql:** uuid decoding
+- **embedded/sql:** improve internal index naming
+- **embedded/sql:** use declared constant for fixed ids
+- **embedded/sql:** insertion benchmark
+- **embedded/sql:** historical queries over primary index
+- **embedded/sql:** dynamic indexing
+- **embedded/sql:** deletion of primary index path
+- **embedded/sql:** multi-snapshop mvvc
+- **embedded/sql:** temporal queries with multi-indexing
+- **embedded/sql:** transactional drops
+- **embedded/sql:** unique index creation supported on empty tables
+- **embedded/sql:** support parenthesis as datatype constraint delimiter
+- **embedded/store:** multi-indexing
+- **embedded/store:** ensure index is erased from disk
+- **embedded/store:** wip multi-indexing
+- **embedded/store:** history returning value refs
+- **embedded/store:** indexer alloc its tx
+- **embedded/store:** remove metastate
+- **embedded/store:** history with rev count
+- **embedded/store:** injective index mapper
+- **embedded/store:** ensure snapshot up to date
+- **embedded/store:** indexing callbacks
+- **embedded/store:** key reader including historical entries
+- **embedded/store:** indexing prefix
+- **embedded/store:** entry mapper
+- **embedded/tbtree:** value-preserving history
+- **embedded/tbtree:** hcount serialization
+- **embedded/tbtree:** fetching historical values
+- **embedded/tbtree:** wip value-preserving history
+- **embedded/tbtree:** value-preserving history
+- **embedded/tbtree:** context propagation
+- **pkg/api:** adjust doc serializations to match verification
+- **pkg/api:** endpoint improvements
+- **pkg/client:** add setAll to immuclient mock
+- **pkg/client:** use buf for msg exchange
+- **pkg/database:** context propagation
+- **pkg/database:** context propagation
+- **pkg/database:** fix remote storage paths
+- **pkg/database:** increase delay when tx is not present
+- **pkg/database:** keept reading from specific tx
+- **pkg/database:** multi-indexing database
+- **pkg/database:** doc audit without retrieving payloads
+- **pkg/database:** register username when applying a change
+- **pkg/database:** fix remote storage paths
+- **pkg/database:** mandatory wait with async replication
+- **pkg/database:** kv count
+- **pkg/server:** register username when applying a change in doc apis
+- **pkg/server:** minor code adjustment
+- **pkg/stdlib:** non transactional ddl stmts
+- **pkg/truncator:** use embedded/logger package
+- **pkg/verification:** minor doc verification improvements
+- **swagger:** use embedded logger package
+- **tests:** Tests cleanup
+
+### Code Refactoring
+- **pkg/logger:** move logger from pkg to embedded
+
+### Features
+- update readme
+- prevent identifier from creation when use external id option
+- pass logger to heartbeater
+- add flag for using external id as a main one
+- **embedded/document:** register user when creating collection
+- **embedded/document:** doc audit without retrieving payloads
+- **embedded/document:** remove field from collection
+- **embedded/document:** add field to collection
+- **embedded/sql:** async multi-indexing
+- **embedded/sql:** extra metadata when creating tx
+- **embedded/sql:** include _rev column in historical queries
+- **embedded/sql:** drop index and table stmts
+- **embedded/sql:** table history
+- **embedded/sql:** query including historical rows
+- **embedded/sql:** dynamic multi-indexing
+- **embedded/sql:** wip uuid datatype support
+- **embedded/sql:** drop column stmt
+- **embedded/store:** use index attribute in kv metadata
+- **embedded/store:** getBetween
+- **embedded/store:** extra tx metadata
+- **embedded/store:** transactionaless multi-indexing
+- **embedded/tbtree:** getBetween
+- **embedded/tbtree:** key reader supporting historical values
+- **pkg/api:** docAudit returning timestamp and possibility to omit payloads
+- **pkg/api:** re-enable swagger ui
+- **pkg/api:** include username in document audit response
+- **pkg/api:** add field and remove field endpoints
+- **pkg/database:** add user when creating collection
+- **pkg/server:** add user when creating collection
+
+### Reverts
+- chore: remove initial swagger support
+
+
 <a name="v1.5.0"></a>
 ## [v1.5.0] - 2023-06-20
 ### Bug Fixes
@@ -3593,7 +3737,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC1...HEAD
+[v1.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.5.0...v1.9.0-RC1
 [v1.5.0]: https://github.com/vchain-us/immudb/compare/v1.5.0-RC1...v1.5.0
 [v1.5.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.1...v1.5.0-RC1
 [v1.4.1]: https://github.com/vchain-us/immudb/compare/v1.4.1-RC1...v1.4.1
