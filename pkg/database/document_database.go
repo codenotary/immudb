@@ -306,7 +306,7 @@ func (d *db) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentReq
 		return nil, fmt.Errorf("%w: invalid document id", err)
 	}
 
-	revisions, err := d.documentEngine.AuditDocument(ctx, req.CollectionName, docID, req.Desc, offset, limit)
+	revisions, err := d.documentEngine.AuditDocument(ctx, req.CollectionName, docID, req.Desc, offset, limit, !req.OmitPayload)
 	if err != nil {
 		return nil, fmt.Errorf("%w: error fetching document history", err)
 	}

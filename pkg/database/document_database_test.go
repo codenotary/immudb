@@ -546,6 +546,24 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.EqualValues(t, 1, countResp.Count)
 	})
 
+	t.Run("should pass when auditing document without requesting payloads", func(t *testing.T) {
+		resp, err := db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
+			CollectionName: collectionName,
+			DocumentId:     docID,
+			Page:           1,
+			PageSize:       10,
+			OmitPayload:    true,
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Revisions, 2)
+
+		for _, rev := range resp.Revisions {
+			require.Nil(t, rev.Document)
+			require.Equal(t, docID, rev.DocumentId)
+			require.Equal(t, "admin", rev.Username)
+		}
+	})
+
 	t.Run("should pass when auditing document", func(t *testing.T) {
 		resp, err := db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
 			CollectionName: collectionName,
