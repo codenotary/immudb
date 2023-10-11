@@ -214,6 +214,7 @@
 | desc | [bool](#bool) |  |  |
 | page | [uint32](#uint32) |  |  |
 | pageSize | [uint32](#uint32) |  |  |
+| omitPayload | [bool](#bool) |  |  |
 
 
 
@@ -428,6 +429,7 @@
 | metadata | [DocumentMetadata](#immudb.model.DocumentMetadata) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
 | username | [string](#string) |  |  |
+| ts | [int64](#int64) |  |  |
 
 
 
