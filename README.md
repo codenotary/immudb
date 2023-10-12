@@ -14,7 +14,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Build Status](https://github.com/codenotary/immudb/actions/workflows/push.yml/badge.svg)](https://github.com/codenotary/immudb/actions/workflows/push.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
 [![Coverage](https://coveralls.io/repos/github/codenotary/immudb/badge.svg?branch=master&kill_cache=1)](https://coveralls.io/github/codenotary/immudb?branch=master&kill_cache=1)
-![View SBOM](https://img.shields.io/badge/sbom.sh-viewSBOM-blue?link=https%3A%2F%2Fsbom.sh%2F36a0212a-aff8-4f81-9aa4-547e8b96fa9c)
+[![View SBOM](https://img.shields.io/badge/sbom.sh-viewSBOM-blue)](https://sbom.sh/36a0212a-aff8-4f81-9aa4-547e8b96fa9c)
 [![Homebrew](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
