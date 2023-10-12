@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+// Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -226,9 +226,9 @@ ddlstmt:
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
     }
 |
-    DROP INDEX ON IDENTIFIER '(' ids ')'
+    DROP INDEX IDENTIFIER DOT ids
     {
-        $$ = &DropIndexStmt{table: $4, cols: $6}
+        $$ = &DropIndexStmt{table: $3, cols: $5}
     }
 |
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
