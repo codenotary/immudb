@@ -231,9 +231,9 @@ ddlstmt:
         $$ = &DropIndexStmt{table: $4, cols: $6}
     }
 |
-    DROP INDEX IDENTIFIER DOT ids
+    DROP INDEX IDENTIFIER DOT IDENTIFIER
     {
-        $$ = &DropIndexStmt{table: $3, cols: $5}
+        $$ = &DropIndexStmt{table: $3, cols: []string{$5}}
     }
 |
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
