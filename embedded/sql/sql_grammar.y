@@ -226,6 +226,11 @@ ddlstmt:
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
     }
 |
+    DROP INDEX ON IDENTIFIER '(' ids ')'
+    {
+        $$ = &DropIndexStmt{table: $4, cols: $6}
+    }
+|
     DROP INDEX IDENTIFIER DOT ids
     {
         $$ = &DropIndexStmt{table: $3, cols: $5}
