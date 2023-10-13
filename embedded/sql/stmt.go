@@ -582,7 +582,7 @@ type UpsertIntoStmt struct {
 func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, isInsert bool, onConflict *OnConflictDo) *UpsertIntoStmt {
 	return &UpsertIntoStmt{
 		isInsert:   isInsert,
-		tableRef:   newTableRef(table, ""),
+		tableRef:   NewTableRef(table, ""),
 		cols:       cols,
 		rows:       rows,
 		onConflict: onConflict,
@@ -1222,7 +1222,7 @@ type DeleteFromStmt struct {
 
 func NewDeleteFromStmt(table string, where ValueExp, orderBy []*OrdCol, limit ValueExp) *DeleteFromStmt {
 	return &DeleteFromStmt{
-		tableRef: newTableRef(table, ""),
+		tableRef: NewTableRef(table, ""),
 		where:    where,
 		orderBy:  orderBy,
 		limit:    limit,
@@ -2289,7 +2289,7 @@ type SelectStmt struct {
 
 func NewSelectStmt(
 	selectors []Selector,
-	table string,
+	ds DataSource,
 	where ValueExp,
 	orderBy []*OrdCol,
 	limit ValueExp,
@@ -2297,7 +2297,7 @@ func NewSelectStmt(
 ) *SelectStmt {
 	return &SelectStmt{
 		selectors: selectors,
-		ds:        newTableRef(table, ""),
+		ds:        ds,
 		where:     where,
 		orderBy:   orderBy,
 		limit:     limit,
@@ -2654,7 +2654,7 @@ func (stmt *UnionStmt) Alias() string {
 	return ""
 }
 
-func newTableRef(table string, as string) *tableRef {
+func NewTableRef(table string, as string) *tableRef {
 	return &tableRef{
 		table: table,
 		as:    as,
