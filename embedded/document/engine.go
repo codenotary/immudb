@@ -880,7 +880,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, username string, query *p
 
 	queryStmt := sql.NewSelectStmt(
 		[]sql.Selector{sql.NewColSelector(query.CollectionName, documentIdFieldName)},
-		query.CollectionName,
+		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
@@ -983,7 +983,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 
 	op := sql.NewSelectStmt(
 		[]sql.Selector{sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
-		query.CollectionName,
+		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
@@ -1022,13 +1022,22 @@ func (e *Engine) CountDocuments(ctx context.Context, query *protomodel.Query, of
 		return 0, err
 	}
 
-	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")},
-		query.CollectionName,
+	ds := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(query.CollectionName, table.Cols()[0].Name())},
+		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
 		sql.NewInteger(offset),
+	)
+
+	op := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")},
+		ds,
+		nil,
+		nil,
+		nil,
+		nil,
 	)
 
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, op, nil)
