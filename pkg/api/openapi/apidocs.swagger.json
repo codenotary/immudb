@@ -808,7 +808,7 @@
         "revisions": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/modelDocumentAtRevision"
+            "$ref": "#/definitions/modelDocumentAtRevisionAudit"
           }
         }
       },
@@ -958,6 +958,17 @@
     "modelDocumentAtRevision": {
       "type": "object",
       "properties": {
+        "document": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "document"
+      ]
+    },
+    "modelDocumentAtRevisionAudit": {
+      "type": "object",
+      "properties": {
         "transactionId": {
           "type": "string",
           "format": "uint64"
@@ -986,7 +997,9 @@
       "required": [
         "transactionId",
         "documentId",
-        "revision"
+        "revision",
+        "username",
+        "ts"
       ]
     },
     "modelDocumentMetadata": {
@@ -1207,9 +1220,7 @@
         }
       },
       "required": [
-        "expressions",
-        "orderBy",
-        "limit"
+        "expressions"
       ]
     },
     "modelQueryExpression": {
@@ -1279,8 +1290,7 @@
       "required": [
         "query",
         "page",
-        "pageSize",
-        "keepOpen"
+        "pageSize"
       ]
     },
     "modelSearchDocumentsRequestWith": {
@@ -1300,8 +1310,7 @@
       },
       "required": [
         "page",
-        "pageSize",
-        "keepOpen"
+        "pageSize"
       ]
     },
     "modelSearchDocumentsResponse": {
