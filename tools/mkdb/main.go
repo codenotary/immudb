@@ -19,10 +19,7 @@ package main
 import (
 	"context"
 	"flag"
-	// "fmt"
 	"log"
-	"math/rand"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
@@ -63,7 +60,6 @@ func init() {
 	flag.IntVar(&config.MaxTxEntries, "MaxTxEntries", 100, "max Entries per transaction")
 	flag.IntVar(&config.MaxConcurrency, "MaxConcurrency", 100, "max concurrency")
 	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
