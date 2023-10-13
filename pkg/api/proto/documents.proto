@@ -329,8 +329,7 @@ message SearchDocumentsRequest {
         "searchId",
         "query",
         "page",
-        "pageSize",
-        "keepOpen"
+        "pageSize"
       ]
     }
   };
@@ -350,9 +349,7 @@ message Query {
     json_schema: {
       required: [
         "collectionName",
-        "expressions",
-        "orderBy",
-        "limit"
+        "expressions"
       ]
     }
   };
