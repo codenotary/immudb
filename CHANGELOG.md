@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9.0-RC2"></a>
+## [v1.9.0-RC2] - 2023-10-16
+### Bug Fixes
+- standard syntax for drop index
+- **embedded/sql:** fix sql temporal range evaluation
+
+### Changes
+- **embedded/document:** count with limit in subquery
+- **embedded/sql:** expose subquery creation
+- **pkg/api:** set optional parameters
+- **pkg/api:** set optional parameters
+
+
 <a name="v1.9.0-RC1"></a>
 ## [v1.9.0-RC1] - 2023-10-11
 ### Bug Fixes
@@ -3737,7 +3750,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC2...HEAD
+[v1.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC1...v1.9.0-RC2
 [v1.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.5.0...v1.9.0-RC1
 [v1.5.0]: https://github.com/vchain-us/immudb/compare/v1.5.0-RC1...v1.5.0
 [v1.5.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.1...v1.5.0-RC1
