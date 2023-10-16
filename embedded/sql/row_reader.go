@@ -366,20 +366,14 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 
 	if r.period.start != nil {
 		txRange.initialTxID, err = r.period.start.instant.resolve(r.tx, r.params, true, r.period.start.inclusive)
-		if errors.Is(err, store.ErrTxNotFound) {
-			txRange.initialTxID = uint64(math.MaxUint64)
-		}
-		if err != nil && err != store.ErrTxNotFound {
+		if err != nil {
 			return err
 		}
 	}
 
 	if r.period.end != nil {
 		txRange.finalTxID, err = r.period.end.instant.resolve(r.tx, r.params, false, r.period.end.inclusive)
-		if errors.Is(err, store.ErrTxNotFound) {
-			txRange.finalTxID = uint64(0)
-		}
-		if err != nil && err != store.ErrTxNotFound {
+		if err != nil {
 			return err
 		}
 	}
@@ -399,6 +393,9 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 
 	// evaluation of txRange is postponed to allow parameters to be provided after rowReader initialization
 	err = r.reduceTxRange()
+	if errors.Is(err, store.ErrTxNotFound) {
+		return nil, ErrNoMoreRows
+	}
 	if err != nil {
 		return nil, err
 	}
