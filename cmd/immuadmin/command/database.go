@@ -23,6 +23,7 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/replication"
@@ -50,6 +51,13 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the replica diverges from the primary")
 	c.Flags().Bool("replication-skip-integrity-check", replication.DefaultSkipIntegrityCheck, "disable integrity check when reading data during replication")
 	c.Flags().Bool("replication-wait-for-indexing", replication.DefaultWaitForIndexing, "wait for indexing to be up to date during replication")
+
+	c.Flags().Uint32("indexing-flush-threshold", tbtree.DefaultFlushThld, "number of new index entries between disk flushes")
+	c.Flags().Float32("indexing-cleanup-percentage", tbtree.DefaultCleanUpPercentage, "percentage of node files cleaned up during each flush")
+	c.Flags().Uint32("indexing-sync-threshold", tbtree.DefaultSyncThld, "number of new index entries between disk flushes with file sync")
+	c.Flags().Uint32("indexing-cache-size", tbtree.DefaultCacheSize, "size of the Btree node LRU cache (number of nodes)")
+	c.Flags().Uint32("indexing-max-active-snapshots", tbtree.DefaultMaxActiveSnapshots, "maximum number of active btree snapshots")
+
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
 	c.Flags().Uint32("max-commit-concurrency", store.DefaultMaxConcurrency, "set the maximum commit concurrency")
 	c.Flags().Duration("sync-frequency", store.DefaultSyncFrequency, "set the fsync frequency during commit process")
@@ -407,6 +415,17 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, nil
 	}
 
+	condFloat32 := func(name string) (*schema.NullableFloat, error) {
+		if flags.Changed(name) {
+			val, err := flags.GetFloat32(name)
+			if err != nil {
+				return nil, err
+			}
+			return &schema.NullableFloat{Value: val}, nil
+		}
+		return nil, nil
+	}
+
 	condDuration := func(name string) (*schema.NullableMilliseconds, error) {
 		if flags.Changed(name) {
 			val, err := flags.GetDuration(name)
@@ -420,6 +439,7 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 
 	ret := &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{},
+		IndexSettings:       &schema.IndexNullableSettings{},
 	}
 
 	ret.ExcludeCommitTime, err = condBool("exclude-commit-time")
@@ -498,6 +518,31 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 	}
 
 	ret.ReplicationSettings.WaitForIndexing, err = condBool("replication-wait-for-indexing")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.IndexSettings.FlushThreshold, err = condUInt32("indexing-flush-threshold")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.IndexSettings.CleanupPercentage, err = condFloat32("indexing-cleanup-percentage")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.IndexSettings.SyncThreshold, err = condUInt32("indexing-sync-threshold")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.IndexSettings.CacheSize, err = condUInt32("indexing-cache-size")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.IndexSettings.MaxActiveSnapshots, err = condUInt32("indexing-max-active-snapshots")
 	if err != nil {
 		return nil, err
 	}
