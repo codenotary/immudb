@@ -478,13 +478,36 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 	return col, nil
 }
 
+func (ctlg *Catalog) renameTable(oldName, newName string) (*Table, error) {
+	if oldName == newName {
+		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewNames, oldName)
+	}
+
+	t, err := ctlg.GetTableByName(oldName)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ctlg.GetTableByName(newName)
+	if err == nil {
+		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, newName)
+	}
+
+	t.name = newName
+
+	delete(ctlg.tablesByName, oldName)
+	ctlg.tablesByName[newName] = t
+
+	return t, nil
+}
+
 func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
 	if newName == revCol {
 		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
 	}
 
 	if oldName == newName {
-		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewColumnName, oldName)
+		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewNames, oldName)
 	}
 
 	col, exists := t.colsByName[oldName]
