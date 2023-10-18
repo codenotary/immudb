@@ -484,6 +484,38 @@ func (stmt *AddColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	return tx, nil
 }
 
+type RenameTableStmt struct {
+	oldName string
+	newName string
+}
+
+func (stmt *RenameTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *RenameTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	table, err := tx.catalog.renameTable(stmt.oldName, stmt.newName)
+	if err != nil {
+		return nil, err
+	}
+
+	// update table name
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogTablePrefix,
+		EncodeID(DatabaseID),
+		EncodeID(table.id),
+	)
+	err = tx.set(mappedKey, nil, []byte(stmt.newName))
+	if err != nil {
+		return nil, err
+	}
+
+	tx.mutatedCatalog = true
+
+	return tx, nil
+}
+
 type RenameColumnStmt struct {
 	table   string
 	oldName string

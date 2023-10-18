@@ -1097,7 +1097,7 @@ func TestAddColumn(t *testing.T) {
 	})
 }
 
-func TestRenameColumn(t *testing.T) {
+func TestRenaming(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
@@ -1108,17 +1108,23 @@ func TestRenameColumn(t *testing.T) {
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], PRIMARY KEY id)", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table11", nil)
+		require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table11 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], PRIMARY KEY id)", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(name)", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table11(name)", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table11 RENAME TO table1", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(name) VALUES('John'), ('Sylvia'), ('Robocop') ", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME COLUMN name TO name", nil)
-		require.ErrorIs(t, err, ErrSameOldAndNewColumnName)
+		require.ErrorIs(t, err, ErrSameOldAndNewNames)
 
 		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME COLUMN name TO id", nil)
 		require.ErrorIs(t, err, ErrColumnAlreadyExists)
@@ -1168,7 +1174,13 @@ func TestRenameColumn(t *testing.T) {
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
 
-		res, err := engine.Query(context.Background(), nil, "SELECT id, surname FROM table1 ORDER BY surname", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table1", nil)
+		require.ErrorIs(t, err, ErrSameOldAndNewNames)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table11", nil)
+		require.NoError(t, err)
+
+		res, err := engine.Query(context.Background(), nil, "SELECT id, surname FROM table11 ORDER BY surname", nil)
 		require.NoError(t, err)
 
 		row, err := res.Read(context.Background())
@@ -4187,6 +4199,9 @@ func TestJoins(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table3", nil)
+	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	rowCount := 10
 

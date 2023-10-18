@@ -241,6 +241,11 @@ ddlstmt:
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
 |
+    ALTER TABLE IDENTIFIER RENAME TO IDENTIFIER
+    {
+        $$ = &RenameTableStmt{oldName: $3, newName: $6}
+    }
+|
     ALTER TABLE IDENTIFIER RENAME COLUMN IDENTIFIER TO IDENTIFIER
     {
         $$ = &RenameColumnStmt{table: $3, oldName: $6, newName: $8}
