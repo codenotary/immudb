@@ -36,7 +36,7 @@ type IndexTestSuite struct {
 
 func (s *IndexTestSuite) SetupTest() {
 	s.expect, s.sessionID = actions.OpenSession(s.T())
-	s.collection_name = uuid.New().String()
+	s.collection_name = "a" + uuid.New().String()
 }
 
 func (s *IndexTestSuite) TestCreateIndexOnCollectionCreatedWithNameAndOneField() {
