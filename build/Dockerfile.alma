@@ -2,7 +2,7 @@ FROM golang:1.18 as build
 WORKDIR /src
 COPY . .
 RUN rm -rf /src/webconsole/dist
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
+RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default SWAGGER=true make immuadmin-static immudb-static
 RUN mkdir /empty
 
 FROM almalinux:8-minimal as alma

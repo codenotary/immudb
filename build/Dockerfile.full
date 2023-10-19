@@ -4,7 +4,7 @@ COPY go.mod go.sum /src/
 RUN go mod download -x
 COPY . .
 RUN rm -rf /src/webconsole/dist
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static immuclient-static
+RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default SWAGGER=true make immuadmin-static immudb-static immuclient-static
 RUN mkdir /empty
 
 FROM debian:11.7-slim as bullseye-slim
