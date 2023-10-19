@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9DOM"></a>
+## [v1.9DOM] - 2023-10-18
+### Changes
+- **cmd/immuadmin:** add indexing related flags
+
+### Features
+- **embedded/sql:** table renaming
+
+
 <a name="v1.9.0-RC2"></a>
 ## [v1.9.0-RC2] - 2023-10-16
 ### Bug Fixes
@@ -3750,7 +3759,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC2...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9DOM...HEAD
+[v1.9DOM]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC2...v1.9DOM
 [v1.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC1...v1.9.0-RC2
 [v1.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.5.0...v1.9.0-RC1
 [v1.5.0]: https://github.com/vchain-us/immudb/compare/v1.5.0-RC1...v1.5.0
