@@ -17,8 +17,11 @@ WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download -x
 COPY . .
-RUN rm -rf /src/webconsole/dist
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
+RUN make clean
+RUN make prerequisites
+RUN make swagger
+RUN make swagger/dist
+RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default SWAGGER=true make immudb-static immuadmin-static 
 RUN mkdir /empty
 
 FROM scratch
