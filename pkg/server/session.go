@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -32,6 +33,8 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 	if r == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	databaseName := strings.ToLower(r.DatabaseName)
 	if !s.Options.auth {
 		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
@@ -49,17 +52,17 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 	}
 
 	db := s.sysDB
-	if r.DatabaseName != SystemDBName {
-		db, err = s.dbList.GetByName(r.DatabaseName)
+	if databaseName != SystemDBName {
+		db, err = s.dbList.GetByName(databaseName)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if (!u.IsSysAdmin) &&
-		(!u.HasPermission(r.DatabaseName, auth.PermissionAdmin)) &&
-		(!u.HasPermission(r.DatabaseName, auth.PermissionR)) &&
-		(!u.HasPermission(r.DatabaseName, auth.PermissionRW)) {
+		(!u.HasPermission(databaseName, auth.PermissionAdmin)) &&
+		(!u.HasPermission(databaseName, auth.PermissionR)) &&
+		(!u.HasPermission(databaseName, auth.PermissionRW)) {
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 

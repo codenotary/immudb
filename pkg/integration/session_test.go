@@ -63,6 +63,15 @@ func TestSession_OpenCloseSession(t *testing.T) {
 
 	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
+
+	t.Run("Lowercase Database Name", func(t *testing.T) {
+		err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "DeFaulTDb")
+		require.NoError(t, err)
+
+		err = client.CloseSession(context.Background())
+		require.NoError(t, err)
+
+	})
 }
 
 func TestSession_OpenCloseSessionMulti(t *testing.T) {
