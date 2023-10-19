@@ -2,5 +2,5 @@ apiVersion: v2
 name: immudb
 description: The immutable database
 type: application
-version: 1.9DOM
-appVersion: "1.9DOM"
+version: 1.9DOM.0
+appVersion: "1.9DOM.0"
