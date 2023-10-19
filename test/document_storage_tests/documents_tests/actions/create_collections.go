@@ -154,7 +154,7 @@ func createCollection(expect *httpexpect.Expect, sessionID string, name string, 
 		WithHeader("grpc-metadata-sessionid", sessionID).
 		WithJSON(payload).
 		Expect().
-		Status(http.StatusOK).JSON().Object().Empty()
+		Status(http.StatusOK).JSON().Object().IsEmpty()
 
 	collection := expect.GET(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", sessionID).

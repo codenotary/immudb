@@ -34,7 +34,13 @@ func OpenSession(t *testing.T) (*httpexpect.Expect, string) {
 		Database: "defaultdb",
 	}
 
-	expect := httpexpect.Default(t, baseURL)
+	expect := httpexpect.WithConfig(httpexpect.Config{
+		BaseURL:  baseURL,
+		Reporter: httpexpect.NewAssertReporter(t),
+		Printers: []httpexpect.Printer{
+			httpexpect.NewDebugPrinter(t, true),
+		},
+	})
 	obj := expect.POST("/authorization/session/open").
 		WithJSON(user).
 		Expect().
