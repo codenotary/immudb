@@ -1,7 +1,13 @@
 FROM golang:1.18 as build
 WORKDIR /src
 COPY . .
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default SWAGGER=true make immuadmin-static immudb-static
+RUN make clean
+RUN make prerequisites
+RUN make swagger
+RUN make swagger/dist
+RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default SWAGGER=true make immudb-static
+RUN GOOS=linux GOARCH=amd64 make immuadmin-static
+
 FROM debian:11.7-slim
 LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 
