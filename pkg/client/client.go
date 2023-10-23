@@ -342,6 +342,12 @@ type ImmuClient interface {
 	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
 
+	// VerifiableGet reads value for a given key, and returs internal data used to perform
+	// the verification.
+	//
+	// You can use this function if you want to have visibility on the verification data
+	VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error)
+
 	// History returns history for a single key.
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
@@ -2310,4 +2316,11 @@ func (c *immuClient) TruncateDatabase(ctx context.Context, db string, retentionP
 	c.Logger.Debugf("TruncateDatabase finished in %s", time.Since(start))
 
 	return err
+}
+
+// VerifiableGet
+func (c *immuClient) VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error) {
+	result, err := c.ServiceClient.VerifiableGet(ctx, in, opts...)
+
+	return result, err
 }

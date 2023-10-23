@@ -62,7 +62,10 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				str := val.RawValue().(string)
 
 				var supportedTimeFormats = []string{
+					"2006-01-02 15:04:05 MST",
+					"2006-01-02 15:04:05 -0700",
 					"2006-01-02 15:04:05.999999",
+					"2006-01-02 15:04:05",
 					"2006-01-02 15:04",
 					"2006-01-02",
 				}
