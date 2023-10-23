@@ -46,6 +46,7 @@ type ImmuClientMock struct {
 	VerifiedGetF          func(context.Context, []byte, ...client.GetOption) (*schema.Entry, error)
 	VerifiedGetAtF        func(context.Context, []byte, uint64) (*schema.Entry, error)
 	VerifiedSetF          func(context.Context, []byte, []byte) (*schema.TxHeader, error)
+	VerifiableGetF        func(context.Context, *schema.VerifiableGetRequest, ...grpc.CallOption) (*schema.VerifiableEntry, error)
 	SetF                  func(context.Context, []byte, []byte) (*schema.TxHeader, error)
 	SetAllF               func(context.Context, *schema.SetRequest) (*schema.TxHeader, error)
 	SetReferenceF         func(context.Context, []byte, []byte, uint64) (*schema.TxHeader, error)
@@ -127,6 +128,11 @@ func (icm *ImmuClientMock) VerifiedGetAt(ctx context.Context, key []byte, tx uin
 // VerifiedSet ...
 func (icm *ImmuClientMock) VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
 	return icm.VerifiedSetF(ctx, key, value)
+}
+
+// VerifiedSet ...
+func (icm *ImmuClientMock) VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error) {
+	return icm.VerifiableGetF(ctx, in, opts...)
 }
 
 // Set ...
