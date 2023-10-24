@@ -24,6 +24,7 @@ import (
 
 var set = regexp.MustCompile(`(?i)set\s+.+`)
 var selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
+var dealloc = regexp.MustCompile(`(?i)deallocate\s+\"([^\"]+)\"`)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
@@ -39,14 +40,24 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 	if selectVersion.MatchString(statement) {
 		return &version{}
 	}
+
+	if dealloc.MatchString(statement) {
+		matches := dealloc.FindStringSubmatch(statement)
+		if len(matches) == 2 {
+			return &deallocate{plan: matches[1]}
+		}
+	}
 	return nil
 }
 func (s *session) tryToHandleInternally(command interface{}) error {
-	switch command.(type) {
+	switch cmd := command.(type) {
 	case *version:
 		if err := s.writeVersionInfo(); err != nil {
 			return err
 		}
+	case *deallocate:
+		delete(s.statements, cmd.plan)
+		return nil
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -54,3 +65,7 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 }
 
 type version struct{}
+
+type deallocate struct {
+	plan string
+}
