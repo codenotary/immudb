@@ -145,6 +145,25 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Table, d.Column)
 }
 
+type emptyKeyReader struct {
+}
+
+func (r emptyKeyReader) Read(ctx context.Context) (key []byte, val store.ValueRef, err error) {
+	return nil, nil, store.ErrNoMoreEntries
+}
+
+func (r emptyKeyReader) ReadBetween(ctx context.Context, initialTxID uint64, finalTxID uint64) (key []byte, val store.ValueRef, err error) {
+	return nil, nil, store.ErrNoMoreEntries
+}
+
+func (r emptyKeyReader) Reset() error {
+	return nil
+}
+
+func (r emptyKeyReader) Close() error {
+	return nil
+}
+
 func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, period period, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
 	if table == nil || scanSpecs == nil || scanSpecs.Index == nil {
 		return nil, ErrIllegalArguments
@@ -155,9 +174,15 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		return nil, err
 	}
 
-	r, err := tx.newKeyReader(*rSpec)
-	if err != nil {
-		return nil, err
+	var r store.KeyReader
+
+	if table.name == "pg_type" {
+		r = &emptyKeyReader{}
+	} else {
+		r, err = tx.newKeyReader(*rSpec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if tableAlias == "" {
