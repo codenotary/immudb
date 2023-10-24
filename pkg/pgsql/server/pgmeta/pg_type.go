@@ -31,11 +31,13 @@ var PgsqlProtocolVersionMessage = fmt.Sprintf("pgsql wire protocol %s or greater
 // First int is the oid value (retrieved with select * from pg_type;)
 // Second int is the length of the value. -1 for dynamic.
 var PgTypeMap = map[string][]int{
-	"BOOLEAN":   {16, 1},  //bool
-	"BLOB":      {17, -1}, //bytea
-	"TIMESTAMP": {20, 8},  //int8
-	"INTEGER":   {20, 8},  //int8
-	"VARCHAR":   {25, -1}, //text
+	"BOOLEAN":   {16, 1},    //bool
+	"BLOB":      {17, -1},   //bytea
+	"TIMESTAMP": {20, 8},    //int8
+	"INTEGER":   {20, 8},    //int8
+	"VARCHAR":   {25, -1},   //text
+	"UUID":      {2950, 16}, //uuid
+	"FLOAT":     {701, 8},   //double-precision floating point number
 }
 
 const PgSeverityError = "ERROR"
