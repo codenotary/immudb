@@ -79,11 +79,56 @@ type Column struct {
 }
 
 func newCatalog(enginePrefix []byte) *Catalog {
-	return &Catalog{
+	ctlg := &Catalog{
 		enginePrefix: enginePrefix,
 		tablesByID:   make(map[uint32]*Table),
 		tablesByName: make(map[string]*Table),
 	}
+
+	pgTypeTable := &Table{
+		catalog: ctlg,
+		name:    "pg_type",
+		cols: []*Column{
+			{
+				colName: "oid",
+				colType: VarcharType,
+				maxLen:  10,
+			},
+			{
+				colName: "typbasetype",
+				colType: VarcharType,
+				maxLen:  10,
+			},
+			{
+				colName: "typname",
+				colType: VarcharType,
+				maxLen:  50,
+			},
+		},
+	}
+
+	pgTypeTable.colsByName = make(map[string]*Column, len(pgTypeTable.cols))
+
+	for _, col := range pgTypeTable.cols {
+		pgTypeTable.colsByName[col.colName] = col
+	}
+
+	pgTypeTable.indexes = []*Index{
+		{
+			unique: true,
+			cols: []*Column{
+				pgTypeTable.colsByName["oid"],
+			},
+			colsByID: map[uint32]*Column{
+				0: pgTypeTable.colsByName["oid"],
+			},
+		},
+	}
+
+	pgTypeTable.primaryIndex = pgTypeTable.indexes[0]
+	ctlg.tablesByName[pgTypeTable.name] = pgTypeTable
+
+	return ctlg
 }
 
 func (catlg *Catalog) ExistTable(table string) bool {
