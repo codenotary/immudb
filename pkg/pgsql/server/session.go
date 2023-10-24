@@ -28,7 +28,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
-	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
@@ -67,16 +66,10 @@ func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls
 }
 
 func (s *session) ErrorHandle(e error) {
-	if e != nil {
-		er := errors.MapPgError(e)
-		_, err := s.writeMessage(er.Encode())
-		if err != nil {
-			s.log.Errorf("unable to write error on wire: %v", err)
-		}
-		s.log.Debugf("%s", er.ToString())
-		if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
-			s.log.Errorf("unable to complete error handling: %v", err)
-		}
+	pgerr := errors.MapPgError(e)
+	_, err := s.writeMessage(pgerr.Encode())
+	if err != nil {
+		s.log.Errorf("unable to write error on wire: %w", err)
 	}
 }
 
