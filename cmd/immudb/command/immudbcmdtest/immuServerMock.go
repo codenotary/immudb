@@ -29,11 +29,11 @@ type ImmuServerMock struct {
 	Logger      logger.Logger
 	StateSigner server.StateSigner
 	Ssf         stream.ServiceFactory
-	PgsqlSrv    pgsqlsrv.Server
+	PgsqlSrv    pgsqlsrv.PGSQLServer
 	DbList      database.DatabaseList
 }
 
-func (s *ImmuServerMock) WithPgsqlServer(psrv pgsqlsrv.Server) server.ImmuServerIf {
+func (s *ImmuServerMock) WithPgsqlServer(psrv pgsqlsrv.PGSQLServer) server.ImmuServerIf {
 	s.PgsqlSrv = psrv
 	return s
 }
