@@ -23,27 +23,27 @@ import (
 )
 
 func TestSrv_Initialize(t *testing.T) {
-	s := srv{
-		Port: 99999999999999999,
+	s := pgsrv{
+		port: 99999999999999999,
 	}
 	err := s.Initialize()
 	require.ErrorContains(t, err, "invalid port")
 }
 
 func TestSrv_GetPort(t *testing.T) {
-	s := srv{}
+	s := pgsrv{}
 	err := s.GetPort()
 	require.Equal(t, 0, err)
 }
 
 func TestSrv_Stop(t *testing.T) {
-	s := srv{}
+	s := pgsrv{}
 	res := s.Stop()
 	require.Nil(t, res)
 }
 
 func TestSrv_Serve(t *testing.T) {
-	s := srv{}
+	s := pgsrv{}
 	err := s.Serve()
 	require.ErrorContains(t, err, "no listener found for pgsql server")
 }

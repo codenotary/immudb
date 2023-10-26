@@ -19,23 +19,25 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strings"
 
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/database"
 	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"google.golang.org/grpc/metadata"
 )
 
 // InitializeSession
 func (s *session) InitializeSession() (err error) {
 	defer func() {
 		if err != nil {
-			s.ErrorHandle(err)
+			s.HandleError(err)
 			s.mr.CloseConnection()
 		}
 	}()
@@ -124,10 +126,10 @@ func (s *session) InitializeSession() (err error) {
 }
 
 // HandleStartup errors are returned and handled in the caller
-func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
+func (s *session) HandleStartup(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
-			s.ErrorHandle(err)
+			s.HandleError(err)
 			s.mr.CloseConnection()
 		}
 	}()
@@ -136,51 +138,65 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 	if !ok || user == "" {
 		return pserr.ErrUsernameNotprovided
 	}
-	s.username = user
+
 	db, ok := s.connParams["database"]
 	if !ok {
 		return pserr.ErrDBNotprovided
 	}
-	s.database, err = dbList.GetByName(db)
+
+	s.db, err = s.dbList.GetByName(db)
 	if err != nil {
 		if errors.Is(err, database.ErrDatabaseNotExists) {
 			return pserr.ErrDBNotExists
 		}
 		return err
 	}
-	s.log.Debugf("selected %s database", s.database.GetName())
 
 	if _, err = s.writeMessage(bm.AuthenticationCleartextPassword()); err != nil {
 		return err
 	}
+
 	msg, _, err := s.nextMessage()
 	if err != nil {
 		return err
 	}
+
 	if pw, ok := msg.(fm.PasswordMsg); ok {
 		if !ok || pw.GetSecret() == "" {
 			return pserr.ErrPwNotprovided
 		}
-		usr, err := s.getUser([]byte(s.username))
+
+		opts := client.DefaultOptions().
+			WithAddress(s.immudbHost).
+			WithPort(s.immudbPort).
+			WithDisableIdentityCheck(true)
+
+		s.client = client.NewClient().WithOptions(opts)
+
+		err := s.client.OpenSession(ctx, []byte(user), []byte(pw.GetSecret()), db)
 		if err != nil {
-			if strings.Contains(err.Error(), "key not found") {
-				return pserr.ErrUsernameNotFound
-			}
-		}
-		if err := usr.ComparePasswords([]byte(pw.GetSecret())); err != nil {
 			return err
 		}
-		s.log.Debugf("authentication successful for %s", s.username)
+
+		s.client.CurrentState(context.Background())
+
+		sessionID := s.client.GetSessionID()
+		s.ctx = metadata.NewIncomingContext(context.Background(), metadata.Pairs("sessionid", sessionID))
+
+		s.log.Debugf("authentication successful for %s", user)
 		if _, err := s.writeMessage(bm.AuthenticationOk()); err != nil {
 			return err
 		}
 	}
+
 	if _, err := s.writeMessage(bm.ParameterStatus([]byte("standard_conforming_strings"), []byte("on"))); err != nil {
 		return err
 	}
+
 	if _, err := s.writeMessage(bm.ParameterStatus([]byte("client_encoding"), []byte("UTF8"))); err != nil {
 		return err
 	}
+
 	// todo this is needed by jdbc driver. Here is added the minor supported version at the moment
 	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte(pgmeta.PgsqlProtocolVersion))); err != nil {
 		return err
@@ -193,4 +209,9 @@ func parseProtocolVersion(payload []byte) string {
 	major := int(binary.BigEndian.Uint16(payload[0:2]))
 	minor := int(binary.BigEndian.Uint16(payload[2:4]))
 	return fmt.Sprintf("%d.%d", major, minor)
+}
+
+func (s *session) Close() error {
+	s.mr.CloseConnection()
+	return s.client.CloseSession(s.ctx)
 }

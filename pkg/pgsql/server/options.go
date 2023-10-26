@@ -23,46 +23,40 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 )
 
-type Option func(s *srv)
+type Option func(s *pgsrv)
 
-func Address(addr string) Option {
-	return func(args *srv) {
-		args.Address = addr
+func Host(host string) Option {
+	return func(args *pgsrv) {
+		args.host = host
 	}
 }
 
 func Port(port int) Option {
-	return func(args *srv) {
-		args.Port = port
+	return func(args *pgsrv) {
+		args.port = port
+	}
+}
+
+func ImmudbPort(port int) Option {
+	return func(args *pgsrv) {
+		args.immudbPort = port
 	}
 }
 
 func Logger(logger logger.Logger) Option {
-	return func(args *srv) {
-		args.Logger = logger
+	return func(args *pgsrv) {
+		args.logger = logger
 	}
 }
 
-func DatabaseList(dbList database.DatabaseList) Option {
-	return func(args *srv) {
-		args.dbList = dbList
-	}
-}
-
-func SysDb(sysdb database.DB) Option {
-	return func(args *srv) {
-		args.sysDb = sysdb
-	}
-}
-
-func TlsConfig(tlsConfig *tls.Config) Option {
-	return func(args *srv) {
+func TLSConfig(tlsConfig *tls.Config) Option {
+	return func(args *pgsrv) {
 		args.tlsConfig = tlsConfig
 	}
 }
 
-func SessFactory(sf SessionFactory) Option {
-	return func(args *srv) {
-		args.SessionFactory = sf
+func DatabaseList(dbList database.DatabaseList) Option {
+	return func(args *pgsrv) {
+		args.dbList = dbList
 	}
 }

@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/logger"
@@ -69,7 +68,6 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	s := session{
 		tlsConfig: cfg,
 		mr:        mr,
-		Mutex:     sync.Mutex{},
 		log:       logger.NewSimpleLogger("test", os.Stdout),
 	}
 

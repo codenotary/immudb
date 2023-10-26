@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -32,14 +31,11 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 )
 
-// QueriesMachine ...
-func (s *session) QueriesMachine(ctx context.Context) (err error) {
-	s.Lock()
-	defer s.Unlock()
-
+func (s *session) QueryMachine() error {
 	var waitForSync = false
 
-	if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
+	_, err := s.writeMessage(bm.ReadyForQuery())
+	if err != nil {
 		return err
 	}
 
@@ -50,7 +46,7 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 				s.log.Warningf("connection is closed")
 				return nil
 			}
-			s.ErrorHandle(err)
+			s.HandleError(err)
 			continue
 		}
 
@@ -68,10 +64,10 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			err := s.fetchAndWriteResults(ctx, v.GetStatements(), nil, nil, false)
+			err := s.fetchAndWriteResults(v.GetStatements(), nil, nil, false)
 			if err != nil {
 				waitForSync = extQueryMode
-				s.ErrorHandle(err)
+				s.HandleError(err)
 			}
 
 			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
@@ -82,7 +78,7 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			// unnamed prepared statement overrides previous
 			if ok && v.DestPreparedStatementName != "" {
 				waitForSync = extQueryMode
-				s.ErrorHandle(fmt.Errorf("statement '%s' already present", v.DestPreparedStatementName))
+				s.HandleError(fmt.Errorf("statement '%s' already present", v.DestPreparedStatementName))
 				continue
 			}
 
@@ -105,7 +101,7 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			stmts, err := sql.Parse(strings.NewReader(v.Statements))
 			if err != nil {
 				waitForSync = extQueryMode
-				s.ErrorHandle(err)
+				s.HandleError(err)
 				continue
 			}
 
@@ -115,18 +111,18 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			// complicate the protocol unduly.
 			if len(stmts) > 1 {
 				waitForSync = extQueryMode
-				s.ErrorHandle(pserr.ErrMaxStmtNumberExceeded)
+				s.HandleError(pserr.ErrMaxStmtNumberExceeded)
 				continue
 			}
 			if len(stmts) == 0 {
 				waitForSync = extQueryMode
-				s.ErrorHandle(pserr.ErrNoStatementFound)
+				s.HandleError(pserr.ErrNoStatementFound)
 				continue
 			}
 
-			if paramCols, resCols, err = s.inferParamAndResultCols(ctx, stmts[0]); err != nil {
+			if paramCols, resCols, err = s.inferParamAndResultCols(stmts[0]); err != nil {
 				waitForSync = extQueryMode
-				s.ErrorHandle(err)
+				s.HandleError(err)
 				continue
 			}
 
@@ -160,7 +156,7 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 				st, ok := s.statements[v.Name]
 				if !ok {
 					waitForSync = extQueryMode
-					s.ErrorHandle(fmt.Errorf("statement '%s' not found", v.Name))
+					s.HandleError(fmt.Errorf("statement '%s' not found", v.Name))
 					continue
 				}
 
@@ -182,7 +178,7 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 				portal, ok := s.portals[v.Name]
 				if !ok {
 					waitForSync = extQueryMode
-					s.ErrorHandle(fmt.Errorf("portal '%s' not found", v.Name))
+					s.HandleError(fmt.Errorf("portal '%s' not found", v.Name))
 					continue
 				}
 
@@ -199,21 +195,21 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			// unnamed portal overrides previous
 			if ok && v.DestPortalName != "" {
 				waitForSync = extQueryMode
-				s.ErrorHandle(fmt.Errorf("portal '%s' already present", v.DestPortalName))
+				s.HandleError(fmt.Errorf("portal '%s' already present", v.DestPortalName))
 				continue
 			}
 
 			st, ok := s.statements[v.PreparedStatementName]
 			if !ok {
 				waitForSync = extQueryMode
-				s.ErrorHandle(fmt.Errorf("statement '%s' not found", v.PreparedStatementName))
+				s.HandleError(fmt.Errorf("statement '%s' not found", v.PreparedStatementName))
 				continue
 			}
 
 			encodedParams, err := buildNamedParams(st.Params, v.ParamVals)
 			if err != nil {
 				waitForSync = extQueryMode
-				s.ErrorHandle(err)
+				s.HandleError(err)
 				continue
 			}
 
@@ -235,18 +231,18 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			portal, ok := s.portals[v.PortalName]
 			if !ok {
 				waitForSync = extQueryMode
-				s.ErrorHandle(fmt.Errorf("portal '%s' not found", v.PortalName))
+				s.HandleError(fmt.Errorf("portal '%s' not found", v.PortalName))
 				continue
 			}
 
 			delete(s.portals, v.PortalName)
 
-			if err = s.fetchAndWriteResults(ctx, portal.Statement.SQLStatement,
+			if err = s.fetchAndWriteResults(portal.Statement.SQLStatement,
 				portal.Parameters,
 				portal.ResultColumnFormatCodes,
 				true); err != nil {
 				waitForSync = extQueryMode
-				s.ErrorHandle(err)
+				s.HandleError(err)
 				continue
 			}
 
@@ -257,12 +253,12 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			// there is no buffer to be flushed
 		default:
 			waitForSync = extQueryMode
-			s.ErrorHandle(pserr.ErrUnknowMessageType)
+			s.HandleError(pserr.ErrUnknowMessageType)
 		}
 	}
 }
 
-func (s *session) fetchAndWriteResults(ctx context.Context, statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
 	if s.isInBlackList(statements) {
 		return nil
 	}
@@ -284,16 +280,12 @@ func (s *session) fetchAndWriteResults(ctx context.Context, statements string, p
 			{
 				return pserr.ErrUseDBStatementNotSupported
 			}
-		case *sql.CreateDatabaseStmt:
-			{
-				return pserr.ErrCreateDBStatementNotSupported
-			}
 		case *sql.SelectStmt:
-			if err = s.query(ctx, st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+			if err = s.query(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
 				return err
 			}
-		case sql.SQLStmt:
-			if err = s.exec(ctx, st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+		default:
+			if err = s.exec(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
 				return err
 			}
 		}
@@ -302,11 +294,12 @@ func (s *session) fetchAndWriteResults(ctx context.Context, statements string, p
 	return nil
 }
 
-func (s *session) query(ctx context.Context, st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	res, err := s.database.SQLQueryPrepared(ctx, nil, st, parameters)
+func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	res, err := s.db.SQLQueryPrepared(s.ctx, s.tx, st, parameters)
 	if err != nil {
 		return err
 	}
+
 	if res != nil && len(res.Rows) > 0 {
 		if !skipRowDesc {
 			if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
@@ -318,24 +311,27 @@ func (s *session) query(ctx context.Context, st *sql.SelectStmt, parameters []*s
 		}
 		return nil
 	}
-	if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
-		return err
-	}
-	return nil
+
+	_, err = s.writeMessage(bm.EmptyQueryResponse())
+	return err
 }
 
-func (s *session) exec(ctx context.Context, st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
 	params := make(map[string]interface{}, len(namedParams))
 
 	for _, p := range namedParams {
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	if _, _, err := s.database.SQLExecPrepared(ctx, nil, []sql.SQLStmt{st}, params); err != nil {
+	ntx, _, err := s.db.SQLExecPrepared(s.ctx, s.tx, []sql.SQLStmt{st}, params)
+	s.tx = ntx
+
+	if err != nil {
 		return err
 	}
 
-	return nil
+	_, err = s.writeMessage(bm.EmptyQueryResponse())
+	return err
 }
 
 type portal struct {
@@ -353,16 +349,16 @@ type statement struct {
 	Results      []*schema.Column
 }
 
-func (s *session) inferParamAndResultCols(ctx context.Context, stmt sql.SQLStmt) ([]*schema.Column, []*schema.Column, error) {
+func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]*schema.Column, []*schema.Column, error) {
 	resCols := make([]*schema.Column, 0)
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.database.SQLQueryRowReader(ctx, nil, sel, nil)
+		rr, err := s.db.SQLQueryRowReader(s.ctx, s.tx, sel, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		cols, err := rr.Columns(ctx)
+		cols, err := rr.Columns(s.ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -371,7 +367,7 @@ func (s *session) inferParamAndResultCols(ctx context.Context, stmt sql.SQLStmt)
 		}
 	}
 
-	r, err := s.database.InferParametersPrepared(ctx, nil, stmt)
+	r, err := s.db.InferParametersPrepared(s.ctx, s.tx, stmt)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -381,7 +377,7 @@ func (s *session) inferParamAndResultCols(ctx context.Context, stmt sql.SQLStmt)
 	}
 
 	var paramsNameList []string
-	for n, _ := range r {
+	for n := range r {
 		paramsNameList = append(paramsNameList, n)
 	}
 	sort.Strings(paramsNameList)
