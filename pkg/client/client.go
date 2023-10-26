@@ -100,6 +100,8 @@ type ImmuClient interface {
 	// (without explicit call, the server will only free resources after session inactivity timeout).
 	CloseSession(ctx context.Context) error
 
+	GetSessionID() string
+
 	// CreateUser creates new user with given credentials and permission.
 	//
 	// Required user permission is SysAdmin or database Admin.
