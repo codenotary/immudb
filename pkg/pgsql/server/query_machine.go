@@ -64,7 +64,7 @@ func (s *session) QueryMachine() error {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			err := s.fetchAndWriteResults(v.GetStatements(), nil, nil, false)
+			err := s.fetchAndWriteResults(v.GetStatements(), nil, nil, extQueryMode)
 			if err != nil {
 				waitForSync = extQueryMode
 				s.HandleError(err)
@@ -237,17 +237,14 @@ func (s *session) QueryMachine() error {
 
 			delete(s.portals, v.PortalName)
 
-			if err = s.fetchAndWriteResults(portal.Statement.SQLStatement,
+			err := s.fetchAndWriteResults(portal.Statement.SQLStatement,
 				portal.Parameters,
 				portal.ResultColumnFormatCodes,
-				true); err != nil {
+				extQueryMode,
+			)
+			if err != nil {
 				waitForSync = extQueryMode
 				s.HandleError(err)
-				continue
-			}
-
-			if _, err := s.writeMessage(bm.CommandComplete([]byte("ok"))); err != nil {
-				waitForSync = extQueryMode
 			}
 		case fm.FlushMsg:
 			// there is no buffer to be flushed
@@ -258,7 +255,12 @@ func (s *session) QueryMachine() error {
 	}
 }
 
-func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, extQueryMode bool) error {
+	if len(statements) == 0 {
+		_, err := s.writeMessage(bm.EmptyQueryResponse())
+		return err
+	}
+
 	if s.isInBlackList(statements) {
 		return nil
 	}
@@ -281,11 +283,18 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 				return pserr.ErrUseDBStatementNotSupported
 			}
 		case *sql.SelectStmt:
-			if err = s.query(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+			if err = s.query(st, parameters, resultColumnFormatCodes, extQueryMode); err != nil {
 				return err
 			}
 		default:
-			if err = s.exec(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+			if err = s.exec(st, parameters, resultColumnFormatCodes, extQueryMode); err != nil {
+				return err
+			}
+		}
+
+		if extQueryMode {
+			_, err = s.writeMessage(bm.CommandComplete([]byte("ok")))
+			if err != nil {
 				return err
 			}
 		}
@@ -300,19 +309,13 @@ func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, res
 		return err
 	}
 
-	if res != nil && len(res.Rows) > 0 {
-		if !skipRowDesc {
-			if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
-				return err
-			}
-		}
-		if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), resultColumnFormatCodes)); err != nil {
+	if !skipRowDesc {
+		if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
 			return err
 		}
-		return nil
 	}
 
-	_, err = s.writeMessage(bm.EmptyQueryResponse())
+	_, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), resultColumnFormatCodes))
 	return err
 }
 
@@ -326,11 +329,6 @@ func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultC
 	ntx, _, err := s.db.SQLExecPrepared(s.ctx, s.tx, []sql.SQLStmt{st}, params)
 	s.tx = ntx
 
-	if err != nil {
-		return err
-	}
-
-	_, err = s.writeMessage(bm.EmptyQueryResponse())
 	return err
 }
 
