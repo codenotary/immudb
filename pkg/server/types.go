@@ -81,7 +81,7 @@ type ImmuServer struct {
 	pgsqlMux             sync.Mutex
 	StateSigner          StateSigner
 	StreamServiceFactory stream.ServiceFactory
-	PgsqlSrv             pgsqlsrv.Server
+	PgsqlSrv             pgsqlsrv.PGSQLServer
 
 	remoteStorage remotestorage.Storage
 
@@ -112,7 +112,7 @@ type ImmuServerIf interface {
 	WithLogger(logger.Logger) ImmuServerIf
 	WithStateSigner(stateSigner StateSigner) ImmuServerIf
 	WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuServerIf
-	WithPgsqlServer(psrv pgsqlsrv.Server) ImmuServerIf
+	WithPgsqlServer(psrv pgsqlsrv.PGSQLServer) ImmuServerIf
 	WithDbList(dbList database.DatabaseList) ImmuServerIf
 }
 
@@ -140,7 +140,7 @@ func (s *ImmuServer) WithOptions(options *Options) ImmuServerIf {
 }
 
 // WithPgsqlServer ...
-func (s *ImmuServer) WithPgsqlServer(psrv pgsqlsrv.Server) ImmuServerIf {
+func (s *ImmuServer) WithPgsqlServer(psrv pgsqlsrv.PGSQLServer) ImmuServerIf {
 	s.PgsqlSrv = psrv
 	return s
 }
