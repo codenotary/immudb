@@ -17,12 +17,10 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/logger"
@@ -404,7 +402,6 @@ func TestSession_QueriesMachine(t *testing.T) {
 			s := session{
 				log:        logger.NewSimpleLogger("test", os.Stdout),
 				mr:         mr,
-				Mutex:      sync.Mutex{},
 				statements: make(map[string]*statement),
 				portals:    make(map[string]*portal),
 			}
@@ -417,7 +414,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 			}
 			go tt.in(c2)
 
-			err := s.QueriesMachine(context.Background())
+			err := s.QueryMachine()
 
 			require.Equal(t, tt.out, err)
 		})

@@ -19,13 +19,12 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
+
 	"net"
-	"sync"
 
 	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
@@ -33,40 +32,54 @@ import (
 )
 
 type session struct {
-	tlsConfig       *tls.Config
-	log             logger.Logger
-	mr              MessageReader
-	username        string
-	database        database.DB
-	sysDb           database.DB
+	immudbHost string
+	immudbPort int
+	tlsConfig  *tls.Config
+	log        logger.Logger
+
+	dbList database.DatabaseList
+
+	client client.ImmuClient
+
+	ctx context.Context
+	db  database.DB
+	tx  *sql.SQLTx
+
+	mr MessageReader
+
 	connParams      map[string]string
 	protocolVersion string
-	portals         map[string]*portal
-	statements      map[string]*statement
-	sync.Mutex
+
+	statements map[string]*statement
+	portals    map[string]*portal
 }
 
 type Session interface {
 	InitializeSession() error
-	HandleStartup(dbList database.DatabaseList) error
-	QueriesMachine(ctx context.Context) (err error)
-	ErrorHandle(err error)
+	HandleStartup(context.Context) error
+	QueryMachine() error
+	HandleError(error)
+	Close() error
 }
 
-func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) *session {
-	s := &session{
+func newSession(c net.Conn, immudbHost string, immudbPort int,
+	log logger.Logger, tlsConfig *tls.Config, dbList database.DatabaseList) *session {
+
+	return &session{
+		immudbHost: immudbHost,
+		immudbPort: immudbPort,
 		tlsConfig:  tlsConfig,
 		log:        log,
+		dbList:     dbList,
 		mr:         NewMessageReader(c),
-		sysDb:      sysDb,
-		portals:    make(map[string]*portal),
 		statements: make(map[string]*statement),
+		portals:    make(map[string]*portal),
 	}
-	return s
 }
 
-func (s *session) ErrorHandle(e error) {
+func (s *session) HandleError(e error) {
 	pgerr := errors.MapPgError(e)
+
 	_, err := s.writeMessage(pgerr.Encode())
 	if err != nil {
 		s.log.Errorf("unable to write error on wire: %w", err)
@@ -78,8 +91,11 @@ func (s *session) nextMessage() (interface{}, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+
 	s.log.Debugf("received %s - %s message", string(msg.t), pgmeta.MTypes[msg.t])
+
 	extQueryMode := false
+
 	i, err := s.parseRawMessage(msg)
 	if msg.t == 'P' ||
 		msg.t == 'B' ||
@@ -88,6 +104,7 @@ func (s *session) nextMessage() (interface{}, bool, error) {
 		msg.t == 'H' {
 		extQueryMode = true
 	}
+
 	return i, extQueryMode, err
 }
 
@@ -117,33 +134,9 @@ func (s *session) parseRawMessage(msg *rawMessage) (interface{}, error) {
 }
 
 func (s *session) writeMessage(msg []byte) (int, error) {
-	s.debugMessage(msg)
-	return s.mr.Write(msg)
-}
-
-func (s *session) debugMessage(msg []byte) {
-	if s.log != nil && len(msg) > 0 {
+	if len(msg) > 0 {
 		s.log.Debugf("write %s - %s message", string(msg[0]), pgmeta.MTypes[msg[0]])
 	}
-}
 
-func (s *session) getUser(username []byte) (*auth.User, error) {
-	key := make([]byte, 1+len(username))
-	// todo put KeyPrefixUser in a common package
-	key[0] = 1
-	copy(key[1:], username)
-
-	item, err := s.sysDb.Get(context.Background(), &schema.KeyRequest{Key: key})
-	if err != nil {
-		return nil, err
-	}
-
-	var usr auth.User
-
-	err = json.Unmarshal(item.Value, &usr)
-	if err != nil {
-		return nil, err
-	}
-
-	return &usr, nil
+	return s.mr.Write(msg)
 }
