@@ -94,10 +94,6 @@ func (s *session) QueryMachine() error {
 				continue
 			}
 
-			// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
-			// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
-			// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
-			// multiple commands would complicate the protocol unduly.
 			stmts, err := sql.Parse(strings.NewReader(v.Statements))
 			if err != nil {
 				waitForSync = extQueryMode
@@ -105,7 +101,7 @@ func (s *session) QueryMachine() error {
 				continue
 			}
 
-			// The query string contained in a Parse message cannot include more than one SQL statement;
+			// Note: as stated in the pgsql spec, the query string contained in a Parse message cannot include more than one SQL statement;
 			// else a syntax error is reported. This restriction does not exist in the simple-query protocol, but it does exist
 			// in the extended protocol, because allowing prepared statements or portals to contain multiple commands would
 			// complicate the protocol unduly.
