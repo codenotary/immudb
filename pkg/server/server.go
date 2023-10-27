@@ -253,7 +253,7 @@ func (s *ImmuServer) Initialize() error {
 	s.PgsqlSrv = pgsqlsrv.New(
 		pgsqlsrv.Host(s.Options.Address),
 		pgsqlsrv.Port(s.Options.PgsqlServerPort),
-		pgsqlsrv.ImmudbPort(s.Options.Port),
+		pgsqlsrv.ImmudbPort(s.Listener.Addr().(*net.TCPAddr).Port),
 		pgsqlsrv.TLSConfig(s.Options.TLSConfig),
 		pgsqlsrv.Logger(s.Logger),
 		pgsqlsrv.DatabaseList(s.dbList),
