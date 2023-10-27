@@ -641,6 +641,16 @@ ds:
         $$ = $2.(DataSource)
     }
 |
+    DATABASES '(' ')' opt_as
+    {
+        $$ = &FnDataSourceStmt{fnCall: &FnCall{fn: "databases"}, as: $4}
+    }
+|
+    TABLES '(' ')' opt_as
+    {
+        $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "tables"}, as: $4}
+    }
+|
     fnCall opt_as
     {
         $$ = &FnDataSourceStmt{fnCall: $1.(*FnCall), as: $2}
