@@ -161,32 +161,31 @@ func (s *session) HandleStartup(ctx context.Context) (err error) {
 		return err
 	}
 
-	if pw, ok := msg.(fm.PasswordMsg); ok {
-		if !ok || pw.GetSecret() == "" {
-			return pserr.ErrPwNotprovided
-		}
+	pw, ok := msg.(fm.PasswordMsg)
+	if !ok || pw.GetSecret() == "" {
+		return pserr.ErrPwNotprovided
+	}
 
-		opts := client.DefaultOptions().
-			WithAddress(s.immudbHost).
-			WithPort(s.immudbPort).
-			WithDisableIdentityCheck(true)
+	opts := client.DefaultOptions().
+		WithAddress(s.immudbHost).
+		WithPort(s.immudbPort).
+		WithDisableIdentityCheck(true)
 
-		s.client = client.NewClient().WithOptions(opts)
+	s.client = client.NewClient().WithOptions(opts)
 
-		err := s.client.OpenSession(ctx, []byte(user), []byte(pw.GetSecret()), db)
-		if err != nil {
-			return err
-		}
+	err = s.client.OpenSession(ctx, []byte(user), []byte(pw.GetSecret()), db)
+	if err != nil {
+		return err
+	}
 
-		s.client.CurrentState(context.Background())
+	s.client.CurrentState(context.Background())
 
-		sessionID := s.client.GetSessionID()
-		s.ctx = metadata.NewIncomingContext(context.Background(), metadata.Pairs("sessionid", sessionID))
+	sessionID := s.client.GetSessionID()
+	s.ctx = metadata.NewIncomingContext(context.Background(), metadata.Pairs("sessionid", sessionID))
 
-		s.log.Debugf("authentication successful for %s", user)
-		if _, err := s.writeMessage(bm.AuthenticationOk()); err != nil {
-			return err
-		}
+	s.log.Debugf("authentication successful for %s", user)
+	if _, err := s.writeMessage(bm.AuthenticationOk()); err != nil {
+		return err
 	}
 
 	if _, err := s.writeMessage(bm.ParameterStatus([]byte("standard_conforming_strings"), []byte("on"))); err != nil {
@@ -213,5 +212,10 @@ func parseProtocolVersion(payload []byte) string {
 
 func (s *session) Close() error {
 	s.mr.CloseConnection()
-	return s.client.CloseSession(s.ctx)
+
+	if s.client != nil {
+		return s.client.CloseSession(s.ctx)
+	}
+
+	return nil
 }
