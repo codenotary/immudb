@@ -75,6 +75,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST SCAST
+%token SHOW DATABASES TABLES
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -521,6 +522,20 @@ dqlstmt:
             distinct: $3,
             left: $1.(DataSource),
             right: $4.(DataSource),
+        }
+    }
+|
+    SHOW DATABASES
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "databases"}},
+        }
+    }
+|
+    SHOW TABLES
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "tables"}},
         }
     }
 
