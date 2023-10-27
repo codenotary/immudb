@@ -321,7 +321,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 			},
 			out: nil,
 			portals: map[string]*portal{
-				"port": &portal{
+				"port": {
 					Statement: &statement{
 						SQLStatement: "test",
 					},
