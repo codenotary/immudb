@@ -86,40 +86,34 @@ func (s *session) QueryMachine() error {
 			var resCols []*schema.Column
 			var stmt sql.SQLStmt
 
-			if s.isInBlackList(v.Statements) {
-				_, err := s.writeMessage(bm.ParseComplete())
+			if !s.isInBlackList(v.Statements) {
+				stmts, err := sql.Parse(strings.NewReader(v.Statements))
 				if err != nil {
 					waitForSync = extQueryMode
+					s.HandleError(err)
+					continue
 				}
-				continue
-			}
 
-			stmts, err := sql.Parse(strings.NewReader(v.Statements))
-			if err != nil {
-				waitForSync = extQueryMode
-				s.HandleError(err)
-				continue
-			}
+				// Note: as stated in the pgsql spec, the query string contained in a Parse message cannot include more than one SQL statement;
+				// else a syntax error is reported. This restriction does not exist in the simple-query protocol, but it does exist
+				// in the extended protocol, because allowing prepared statements or portals to contain multiple commands would
+				// complicate the protocol unduly.
+				if len(stmts) > 1 {
+					waitForSync = extQueryMode
+					s.HandleError(pserr.ErrMaxStmtNumberExceeded)
+					continue
+				}
+				if len(stmts) == 0 {
+					waitForSync = extQueryMode
+					s.HandleError(pserr.ErrNoStatementFound)
+					continue
+				}
 
-			// Note: as stated in the pgsql spec, the query string contained in a Parse message cannot include more than one SQL statement;
-			// else a syntax error is reported. This restriction does not exist in the simple-query protocol, but it does exist
-			// in the extended protocol, because allowing prepared statements or portals to contain multiple commands would
-			// complicate the protocol unduly.
-			if len(stmts) > 1 {
-				waitForSync = extQueryMode
-				s.HandleError(pserr.ErrMaxStmtNumberExceeded)
-				continue
-			}
-			if len(stmts) == 0 {
-				waitForSync = extQueryMode
-				s.HandleError(pserr.ErrNoStatementFound)
-				continue
-			}
-
-			if paramCols, resCols, err = s.inferParamAndResultCols(stmts[0]); err != nil {
-				waitForSync = extQueryMode
-				s.HandleError(err)
-				continue
+				if paramCols, resCols, err = s.inferParamAndResultCols(stmts[0]); err != nil {
+					waitForSync = extQueryMode
+					s.HandleError(err)
+					continue
+				}
 			}
 
 			_, err = s.writeMessage(bm.ParseComplete())
@@ -258,13 +252,17 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	}
 
 	if s.isInBlackList(statements) {
-		return nil
+		_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+		return err
 	}
 
 	if i := s.isEmulableInternally(statements); i != nil {
 		if err := s.tryToHandleInternally(i); err != nil && err != pserr.ErrMessageCannotBeHandledInternally {
 			return err
 		}
+
+		_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+		return err
 	}
 
 	stmts, err := sql.Parse(strings.NewReader(statements))
