@@ -292,11 +292,9 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 			}
 		}
 
-		if extQueryMode {
-			_, err = s.writeMessage(bm.CommandComplete([]byte("ok")))
-			if err != nil {
-				return err
-			}
+		_, err = s.writeMessage(bm.CommandComplete([]byte("ok")))
+		if err != nil {
+			return err
 		}
 	}
 
