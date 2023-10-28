@@ -500,6 +500,7 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 	s.WithOptions(DefaultOptions().
 		WithDir(dir).
 		WithPort(0).
+		WithPgsqlServer(false).
 		WithListener(bufconn.Listen(1024 * 1024)),
 	)
 
