@@ -250,15 +250,16 @@ func (s *ImmuServer) Initialize() error {
 	protomodel.RegisterAuthorizationServiceServer(s.GrpcServer, &authenticationServiceImp{server: s})
 	grpc_prometheus.Register(s.GrpcServer)
 
-	s.PgsqlSrv = pgsqlsrv.New(
-		pgsqlsrv.Host(s.Options.Address),
-		pgsqlsrv.Port(s.Options.PgsqlServerPort),
-		pgsqlsrv.ImmudbPort(s.Listener.Addr().(*net.TCPAddr).Port),
-		pgsqlsrv.TLSConfig(s.Options.TLSConfig),
-		pgsqlsrv.Logger(s.Logger),
-		pgsqlsrv.DatabaseList(s.dbList),
-	)
 	if s.Options.PgsqlServer {
+		s.PgsqlSrv = pgsqlsrv.New(
+			pgsqlsrv.Host(s.Options.Address),
+			pgsqlsrv.Port(s.Options.PgsqlServerPort),
+			pgsqlsrv.ImmudbPort(s.Listener.Addr().(*net.TCPAddr).Port),
+			pgsqlsrv.TLSConfig(s.Options.TLSConfig),
+			pgsqlsrv.Logger(s.Logger),
+			pgsqlsrv.DatabaseList(s.dbList),
+		)
+
 		if err = s.PgsqlSrv.Initialize(); err != nil {
 			return err
 		}

@@ -142,8 +142,11 @@ func (bs *BufconnServer) Stop() error {
 	if err := bs.Server.Srv.CloseDatabases(); err != nil {
 		return err
 	}
-	if err := bs.Server.Srv.PgsqlSrv.Stop(); err != nil {
-		return err
+
+	if bs.Server.Srv.PgsqlSrv != nil {
+		if err := bs.Server.Srv.PgsqlSrv.Stop(); err != nil {
+			return err
+		}
 	}
 
 	if bs.GrpcServer != nil {
