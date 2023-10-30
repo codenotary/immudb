@@ -993,9 +993,6 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, _, err = engine.Exec(context.Background(), tx, "COMMIT;", nil)
-		require.NoError(t, err)
-
 		r, err := engine.Query(context.Background(), nil, "SELECT * FROM tx_timestamp WHERE ts = @ts", map[string]interface{}{"ts": tx.Timestamp()})
 		require.NoError(t, err)
 		defer r.Close()
@@ -1008,6 +1005,9 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		_, _, err = engine.Exec(context.Background(), tx, "COMMIT;", nil)
+		require.NoError(t, err)
 
 		currentTs = tx.Timestamp()
 	}
