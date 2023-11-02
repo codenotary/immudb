@@ -798,7 +798,7 @@ func (s *ImmuStore) getIndexerFor(keyPrefix []byte) (*indexer, error) {
 	defer s.indexersMux.RUnlock()
 
 	for _, indexer := range s.indexers {
-		if hasPrefix(keyPrefix, indexer.Prefix()) {
+		if hasPrefix(keyPrefix, indexer.TargetPrefix()) {
 			return indexer, nil
 		}
 	}
@@ -1120,10 +1120,6 @@ func (s *ImmuStore) SnapshotMustIncludeTxID(ctx context.Context, prefix []byte, 
 // If txID is 0, any snapshot not older than renewalPeriod may be used.
 // If renewalPeriod is 0, renewal period is not taken into consideration
 func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context, prefix []byte, txID uint64, renewalPeriod time.Duration) (*Snapshot, error) {
-	if txID > s.LastPrecommittedTxID() {
-		return nil, fmt.Errorf("%w: txID is greater than the last precommitted transaction", ErrIllegalArguments)
-	}
-
 	indexer, err := s.getIndexerFor(prefix)
 	if err != nil {
 		return nil, err
@@ -1141,7 +1137,7 @@ func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context
 
 	return &Snapshot{
 		st:     s,
-		prefix: indexer.Prefix(),
+		prefix: indexer.TargetPrefix(),
 		snap:   snap,
 		ts:     time.Now(),
 	}, nil
