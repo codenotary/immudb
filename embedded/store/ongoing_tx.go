@@ -267,28 +267,55 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		return ErrMaxTxEntriesLimitExceeded
 	}
 
-	// updates are not needed because valueRef are resolved with the "interceptor"
-	if !tx.IsWriteOnly() && !isKeyUpdate && (md == nil || !md.NonIndexable()) {
-		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
-		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
-
-		snap, err := tx.snap(key)
-		if err == nil {
-			err = snap.set(key, indexedValue[:])
-			if err != nil {
-				return err
-			}
-		} else if !errors.Is(err, ErrIndexNotFound) {
-			return err
-		}
-	}
-
 	e := &EntrySpec{
 		Key:              key,
 		Metadata:         md,
 		Value:            value,
 		HashValue:        hashValue,
 		IsValueTruncated: isValueTruncated,
+	}
+
+	// updates are not needed because valueRef are resolved with the "interceptor"
+	if !tx.IsWriteOnly() && !isKeyUpdate && (md == nil || !md.NonIndexable()) {
+		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
+		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
+
+		tx.st.indexersMux.RLock()
+		defer tx.st.indexersMux.RUnlock()
+
+		for _, indexer := range tx.st.indexers {
+			if !hasPrefix(key, indexer.SourcePrefix()) {
+				continue
+			}
+
+			// map the key, get the snapshot for mapped key, set
+			sourceKey, err := mapKey(key, value, indexer.spec.SourceEntryMapper)
+			if err != nil {
+				return err
+			}
+
+			targetKey, err := mapKey(sourceKey, value, indexer.spec.TargetEntryMapper)
+			if err != nil {
+				return err
+			}
+
+			snap, err := tx.snap(targetKey)
+			if err != nil {
+				return err
+			}
+
+			err = snap.set(targetKey, indexedValue[:])
+			if err != nil {
+				return err
+			}
+
+			if !bytes.Equal(key, targetKey) {
+				tkid := sha256.Sum256(targetKey)
+
+				tx.transientEntries[len(tx.entriesByKey)] = e
+				tx.entriesByKey[tkid] = len(tx.entriesByKey)
+			}
+		}
 	}
 
 	if isKeyUpdate {
@@ -301,14 +328,22 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 
 		if isTransient {
 			tx.transientEntries[len(tx.entriesByKey)] = e
+			tx.entriesByKey[kid] = len(tx.entriesByKey)
 		} else {
 			tx.entries = append(tx.entries, e)
+			tx.entriesByKey[kid] = len(tx.entries) - 1
 		}
 
-		tx.entriesByKey[kid] = len(tx.entriesByKey)
 	}
 
 	return nil
+}
+
+func mapKey(key []byte, value []byte, mapper EntryMapper) (mappedKey []byte, err error) {
+	if mapper == nil {
+		return key, nil
+	}
+	return mapper(key, value)
 }
 
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
