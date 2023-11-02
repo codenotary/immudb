@@ -339,7 +339,7 @@ func TestDelete(t *testing.T) {
 			},
 			SinceTx: hdr.Id + 1,
 		})
-		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.ErrorIs(t, err, store.ErrTxNotFound)
 	})
 
 	_, err = db.Get(context.Background(), &schema.KeyRequest{
