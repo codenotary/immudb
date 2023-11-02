@@ -980,7 +980,7 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 
 	currentTs := time.Now()
 
-	for it := 0; it < 1; it++ {
+	for it := 0; it < 3; it++ {
 		time.Sleep(1 * time.Microsecond)
 
 		tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
@@ -991,7 +991,7 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 		rowCount := 10
 
 		for i := 0; i < rowCount; i++ {
-			_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO tx_timestamp(ts) VALUES (NOW())", nil)
+			_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO tx_timestamp(ts) VALUES (NOW()), (NOW())", nil)
 			require.NoError(t, err)
 		}
 
@@ -999,7 +999,7 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 		require.NoError(t, err)
 		defer r.Close()
 
-		for i := 0; i < rowCount; i++ {
+		for i := 0; i < rowCount*2; i++ {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.EqualValues(t, tx.Timestamp(), row.ValuesBySelector[EncodeSelector("", "tx_timestamp", "ts")].RawValue())
