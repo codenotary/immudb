@@ -174,7 +174,11 @@ func (idx *indexer) init(spec *IndexSpec) {
 	idx.resume()
 }
 
-func (idx *indexer) Prefix() []byte {
+func (idx *indexer) SourcePrefix() []byte {
+	return idx.spec.SourcePrefix
+}
+
+func (idx *indexer) TargetPrefix() []byte {
 	return idx.spec.TargetPrefix
 }
 
