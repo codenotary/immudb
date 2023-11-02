@@ -284,7 +284,7 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		defer tx.st.indexersMux.RUnlock()
 
 		for _, indexer := range tx.st.indexers {
-			if !hasPrefix(key, indexer.SourcePrefix()) {
+			if !hasPrefix(key, indexer.SourcePrefix()) || (!isTransient && indexer.spec.SourceEntryMapper != nil) {
 				continue
 			}
 
@@ -312,8 +312,13 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 			if !bytes.Equal(key, targetKey) {
 				tkid := sha256.Sum256(targetKey)
 
-				tx.transientEntries[len(tx.entriesByKey)] = e
-				tx.entriesByKey[tkid] = len(tx.entriesByKey)
+				if isTransient {
+					tx.transientEntries[len(tx.entriesByKey)] = e
+					tx.entriesByKey[tkid] = len(tx.entriesByKey)
+				} else {
+					tx.entries = append(tx.entries, e)
+					tx.entriesByKey[tkid] = len(tx.entries) - 1
+				}
 			}
 		}
 	}
