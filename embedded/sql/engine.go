@@ -331,11 +331,11 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 		return nil
 	}
 
-	encodedValues := make([][]byte, 2+len(index.cols)+1)
-	encodedValues[0] = EncodeID(index.table.id)
-	encodedValues[1] = EncodeID(index.id)
-
 	return func(key, value []byte) ([]byte, error) {
+		encodedValues := make([][]byte, 2+len(index.cols)+1)
+		encodedValues[0] = EncodeID(index.table.id)
+		encodedValues[1] = EncodeID(index.id)
+
 		valuesByColID := make(map[uint32]TypedValue, len(index.cols))
 
 		for _, col := range index.table.cols {
