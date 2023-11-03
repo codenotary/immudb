@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -30,6 +31,9 @@ import (
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -166,10 +170,23 @@ func (s *session) HandleStartup(ctx context.Context) (err error) {
 		return pserr.ErrPwNotprovided
 	}
 
+	var transportCredentials credentials.TransportCredentials
+
+	if s.tlsConfig == nil || s.tlsConfig.RootCAs == nil {
+		transportCredentials = insecure.NewCredentials()
+	} else {
+		config := &tls.Config{
+			RootCAs: s.tlsConfig.RootCAs,
+		}
+
+		transportCredentials = credentials.NewTLS(config)
+	}
+
 	opts := client.DefaultOptions().
 		WithAddress(s.immudbHost).
 		WithPort(s.immudbPort).
-		WithDisableIdentityCheck(true)
+		WithDisableIdentityCheck(true).
+		WithDialOptions([]grpc.DialOption{grpc.WithTransportCredentials(transportCredentials)})
 
 	s.client = client.NewClient().WithOptions(opts)
 
