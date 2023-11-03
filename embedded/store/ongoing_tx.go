@@ -279,9 +279,10 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
 	tx.st.indexersMux.RLock()
-	defer tx.st.indexersMux.RUnlock()
+	indexers := tx.st.indexers
+	tx.st.indexersMux.RUnlock()
 
-	for _, indexer := range tx.st.indexers {
+	for _, indexer := range indexers {
 		if isTransient && !hasPrefix(key, indexer.TargetPrefix()) {
 			continue
 		}
