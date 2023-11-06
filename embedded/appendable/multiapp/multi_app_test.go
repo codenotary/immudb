@@ -191,7 +191,10 @@ func TestMultiAppReOpening(t *testing.T) {
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open(copyPath, DefaultOptions().WithReadOnly(true))
+	a, err = Open(copyPath, DefaultOptions())
+	require.NoError(t, err)
+
+	err = a.SwitchToReadOnlyMode()
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -211,6 +214,9 @@ func TestMultiAppReOpening(t *testing.T) {
 	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Flush()
+	require.ErrorIs(t, err, ErrReadOnly)
+
+	err = a.SwitchToReadOnlyMode()
 	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Sync()
@@ -242,8 +248,7 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = a.Copy("multi_app_test.go")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not a directory")
+	require.ErrorContains(t, err, "not a directory")
 
 	err = a.Close()
 	require.NoError(t, err)
@@ -264,6 +269,9 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Flush()
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	err = a.SwitchToReadOnlyMode()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Sync()

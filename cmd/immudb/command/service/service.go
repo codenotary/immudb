@@ -36,10 +36,10 @@ func (cl *commandline) Service(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:   fmt.Sprintf("service %v", availableCommands),
 		Short: "Immudb service management tool",
-		Long: fmt.Sprintf(`Manage immudb service.
+		Long: `Manage immudb service.
 Root permission are required in order to make administrator operations.
 Currently working on linux, windows and freebsd operating systems.
-`),
+`,
 		ValidArgs: availableCommands,
 		Example:   constants.UsageExamples,
 		Args: func(cmd *cobra.Command, args []string) error {

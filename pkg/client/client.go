@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -46,7 +47,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/codenotary/immudb/pkg/stream"
 )
@@ -341,6 +341,12 @@ type ImmuClient interface {
 	// using the proof and verifies the signature of the signed state.
 	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
+
+	// VerifiableGet reads value for a given key, and returs internal data used to perform
+	// the verification.
+	//
+	// You can use this function if you want to have visibility on the verification data
+	VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error)
 
 	// History returns history for a single key.
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
@@ -715,10 +721,12 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 //
 // Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
+	c.Logger.Debugf("dialed %v", c.Options)
+
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
-		c.Logger.Debugf("dialed %v", c.Options)
 		return nil, err
 	}
+
 	return c.clientConn, nil
 }
 
@@ -1196,12 +1204,9 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1377,12 +1382,9 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1573,12 +1575,9 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1757,12 +1756,9 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -1930,12 +1926,9 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	}
 
 	if c.serverSigningPubKey != nil {
-		ok, err := newState.CheckSignature(c.serverSigningPubKey)
+		err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
-		}
-		if !ok {
-			return nil, store.ErrCorruptedData
 		}
 	}
 
@@ -2299,31 +2292,6 @@ func (c *immuClient) DatabaseListV2(ctx context.Context) (*schema.DatabaseListRe
 	return c.ServiceClient.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
 }
 
-// Deprecated: Please use CurrentState.
-func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.ImmutableState, error) {
-	return c.CurrentState(ctx)
-}
-
-// Deprecated: Please use VerifiedSet.
-func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
-	return c.VerifiedSet(ctx, key, value)
-}
-
-// Deprecated: Please use VerifiedGet.
-func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
-	return c.VerifiedGet(ctx, key)
-}
-
-// Deprecated: Please use VerifiedZAdd.
-func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
-	return c.VerifiedZAdd(ctx, set, score, key)
-}
-
-// Deprecated: Please use VerifiedSetReference.
-func (c *immuClient) SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error) {
-	return c.VerifiedSetReference(ctx, key, referencedKey)
-}
-
 func decodeTxEntries(entries []*schema.TxEntry) {
 	for _, it := range entries {
 		it.Key = it.Key[1:]
@@ -2348,4 +2316,11 @@ func (c *immuClient) TruncateDatabase(ctx context.Context, db string, retentionP
 	c.Logger.Debugf("TruncateDatabase finished in %s", time.Since(start))
 
 	return err
+}
+
+// VerifiableGet
+func (c *immuClient) VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error) {
+	result, err := c.ServiceClient.VerifiableGet(ctx, in, opts...)
+
+	return result, err
 }

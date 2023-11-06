@@ -21,6 +21,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/store"
 )
 
@@ -41,7 +42,11 @@ type SQLTx struct {
 	firstInsertedPKs map[string]int64 // first inserted PK by table name
 
 	txHeader *store.TxHeader // header is set once tx is committed
+
+	onCommittedCallbacks []onCommittedCallback
 }
+
+type onCommittedCallback = func(sqlTx *SQLTx) error
 
 func (sqlTx *SQLTx) Catalog() *Catalog {
 	return sqlTx.catalog
@@ -93,21 +98,20 @@ func (sqlTx *SQLTx) newKeyReader(rSpec store.KeyReaderSpec) (store.KeyReader, er
 	return sqlTx.tx.NewKeyReader(rSpec)
 }
 
-func (sqlTx *SQLTx) get(key []byte) (store.ValueRef, error) {
-	return sqlTx.tx.Get(key)
+func (sqlTx *SQLTx) get(ctx context.Context, key []byte) (store.ValueRef, error) {
+	return sqlTx.tx.Get(ctx, key)
 }
 
 func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) error {
 	return sqlTx.tx.Set(key, metadata, value)
 }
 
-func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
-	_, _, err := sqlTx.tx.GetWithPrefix(prefix, neq)
-	if errors.Is(err, store.ErrKeyNotFound) {
-		return false, nil
-	}
+func (sqlTx *SQLTx) setTransient(key []byte, metadata *store.KVMetadata, value []byte) error {
+	return sqlTx.tx.SetTransient(key, metadata, value)
+}
 
-	return err == nil, err
+func (sqlTx *SQLTx) getWithPrefix(ctx context.Context, prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {
+	return sqlTx.tx.GetWithPrefix(ctx, prefix, neq)
 }
 
 func (sqlTx *SQLTx) Cancel() error {
@@ -126,17 +130,30 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 		return err
 	}
 
-	return nil
+	merr := multierr.NewMultiErr()
+
+	for _, onCommitCallback := range sqlTx.onCommittedCallbacks {
+		err := onCommitCallback(sqlTx)
+		merr.Append(err)
+	}
+
+	return merr.Reduce()
 }
 
 func (sqlTx *SQLTx) Closed() bool {
 	return sqlTx.tx.Closed()
 }
 
-func (sqlTx *SQLTx) Committed() bool {
-	return sqlTx.txHeader != nil
+func (sqlTx *SQLTx) delete(ctx context.Context, key []byte) error {
+	return sqlTx.tx.Delete(ctx, key)
 }
 
-func (sqlTx *SQLTx) delete(key []byte) error {
-	return sqlTx.tx.Delete(key)
+func (sqlTx *SQLTx) addOnCommittedCallback(callback onCommittedCallback) error {
+	if callback == nil {
+		return ErrIllegalArguments
+	}
+
+	sqlTx.onCommittedCallbacks = append(sqlTx.onCommittedCallbacks, callback)
+
+	return nil
 }

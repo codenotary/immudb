@@ -79,7 +79,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	c.Options.DialOptions = dialOptions
 	c.SessionID = resp.GetSessionID()
 
-	c.HeartBeater = NewHeartBeater(c.SessionID, c.ServiceClient, c.Options.HeartBeatFrequency, c.errorHandler)
+	c.HeartBeater = NewHeartBeater(c.SessionID, c.ServiceClient, c.Options.HeartBeatFrequency, c.errorHandler, c.Logger)
 	c.HeartBeater.KeepAlive(context.Background())
 
 	c.WithStateService(stateService)

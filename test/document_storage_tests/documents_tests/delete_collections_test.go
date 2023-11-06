@@ -36,7 +36,7 @@ type DeleteCollectionsTestSuite struct {
 
 func (s *DeleteCollectionsTestSuite) SetupTest() {
 	s.expect, s.token = actions.OpenSession(s.T())
-	s.collection_name = uuid.New().String()
+	s.collection_name = "a" + uuid.New().String()
 }
 
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
@@ -46,7 +46,7 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
 		WithHeader("grpc-metadata-sessionid", s.token).
 		Expect().
 		Status(http.StatusOK).
-		JSON().Object().Empty()
+		JSON().Object().IsEmpty()
 
 	s.expect.GET(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).

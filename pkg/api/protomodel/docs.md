@@ -14,6 +14,8 @@
     - [AuthorizationService](#immudb.model.AuthorizationService)
   
 - [documents.proto](#documents.proto)
+    - [AddFieldRequest](#immudb.model.AddFieldRequest)
+    - [AddFieldResponse](#immudb.model.AddFieldResponse)
     - [AuditDocumentRequest](#immudb.model.AuditDocumentRequest)
     - [AuditDocumentResponse](#immudb.model.AuditDocumentResponse)
     - [Collection](#immudb.model.Collection)
@@ -45,6 +47,8 @@
     - [ProofDocumentResponse](#immudb.model.ProofDocumentResponse)
     - [Query](#immudb.model.Query)
     - [QueryExpression](#immudb.model.QueryExpression)
+    - [RemoveFieldRequest](#immudb.model.RemoveFieldRequest)
+    - [RemoveFieldResponse](#immudb.model.RemoveFieldResponse)
     - [ReplaceDocumentsRequest](#immudb.model.ReplaceDocumentsRequest)
     - [ReplaceDocumentsResponse](#immudb.model.ReplaceDocumentsResponse)
     - [SearchDocumentsRequest](#immudb.model.SearchDocumentsRequest)
@@ -171,6 +175,32 @@
 
 
 
+<a name="immudb.model.AddFieldRequest"></a>
+
+### AddFieldRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collectionName | [string](#string) |  |  |
+| field | [Field](#immudb.model.Field) |  |  |
+
+
+
+
+
+
+<a name="immudb.model.AddFieldResponse"></a>
+
+### AddFieldResponse
+
+
+
+
+
+
+
 <a name="immudb.model.AuditDocumentRequest"></a>
 
 ### AuditDocumentRequest
@@ -184,6 +214,7 @@
 | desc | [bool](#bool) |  |  |
 | page | [uint32](#uint32) |  |  |
 | pageSize | [uint32](#uint32) |  |  |
+| omitPayload | [bool](#bool) |  |  |
 
 
 
@@ -397,6 +428,8 @@
 | revision | [uint64](#uint64) |  |  |
 | metadata | [DocumentMetadata](#immudb.model.DocumentMetadata) |  |  |
 | document | [google.protobuf.Struct](#google.protobuf.Struct) |  |  |
+| username | [string](#string) |  |  |
+| ts | [int64](#int64) |  |  |
 
 
 
@@ -640,6 +673,32 @@
 
 
 
+<a name="immudb.model.RemoveFieldRequest"></a>
+
+### RemoveFieldRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| collectionName | [string](#string) |  |  |
+| fieldName | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.model.RemoveFieldResponse"></a>
+
+### RemoveFieldResponse
+
+
+
+
+
+
+
 <a name="immudb.model.ReplaceDocumentsRequest"></a>
 
 ### ReplaceDocumentsRequest
@@ -763,6 +822,7 @@
 | BOOLEAN | 1 |  |
 | INTEGER | 2 |  |
 | DOUBLE | 3 |  |
+| UUID | 4 |  |
 
 
  
@@ -782,6 +842,8 @@
 | GetCollection | [GetCollectionRequest](#immudb.model.GetCollectionRequest) | [GetCollectionResponse](#immudb.model.GetCollectionResponse) |  |
 | UpdateCollection | [UpdateCollectionRequest](#immudb.model.UpdateCollectionRequest) | [UpdateCollectionResponse](#immudb.model.UpdateCollectionResponse) |  |
 | DeleteCollection | [DeleteCollectionRequest](#immudb.model.DeleteCollectionRequest) | [DeleteCollectionResponse](#immudb.model.DeleteCollectionResponse) |  |
+| AddField | [AddFieldRequest](#immudb.model.AddFieldRequest) | [AddFieldResponse](#immudb.model.AddFieldResponse) |  |
+| RemoveField | [RemoveFieldRequest](#immudb.model.RemoveFieldRequest) | [RemoveFieldResponse](#immudb.model.RemoveFieldResponse) |  |
 | CreateIndex | [CreateIndexRequest](#immudb.model.CreateIndexRequest) | [CreateIndexResponse](#immudb.model.CreateIndexResponse) |  |
 | DeleteIndex | [DeleteIndexRequest](#immudb.model.DeleteIndexRequest) | [DeleteIndexResponse](#immudb.model.DeleteIndexResponse) |  |
 | InsertDocuments | [InsertDocumentsRequest](#immudb.model.InsertDocumentsRequest) | [InsertDocumentsResponse](#immudb.model.InsertDocumentsResponse) |  |

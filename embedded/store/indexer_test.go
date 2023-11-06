@@ -41,10 +41,11 @@ func TestClosedIndexerFailures(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	err = store.indexer.Close()
+	indexer, err := store.getIndexerFor(nil)
 	require.NoError(t, err)
 
-	indexer := store.indexer
+	err = indexer.Close()
+	require.NoError(t, err)
 
 	v, tx, hc, err := indexer.Get(nil)
 	require.Zero(t, v)
@@ -61,7 +62,7 @@ func TestClosedIndexerFailures(t *testing.T) {
 	require.Zero(t, snap)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	snap, err = indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(0, 0)
+	snap, err = indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(context.Background(), 0, 0)
 	require.Zero(t, snap)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
@@ -127,7 +128,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			"Closed store",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				s.Close()
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexerFor(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.ErrorIs(t, err, ErrAlreadyClosed)
 			},
 		},
@@ -135,7 +140,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			"No nodes folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit1"), 0777))
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexerFor(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.NoError(t, err)
 			},
 		},
@@ -143,7 +152,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			"No commit folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexerFor(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.NoError(t, err)
 			},
 		},
@@ -152,7 +165,11 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
 				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit1"), []byte{}, 0777))
-				err := s.indexer.restartIndex()
+
+				indexer, err := s.getIndexerFor(nil)
+				require.NoError(t, err)
+
+				err = indexer.restartIndex()
 				require.NoError(t, err)
 			},
 		},
@@ -185,8 +202,11 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, err = i.SnapshotMustIncludeTxIDWithRenewalPeriod(0, 0)
+	_, err = i.SnapshotMustIncludeTxIDWithRenewalPeriod(context.Background(), 0, 0)
 	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
+
+	_, _, _, err = i.GetBetween(dummy, 1, 2)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, _, err = i.GetWithPrefix(dummy, dummy)

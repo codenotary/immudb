@@ -1389,7 +1389,7 @@ func TestOps_ReferenceIndexNotExists(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, ErrIndexNotFound, err)
+	require.ErrorIs(t, err, ErrIndexNotFound)
 }
 
 func TestOps_ReferenceIndexMissing(t *testing.T) {
@@ -1410,6 +1410,6 @@ func TestOps_ReferenceIndexMissing(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, ErrReferenceIndexMissing, err)
+	require.ErrorIs(t, err, ErrReferenceIndexMissing)
 }
 */

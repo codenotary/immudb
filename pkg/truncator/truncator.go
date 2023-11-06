@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 )
 
 var (

@@ -144,6 +144,9 @@ func (t *EdgeCasesTestSuite) TestShouldFailOnIllegalArguments() {
 
 	_, err = OpenWith(nil, nil, nil, DefaultOptions())
 	t.Require().ErrorIs(err, ErrIllegalArguments)
+
+	_, err = OpenWith(t.pLog, t.dLog, t.cLog, nil)
+	t.Require().ErrorIs(err, ErrIllegalArguments)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailWhileQueryingCLogSize() {
@@ -999,7 +1002,7 @@ func BenchmarkAppend(b *testing.B) {
 	tree, err := Open(b.TempDir(), opts)
 	require.NoError(b, err)
 
-	var bs [32]byte
+	var bs [sha256.Size]byte
 
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 1_000_000; j++ {

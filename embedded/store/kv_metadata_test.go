@@ -97,7 +97,7 @@ func TestKVMetadata(t *testing.T) {
 
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Len(t, bs, maxKVMetadataLen)
+	require.LessOrEqual(t, len(bs), maxKVMetadataLen)
 
 	err = desmd.unsafeReadFrom(bs)
 	require.NoError(t, err)

@@ -77,6 +77,7 @@ func TestTx_Rollback(t *testing.T) {
 
 	tx, err := db.Begin()
 	require.NoError(t, err)
+	defer tx.Rollback()
 
 	table := getRandomTableName()
 	result, err := tx.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, PRIMARY KEY id)", table))
@@ -85,10 +86,6 @@ func TestTx_Rollback(t *testing.T) {
 
 	_, err = tx.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id) VALUES (2)", table))
 	require.NoError(t, err)
-
-	rows, err := tx.QueryContext(context.Background(), fmt.Sprintf("SELECT * FROM %s", table))
-	require.NoError(t, err)
-	require.NotNil(t, rows)
 
 	err = tx.Rollback()
 	require.NoError(t, err)

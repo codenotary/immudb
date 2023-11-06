@@ -20,8 +20,8 @@ import (
 	"crypto/tls"
 	"net"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 )
 
 type sessionFactoryMock struct {

@@ -36,9 +36,9 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/immuos"
-	"github.com/codenotary/immudb/pkg/logger"
 )
 
 // userDatabasePairs keeps an associacion of username to userdata

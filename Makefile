@@ -16,11 +16,14 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=1.5.0
+VERSION=1.9DOM.0
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
+SWAGGER?=false
 FIPSENABLED?=false
+SWAGGERUIVERSION=4.15.5
+SWAGGERUILINK="https://github.com/swagger-api/swagger-ui/archive/refs/tags/v${SWAGGERUIVERSION}.tar.gz"
 
 PWD = $(shell pwd)
 GO ?= go
@@ -28,6 +31,7 @@ GOPATH ?= $(shell go env GOPATH)
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
+
 
 V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
@@ -44,17 +48,24 @@ V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -extldflags "-static"
 V_LDFLAGS_FIPS_BUILD = ${V_LDFLAGS_BUILD} \
 				  -X github.com/codenotary/immudb/cmd/version.FIPSEnabled=true
+V_GO_ENV_FLAGS := GOOS=$(GOOS) GOARCH=$(GOARCH)
+V_BUILD_NAME ?= ""
+V_BUILD_FLAG = -o $(V_BUILD_NAME)
 
 GRPC_GATEWAY_VERSION := $(shell go list -m -versions github.com/grpc-ecosystem/grpc-gateway | awk -F ' ' '{print $$NF}')
+SWAGGER_BUILDTAG=
 WEBCONSOLE_BUILDTAG=
 FIPS_BUILDTAG=
 ifdef WEBCONSOLE
 WEBCONSOLE_BUILDTAG=webconsole
 endif
-ifeq ($(FIPSENABLED),true)
-FIPS_BUILDTAG=fips
+ifeq ($(SWAGGER),true)
+SWAGGER_BUILDTAG=swagger
 endif
-IMMUDB_BUILD_TAGS=-tags "$(WEBCONSOLE_BUILDTAG) $(FIPS_BUILDTAG)"
+ifeq ($(FIPSENABLED),true)
+FIPS_BUILDTAG=swagger
+endif
+IMMUDB_BUILD_TAGS=-tags "$(SWAGGER_BUILDTAG) $(WEBCONSOLE_BUILDTAG) $(FIPS_BUILDTAG)"
 
 .PHONY: all
 all: immudb immuclient immuadmin immutest
@@ -79,15 +90,15 @@ webconsole/default:
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
+	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
+	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
-immudb: webconsole
-	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
+immudb: webconsole swagger
+	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
 .PHONY: immutest
 immutest:
@@ -95,7 +106,7 @@ immutest:
 
 .PHONY: immuclient-static
 immuclient-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
+	$(V_GO_ENV_FLAGS) CGO_ENABLED=0 $(GO) build $(V_BUILD_FLAG) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
 
 .PHONY: immuclient-fips
 immuclient-fips:
@@ -104,7 +115,7 @@ immuclient-fips:
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
+	$(V_GO_ENV_FLAGS) CGO_ENABLED=0 $(GO) build $(V_BUILD_FLAG) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
 
 .PHONY: immuadmin-fips
 immuadmin-fips:
@@ -113,7 +124,7 @@ immuadmin-fips:
 
 .PHONY: immudb-static
 immudb-static: webconsole
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
+	$(V_GO_ENV_FLAGS) CGO_ENABLED=0 $(GO) build $(V_BUILD_FLAG) $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
 
 .PHONY: immudb-fips
 immudb-fips: webconsole
@@ -146,8 +157,8 @@ test-client:
 # To view coverage as HTML run: go tool cover -html=coverage.txt
 .PHONY: coverage
 coverage:
-	go-acc ./... --covermode=atomic --ignore=test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools,webconsole,protomodel,httpclient
-	cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
+	go-acc ./... --covermode=atomic --ignore=test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools,webconsole,protomodel,schema,swagger
+	cat coverage.txt | grep -v "schema" | grep -v "protomodel" | grep -v "swagger" | grep -v "webserver.go" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
 	$(GO) tool cover -func coverage.out
 
 .PHONY: build/codegen
@@ -177,10 +188,29 @@ build/codegenv2:
 	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/protomodel \
 	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/protomodel \
 	  --doc_out=pkg/api/protomodel --doc_opt=markdown,docs.md \
+	  --swagger_out=logtostderr=true,allow_merge=true,simple_operation_ids=true:pkg/api/openapi \
+
+./swagger/dist:
+	rm -rf swagger/dist/
+	curl -L $(SWAGGERUILINK) | tar -xz -C swagger
+	mv swagger/swagger-ui-$(SWAGGERUIVERSION)/dist/ swagger/ && rm -rf swagger/swagger-ui-$(SWAGGERUIVERSION)
+	cp pkg/api/openapi/apidocs.swagger.json swagger/dist/apidocs.swagger.json
+	cp pkg/api/schema/schema.swagger.json swagger/dist/schema.swagger.json
+	cp swagger/swaggeroverrides.js swagger/dist/swagger-initializer.js
+
+.PHONY: swagger
+ifeq ($(SWAGGER),true)
+swagger: ./swagger/dist
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
+else
+swagger:
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./swagger
+endif
+
 
 .PHONY: clean
 clean:
-	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist
+	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist ./swagger/dist
 
 .PHONY: man
 man:
@@ -191,7 +221,7 @@ man:
 
 .PHONY: prerequisites
 prerequisites:
-	$(GO) mod tidy
+	$(GO) mod tidy -compat=1.17
 	cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 ########################## releases scripts ############################################################################
@@ -231,9 +261,9 @@ dist/binaries:
     		for os_arch in ${TARGETS}; do \
     			goos=`echo $$os_arch|sed 's|/.*||'`; \
     			goarch=`echo $$os_arch|sed 's|^.*/||'`; \
-    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -tags webconsole -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
+				GOOS=$$goos GOARCH=$$goarch V_BUILD_NAME=./dist/$$service-v${VERSION}-$$goos-$$goarch make $$service ; \
     		done; \
-    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags webconsole -a -ldflags '${V_LDFLAGS_STATIC}' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
+			CGO_ENABLED=0 GOOS=linux GOARCH=amd64 V_BUILD_NAME=./dist/$$service-v${VERSION}-linux-amd64-static make $$service-static ; \
     		mv ./dist/$$service-v${VERSION}-windows-amd64 ./dist/$$service-v${VERSION}-windows-amd64.exe; \
     	done
 

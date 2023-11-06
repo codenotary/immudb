@@ -18,6 +18,7 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"sync"
@@ -43,13 +44,13 @@ func decodeOffset(offset int64) (byte, int64) {
 func Test_vlogCompactor_Compact(t *testing.T) {
 	entries := []*store.TxEntry{}
 	entries = append(entries,
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(3, 12)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(3, 2)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(2, 1)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(3, 1)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(4, 2)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(1, 3)),
-		store.NewTxEntry(nil, nil, 0, [32]byte{0}, encodeOffset(1, 2)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(3, 12)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(3, 2)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(2, 1)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(3, 1)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(4, 2)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(1, 3)),
+		store.NewTxEntry(nil, nil, 0, [sha256.Size]byte{0}, encodeOffset(1, 2)),
 	)
 	sort.Slice(entries, func(i, j int) bool {
 		v1, o1 := decodeOffset(entries[i].VOff())
@@ -651,7 +652,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	// create new document store
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
 			{Name: "pincode", Type: protomodel.FieldType_DOUBLE},
@@ -668,8 +669,8 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
-		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
+		err = NewVlogTruncator(db).TruncateUptoTx(context.Background(), hdr.ID)
+		require.NoError(t, err)
 
 		// should add two extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -700,7 +701,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
 
-		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		res, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
@@ -723,8 +724,8 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
-		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
+		err = NewVlogTruncator(db).TruncateUptoTx(context.Background(), hdr.ID)
+		require.NoError(t, err)
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -735,7 +736,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Foo', 0)")
 		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
 
-		res, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		res, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{

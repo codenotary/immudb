@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
@@ -73,6 +73,7 @@ type Options struct {
 	PProf                       bool
 	LogFormat                   string
 	GRPCReflectionServerEnabled bool
+	SwaggerUIEnabled            bool
 }
 
 type RemoteStorageOptions struct {
@@ -140,6 +141,7 @@ func DefaultOptions() *Options {
 		SessionsOptions:             sessions.DefaultOptions(),
 		PProf:                       false,
 		GRPCReflectionServerEnabled: true,
+		SwaggerUIEnabled:            true,
 	}
 }
 
@@ -477,6 +479,11 @@ func (o *Options) WithPProf(pprof bool) *Options {
 func (o *Options) WithGRPCReflectionServerEnabled(enabled bool) *Options {
 	o.GRPCReflectionServerEnabled = enabled
 
+	return o
+}
+
+func (o *Options) WithSwaggerUIEnabled(enabled bool) *Options {
+	o.SwaggerUIEnabled = enabled
 	return o
 }
 

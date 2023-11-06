@@ -48,4 +48,6 @@ immudb_pwd
 token
 token_admin
 
+swagger/dist
+swagger/swaggerembedded
 webconsole/webconsoleembedded

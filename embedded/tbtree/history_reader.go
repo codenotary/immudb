@@ -53,19 +53,19 @@ func newHistoryReader(id int, snap *Snapshot, spec *HistoryReaderSpec) (*History
 	}, nil
 }
 
-func (r *HistoryReader) Read() (tss []uint64, err error) {
+func (r *HistoryReader) Read() ([]TimedValue, error) {
 	if r.closed {
 		return nil, ErrAlreadyClosed
 	}
 
-	tss, _, err = r.snapshot.History(r.key, r.offset, r.descOrder, r.readLimit)
+	timedValues, _, err := r.snapshot.History(r.key, r.offset, r.descOrder, r.readLimit)
 	if err != nil {
 		return nil, err
 	}
 
-	r.offset += uint64(len(tss))
+	r.offset += uint64(len(timedValues))
 
-	return tss, nil
+	return timedValues, nil
 }
 
 func (r *HistoryReader) Close() error {

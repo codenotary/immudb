@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -139,7 +139,7 @@ func TestTruncator(t *testing.T) {
 }
 
 func TestTruncator_with_truncation_frequency(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir()).WithCorruptionChecker(false)
+	options := database.DefaultOption().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)

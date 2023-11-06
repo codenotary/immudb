@@ -18,6 +18,7 @@ package sql
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -27,16 +28,18 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/google/uuid"
 )
 
 // Catalog represents a database catalog containing metadata for all tables in the database.
 type Catalog struct {
-	prefix []byte
+	enginePrefix []byte
 
 	tables       []*Table
 	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
-	tableCount   uint32 // The tableCount variable is used to assign unique ids to new tables as they are created.
+
+	maxTableID uint32 // The maxTableID variable is used to assign unique ids to new tables as they are created.
 }
 
 type Table struct {
@@ -52,7 +55,9 @@ type Table struct {
 	primaryIndex    *Index
 	autoIncrementPK bool
 	maxPK           int64
-	indexCount      uint32
+
+	maxColID   uint32
+	maxIndexID uint32
 }
 
 type Index struct {
@@ -73,10 +78,9 @@ type Column struct {
 	notNull       bool
 }
 
-func newCatalog(prefix []byte) *Catalog {
+func newCatalog(enginePrefix []byte) *Catalog {
 	return &Catalog{
-		prefix:       prefix,
-		tables:       make([]*Table, 0),
+		enginePrefix: enginePrefix,
 		tablesByID:   make(map[uint32]*Table),
 		tablesByName: make(map[string]*Table),
 	}
@@ -88,7 +92,11 @@ func (catlg *Catalog) ExistTable(table string) bool {
 }
 
 func (catlg *Catalog) GetTables() []*Table {
-	return catlg.tables
+	ts := make([]*Table, 0, len(catlg.tables))
+
+	ts = append(ts, catlg.tables...)
+
+	return ts
 }
 
 func (catlg *Catalog) GetTableByName(name string) (*Table, error) {
@@ -111,16 +119,22 @@ func (t *Table) ID() uint32 {
 	return t.id
 }
 
-func (t *Table) Database() *Catalog {
-	return t.catalog
-}
-
 func (t *Table) Cols() []*Column {
-	return t.cols
+	cs := make([]*Column, 0, len(t.cols))
+
+	cs = append(cs, t.cols...)
+
+	return cs
 }
 
 func (t *Table) ColsByName() map[string]*Column {
-	return t.colsByName
+	cs := make(map[string]*Column, len(t.cols))
+
+	for _, c := range t.cols {
+		cs[c.colName] = c
+	}
+
+	return cs
 }
 
 func (t *Table) Name() string {
@@ -132,18 +146,12 @@ func (t *Table) PrimaryIndex() *Index {
 }
 
 func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
-	c, exists := t.colsByName[colName]
-	if !exists {
-		return false, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, colName)
+	col, err := t.GetColumnByName(colName)
+	if err != nil {
+		return false, err
 	}
 
-	_, ok := t.indexesByColID[c.id]
-
-	return ok, nil
-}
-
-func (t *Table) IndexesByColID(colID uint32) []*Index {
-	return t.indexesByColID[colID]
+	return len(t.indexesByColID[col.id]) > 0, nil
 }
 
 func (t *Table) GetColumnByName(name string) (*Column, error) {
@@ -167,7 +175,23 @@ func (t *Table) ColumnsByID() map[uint32]*Column {
 }
 
 func (t *Table) GetIndexes() []*Index {
-	return t.indexes
+	idxs := make([]*Index, 0, len(t.indexes))
+
+	idxs = append(idxs, t.indexes...)
+
+	return idxs
+}
+
+func (t *Table) GetIndexesByColID(colID uint32) []*Index {
+	idxs := make([]*Index, 0, len(t.indexes))
+
+	idxs = append(idxs, t.indexesByColID[colID]...)
+
+	return idxs
+}
+
+func (t *Table) GetMaxColID() uint32 {
+	return t.maxColID
 }
 
 func (i *Index) IsPrimary() bool {
@@ -187,6 +211,10 @@ func (i *Index) IncludesCol(colID uint32) bool {
 	return ok
 }
 
+func (i *Index) enginePrefix() []byte {
+	return i.table.catalog.enginePrefix
+}
+
 func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValueRange) bool {
 	// all columns before colID must be fixedValues otherwise the index can not be used
 	for _, col := range i.cols {
@@ -204,18 +232,6 @@ func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValue
 	return false
 }
 
-func (i *Index) prefix() string {
-	if i.IsPrimary() {
-		return PIndexPrefix
-	}
-
-	if i.IsUnique() {
-		return UIndexPrefix
-	}
-
-	return SIndexPrefix
-}
-
 func (i *Index) Name() string {
 	return indexName(i.table.name, i.cols)
 }
@@ -227,7 +243,7 @@ func (i *Index) ID() uint32 {
 func (t *Table) GetIndexByName(name string) (*Index, error) {
 	idx, exists := t.indexesByName[name]
 	if !exists {
-		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableIndex, name)
+		return nil, fmt.Errorf("%w (%s)", ErrIndexNotFound, name)
 	}
 	return idx, nil
 }
@@ -237,7 +253,7 @@ func indexName(tableName string, cols []*Column) string {
 
 	buf.WriteString(tableName)
 
-	buf.WriteString("[")
+	buf.WriteString("(")
 
 	for c, col := range cols {
 		buf.WriteString(col.colName)
@@ -247,14 +263,20 @@ func indexName(tableName string, cols []*Column) string {
 		}
 	}
 
-	buf.WriteString("]")
+	buf.WriteString(")")
 
 	return buf.String()
 }
 
-func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
+func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, maxColID uint32) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
+	}
+
+	for id := range colsSpec {
+		if id <= 0 || id > maxColID {
+			return nil, ErrIllegalArguments
+		}
 	}
 
 	exists := catlg.ExistTable(name)
@@ -262,8 +284,8 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, name)
 	}
 
-	// Generate a new ID for the table by incrementing the 'tableCount' variable of the 'catalog' instance.
-	id := (catlg.tableCount + 1)
+	// Generate a new ID for the table by incrementing the 'maxTableID' variable of the 'catalog' instance.
+	id := (catlg.maxTableID + 1)
 
 	// This code is attempting to check if a table with the given id already exists in the Catalog.
 	// If the function returns nil for err, it means that the table already exists and the function
@@ -277,14 +299,25 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 		id:             id,
 		catalog:        catlg,
 		name:           name,
-		cols:           make([]*Column, len(colsSpec)),
+		cols:           make([]*Column, 0, len(colsSpec)),
 		colsByID:       make(map[uint32]*Column),
 		colsByName:     make(map[string]*Column),
 		indexesByName:  make(map[string]*Index),
 		indexesByColID: make(map[uint32][]*Index),
+		maxColID:       maxColID,
 	}
 
-	for i, cs := range colsSpec {
+	for id := uint32(1); id <= maxColID; id++ {
+		cs, found := colsSpec[id]
+		if !found {
+			// dropped column
+			continue
+		}
+
+		if cs.colName == revCol {
+			return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+		}
+
 		_, colExists := table.colsByName[cs.colName]
 		if colExists {
 			return nil, ErrDuplicatedColumn
@@ -298,8 +331,6 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 			return nil, ErrLimitedMaxLen
 		}
 
-		id := len(table.colsByID) + 1
-
 		col := &Column{
 			id:            uint32(id),
 			table:         table,
@@ -310,7 +341,7 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 			notNull:       cs.notNull,
 		}
 
-		table.cols[i] = col
+		table.cols = append(table.cols, col)
 		table.colsByID[col.id] = col
 		table.colsByName[col.colName] = col
 	}
@@ -322,9 +353,30 @@ func (catlg *Catalog) newTable(name string, colsSpec []*ColSpec) (table *Table, 
 	// increment table count on successfull table creation.
 	// This ensures that each new table is assigned a unique ID
 	// that has not been used before.
-	catlg.tableCount += 1
+	catlg.maxTableID++
 
 	return table, nil
+}
+
+func (catlg *Catalog) deleteTable(table *Table) error {
+	_, exists := catlg.tablesByID[table.id]
+	if !exists {
+		return ErrTableDoesNotExist
+	}
+
+	newTables := make([]*Table, 0, len(catlg.tables)-1)
+
+	for _, t := range catlg.tables {
+		if t.id != table.id {
+			newTables = append(newTables, t)
+		}
+	}
+
+	catlg.tables = newTables
+	delete(catlg.tablesByID, table.id)
+	delete(catlg.tablesByName, table.name)
+
+	return nil
 }
 
 func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error) {
@@ -352,7 +404,7 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 	}
 
 	index = &Index{
-		id:       uint32(t.indexCount),
+		id:       uint32(t.maxIndexID),
 		table:    t,
 		unique:   unique,
 		cols:     cols,
@@ -380,12 +432,16 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 	// increment table count on successfull table creation.
 	// This ensures that each new table is assigned a unique ID
 	// that has not been used before.
-	t.indexCount += 1
+	t.maxIndexID++
 
 	return index, nil
 }
 
 func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
+	if spec.colName == revCol {
+		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+	}
+
 	if spec.autoIncrement {
 		return nil, fmt.Errorf("%w (%s)", ErrLimitedAutoIncrement, spec.colName)
 	}
@@ -403,10 +459,10 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnAlreadyExists, spec.colName)
 	}
 
-	id := len(t.cols) + 1
+	t.maxColID++
 
 	col := &Column{
-		id:            uint32(id),
+		id:            t.maxColID,
 		table:         t,
 		colName:       spec.colName,
 		colType:       spec.colType,
@@ -422,9 +478,36 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 	return col, nil
 }
 
-func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
+func (ctlg *Catalog) renameTable(oldName, newName string) (*Table, error) {
 	if oldName == newName {
-		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewColumnName, oldName)
+		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewNames, oldName)
+	}
+
+	t, err := ctlg.GetTableByName(oldName)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ctlg.GetTableByName(newName)
+	if err == nil {
+		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, newName)
+	}
+
+	t.name = newName
+
+	delete(ctlg.tablesByName, oldName)
+	ctlg.tablesByName[newName] = t
+
+	return t, nil
+}
+
+func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
+	if newName == revCol {
+		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+	}
+
+	if oldName == newName {
+		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewNames, oldName)
 	}
 
 	col, exists := t.colsByName[oldName]
@@ -443,6 +526,51 @@ func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
 	t.colsByName[newName] = col
 
 	return col, nil
+}
+
+func (t *Table) deleteColumn(col *Column) error {
+	isIndexed, err := t.IsIndexed(col.colName)
+	if err != nil {
+		return err
+	}
+
+	if isIndexed {
+		return fmt.Errorf("%w (%s)", ErrCantDropIndexedColumn, col.colName)
+	}
+
+	newCols := make([]*Column, 0, len(t.cols)-1)
+
+	for _, c := range t.cols {
+		if c.id != col.id {
+			newCols = append(newCols, c)
+		}
+	}
+
+	t.cols = newCols
+	delete(t.colsByName, col.colName)
+	delete(t.colsByID, col.id)
+
+	return nil
+}
+
+func (t *Table) deleteIndex(index *Index) error {
+	if index.IsPrimary() {
+		return fmt.Errorf("%w: primary key index can NOT be deleted", ErrIllegalArguments)
+	}
+
+	newIndexes := make([]*Index, 0, len(t.indexes)-1)
+
+	for _, i := range t.indexes {
+		if i.id != index.id {
+			newIndexes = append(newIndexes, i)
+		}
+	}
+
+	t.indexes = newIndexes
+	delete(t.indexesByColID, index.id)
+	delete(t.indexesByName, index.Name())
+
+	return nil
 }
 
 func (c *Column) ID() uint32 {
@@ -467,6 +595,8 @@ func (c *Column) MaxLen() int {
 		return 8
 	case Float64Type:
 		return 8
+	case UUIDType:
+		return 16
 	}
 
 	return c.maxLen
@@ -490,15 +620,16 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 		return maxLen == 0 || maxLen == 8
 	case TimestampType:
 		return maxLen == 0 || maxLen == 8
+	case UUIDType:
+		return maxLen == 0 || maxLen == 16
 	}
 
 	return maxLen >= 0
 }
 
-func (catlg *Catalog) load(tx *store.OngoingTx) error {
+func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(catlg.prefix, catalogTablePrefix, EncodeID(1)),
-		Filters: []store.FilterFn{store.IgnoreExpired},
+		Prefix: MapKey(catlg.enginePrefix, catalogTablePrefix, EncodeID(1)),
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -508,7 +639,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 	defer tableReader.Close()
 
 	for {
-		mkey, vref, err := tableReader.Read()
+		mkey, vref, err := tableReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -516,7 +647,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(catlg.prefix, mkey)
+		dbID, tableID, err := unmapTableID(catlg.enginePrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -531,11 +662,11 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 		// This implies this is a deleted table and we should not load it.
 		md := vref.KVMetadata()
 		if md != nil && md.Deleted() {
-			catlg.tableCount += 1
+			catlg.maxTableID++
 			continue
 		}
 
-		colSpecs, err := loadColSpecs(dbID, tableID, tx, catlg.prefix)
+		colSpecs, maxColID, err := loadColSpecs(ctx, dbID, tableID, tx, catlg.enginePrefix)
 		if err != nil {
 			return err
 		}
@@ -545,7 +676,7 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return err
 		}
 
-		table, err := catlg.newTable(string(v), colSpecs)
+		table, err := catlg.newTable(string(v), colSpecs, maxColID)
 		if err != nil {
 			return err
 		}
@@ -554,41 +685,18 @@ func (catlg *Catalog) load(tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(catlg.prefix, tx)
+		err = table.loadIndexes(ctx, catlg.enginePrefix, tx)
 		if err != nil {
 			return err
-		}
-
-		if table.autoIncrementPK {
-			encMaxPK, err := loadMaxPK(catlg.prefix, tx, table)
-			if errors.Is(err, store.ErrNoMoreEntries) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-
-			if len(encMaxPK) != 9 {
-				return ErrCorruptedData
-			}
-
-			if encMaxPK[0] != KeyValPrefixNotNull {
-				return ErrCorruptedData
-			}
-
-			// map to signed integer space
-			encMaxPK[1] ^= 0x80
-
-			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK[1:]))
 		}
 	}
 
 	return nil
 }
 
-func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
+func loadMaxPK(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := store.KeyReaderSpec{
-		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(1), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    MapKey(sqlPrefix, MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id)),
 		DescOrder: true,
 	}
 
@@ -598,7 +706,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 	}
 	defer pkReader.Close()
 
-	mkey, _, err := pkReader.Read()
+	mkey, _, err := pkReader.Read(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -606,72 +714,80 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
-func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+func loadColSpecs(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs map[uint32]*ColSpec, maxColID uint32, err error) {
+	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Prefix: initialKey,
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer colSpecReader.Close()
 
-	specs = make([]*ColSpec, 0)
+	specs = make(map[uint32]*ColSpec, 0)
 
 	for {
-		mkey, vref, err := colSpecReader.Read()
+		mkey, vref, err := colSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, 0, err
+		}
+
+		md := vref.KVMetadata()
+		if md != nil && md.IsExpirable() {
+			return nil, 0, ErrBrokenCatalogColSpecExpirable
 		}
 
 		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if dbID != mdbID || tableID != mtableID {
-			return nil, ErrCorruptedData
+			return nil, 0, ErrCorruptedData
+		}
+
+		if colID != maxColID+1 {
+			return nil, 0, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
+		}
+
+		maxColID = colID
+
+		if md != nil && md.Deleted() {
+			continue
 		}
 
 		v, err := vref.Resolve()
 		if err != nil {
-			return nil, err
-		}
-		if len(v) < 6 {
-			return nil, ErrCorruptedData
+			return nil, 0, err
 		}
 
-		spec := &ColSpec{
+		if len(v) < 6 {
+			return nil, 0, fmt.Errorf("%w: mismatch on database or table ids", ErrCorruptedData)
+		}
+
+		specs[colID] = &ColSpec{
 			colName:       string(v[5:]),
 			colType:       colType,
 			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
 			autoIncrement: v[0]&autoIncrementFlag != 0,
 			notNull:       v[0]&nullableFlag != 0,
 		}
-
-		specs = append(specs, spec)
-
-		if int(colID) != len(specs) {
-			return nil, ErrCorruptedData
-		}
 	}
 
-	return
+	return specs, maxColID, nil
 }
 
-func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
+func (table *Table) loadIndexes(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired},
+		Prefix: initialKey,
 	}
 
 	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
@@ -681,7 +797,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 	defer idxSpecReader.Close()
 
 	for {
-		mkey, vref, err := idxSpecReader.Read()
+		mkey, vref, err := idxSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -695,7 +811,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 		// This implies this is a deleted index and we should not load it.
 		md := vref.KVMetadata()
 		if md != nil && md.Deleted() {
-			table.indexCount += 1
+			table.maxIndexID++
 			continue
 		}
 
@@ -799,6 +915,7 @@ func asType(t string) (SQLValueType, error) {
 		t == Float64Type ||
 		t == BooleanType ||
 		t == VarcharType ||
+		t == UUIDType ||
 		t == BLOBType ||
 		t == TimestampType {
 		return t, nil
@@ -829,19 +946,16 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		return nil, ErrIllegalArguments
 	}
 
-	enc, err := trimPrefix(sqlPrefix, mkey, []byte(index.prefix()))
+	enc, err := trimPrefix(sqlPrefix, mkey, []byte(MappedPrefix))
 	if err != nil {
 		return nil, ErrCorruptedData
 	}
 
-	if len(enc) <= EncIDLen*3 {
+	if len(enc) <= EncIDLen*2 {
 		return nil, ErrCorruptedData
 	}
 
 	off := 0
-
-	dbID := binary.BigEndian.Uint32(enc[off:])
-	off += EncIDLen
 
 	tableID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
@@ -849,32 +963,30 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 	indexID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	if dbID != 1 || tableID != index.table.id || indexID != index.id {
+	if tableID != index.table.id || indexID != index.id {
 		return nil, ErrCorruptedData
 	}
 
-	if !index.IsPrimary() {
-		//read index values
-		for _, col := range index.cols {
-			if enc[off] == KeyValPrefixNull {
-				off += 1
-				continue
-			}
-			if enc[off] != KeyValPrefixNotNull {
-				return nil, ErrCorruptedData
-			}
+	//read index values
+	for _, col := range index.cols {
+		if enc[off] == KeyValPrefixNull {
 			off += 1
-
-			maxLen := col.MaxLen()
-			if variableSizedType(col.colType) {
-				maxLen += EncLenLen
-			}
-			if len(enc)-off < maxLen {
-				return nil, ErrCorruptedData
-			}
-
-			off += maxLen
+			continue
 		}
+		if enc[off] != KeyValPrefixNotNull {
+			return nil, ErrCorruptedData
+		}
+		off += 1
+
+		maxLen := col.MaxLen()
+		if variableSizedType(col.colType) {
+			maxLen += EncLenLen
+		}
+		if len(enc)-off < maxLen {
+			return nil, ErrCorruptedData
+		}
+
+		off += maxLen
 	}
 
 	//PK cannot be nil
@@ -887,10 +999,6 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 
 func variableSizedType(sqlType SQLValueType) bool {
 	return sqlType == VarcharType || sqlType == BLOBType
-}
-
-func mapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
-	return MapKey(prefix, mappingPrefix, encValues...)
 }
 
 func MapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
@@ -957,9 +1065,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			strVal, ok := convVal.(string)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a string: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a string: %w", ErrInvalidValue)
 			}
 
 			if len(strVal) > maxLen {
@@ -982,9 +1088,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			intVal, ok := convVal.(int64)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not an integer: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not an integer: %w", ErrInvalidValue)
 			}
 
 			// v
@@ -1004,9 +1108,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			boolVal, ok := convVal.(bool)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a boolean: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a boolean: %w", ErrInvalidValue)
 			}
 
 			// v
@@ -1022,9 +1124,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			blobVal, ok := convVal.([]byte)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a blob: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a blob: %w", ErrInvalidValue)
 			}
 
 			if len(blobVal) > maxLen {
@@ -1039,6 +1139,20 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			return encv, len(blobVal), nil
 		}
+	case UUIDType:
+		{
+			uuidVal, ok := convVal.(uuid.UUID)
+			if !ok {
+				return nil, 0, fmt.Errorf("value is not an UUID: %w", ErrInvalidValue)
+			}
+
+			// notnull + value
+			encv := make([]byte, 17)
+			encv[0] = KeyValPrefixNotNull
+			copy(encv[1:], uuidVal[:])
+
+			return encv, 16, nil
+		}
 	case TimestampType:
 		{
 			if maxLen != 8 {
@@ -1047,9 +1161,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 
 			timeVal, ok := convVal.(time.Time)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a timestamp: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a timestamp: %w", ErrInvalidValue)
 			}
 
 			// v
@@ -1065,9 +1177,7 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 		{
 			floatVal, ok := convVal.(float64)
 			if !ok {
-				return nil, 0, fmt.Errorf(
-					"value is not a float: %w", ErrInvalidValue,
-				)
+				return nil, 0, fmt.Errorf("value is not a float: %w", ErrInvalidValue)
 			}
 
 			// Apart form the sign bit, bit representation of float64
@@ -1119,9 +1229,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			strVal, ok := convVal.(string)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a string: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a string: %w", ErrInvalidValue)
 			}
 
 			if maxLen > 0 && len(strVal) > maxLen {
@@ -1139,9 +1247,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			intVal, ok := convVal.(int64)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not an integer: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not an integer: %w", ErrInvalidValue)
 			}
 
 			// map to unsigned integer space
@@ -1156,9 +1262,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			boolVal, ok := convVal.(bool)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a boolean: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a boolean: %w", ErrInvalidValue)
 			}
 
 			// len(v) + v
@@ -1177,9 +1281,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 			if val != nil {
 				v, ok := convVal.([]byte)
 				if !ok {
-					return nil, fmt.Errorf(
-						"value is not a blob: %w", ErrInvalidValue,
-					)
+					return nil, fmt.Errorf("value is not a blob: %w", ErrInvalidValue)
 				}
 				blobVal = v
 			}
@@ -1195,13 +1297,25 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 
 			return encv[:], nil
 		}
+	case UUIDType:
+		{
+			uuidVal, ok := convVal.(uuid.UUID)
+			if !ok {
+				return nil, fmt.Errorf("value is not an UUID: %w", ErrInvalidValue)
+			}
+
+			// len(v) + v
+			var encv [EncLenLen + 16]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(16))
+			copy(encv[EncLenLen:], uuidVal[:])
+
+			return encv[:], nil
+		}
 	case TimestampType:
 		{
 			timeVal, ok := convVal.(time.Time)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a timestamp: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a timestamp: %w", ErrInvalidValue)
 			}
 
 			// len(v) + v
@@ -1215,9 +1329,7 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 		{
 			floatVal, ok := convVal.(float64)
 			if !ok {
-				return nil, fmt.Errorf(
-					"value is not a float: %w", ErrInvalidValue,
-				)
+				return nil, fmt.Errorf("value is not a float: %w", ErrInvalidValue)
 			}
 
 			var encv [EncLenLen + 8]byte
@@ -1232,16 +1344,25 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 	return nil, ErrInvalidValue
 }
 
-func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+func DecodeValueLength(b []byte) (int, int, error) {
 	if len(b) < EncLenLen {
-		return nil, 0, ErrCorruptedData
+		return 0, 0, ErrCorruptedData
 	}
 
 	vlen := int(binary.BigEndian.Uint32(b[:]))
 	voff := EncLenLen
 
 	if vlen < 0 || len(b) < voff+vlen {
-		return nil, 0, ErrCorruptedData
+		return 0, 0, ErrCorruptedData
+	}
+
+	return vlen, EncLenLen, nil
+}
+
+func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+	vlen, voff, err := DecodeValueLength(b)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	switch colType {
@@ -1281,6 +1402,21 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 			return &Blob{val: v}, voff, nil
 		}
+	case UUIDType:
+		{
+			if vlen != 16 {
+				return nil, 0, ErrCorruptedData
+			}
+
+			u, err := uuid.FromBytes(b[voff : voff+16])
+			if err != nil {
+				return nil, 0, fmt.Errorf("%w: %s", ErrCorruptedData, err.Error())
+			}
+
+			voff += vlen
+
+			return &UUID{val: u}, voff, nil
+		}
 	case TimestampType:
 		{
 			if vlen != 8 {
@@ -1307,12 +1443,11 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 }
 
 // addSchemaToTx adds the schema to the ongoing transaction.
-func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
+func (t *Table) addIndexesToTx(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
 
 	idxReaderSpec := store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Prefix: initialKey,
 	}
 
 	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
@@ -1322,7 +1457,7 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 	defer idxSpecReader.Close()
 
 	for {
-		mkey, vref, err := idxSpecReader.Read()
+		mkey, vref, err := idxSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -1357,10 +1492,9 @@ func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
 }
 
 // addSchemaToTx adds the schema of the catalog to the given transaction.
-func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (catlg *Catalog) addSchemaToTx(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Prefix: MapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -1370,7 +1504,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 	defer tableReader.Close()
 
 	for {
-		mkey, vref, err := tableReader.Read()
+		mkey, vref, err := tableReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -1388,7 +1522,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 		}
 
 		// read col specs into tx
-		colSpecs, err := addColSpecsToTx(tx, sqlPrefix, tableID)
+		colSpecs, maxColID, err := addColSpecsToTx(ctx, tx, sqlPrefix, tableID)
 		if err != nil {
 			return err
 		}
@@ -1406,7 +1540,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 			return err
 		}
 
-		table, err := catlg.newTable(string(v), colSpecs)
+		table, err := catlg.newTable(string(v), colSpecs, maxColID)
 		if err != nil {
 			return err
 		}
@@ -1416,7 +1550,7 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 		}
 
 		// read index specs into tx
-		err = table.addIndexesToTx(sqlPrefix, tx)
+		err = table.addIndexesToTx(ctx, sqlPrefix, tx)
 		if err != nil {
 			return err
 		}
@@ -1427,67 +1561,75 @@ func (catlg *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error
 }
 
 // addColSpecsToTx adds the column specs of the given table to the given transaction.
-func addColSpecsToTx(tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs []*ColSpec, err error) {
-	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
+func addColSpecsToTx(ctx context.Context, tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs map[uint32]*ColSpec, maxColID uint32, err error) {
+	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
 
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Prefix: initialKey,
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer colSpecReader.Close()
 
-	specs = make([]*ColSpec, 0)
+	specs = make(map[uint32]*ColSpec, 0)
 
 	for {
-		mkey, vref, err := colSpecReader.Read()
+		mkey, vref, err := colSpecReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, 0, err
+		}
+
+		md := vref.KVMetadata()
+		if md != nil && md.IsExpirable() {
+			return nil, 0, ErrBrokenCatalogColSpecExpirable
 		}
 
 		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if mdbID != 1 || tableID != mtableID {
-			return nil, ErrCorruptedData
+			return nil, 0, ErrCorruptedData
+		}
+
+		if colID != maxColID+1 {
+			return nil, 0, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
+		}
+
+		maxColID = colID
+
+		if md != nil && md.Deleted() {
+			continue
 		}
 
 		v, err := vref.Resolve()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if len(v) < 6 {
-			return nil, ErrCorruptedData
+			return nil, 0, ErrCorruptedData
 		}
 
 		err = tx.Set(mkey, nil, v)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
-		spec := &ColSpec{
+		specs[colID] = &ColSpec{
 			colName:       string(v[5:]),
 			colType:       colType,
 			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
 			autoIncrement: v[0]&autoIncrementFlag != 0,
 			notNull:       v[0]&nullableFlag != 0,
 		}
-
-		specs = append(specs, spec)
-
-		if int(colID) != len(specs) {
-			return nil, ErrCorruptedData
-		}
 	}
 
-	return
+	return specs, maxColID, nil
 }

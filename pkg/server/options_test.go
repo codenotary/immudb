@@ -20,8 +20,8 @@ import (
 	"crypto/tls"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/stretchr/testify/require"

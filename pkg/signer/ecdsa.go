@@ -25,12 +25,14 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 )
 
 var ErrInvalidPublicKey = errors.New("invalid public key")
+var ErrKeyCannotBeVerified = errors.New("key cannot be verified")
 
 type signer struct {
 	rand       io.Reader
@@ -88,13 +90,16 @@ func UnmarshalKey(publicKey []byte) (*ecdsa.PublicKey, error) {
 }
 
 // verify verifies a signed payload
-func Verify(payload []byte, signature []byte, publicKey *ecdsa.PublicKey) (bool, error) {
+func Verify(payload []byte, signature []byte, publicKey *ecdsa.PublicKey) error {
 	hash := sha256.Sum256(payload)
 	es := ecdsaSignature{}
 	if _, err := asn1.Unmarshal(signature, &es); err != nil {
-		return false, err
+		return fmt.Errorf("%w: %v", ErrKeyCannotBeVerified, err)
 	}
-	return ecdsa.Verify(publicKey, hash[:], es.R, es.S), nil
+	if !ecdsa.Verify(publicKey, hash[:], es.R, es.S) {
+		return ErrKeyCannotBeVerified
+	}
+	return nil
 }
 
 func ParsePublicKeyFile(filePath string) (*ecdsa.PublicKey, error) {

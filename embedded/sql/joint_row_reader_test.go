@@ -26,31 +26,33 @@ import (
 )
 
 func TestJointRowReader(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = newJointRowReader(nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
 
-	table, err := tx.catalog.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "number", colType: IntegerType}})
+	_, _, err = engine.Exec(context.Background(), tx, "CREATE TABLE table1(id INTEGER, number INTEGER, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
-	index, err := table.newIndex(true, []uint32{1})
+	tx, err = engine.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
-	require.NotNil(t, index)
-	require.Equal(t, table.primaryIndex, index)
+
+	defer tx.Cancel()
+
+	table := tx.catalog.tables[0]
 
 	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
 	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}})
-	require.Equal(t, ErrUnsupportedJoinType, err)
+	require.ErrorIs(t, err, ErrUnsupportedJoinType)
 
 	_, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
 	require.NoError(t, err)

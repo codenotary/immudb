@@ -22,9 +22,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/swagger"
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
@@ -74,23 +75,30 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 		return nil, err
 	}
 
+	if s.Options.SwaggerUIEnabled {
+		err = swagger.SetupSwaggerUI(webMux, l, httpAddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	httpServer := &http.Server{Addr: httpAddr, Handler: webMux}
 	httpServer.TLSConfig = tlsConfig
 
 	go func() {
 		var err error
 		if tlsConfig != nil && len(tlsConfig.Certificates) > 0 {
-			l.Infof("Web API server enabled on %s/api (https)", httpAddr)
+			l.Infof("web-api server enabled on %s/api (https)", httpAddr)
 			err = httpServer.ListenAndServeTLS("", "")
 		} else {
-			l.Infof("Web API server enabled on %s/api (http)", httpAddr)
+			l.Infof("web-api server enabled on %s/api (http)", httpAddr)
 			err = httpServer.ListenAndServe()
 		}
 
 		if err == http.ErrServerClosed {
-			l.Debugf("Web API/console server closed")
+			l.Debugf("web-api/console server closed")
 		} else {
-			l.Errorf("Web API/console error: %s", err)
+			l.Errorf("web-api/console error: %s", err)
 		}
 	}()
 

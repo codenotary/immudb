@@ -35,6 +35,14 @@ func TestStructValueToSqlValue(t *testing.T) {
 	require.NoError(t, err, "Expected no error for VarcharType")
 	require.Equal(t, sql.NewVarchar("test"), result, "Expected Varchar value")
 
+	// Test case for VarcharType with NULL value
+	value = &structpb.Value{
+		Kind: &structpb.Value_NullValue{},
+	}
+	result, err = structValueToSqlValue(value, sql.VarcharType)
+	require.NoError(t, err, "Expected no error for VarcharType with NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
+
 	// Test case for IntegerType
 	value = &structpb.Value{
 		Kind: &structpb.Value_NumberValue{NumberValue: 42},
@@ -42,6 +50,14 @@ func TestStructValueToSqlValue(t *testing.T) {
 	result, err = structValueToSqlValue(value, sql.IntegerType)
 	require.NoError(t, err, "Expected no error for IntegerType")
 	require.Equal(t, sql.NewInteger(42), result, "Expected Integer value")
+
+	// Test case for IntegerType with NULL value
+	value = &structpb.Value{
+		Kind: &structpb.Value_NullValue{},
+	}
+	result, err = structValueToSqlValue(value, sql.IntegerType)
+	require.NoError(t, err, "Expected no error for IntegerType with NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for BLOBType
 	value = &structpb.Value{
@@ -54,6 +70,14 @@ func TestStructValueToSqlValue(t *testing.T) {
 	expectedBlob := sql.NewBlob(docID[:])
 	require.Equal(t, expectedBlob, result, "Expected Blob value")
 
+	// Test case for BLOBType with NULL value
+	value = &structpb.Value{
+		Kind: &structpb.Value_NullValue{},
+	}
+	result, err = structValueToSqlValue(value, sql.BLOBType)
+	require.NoError(t, err, "Expected no error for BLOBType with NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
+
 	// Test case for Float64Type
 	value = &structpb.Value{
 		Kind: &structpb.Value_NumberValue{NumberValue: 3.14},
@@ -61,6 +85,14 @@ func TestStructValueToSqlValue(t *testing.T) {
 	result, err = structValueToSqlValue(value, sql.Float64Type)
 	require.NoError(t, err, "Expected no error for Float64Type")
 	require.Equal(t, sql.NewFloat64(3.14), result, "Expected Float64 value")
+
+	// Test case for Float64Type with NULL value
+	value = &structpb.Value{
+		Kind: &structpb.Value_NullValue{},
+	}
+	result, err = structValueToSqlValue(value, sql.Float64Type)
+	require.NoError(t, err, "Expected no error for Float64Type with NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
 
 	// Test case for BooleanType
 	value = &structpb.Value{
@@ -70,9 +102,17 @@ func TestStructValueToSqlValue(t *testing.T) {
 	require.NoError(t, err, "Expected no error for BooleanType")
 	require.Equal(t, sql.NewBool(true), result, "Expected Boolean value")
 
-	// Test case for unsupported type
+	// Test case for BooleanType with NULL value
 	value = &structpb.Value{
 		Kind: &structpb.Value_NullValue{},
+	}
+	result, err = structValueToSqlValue(value, sql.BooleanType)
+	require.NoError(t, err, "Expected no error for BooleanType with NULL value")
+	require.Equal(t, sql.NewNull(sql.AnyType), result, "Expected NULL value")
+
+	// Test case for unsupported type
+	value = &structpb.Value{
+		Kind: &structpb.Value_ListValue{},
 	}
 	result, err = structValueToSqlValue(value, "datetime")
 	require.ErrorIs(t, err, ErrUnsupportedType, "Expected error for unsupported type")

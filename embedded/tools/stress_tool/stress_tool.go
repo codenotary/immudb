@@ -156,16 +156,13 @@ func main() {
 		if *action == "get" {
 			time.Sleep(time.Duration(*waitForIndexing) * time.Millisecond)
 
-			ts := immuStore.IndexInfo()
-			fmt.Printf("Index up to %d\r\n", ts)
-
-			snap, err := immuStore.Snapshot()
+			snap, err := immuStore.Snapshot(nil)
 			if err != nil {
 				panic(err)
 			}
 			defer snap.Close()
 
-			valRef, err := snap.Get([]byte(*key))
+			valRef, err := snap.Get(context.Background(), []byte(*key))
 			if err != nil {
 				panic(err)
 			}

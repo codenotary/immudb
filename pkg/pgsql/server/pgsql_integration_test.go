@@ -497,7 +497,7 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 	require.NoError(t, err)
 
 	var version string
-	err = db.QueryRow(fmt.Sprintf("SELECT version()")).Scan(&version)
+	err = db.QueryRow("SELECT version()").Scan(&version)
 	require.NoError(t, err)
 	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
 }
@@ -517,7 +517,7 @@ func TestPgsqlServerSetStatement(t *testing.T) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	_, err = db.Query(fmt.Sprintf("SET test=val"))
+	_, err = db.Query("SET test=val")
 	require.NoError(t, err)
 }
 

@@ -85,6 +85,7 @@ enum FieldType {
   BOOLEAN = 1;
   INTEGER = 2;
   DOUBLE = 3;
+  UUID = 4;
 }
 
 message Index {
@@ -186,6 +187,38 @@ message UpdateCollectionRequest {
 }
 
 message UpdateCollectionResponse {}
+
+message AddFieldRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collectionName",
+        "field"
+      ]
+    }
+  };
+
+  string collectionName = 1;
+  Field field = 2;
+}
+
+message AddFieldResponse {}
+
+message RemoveFieldRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: {
+      required: [
+        "collectionName",
+        "fieldName"
+      ]
+    }
+  };
+
+  string collectionName = 1;
+  string fieldName = 2;
+}
+
+message RemoveFieldResponse {}
 
 message CreateIndexRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
@@ -296,8 +329,7 @@ message SearchDocumentsRequest {
         "searchId",
         "query",
         "page",
-        "pageSize",
-        "keepOpen"
+        "pageSize"
       ]
     }
   };
@@ -317,9 +349,7 @@ message Query {
     json_schema: {
       required: [
         "collectionName",
-        "expressions",
-        "orderBy",
-        "limit"
+        "expressions"
       ]
     }
   };
@@ -413,6 +443,8 @@ message DocumentAtRevision {
   uint64 revision = 3;
   DocumentMetadata metadata = 4;
   google.protobuf.Struct document = 5;
+  string username = 6;
+  int64 ts = 7;
 }
 
 message DocumentMetadata {
@@ -459,7 +491,8 @@ message AuditDocumentRequest {
         "documentId",
         "desc",
         "page",
-        "pageSize"
+        "pageSize",
+        "omitPayload"
       ]
     }
   };
@@ -469,6 +502,7 @@ message AuditDocumentRequest {
   bool desc = 3;
   uint32 page = 4;
   uint32 pageSize = 5;
+  bool omitPayload = 6;
 }
 
 message AuditDocumentResponse {
@@ -563,6 +597,25 @@ service DocumentService {
   rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse) {
     option (google.api.http) = {
       delete: "/collection/{name}"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc AddField(AddFieldRequest) returns (AddFieldResponse) {
+    option (google.api.http) = {
+      post: "/collection/{collectionName}/field"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "documents";
+    };
+  }
+
+  rpc RemoveField(RemoveFieldRequest) returns (RemoveFieldResponse) {
+    option (google.api.http) = {
+      delete: "/collection/{collectionName}/field/{fieldName}"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "documents";

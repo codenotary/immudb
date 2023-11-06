@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -38,12 +39,16 @@ type indexer struct {
 	path string
 
 	store *ImmuStore
-	tx    *Tx
+
+	spec *IndexSpec
+
+	tx *Tx
 
 	maxBulkSize            int
 	bulkPreparationTimeout time.Duration
 
 	_kvs []*tbtree.KVT //pre-allocated for multi-tx bulk indexing
+	_val []byte        //pre-allocated buffer to read entry values while mapping
 
 	index *tbtree.TBtree
 
@@ -57,11 +62,13 @@ type indexer struct {
 	closed bool
 
 	compactionMutex sync.Mutex
-	mutex           sync.Mutex
+	rwmutex         sync.RWMutex
 
 	metricsLastCommittedTrx prometheus.Gauge
 	metricsLastIndexedTrx   prometheus.Gauge
 }
+
+type EntryMapper = func(key []byte, value []byte) ([]byte, error)
 
 type runningState = int
 
@@ -114,7 +121,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
-			return opts.appFactory(store.path, filepath.Join(indexDirname, subPath), appOpts)
+			return opts.appFactory(rootPath, subPath, appOpts)
 		})
 	}
 
@@ -128,10 +135,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		wHub = watchers.New(0, opts.MaxWaitees)
 	}
 
-	tx, err := store.fetchAllocTx()
-	if err != nil {
-		return nil, err
-	}
+	tx := NewTx(opts.MaxTxEntries, opts.MaxKeyLen)
 
 	kvs := make([]*tbtree.KVT, store.maxTxEntries*opts.IndexOpts.MaxBulkSize)
 	for i := range kvs {
@@ -146,6 +150,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
 		bulkPreparationTimeout: opts.IndexOpts.BulkPreparationTimeout,
 		_kvs:                   kvs,
+		_val:                   make([]byte, store.maxValueLen),
 		path:                   path,
 		index:                  index,
 		wHub:                   wHub,
@@ -157,21 +162,43 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 	indexer.metricsLastIndexedTrx = metricsLastIndexedTrxId.WithLabelValues(dbName)
 	indexer.metricsLastCommittedTrx = metricsLastCommittedTrx.WithLabelValues(dbName)
 
-	indexer.resume()
-
 	return indexer, nil
 }
 
+func (idx *indexer) init(spec *IndexSpec) {
+	idx.rwmutex.Lock()
+	defer idx.rwmutex.Unlock()
+
+	idx.spec = spec
+
+	idx.resume()
+}
+
+func (idx *indexer) SourcePrefix() []byte {
+	return idx.spec.SourcePrefix
+}
+
+func (idx *indexer) TargetPrefix() []byte {
+	return idx.spec.TargetPrefix
+}
+
 func (idx *indexer) Ts() uint64 {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	return idx.index.Ts()
 }
 
+func (idx *indexer) SyncSnapshot() (*tbtree.Snapshot, error) {
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
+
+	return idx.index.SyncSnapshot()
+}
+
 func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, 0, 0, ErrAlreadyClosed
@@ -180,9 +207,20 @@ func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 	return idx.index.Get(key)
 }
 
-func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+func (idx *indexer) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (value []byte, tx uint64, hc uint64, err error) {
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
+
+	if idx.closed {
+		return nil, 0, 0, ErrAlreadyClosed
+	}
+
+	return idx.index.GetBetween(key, initialTxID, finalTxID)
+}
+
+func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, hCount uint64, err error) {
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, 0, ErrAlreadyClosed
@@ -192,8 +230,11 @@ func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int
 }
 
 func (idx *indexer) Snapshot() (*tbtree.Snapshot, error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.compactionMutex.Lock()
+	defer idx.compactionMutex.Unlock()
+
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, ErrAlreadyClosed
@@ -202,9 +243,12 @@ func (idx *indexer) Snapshot() (*tbtree.Snapshot, error) {
 	return idx.index.Snapshot()
 }
 
-func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(txID uint64, renewalPeriod time.Duration) (*tbtree.Snapshot, error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(ctx context.Context, txID uint64, renewalPeriod time.Duration) (*tbtree.Snapshot, error) {
+	idx.compactionMutex.Lock()
+	defer idx.compactionMutex.Unlock()
+
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, ErrAlreadyClosed
@@ -214,8 +258,8 @@ func (idx *indexer) SnapshotMustIncludeTxIDWithRenewalPeriod(txID uint64, renewa
 }
 
 func (idx *indexer) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, tx uint64, hc uint64, err error) {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
@@ -225,8 +269,8 @@ func (idx *indexer) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value 
 }
 
 func (idx *indexer) Sync() error {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
@@ -239,8 +283,8 @@ func (idx *indexer) Close() error {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.RLock()
+	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
@@ -248,7 +292,6 @@ func (idx *indexer) Close() error {
 
 	idx.stop()
 	idx.wHub.Close()
-	idx.store.releaseAllocTx(idx.tx)
 
 	idx.closed = true
 
@@ -258,7 +301,7 @@ func (idx *indexer) Close() error {
 func (idx *indexer) WaitForIndexingUpto(ctx context.Context, txID uint64) error {
 	if idx.wHub != nil {
 		err := idx.wHub.WaitFor(ctx, txID)
-		if err == watchers.ErrAlreadyClosed {
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
 			return ErrAlreadyClosed
 		}
 		return err
@@ -271,20 +314,20 @@ func (idx *indexer) CompactIndex() (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.store.logger.Infof("Compacting index '%s'...", idx.store.path)
+	idx.store.logger.Infof("compacting index '%s'...", idx.store.path)
 
 	defer func() {
 		if err == nil {
-			idx.store.logger.Infof("Index '%s' sucessfully compacted", idx.store.path)
-		} else if err == tbtree.ErrCompactionThresholdNotReached {
-			idx.store.logger.Infof("Compaction of index '%s' not needed: %v", idx.store.path, err)
+			idx.store.logger.Infof("index '%s' sucessfully compacted", idx.store.path)
+		} else if errors.Is(err, tbtree.ErrCompactionThresholdNotReached) {
+			idx.store.logger.Infof("compaction of index '%s' not needed: %v", idx.store.path, err)
 		} else {
 			idx.store.logger.Warningf("%v: while compacting index '%s'", err, idx.store.path)
 		}
 	}()
 
 	_, err = idx.index.Compact()
-	if err == tbtree.ErrAlreadyClosed {
+	if errors.Is(err, tbtree.ErrAlreadyClosed) {
 		return ErrAlreadyClosed
 	}
 	if err != nil {
@@ -299,7 +342,7 @@ func (idx *indexer) FlushIndex(cleanupPercentage float32, synced bool) (err erro
 	defer idx.compactionMutex.Unlock()
 
 	_, _, err = idx.index.FlushWith(cleanupPercentage, synced)
-	if err == tbtree.ErrAlreadyClosed {
+	if errors.Is(err, tbtree.ErrAlreadyClosed) {
 		return ErrAlreadyClosed
 	}
 	if err != nil {
@@ -316,7 +359,7 @@ func (idx *indexer) stop() {
 	idx.stateCond.L.Unlock()
 	idx.stateCond.Signal()
 
-	idx.store.notify(Info, true, "Indexing gracefully stopped at '%s'", idx.store.path)
+	idx.store.notify(Info, true, "indexing gracefully stopped at '%s'", idx.store.path)
 }
 
 func (idx *indexer) resume() {
@@ -326,12 +369,12 @@ func (idx *indexer) resume() {
 	go idx.doIndexing()
 	idx.stateCond.L.Unlock()
 
-	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
+	idx.store.notify(Info, true, "indexing in progress at '%s'", idx.store.path)
 }
 
 func (idx *indexer) restartIndex() error {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
+	idx.rwmutex.Lock()
+	defer idx.rwmutex.Unlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
@@ -387,7 +430,7 @@ func (idx *indexer) doIndexing() {
 			return
 		}
 		if err != nil {
-			idx.store.logger.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 
@@ -411,14 +454,58 @@ func (idx *indexer) doIndexing() {
 		idx.stateCond.L.Unlock()
 
 		err = idx.indexSince(lastIndexedTx + 1)
-		if err == ErrAlreadyClosed || err == tbtree.ErrAlreadyClosed {
+		if errors.Is(err, ErrAlreadyClosed) || errors.Is(err, tbtree.ErrAlreadyClosed) {
 			return
 		}
 		if err != nil {
-			idx.store.logger.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 	}
+}
+
+func serializeIndexableEntry(b []byte, txmd []byte, e *TxEntry, kvmd []byte) int {
+	n := 0
+
+	txmdLen := len(txmd)
+
+	binary.BigEndian.PutUint32(b[n:], uint32(e.vLen))
+	n += lszSize
+
+	binary.BigEndian.PutUint64(b[n:], uint64(e.vOff))
+	n += offsetSize
+
+	copy(b[n:], e.hVal[:])
+	n += sha256.Size
+
+	binary.BigEndian.PutUint16(b[n:], uint16(txmdLen))
+	n += sszSize
+
+	copy(b[n:], txmd)
+	n += txmdLen
+
+	kvmdLen := len(kvmd)
+
+	binary.BigEndian.PutUint16(b[n:], uint16(kvmdLen))
+	n += sszSize
+
+	copy(b[n:], kvmd)
+	n += kvmdLen
+
+	return n
+}
+
+func (idx *indexer) mapKey(key []byte, vLen int, vOff int64, hVal [sha256.Size]byte, mapper EntryMapper) (mappedKey []byte, err error) {
+	if mapper == nil {
+		return key, nil
+	}
+
+	_, err = idx.store.readValueAt(idx._val[:vLen], vOff, hVal, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapper(key, idx._val[:vLen])
 }
 
 func (idx *indexer) indexSince(txID uint64) error {
@@ -442,51 +529,118 @@ func (idx *indexer) indexSince(txID uint64) error {
 			txmd = idx.tx.header.Metadata.Bytes()
 		}
 
-		txmdLen := len(txmd)
-
 		for _, e := range txEntries {
 			if e.md != nil && e.md.NonIndexable() {
 				continue
 			}
 
-			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
+			if !hasPrefix(e.key(), idx.spec.SourcePrefix) {
+				continue
+			}
+
+			sourceKey, err := idx.mapKey(e.key(), e.vLen, e.vOff, e.hVal, idx.spec.SourceEntryMapper)
+			if err != nil {
+				return err
+			}
+
+			targetKey, err := idx.mapKey(sourceKey, e.vLen, e.vOff, e.hVal, idx.spec.TargetEntryMapper)
+			if err != nil {
+				return err
+			}
+
+			if !hasPrefix(targetKey, idx.spec.TargetPrefix) {
+				return fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
+			}
+
+			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmds
 			var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
-			o := 0
-
-			binary.BigEndian.PutUint32(b[o:], uint32(e.vLen))
-			o += lszSize
-
-			binary.BigEndian.PutUint64(b[o:], uint64(e.vOff))
-			o += offsetSize
-
-			copy(b[o:], e.hVal[:])
-			o += sha256.Size
-
-			binary.BigEndian.PutUint16(b[o:], uint16(txmdLen))
-			o += sszSize
-
-			copy(b[o:], txmd)
-			o += txmdLen
 
 			var kvmd []byte
 
-			if e.md != nil {
-				kvmd = e.md.Bytes()
+			if e.Metadata() != nil {
+				kvmd = e.Metadata().Bytes()
 			}
 
-			kvmdLen := len(kvmd)
+			n := serializeIndexableEntry(b[:], txmd, e, kvmd)
 
-			binary.BigEndian.PutUint16(b[o:], uint16(kvmdLen))
-			o += sszSize
-
-			copy(b[o:], kvmd)
-			o += kvmdLen
-
-			idx._kvs[indexableEntries].K = e.key()
-			idx._kvs[indexableEntries].V = b[:o]
+			idx._kvs[indexableEntries].K = targetKey
+			idx._kvs[indexableEntries].V = b[:n]
 			idx._kvs[indexableEntries].T = txID + uint64(i)
 
 			indexableEntries++
+
+			if idx.spec.InjectiveMapping && txID > 1 {
+				// wait for source indexer to be up to date
+				sourceIndexer, err := idx.store.getIndexerFor(sourceKey)
+				if errors.Is(err, ErrIndexNotFound) {
+					continue
+				} else if err != nil {
+					return err
+				}
+
+				err = sourceIndexer.WaitForIndexingUpto(context.Background(), txID-1)
+				if err != nil {
+					return err
+				}
+
+				// the previous entry as of txID must be deleted from the target index
+				_, prevTxID, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
+				if err == nil {
+					prevEntry, prevTxHdr, err := idx.store.ReadTxEntry(prevTxID, e.key(), false)
+					if err != nil {
+						return err
+					}
+
+					_, err = idx.store.readValueAt(idx._val[:prevEntry.vLen], prevEntry.vOff, prevEntry.hVal, false)
+					if err != nil {
+						return err
+					}
+
+					targetPrevKey, err := idx.mapKey(sourceKey, prevEntry.vLen, prevEntry.vOff, prevEntry.hVal, idx.spec.TargetEntryMapper)
+					if err != nil {
+						return err
+					}
+
+					if bytes.Equal(targetKey, targetPrevKey) {
+						continue
+					}
+
+					if !hasPrefix(targetPrevKey, idx.spec.TargetPrefix) {
+						return fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
+					}
+
+					var txmd []byte
+
+					if prevTxHdr.Metadata != nil {
+						txmd = prevTxHdr.Metadata.Bytes()
+					}
+
+					var kvmd *KVMetadata
+
+					if prevEntry.Metadata() != nil {
+						kvmd = prevEntry.Metadata()
+					} else {
+						kvmd = NewKVMetadata()
+					}
+
+					kvmd.AsDeleted(true)
+					if err != nil {
+						return err
+					}
+
+					var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
+
+					n := serializeIndexableEntry(b[:], txmd, prevEntry, kvmd.Bytes())
+
+					idx._kvs[indexableEntries].K = targetPrevKey
+					idx._kvs[indexableEntries].V = b[:n]
+					idx._kvs[indexableEntries].T = txID + uint64(i)
+
+					indexableEntries++
+				} else if !errors.Is(err, ErrKeyNotFound) {
+					return err
+				}
+			}
 		}
 
 		bulkSize++

@@ -65,6 +65,8 @@ var testData = struct {
 func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient, context.Context) {
 	bs := servertest.NewBufconnServer(server.
 		DefaultOptions().
+		WithMetricsServer(true).
+		WithWebServer(true).
 		WithDir(filepath.Join(t.TempDir(), "data")).
 		WithAuth(true).
 		WithSigningKey("./../../test/signer/ec1.key"),
@@ -963,9 +965,15 @@ func TestImmuClient_GetAll(t *testing.T) {
 	_, err = client.FlushIndex(ctx, 10, true)
 	require.NoError(t, err)
 
+	err = client.CompactIndex(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+
 	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)
 	require.Len(t, entries.Entries, 2)
+
+	err = client.TruncateDatabase(ctx, "defaultdb", 1*time.Hour)
+	require.ErrorContains(t, err, "database is reserved")
 }
 
 func TestImmuClient_Delete(t *testing.T) {
@@ -1187,15 +1195,17 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 func TestImmuClient_Count(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.Count(ctx, []byte(`key1`))
-	require.ErrorContains(t, err, server.ErrNotSupported.Error())
+	res, err := client.Count(ctx, []byte(`key1`))
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.CountAll(ctx)
-	require.ErrorContains(t, err, server.ErrNotSupported.Error())
+	res, err := client.CountAll(ctx)
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 }
 
 /*

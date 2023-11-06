@@ -95,16 +95,16 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 	require.ErrorIs(t, err, ErrReadersNotClosed)
 
 	for {
-		tss, err := reader.Read()
+		tvs, err := reader.Read()
 		if err != nil {
 			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
 		}
 
-		require.Len(t, tss, itCount)
+		require.Len(t, tvs, itCount)
 
 		for i := 0; i < itCount; i++ {
-			require.Equal(t, uint64(250+1+i*keyCount), tss[i])
+			require.Equal(t, uint64(250+1+i*keyCount), tvs[i].Ts)
 		}
 	}
 }
@@ -148,16 +148,16 @@ func TestHistoryReaderDescendingScan(t *testing.T) {
 	require.ErrorIs(t, err, ErrReadersNotClosed)
 
 	for {
-		tss, err := reader.Read()
+		tvs, err := reader.Read()
 		if err != nil {
 			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
 		}
 
-		require.Len(t, tss, itCount)
+		require.Len(t, tvs, itCount)
 
 		for i := 0; i < itCount; i++ {
-			require.Equal(t, uint64(250+1+i*keyCount), tss[len(tss)-1-i])
+			require.Equal(t, uint64(250+1+i*keyCount), tvs[len(tvs)-1-i].Ts)
 		}
 	}
 }

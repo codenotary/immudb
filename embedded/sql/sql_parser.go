@@ -56,92 +56,96 @@ type yySymType struct {
 }
 
 const CREATE = 57346
-const USE = 57347
-const DATABASE = 57348
-const SNAPSHOT = 57349
-const SINCE = 57350
-const AFTER = 57351
-const BEFORE = 57352
-const UNTIL = 57353
-const TX = 57354
-const OF = 57355
-const TIMESTAMP = 57356
-const TABLE = 57357
-const UNIQUE = 57358
-const INDEX = 57359
-const ON = 57360
-const ALTER = 57361
-const ADD = 57362
-const RENAME = 57363
-const TO = 57364
-const COLUMN = 57365
-const PRIMARY = 57366
-const KEY = 57367
-const BEGIN = 57368
-const TRANSACTION = 57369
-const COMMIT = 57370
-const ROLLBACK = 57371
-const INSERT = 57372
-const UPSERT = 57373
-const INTO = 57374
-const VALUES = 57375
-const DELETE = 57376
-const UPDATE = 57377
-const SET = 57378
-const CONFLICT = 57379
-const DO = 57380
-const NOTHING = 57381
-const SELECT = 57382
-const DISTINCT = 57383
-const FROM = 57384
-const JOIN = 57385
-const HAVING = 57386
-const WHERE = 57387
-const GROUP = 57388
-const BY = 57389
-const LIMIT = 57390
-const OFFSET = 57391
-const ORDER = 57392
-const ASC = 57393
-const DESC = 57394
-const AS = 57395
-const UNION = 57396
-const ALL = 57397
-const NOT = 57398
-const LIKE = 57399
-const IF = 57400
-const EXISTS = 57401
-const IN = 57402
-const IS = 57403
-const AUTO_INCREMENT = 57404
-const NULL = 57405
-const CAST = 57406
-const SCAST = 57407
-const NPARAM = 57408
-const PPARAM = 57409
-const JOINTYPE = 57410
-const LOP = 57411
-const CMPOP = 57412
-const IDENTIFIER = 57413
-const TYPE = 57414
-const INTEGER = 57415
-const FLOAT = 57416
-const VARCHAR = 57417
-const BOOLEAN = 57418
-const BLOB = 57419
-const AGGREGATE_FUNC = 57420
-const ERROR = 57421
-const DOT = 57422
-const STMT_SEPARATOR = 57423
+const DROP = 57347
+const USE = 57348
+const DATABASE = 57349
+const SNAPSHOT = 57350
+const HISTORY = 57351
+const SINCE = 57352
+const AFTER = 57353
+const BEFORE = 57354
+const UNTIL = 57355
+const TX = 57356
+const OF = 57357
+const TIMESTAMP = 57358
+const TABLE = 57359
+const UNIQUE = 57360
+const INDEX = 57361
+const ON = 57362
+const ALTER = 57363
+const ADD = 57364
+const RENAME = 57365
+const TO = 57366
+const COLUMN = 57367
+const PRIMARY = 57368
+const KEY = 57369
+const BEGIN = 57370
+const TRANSACTION = 57371
+const COMMIT = 57372
+const ROLLBACK = 57373
+const INSERT = 57374
+const UPSERT = 57375
+const INTO = 57376
+const VALUES = 57377
+const DELETE = 57378
+const UPDATE = 57379
+const SET = 57380
+const CONFLICT = 57381
+const DO = 57382
+const NOTHING = 57383
+const SELECT = 57384
+const DISTINCT = 57385
+const FROM = 57386
+const JOIN = 57387
+const HAVING = 57388
+const WHERE = 57389
+const GROUP = 57390
+const BY = 57391
+const LIMIT = 57392
+const OFFSET = 57393
+const ORDER = 57394
+const ASC = 57395
+const DESC = 57396
+const AS = 57397
+const UNION = 57398
+const ALL = 57399
+const NOT = 57400
+const LIKE = 57401
+const IF = 57402
+const EXISTS = 57403
+const IN = 57404
+const IS = 57405
+const AUTO_INCREMENT = 57406
+const NULL = 57407
+const CAST = 57408
+const SCAST = 57409
+const NPARAM = 57410
+const PPARAM = 57411
+const JOINTYPE = 57412
+const LOP = 57413
+const CMPOP = 57414
+const IDENTIFIER = 57415
+const TYPE = 57416
+const INTEGER = 57417
+const FLOAT = 57418
+const VARCHAR = 57419
+const BOOLEAN = 57420
+const BLOB = 57421
+const AGGREGATE_FUNC = 57422
+const ERROR = 57423
+const DOT = 57424
+const STMT_SEPARATOR = 57425
 
 var yyToknames = [...]string{
 	"$end",
 	"error",
 	"$unk",
 	"CREATE",
+	"DROP",
 	"USE",
 	"DATABASE",
 	"SNAPSHOT",
+	"HISTORY",
 	"SINCE",
 	"AFTER",
 	"BEFORE",
@@ -238,205 +242,219 @@ var yyExca = [...]int16{
 	-1, 1,
 	1, -1,
 	-2, 0,
-	-1, 74,
-	57, 139,
-	60, 139,
-	-2, 127,
-	-1, 189,
-	43, 103,
-	-2, 98,
-	-1, 218,
-	43, 103,
-	-2, 100,
+	-1, 80,
+	59, 146,
+	62, 146,
+	-2, 134,
+	-1, 205,
+	45, 110,
+	-2, 105,
+	-1, 236,
+	45, 110,
+	-2, 107,
 }
 
 const yyPrivate = 57344
 
-const yyLast = 378
+const yyLast = 405
 
 var yyAct = [...]int16{
-	73, 295, 60, 183, 140, 211, 235, 239, 88, 137,
-	146, 175, 217, 106, 234, 98, 176, 157, 45, 6,
-	79, 268, 101, 181, 226, 206, 181, 18, 181, 181,
-	277, 272, 72, 254, 252, 271, 227, 182, 240, 150,
-	255, 253, 222, 76, 205, 203, 78, 195, 194, 180,
-	91, 87, 236, 89, 90, 241, 148, 59, 92, 110,
-	82, 83, 84, 85, 86, 61, 202, 133, 199, 133,
-	77, 159, 132, 117, 103, 81, 76, 128, 129, 78,
-	130, 112, 131, 91, 87, 109, 89, 90, 97, 96,
-	20, 92, 62, 82, 83, 84, 85, 86, 61, 61,
-	142, 99, 110, 77, 62, 57, 124, 139, 81, 294,
-	258, 288, 154, 149, 122, 123, 143, 153, 257, 161,
-	162, 163, 164, 165, 166, 206, 151, 118, 119, 121,
-	120, 196, 124, 174, 177, 124, 181, 144, 105, 251,
-	122, 123, 231, 27, 28, 223, 188, 197, 186, 171,
-	172, 189, 178, 118, 119, 121, 120, 108, 121, 120,
-	173, 62, 138, 192, 204, 193, 190, 187, 191, 198,
-	201, 62, 124, 257, 71, 107, 233, 124, 61, 209,
-	122, 123, 220, 102, 179, 213, 123, 267, 158, 160,
-	215, 155, 158, 118, 119, 121, 120, 152, 118, 119,
-	121, 120, 113, 177, 221, 124, 65, 232, 26, 228,
-	63, 34, 49, 238, 224, 127, 44, 145, 200, 230,
-	266, 242, 229, 93, 126, 237, 118, 119, 121, 120,
-	124, 244, 243, 250, 168, 111, 246, 177, 40, 169,
-	249, 167, 170, 64, 115, 116, 55, 35, 259, 296,
-	297, 260, 280, 212, 149, 264, 263, 184, 287, 275,
-	262, 99, 274, 39, 269, 245, 104, 32, 276, 37,
-	18, 285, 278, 270, 53, 281, 210, 208, 283, 31,
-	30, 21, 247, 286, 135, 289, 134, 41, 42, 207,
-	292, 293, 290, 94, 95, 76, 284, 298, 78, 2,
-	299, 214, 91, 87, 114, 89, 90, 67, 10, 11,
-	92, 66, 82, 83, 84, 85, 86, 61, 185, 147,
-	38, 29, 77, 12, 43, 70, 69, 81, 47, 48,
-	7, 22, 8, 9, 13, 14, 33, 141, 15, 16,
-	23, 25, 24, 19, 18, 256, 100, 125, 248, 265,
-	50, 51, 52, 279, 291, 225, 261, 75, 74, 273,
-	219, 218, 216, 68, 46, 54, 36, 58, 56, 80,
-	282, 136, 156, 17, 5, 4, 3, 1,
+	79, 320, 66, 199, 115, 229, 153, 255, 259, 94,
+	159, 150, 188, 235, 107, 254, 6, 189, 170, 48,
+	85, 110, 291, 246, 197, 245, 223, 197, 19, 197,
+	197, 197, 296, 302, 276, 274, 295, 247, 224, 198,
+	292, 260, 286, 277, 82, 275, 240, 84, 222, 78,
+	163, 97, 93, 220, 95, 96, 212, 211, 261, 98,
+	65, 88, 89, 90, 91, 92, 67, 161, 133, 196,
+	119, 83, 256, 219, 216, 142, 87, 112, 142, 126,
+	172, 143, 141, 137, 138, 139, 121, 118, 140, 127,
+	128, 130, 129, 82, 106, 21, 84, 105, 280, 319,
+	97, 93, 313, 95, 96, 279, 68, 223, 98, 155,
+	88, 89, 90, 91, 92, 67, 108, 133, 152, 166,
+	83, 167, 133, 162, 156, 87, 132, 213, 174, 175,
+	176, 177, 178, 179, 197, 164, 114, 68, 127, 128,
+	130, 129, 187, 190, 67, 130, 129, 119, 101, 133,
+	63, 273, 157, 68, 272, 191, 185, 131, 132, 204,
+	67, 279, 251, 202, 192, 242, 205, 209, 214, 210,
+	127, 128, 130, 129, 117, 77, 184, 186, 207, 203,
+	206, 53, 68, 218, 215, 151, 221, 28, 29, 267,
+	253, 227, 116, 111, 133, 195, 194, 193, 171, 173,
+	168, 231, 131, 132, 120, 165, 233, 144, 122, 100,
+	71, 239, 171, 69, 37, 127, 128, 130, 129, 55,
+	190, 52, 47, 158, 252, 238, 136, 99, 248, 290,
+	217, 258, 243, 289, 54, 135, 249, 250, 133, 262,
+	133, 271, 43, 70, 257, 266, 131, 132, 270, 263,
+	264, 124, 125, 27, 61, 182, 181, 190, 183, 127,
+	128, 130, 129, 180, 38, 321, 322, 305, 230, 281,
+	200, 312, 299, 282, 284, 162, 285, 287, 108, 42,
+	298, 265, 113, 35, 40, 208, 19, 293, 310, 303,
+	294, 301, 300, 59, 228, 226, 22, 34, 33, 306,
+	268, 225, 308, 148, 44, 45, 146, 147, 311, 145,
+	314, 309, 232, 123, 72, 317, 318, 315, 19, 201,
+	82, 2, 323, 84, 46, 324, 73, 97, 93, 32,
+	95, 96, 10, 12, 11, 98, 104, 88, 89, 90,
+	91, 92, 67, 41, 160, 241, 30, 83, 31, 13,
+	76, 75, 87, 102, 103, 154, 7, 23, 8, 9,
+	14, 15, 36, 20, 16, 17, 278, 24, 26, 25,
+	19, 50, 51, 109, 134, 269, 288, 304, 56, 57,
+	58, 316, 244, 283, 81, 80, 297, 237, 236, 234,
+	74, 49, 60, 39, 64, 62, 86, 307, 149, 169,
+	18, 5, 4, 3, 1,
 }
 
 var yyPact = [...]int16{
-	304, -1000, -1000, 3, -1000, -1000, -1000, 254, -1000, -1000,
-	325, 137, 306, 248, 247, 225, 140, 193, 228, -1000,
-	304, -1000, 180, 180, 180, 307, -1000, 145, 320, 141,
-	140, 140, 140, 238, -1000, 191, 21, -1000, -1000, 139,
-	187, 135, 293, 180, -1000, -1000, 315, 20, 20, 273,
-	1, 0, 216, 112, 230, -1000, 224, -1000, 57, 104,
-	-1000, -3, 22, -1000, 176, -7, 131, 286, -1000, 20,
-	20, -1000, 239, 45, 159, -1000, 239, 239, -8, -1000,
-	-1000, 239, -1000, -1000, -1000, -1000, -1000, -16, -1000, -1000,
-	-1000, -1000, -21, -1000, 263, 261, 91, 91, 332, 239,
-	56, -1000, 147, -1000, -32, 100, -1000, -1000, 126, 33,
-	120, -1000, 117, -17, 118, -1000, -1000, 45, 239, 239,
-	239, 239, 239, 239, 178, 182, 77, -1000, 116, 74,
-	230, 71, 239, 239, 117, 113, -40, 55, -1000, -52,
-	209, 301, 45, 332, 112, 239, 332, 320, 230, 104,
-	-19, 104, -1000, -41, -42, -1000, 50, -1000, 75, 91,
-	-20, 74, 74, 169, 169, 116, 144, -1000, 155, 239,
-	-22, -1000, -44, -1000, 111, -45, 44, 45, -1000, 267,
-	244, 108, 243, 204, 239, 283, 209, -1000, 45, 114,
-	104, -47, -1000, -1000, -1000, -1000, 121, -66, -53, 91,
-	-1000, 116, -13, -1000, 70, -1000, 239, 105, -36, -1000,
-	-36, -1000, 239, 45, -33, 204, 216, -1000, 114, 222,
-	-1000, -1000, 104, 257, -1000, 177, 66, -1000, -55, -48,
-	-56, -49, 45, -1000, 92, -1000, 239, 37, 45, -1000,
-	-1000, 91, -1000, 214, -1000, -32, -1000, -33, 158, -1000,
-	124, -70, -1000, -1000, -1000, -1000, -1000, -36, 236, -54,
-	-58, 218, 212, 332, -59, -1000, -1000, -1000, -1000, -1000,
-	234, -1000, -1000, 202, 239, 90, 278, -1000, 232, 209,
-	211, 45, 30, -1000, 239, -1000, 204, 90, 90, 45,
-	-1000, 28, 198, -1000, 90, -1000, -1000, -1000, 198, -1000,
+	328, -1000, -1000, 6, -1000, -1000, -1000, 267, -1000, -1000,
+	350, 180, 329, 312, 264, 263, 239, 141, 208, 241,
+	-1000, 328, -1000, 182, 182, 182, 305, -1000, 149, 361,
+	148, 161, 146, 141, 141, 141, 255, -1000, 197, 64,
+	-1000, -1000, 140, 185, 137, 294, 182, -1000, -1000, 338,
+	35, 35, -1000, 136, 66, 331, 7, 4, 231, 120,
+	244, -1000, 238, -1000, 53, 119, -1000, -3, 65, -1000,
+	143, -4, 135, 293, -1000, 35, 35, -1000, 262, 175,
+	168, -1000, 262, 262, -5, -1000, -1000, 262, -1000, -1000,
+	-1000, -1000, -1000, -8, -1000, -1000, -1000, -1000, -12, -1000,
+	-9, 134, 284, 282, 278, 112, 112, 349, 262, 69,
+	-1000, 151, -1000, -23, 80, -1000, -1000, 132, 33, 127,
+	-1000, 125, -10, 126, -1000, -1000, 175, 262, 262, 262,
+	262, 262, 262, 198, 196, 102, -1000, 54, 59, 244,
+	86, 262, 262, 112, -1000, 125, 124, 123, 122, -22,
+	51, -1000, -52, 220, 300, 175, 349, 120, 262, 349,
+	361, 276, 119, -15, 119, -1000, -34, -35, -1000, 44,
+	-1000, 94, 112, -16, 59, 59, 177, 177, 54, 5,
+	-1000, 165, 262, -17, -1000, -38, -1000, 131, -43, 24,
+	175, -53, -1000, -1000, 277, -1000, 260, 118, 259, 217,
+	262, 292, 220, -1000, 175, 155, 119, -45, 330, -1000,
+	-1000, -1000, -1000, 139, -67, -54, 112, -1000, 54, -14,
+	-1000, 88, -1000, 262, -1000, 117, -18, -1000, -18, -1000,
+	262, 175, -32, 217, 231, -1000, 155, 236, -1000, -1000,
+	119, 116, 273, -1000, 183, 79, 76, -1000, -56, -46,
+	-57, -48, 175, -1000, 78, -1000, 262, 22, 175, -1000,
+	-1000, 112, -1000, 226, -1000, -23, -1000, -49, -32, 169,
+	-1000, 164, -71, -51, -1000, -1000, -1000, -1000, -1000, -18,
+	251, -55, -59, 234, 223, 349, 119, -58, -1000, -1000,
+	-1000, -1000, -1000, -1000, 249, -1000, -1000, 215, 262, 109,
+	291, -1000, -1000, 247, 220, 222, 175, 19, -1000, 262,
+	-1000, 217, 109, 109, 175, -1000, 16, 212, -1000, 109,
+	-1000, -1000, -1000, 212, -1000,
 }
 
 var yyPgo = [...]int16{
-	0, 377, 299, 376, 375, 374, 19, 373, 372, 17,
-	9, 7, 371, 370, 14, 6, 16, 11, 369, 8,
-	20, 368, 367, 2, 366, 365, 10, 319, 18, 364,
-	363, 174, 362, 12, 361, 360, 0, 15, 359, 358,
-	357, 356, 3, 5, 355, 13, 354, 353, 1, 4,
-	263, 349, 348, 347, 22, 346, 345, 343,
+	0, 404, 321, 403, 402, 401, 16, 400, 399, 18,
+	11, 8, 398, 397, 15, 7, 17, 12, 396, 9,
+	20, 395, 394, 2, 393, 392, 10, 344, 19, 391,
+	390, 175, 389, 13, 388, 387, 0, 14, 386, 385,
+	384, 383, 3, 5, 382, 4, 381, 377, 1, 6,
+	279, 376, 375, 374, 21, 373, 366, 363,
 }
 
 var yyR1 = [...]int8{
 	0, 1, 2, 2, 57, 57, 3, 3, 3, 4,
 	4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 50, 50, 11, 11, 5, 5, 5, 5,
-	56, 56, 55, 55, 54, 12, 12, 14, 14, 15,
-	10, 10, 13, 13, 17, 17, 16, 16, 18, 18,
-	18, 18, 18, 18, 18, 18, 18, 18, 19, 8,
-	8, 9, 44, 44, 51, 51, 52, 52, 52, 6,
-	6, 7, 25, 25, 24, 24, 21, 21, 22, 22,
-	20, 20, 20, 23, 23, 26, 26, 26, 27, 28,
-	29, 29, 29, 30, 30, 30, 31, 31, 32, 32,
-	33, 33, 34, 35, 35, 37, 37, 41, 41, 38,
-	38, 42, 42, 43, 43, 47, 47, 49, 49, 46,
-	46, 48, 48, 48, 45, 45, 45, 36, 36, 36,
-	36, 36, 36, 36, 36, 39, 39, 39, 39, 53,
-	53, 40, 40, 40, 40, 40, 40, 40, 40,
+	4, 4, 4, 4, 4, 4, 4, 50, 50, 11,
+	11, 5, 5, 5, 5, 56, 56, 55, 55, 54,
+	12, 12, 14, 14, 15, 10, 10, 13, 13, 17,
+	17, 16, 16, 18, 18, 18, 18, 18, 18, 18,
+	18, 18, 18, 19, 8, 8, 9, 44, 44, 44,
+	51, 51, 52, 52, 52, 6, 6, 7, 25, 25,
+	24, 24, 21, 21, 22, 22, 20, 20, 20, 23,
+	23, 26, 26, 26, 26, 27, 28, 29, 29, 29,
+	30, 30, 30, 31, 31, 32, 32, 33, 33, 34,
+	35, 35, 37, 37, 41, 41, 38, 38, 42, 42,
+	43, 43, 47, 47, 49, 49, 46, 46, 48, 48,
+	48, 45, 45, 45, 36, 36, 36, 36, 36, 36,
+	36, 36, 39, 39, 39, 39, 53, 53, 40, 40,
+	40, 40, 40, 40, 40, 40,
 }
 
 var yyR2 = [...]int8{
 	0, 1, 2, 3, 0, 1, 1, 1, 1, 2,
-	1, 1, 1, 4, 2, 3, 3, 11, 8, 9,
-	6, 8, 0, 3, 1, 3, 9, 8, 7, 8,
-	0, 4, 1, 3, 3, 0, 1, 1, 3, 3,
-	1, 3, 1, 3, 0, 1, 1, 3, 1, 1,
-	1, 1, 1, 6, 1, 1, 1, 1, 4, 1,
-	3, 5, 0, 3, 0, 1, 0, 1, 2, 1,
-	4, 13, 0, 1, 0, 1, 1, 1, 2, 4,
-	1, 4, 4, 1, 3, 3, 4, 2, 1, 2,
-	0, 2, 2, 0, 2, 2, 2, 1, 0, 1,
-	1, 2, 6, 0, 1, 0, 2, 0, 3, 0,
-	2, 0, 2, 0, 2, 0, 3, 0, 4, 2,
-	4, 0, 1, 1, 0, 1, 2, 1, 1, 2,
-	2, 4, 4, 6, 6, 1, 1, 3, 3, 0,
-	1, 3, 3, 3, 3, 3, 3, 3, 4,
+	1, 1, 1, 4, 2, 3, 3, 11, 3, 8,
+	9, 7, 5, 6, 6, 8, 6, 0, 3, 1,
+	3, 9, 8, 7, 8, 0, 4, 1, 3, 3,
+	0, 1, 1, 3, 3, 1, 3, 1, 3, 0,
+	1, 1, 3, 1, 1, 1, 1, 1, 6, 1,
+	1, 1, 1, 4, 1, 3, 5, 0, 3, 3,
+	0, 1, 0, 1, 2, 1, 4, 13, 0, 1,
+	0, 1, 1, 1, 2, 4, 1, 4, 4, 1,
+	3, 3, 4, 2, 6, 1, 2, 0, 2, 2,
+	0, 2, 2, 2, 1, 0, 1, 1, 2, 6,
+	0, 1, 0, 2, 0, 3, 0, 2, 0, 2,
+	0, 2, 0, 3, 0, 4, 2, 4, 0, 1,
+	1, 0, 1, 2, 1, 1, 2, 2, 4, 4,
+	6, 6, 1, 1, 3, 3, 0, 1, 3, 3,
+	3, 3, 3, 3, 3, 4,
 }
 
 var yyChk = [...]int16{
-	-1000, -1, -2, -3, -4, -5, -6, 26, 28, 29,
-	4, 5, 19, 30, 31, 34, 35, -7, 40, -57,
-	87, 27, 6, 15, 17, 16, 71, 6, 7, 15,
-	32, 32, 42, -27, 71, 54, -24, 41, -2, -50,
-	58, -50, -50, 17, 71, -28, -29, 8, 9, 71,
-	-27, -27, -27, 36, -25, 55, -21, 84, -22, -20,
-	-23, 78, 71, 71, 56, 71, 18, -50, -30, 11,
-	10, -31, 12, -36, -39, -40, 56, 83, 59, -20,
-	-18, 88, 73, 74, 75, 76, 77, 64, -19, 66,
-	67, 63, 71, -31, 20, 21, 88, 88, -37, 45,
-	-55, -54, 71, -6, 42, 81, -45, 71, 53, 88,
-	80, 59, 88, 71, 18, -31, -31, -36, 82, 83,
-	85, 84, 69, 70, 61, -53, 65, 56, -36, -36,
-	88, -36, 88, 88, 23, 23, -12, -10, 71, -10,
-	-49, 5, -36, -37, 81, 70, -26, -27, 88, -19,
-	71, -20, 71, 84, -23, 71, -8, -9, 71, 88,
-	71, -36, -36, -36, -36, -36, -36, 63, 56, 57,
-	60, 72, -6, 89, -36, -17, -16, -36, -9, 71,
-	89, 81, 89, -42, 48, 17, -49, -54, -36, -49,
-	-28, -6, -45, -45, 89, 89, 81, 72, -10, 88,
-	63, -36, 88, 89, 53, 89, 81, 22, 33, 71,
-	33, -43, 49, -36, 18, -42, -32, -33, -34, -35,
-	68, -45, 89, 24, -9, -44, 90, 89, -10, -6,
-	-16, 72, -36, 71, -14, -15, 88, -14, -36, -11,
-	71, 88, -43, -37, -33, 43, -45, 25, -52, 63,
-	56, 73, 89, 89, 89, 89, -56, 81, 18, -17,
-	-10, -41, 46, -26, -11, -51, 62, 63, 91, -15,
-	37, 89, 89, -38, 44, 47, -49, 89, 38, -47,
-	50, -36, -13, -23, 18, 39, -42, 47, 81, -36,
-	-43, -46, -23, -23, 81, -48, 51, 52, -23, -48,
+	-1000, -1, -2, -3, -4, -5, -6, 28, 30, 31,
+	4, 6, 5, 21, 32, 33, 36, 37, -7, 42,
+	-57, 89, 29, 7, 17, 19, 18, 73, 7, 8,
+	17, 19, 17, 34, 34, 44, -27, 73, 56, -24,
+	43, -2, -50, 60, -50, -50, 19, 73, -28, -29,
+	10, 11, 73, 20, 73, 73, -27, -27, -27, 38,
+	-25, 57, -21, 86, -22, -20, -23, 80, 73, 73,
+	58, 73, 20, -50, -30, 13, 12, -31, 14, -36,
+	-39, -40, 58, 85, 61, -20, -18, 90, 75, 76,
+	77, 78, 79, 66, -19, 68, 69, 65, 73, -31,
+	73, 82, 22, 23, 5, 90, 90, -37, 47, -55,
+	-54, 73, -6, 44, 83, -45, 73, 55, 90, 82,
+	61, 90, 73, 20, -31, -31, -36, 84, 85, 87,
+	86, 71, 72, 63, -53, 67, 58, -36, -36, 90,
+	-36, 90, 90, 90, 73, 25, 24, 25, 25, -12,
+	-10, 73, -10, -49, 6, -36, -37, 83, 72, -26,
+	-27, 90, -19, 73, -20, 73, 86, -23, 73, -8,
+	-9, 73, 90, 73, -36, -36, -36, -36, -36, -36,
+	65, 58, 59, 62, 74, -6, 91, -36, -17, -16,
+	-36, -10, -9, 73, 73, 73, 91, 83, 91, -42,
+	50, 19, -49, -54, -36, -49, -28, -6, 9, -45,
+	-45, 91, 91, 83, 74, -10, 90, 65, -36, 90,
+	91, 55, 91, 83, 91, 24, 35, 73, 35, -43,
+	51, -36, 20, -42, -32, -33, -34, -35, 70, -45,
+	91, 15, 26, -9, -44, 92, 90, 91, -10, -6,
+	-16, 74, -36, 73, -14, -15, 90, -14, -36, -11,
+	73, 90, -43, -37, -33, 45, -45, 73, 27, -52,
+	65, 58, 75, 75, 91, 91, 91, 91, -56, 83,
+	20, -17, -10, -41, 48, -26, 91, -11, -51, 64,
+	65, 93, 91, -15, 39, 91, 91, -38, 46, 49,
+	-49, -45, 91, 40, -47, 52, -36, -13, -23, 20,
+	41, -42, 49, 83, -36, -43, -46, -23, -23, 83,
+	-48, 53, 54, -23, -48,
 }
 
 var yyDef = [...]int16{
 	0, -2, 1, 4, 6, 7, 8, 10, 11, 12,
-	0, 0, 0, 0, 0, 0, 0, 69, 74, 2,
-	5, 9, 22, 22, 22, 0, 14, 0, 90, 0,
-	0, 0, 0, 0, 88, 72, 0, 75, 3, 0,
-	0, 0, 0, 22, 15, 16, 93, 0, 0, 0,
-	0, 0, 105, 0, 0, 73, 0, 76, 77, 124,
-	80, 0, 83, 13, 0, 0, 0, 0, 89, 0,
-	0, 91, 0, 97, -2, 128, 0, 0, 0, 135,
-	136, 0, 48, 49, 50, 51, 52, 0, 54, 55,
-	56, 57, 83, 92, 0, 0, 35, 0, 117, 0,
-	105, 32, 0, 70, 0, 0, 78, 125, 0, 0,
-	0, 23, 0, 0, 0, 94, 95, 96, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 140, 129, 130,
-	0, 0, 0, 44, 0, 0, 0, 36, 40, 0,
-	111, 0, 106, 117, 0, 0, 117, 90, 0, 124,
-	88, 124, 126, 0, 0, 84, 0, 59, 0, 0,
-	0, 141, 142, 143, 144, 145, 146, 147, 0, 0,
-	0, 138, 0, 137, 0, 0, 45, 46, 20, 0,
-	0, 0, 0, 113, 0, 0, 111, 33, 34, -2,
-	124, 0, 87, 79, 81, 82, 0, 62, 0, 0,
-	148, 131, 0, 132, 0, 58, 0, 0, 0, 41,
-	0, 28, 0, 112, 0, 113, 105, 99, -2, 0,
-	104, 85, 124, 0, 60, 66, 0, 18, 0, 0,
-	0, 0, 47, 21, 30, 37, 44, 27, 114, 118,
-	24, 0, 29, 107, 101, 0, 86, 0, 64, 67,
-	0, 0, 19, 133, 134, 53, 26, 0, 0, 0,
-	0, 109, 0, 117, 0, 61, 65, 68, 63, 38,
-	0, 39, 25, 115, 0, 0, 0, 17, 0, 111,
-	0, 110, 108, 42, 0, 31, 113, 0, 0, 102,
-	71, 116, 121, 43, 0, 119, 122, 123, 121, 120,
+	0, 0, 0, 0, 0, 0, 0, 0, 75, 80,
+	2, 5, 9, 27, 27, 27, 0, 14, 0, 97,
+	0, 0, 0, 0, 0, 0, 0, 95, 78, 0,
+	81, 3, 0, 0, 0, 0, 27, 15, 16, 100,
+	0, 0, 18, 0, 0, 0, 0, 0, 112, 0,
+	0, 79, 0, 82, 83, 131, 86, 0, 89, 13,
+	0, 0, 0, 0, 96, 0, 0, 98, 0, 104,
+	-2, 135, 0, 0, 0, 142, 143, 0, 53, 54,
+	55, 56, 57, 0, 59, 60, 61, 62, 89, 99,
+	0, 0, 0, 0, 0, 40, 0, 124, 0, 112,
+	37, 0, 76, 0, 0, 84, 132, 0, 0, 0,
+	28, 0, 0, 0, 101, 102, 103, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 147, 136, 137, 0,
+	0, 0, 49, 0, 22, 0, 0, 0, 0, 0,
+	41, 45, 0, 118, 0, 113, 124, 0, 0, 124,
+	97, 0, 131, 95, 131, 133, 0, 0, 90, 0,
+	64, 0, 0, 0, 148, 149, 150, 151, 152, 153,
+	154, 0, 0, 0, 145, 0, 144, 0, 0, 50,
+	51, 0, 23, 24, 0, 26, 0, 0, 0, 120,
+	0, 0, 118, 38, 39, -2, 131, 0, 0, 93,
+	85, 87, 88, 0, 67, 0, 0, 155, 138, 0,
+	139, 0, 63, 0, 21, 0, 0, 46, 0, 33,
+	0, 119, 0, 120, 112, 106, -2, 0, 111, 91,
+	131, 0, 0, 65, 72, 0, 0, 19, 0, 0,
+	0, 0, 52, 25, 35, 42, 49, 32, 121, 125,
+	29, 0, 34, 114, 108, 0, 92, 0, 0, 70,
+	73, 0, 0, 0, 20, 140, 141, 58, 31, 0,
+	0, 0, 0, 116, 0, 124, 131, 0, 66, 71,
+	74, 68, 69, 43, 0, 44, 30, 122, 0, 0,
+	0, 94, 17, 0, 118, 0, 117, 115, 47, 0,
+	36, 120, 0, 0, 109, 77, 123, 128, 48, 0,
+	126, 129, 130, 128, 127,
 }
 
 var yyTok1 = [...]int8{
@@ -444,12 +462,12 @@ var yyTok1 = [...]int8{
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-	88, 89, 84, 82, 81, 83, 86, 85, 3, 3,
+	90, 91, 86, 84, 83, 85, 88, 87, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-	3, 90, 3, 91,
+	3, 92, 3, 93,
 }
 
 var yyTok2 = [...]int8{
@@ -460,7 +478,8 @@ var yyTok2 = [...]int8{
 	42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
 	52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
 	62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-	72, 73, 74, 75, 76, 77, 78, 79, 80, 87,
+	72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+	82, 89,
 }
 
 var yyTok3 = [...]int8{
@@ -868,266 +887,296 @@ yydefault:
 			yyVAL.stmt = &CreateTableStmt{ifNotExists: yyDollar[3].boolean, table: yyDollar[4].id, colsSpec: yyDollar[6].colsSpec, pkColNames: yyDollar[10].ids}
 		}
 	case 18:
+		yyDollar = yyS[yypt-3 : yypt+1]
+		{
+			yyVAL.stmt = &DropTableStmt{table: yyDollar[3].id}
+		}
+	case 19:
 		yyDollar = yyS[yypt-8 : yypt+1]
 		{
 			yyVAL.stmt = &CreateIndexStmt{ifNotExists: yyDollar[3].boolean, table: yyDollar[5].id, cols: yyDollar[7].ids}
 		}
-	case 19:
+	case 20:
 		yyDollar = yyS[yypt-9 : yypt+1]
 		{
 			yyVAL.stmt = &CreateIndexStmt{unique: true, ifNotExists: yyDollar[4].boolean, table: yyDollar[6].id, cols: yyDollar[8].ids}
 		}
-	case 20:
+	case 21:
+		yyDollar = yyS[yypt-7 : yypt+1]
+		{
+			yyVAL.stmt = &DropIndexStmt{table: yyDollar[4].id, cols: yyDollar[6].ids}
+		}
+	case 22:
+		yyDollar = yyS[yypt-5 : yypt+1]
+		{
+			yyVAL.stmt = &DropIndexStmt{table: yyDollar[3].id, cols: []string{yyDollar[5].id}}
+		}
+	case 23:
 		yyDollar = yyS[yypt-6 : yypt+1]
 		{
 			yyVAL.stmt = &AddColumnStmt{table: yyDollar[3].id, colSpec: yyDollar[6].colSpec}
 		}
-	case 21:
+	case 24:
+		yyDollar = yyS[yypt-6 : yypt+1]
+		{
+			yyVAL.stmt = &RenameTableStmt{oldName: yyDollar[3].id, newName: yyDollar[6].id}
+		}
+	case 25:
 		yyDollar = yyS[yypt-8 : yypt+1]
 		{
 			yyVAL.stmt = &RenameColumnStmt{table: yyDollar[3].id, oldName: yyDollar[6].id, newName: yyDollar[8].id}
 		}
-	case 22:
+	case 26:
+		yyDollar = yyS[yypt-6 : yypt+1]
+		{
+			yyVAL.stmt = &DropColumnStmt{table: yyDollar[3].id, colName: yyDollar[6].id}
+		}
+	case 27:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.boolean = false
 		}
-	case 23:
+	case 28:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.boolean = true
 		}
-	case 24:
+	case 29:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.ids = []string{yyDollar[1].id}
 		}
-	case 25:
+	case 30:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.ids = yyDollar[2].ids
 		}
-	case 26:
+	case 31:
 		yyDollar = yyS[yypt-9 : yypt+1]
 		{
 			yyVAL.stmt = &UpsertIntoStmt{isInsert: true, tableRef: yyDollar[3].tableRef, cols: yyDollar[5].ids, rows: yyDollar[8].rows, onConflict: yyDollar[9].onConflict}
 		}
-	case 27:
+	case 32:
 		yyDollar = yyS[yypt-8 : yypt+1]
 		{
 			yyVAL.stmt = &UpsertIntoStmt{tableRef: yyDollar[3].tableRef, cols: yyDollar[5].ids, rows: yyDollar[8].rows}
 		}
-	case 28:
+	case 33:
 		yyDollar = yyS[yypt-7 : yypt+1]
 		{
 			yyVAL.stmt = &DeleteFromStmt{tableRef: yyDollar[3].tableRef, where: yyDollar[4].exp, indexOn: yyDollar[5].ids, limit: yyDollar[6].exp, offset: yyDollar[7].exp}
 		}
-	case 29:
+	case 34:
 		yyDollar = yyS[yypt-8 : yypt+1]
 		{
 			yyVAL.stmt = &UpdateStmt{tableRef: yyDollar[2].tableRef, updates: yyDollar[4].updates, where: yyDollar[5].exp, indexOn: yyDollar[6].ids, limit: yyDollar[7].exp, offset: yyDollar[8].exp}
 		}
-	case 30:
+	case 35:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.onConflict = nil
 		}
-	case 31:
+	case 36:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.onConflict = &OnConflictDo{}
 		}
-	case 32:
+	case 37:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.updates = []*colUpdate{yyDollar[1].update}
 		}
-	case 33:
+	case 38:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.updates = append(yyDollar[1].updates, yyDollar[3].update)
 		}
-	case 34:
+	case 39:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.update = &colUpdate{col: yyDollar[1].id, op: yyDollar[2].cmpOp, val: yyDollar[3].exp}
 		}
-	case 35:
+	case 40:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.ids = nil
 		}
-	case 36:
+	case 41:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.ids = yyDollar[1].ids
 		}
-	case 37:
+	case 42:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.rows = []*RowSpec{yyDollar[1].row}
 		}
-	case 38:
+	case 43:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.rows = append(yyDollar[1].rows, yyDollar[3].row)
 		}
-	case 39:
+	case 44:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.row = &RowSpec{Values: yyDollar[2].values}
 		}
-	case 40:
+	case 45:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.ids = []string{yyDollar[1].id}
 		}
-	case 41:
+	case 46:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.ids = append(yyDollar[1].ids, yyDollar[3].id)
 		}
-	case 42:
+	case 47:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.cols = []*ColSelector{yyDollar[1].col}
 		}
-	case 43:
+	case 48:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.cols = append(yyDollar[1].cols, yyDollar[3].col)
 		}
-	case 44:
+	case 49:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.values = nil
 		}
-	case 45:
+	case 50:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.values = yyDollar[1].values
 		}
-	case 46:
+	case 51:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.values = []ValueExp{yyDollar[1].exp}
 		}
-	case 47:
+	case 52:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.values = append(yyDollar[1].values, yyDollar[3].exp)
 		}
-	case 48:
+	case 53:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Integer{val: int64(yyDollar[1].integer)}
 		}
-	case 49:
+	case 54:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Float64{val: float64(yyDollar[1].float)}
 		}
-	case 50:
+	case 55:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Varchar{val: yyDollar[1].str}
 		}
-	case 51:
+	case 56:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Bool{val: yyDollar[1].boolean}
 		}
-	case 52:
+	case 57:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Blob{val: yyDollar[1].blob}
 		}
-	case 53:
+	case 58:
 		yyDollar = yyS[yypt-6 : yypt+1]
 		{
 			yyVAL.value = &Cast{val: yyDollar[3].exp, t: yyDollar[5].sqlType}
 		}
-	case 54:
+	case 59:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = yyDollar[1].value
 		}
-	case 55:
+	case 60:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Param{id: yyDollar[1].id}
 		}
-	case 56:
+	case 61:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &Param{id: fmt.Sprintf("param%d", yyDollar[1].pparam), pos: yyDollar[1].pparam}
 		}
-	case 57:
+	case 62:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.value = &NullValue{t: AnyType}
 		}
-	case 58:
+	case 63:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.value = &FnCall{fn: yyDollar[1].id, params: yyDollar[3].values}
 		}
-	case 59:
+	case 64:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.colsSpec = []*ColSpec{yyDollar[1].colSpec}
 		}
-	case 60:
+	case 65:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.colsSpec = append(yyDollar[1].colsSpec, yyDollar[3].colSpec)
 		}
-	case 61:
+	case 66:
 		yyDollar = yyS[yypt-5 : yypt+1]
 		{
 			yyVAL.colSpec = &ColSpec{colName: yyDollar[1].id, colType: yyDollar[2].sqlType, maxLen: int(yyDollar[3].integer), notNull: yyDollar[4].boolean, autoIncrement: yyDollar[5].boolean}
 		}
-	case 62:
+	case 67:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.integer = 0
 		}
-	case 63:
+	case 68:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.integer = yyDollar[2].integer
 		}
-	case 64:
+	case 69:
+		yyDollar = yyS[yypt-3 : yypt+1]
+		{
+			yyVAL.integer = yyDollar[2].integer
+		}
+	case 70:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.boolean = false
 		}
-	case 65:
+	case 71:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.boolean = true
 		}
-	case 66:
+	case 72:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.boolean = false
 		}
-	case 67:
+	case 73:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.boolean = false
 		}
-	case 68:
+	case 74:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyVAL.boolean = true
 		}
-	case 69:
+	case 75:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.stmt = yyDollar[1].stmt
 		}
-	case 70:
+	case 76:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.stmt = &UnionStmt{
@@ -1136,7 +1185,7 @@ yydefault:
 				right:    yyDollar[4].stmt.(DataSource),
 			}
 		}
-	case 71:
+	case 77:
 		yyDollar = yyS[yypt-13 : yypt+1]
 		{
 			yyVAL.stmt = &SelectStmt{
@@ -1153,392 +1202,397 @@ yydefault:
 				offset:    yyDollar[13].exp,
 			}
 		}
-	case 72:
+	case 78:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.distinct = true
 		}
-	case 73:
+	case 79:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.distinct = false
 		}
-	case 74:
+	case 80:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.distinct = false
 		}
-	case 75:
+	case 81:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.distinct = true
 		}
-	case 76:
+	case 82:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.sels = nil
 		}
-	case 77:
+	case 83:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.sels = yyDollar[1].sels
 		}
-	case 78:
+	case 84:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyDollar[1].sel.setAlias(yyDollar[2].id)
 			yyVAL.sels = []Selector{yyDollar[1].sel}
 		}
-	case 79:
+	case 85:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyDollar[3].sel.setAlias(yyDollar[4].id)
 			yyVAL.sels = append(yyDollar[1].sels, yyDollar[3].sel)
 		}
-	case 80:
+	case 86:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.sel = yyDollar[1].col
 		}
-	case 81:
+	case 87:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.sel = &AggColSelector{aggFn: yyDollar[1].aggFn, col: "*"}
 		}
-	case 82:
+	case 88:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.sel = &AggColSelector{aggFn: yyDollar[1].aggFn, table: yyDollar[3].col.table, col: yyDollar[3].col.col}
 		}
-	case 83:
+	case 89:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.col = &ColSelector{col: yyDollar[1].id}
 		}
-	case 84:
+	case 90:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.col = &ColSelector{table: yyDollar[1].id, col: yyDollar[3].id}
 		}
-	case 85:
+	case 91:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyDollar[1].tableRef.period = yyDollar[2].period
 			yyDollar[1].tableRef.as = yyDollar[3].id
 			yyVAL.ds = yyDollar[1].tableRef
 		}
-	case 86:
+	case 92:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyDollar[2].stmt.(*SelectStmt).as = yyDollar[4].id
 			yyVAL.ds = yyDollar[2].stmt.(DataSource)
 		}
-	case 87:
+	case 93:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyVAL.ds = &FnDataSourceStmt{fnCall: yyDollar[1].value.(*FnCall), as: yyDollar[2].id}
 		}
-	case 88:
+	case 94:
+		yyDollar = yyS[yypt-6 : yypt+1]
+		{
+			yyVAL.ds = &tableRef{table: yyDollar[4].id, history: true, as: yyDollar[6].id}
+		}
+	case 95:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.tableRef = &tableRef{table: yyDollar[1].id}
 		}
-	case 89:
+	case 96:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyVAL.period = period{start: yyDollar[1].openPeriod, end: yyDollar[2].openPeriod}
 		}
-	case 90:
-		yyDollar = yyS[yypt-0 : yypt+1]
-		{
-			yyVAL.openPeriod = nil
-		}
-	case 91:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.openPeriod = &openPeriod{inclusive: true, instant: yyDollar[2].periodInstant}
-		}
-	case 92:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.openPeriod = &openPeriod{instant: yyDollar[2].periodInstant}
-		}
-	case 93:
-		yyDollar = yyS[yypt-0 : yypt+1]
-		{
-			yyVAL.openPeriod = nil
-		}
-	case 94:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.openPeriod = &openPeriod{inclusive: true, instant: yyDollar[2].periodInstant}
-		}
-	case 95:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.openPeriod = &openPeriod{instant: yyDollar[2].periodInstant}
-		}
-	case 96:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.periodInstant = periodInstant{instantType: txInstant, exp: yyDollar[2].exp}
-		}
 	case 97:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.periodInstant = periodInstant{instantType: timeInstant, exp: yyDollar[1].exp}
+			yyVAL.openPeriod = nil
 		}
 	case 98:
-		yyDollar = yyS[yypt-0 : yypt+1]
+		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.joins = nil
+			yyVAL.openPeriod = &openPeriod{inclusive: true, instant: yyDollar[2].periodInstant}
 		}
 	case 99:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.joins = yyDollar[1].joins
+			yyVAL.openPeriod = &openPeriod{instant: yyDollar[2].periodInstant}
 		}
 	case 100:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.joins = []*JoinSpec{yyDollar[1].join}
+			yyVAL.openPeriod = nil
 		}
 	case 101:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.joins = append([]*JoinSpec{yyDollar[1].join}, yyDollar[2].joins...)
+			yyVAL.openPeriod = &openPeriod{inclusive: true, instant: yyDollar[2].periodInstant}
 		}
 	case 102:
-		yyDollar = yyS[yypt-6 : yypt+1]
+		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.join = &JoinSpec{joinType: yyDollar[1].joinType, ds: yyDollar[3].ds, indexOn: yyDollar[4].ids, cond: yyDollar[6].exp}
+			yyVAL.openPeriod = &openPeriod{instant: yyDollar[2].periodInstant}
 		}
 	case 103:
-		yyDollar = yyS[yypt-0 : yypt+1]
+		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.joinType = InnerJoin
+			yyVAL.periodInstant = periodInstant{instantType: txInstant, exp: yyDollar[2].exp}
 		}
 	case 104:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.joinType = yyDollar[1].joinType
+			yyVAL.periodInstant = periodInstant{instantType: timeInstant, exp: yyDollar[1].exp}
 		}
 	case 105:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.exp = nil
+			yyVAL.joins = nil
 		}
 	case 106:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		{
+			yyVAL.joins = yyDollar[1].joins
+		}
+	case 107:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		{
+			yyVAL.joins = []*JoinSpec{yyDollar[1].join}
+		}
+	case 108:
+		yyDollar = yyS[yypt-2 : yypt+1]
+		{
+			yyVAL.joins = append([]*JoinSpec{yyDollar[1].join}, yyDollar[2].joins...)
+		}
+	case 109:
+		yyDollar = yyS[yypt-6 : yypt+1]
+		{
+			yyVAL.join = &JoinSpec{joinType: yyDollar[1].joinType, ds: yyDollar[3].ds, indexOn: yyDollar[4].ids, cond: yyDollar[6].exp}
+		}
+	case 110:
+		yyDollar = yyS[yypt-0 : yypt+1]
+		{
+			yyVAL.joinType = InnerJoin
+		}
+	case 111:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		{
+			yyVAL.joinType = yyDollar[1].joinType
+		}
+	case 112:
+		yyDollar = yyS[yypt-0 : yypt+1]
+		{
+			yyVAL.exp = nil
+		}
+	case 113:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyVAL.exp = yyDollar[2].exp
 		}
-	case 107:
+	case 114:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.cols = nil
 		}
-	case 108:
+	case 115:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.cols = yyDollar[3].cols
 		}
-	case 109:
-		yyDollar = yyS[yypt-0 : yypt+1]
-		{
-			yyVAL.exp = nil
-		}
-	case 110:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.exp = yyDollar[2].exp
-		}
-	case 111:
-		yyDollar = yyS[yypt-0 : yypt+1]
-		{
-			yyVAL.exp = nil
-		}
-	case 112:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.exp = yyDollar[2].exp
-		}
-	case 113:
-		yyDollar = yyS[yypt-0 : yypt+1]
-		{
-			yyVAL.exp = nil
-		}
-	case 114:
-		yyDollar = yyS[yypt-2 : yypt+1]
-		{
-			yyVAL.exp = yyDollar[2].exp
-		}
-	case 115:
-		yyDollar = yyS[yypt-0 : yypt+1]
-		{
-			yyVAL.ordcols = nil
-		}
 	case 116:
-		yyDollar = yyS[yypt-3 : yypt+1]
+		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.ordcols = yyDollar[3].ordcols
+			yyVAL.exp = nil
 		}
 	case 117:
-		yyDollar = yyS[yypt-0 : yypt+1]
+		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.ids = nil
+			yyVAL.exp = yyDollar[2].exp
 		}
 	case 118:
-		yyDollar = yyS[yypt-4 : yypt+1]
+		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.ids = yyDollar[4].ids
+			yyVAL.exp = nil
 		}
 	case 119:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, descOrder: yyDollar[2].opt_ord}}
+			yyVAL.exp = yyDollar[2].exp
 		}
 	case 120:
-		yyDollar = yyS[yypt-4 : yypt+1]
-		{
-			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, descOrder: yyDollar[4].opt_ord})
-		}
-	case 121:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.opt_ord = false
+			yyVAL.exp = nil
+		}
+	case 121:
+		yyDollar = yyS[yypt-2 : yypt+1]
+		{
+			yyVAL.exp = yyDollar[2].exp
 		}
 	case 122:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.opt_ord = false
+			yyVAL.ordcols = nil
 		}
 	case 123:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.opt_ord = true
+			yyVAL.ordcols = yyDollar[3].ordcols
 		}
 	case 124:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.id = ""
+			yyVAL.ids = nil
 		}
 	case 125:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyVAL.id = yyDollar[1].id
+			yyVAL.ids = yyDollar[4].ids
 		}
 	case 126:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.id = yyDollar[2].id
+			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, descOrder: yyDollar[2].opt_ord}}
 		}
 	case 127:
+		yyDollar = yyS[yypt-4 : yypt+1]
+		{
+			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, descOrder: yyDollar[4].opt_ord})
+		}
+	case 128:
+		yyDollar = yyS[yypt-0 : yypt+1]
+		{
+			yyVAL.opt_ord = false
+		}
+	case 129:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		{
+			yyVAL.opt_ord = false
+		}
+	case 130:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		{
+			yyVAL.opt_ord = true
+		}
+	case 131:
+		yyDollar = yyS[yypt-0 : yypt+1]
+		{
+			yyVAL.id = ""
+		}
+	case 132:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		{
+			yyVAL.id = yyDollar[1].id
+		}
+	case 133:
+		yyDollar = yyS[yypt-2 : yypt+1]
+		{
+			yyVAL.id = yyDollar[2].id
+		}
+	case 134:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.exp = yyDollar[1].exp
 		}
-	case 128:
+	case 135:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.exp = yyDollar[1].binExp
 		}
-	case 129:
+	case 136:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyVAL.exp = &NotBoolExp{exp: yyDollar[2].exp}
 		}
-	case 130:
+	case 137:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
 			yyVAL.exp = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: yyDollar[2].exp}
 		}
-	case 131:
+	case 138:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.exp = &LikeBoolExp{val: yyDollar[1].exp, notLike: yyDollar[2].boolean, pattern: yyDollar[4].exp}
 		}
-	case 132:
+	case 139:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.exp = &ExistsBoolExp{q: (yyDollar[3].stmt).(DataSource)}
 		}
-	case 133:
+	case 140:
 		yyDollar = yyS[yypt-6 : yypt+1]
 		{
 			yyVAL.exp = &InSubQueryExp{val: yyDollar[1].exp, notIn: yyDollar[2].boolean, q: yyDollar[5].stmt.(*SelectStmt)}
 		}
-	case 134:
+	case 141:
 		yyDollar = yyS[yypt-6 : yypt+1]
 		{
 			yyVAL.exp = &InListExp{val: yyDollar[1].exp, notIn: yyDollar[2].boolean, values: yyDollar[5].values}
 		}
-	case 135:
+	case 142:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.exp = yyDollar[1].sel
 		}
-	case 136:
+	case 143:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.exp = yyDollar[1].value
 		}
-	case 137:
+	case 144:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.exp = yyDollar[2].exp
 		}
-	case 138:
+	case 145:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.exp = &Cast{val: yyDollar[1].exp, t: yyDollar[3].sqlType}
 		}
-	case 139:
+	case 146:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
 			yyVAL.boolean = false
 		}
-	case 140:
+	case 147:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
 			yyVAL.boolean = true
 		}
-	case 141:
+	case 148:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &NumExp{left: yyDollar[1].exp, op: ADDOP, right: yyDollar[3].exp}
 		}
-	case 142:
+	case 149:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &NumExp{left: yyDollar[1].exp, op: SUBSOP, right: yyDollar[3].exp}
 		}
-	case 143:
+	case 150:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &NumExp{left: yyDollar[1].exp, op: DIVOP, right: yyDollar[3].exp}
 		}
-	case 144:
+	case 151:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &NumExp{left: yyDollar[1].exp, op: MULTOP, right: yyDollar[3].exp}
 		}
-	case 145:
+	case 152:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &BinBoolExp{left: yyDollar[1].exp, op: yyDollar[2].logicOp, right: yyDollar[3].exp}
 		}
-	case 146:
+	case 153:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &CmpBoolExp{left: yyDollar[1].exp, op: yyDollar[2].cmpOp, right: yyDollar[3].exp}
 		}
-	case 147:
+	case 154:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
 			yyVAL.binExp = &CmpBoolExp{left: yyDollar[1].exp, op: EQ, right: &NullValue{t: AnyType}}
 		}
-	case 148:
+	case 155:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
 			yyVAL.binExp = &CmpBoolExp{left: yyDollar[1].exp, op: NE, right: &NullValue{t: AnyType}}

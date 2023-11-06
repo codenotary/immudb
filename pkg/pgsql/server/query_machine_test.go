@@ -25,8 +25,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
 	"github.com/stretchr/testify/require"

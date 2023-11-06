@@ -35,6 +35,7 @@ func TestImmuClientMock(t *testing.T) {
 	errLogout := errors.New("LogoutF got called")
 	errVerifiedGet := errors.New("VerifiedGetF got called")
 	errVerifiedSet := errors.New("VerifiedSetF got called")
+	errVerifiableGet := errors.New("VerifiableGetF got called")
 	errSet := errors.New("SetF got called")
 	errVerifiedReference := errors.New("VerifiedReferenceF got called")
 	errVerifiedZAdd := errors.New("VerifiedZAddF got called")
@@ -66,7 +67,13 @@ func TestImmuClientMock(t *testing.T) {
 		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxHeader, error) {
 			return nil, errVerifiedSet
 		},
+		VerifiableGetF: func(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error) {
+			return nil, errVerifiableGet
+		},
 		SetF: func(context.Context, []byte, []byte) (*schema.TxHeader, error) {
+			return nil, errSet
+		},
+		SetAllF: func(context.Context, *schema.SetRequest) (*schema.TxHeader, error) {
 			return nil, errSet
 		},
 		VerifiedSetReferenceF: func(context.Context, []byte, []byte, uint64) (*schema.TxHeader, error) {
@@ -104,7 +111,13 @@ func TestImmuClientMock(t *testing.T) {
 	_, err = icm.VerifiedSet(context.Background(), nil, nil)
 	require.ErrorIs(t, err, errVerifiedSet)
 
+	_, err = icm.VerifiableGet(context.Background(), nil, nil)
+	require.ErrorIs(t, err, errVerifiableGet)
+
 	_, err = icm.Set(context.Background(), nil, nil)
+	require.ErrorIs(t, err, errSet)
+
+	_, err = icm.SetAll(context.Background(), nil)
 	require.ErrorIs(t, err, errSet)
 
 	_, err = icm.VerifiedSetReference(context.Background(), nil, nil)

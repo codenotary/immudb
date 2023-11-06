@@ -34,11 +34,11 @@ func TestOffsetRowReader(t *testing.T) {
 	require.Nil(t, rowReader.Tx())
 
 	_, err := rowReader.Read(context.Background())
-	require.Equal(t, errDummy, err)
+	require.ErrorIs(t, err, errDummy)
 
 	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns(context.Background())
-	require.Equal(t, errDummy, err)
+	require.ErrorIs(t, err, errDummy)
 
 	require.Nil(t, rowReader.Parameters())
 
@@ -48,5 +48,5 @@ func TestOffsetRowReader(t *testing.T) {
 	dummyr.failInferringParams = true
 
 	err = rowReader.InferParameters(context.Background(), nil)
-	require.Equal(t, errDummy, err)
+	require.ErrorIs(t, err, errDummy)
 }

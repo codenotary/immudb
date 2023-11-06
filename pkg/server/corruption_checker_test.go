@@ -20,7 +20,7 @@ package server
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 )
 
 

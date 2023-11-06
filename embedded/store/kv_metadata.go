@@ -26,6 +26,7 @@ import (
 
 var ErrNonExpirable = errors.New("non expirable")
 var ErrReadOnly = errors.New("read-only")
+var ErrNonIndexable = errors.New("non-indexable")
 
 const (
 	deletedAttrCode      attributeCode = 0
@@ -37,7 +38,9 @@ const deletedAttrSize = 0
 const expiresAtAttrSize = tsSize
 const nonIndexableAttrSize = 0
 
-const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expiresAtAttrSize) + (attrCodeSize + nonIndexableAttrSize)
+const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) +
+	(attrCodeSize + expiresAtAttrSize) +
+	(attrCodeSize + nonIndexableAttrSize)
 
 type KVMetadata struct {
 	attributes map[attributeCode]attribute

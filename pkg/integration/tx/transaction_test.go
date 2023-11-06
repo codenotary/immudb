@@ -48,7 +48,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	_, client := setupTest(t)
 
 	// tx mode
-	tx, err := client.NewTx(context.Background(), immudb.UnsafeMVCC())
+	tx, err := client.NewTx(context.Background(), immudb.UnsafeMVCC(), immudb.SnapshotMustIncludeTxID(0), immudb.SnapshotRenewalPeriod(0))
 	require.NoError(t, err)
 
 	err = tx.SQLExec(context.Background(), `CREATE TABLE table1(
@@ -58,6 +58,13 @@ func TestTransaction_SetAndGet(t *testing.T) {
 		payload BLOB,
 		PRIMARY KEY id
 		);`, nil)
+	require.NoError(t, err)
+
+	txH, err := tx.Commit(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, txH)
+
+	tx, err = client.NewTx(context.Background(), immudb.UnsafeMVCC(), immudb.SnapshotMustIncludeTxID(0), immudb.SnapshotRenewalPeriod(0))
 	require.NoError(t, err)
 
 	params := make(map[string]interface{})
@@ -73,7 +80,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	txH, err := tx.Commit(context.Background())
+	txH, err = tx.Commit(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, txH)
 

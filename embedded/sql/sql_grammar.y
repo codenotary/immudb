@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+// Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -69,7 +69,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     onConflict *OnConflictDo
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
+%token CREATE DROP USE DATABASE SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
@@ -211,6 +211,11 @@ ddlstmt:
         $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
     }
 |
+    DROP TABLE IDENTIFIER
+    {
+        $$ = &DropTableStmt{table: $3}
+    }
+|
     CREATE INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
     {
         $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7}
@@ -221,14 +226,34 @@ ddlstmt:
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
     }
 |
+    DROP INDEX ON IDENTIFIER '(' ids ')'
+    {
+        $$ = &DropIndexStmt{table: $4, cols: $6}
+    }
+|
+    DROP INDEX IDENTIFIER DOT IDENTIFIER
+    {
+        $$ = &DropIndexStmt{table: $3, cols: []string{$5}}
+    }
+|
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
 |
+    ALTER TABLE IDENTIFIER RENAME TO IDENTIFIER
+    {
+        $$ = &RenameTableStmt{oldName: $3, newName: $6}
+    }
+|
     ALTER TABLE IDENTIFIER RENAME COLUMN IDENTIFIER TO IDENTIFIER
     {
         $$ = &RenameColumnStmt{table: $3, oldName: $6, newName: $8}
+    }
+|
+    ALTER TABLE IDENTIFIER DROP COLUMN IDENTIFIER
+    {
+        $$ = &DropColumnStmt{table: $3, colName: $6}
     }
 
 opt_if_not_exists:
@@ -453,6 +478,11 @@ opt_max_len:
     {
         $$ = $2
     }
+|
+    '(' INTEGER ')'
+    {
+        $$ = $2
+    }
 
 opt_auto_increment:
     {
@@ -599,6 +629,11 @@ ds:
     fnCall opt_as
     {
         $$ = &FnDataSourceStmt{fnCall: $1.(*FnCall), as: $2}
+    }
+|
+    '(' HISTORY OF IDENTIFIER ')' opt_as
+    {
+        $$ = &tableRef{table: $4, history: true, as: $6}
     }
 
 tableRef:

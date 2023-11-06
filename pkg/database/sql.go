@@ -26,6 +26,8 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+
+	"github.com/google/uuid"
 )
 
 func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
@@ -78,13 +80,13 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
-		sql.PIndexPrefix,
-		sql.EncodeID(1),
+		sql.MappedPrefix,
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes(),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, true)
+	e, err := d.sqlGetAt(ctx, pkKey, req.SqlGetRequest.AtTx, d.st, true)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +103,15 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		return nil, err
 	}
 
-	inclusionProof, err := tx.Proof(e.Key)
+	sourceKey := sql.MapKey(
+		[]byte{SQLPrefix},
+		sql.RowPrefix,
+		sql.EncodeID(1), // fixed database identifier
+		sql.EncodeID(table.ID()),
+		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes())
+
+	inclusionProof, err := tx.Proof(sourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -166,41 +176,31 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		ColIdsByName:   colIdsByName,
 		ColTypesById:   colTypesByID,
 		ColLenById:     colLenByID,
+		MaxColId:       table.GetMaxColID(),
 	}, nil
 }
 
-func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
-	var txID uint64
-	var md *store.KVMetadata
-	var val []byte
+func (d *db) sqlGetAt(ctx context.Context, key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
+	var valRef store.ValueRef
 
 	if atTx == 0 {
-		valRef, err := index.Get(key)
-		if err != nil {
-			return nil, err
-		}
-
-		txID = valRef.Tx()
-
-		md = valRef.KVMetadata()
-
-		val, err = valRef.Resolve()
-		if err != nil {
-			return nil, err
-		}
+		valRef, err = index.Get(ctx, key)
 	} else {
-		txID = atTx
+		valRef, err = index.GetBetween(ctx, key, atTx, atTx)
+	}
+	if err != nil {
+		return nil, err
+	}
 
-		md, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
-		if err != nil {
-			return nil, err
-		}
+	val, err := valRef.Resolve()
+	if err != nil {
+		return nil, err
 	}
 
 	return &schema.SQLEntry{
-		Tx:       txID,
+		Tx:       valRef.Tx(),
 		Key:      key,
-		Metadata: schema.KVMetadataToProto(md),
+		Metadata: schema.KVMetadataToProto(valRef.KVMetadata()),
 		Value:    val,
 	}, err
 }
@@ -262,7 +262,7 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 		}
 
 		var unique bool
-		for _, index := range table.IndexesByColID(c.ID()) {
+		for _, index := range table.GetIndexesByColID(c.ID()) {
 			if index.IsUnique() && len(index.Cols()) == 1 {
 				unique = true
 				break
@@ -272,7 +272,7 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 		var maxLen string
 
 		if c.MaxLen() > 0 && (c.Type() == sql.VarcharType || c.Type() == sql.BLOBType) {
-			maxLen = fmt.Sprintf("[%d]", c.MaxLen())
+			maxLen = fmt.Sprintf("(%d)", c.MaxLen())
 		}
 
 		res.Rows = append(res.Rows, &schema.Row{
@@ -488,6 +488,11 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	case sql.VarcharType:
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
+		}
+	case sql.UUIDType:
+		{
+			u := tv.RawValue().(uuid.UUID)
+			return &schema.SQLValue{Value: &schema.SQLValue_S{S: u.String()}}
 		}
 	case sql.BooleanType:
 		{

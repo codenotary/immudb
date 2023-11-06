@@ -34,11 +34,13 @@ func (s *ImmuServer) CreateCollection(ctx context.Context, req *protomodel.Creat
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.CreateCollection(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
-	return resp, nil
+
+	return db.CreateCollection(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
@@ -46,11 +48,13 @@ func (s *ImmuServer) UpdateCollection(ctx context.Context, req *protomodel.Updat
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.UpdateCollection(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
-	return resp, nil
+
+	return db.UpdateCollection(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) GetCollection(ctx context.Context, req *protomodel.GetCollectionRequest) (*protomodel.GetCollectionResponse, error) {
@@ -58,11 +62,8 @@ func (s *ImmuServer) GetCollection(ctx context.Context, req *protomodel.GetColle
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.GetCollection(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+
+	return db.GetCollection(ctx, req)
 }
 
 func (s *ImmuServer) GetCollections(ctx context.Context, req *protomodel.GetCollectionsRequest) (*protomodel.GetCollectionsResponse, error) {
@@ -70,11 +71,8 @@ func (s *ImmuServer) GetCollections(ctx context.Context, req *protomodel.GetColl
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.GetCollections(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+
+	return db.GetCollections(ctx, req)
 }
 
 func (s *ImmuServer) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
@@ -82,11 +80,41 @@ func (s *ImmuServer) DeleteCollection(ctx context.Context, req *protomodel.Delet
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.DeleteCollection(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	return db.DeleteCollection(ctx, user.Username, req)
+}
+
+func (s *ImmuServer) AddField(ctx context.Context, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "AddField")
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	return db.AddField(ctx, user.Username, req)
+}
+
+func (s *ImmuServer) RemoveField(ctx context.Context, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "RemoveField")
+	if err != nil {
+		return nil, err
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	return db.RemoveField(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
@@ -94,11 +122,13 @@ func (s *ImmuServer) CreateIndex(ctx context.Context, req *protomodel.CreateInde
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.CreateIndex(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
-	return resp, nil
+
+	return db.CreateIndex(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
@@ -106,11 +136,13 @@ func (s *ImmuServer) DeleteIndex(ctx context.Context, req *protomodel.DeleteInde
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.DeleteIndex(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
-	return resp, nil
+
+	return db.DeleteIndex(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
@@ -118,11 +150,13 @@ func (s *ImmuServer) InsertDocuments(ctx context.Context, req *protomodel.Insert
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.InsertDocuments(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
-	return resp, nil
+
+	return db.InsertDocuments(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
@@ -130,11 +164,13 @@ func (s *ImmuServer) ReplaceDocuments(ctx context.Context, req *protomodel.Repla
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.ReplaceDocuments(ctx, req)
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
-	return resp, nil
+
+	return db.ReplaceDocuments(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) AuditDocument(ctx context.Context, req *protomodel.AuditDocumentRequest) (*protomodel.AuditDocumentResponse, error) {
@@ -142,12 +178,8 @@ func (s *ImmuServer) AuditDocument(ctx context.Context, req *protomodel.AuditDoc
 	if err != nil {
 		return nil, err
 	}
-	resp, err := db.AuditDocument(ctx, req)
-	if err != nil {
-		return nil, err
-	}
 
-	return resp, nil
+	return db.AuditDocument(ctx, req)
 }
 
 func (s *ImmuServer) SearchDocuments(ctx context.Context, req *protomodel.SearchDocumentsRequest) (*protomodel.SearchDocumentsResponse, error) {
@@ -267,12 +299,7 @@ func (s *ImmuServer) CountDocuments(ctx context.Context, req *protomodel.CountDo
 		return nil, err
 	}
 
-	resp, err := db.CountDocuments(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	return db.CountDocuments(ctx, req)
 }
 
 func (s *ImmuServer) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
@@ -281,12 +308,12 @@ func (s *ImmuServer) DeleteDocuments(ctx context.Context, req *protomodel.Delete
 		return nil, err
 	}
 
-	resp, err := db.DeleteDocuments(ctx, req)
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get loggedin user data")
 	}
 
-	return resp, nil
+	return db.DeleteDocuments(ctx, user.Username, req)
 }
 
 func (s *ImmuServer) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentRequest) (*protomodel.ProofDocumentResponse, error) {

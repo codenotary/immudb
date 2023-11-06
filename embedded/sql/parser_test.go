@@ -206,6 +206,17 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "CREATE TABLE table1 (id UUID, PRIMARY KEY id)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table:       "table1",
+					ifNotExists: false,
+					colsSpec:    []*ColSpec{{colName: "id", colType: UUIDType}},
+					pkColNames:  []string{"id"},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
@@ -250,7 +261,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR[50], ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR(50), ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",
@@ -280,6 +291,14 @@ func TestCreateTableStmt(t *testing.T) {
 			input:          "CREATE TABLE table1()",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
 			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
+		},
+		{
+			input: "DROP TABLE table1",
+			expectedOutput: []SQLStmt{
+				&DropTableStmt{
+					table: "table1",
+				}},
+			expectedError: nil,
 		},
 	}
 
@@ -329,6 +348,15 @@ func TestCreateIndexStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{&CreateIndexStmt{unique: true, table: "table1", cols: []string{"id", "title"}}},
 			expectedError:  nil,
 		},
+		{
+			input: "DROP INDEX ON table1(id, title)",
+			expectedOutput: []SQLStmt{
+				&DropIndexStmt{
+					table: "table1",
+					cols:  []string{"id", "title"},
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -368,7 +396,7 @@ func TestAlterTable(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD or RENAME at position 25"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting DROP or ADD or RENAME at position 25"),
 		},
 		{
 			input: "ALTER TABLE table1 RENAME COLUMN title TO newtitle",

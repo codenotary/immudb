@@ -53,10 +53,22 @@ func TestImmudbStoreReader(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
+
+	for i := 0; i < txCount; i++ {
+		for j := 0; j < eCount; j++ {
+			var k [8]byte
+			binary.BigEndian.PutUint64(k[:], uint64(j))
+
+			valRef, err := snap.GetBetween(context.Background(), k[:], 1, uint64(i+1))
+			require.NoError(t, err)
+
+			require.EqualValues(t, i+1, valRef.Tx())
+		}
+	}
 
 	reader, err := snap.NewKeyReader(KeyReaderSpec{})
 	require.NoError(t, err)
@@ -70,7 +82,7 @@ func TestImmudbStoreReader(t *testing.T) {
 		var v [8]byte
 		binary.BigEndian.PutUint64(v[:], uint64(txCount-1))
 
-		rk, vref, err := reader.Read()
+		rk, vref, err := reader.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, k[:], rk)
 
@@ -79,7 +91,7 @@ func TestImmudbStoreReader(t *testing.T) {
 		require.Equal(t, v[:], rv)
 	}
 
-	_, _, err = reader.Read()
+	_, _, err = reader.Read(context.Background())
 	require.ErrorIs(t, err, ErrNoMoreEntries)
 }
 
@@ -112,7 +124,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -130,7 +142,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, err := reader.ReadBetween(0, uint64(i+1))
+			rk, vref, err := reader.ReadBetween(context.Background(), 0, uint64(i+1))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
@@ -139,7 +151,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			require.Equal(t, v[:], rv)
 		}
 
-		_, _, err = reader.Read()
+		_, _, err = reader.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreEntries)
 
 		err = reader.Reset()
@@ -176,7 +188,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -197,7 +209,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 		var v [8]byte
 		binary.BigEndian.PutUint64(v[:], uint64(txCount-1))
 
-		rk, vref, err := reader.Read()
+		rk, vref, err := reader.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, k[:], rk)
 
@@ -206,7 +218,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 		require.Equal(t, v[:], rv)
 	}
 
-	_, _, err = reader.Read()
+	_, _, err = reader.Read(context.Background())
 	require.ErrorIs(t, err, ErrNoMoreEntries)
 }
 
@@ -239,7 +251,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot()
+	snap, err := immuStore.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -261,7 +273,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, err := reader.ReadBetween(0, uint64(i+1))
+			rk, vref, err := reader.ReadBetween(context.Background(), 0, uint64(i+1))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
@@ -270,7 +282,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 			require.Equal(t, v[:], rv)
 		}
 
-		_, _, err = reader.Read()
+		_, _, err = reader.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreEntries)
 
 		err = reader.Reset()

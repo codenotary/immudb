@@ -20,10 +20,15 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/codenotary/immudb/embedded/document"
+	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/verification"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -32,8 +37,11 @@ func makeDocumentDb(t *testing.T) *db {
 	rootPath := t.TempDir()
 
 	dbName := "doc_test_db"
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2))
+	options := DefaultOption().
+		WithDBRootPath(rootPath)
+
+	options.storeOpts.IndexOpts.WithCompactionThld(2)
+
 	d, err := NewDB(dbName, nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
@@ -49,16 +57,92 @@ func makeDocumentDb(t *testing.T) *db {
 	return db
 }
 
+func TestDocumentDB_InvalidParameters(t *testing.T) {
+	db := makeDocumentDb(t)
+
+	_, err := db.CreateCollection(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.GetCollection(context.Background(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.UpdateCollection(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.DeleteCollection(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.CreateIndex(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.DeleteIndex(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.InsertDocuments(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.ReplaceDocuments(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.AuditDocument(context.Background(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.CountDocuments(context.Background(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.DeleteDocuments(context.Background(), "admin", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.ProofDocument(context.Background(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+}
+
+func TestDocumentDB_WritesOnReplica(t *testing.T) {
+	db := makeDocumentDb(t)
+
+	db.AsReplica(true, false, 0)
+
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.UpdateCollection(context.Background(), "admin", &protomodel.UpdateCollectionRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.DeleteCollection(context.Background(), "admin", &protomodel.DeleteCollectionRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.RemoveField(context.Background(), "admin", &protomodel.RemoveFieldRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.CreateIndex(context.Background(), "admin", &protomodel.CreateIndexRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.DeleteIndex(context.Background(), "admin", &protomodel.DeleteIndexRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.ReplaceDocuments(context.Background(), "admin", &protomodel.ReplaceDocumentsRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+
+	_, err = db.DeleteDocuments(context.Background(), "admin", &protomodel.DeleteDocumentsRequest{})
+	require.ErrorIs(t, err, ErrIsReplica)
+}
+
 func TestDocumentDB_WithCollections(t *testing.T) {
 	db := makeDocumentDb(t)
-	// create collection
+
 	defaultCollectionName := "mycollection"
 
 	t.Run("should pass when creating a collection", func(t *testing.T) {
-
-		_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+		_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 			Name: defaultCollectionName,
 			Fields: []*protomodel.Field{
+				{Name: "uuid", Type: protomodel.FieldType_UUID},
 				{Name: "number", Type: protomodel.FieldType_INTEGER},
 				{Name: "name", Type: protomodel.FieldType_STRING},
 				{Name: "pin", Type: protomodel.FieldType_INTEGER},
@@ -67,31 +151,95 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// get collection
+		_, err = db.AddField(context.Background(), "admin", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+		})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
+		})
+		require.NoError(t, err)
+
+		_, err = db.AddField(context.Background(), "admin", &protomodel.AddFieldRequest{
+			CollectionName: defaultCollectionName,
+			Field:          &protomodel.Field{Name: "extra_field", Type: protomodel.FieldType_UUID},
+		})
+		require.ErrorIs(t, err, document.ErrFieldAlreadyExists)
+
 		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
 			Name: defaultCollectionName,
 		})
 		require.NoError(t, err)
 
+		collection := cinfo.Collection
+
 		expectedFieldKeys := []*protomodel.Field{
 			{Name: "_id", Type: protomodel.FieldType_STRING},
+			{Name: "uuid", Type: protomodel.FieldType_UUID},
 			{Name: "number", Type: protomodel.FieldType_INTEGER},
 			{Name: "name", Type: protomodel.FieldType_STRING},
 			{Name: "pin", Type: protomodel.FieldType_INTEGER},
 			{Name: "country", Type: protomodel.FieldType_STRING},
+			{Name: "extra_field", Type: protomodel.FieldType_UUID},
 		}
-
-		collection := cinfo.Collection
 
 		for i, idxType := range expectedFieldKeys {
 			require.Equal(t, idxType.Name, collection.Fields[i].Name)
 			require.Equal(t, idxType.Type, collection.Fields[i].Type)
 		}
 
+		_, err = db.RemoveField(context.Background(), "admin", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, err = db.RemoveField(context.Background(), "admin", &protomodel.RemoveFieldRequest{
+			CollectionName: defaultCollectionName,
+			FieldName:      "extra_field",
+		})
+		require.NoError(t, err)
+
+		_, err = db.RemoveField(context.Background(), "admin", &protomodel.RemoveFieldRequest{
+			CollectionName: defaultCollectionName,
+			FieldName:      "extra_field",
+		})
+		require.ErrorIs(t, err, document.ErrFieldDoesNotExist)
+
+		expectedFieldKeys = []*protomodel.Field{
+			{Name: "_id", Type: protomodel.FieldType_STRING},
+			{Name: "uuid", Type: protomodel.FieldType_UUID},
+			{Name: "number", Type: protomodel.FieldType_INTEGER},
+			{Name: "name", Type: protomodel.FieldType_STRING},
+			{Name: "pin", Type: protomodel.FieldType_INTEGER},
+			{Name: "country", Type: protomodel.FieldType_STRING},
+		}
+
+		for i, idxType := range expectedFieldKeys {
+			require.Equal(t, idxType.Name, collection.Fields[i].Name)
+			require.Equal(t, idxType.Type, collection.Fields[i].Type)
+		}
+
+		countResp, err := db.CountDocuments(context.Background(), &protomodel.CountDocumentsRequest{
+			Query: &protomodel.Query{
+				CollectionName: defaultCollectionName,
+			},
+		})
+		require.NoError(t, err)
+		require.Zero(t, countResp.Count)
+
+		_, err = db.CountDocuments(context.Background(), &protomodel.CountDocumentsRequest{
+			Query: &protomodel.Query{
+				CollectionName: "1invalidCollectionName",
+			},
+		})
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
 	t.Run("should pass when adding an index to the collection", func(t *testing.T) {
-		_, err := db.CreateIndex(context.Background(), &protomodel.CreateIndexRequest{
+		_, err := db.CreateIndex(context.Background(), "admin", &protomodel.CreateIndexRequest{
 			CollectionName: defaultCollectionName,
 			Fields:         []string{"number"},
 		})
@@ -117,7 +265,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when deleting an index to the collection", func(t *testing.T) {
-		_, err := db.DeleteIndex(context.Background(), &protomodel.DeleteIndexRequest{
+		_, err := db.DeleteIndex(context.Background(), "admin", &protomodel.DeleteIndexRequest{
 			CollectionName: defaultCollectionName,
 			Fields:         []string{"number"},
 		})
@@ -143,7 +291,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 	})
 
 	t.Run("should pass when updating a collection", func(t *testing.T) {
-		_, err := db.UpdateCollection(context.Background(), &protomodel.UpdateCollectionRequest{
+		_, err := db.UpdateCollection(context.Background(), "admin", &protomodel.UpdateCollectionRequest{
 			Name:                defaultCollectionName,
 			DocumentIdFieldName: "foo",
 		})
@@ -159,9 +307,25 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		require.Equal(t, "foo", collection.Fields[0].Name)
 	})
 
+	t.Run("should pass when deleting documents", func(t *testing.T) {
+		_, err := db.DeleteDocuments(context.Background(), "admin", &protomodel.DeleteDocumentsRequest{
+			Query: &protomodel.Query{
+				CollectionName: defaultCollectionName,
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = db.DeleteDocuments(context.Background(), "admin", &protomodel.DeleteDocumentsRequest{
+			Query: &protomodel.Query{
+				CollectionName: "1invalidCollectionName",
+			},
+		})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
 	t.Run("should pass when deleting collection", func(t *testing.T) {
-		_, err := db.DeleteCollection(context.Background(), &protomodel.DeleteCollectionRequest{
-			Name: "mycollection",
+		_, err := db.DeleteCollection(context.Background(), "admin", &protomodel.DeleteCollectionRequest{
+			Name: defaultCollectionName,
 		})
 		require.NoError(t, err)
 
@@ -176,7 +340,7 @@ func TestDocumentDB_WithCollections(t *testing.T) {
 		collections := []string{"mycollection1", "mycollection2", "mycollection3"}
 
 		for _, collectionName := range collections {
-			_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+			_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 				Name: collectionName,
 				Fields: []*protomodel.Field{
 					{Name: "number", Type: protomodel.FieldType_INTEGER},
@@ -212,25 +376,21 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 	// create collection
 	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 		Name: collectionName,
 		Fields: []*protomodel.Field{
-			{
-				Name: "pincode",
-				Type: protomodel.FieldType_INTEGER,
-			},
+			{Name: "uuid", Type: protomodel.FieldType_UUID},
+			{Name: "pincode", Type: protomodel.FieldType_INTEGER},
 		},
 		Indexes: []*protomodel.Index{
-			{
-				Fields: []string{"pincode"},
-			},
+			{Fields: []string{"pincode"}},
 		},
 	})
 	require.NoError(t, err)
 
 	t.Run("should fail with empty document", func(t *testing.T) {
 		// add document to collection
-		_, err := db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		_, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents:      nil,
 		})
@@ -239,14 +399,20 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 	var res *protomodel.InsertDocumentsResponse
 	var docID string
+
+	u, err := uuid.NewUUID()
+	require.NoError(t, err)
+
 	t.Run("should pass when adding documents", func(t *testing.T) {
-		var err error
 		// add document to collection
-		res, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+		res, err = db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 			CollectionName: collectionName,
 			Documents: []*structpb.Struct{
 				{
 					Fields: map[string]*structpb.Value{
+						"uuid": {
+							Kind: &structpb.Value_StringValue{StringValue: u.String()},
+						},
 						"pincode": {
 							Kind: &structpb.Value_NumberValue{NumberValue: 123},
 						},
@@ -258,6 +424,14 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.NotNil(t, res)
 		require.Len(t, res.DocumentIds, 1)
 		docID = res.DocumentIds[0]
+
+		countResp, err := db.CountDocuments(context.Background(), &protomodel.CountDocumentsRequest{
+			Query: &protomodel.Query{
+				CollectionName: collectionName,
+			},
+		})
+		require.NoError(t, err)
+		require.EqualValues(t, 1, countResp.Count)
 	})
 
 	var doc *structpb.Struct
@@ -287,8 +461,11 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.NoError(t, err)
 
 		doc = revision.Document
+		require.Equal(t, u.String(), doc.Fields["uuid"].GetStringValue())
 		require.Equal(t, 123.0, doc.Fields["pincode"].GetNumberValue())
 	})
+
+	var knownState *schema.ImmutableState
 
 	t.Run("should pass when querying documents with proof", func(t *testing.T) {
 		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
@@ -298,10 +475,12 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, proofRes)
 
-		newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, nil, nil)
+		knownState, err = verification.VerifyDocument(context.Background(), proofRes, doc, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
+		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, knownState.TxId)
 	})
+
+	var updatedDoc *structpb.Struct
 
 	t.Run("should pass when replacing document", func(t *testing.T) {
 		query := &protomodel.Query{
@@ -319,7 +498,7 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 			},
 		}
 
-		resp, err := db.ReplaceDocuments(context.Background(), &protomodel.ReplaceDocumentsRequest{
+		resp, err := db.ReplaceDocuments(context.Background(), "admin", &protomodel.ReplaceDocumentsRequest{
 			Query: query,
 			Document: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -355,8 +534,34 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 		revision, err := reader.Read(context.Background())
 		require.NoError(t, err)
 
-		doc = revision.Document
-		require.Equal(t, 321.0, doc.Fields["pincode"].GetNumberValue())
+		updatedDoc = revision.Document
+		require.Equal(t, 321.0, updatedDoc.Fields["pincode"].GetNumberValue())
+
+		countResp, err := db.CountDocuments(context.Background(), &protomodel.CountDocumentsRequest{
+			Query: &protomodel.Query{
+				CollectionName: collectionName,
+			},
+		})
+		require.NoError(t, err)
+		require.EqualValues(t, 1, countResp.Count)
+	})
+
+	t.Run("should pass when auditing document without requesting payloads", func(t *testing.T) {
+		resp, err := db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
+			CollectionName: collectionName,
+			DocumentId:     docID,
+			Page:           1,
+			PageSize:       10,
+			OmitPayload:    true,
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Revisions, 2)
+
+		for _, rev := range resp.Revisions {
+			require.Nil(t, rev.Document)
+			require.Equal(t, docID, rev.DocumentId)
+			require.Equal(t, "admin", rev.Username)
+		}
 	})
 
 	t.Run("should pass when auditing document", func(t *testing.T) {
@@ -371,8 +576,95 @@ func TestDocumentDB_WithDocuments(t *testing.T) {
 
 		for _, rev := range resp.Revisions {
 			require.Equal(t, docID, rev.Document.Fields["_id"].GetStringValue())
+			require.Equal(t, "admin", rev.Username)
 		}
 	})
+
+	t.Run("should pass when querying updated document with proof", func(t *testing.T) {
+		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
+			CollectionName:          collectionName,
+			DocumentId:              docID,
+			ProofSinceTransactionId: knownState.TxId,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proofRes)
+
+		newState, err := verification.VerifyDocument(context.Background(), proofRes, updatedDoc, knownState, nil)
+		require.NoError(t, err)
+		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
+	})
+
+	t.Run("should pass when querying updated document with proof", func(t *testing.T) {
+		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
+			CollectionName:          collectionName,
+			DocumentId:              docID,
+			TransactionId:           knownState.TxId,
+			ProofSinceTransactionId: knownState.TxId,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proofRes)
+
+		newState, err := verification.VerifyDocument(context.Background(), proofRes, doc, knownState, nil)
+		require.NoError(t, err)
+		require.Equal(t, proofRes.VerifiableTx.DualProof.TargetTxHeader.Id, newState.TxId)
+	})
+
+	t.Run("should fail when verifying a document with invalid id", func(t *testing.T) {
+		proofRes, err := db.ProofDocument(context.Background(), &protomodel.ProofDocumentRequest{
+			CollectionName:          collectionName,
+			DocumentId:              docID,
+			TransactionId:           knownState.TxId,
+			ProofSinceTransactionId: knownState.TxId,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proofRes)
+
+		_, err = verification.VerifyDocument(context.Background(), proofRes, doc, &schema.ImmutableState{
+			TxId: proofRes.VerifiableTx.DualProof.TargetTxHeader.Id + 1,
+		}, nil)
+		require.ErrorIs(t, err, store.ErrInvalidProof)
+
+		doc.Fields[proofRes.DocumentIdFieldName] = structpb.NewNullValue()
+
+		_, err = verification.VerifyDocument(context.Background(), proofRes, doc, knownState, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+}
+
+func TestDocumentDB_AuditDocuments_CornerCases(t *testing.T) {
+	db := makeDocumentDb(t)
+
+	_, err := db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
+		CollectionName: "mycollection",
+		DocumentId:     "",
+		Page:           0,
+		PageSize:       0,
+	})
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
+		CollectionName: "mycollection",
+		DocumentId:     "",
+		Page:           1,
+		PageSize:       MaxKeyScanLimit + 1,
+	})
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
+		CollectionName: "mycollection",
+		DocumentId:     "",
+		Page:           1,
+		PageSize:       1,
+	})
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.AuditDocument(context.Background(), &protomodel.AuditDocumentRequest{
+		CollectionName: "1invalidCollectionName",
+		DocumentId:     document.NewDocumentIDFromTimestamp(time.Now(), 1).EncodeToHexString(),
+		Page:           1,
+		PageSize:       1,
+	})
+	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
 func TestDocumentDB_WithSerializedJsonDocument(t *testing.T) {
@@ -380,7 +672,7 @@ func TestDocumentDB_WithSerializedJsonDocument(t *testing.T) {
 
 	collectionName := "mycollection"
 
-	_, err := db.CreateCollection(context.Background(), &protomodel.CreateCollectionRequest{
+	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
 		Name:    collectionName,
 		Fields:  []*protomodel.Field{},
 		Indexes: []*protomodel.Index{},
@@ -411,7 +703,7 @@ func TestDocumentDB_WithSerializedJsonDocument(t *testing.T) {
 	err = json.Unmarshal([]byte(jsonDoc), doc)
 	require.NoError(t, err)
 
-	_, err = db.InsertDocuments(context.Background(), &protomodel.InsertDocumentsRequest{
+	_, err = db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
 		CollectionName: collectionName,
 		Documents: []*structpb.Struct{
 			doc,

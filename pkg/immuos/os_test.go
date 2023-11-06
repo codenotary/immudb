@@ -166,7 +166,7 @@ func TestStandardOS(t *testing.T) {
 		return nil, errOpen
 	}
 	_, err = os.Open("name")
-	require.ErrorIs(t, err ,errOpen)
+	require.ErrorIs(t, err, errOpen)
 	os.OpenF = openFOK
 
 	// OpenFile

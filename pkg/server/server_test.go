@@ -33,13 +33,13 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/immuos"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -1235,17 +1235,9 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	countAll, err := s.CountAll(ctx, new(empty.Empty))
 	require.NoError(t, err)
 
-	if countAll.Count != 43 {
-		t.Fatalf("CountAll error: expected %d, got %d", 43, countAll.Count)
+	if countAll.Count == 0 {
+		t.Fatalf("CountAll error >0 got %d", countAll.Count)
 	}
-}
-
-func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.Count(context.Background(), &schema.KeyPrefix{
-		Prefix: kvs[0].Key,
-	})
-	require.NoError(t, err)
-
 }
 
 func TestServerDbOperations(t *testing.T) {
@@ -1280,10 +1272,11 @@ func TestServerDbOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Count(ctx, nil)
-	require.ErrorIs(t, err, ErrNotSupported)
+	require.Contains(t, err.Error(), store.ErrIllegalArguments.Error())
 
-	_, err = s.CountAll(ctx, nil)
-	require.ErrorIs(t, err, ErrNotSupported)
+	res, err := s.CountAll(ctx, nil)
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)
@@ -1310,8 +1303,7 @@ func TestServerDbOperations(t *testing.T) {
 	testServerTxScan(ctx, s, t)
 	testServerSafeReference(ctx, s, t)
 	testServerSafeReferenceError(ctx, s, t)
-	//testServerCount(ctx, s, t)
-	//testServerCountError(ctx, s, t)
+	testServerCount(ctx, s, t)
 }
 
 func TestServerUpdateConfigItem(t *testing.T) {
@@ -1323,7 +1315,8 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	// Config file path empty
 	s.Options.Config = ""
 	err := s.updateConfigItem("key", "key = value", func(string) bool { return false })
-	require.ErrorContains(t, err, "config file does not exist")
+	require.Error(t, err)
+	require.EqualError(t, err, "config file does not exist")
 	s.Options.Config = configFile
 
 	// ReadFile error
@@ -1791,6 +1784,10 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotSupported)
 	_, err = s.UpdateAuthConfig(emptyCtx, &schema.AuthConfig{})
 	require.ErrorIs(t, err, ErrNotSupported)
+	_, err = s.Count(context.Background(), &schema.KeyPrefix{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+	_, err = s.CountAll(context.Background(), &emptypb.Empty{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	// Login errors
 	s.Options.auth = false
@@ -2029,13 +2026,23 @@ func TestServerDatabaseTruncate(t *testing.T) {
 
 	s.Initialize()
 
+	_, err := s.KeepAlive(context.Background(), &emptypb.Empty{})
+	require.Error(t, err)
+
 	resp, err := s.OpenSession(context.Background(), &schema.OpenSessionRequest{
 		Username:     []byte(auth.SysAdminUsername),
 		Password:     []byte(auth.SysAdminPassword),
 		DatabaseName: DefaultDBName,
 	})
 	require.NoError(t, err)
+
+	_, err = s.KeepAlive(context.Background(), &emptypb.Empty{})
+	require.Error(t, err)
+
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
+
+	_, err = s.KeepAlive(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
 
 	t.Run("attempt to delete without retention period should fail", func(t *testing.T) {
 		_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{

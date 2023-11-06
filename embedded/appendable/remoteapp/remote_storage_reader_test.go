@@ -57,6 +57,11 @@ func TestRemoteStorageSync(t *testing.T) {
 	require.NoError(t, r.Sync())
 }
 
+func TestRemoteStorageSwitchToReadOnlyMode(t *testing.T) {
+	r := remoteStorageReader{}
+	require.NoError(t, r.SwitchToReadOnlyMode())
+}
+
 func TestRemoteStorageReadAt(t *testing.T) {
 	m := memory.Open()
 	storeData(t, m, "fl", []byte{
@@ -84,7 +89,7 @@ func TestRemoteStorageReadAt(t *testing.T) {
 
 	n, err = r.ReadAt(make([]byte, 2), -1)
 	require.EqualValues(t, 0, n)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	n, err = r.ReadAt(make([]byte, 2), 4)
 	require.EqualValues(t, 0, n)
@@ -108,7 +113,7 @@ func TestRemoteStorageCorruptedHeader(t *testing.T) {
 			storeData(t, m, "fl", d.bytes)
 
 			r, err := openRemoteStorageReader(m, "fl")
-			require.Equal(t, ErrCorruptedMetadata, err)
+			require.ErrorIs(t, err, ErrCorruptedMetadata)
 			require.Nil(t, r)
 		})
 	}

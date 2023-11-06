@@ -53,7 +53,7 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 	}
 
 	// check key does not exists or it's already a reference
-	entry, err := d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0, true)
+	entry, err := d.getAtTx(ctx, EncodeKey(req.Key), req.AtTx, 0, d.st, 0, true)
 	if err != nil && err != store.ErrKeyNotFound {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 	}
 
 	// check referenced key exists and it's not a reference
-	refEntry, err := d.getAtTx(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, 0, true)
+	refEntry, err := d.getAtTx(ctx, EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, 0, true)
 	if err != nil {
 		return nil, err
 	}

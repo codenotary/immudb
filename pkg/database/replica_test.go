@@ -21,10 +21,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,7 +91,7 @@ func TestReadOnlyReplica(t *testing.T) {
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 }
 
 func TestSwitchToReplica(t *testing.T) {

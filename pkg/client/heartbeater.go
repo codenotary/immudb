@@ -21,8 +21,8 @@ import (
 	stdos "os"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -40,10 +40,14 @@ type HeartBeater interface {
 	Stop()
 }
 
-func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, errhandler ErrorHandler) *heartBeater {
+func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, errhandler ErrorHandler, l logger.Logger) *heartBeater {
+	if l == nil {
+		l = logger.NewSimpleLogger("immuclient", stdos.Stdout)
+	}
+
 	return &heartBeater{
 		sessionID:     sessionID,
-		logger:        logger.NewSimpleLogger("immuclient", stdos.Stdout),
+		logger:        l,
 		serviceClient: sc,
 		done:          make(chan struct{}),
 		t:             time.NewTicker(keepAliveInterval),

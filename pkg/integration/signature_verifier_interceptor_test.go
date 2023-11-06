@@ -30,9 +30,9 @@ import (
 )
 
 func TestSignatureVerifierInterceptor(t *testing.T) {
-
 	pk, err := signer.ParsePublicKeyFile("./../../test/signer/ec1.pub")
 	require.NoError(t, err)
+
 	c := ic.NewClient().WithServerSigningPubKey(pk)
 
 	// creation and state sign
@@ -40,8 +40,10 @@ func TestSignatureVerifierInterceptor(t *testing.T) {
 		TxId:   0,
 		TxHash: []byte(`hash`),
 	}
+
 	sig, err := signer.NewSigner("./../../test/signer/ec1.key")
 	require.NoError(t, err)
+
 	stSig := server.NewStateSigner(sig)
 	err = stSig.Sign(state)
 	require.NoError(t, err)
@@ -51,14 +53,13 @@ func TestSignatureVerifierInterceptor(t *testing.T) {
 	}
 
 	err = c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
-
 	require.NoError(t, err)
-
 }
 
 func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 	pk, err := signer.ParsePublicKeyFile("./../../test/signer/ec1.pub")
 	require.NoError(t, err)
+
 	c := ic.NewClient().WithServerSigningPubKey(pk)
 
 	// creation and state sign
@@ -70,9 +71,11 @@ func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 			Signature: []byte(`boom`),
 		},
 	}
+
 	invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return nil
 	}
+
 	err = c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 	require.ErrorContains(t, err, "unable to verify signature")
 }
@@ -80,6 +83,7 @@ func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 	pk, err := signer.ParsePublicKeyFile("./../../test/signer/ec1.pub")
 	require.NoError(t, err)
+
 	c := ic.NewClient().WithServerSigningPubKey(pk)
 
 	// creation and state sign
@@ -89,7 +93,9 @@ func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 	}
 	sig, err := signer.NewSigner("./../../test/signer/ec3.key")
 	require.NoError(t, err)
+
 	stSig := server.NewStateSigner(sig)
+
 	err = stSig.Sign(state)
 	require.NoError(t, err)
 
@@ -98,12 +104,12 @@ func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 	}
 
 	err = c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
-
-	require.ErrorContains(t, err, "signature doesn't match provided public key")
+	require.ErrorContains(t, err, signer.ErrKeyCannotBeVerified.Error())
 }
 
 func TestSignatureVerifierInterceptorNoPublicKey(t *testing.T) {
 	c := ic.NewClient().WithServerSigningPubKey(nil)
+
 	// creation and state sign
 	state := &schema.ImmutableState{
 		TxId:   0,
@@ -115,6 +121,5 @@ func TestSignatureVerifierInterceptorNoPublicKey(t *testing.T) {
 	}
 
 	err := c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
-
 	require.ErrorContains(t, err, "public key not loaded")
 }

@@ -25,6 +25,7 @@ import (
 // attributeCode is used to identify the attribute.
 const (
 	truncatedUptoTxAttrCode attributeCode = 0
+	extraAttrCode           attributeCode = 1
 )
 
 // attribute size is the size of the attribute in bytes.
@@ -32,7 +33,10 @@ const (
 	truncatedUptoTxAttrSize = txIDSize
 )
 
-const maxTxMetadataLen = (attrCodeSize + truncatedUptoTxAttrSize)
+const maxTxMetadataLen = (attrCodeSize + truncatedUptoTxAttrSize) +
+	(attrCodeSize + sszSize + maxExtraLen)
+
+const maxExtraLen = 256
 
 // truncatedUptoTxAttribute is used to identify that the transaction
 // stores the information up to which given transaction ID the
@@ -63,11 +67,46 @@ func (a *truncatedUptoTxAttribute) deserialize(b []byte) (int, error) {
 	return txIDSize, nil
 }
 
+type extraAttribute struct {
+	extra []byte
+}
+
+// code returns the attribute code.
+func (a *extraAttribute) code() attributeCode {
+	return extraAttrCode
+}
+
+// serialize returns the serialized attribute.
+func (a *extraAttribute) serialize() []byte {
+	var b [sszSize + maxExtraLen]byte
+
+	binary.BigEndian.PutUint16(b[:], uint16(len(a.extra)))
+	copy(b[sszSize:], a.extra)
+
+	return b[:sszSize+len(a.extra)]
+}
+
+// deserialize deserializes the attribute.
+func (a *extraAttribute) deserialize(b []byte) (int, error) {
+	if len(b) < sszSize {
+		return 0, ErrCorruptedData
+	}
+
+	a.extra = make([]byte, binary.BigEndian.Uint16(b))
+	copy(a.extra, b[sszSize:])
+
+	return sszSize + len(a.extra), nil
+}
+
 func getAttributeFrom(attrCode attributeCode) (attribute, error) {
 	switch attrCode {
 	case truncatedUptoTxAttrCode:
 		{
 			return &truncatedUptoTxAttribute{}, nil
+		}
+	case extraAttrCode:
+		{
+			return &extraAttribute{}, nil
 		}
 	default:
 		{
@@ -102,7 +141,7 @@ func (md *TxMetadata) Equal(amd *TxMetadata) bool {
 func (md *TxMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	for _, attrCode := range []attributeCode{truncatedUptoTxAttrCode} {
+	for _, attrCode := range []attributeCode{truncatedUptoTxAttrCode, extraAttrCode} {
 		attr, ok := md.attributes[attrCode]
 		if ok {
 			b.WriteByte(byte(attr.code()))
@@ -114,7 +153,7 @@ func (md *TxMetadata) Bytes() []byte {
 }
 
 func (md *TxMetadata) ReadFrom(b []byte) error {
-	if len(b) > maxKVMetadataLen {
+	if len(b) > maxTxMetadataLen {
 		return ErrCorruptedData
 	}
 
@@ -141,7 +180,6 @@ func (md *TxMetadata) ReadFrom(b []byte) error {
 		if err != nil {
 			return fmt.Errorf("error reading tx metadata attributes: %w", err)
 		}
-
 		i += n
 
 		md.attributes[attr.code()] = attr
@@ -162,7 +200,7 @@ func (md *TxMetadata) HasTruncatedTxID() bool {
 func (md *TxMetadata) GetTruncatedTxID() (uint64, error) {
 	attr, ok := md.attributes[truncatedUptoTxAttrCode]
 	if !ok {
-		return 0, ErrTxNotPresentInMetadata
+		return 0, ErrTruncationInfoNotPresentInMetadata
 	}
 
 	return attr.(*truncatedUptoTxAttribute).txID, nil
@@ -181,4 +219,31 @@ func (md *TxMetadata) WithTruncatedTxID(txID uint64) *TxMetadata {
 
 	attr.(*truncatedUptoTxAttribute).txID = txID
 	return md
+}
+
+func (md *TxMetadata) Extra() []byte {
+	attr, ok := md.attributes[extraAttrCode]
+	if !ok {
+		return nil
+	}
+
+	return attr.(*extraAttribute).extra
+}
+
+func (md *TxMetadata) WithExtra(data []byte) error {
+	if len(data) == 0 {
+		delete(md.attributes, extraAttrCode)
+		return nil
+	}
+
+	if len(data) > maxExtraLen {
+		return fmt.Errorf("%w: max extra data length exceeded", ErrIllegalArguments)
+	}
+
+	attr := &extraAttribute{extra: make([]byte, len(data))}
+	copy(attr.extra, data)
+
+	md.attributes[extraAttrCode] = attr
+
+	return nil
 }

@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/rs/xid"
 )
@@ -136,6 +136,8 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 		err.Error())
 
 	timer := time.NewTimer(txr.delayer.DelayAfter(txr.consecutiveFailures))
+	defer timer.Stop()
+
 	select {
 	case <-txr.context.Done():
 		timer.Stop()
@@ -247,6 +249,7 @@ func (txr *TxReplicator) replicationFailureDelay(consecutiveFailures int) bool {
 	defer txr.metrics.replicatorsInRetryDelay.Dec()
 
 	timer := time.NewTimer(txr.delayer.DelayAfter(consecutiveFailures))
+	defer timer.Stop()
 
 	select {
 	case <-txr.context.Done():
@@ -366,15 +369,17 @@ func (txr *TxReplicator) fetchNextTx() error {
 	txr.exportTxStream.Send(req)
 
 	etx, emd, err := txr.exportTxStreamReceiver.ReadFully()
+	if err != nil {
+		defer txr.disconnect()
+	}
 
 	if err != nil && !errors.Is(err, io.EOF) {
-		if strings.Contains(err.Error(), "commit state diverged from") {
+		if strings.Contains(err.Error(), "replica commit state diverged from primary") {
 			txr.logger.Errorf("replica commit state at '%s' diverged from primary's", txr.db.GetName())
 			return ErrReplicaDivergedFromPrimary
 		}
 
-		if strings.Contains(err.Error(), "precommit state diverged from") {
-
+		if strings.Contains(err.Error(), "replica precommit state diverged from primary") {
 			if !txr.allowTxDiscarding {
 				txr.logger.Errorf("replica precommit state at '%s' diverged from primary's", txr.db.GetName())
 				return ErrReplicaDivergedFromPrimary
@@ -431,7 +436,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 		if mayCommitUpToTxID > commitState.TxId {
 			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 			if err != nil {
-				if strings.Contains(err.Error(), "commit state diverged from") {
+				if strings.Contains(err.Error(), "replica commit state diverged from") {
 					txr.logger.Errorf("replica commit state at '%s' diverged from primary's", txr.db.GetName())
 					return ErrReplicaDivergedFromPrimary
 				}

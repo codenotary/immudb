@@ -49,7 +49,6 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 	}
 
 	seekKey := req.SeekKey
-
 	if len(seekKey) > 0 {
 		seekKey = EncodeKey(req.SeekKey)
 	}
@@ -59,7 +58,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 		endKey = EncodeKey(req.EndKey)
 	}
 
-	snap, err := d.snapshotSince(ctx, req.SinceTx)
+	snap, err := d.snapshotSince(ctx, []byte{SetKeyPrefix}, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +83,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 	entries := &schema.Entries{}
 
 	for l := 1; l <= limit; l++ {
-		key, valRef, err := r.Read()
+		key, valRef, err := r.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
@@ -92,14 +91,9 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 			return nil, err
 		}
 
-		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, valRef.HC(), true)
-		if errors.Is(err, store.ErrKeyNotFound) {
-			// ignore deleted ones (referenced key may have been deleted)
-			continue
-		}
-		if errors.Is(err, io.EOF) {
-			// ignore truncated values (referenced value may have been truncated)
-			continue
+		e, err := d.getAtTx(ctx, key, valRef.Tx(), 0, snap, valRef.HC(), true)
+		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, io.EOF) {
+			continue // ignore deleted or truncated ones (referenced key may have been deleted or truncated)
 		}
 		if err != nil {
 			return nil, err

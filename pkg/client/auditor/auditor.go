@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -36,7 +37,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
@@ -235,15 +235,12 @@ func (a *defaultAuditor) audit() error {
 
 		a.databaseIndex = 0
 		if len(a.databases) <= 0 {
-			a.logger.Errorf(
-				"audit #%d aborted: no databases to audit found after (re)loading the list of databases",
-				a.index)
+			a.logger.Errorf("audit #%d aborted: no databases to audit found after (re)loading the list of databases", a.index)
 			withError = true
 			return noErr
 		}
 
-		a.logger.Infof(
-			"audit #%d - list of databases to audit has been (re)loaded - %d database(s) found: %v",
+		a.logger.Infof("audit #%d - list of databases to audit has been (re)loaded - %d database(s) found: %v",
 			a.index, len(a.databases), a.databases)
 	}
 
@@ -288,9 +285,7 @@ func (a *defaultAuditor) audit() error {
 
 	if prevState != nil {
 		if isEmptyDB {
-			a.logger.Errorf(
-				"audit #%d aborted: database is empty on server %s @ %s, "+
-					"but locally a previous state exists with hash %x at id %d",
+			a.logger.Errorf("audit #%d aborted: database is empty on server %s @ %s, but locally a previous state exists with hash %x at id %d",
 				a.index, serverID, a.serverAddress, prevState.TxHash, prevState.TxId)
 			withError = true
 			return noErr
@@ -301,45 +296,29 @@ func (a *defaultAuditor) audit() error {
 			ProveSinceTx: prevState.TxId,
 		})
 		if err != nil {
-			a.logger.Errorf(
-				"error fetching consistency proof for previous state %d: %v",
-				prevState.TxId, err)
+			a.logger.Errorf("error fetching consistency proof for previous state %d: %v", prevState.TxId, err)
 			withError = true
 			return noErr
 		}
 
 		dualProof := schema.DualProofFromProto(vtx.DualProof)
-		err = schema.FillMissingLinearAdvanceProof(
-			ctx, dualProof, prevState.TxId, state.TxId, a.serviceClient,
-		)
+		err = schema.FillMissingLinearAdvanceProof(ctx, dualProof, prevState.TxId, state.TxId, a.serviceClient)
 		if err != nil {
-			a.logger.Errorf(
-				"error fetching consistency proof for previous state %d: %v",
-				prevState.TxId, err)
+			a.logger.Errorf("error fetching consistency proof for previous state %d: %v", prevState.TxId, err)
 			withError = true
 			return noErr
 		}
 
-		verified = store.VerifyDualProof(
-			dualProof,
-			prevState.TxId,
-			state.TxId,
-			schema.DigestFromProto(prevState.TxHash),
-			schema.DigestFromProto(state.TxHash),
-		)
+		verified = store.VerifyDualProof(dualProof, prevState.TxId, state.TxId, schema.DigestFromProto(prevState.TxHash), schema.DigestFromProto(state.TxHash))
 
-		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+
-			"  previous state:	%x at tx: %d\n  current state:	%x at tx: %d",
-			a.index, dbName, verified,
-			prevState.TxHash, prevState.TxId, state.TxHash, state.TxId)
+		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t previous state:	%x at tx: %d\n  current state:	%x at tx: %d",
+			a.index, dbName, verified, prevState.TxHash, prevState.TxId, state.TxHash, state.TxId)
 
 		checked = true
 		// publish audit notification
 		if len(a.notificationConfig.URL) > 0 {
 			err := a.publishAuditNotification(
-				dbName,
-				time.Now(),
-				!verified,
+				dbName, time.Now(), !verified,
 				&State{
 					Tx:   prevState.TxId,
 					Hash: base64.StdEncoding.EncodeToString(prevState.TxHash),
@@ -358,71 +337,55 @@ func (a *defaultAuditor) audit() error {
 				},
 			)
 			if err != nil {
-				a.logger.Errorf(
-					"error publishing audit notification for db %s: %v", dbName, err)
+				a.logger.Errorf("error publishing audit notification for db %s: %v", dbName, err)
 			} else {
-				a.logger.Infof(
-					"audit notification for db %s has been published at %s",
-					dbName, a.notificationConfig.URL)
+				a.logger.Infof("audit notification for db %s has been published at %s", dbName, a.notificationConfig.URL)
 			}
 		}
 	} else if isEmptyDB {
-		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
-			a.index, serverID, a.serverAddress)
+		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s", a.index, serverID, a.serverAddress)
 		return noErr
 	}
 
 	if !verified {
-		a.logger.Warningf(
-			"audit #%d detected possible tampering of db %s remote state (at id %d) "+
-				"so it will not overwrite the previous local state (at id %d)",
-			a.index, dbName, state.TxId, prevState.TxId)
+		a.logger.Warningf("audit #%d detected possible tampering of db %s remote state (at id %d) "+
+			"so it will not overwrite the previous local state (at id %d)", a.index, dbName, state.TxId, prevState.TxId)
 	} else if prevState == nil || state.TxId != prevState.TxId {
 		if err := a.history.Set(serverID, dbName, state); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
 		}
 	}
+
 	a.logger.Infof("audit #%d finished in %s @ %s",
 		a.index, time.Since(start), time.Now().Format(time.RFC3339Nano))
 
 	return noErr
 }
 
-func (a *defaultAuditor) verifyStateSignature(
-	serverID string,
-	serverState *schema.ImmutableState,
-) error {
-
+func (a *defaultAuditor) verifyStateSignature(serverID string, serverState *schema.ImmutableState) error {
 	if a.serverSigningPubKey != nil && serverState.GetSignature() == nil {
-		return fmt.Errorf(
-			"a server signing public key has been specified for the auditor, "+
-				"but the state %s at TX %d received from server %s @ %s is not signed",
+		return fmt.Errorf("a server signing public key has been specified for the auditor, but the state %s at TX %d received from server %s @ %s is not signed",
 			serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress)
 	}
 
 	if serverState.GetSignature() != nil {
 		pk := a.serverSigningPubKey
 		if pk == nil {
-			a.logger.Warningf(
-				"server signature will be verified using untrusted public key (embedded in the server state payload) " +
-					"- for better security please configure a public key for the auditor process")
+			a.logger.Warningf("server signature will be verified using untrusted public key (embedded in the server state payload) " +
+				"- for better security please configure a public key for the auditor process")
 			var err error
 			pk, err = signer.UnmarshalKey(serverState.GetSignature().GetPublicKey())
 			if err != nil {
-				return fmt.Errorf(
-					"failed to verify signature for state %s at TX %d received from server %s @ %s: "+
-						"error unmarshaling the public key embedded in the server state payload: %w",
+				return fmt.Errorf("failed to verify signature for state %s at TX %d received from server %s @ %s: "+
+					"error unmarshaling the public key embedded in the server state payload: %w",
 					serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress, err)
 			}
 		}
 
-		if okSig, err := serverState.CheckSignature(pk); err != nil || !okSig {
-			return fmt.Errorf(
-				"failed to verify signature for state %s at TX %d received from server %s @ %s: "+
-					"verification result: %t, verification error: %v",
-				serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress,
-				okSig, err)
+		if err := serverState.CheckSignature(pk); err != nil {
+			return fmt.Errorf("failed to verify signature for state %s at TX %d received from server %s @ %s: verification error: %v",
+				serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress, err)
 		}
 	}
 
@@ -495,10 +458,8 @@ func (a *defaultAuditor) publishAuditNotification(
 	default:
 		respBody, _ := ioutil.ReadAll(resp.Body)
 		return fmt.Errorf(
-			"POST %s request with payload %+v: "+
-				"got unexpected response status %s with response body %s",
-			a.notificationConfig.URL, payload,
-			resp.Status, respBody)
+			"POST %s request with payload %+v: got unexpected response status %s with response body %s",
+			a.notificationConfig.URL, payload, resp.Status, respBody)
 	}
 
 	return nil
@@ -515,13 +476,9 @@ func (a *defaultAuditor) getServerID(ctx context.Context) string {
 	}
 
 	if serverID == "" {
-		serverID = strings.ReplaceAll(
-			strings.ReplaceAll(a.serverAddress, ".", "-"),
-			":", "_")
+		serverID = strings.ReplaceAll(strings.ReplaceAll(a.serverAddress, ".", "-"), ":", "_")
 		serverID = a.slugifyRegExp.ReplaceAllString(serverID, "")
-		a.logger.Debugf(
-			"the current immudb server @ %s will be identified as %s",
-			a.serverAddress, serverID)
+		a.logger.Debugf("the current immudb server @ %s will be identified as %s", a.serverAddress, serverID)
 	}
 
 	return serverID
@@ -529,11 +486,7 @@ func (a *defaultAuditor) getServerID(ctx context.Context) string {
 
 // repeat executes f every interval until stopc is closed or f returns an error.
 // It executes f once right after being called.
-func repeat(
-	interval time.Duration,
-	stopc <-chan struct{},
-	f func() error,
-) error {
+func repeat(interval time.Duration, stopc <-chan struct{}, f func() error) error {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
 

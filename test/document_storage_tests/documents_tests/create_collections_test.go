@@ -23,7 +23,6 @@ import (
 
 	"github.com/codenotary/immudb/test/document_storage_tests/documents_tests/actions"
 	"github.com/gavv/httpexpect/v2"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -37,7 +36,7 @@ type CreateCollectionsTestSuite struct {
 
 func (s *CreateCollectionsTestSuite) SetupTest() {
 	s.expect, s.sessionID = actions.OpenSession(s.T())
-	s.collection_name = uuid.New().String()
+	s.collection_name = "a" + uuid.New().String()
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithName() {
@@ -163,11 +162,11 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithEmptyBody() {
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		WithJSON(payload).
 		Expect().
-		Status(http.StatusOK).JSON().Object().Empty()
+		Status(http.StatusOK).JSON().Object().IsEmpty()
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneInvalidField() {
-	name := uuid.New().String()
+	name := "a" + uuid.New().String()
 	payload := map[string]interface{}{
 		"fields": "birth_date",
 	}
@@ -186,7 +185,7 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneInvalidFi
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneEmptyField() {
-	name := uuid.New().String()
+	name := "a" + uuid.New().String()
 	payload := map[string]interface{}{
 		"fields": "",
 	}
@@ -205,12 +204,12 @@ func (s *CreateCollectionsTestSuite) TestCreateCollectionWithNameAndOneEmptyFiel
 }
 
 func (s *CreateCollectionsTestSuite) TestCreateCollectionWithExistingName() {
-	name := uuid.New().String()
+	name := "a" + uuid.New().String()
 
 	s.expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).
 		Expect().
-		Status(http.StatusOK).JSON().Object().Empty()
+		Status(http.StatusOK).JSON().Object().IsEmpty()
 
 	s.expect.POST(fmt.Sprintf("/collection/%s", name)).
 		WithHeader("grpc-metadata-sessionid", s.sessionID).

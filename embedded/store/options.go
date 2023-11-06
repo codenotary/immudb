@@ -24,8 +24,8 @@ import (
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/codenotary/immudb/pkg/logger"
 )
 
 const DefaultMaxActiveTransactions = 1000
@@ -122,6 +122,8 @@ type Options struct {
 	TimeFunc TimeFunc
 
 	UseExternalCommitAllowance bool
+
+	MultiIndexing bool
 
 	// options below are only set during initialization and stored as metadata
 	MaxTxEntries      int
@@ -541,6 +543,11 @@ func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
 
 func (opts *Options) WithExternalCommitAllowance(useExternalCommitAllowance bool) *Options {
 	opts.UseExternalCommitAllowance = useExternalCommitAllowance
+	return opts
+}
+
+func (opts *Options) WithMultiIndexing(multiIndexing bool) *Options {
+	opts.MultiIndexing = multiIndexing
 	return opts
 }
 

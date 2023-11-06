@@ -35,7 +35,7 @@ var (
 	ErrFieldAlreadyExists      = errors.New("field already exists")
 	ErrFieldDoesNotExist       = errors.New("field does not exist")
 	ErrReservedName            = errors.New("reserved name")
-	ErrLimitedIndexCreation    = errors.New("index creation is only supported on empty collections")
+	ErrLimitedIndexCreation    = errors.New("unique index creation is only supported on empty collections")
 	ErrConflict                = errors.New("conflict due to uniqueness contraint violation or read document was updated by another transaction")
 )
 
