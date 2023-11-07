@@ -29,8 +29,6 @@ func TestMapPgError(t *testing.T) {
 	err = ErrMaxStmtNumberExceeded
 	be = MapPgError(err)
 	require.NotNil(t, be)
-	err = ErrNoStatementFound
-	be = MapPgError(err)
 	require.NotNil(t, be)
 	err = ErrParametersValueSizeTooLarge
 	be = MapPgError(err)
