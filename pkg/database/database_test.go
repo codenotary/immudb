@@ -93,7 +93,7 @@ func (h *dummyMultidbHandler) UseDatabase(ctx context.Context, db string) error 
 	return sql.ErrNoSupported
 }
 
-func (h *dummyMultidbHandler) ListUsers(ctx context.Context) ([]string, error) {
+func (h *dummyMultidbHandler) ListUsers(ctx context.Context) ([]sql.User, error) {
 	return nil, sql.ErrNoSupported
 }
 
