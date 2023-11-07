@@ -6081,6 +6081,10 @@ func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
 }
 
+func (h *multidbHandlerMock) ListUsers(ctx context.Context) ([]User, error) {
+	return nil, nil
+}
+
 func (h *multidbHandlerMock) ExecPreparedStmts(
 	ctx context.Context,
 	opts *TxOptions,

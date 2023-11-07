@@ -119,6 +119,7 @@ const (
 	UUIDFnCall      string = "RANDOM_UUID"
 	DatabasesFnCall string = "DATABASES"
 	TablesFnCall    string = "TABLES"
+	UsersFnCall     string = "USERS"
 	ColumnsFnCall   string = "COLUMNS"
 	IndexesFnCall   string = "INDEXES"
 )
@@ -3987,6 +3988,10 @@ func (stmt *FnDataSourceStmt) Alias() string {
 		{
 			return "tables"
 		}
+	case UsersFnCall:
+		{
+			return "users"
+		}
 	case ColumnsFnCall:
 		{
 			return "columns"
@@ -4014,6 +4019,10 @@ func (stmt *FnDataSourceStmt) Resolve(ctx context.Context, tx *SQLTx, params map
 	case TablesFnCall:
 		{
 			return stmt.resolveListTables(ctx, tx, params, scanSpecs)
+		}
+	case UsersFnCall:
+		{
+			return stmt.resolveListUsers(ctx, tx, params, scanSpecs)
 		}
 	case ColumnsFnCall:
 		{
@@ -4076,6 +4085,65 @@ func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, 
 
 	for i, t := range tables {
 		values[i] = []ValueExp{&Varchar{val: t.name}}
+	}
+
+	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
+}
+
+func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+	if len(stmt.fnCall.params) > 0 {
+		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, UsersFnCall, len(stmt.fnCall.params))
+	}
+
+	cols := make([]ColDescriptor, 2)
+	cols[0] = ColDescriptor{
+		Column: "name",
+		Type:   VarcharType,
+	}
+	cols[1] = ColDescriptor{
+		Column: "permission",
+		Type:   VarcharType,
+	}
+
+	var users []User
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	} else {
+		users, err = tx.engine.multidbHandler.ListUsers(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]ValueExp, len(users))
+
+	for i, user := range users {
+		var perm string
+
+		switch user.Permission() {
+		case 1:
+			{
+				perm = "READ"
+			}
+		case 2:
+			{
+				perm = "READ/WRITE"
+			}
+		case 254:
+			{
+				perm = "ADMIN"
+			}
+		default:
+			{
+				perm = "SYSADMIN"
+			}
+		}
+
+		values[i] = []ValueExp{
+			&Varchar{val: user.Username()},
+			&Varchar{val: perm},
+		}
 	}
 
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
