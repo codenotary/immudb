@@ -96,6 +96,13 @@ func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
 		_, err := engine.Query(context.Background(), nil, "SELECT * FROM DATABASES()", nil)
 		require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
 	})
+
+	r, err := engine.Query(context.Background(), nil, "SELECT ts FROM pg_type WHERE ts < 1 + NOW()", nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
 }
 
 func TestCreateTable(t *testing.T) {
@@ -6017,6 +6024,25 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("show databases", func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, "SHOW DATABASES", nil)
+			require.NoError(t, err)
+
+			for _, db := range dbs {
+				row, err := r.Read(context.Background())
+				require.NoError(t, err)
+				require.NotNil(t, row)
+				require.NotNil(t, row)
+				require.Equal(t, db, row.ValuesBySelector["(databases.name)"].RawValue())
+			}
+
+			_, err = r.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
 		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
 			r, err := engine.Query(context.Background(), nil, "SELECT dbs.name as dbname FROM DATABASES() as dbs WHERE name LIKE 'db*'", nil)
 			require.NoError(t, err)
@@ -6129,6 +6155,24 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		defer r.Close()
 
 		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(tables.name)"].RawValue())
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("show tables", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), tx, "SHOW TABLES", nil)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(tables.name)"].RawValue())
+
+		row, err = r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, "mytable2", row.ValuesBySelector["(tables.name)"].RawValue())
 
