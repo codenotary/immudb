@@ -65,6 +65,58 @@ func (h *multidbHandler) ListDatabases(ctx context.Context) ([]string, error) {
 	return dbs, nil
 }
 
+func (h *multidbHandler) ListUsers(ctx context.Context) ([]sql.User, error) {
+	db, err := h.s.getDBFromCtx(ctx, "ListUsers")
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := h.s.ListUsers(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]sql.User, 0, len(res.Users))
+
+	for _, user := range res.Users {
+		if !user.Active {
+			continue
+		}
+
+		var hasPermission *schema.Permission
+
+		if string(user.User) == auth.SysAdminUsername {
+			hasPermission = &schema.Permission{Database: db.GetName()}
+		} else {
+			for _, perm := range user.Permissions {
+				if perm.Database == db.GetName() {
+					hasPermission = perm
+					break
+				}
+			}
+		}
+
+		if hasPermission != nil {
+			users = append(users, &User{username: string(user.User), perm: hasPermission.Permission})
+		}
+	}
+
+	return users, nil
+}
+
+type User struct {
+	username string
+	perm     uint32
+}
+
+func (usr *User) Username() string {
+	return usr.username
+}
+
+func (usr *User) Permission() uint32 {
+	return usr.perm
+}
+
 func (h *multidbHandler) ExecPreparedStmts(
 	ctx context.Context,
 	opts *sql.TxOptions,
