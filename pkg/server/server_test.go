@@ -1889,6 +1889,9 @@ func TestServerIsValidDBName(t *testing.T) {
 
 	err = isValidDBName(strings.Repeat("a", 32))
 	require.NoError(t, err)
+
+	err = isValidDBName("_")
+	require.NoError(t, err)
 }
 
 func TestServerMandatoryAuth(t *testing.T) {

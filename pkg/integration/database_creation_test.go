@@ -155,3 +155,13 @@ func TestCreateDatabaseV2(t *testing.T) {
 	_, err = client.UpdateDatabaseV2(ctx, "db1", &schema.DatabaseNullableSettings{})
 	require.NoError(t, err)
 }
+
+func TestCreateDatabaseWithUnderscoreCharacter(t *testing.T) {
+	_, client, ctx := setupTestServerAndClient(t)
+
+	_, err := client.CreateDatabaseV2(ctx, "db_with_", nil)
+	require.NoError(t, err)
+
+	_, err = client.UseDatabase(ctx, &schema.Database{DatabaseName: "db_with_"})
+	require.NoError(t, err)
+}

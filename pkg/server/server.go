@@ -1585,6 +1585,7 @@ func isValidDBName(dbName string) error {
 		switch {
 		case unicode.IsLower(ch):
 		case unicode.IsDigit(ch):
+		case ch == '_':
 		case unicode.IsPunct(ch) || unicode.IsSymbol(ch):
 			hasSpecial = true
 		default:
