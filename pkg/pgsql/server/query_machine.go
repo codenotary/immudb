@@ -103,12 +103,6 @@ func (s *session) QueryMachine() error {
 					s.HandleError(pserr.ErrMaxStmtNumberExceeded)
 					continue
 				}
-				if len(stmts) == 0 {
-					waitForSync = extQueryMode
-					s.HandleError(pserr.ErrNoStatementFound)
-					continue
-				}
-
 				if paramCols, resCols, err = s.inferParamAndResultCols(stmts[0]); err != nil {
 					waitForSync = extQueryMode
 					s.HandleError(err)
