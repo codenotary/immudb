@@ -95,6 +95,7 @@ var reservedWords = map[string]int{
 	"SHOW":           SHOW,
 	"DATABASES":      DATABASES,
 	"TABLES":         TABLES,
+	"USERS":          USERS,
 }
 
 var joinTypes = map[string]JoinType{

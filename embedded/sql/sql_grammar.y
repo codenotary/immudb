@@ -75,7 +75,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST SCAST
-%token SHOW DATABASES TABLES
+%token SHOW DATABASES TABLES USERS
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -538,6 +538,13 @@ dqlstmt:
             ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "tables"}},
         }
     }
+|
+    SHOW USERS
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "users"}},
+        }
+    }
 
 select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset
     {
@@ -649,6 +656,11 @@ ds:
     TABLES '(' ')' opt_as
     {
         $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "tables"}, as: $4}
+    }
+|
+    USERS '(' ')' opt_as
+    {
+        $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "users"}, as: $4}
     }
 |
     fnCall opt_as
