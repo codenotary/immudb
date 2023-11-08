@@ -97,6 +97,18 @@ func (h *dummyMultidbHandler) ListUsers(ctx context.Context) ([]sql.User, error)
 	return nil, sql.ErrNoSupported
 }
 
+func (h *dummyMultidbHandler) CreateUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) AlterUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) DropUser(ctx context.Context, username string) error {
+	return sql.ErrNoSupported
+}
+
 func (h *dummyMultidbHandler) ExecPreparedStmts(
 	ctx context.Context,
 	opts *sql.TxOptions,

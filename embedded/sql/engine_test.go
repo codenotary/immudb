@@ -6105,6 +6105,18 @@ func (h *multidbHandlerMock) ListUsers(ctx context.Context) ([]User, error) {
 	return nil, nil
 }
 
+func (h *multidbHandlerMock) CreateUser(ctx context.Context, username, password string, permission Permission) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandlerMock) AlterUser(ctx context.Context, username, password string, permission Permission) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandlerMock) DropUser(ctx context.Context, username string) error {
+	return ErrNoSupported
+}
+
 func (h *multidbHandlerMock) ExecPreparedStmts(
 	ctx context.Context,
 	opts *TxOptions,

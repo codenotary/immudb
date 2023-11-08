@@ -117,6 +117,92 @@ func (usr *User) Permission() uint32 {
 	return usr.perm
 }
 
+func permCode(permission sql.Permission) uint32 {
+	switch permission {
+	case sql.PermissionReadOnly:
+		{
+			return 1
+		}
+	case sql.PermissionReadWrite:
+		{
+			return 2
+		}
+	case sql.PermissionAdmin:
+		{
+			return 254
+		}
+	}
+	return 0
+}
+
+func (h *multidbHandler) CreateUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	_, err := h.s.CreateUser(ctx, &schema.CreateUserRequest{
+		User:       []byte(username),
+		Password:   []byte(password),
+		Permission: permCode(permission),
+	})
+	return err
+}
+
+func (h *multidbHandler) AlterUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	_, user, err := h.s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return err
+	}
+
+	db, err := h.s.getDBFromCtx(ctx, "ChangePassword")
+	if err != nil {
+		return err
+	}
+
+	_, err = h.s.SetActiveUser(ctx, &schema.SetActiveUserRequest{
+		Username: username,
+		Active:   true,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = h.s.ChangePassword(ctx, &schema.ChangePasswordRequest{
+		User:        []byte(username),
+		OldPassword: []byte(user.HashedPassword),
+		NewPassword: []byte(password),
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, perm := range user.Permissions {
+		if perm.Database == db.GetName() {
+			_, err := h.s.ChangePermission(ctx, &schema.ChangePermissionRequest{
+				Username:   username,
+				Database:   perm.Database,
+				Action:     schema.PermissionAction_REVOKE,
+				Permission: perm.Permission,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = h.s.ChangePermission(ctx, &schema.ChangePermissionRequest{
+		Username:   username,
+		Database:   db.GetName(),
+		Action:     schema.PermissionAction_GRANT,
+		Permission: permCode(permission),
+	})
+	return err
+}
+
+func (h *multidbHandler) DropUser(ctx context.Context, username string) error {
+	_, err := h.s.SetActiveUser(ctx, &schema.SetActiveUserRequest{
+		Username: username,
+		Active:   false,
+	})
+	return err
+}
+
 func (h *multidbHandler) ExecPreparedStmts(
 	ctx context.Context,
 	opts *sql.TxOptions,

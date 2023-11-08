@@ -96,6 +96,12 @@ var reservedWords = map[string]int{
 	"DATABASES":      DATABASES,
 	"TABLES":         TABLES,
 	"USERS":          USERS,
+	"USER":           USER,
+	"WITH":           WITH,
+	"PASSWORD":       PASSWORD,
+	"READ":           READ,
+	"READWRITE":      READWRITE,
+	"ADMIN":          ADMIN,
 }
 
 var joinTypes = map[string]JoinType{
