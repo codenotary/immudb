@@ -69,6 +69,14 @@ func IsNumericType(t SQLValueType) bool {
 	return t == IntegerType || t == Float64Type
 }
 
+type Permission = string
+
+const (
+	PermissionReadOnly  Permission = "READ"
+	PermissionReadWrite Permission = "READWRITE"
+	PermissionAdmin     Permission = "ADMIN"
+)
+
 type AggregateFn = string
 
 const (
@@ -242,6 +250,70 @@ func (stmt *UseSnapshotStmt) inferParameters(ctx context.Context, tx *SQLTx, par
 
 func (stmt *UseSnapshotStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return nil, ErrNoSupported
+}
+
+type CreateUserStmt struct {
+	username   string
+	password   string
+	permission Permission
+}
+
+func (stmt *CreateUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CreateUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.IsExplicitCloseRequired() {
+		return nil, fmt.Errorf("%w: user creation can not be done within a transaction", ErrNonTransactionalStmt)
+	}
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	}
+
+	return nil, tx.engine.multidbHandler.CreateUser(ctx, stmt.username, stmt.password, stmt.permission)
+}
+
+type AlterUserStmt struct {
+	username   string
+	password   string
+	permission Permission
+}
+
+func (stmt *AlterUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *AlterUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.IsExplicitCloseRequired() {
+		return nil, fmt.Errorf("%w: user modification can not be done within a transaction", ErrNonTransactionalStmt)
+	}
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	}
+
+	return nil, tx.engine.multidbHandler.AlterUser(ctx, stmt.username, stmt.password, stmt.permission)
+}
+
+type DropUserStmt struct {
+	username string
+}
+
+func (stmt *DropUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *DropUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.IsExplicitCloseRequired() {
+		return nil, fmt.Errorf("%w: user deletion can not be done within a transaction", ErrNonTransactionalStmt)
+	}
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	}
+
+	return nil, tx.engine.multidbHandler.DropUser(ctx, stmt.username)
 }
 
 type CreateTableStmt struct {
