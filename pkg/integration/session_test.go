@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
 
 	"github.com/codenotary/immudb/pkg/server"
@@ -204,12 +205,21 @@ func TestSession_ListUSersFromSQLStmts(t *testing.T) {
 	_, err := client.SQLExec(ctx, "CREATE DATABASE db1", nil)
 	require.NoError(t, err)
 
-	err = client.CreateUser(ctx, []byte("user1"), []byte("user1Password!"), 1, "db1")
+	err = client.CreateUser(ctx, []byte("user1"), []byte("user1Password!"), 1, "defaultdb")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, []byte("user2"), []byte("user2Password!"), 1, "defaultdb")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, []byte("user3"), []byte("user3Password!"), 1, "db1")
+	require.NoError(t, err)
+
+	err = client.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: "user2", Active: false})
 	require.NoError(t, err)
 
 	res, err := client.SQLQuery(ctx, "SHOW USERS", nil, false)
 	require.NoError(t, err)
-	require.Len(t, res.Rows, 1)
+	require.Len(t, res.Rows, 2)
 
 	err = client.CloseSession(context.Background())
 	require.NoError(t, err)

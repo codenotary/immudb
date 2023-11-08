@@ -6053,6 +6053,16 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 			require.ErrorIs(t, err, ErrNoMoreRows)
 		})
 
+		t.Run("list users", func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, "SELECT * FROM USERS()", nil)
+			require.NoError(t, err)
+
+			defer r.Close()
+
+			_, err = r.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+		})
+
 		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
 			r, err := engine.Query(context.Background(), nil, "SELECT dbs.name as dbname FROM DATABASES() as dbs WHERE name LIKE 'db*'", nil)
 			require.NoError(t, err)
