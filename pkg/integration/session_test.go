@@ -197,3 +197,20 @@ func TestSession_CreateDBFromSQLStmts(t *testing.T) {
 	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 }
+
+func TestSession_ListUSersFromSQLStmts(t *testing.T) {
+	_, client, ctx := setupTestServerAndClient(t)
+
+	_, err := client.SQLExec(ctx, "CREATE DATABASE db1", nil)
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, []byte("user1"), []byte("user1Password!"), 1, "db1")
+	require.NoError(t, err)
+
+	res, err := client.SQLQuery(ctx, "SHOW USERS", nil, false)
+	require.NoError(t, err)
+	require.Len(t, res.Rows, 1)
+
+	err = client.CloseSession(context.Background())
+	require.NoError(t, err)
+}
