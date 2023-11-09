@@ -260,12 +260,12 @@ ddlstmt:
         $$ = &DropColumnStmt{table: $3, colName: $6}
     }
 |
-    CREATE USER IDENTIFIER WITH PASSWORD IDENTIFIER permission
+    CREATE USER IDENTIFIER WITH PASSWORD VARCHAR permission
     {
         $$ = &CreateUserStmt{username: $3, password: $6, permission: $7}
     }
 |
-    ALTER USER IDENTIFIER WITH PASSWORD IDENTIFIER permission
+    ALTER USER IDENTIFIER WITH PASSWORD VARCHAR permission
     {
         $$ = &AlterUserStmt{username: $3, password: $6, permission: $7}
     }
