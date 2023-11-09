@@ -256,7 +256,7 @@ func TestInitializeWithRemoteStorageWithoutIdentifier(t *testing.T) {
 	var m remotestorage.Storage = nil
 
 	err := s.initializeRemoteStorage(m)
-	require.ErrorIs(t, err, ErrNoRemoteIdentifier)
+	require.ErrorIs(t, err, ErrNoStorageForIdentifier)
 }
 
 func TestInitializeRemoteStorageWithoutLocalIdentifier(t *testing.T) {
