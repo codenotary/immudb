@@ -37,11 +37,14 @@ func TestS3WithServer(t *testing.T) {
 
 	s, err := Open(
 		"http://localhost:9000",
+		false,
+		"",
 		"minioadmin",
 		"minioadmin",
 		"immudb",
 		"",
 		fmt.Sprintf("prefix_%x", randomBytes),
+		"",
 	)
 	require.NoError(t, err)
 
