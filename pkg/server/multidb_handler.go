@@ -136,11 +136,18 @@ func permCode(permission sql.Permission) uint32 {
 }
 
 func (h *multidbHandler) CreateUser(ctx context.Context, username, password string, permission sql.Permission) error {
-	_, err := h.s.CreateUser(ctx, &schema.CreateUserRequest{
+	db, err := h.s.getDBFromCtx(ctx, "ChangePassword")
+	if err != nil {
+		return err
+	}
+
+	_, err = h.s.CreateUser(ctx, &schema.CreateUserRequest{
 		User:       []byte(username),
 		Password:   []byte(password),
+		Database:   db.GetName(),
 		Permission: permCode(permission),
 	})
+
 	return err
 }
 
@@ -192,6 +199,7 @@ func (h *multidbHandler) AlterUser(ctx context.Context, username, password strin
 		Action:     schema.PermissionAction_GRANT,
 		Permission: permCode(permission),
 	})
+
 	return err
 }
 
