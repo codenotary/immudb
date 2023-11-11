@@ -16,6 +16,8 @@ limitations under the License.
 
 package sql
 
+import "github.com/google/uuid"
+
 // mayApplyImplicitConversion may do an implicit type conversion
 // implicit conversion is currently done in a subset of possible explicit conversions i.e. CAST
 func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType) (interface{}, error) {
@@ -72,6 +74,25 @@ func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType
 			}
 
 			typedVal = &Varchar{val: value}
+		}
+	case UUIDType:
+		switch value := val.(type) {
+		case uuid.UUID:
+			return val, nil
+		case string:
+			converter, err = getConverter(VarcharType, UUIDType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Varchar{val: value}
+		case []byte:
+			converter, err = getConverter(BLOBType, UUIDType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Blob{val: value}
 		}
 	default:
 		// No implicit conversion rule found, do not convert at all
