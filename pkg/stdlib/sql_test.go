@@ -28,6 +28,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -109,16 +110,18 @@ func TestQueryCapabilities(t *testing.T) {
 	_, db := testServerClient(t)
 
 	table := getRandomTableName()
-	result, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
+	result, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, publicID UUID, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
 	binaryContent := []byte("my blob content1")
-	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), 1, 1000, 6000, "title 1", binaryContent, true)
+	uuidPublicID := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent, publicID) VALUES (?, ?, ?, ?, ?, ?, ?)", table), 1, 1000, 6000, "title 1", binaryContent, true, uuidPublicID)
 	require.NoError(t, err)
 
 	binaryContent2 := []byte("my blob content2")
-	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), 2, 2000, 12000, "title 2", binaryContent2, true)
+	uuidPublicID2 := uuid.UUID([16]byte{0x10, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent, publicID) VALUES (?, ?, ?, ?, ?, ?, ?)", table), 2, 2000, 12000, "title 2", binaryContent2, true, uuidPublicID2)
 	require.NoError(t, err)
 
 	var id int64
@@ -126,20 +129,22 @@ func TestQueryCapabilities(t *testing.T) {
 	var title string
 	var isPresent bool
 	var content []byte
+	var publicID uuid.UUID
 
-	rows, err := db.QueryContext(context.Background(), fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s where isPresent=? and id=? and amount=? and total=? and title=?", table), true, 1, 1000, 6000, "title 1")
+	rows, err := db.QueryContext(context.Background(), fmt.Sprintf("SELECT id, amount, title, content, isPresent, publicID FROM %s where isPresent=? and id=? and amount=? and total=? and title=?", table), true, 1, 1000, 6000, "title 1")
 	require.NoError(t, err)
 	defer rows.Close()
 
 	rows.Next()
 
-	err = rows.Scan(&id, &amount, &title, &content, &isPresent)
+	err = rows.Scan(&id, &amount, &title, &content, &isPresent, &publicID)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), id)
 	require.Equal(t, int64(1000), amount)
 	require.Equal(t, "title 1", title)
 	require.Equal(t, binaryContent, content)
 	require.Equal(t, true, isPresent)
+	require.Equal(t, uuidPublicID, publicID)
 }
 
 func TestQueryCapabilitiesWithPointers(t *testing.T) {

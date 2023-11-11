@@ -32,6 +32,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -383,7 +384,7 @@ func TestTimestampCasts(t *testing.T) {
 func TestUUIDAsPK(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS uuid_table(id UUID, PRIMARY KEY id)", nil)
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS uuid_table(id UUID, test INTEGER, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
 	sel := EncodeSelector("", "uuid_table", "id")
@@ -426,6 +427,46 @@ func TestUUIDAsPK(t *testing.T) {
 		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
 	})
 
+	t.Run("must accept uuid string as an UUID", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, test) VALUES(@uuid, 3)", map[string]interface{}{
+			"uuid": id.String(),
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table WHERE test = 3", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("must accept byte slice as an UUID", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x10, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, test) VALUES(@uuid, 4)", map[string]interface{}{
+			"uuid": id[:],
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table WHERE test = 4", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
 }
 
 func TestUUIDNonPK(t *testing.T) {
@@ -450,6 +491,46 @@ func TestUUIDNonPK(t *testing.T) {
 
 		require.Len(t, row.ValuesByPosition, 1)
 		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+	})
+
+	t.Run("UUID as non PK must accept uuid string", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, u, t) VALUES(2, @id, 't')", map[string]interface{}{
+			"id": id.String(),
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT u FROM uuid_table WHERE id = 2 LIMIT 1", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("UUID as non PK must accept byte slice", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, u, t) VALUES(3, @id, 't')", map[string]interface{}{
+			"id": id[:],
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT u FROM uuid_table WHERE id = 3 LIMIT 1", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
 	})
 
 }
