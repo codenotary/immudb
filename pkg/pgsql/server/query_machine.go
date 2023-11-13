@@ -64,7 +64,20 @@ func (s *session) QueryMachine() error {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			err := s.fetchAndWriteResults(v.GetStatements(), nil, nil, extQueryMode)
+			statements := v.GetStatements()
+
+			if statements == "select relname, nspname, relkind from pg_catalog.pg_class c, pg_catalog.pg_namespace n where relkind in ('r', 'v', 'm', 'f', 'p') and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1') and n.oid = relnamespace order by nspname, relname" {
+				statements = "show tables"
+			}
+
+			tableHelpPrefix := "select n.nspname, c.relname, a.attname, a.atttypid, t.typname, a.attnum, a.attlen, a.atttypmod, a.attnotnull, c.relhasrules, c.relkind, c.oid, pg_get_expr(d.adbin, d.adrelid), case t.typtype when 'd' then t.typbasetype else 0 end, t.typtypmod, c.relhasoids, '', c.relhassubclass from (((pg_catalog.pg_class c inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace and c.relname like '"
+
+			if strings.HasPrefix(statements, tableHelpPrefix) {
+				tableName := strings.Split(strings.TrimPrefix(statements, tableHelpPrefix), "'")[0]
+				statements = fmt.Sprintf("select column_name, type_name, is_nullable from table(%s)", tableName)
+			}
+
+			err := s.fetchAndWriteResults(statements, nil, nil, extQueryMode)
 			if err != nil {
 				waitForSync = extQueryMode
 				s.HandleError(err)
