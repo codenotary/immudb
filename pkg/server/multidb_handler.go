@@ -136,7 +136,7 @@ func permCode(permission sql.Permission) uint32 {
 }
 
 func (h *multidbHandler) CreateUser(ctx context.Context, username, password string, permission sql.Permission) error {
-	db, err := h.s.getDBFromCtx(ctx, "ChangePassword")
+	db, err := h.s.getDBFromCtx(ctx, "CreateUser")
 	if err != nil {
 		return err
 	}
