@@ -577,6 +577,13 @@ dqlstmt:
         }
     }
 |
+    SHOW TABLE IDENTIFIER
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "table", params: []ValueExp{&Varchar{val: $3}}}},
+        }
+    }
+|
     SHOW USERS
     {
         $$ = &SelectStmt{
@@ -694,6 +701,11 @@ ds:
     TABLES '(' ')' opt_as
     {
         $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "tables"}, as: $4}
+    }
+|
+    TABLE '(' IDENTIFIER ')'
+    {
+        $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "table", params: []ValueExp{&Varchar{val: $3}}}}
     }
 |
     USERS '(' ')' opt_as
