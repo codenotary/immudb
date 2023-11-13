@@ -178,7 +178,6 @@ func (bs *BufconnServer) NewAuthenticatedClient(options *client.Options) (client
 		[]byte(bs.Server.Srv.Options.AdminPassword),
 		bs.Server.Srv.Options.GetDefaultDBName(),
 	)
-
 	if err != nil {
 		return nil, err
 	}
