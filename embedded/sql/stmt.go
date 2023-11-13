@@ -127,6 +127,7 @@ const (
 	UUIDFnCall      string = "RANDOM_UUID"
 	DatabasesFnCall string = "DATABASES"
 	TablesFnCall    string = "TABLES"
+	TableFnCall     string = "TABLE"
 	UsersFnCall     string = "USERS"
 	ColumnsFnCall   string = "COLUMNS"
 	IndexesFnCall   string = "INDEXES"
@@ -4060,6 +4061,10 @@ func (stmt *FnDataSourceStmt) Alias() string {
 		{
 			return "tables"
 		}
+	case TableFnCall:
+		{
+			return "table"
+		}
 	case UsersFnCall:
 		{
 			return "users"
@@ -4091,6 +4096,10 @@ func (stmt *FnDataSourceStmt) Resolve(ctx context.Context, tx *SQLTx, params map
 	case TablesFnCall:
 		{
 			return stmt.resolveListTables(ctx, tx, params, scanSpecs)
+		}
+	case TableFnCall:
+		{
+			return stmt.resolveShowTable(ctx, tx, params, scanSpecs)
 		}
 	case UsersFnCall:
 		{
@@ -4157,6 +4166,84 @@ func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, 
 
 	for i, t := range tables {
 		values[i] = []ValueExp{&Varchar{val: t.name}}
+	}
+
+	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
+}
+
+func (stmt *FnDataSourceStmt) resolveShowTable(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+	cols := []ColDescriptor{
+		{
+			Column: "column_name",
+			Type:   VarcharType,
+		},
+		{
+			Column: "type_name",
+			Type:   VarcharType,
+		},
+		{
+			Column: "is_nullable",
+			Type:   BooleanType,
+		},
+		{
+			Column: "is_indexed",
+			Type:   VarcharType,
+		},
+		{
+			Column: "is_auto_increment",
+			Type:   BooleanType,
+		},
+		{
+			Column: "is_unique",
+			Type:   BooleanType,
+		},
+	}
+
+	tableName, _ := stmt.fnCall.params[0].reduce(tx, nil, "")
+	table, err := tx.catalog.GetTableByName(tableName.RawValue().(string))
+	if err != nil {
+		return nil, err
+	}
+
+	values := make([][]ValueExp, len(table.cols))
+
+	for i, c := range table.cols {
+		index := "NO"
+
+		indexed, err := table.IsIndexed(c.Name())
+		if err != nil {
+			return nil, err
+		}
+		if indexed {
+			index = "YES"
+		}
+
+		if table.PrimaryIndex().IncludesCol(c.ID()) {
+			index = "PRIMARY KEY"
+		}
+
+		var unique bool
+		for _, index := range table.GetIndexesByColID(c.ID()) {
+			if index.IsUnique() && len(index.Cols()) == 1 {
+				unique = true
+				break
+			}
+		}
+
+		var maxLen string
+
+		if c.MaxLen() > 0 && (c.Type() == VarcharType || c.Type() == BLOBType) {
+			maxLen = fmt.Sprintf("(%d)", c.MaxLen())
+		}
+
+		values[i] = []ValueExp{
+			&Varchar{val: c.colName},
+			&Varchar{val: c.Type() + maxLen},
+			&Bool{val: c.IsNullable()},
+			&Varchar{val: index},
+			&Bool{val: c.IsAutoIncremental()},
+			&Bool{val: unique},
+		}
 	}
 
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
