@@ -273,10 +273,10 @@ func TestImmuClient_SQL_UserStmts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, users.Rows, 1)
 
-	_, err = client.SQLExec(context.Background(), "CREATE USER user1 WITH PASSWORD 'user1Password!' READ", nil)
+	_, err = client.SQLExec(context.Background(), "CREATE USER user1 WITH PASSWORD 'user1Password!' READWRITE", nil)
 	require.NoError(t, err)
 
-	_, err = client.SQLExec(context.Background(), "CREATE USER user2 WITH PASSWORD 'user2Password!' READWRITE", nil)
+	_, err = client.SQLExec(context.Background(), "CREATE USER user2 WITH PASSWORD 'user2Password!' READ", nil)
 	require.NoError(t, err)
 
 	_, err = client.SQLExec(context.Background(), "CREATE USER user3 WITH PASSWORD 'user3Password!' ADMIN", nil)
@@ -299,7 +299,7 @@ func TestImmuClient_SQL_UserStmts(t *testing.T) {
 	err = user1Client.CloseSession(context.Background())
 	require.NoError(t, err)
 
-	_, err = client.SQLExec(context.Background(), "ALTER USER user1 WITH PASSWORD 'user1Password!!' READWRITE", nil)
+	_, err = client.SQLExec(context.Background(), "ALTER USER user1 WITH PASSWORD 'user1Password!!' READ", nil)
 	require.NoError(t, err)
 
 	err = user1Client.OpenSession(
@@ -343,8 +343,20 @@ func TestImmuClient_SQL_UserStmts(t *testing.T) {
 	_, err = client.SQLExec(context.Background(), "CREATE USER user2 WITH PASSWORD 'user2Password!' READWRITE", nil)
 	require.ErrorContains(t, err, "user already exists")
 
-	_, err = client.SQLExec(context.Background(), "ALTER USER user4 WITH PASSWORD 'user4Password!!' ADMIN", nil)
+	_, err = client.SQLExec(context.Background(), "ALTER USER user4 WITH PASSWORD 'user4Password!!' READWRITE", nil)
 	require.ErrorContains(t, err, "not found")
+
+	_, err = user1Client.SQLExec(context.Background(), "SHOW USERS", nil)
+	require.ErrorContains(t, err, "not connected")
+
+	_, err = user1Client.SQLExec(context.Background(), "CREATE USER user4 WITH PASSWORD 'user4Password!' READWRITE", nil)
+	require.ErrorContains(t, err, "not connected")
+
+	_, err = user1Client.SQLExec(context.Background(), "ALTER USER user4 WITH PASSWORD 'user4Password!!' READWRITE", nil)
+	require.ErrorContains(t, err, "not connected")
+
+	_, err = user1Client.SQLExec(context.Background(), "DROP USER user3", nil)
+	require.ErrorContains(t, err, "not connected")
 }
 
 func TestImmuClient_SQL_Errors(t *testing.T) {
