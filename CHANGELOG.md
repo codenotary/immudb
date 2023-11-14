@@ -4,8 +4,60 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9DOM.1-RC1"></a>
+## [v1.9DOM.1-RC1] - 2023-11-13
+### Bug Fixes
+- lower databasename in OpenSession
+- **embedded/sql:** fix data-race when mapping keys
+- **embedded/sql:** fix data-race when mapping keys
+- **embedded/store:** handle key mapping in ongoing txs
+- **embedded/store:** handle key mapping in ongoing txs
+- **embedded/store:** handle key mapping in ongoing txs
+- **pkg/database:** ensure proper tx validation
+- **pkg/server:** user creation with multidbs
+
+### Changes
+- docker image with swagger ui (for AWS Marketplace)
+- **cmd/immudb:** upgrade to new pgsql changes
+- **deps:** bump github.com/google/uuid from 1.3.1 to 1.4.0
+- **embedded/sql:** user pwd
+- **embedded/sql:** show users stmt
+- **embedded/sql:** wip emulate pg_type system table
+- **embedded/sql:** continue to support databases and tables datasources
+- **embedded/store:** indexer source and target prefixes
+- **pkg/client:** possibility to retrieve session id
+- **pkg/pgsql:** decouple error from ready to query messages
+- **pkg/pgsql:** uuid and float types conversion
+- **pkg/pgsql:** comment describing pgsql wire protocol constraints
+- **pkg/pgsql:** support multiple-statements in simple-query mode
+- **pkg/pgsql:** protocol enhancements
+- **pkg/pgsql:** handle deallocate prepared stmt
+- **pkg/pgsql:** tls support
+- **pkg/pgsql:** single command complete message
+- **pkg/pgsql:** transactional query machine
+- **pkg/pgsql:** pgsql write protocol improvements
+- **pkg/pgsql:** proper handling of queries with empty resultsets
+- **pkg/pgsql:** show table/s
+- **pkg/server:** upgrade to transactional pgsql server
+- **pkg/server:** set dynamic immudb server port in pgsql server
+- **pkg/server:** pgsql server creation only when enabled
+- **pkg/server:** list users from multidb handler
+- **pkg/server:** require proper permissions at multidb handler
+
+### Features
+- **embedded/sql:** show table stmt
+- **embedded/sql:** wip user mgmt
+- **embedded/sql:** show users stmt
+- **embedded/sql:** show databases/tables stmt
+- **pkg/server:** add support of underscore in db name Signed-off-by: Martin Jirku <martin[@jirku](https://github.com/jirku).sk>
+
+
 <a name="v1.9DOM.0"></a>
 ## [v1.9DOM.0] - 2023-10-19
+### Changes
+- docker image with swagger ui
+- docker image with swagger ui
+
 
 <a name="v1.9DOM"></a>
 ## [v1.9DOM] - 2023-10-19
@@ -3762,7 +3814,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9DOM.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9DOM.1-RC1...HEAD
+[v1.9DOM.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.9DOM.0...v1.9DOM.1-RC1
 [v1.9DOM.0]: https://github.com/vchain-us/immudb/compare/v1.9DOM...v1.9DOM.0
 [v1.9DOM]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC2...v1.9DOM
 [v1.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC1...v1.9.0-RC2
