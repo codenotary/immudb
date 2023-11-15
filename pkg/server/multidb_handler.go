@@ -179,20 +179,6 @@ func (h *multidbHandler) AlterUser(ctx context.Context, username, password strin
 		return err
 	}
 
-	for _, perm := range user.Permissions {
-		if perm.Database == db.GetName() {
-			_, err := h.s.ChangePermission(ctx, &schema.ChangePermissionRequest{
-				Username:   username,
-				Database:   perm.Database,
-				Action:     schema.PermissionAction_REVOKE,
-				Permission: perm.Permission,
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	_, err = h.s.ChangePermission(ctx, &schema.ChangePermissionRequest{
 		Username:   username,
 		Database:   db.GetName(),
