@@ -33,7 +33,8 @@ func TestServerMultidbHandler(t *testing.T) {
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
-	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	s, closer := testServer(serverOptions)
+	defer closer()
 
 	s.Initialize()
 
