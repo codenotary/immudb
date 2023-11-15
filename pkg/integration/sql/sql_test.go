@@ -321,6 +321,9 @@ func TestImmuClient_SQL_UserStmts(t *testing.T) {
 	err = user1Client.CloseSession(context.Background())
 	require.NoError(t, err)
 
+	_, err = client.SQLExec(context.Background(), "ALTER USER user1 WITH PASSWORD 'user1Password!!' READWRITE", nil)
+	require.NoError(t, err)
+
 	users, err = client.SQLQuery(context.Background(), "SHOW USERS", nil, true)
 	require.NoError(t, err)
 	require.Len(t, users.Rows, 4)
