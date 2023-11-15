@@ -697,6 +697,32 @@ func TestEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrMaxNumberOfColumnsInIndexExceeded)
 }
 
+func TestInferParameterEdgeCases(t *testing.T) {
+	err := (&CreateUserStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&AlterUserStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&DropUserStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&RenameTableStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&DropTableStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&DropColumnStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&DropIndexStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
+	err = (&FnDataSourceStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+}
+
 func TestIsConstant(t *testing.T) {
 	require.True(t, (&NullValue{}).isConstant())
 	require.True(t, (&Integer{}).isConstant())

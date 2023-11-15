@@ -95,6 +95,19 @@ func TestV2Authentication(t *testing.T) {
 
 	authServiceImp := &authenticationServiceImp{server: s}
 
+	_, err = authServiceImp.KeepAlive(context.Background(), &protomodel.KeepAliveRequest{})
+	require.Error(t, err)
+
+	_, err = authServiceImp.CloseSession(context.Background(), &protomodel.CloseSessionRequest{})
+	require.Error(t, err)
+
+	_, err = authServiceImp.OpenSession(ctx, &protomodel.OpenSessionRequest{
+		Username: "immudb",
+		Password: "wrongPassword",
+		Database: "defaultdb",
+	})
+	require.Error(t, err)
+
 	logged, err := authServiceImp.OpenSession(ctx, &protomodel.OpenSessionRequest{
 		Username: "immudb",
 		Password: "immudb",
@@ -108,6 +121,10 @@ func TestV2Authentication(t *testing.T) {
 
 	md := metadata.Pairs("sessionid", logged.SessionID)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = authServiceImp.KeepAlive(ctx, &protomodel.KeepAliveRequest{})
+	require.NoError(t, err)
+
 	_, err = s.InsertDocuments(ctx, &protomodel.InsertDocumentsRequest{})
 	require.NotErrorIs(t, err, ErrNotLoggedIn)
 
