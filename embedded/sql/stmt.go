@@ -226,10 +226,6 @@ func (stmt *UseDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, par
 }
 
 func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if stmt.DB == "" {
-		return nil, fmt.Errorf("%w: no database name was provided", ErrIllegalArguments)
-	}
-
 	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
 	}
