@@ -91,4 +91,6 @@ func TestOngoingTxOptions(t *testing.T) {
 	require.Error(t, opts.Validate())
 
 	require.Equal(t, 1*time.Hour, opts.WithSnapshotRenewalPeriod(1*time.Hour).SnapshotRenewalPeriod)
+	require.EqualValues(t, 1, opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 1 }).SnapshotMustIncludeTxID(100))
+	require.True(t, opts.WithUnsafeMVCC(true).UnsafeMVCC)
 }

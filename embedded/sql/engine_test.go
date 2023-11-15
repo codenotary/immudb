@@ -79,6 +79,15 @@ func TestCreateDatabaseWithoutMultiDBHandler(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE IF NOT EXISTS db1", nil)
 	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE USER user1 WITH PASSWORD 'user1Password!' READ", nil)
+	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	_, _, err = engine.Exec(context.Background(), nil, "ALTER USER user1 WITH PASSWORD 'user1Password!' ADMIN", nil)
+	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	_, _, err = engine.Exec(context.Background(), nil, "DROP USER user1", nil)
+	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
 }
 
 func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
@@ -990,6 +999,9 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	for it := 0; it < 3; it++ {
 		time.Sleep(1 * time.Microsecond)
 
+		_, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION; ROLLBACK;", nil)
+		require.NoError(t, err)
+
 		tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
 		require.NoError(t, err)
 
@@ -1339,6 +1351,15 @@ func TestAlterTableDropColumn(t *testing.T) {
 		})
 
 		t.Run("drop the last column", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "DROP TABLE table11", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table11 DROP COLUMN age", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+			_, _, err = engine.Exec(context.Background(), nil, "DROP INDEX ON table11(age)", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN age", nil)
 			require.NoError(t, err)
 
@@ -4212,6 +4233,9 @@ func TestJoins(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
+	_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table11 RENAME TO table3", nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
 	_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table3", nil)
 	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
@@ -5985,6 +6009,27 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, `
 			BEGIN TRANSACTION;
 				CREATE DATABASE db1;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				CREATE USER user1 WITH PASSWORD 'user1Password!' READ;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				ALTER USER user1 WITH PASSWORD 'user1Password!' READ;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				DROP USER user1;
 			COMMIT;
 		`, nil)
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
