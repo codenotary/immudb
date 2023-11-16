@@ -4,8 +4,15 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9DOM.1"></a>
+## [v1.9DOM.1] - 2023-11-16
+### Changes
+- **pkg/pgsql:** handle odbc help
+- **pkg/server:** change permission automatically revokes existing ones
+
+
 <a name="v1.9DOM.1-RC1"></a>
-## [v1.9DOM.1-RC1] - 2023-11-13
+## [v1.9DOM.1-RC1] - 2023-11-14
 ### Bug Fixes
 - lower databasename in OpenSession
 - **embedded/sql:** fix data-race when mapping keys
@@ -3814,7 +3821,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9DOM.1-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9DOM.1...HEAD
+[v1.9DOM.1]: https://github.com/vchain-us/immudb/compare/v1.9DOM.1-RC1...v1.9DOM.1
 [v1.9DOM.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.9DOM.0...v1.9DOM.1-RC1
 [v1.9DOM.0]: https://github.com/vchain-us/immudb/compare/v1.9DOM...v1.9DOM.0
 [v1.9DOM]: https://github.com/vchain-us/immudb/compare/v1.9.0-RC2...v1.9DOM
