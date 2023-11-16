@@ -279,7 +279,7 @@ func TestExecAllOps(t *testing.T) {
 		Set: []byte(`mySet`),
 	}
 	zList, err := db.ZScan(context.Background(), zScanOpt)
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 	println(len(zList.Entries))
 	require.Len(t, zList.Entries, batchCount*batchSize)
 }

@@ -380,6 +380,26 @@ func TestSession_QueriesMachine(t *testing.T) {
 			},
 			out: nil,
 		},
+		{
+			name: "schema info",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S("select current_schema()")))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "schema info",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S(tableHelpPrefix)))
+				c2.Close()
+			},
+			out: nil,
+		},
 	}
 
 	for i, tt := range tests {

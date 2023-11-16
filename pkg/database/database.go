@@ -37,7 +37,7 @@ import (
 )
 
 const MaxKeyResolutionLimit = 1
-const MaxKeyScanLimit = 1000
+const MaxKeyScanLimit = 2500
 
 var ErrKeyResolutionLimitReached = errors.New("key resolution limit reached. It may be due to cyclic references")
 var ErrResultSizeLimitExceeded = errors.New("result size limit exceeded")
