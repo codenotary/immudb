@@ -83,11 +83,11 @@ Click here to try out the immudb web console access in an [online demo environme
 
 ### Getting immudb running: executable
 
-You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.9DOM.0 for linux amd64:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.9DOM.1 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.9DOM.0/immudb-v1.9DOM.0-linux-amd64
-mv immudb-v1.9DOM.0-linux-amd64 immudb
+wget https://github.com/codenotary/immudb/releases/download/v1.9DOM.1/immudb-v1.9DOM.1-linux-amd64
+mv immudb-v1.9DOM.1-linux-amd64 immudb
 chmod +x immudb
 
 # run immudb in the foreground to see all output
