@@ -31,6 +31,7 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 )
 
+const helpPrefix = "select relname, nspname, relkind from pg_catalog.pg_class c, pg_catalog.pg_namespace n where relkind in ('r', 'v', 'm', 'f', 'p') and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1') and n.oid = relnamespace order by nspname, relname"
 const tableHelpPrefix = "select n.nspname, c.relname, a.attname, a.atttypid, t.typname, a.attnum, a.attlen, a.atttypmod, a.attnotnull, c.relhasrules, c.relkind, c.oid, pg_get_expr(d.adbin, d.adrelid), case t.typtype when 'd' then t.typbasetype else 0 end, t.typtypmod, c.relhasoids, '', c.relhassubclass from (((pg_catalog.pg_class c inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace and c.relname like '"
 
 func (s *session) QueryMachine() error {
@@ -68,7 +69,7 @@ func (s *session) QueryMachine() error {
 		case fm.QueryMsg:
 			statements := v.GetStatements()
 
-			if statements == "select relname, nspname, relkind from pg_catalog.pg_class c, pg_catalog.pg_namespace n where relkind in ('r', 'v', 'm', 'f', 'p') and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1') and n.oid = relnamespace order by nspname, relname" {
+			if statements == helpPrefix {
 				statements = "show tables"
 			}
 
@@ -253,21 +254,6 @@ func (s *session) QueryMachine() error {
 }
 
 func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, extQueryMode bool) error {
-	if len(statements) == 0 {
-		_, err := s.writeMessage(bm.EmptyQueryResponse())
-		return err
-	}
-
-	if statements == "select current_schema()" {
-		_, err := s.writeMessage(bm.DataRow(nil, 0, resultColumnFormatCodes))
-		if err != nil {
-			return err
-		}
-
-		_, err = s.writeMessage(bm.CommandComplete([]byte("ok")))
-		return err
-	}
-
 	if s.isInBlackList(statements) {
 		_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
 		return err

@@ -391,7 +391,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 			out: nil,
 		},
 		{
-			name: "schema info",
+			name: "table help",
 			in: func(c2 net.Conn) {
 				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
 				c2.Read(ready4Query)
