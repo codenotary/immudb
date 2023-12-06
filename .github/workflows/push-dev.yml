@@ -14,7 +14,7 @@ jobs:
     name: build and push
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v5
       with:
        go-version: ${{ env.GO_VERSION }}
     - uses: actions/checkout@v3
