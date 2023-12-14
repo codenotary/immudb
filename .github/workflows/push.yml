@@ -93,7 +93,7 @@ jobs:
             qemu-binfmt: true
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: immudb-binaries
         path: dist
@@ -149,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download binary artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: immudb-binaries
         path: dist
@@ -206,7 +206,7 @@ jobs:
         JOB_ID: ${{ github.run_id }}
       steps:
         - name: Download binary artifacts
-          uses: actions/download-artifact@v3
+          uses: actions/download-artifact@v4
           with:
             name: immudb-binaries
             path: dist
