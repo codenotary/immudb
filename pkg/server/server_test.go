@@ -1887,6 +1887,9 @@ func TestServerIsValidDBName(t *testing.T) {
 	err = isValidDBName("-")
 	require.ErrorContains(t, err, "punctuation marks and symbols are not allowed in database name")
 
+	err = isValidDBName("_")
+	require.NoError(t, err)
+
 	err = isValidDBName(strings.Repeat("a", 32))
 	require.NoError(t, err)
 
