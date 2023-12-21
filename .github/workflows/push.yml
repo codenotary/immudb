@@ -190,7 +190,7 @@ jobs:
     uses: ./.github/workflows/performance.yml
     secrets: inherit
     with:
-      go-version: ${{ needs.go-version.outputs.go-version }}
+      go-version: "1.19" # we need a post 1.19, to limit memory usage
 
   notarize-binaries:
       name: Notarize binaries
