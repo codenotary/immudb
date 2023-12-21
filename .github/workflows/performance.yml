@@ -60,7 +60,7 @@ jobs:
           echo "duration=$SECONDS" >> $GITHUB_ENV
           sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json
         env:
-          GOMEMLIMIT: 76808MiB
+          GOMEMLIMIT: 7680MiB
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
