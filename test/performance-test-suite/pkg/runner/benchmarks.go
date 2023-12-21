@@ -52,8 +52,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			AsyncWrite: true,
 			Replica:    "async",
 		}),
-
-		writetxs.NewBenchmark(writetxs.Config{
+		writetxs.NewBenchmark(writetxs.Config{ // this one!
 			Name:       "Write KV/s async - one async replica",
 			Workers:    30,
 			BatchSize:  1000,
@@ -62,7 +61,6 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			AsyncWrite: true,
 			Replica:    "async",
 		}),
-
 		writetxs.NewBenchmark(writetxs.Config{
 			Name:       "Write TX/s async - one sync replica",
 			Workers:    30,

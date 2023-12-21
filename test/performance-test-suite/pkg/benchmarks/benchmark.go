@@ -24,7 +24,7 @@ type Benchmark interface {
 	Name() string
 
 	// Do a test warmup
-	Warmup() error
+	Warmup(workingDirectory string) error
 
 	// Cleanup after the test
 	Cleanup() error

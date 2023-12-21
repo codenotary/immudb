@@ -38,6 +38,7 @@ func main() {
 	flInfluxBucket := flag.String("bucket", "immudb-tests-results", "bucket for influxdb")
 	flInfluxRunner := flag.String("runner", "", "github runner for influxdb")
 	flInfluxVersion := flag.String("version", "", "immudb version for influxdb")
+	flTempDir := flag.String("workdir", "/tmp", "working dir path")
 
 	flag.Parse()
 
@@ -50,7 +51,7 @@ func main() {
 		*flSeed = binary.BigEndian.Uint64(rndSeed[:])
 	}
 
-	results, err := runner.RunAllBenchmarks(*flDuration, *flSeed)
+	results, err := runner.RunAllBenchmarks(*flDuration, *flTempDir, *flSeed)
 	if err != nil {
 		log.Fatal(err)
 	}
