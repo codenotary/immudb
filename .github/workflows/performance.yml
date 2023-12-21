@@ -59,6 +59,8 @@ jobs:
           ./perf-test-suite $ARG_DURATION -host $INFLUX_HOST -token $INFLUX_TOKEN -runner ${{ matrix.target.name }} -version $(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',]) > perf-test-results-with-summaries.txt
           echo "duration=$SECONDS" >> $GITHUB_ENV
           sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json
+        env:
+          GOMEMLIMIT: 76808MiB
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:

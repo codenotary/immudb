@@ -25,7 +25,7 @@ import (
 	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
-func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, error) {
+func RunAllBenchmarks(d time.Duration, tempDir string, seed uint64) (*BenchmarkSuiteResult, error) {
 	ret := &BenchmarkSuiteResult{
 		StartTime:   time.Now(),
 		ProcessInfo: gatherProcessInfo(),
@@ -43,7 +43,7 @@ func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, erro
 			Timeline: []BenchmarkTimelineEntry{},
 		}
 
-		err := b.Warmup()
+		err := b.Warmup(tempDir)
 		if err != nil {
 			return nil, err
 		}
