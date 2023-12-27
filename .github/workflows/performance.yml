@@ -62,7 +62,7 @@ jobs:
         env:
           GOMEMLIMIT: 7680MiB
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
