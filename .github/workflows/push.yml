@@ -61,7 +61,7 @@ jobs:
           run: |
             echo "matrix=$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')" >> $GITHUB_OUTPUT
         - name: Upload binary artifacts
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           with:
             name: immudb-binaries
             path: dist

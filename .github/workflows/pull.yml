@@ -203,7 +203,7 @@ jobs:
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - run: ./perf-test-suite > perf-test-results.json
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
