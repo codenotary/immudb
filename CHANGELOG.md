@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9DOM.2"></a>
+## [v1.9DOM.1] - 2023-11-16
+### Changes
+- License update to BSL
+- Updated dependencies
+
 <a name="v1.9DOM.1"></a>
 ## [v1.9DOM.1] - 2023-11-16
 ### Changes
