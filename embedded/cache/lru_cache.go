@@ -64,12 +64,12 @@ func (c *LRUCache) Resize(size int) {
 }
 
 func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rvalue interface{}, err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	if key == nil || value == nil {
 		return nil, nil, ErrIllegalArguments
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	e, ok := c.data[key]
 
@@ -110,12 +110,12 @@ func (c *LRUCache) evict() (rkey interface{}, rvalue interface{}, err error) {
 }
 
 func (c *LRUCache) Get(key interface{}) (interface{}, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	if key == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	e, ok := c.data[key]
 	if !ok {
@@ -128,12 +128,12 @@ func (c *LRUCache) Get(key interface{}) (interface{}, error) {
 }
 
 func (c *LRUCache) Pop(key interface{}) (interface{}, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	if key == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	e, ok := c.data[key]
 	if !ok {
@@ -146,12 +146,13 @@ func (c *LRUCache) Pop(key interface{}) (interface{}, error) {
 }
 
 func (c *LRUCache) Replace(k interface{}, v interface{}) (interface{}, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	if k == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	e, ok := c.data[k]
 	if !ok {
 		return nil, ErrKeyNotFound
