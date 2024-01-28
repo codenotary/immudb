@@ -81,3 +81,65 @@ func TestInstrumentedMutex(t *testing.T) {
 	require.Equal(t, 0, waitingCount)
 	require.True(t, lastReleaseAt.After(justBeforeRelease))
 }
+
+func BenchmarkInstrumentedMutexRLock(b *testing.B) {
+	var mu instrumentedRWMutex
+
+	var wg sync.WaitGroup
+	wg.Add(b.N)
+
+	b.SetBytes(64)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		go func() {
+			defer wg.Done()
+
+			mu.RLock()
+			defer mu.RUnlock()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func BenchmarkInstrumentedMutexLock(b *testing.B) {
+	var mu instrumentedRWMutex
+
+	var wg sync.WaitGroup
+	wg.Add(b.N)
+
+	b.SetBytes(64)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		go func() {
+			defer wg.Done()
+
+			mu.Lock()
+			defer mu.Unlock()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func BenchmarkInstrumentedMutexState(b *testing.B) {
+	var mu instrumentedRWMutex
+
+	var wg sync.WaitGroup
+	wg.Add(b.N)
+
+	b.SetBytes(64)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		go func() {
+			defer wg.Done()
+
+			mu.State()
+		}()
+	}
+
+	wg.Wait()
+}
