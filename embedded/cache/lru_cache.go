@@ -32,7 +32,7 @@ type LRUCache struct {
 	lruList *list.List
 	size    int
 
-	mutex sync.RWMutex
+	mutex sync.Mutex
 }
 
 type entry struct {
@@ -164,15 +164,15 @@ func (c *LRUCache) Replace(k interface{}, v interface{}) (interface{}, error) {
 }
 
 func (c *LRUCache) Size() int {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.size
 }
 
 func (c *LRUCache) EntriesCount() int {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.lruList.Len()
 }
