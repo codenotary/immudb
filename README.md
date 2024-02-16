@@ -26,7 +26,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 20M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 23M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -36,7 +36,7 @@ Detailed documentation can be found at https://docs.immudb.io/
 
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the database. It can operate both as a key-value store, and/or as relational database (SQL).
+immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the database. It can operate as a key-value store, as a document model database, and/or as relational database (SQL).
 
 Traditional database transactions and logs are mutable, and therefore there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being tampered.
 
@@ -60,7 +60,7 @@ Click here to try out the immudb web console access in an [online demo environme
 
 | Topic                   | Description                                        |
 | ----------------------- | -------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (tx-key-value), SQL |
+| DB Model                | Key-Value with 3D access, Document Model, SQL      |
 | Data scheme             | schema-free                                        |
 | Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
 |                         | (sync/async) indexing with extended B-tree         |
