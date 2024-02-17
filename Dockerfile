@@ -13,6 +13,7 @@
 # limitations under the License.
 
 FROM golang:1.18 as build
+ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download -x
@@ -21,7 +22,7 @@ RUN make clean
 RUN make prerequisites
 RUN make swagger
 RUN make swagger/dist
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default SWAGGER=true make immudb-static immuadmin-static 
+RUN GOOS=linux GOARCH=${BUILD_ARCH} WEBCONSOLE=default SWAGGER=true make immudb-static immuadmin-static
 RUN mkdir /empty
 
 FROM scratch
