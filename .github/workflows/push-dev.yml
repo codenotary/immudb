@@ -17,7 +17,7 @@ jobs:
     - uses: actions/setup-go@v5
       with:
        go-version: ${{ env.GO_VERSION }}
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: |
         GITTAG=$(git rev-parse HEAD | head -c 8)
         docker build -t codenotary/immudb-dev1:$GITTAG .
