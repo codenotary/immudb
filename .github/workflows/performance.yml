@@ -49,7 +49,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ inputs.go-version }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - name: Run performance tests
         id: performance
@@ -95,7 +95,7 @@ jobs:
     env:
       PERF_TEST_AWS_REGION: ${{ secrets.PERF_TEST_AWS_REGION }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Download test results
         if: "${{ env.PERF_TEST_AWS_REGION }}"
