@@ -1,7 +1,8 @@
 FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build
+ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY . .
-RUN GOOS=linux GOARCH=amd64 make immuadmin-fips
+RUN GOOS=linux GOARCH=${BUILD_ARCH} make immuadmin-fips
 
 ### distroless FIPS 140-2
 FROM gcr.io/distroless/base:nonroot AS distroless-fips

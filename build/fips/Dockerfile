@@ -1,11 +1,12 @@
 # This version of Go is a Go+BoringCrypto release for FIPS 140-2 compliance
 FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build-fips
+ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download -x
 COPY . .
 RUN rm -rf /src/webconsole/dist
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-fips immudb-fips
+RUN GOOS=linux GOARCH=${BUILD_ARCH} WEBCONSOLE=default make immuadmin-fips immudb-fips
 RUN mkdir /empty
 
 ### distroless FIPS 140-2
