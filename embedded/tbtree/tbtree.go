@@ -225,9 +225,9 @@ type pathNode struct {
 
 type node interface {
 	insert(kvts []*KVT) ([]node, int, error)
-	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
-	getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error)
-	history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, error)
+	get(key []byte) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error)
+	getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error)
+	history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, uint64, error)
 	findLeafNode(seekKey []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	minKey() []byte
 	ts() uint64
@@ -277,10 +277,11 @@ type nodeRef struct {
 }
 
 type leafValue struct {
-	key         []byte
-	timedValues []TimedValue
-	hOff        int64
-	hCount      uint64
+	key            []byte
+	timedValues    []TimedValue
+	hOff           int64
+	hCount         uint64
+	lastDeleteAtTs uint64
 }
 
 type TimedValue struct {
@@ -932,51 +933,51 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 	return l, nil
 }
 
-func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+func (t *TBtree) Get(key []byte) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
 	if t.closed {
-		return nil, 0, 0, ErrAlreadyClosed
+		return nil, 0, 0, 0, ErrAlreadyClosed
 	}
 
 	if key == nil {
-		return nil, 0, 0, ErrIllegalArguments
+		return nil, 0, 0, 0, ErrIllegalArguments
 	}
 
-	v, ts, hc, err := t.root.get(key)
-	return cp(v), ts, hc, err
+	v, ts, lastDeleteAtTs, hc, err := t.root.get(key)
+	return cp(v), ts, lastDeleteAtTs, hc, err
 }
 
-func (t *TBtree) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+func (t *TBtree) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, lastDeleteAtTx uint64, hc uint64, err error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
 	if t.closed {
-		return nil, 0, 0, ErrAlreadyClosed
+		return nil, 0, 0, 0, ErrAlreadyClosed
 	}
 
 	if key == nil {
-		return nil, 0, 0, ErrIllegalArguments
+		return nil, 0, 0, 0, ErrIllegalArguments
 	}
 
 	return t.root.getBetween(key, initialTs, finalTs)
 }
 
-func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tvs []TimedValue, hCount uint64, err error) {
+func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tvs []TimedValue, lastDeleteAtTs uint64, hCount uint64, err error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
 	if t.closed {
-		return nil, 0, ErrAlreadyClosed
+		return nil, 0, 0, ErrAlreadyClosed
 	}
 
 	if key == nil {
-		return nil, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
 	if limit < 1 {
-		return nil, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
 	return t.root.history(key, offset, descOrder, limit)
@@ -1579,9 +1580,10 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 }
 
 type KVT struct {
-	K []byte
-	V []byte
-	T uint64
+	K       []byte
+	V       []byte
+	T       uint64
+	Deleted bool
 }
 
 func (t *TBtree) lock() {
@@ -1613,7 +1615,6 @@ func (t *TBtree) Insert(key []byte, value []byte) error {
 func (t *TBtree) BulkInsert(kvts []*KVT) error {
 	t.lock()
 	defer t.unlock()
-
 	return t.bulkInsert(kvts)
 }
 
@@ -1663,9 +1664,10 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 		}
 
 		immutableKVTs[i] = &KVT{
-			K: k,
-			V: v,
-			T: t,
+			K:       k,
+			V:       v,
+			T:       t,
+			Deleted: kvt.Deleted,
 		}
 
 		if t > newTs {
@@ -1945,15 +1947,15 @@ func (n *innerNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err er
 	return nodes, depth + 1, nil
 }
 
-func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+func (n *innerNode) get(key []byte) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	return n.nodes[n.indexOf(key)].get(key)
 }
 
-func (n *innerNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+func (n *innerNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	return n.nodes[n.indexOf(key)].getBetween(key, initialTs, finalTs)
 }
 
-func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, error) {
+func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, uint64, error) {
 	return n.nodes[n.indexOf(key)].history(key, offset, descOrder, limit)
 }
 
@@ -2153,26 +2155,26 @@ func (r *nodeRef) insert(kvts []*KVT) (nodes []node, depth int, err error) {
 	return n.insert(kvts)
 }
 
-func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+func (r *nodeRef) get(key []byte) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, 0, 0, err
 	}
 	return n.get(key)
 }
 
-func (r *nodeRef) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+func (r *nodeRef) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, 0, 0, err
 	}
 	return n.getBetween(key, initialTs, finalTs)
 }
 
-func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, error) {
+func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, uint64, error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 	return n.history(key, offset, descOrder, limit)
 }
@@ -2268,17 +2270,24 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 
 			if kvt.T > lv.timedValue().Ts {
 				lv.timedValues = append([]TimedValue{{Value: kvt.V, Ts: kvt.T}}, lv.timedValues...)
+				if kvt.Deleted {
+					lv.lastDeleteAtTs = kvt.T
+				}
 			}
 		} else {
 			values := make([]*leafValue, len(l.values)+1)
 
 			copy(values, l.values[:i])
 
-			values[i] = &leafValue{
+			lf := &leafValue{
 				key:         kvt.K,
 				timedValues: []TimedValue{{Value: kvt.V, Ts: kvt.T}},
 			}
+			if kvt.Deleted {
+				lf.lastDeleteAtTs = kvt.T
+			}
 
+			values[i] = lf
 			copy(values[i+1:], l.values[i:])
 
 			l.values = values
@@ -2294,24 +2303,24 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 	return nodes, 1, err
 }
 
-func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+func (l *leafNode) get(key []byte) (value []byte, ts uint64, lastDeleteAtTx uint64, hc uint64, err error) {
 	i, found := l.indexOf(key)
 
 	if !found {
-		return nil, 0, 0, ErrKeyNotFound
+		return nil, 0, 0, 0, ErrKeyNotFound
 	}
 
 	leafValue := l.values[i]
 	timedValue := leafValue.timedValue()
 
-	return timedValue.Value, timedValue.Ts, leafValue.historyCount(), nil
+	return timedValue.Value, timedValue.Ts, leafValue.lastDeleteAtTs, leafValue.historyCount(), nil
 }
 
-func (l *leafNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+func (l *leafNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	i, found := l.indexOf(key)
 
 	if !found {
-		return nil, 0, 0, ErrKeyNotFound
+		return nil, 0, 0, 0, ErrKeyNotFound
 	}
 
 	leafValue := l.values[i]
@@ -2319,11 +2328,11 @@ func (l *leafNode) getBetween(key []byte, initialTs, finalTs uint64) (value []by
 	return leafValue.lastUpdateBetween(l.t.hLog, initialTs, finalTs)
 }
 
-func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]TimedValue, uint64, error) {
+func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]TimedValue, uint64, uint64, error) {
 	i, found := l.indexOf(key)
 
 	if !found {
-		return nil, 0, ErrKeyNotFound
+		return nil, 0, 0, ErrKeyNotFound
 	}
 
 	leafValue := l.values[i]
@@ -2331,15 +2340,15 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]T
 	return leafValue.history(key, offset, desc, limit, l.t.hLog)
 }
 
-func (lv *leafValue) history(key []byte, offset uint64, desc bool, limit int, hLog appendable.Appendable) ([]TimedValue, uint64, error) {
+func (lv *leafValue) history(key []byte, offset uint64, desc bool, limit int, hLog appendable.Appendable) ([]TimedValue, uint64, uint64, error) {
 	hCount := lv.historyCount()
 
 	if offset == hCount {
-		return nil, 0, ErrNoMoreEntries
+		return nil, 0, 0, ErrNoMoreEntries
 	}
 
 	if offset > hCount {
-		return nil, 0, ErrOffsetOutOfRange
+		return nil, 0, 0, ErrOffsetOutOfRange
 	}
 
 	timedValuesLen := limit
@@ -2377,24 +2386,24 @@ func (lv *leafValue) history(key []byte, offset uint64, desc bool, limit int, hL
 
 		hc, err := r.ReadUint32()
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 
 		for i := 0; i < int(hc) && tssOff < timedValuesLen; i++ {
 			valueLen, err := r.ReadUint16()
 			if err != nil {
-				return nil, 0, err
+				return nil, 0, 0, err
 			}
 
 			value := make([]byte, valueLen)
 			_, err = r.Read(value)
 			if err != nil {
-				return nil, 0, err
+				return nil, 0, 0, err
 			}
 
 			ts, err := r.ReadUint64()
 			if err != nil {
-				return nil, 0, err
+				return nil, 0, 0, err
 			}
 
 			if ti < initAt {
@@ -2413,13 +2422,13 @@ func (lv *leafValue) history(key []byte, offset uint64, desc bool, limit int, hL
 
 		prevOff, err := r.ReadUint64()
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 
 		hOff = int64(prevOff)
 	}
 
-	return timedValues, hCount, nil
+	return timedValues, lv.lastDeleteAtTs, hCount, nil
 }
 
 func (l *leafNode) findLeafNode(seekKey []byte, path path, _ int, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
@@ -2623,18 +2632,18 @@ func (lv *leafValue) size() int {
 	return 16 + len(lv.key) + len(lv.timedValue().Value)
 }
 
-func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, finalTs uint64) (value []byte, ts uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	if initialTs > finalTs {
-		return nil, 0, 0, ErrIllegalArguments
+		return nil, 0, 0, 0, ErrIllegalArguments
 	}
 
 	for i, tv := range lv.timedValues {
 		if tv.Ts < initialTs {
-			return nil, 0, 0, ErrKeyNotFound
+			return nil, 0, 0, 0, ErrKeyNotFound
 		}
 
 		if finalTs == 0 || tv.Ts <= finalTs {
-			return tv.Value, tv.Ts, lv.historyCount() - uint64(i), nil
+			return tv.Value, tv.Ts, lv.lastDeleteAtTs, lv.historyCount() - uint64(i), nil
 		}
 	}
 
@@ -2646,32 +2655,32 @@ func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, fi
 
 		hc, err := r.ReadUint32()
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, 0, 0, err
 		}
 
 		for j := 0; j < int(hc); j++ {
 			valueLen, err := r.ReadUint16()
 			if err != nil {
-				return nil, 0, 0, err
+				return nil, 0, 0, 0, err
 			}
 
 			value := make([]byte, valueLen)
 			_, err = r.Read(value)
 			if err != nil {
-				return nil, 0, 0, err
+				return nil, 0, 0, 0, err
 			}
 
 			ts, err := r.ReadUint64()
 			if err != nil {
-				return nil, 0, 0, err
+				return nil, 0, 0, 0, err
 			}
 
 			if ts < initialTs {
-				return nil, 0, 0, ErrKeyNotFound
+				return nil, 0, 0, 0, ErrKeyNotFound
 			}
 
 			if ts <= finalTs {
-				return value, ts, lv.hCount - skippedUpdates, nil
+				return value, ts, lv.lastDeleteAtTs, lv.hCount - skippedUpdates, nil
 			}
 
 			skippedUpdates++
@@ -2679,11 +2688,11 @@ func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, fi
 
 		prevOff, err := r.ReadUint64()
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, 0, 0, err
 		}
 
 		hOff = int64(prevOff)
 	}
 
-	return nil, 0, 0, ErrKeyNotFound
+	return nil, 0, 0, 0, ErrKeyNotFound
 }

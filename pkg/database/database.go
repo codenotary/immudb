@@ -1564,10 +1564,15 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 
 	for i, valRef := range valRefs {
 		val, err := valRef.Resolve()
-		if err != nil && err != store.ErrExpiredEntry {
+		if err != nil && err != store.ErrExpiredEntry && err != store.ErrValueDeleted {
 			return nil, err
 		}
-		if len(val) > 0 {
+
+		if err == store.ErrValueDeleted {
+			hVal := valRef.HVal()
+			val = hVal[:]
+			err = nil
+		} else if len(val) > 0 {
 			val = TrimPrefix(val)
 		}
 

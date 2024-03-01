@@ -917,12 +917,20 @@ func (s *ImmuStore) GetBetween(ctx context.Context, key []byte, initialTxID uint
 		return nil, err
 	}
 
-	indexedVal, tx, hc, err := indexer.GetBetween(key, initialTxID, finalTxID)
+	indexedVal, tx, lastDeleteAtTx, hc, err := indexer.GetBetween(key, initialTxID, finalTxID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.valueRefFrom(tx, hc, indexedVal)
+	valRef, err = s.valueRefFrom(tx, hc, indexedVal)
+	if err != nil {
+		return nil, err
+	}
+
+	if lastDeleteAtTx > finalTxID {
+		return &deletedValueRef{ValueRef: valRef}, nil
+	}
+	return valRef, nil
 }
 
 func (s *ImmuStore) Get(ctx context.Context, key []byte) (valRef ValueRef, err error) {
@@ -938,7 +946,7 @@ func (s *ImmuStore) GetWithFilters(ctx context.Context, key []byte, filters ...F
 		return nil, err
 	}
 
-	indexedVal, tx, hc, err := indexer.Get(key)
+	indexedVal, tx, _, hc, err := indexer.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -1010,11 +1018,10 @@ func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int
 		if errors.Is(err, ErrIndexNotFound) {
 			return nil, 0, ErrKeyNotFound
 		}
-
 		return nil, 0, err
 	}
 
-	timedValues, hCount, err := indexer.History(key, offset, descOrder, limit)
+	timedValues, lastDeleteAtTx, hCount, err := indexer.History(key, offset, descOrder, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1041,6 +1048,15 @@ func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int
 		}
 	}
 
+	for i, valRef := range valRefs {
+		md := valRef.KVMetadata()
+		isExpired := md != nil && md.ExpiredAt(time.Now())
+		isDeleted := lastDeleteAtTx > valRef.Tx()
+
+		if isDeleted || isExpired {
+			valRefs[i] = &deletedValueRef{ValueRef: valRef}
+		}
+	}
 	return valRefs, hCount, nil
 }
 
@@ -3063,7 +3079,7 @@ func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte, skipIntegrityCheck bool
 		return nil, nil, err
 	}
 
-	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
+	e := &TxEntry{txID: txID, k: make([]byte, s.maxKeyLen)}
 
 	for i := 0; i < header.NEntries; i++ {
 		err = tdr.readEntry(e)
@@ -3078,7 +3094,7 @@ func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte, skipIntegrityCheck bool
 			ret = e
 
 			// Allocate new placeholder for scanning the rest of entries
-			e = &TxEntry{k: make([]byte, s.maxKeyLen)}
+			e = &TxEntry{txID: txID, k: make([]byte, s.maxKeyLen)}
 		}
 	}
 	if ret == nil {
@@ -3113,6 +3129,25 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 		return nil, ErrExpiredEntry
 	}
 
+	indexer, err := s.getIndexerFor(entry.key())
+	if err != nil && !errors.Is(err, ErrIndexNotFound) {
+		return nil, err
+	}
+
+	if !errors.Is(err, ErrIndexNotFound) {
+		_, _, lastDeleteAtTx, _, err := indexer.Get(entry.key())
+		if err != nil {
+			if errors.Is(err, ErrKeyNotFound) {
+				return nil, nil
+			}
+			return nil, err
+		}
+
+		if lastDeleteAtTx > entry.txID {
+			return nil, ErrValueDeleted
+		}
+	}
+
 	if entry.vLen == 0 {
 		// while not required, nil is returned instead of an empty slice
 
@@ -3124,11 +3159,9 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 
 	b := make([]byte, entry.vLen)
 
-	_, err := s.readValueAt(b, entry.vOff, entry.hVal, false)
-	if err != nil {
+	if _, err := s.readValueAt(b, entry.vOff, entry.hVal, false); err != nil {
 		return nil, err
 	}
-
 	return b, nil
 }
 

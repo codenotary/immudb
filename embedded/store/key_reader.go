@@ -20,11 +20,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
+
+var ErrValueDeleted = errors.New("value has been deleted")
 
 type Snapshot struct {
 	st             *ImmuStore
@@ -165,7 +168,7 @@ func (s *Snapshot) GetWithPrefixAndFilters(ctx context.Context, prefix []byte, n
 }
 
 func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (valRefs []ValueRef, hCount uint64, err error) {
-	timedValues, hCount, err := s.snap.History(key, offset, descOrder, limit)
+	timedValues, _, hCount, err := s.snap.History(key, offset, descOrder, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -256,6 +259,14 @@ type valueRef struct {
 	txmd   *TxMetadata
 	kvmd   *KVMetadata
 	st     *ImmuStore
+}
+
+type deletedValueRef struct {
+	ValueRef
+}
+
+func (ref *deletedValueRef) Resolve() (val []byte, err error) {
+	return nil, ErrValueDeleted
 }
 
 func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, error) {

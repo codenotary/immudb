@@ -5,7 +5,7 @@ SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://mariadb.com/bsl11/
+	https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -1107,6 +1107,10 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 
 	for _, valRef := range valRefs {
 		docAtRevision, err := e.getDocument(searchKey, valRef, includePayload)
+		if errors.Is(err, store.ErrValueDeleted) {
+			continue
+		}
+
 		if err != nil {
 			return nil, err
 		}

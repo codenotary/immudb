@@ -153,7 +153,7 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, value []byt
 			continue
 		}
 
-		value, ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
+		value, ts, _, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
 		if err == nil {
 			return cp(leafValue.key), cp(value), ts, hc, nil
 		}
@@ -265,7 +265,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 			return cp(leafValue.key), cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.historyCount(), nil
 		}
 
-		tvs, hc, err := r.leafValue.history(r.leafValue.key, uint64(r.hoff), r.descOrder, 1, r.leafNode.t.hLog)
+		tvs, _, hc, err := r.leafValue.history(r.leafValue.key, uint64(r.hoff), r.descOrder, 1, r.leafNode.t.hLog)
 		if errors.Is(err, ErrNoMoreEntries) {
 			r.leafValue = nil
 			r.hoff = 0
