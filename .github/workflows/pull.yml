@@ -158,7 +158,7 @@ jobs:
           # Stop minio
           docker rm -f minio
         env:
-          SECRET_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SECRET_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         env:
