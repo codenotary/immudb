@@ -1522,6 +1522,34 @@ func TestMultiTimedBulkInsertion(t *testing.T) {
 	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
 
+	t.Run("bulk insertion should update lastDeleteAtTs", func(t *testing.T) {
+		currTs := tbtree.Ts()
+
+		kvts := []*KVT{
+			{K: []byte("key"), V: []byte("value1"), T: currTs + 1},
+			{K: []byte("key"), V: []byte("value2"), T: currTs + 2, Deleted: true},
+			{K: []byte("key"), V: []byte("value3"), T: currTs + 3},
+			{K: []byte("key"), V: []byte("value4"), T: currTs + 4},
+		}
+
+		err = tbtree.BulkInsert(kvts)
+		require.NoError(t, err)
+
+		_, _, lastDeleteAtTs, _, err := tbtree.Get([]byte("key"))
+		require.NoError(t, err)
+		require.Equal(t, currTs+2, lastDeleteAtTs)
+
+		err = tbtree.BulkInsert([]*KVT{
+			{K: []byte("key"), V: []byte("value1"), T: currTs + 5},
+			{K: []byte("key"), V: []byte("value2"), T: currTs + 6, Deleted: true},
+		})
+		require.NoError(t, err)
+
+		_, _, lastDeleteAtTs, _, err = tbtree.Get([]byte("key"))
+		require.NoError(t, err)
+		require.Equal(t, currTs+6, lastDeleteAtTs)
+	})
+
 	t.Run("multi-timed bulk insertion should succeed", func(t *testing.T) {
 		currTs := tbtree.Ts()
 
