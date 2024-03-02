@@ -20,14 +20,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
-
-var ErrValueDeleted = errors.New("value has been deleted")
 
 type Snapshot struct {
 	st             *ImmuStore
@@ -261,12 +258,16 @@ type valueRef struct {
 	st     *ImmuStore
 }
 
-type deletedValueRef struct {
+type unreadableValueRef struct {
 	ValueRef
 }
 
-func (ref *deletedValueRef) Resolve() (val []byte, err error) {
-	return nil, ErrValueDeleted
+func (ref *unreadableValueRef) Resolve() (val []byte, err error) {
+	md := ref.ValueRef.KVMetadata()
+	if md != nil && md.ExpiredAt(time.Now()) {
+		return nil, ErrExpiredEntry
+	}
+	return nil, ErrDeletedEntry
 }
 
 func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, error) {

@@ -31,7 +31,7 @@ func TestDeletedEntryIsNotAccesibleFromReadEntry(t *testing.T) {
 	deleteKey(t, immuStore, key)
 
 	val, err = immuStore.ReadValue(entry)
-	require.ErrorIs(t, err, ErrValueDeleted)
+	require.ErrorIs(t, err, ErrDeletedEntry)
 	require.Nil(t, val)
 }
 
@@ -56,7 +56,7 @@ func TestDeletedEntriesAreNotAccessibleFromGetBetween(t *testing.T) {
 
 		val, err := valRef.Resolve()
 		require.Nil(t, val)
-		require.ErrorIs(t, err, ErrValueDeleted)
+		require.ErrorIs(t, err, ErrDeletedEntry)
 	}
 
 	valRef, err := immuStore.GetBetween(context.Background(), key, 0, uint64(nRecordsBeforeDelete+1))
@@ -168,7 +168,7 @@ func TestExpiredEntryIsNotAccessibleFromHistory(t *testing.T) {
 	for i, valRef := range valRefs {
 		value, err := valRef.Resolve()
 		if i == expiredRecordIndex {
-			require.ErrorIs(t, err, ErrValueDeleted)
+			require.ErrorIs(t, err, ErrExpiredEntry)
 			require.Nil(t, value)
 		} else {
 			require.NoError(t, err)
@@ -193,7 +193,7 @@ func assertValuesAreDeleted(t *testing.T, valRefs []ValueRef) {
 	for i := 0; i < len(valRefs)-1; i++ {
 		value, err := valRefs[i].Resolve()
 		require.Nil(t, value)
-		require.ErrorIs(t, err, ErrValueDeleted)
+		require.ErrorIs(t, err, ErrDeletedEntry)
 	}
 }
 

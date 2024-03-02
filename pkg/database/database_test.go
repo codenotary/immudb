@@ -392,7 +392,7 @@ func TestDelete(t *testing.T) {
 		},
 	})
 
-	require.ErrorIs(t, err, store.ErrValueDeleted)
+	require.ErrorIs(t, err, store.ErrDeletedEntry)
 	require.Nil(t, tx)
 }
 

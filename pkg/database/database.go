@@ -1564,11 +1564,12 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 
 	for i, valRef := range valRefs {
 		val, err := valRef.Resolve()
-		if err != nil && err != store.ErrExpiredEntry && err != store.ErrValueDeleted {
+		valueAccessible := err != store.ErrExpiredEntry && err != store.ErrDeletedEntry
+		if err != nil && valueAccessible {
 			return nil, err
 		}
 
-		if err == store.ErrValueDeleted {
+		if !valueAccessible {
 			hVal := valRef.HVal()
 			val = hVal[:]
 			err = nil

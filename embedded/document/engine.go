@@ -1107,7 +1107,7 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 
 	for _, valRef := range valRefs {
 		docAtRevision, err := e.getDocument(searchKey, valRef, includePayload)
-		if errors.Is(err, store.ErrValueDeleted) {
+		if errors.Is(err, store.ErrDeletedEntry) {
 			continue
 		}
 

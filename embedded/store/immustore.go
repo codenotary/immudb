@@ -78,6 +78,7 @@ var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound // TODO: define error in store layer
 var ErrExpiredEntry = fmt.Errorf("%w: expired entry", ErrKeyNotFound)
+var ErrDeletedEntry = fmt.Errorf("%w: deleted entry", ErrKeyNotFound)
 var ErrKeyAlreadyExists = errors.New("key already exists")
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries       // TODO: define error in store layer
@@ -928,7 +929,7 @@ func (s *ImmuStore) GetBetween(ctx context.Context, key []byte, initialTxID uint
 	}
 
 	if lastDeleteAtTx > finalTxID {
-		return &deletedValueRef{ValueRef: valRef}, nil
+		return &unreadableValueRef{ValueRef: valRef}, nil
 	}
 	return valRef, nil
 }
@@ -1054,7 +1055,7 @@ func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int
 		isDeleted := lastDeleteAtTx > valRef.Tx()
 
 		if isDeleted || isExpired {
-			valRefs[i] = &deletedValueRef{ValueRef: valRef}
+			valRefs[i] = &unreadableValueRef{ValueRef: valRef}
 		}
 	}
 	return valRefs, hCount, nil
@@ -3144,7 +3145,7 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 		}
 
 		if lastDeleteAtTx > entry.txID {
-			return nil, ErrValueDeleted
+			return nil, ErrDeletedEntry
 		}
 	}
 
