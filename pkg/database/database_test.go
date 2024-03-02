@@ -1004,13 +1004,14 @@ func TestHistory(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
+	db.maxResultSize = 3
+
 	inc, err := db.History(context.Background(), &schema.HistoryRequest{
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
 	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 
-	// TODO: put additional set
 	deleteFound := false
 	for i := range inc.Entries {
 		val := inc.Entries[len(inc.Entries)-1-i]
@@ -1029,6 +1030,8 @@ func TestHistory(t *testing.T) {
 		}
 		require.EqualValues(t, uint64(len(inc.Entries))-(uint64(i)), val.Revision)
 	}
+
+	db.maxResultSize = 2
 
 	dec, err := db.History(context.Background(), &schema.HistoryRequest{
 		Key:     kvs[0].Key,
