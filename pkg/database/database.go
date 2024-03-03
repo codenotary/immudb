@@ -1572,7 +1572,6 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 		if !valueAccessible {
 			hVal := valRef.HVal()
 			val = hVal[:]
-			err = nil
 		} else if len(val) > 0 {
 			val = TrimPrefix(val)
 		}
