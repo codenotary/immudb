@@ -117,7 +117,15 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
-		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction).
+		WithIsDeletedValueFunc(func(b []byte) bool {
+			valRef, err := store.valueRefFrom(0, 0, b)
+			if err != nil {
+				return false
+			}
+			md := valRef.KVMetadata()
+			return md != nil && md.Deleted()
+		})
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {

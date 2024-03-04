@@ -178,6 +178,8 @@ type TBtree struct {
 
 	root node
 
+	isDeletedValue func([]byte) bool
+
 	maxNodeSize                int
 	insertionCountSinceFlush   int
 	insertionCountSinceSync    int
@@ -578,6 +580,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		historyLogMaxOpenedFiles: opts.historyLogMaxOpenedFiles,
 		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
 		readOnly:                 opts.readOnly,
+		isDeletedValue:           opts.isDeletedValue,
 		snapshots:                make(map[uint64]*Snapshot),
 	}
 
@@ -921,6 +924,10 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 			timedValues: []TimedValue{{Value: value, Ts: ts}},
 			hOff:        int64(hOff),
 			hCount:      hCount,
+		}
+
+		if len(value) > 0 && t.isDeletedValue != nil && t.isDeletedValue(value) {
+			leafValue.lastDeleteAtTs = ts
 		}
 
 		l.values[c] = leafValue
@@ -2244,10 +2251,11 @@ func (l *leafNode) insert(kvts []*KVT) (nodes []node, depth int, err error) {
 		copy(timedValues, lv.timedValues)
 
 		newLeaf.values[i] = &leafValue{
-			key:         lv.key,
-			timedValues: timedValues,
-			hOff:        lv.hOff,
-			hCount:      lv.hCount,
+			key:            lv.key,
+			timedValues:    timedValues,
+			hOff:           lv.hOff,
+			hCount:         lv.hCount,
+			lastDeleteAtTs: lv.lastDeleteAtTs,
 		}
 	}
 
@@ -2527,10 +2535,11 @@ func (l *leafNode) setTs(ts uint64) (node, error) {
 		copy(timedValues, lv.timedValues)
 
 		newLeaf.values[i] = &leafValue{
-			key:         lv.key,
-			timedValues: timedValues,
-			hOff:        lv.hOff,
-			hCount:      lv.hCount,
+			key:            lv.key,
+			timedValues:    timedValues,
+			hOff:           lv.hOff,
+			hCount:         lv.hCount,
+			lastDeleteAtTs: lv.lastDeleteAtTs,
 		}
 	}
 
