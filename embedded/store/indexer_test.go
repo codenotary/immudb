@@ -47,13 +47,13 @@ func TestClosedIndexerFailures(t *testing.T) {
 	err = indexer.Close()
 	require.NoError(t, err)
 
-	v, tx, hc, err := indexer.Get(nil)
+	v, tx, _, hc, err := indexer.Get(nil)
 	require.Zero(t, v)
 	require.Zero(t, tx)
 	require.Zero(t, hc)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	txs, hCount, err := indexer.History(nil, 0, false, 0)
+	txs, _, hCount, err := indexer.History(nil, 0, false, 0)
 	require.Zero(t, txs)
 	require.Zero(t, hCount)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
@@ -190,11 +190,11 @@ func TestClosedIndexer(t *testing.T) {
 	var err error
 	dummy := []byte("dummy")
 
-	_, _, _, err = i.Get(dummy)
+	_, _, _, _, err = i.Get(dummy)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, _, err = i.History(dummy, 0, false, 0)
+	_, _, _, err = i.History(dummy, 0, false, 0)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
@@ -206,7 +206,7 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, _, _, err = i.GetBetween(dummy, 1, 2)
+	_, _, _, _, err = i.GetBetween(dummy, 1, 2)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, _, err = i.GetWithPrefix(dummy, dummy)

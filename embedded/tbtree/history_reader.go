@@ -58,7 +58,7 @@ func (r *HistoryReader) Read() ([]TimedValue, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	timedValues, _, err := r.snapshot.History(r.key, r.offset, r.descOrder, r.readLimit)
+	timedValues, _, _, err := r.snapshot.History(r.key, r.offset, r.descOrder, r.readLimit)
 	if err != nil {
 		return nil, err
 	}

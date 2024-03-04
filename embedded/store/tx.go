@@ -630,6 +630,7 @@ func (t *txDataReader) buildAndValidateHtree(htree *htree.HTree) error {
 }
 
 type TxEntry struct {
+	txID     uint64 // NOTE: this is only set by ReadTxEntry() method to prevent that deleted records can be read
 	k        []byte
 	kLen     int
 	md       *KVMetadata

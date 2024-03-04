@@ -165,7 +165,7 @@ func (s *Snapshot) GetWithPrefixAndFilters(ctx context.Context, prefix []byte, n
 }
 
 func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (valRefs []ValueRef, hCount uint64, err error) {
-	timedValues, hCount, err := s.snap.History(key, offset, descOrder, limit)
+	timedValues, _, hCount, err := s.snap.History(key, offset, descOrder, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -256,6 +256,18 @@ type valueRef struct {
 	txmd   *TxMetadata
 	kvmd   *KVMetadata
 	st     *ImmuStore
+}
+
+type unreadableValueRef struct {
+	ValueRef
+}
+
+func (ref *unreadableValueRef) Resolve() (val []byte, err error) {
+	md := ref.ValueRef.KVMetadata()
+	if md != nil && md.ExpiredAt(time.Now()) {
+		return nil, ErrExpiredEntry
+	}
+	return nil, ErrDeletedEntry
 }
 
 func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, error) {

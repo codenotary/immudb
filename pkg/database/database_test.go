@@ -391,9 +391,9 @@ func TestDelete(t *testing.T) {
 			},
 		},
 	})
-	require.NoError(t, err)
-	require.NotNil(t, tx)
-	require.Empty(t, tx.KvEntries)
+
+	require.ErrorIs(t, err, store.ErrDeletedEntry)
+	require.Nil(t, tx)
 }
 
 func TestCurrentState(t *testing.T) {
@@ -1004,21 +1004,34 @@ func TestHistory(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
+	db.maxResultSize = 3
+
 	inc, err := db.History(context.Background(), &schema.HistoryRequest{
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
 	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 
-	for i, val := range inc.Entries {
+	deleteFound := false
+	for i := range inc.Entries {
+		val := inc.Entries[len(inc.Entries)-1-i]
+
 		require.Equal(t, kvs[0].Key, val.Key)
 		if val.GetMetadata().GetDeleted() {
 			require.Empty(t, val.Value)
+			deleteFound = true
 		} else {
-			require.Equal(t, kvs[0].Value, val.Value)
+			if deleteFound {
+				hVal := sha256.Sum256(WrapWithPrefix(kvs[0].Value, PlainValuePrefix))
+				require.Equal(t, hVal[:], val.Value)
+			} else {
+				require.Equal(t, kvs[0].Value, val.Value)
+			}
 		}
-		require.EqualValues(t, i+1, val.Revision)
+		require.EqualValues(t, uint64(len(inc.Entries))-(uint64(i)), val.Revision)
 	}
+
+	db.maxResultSize = 2
 
 	dec, err := db.History(context.Background(), &schema.HistoryRequest{
 		Key:     kvs[0].Key,

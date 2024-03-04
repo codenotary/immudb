@@ -117,7 +117,15 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
-		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction).
+		WithIsDeletedValueFunc(func(b []byte) bool {
+			valRef, err := store.valueRefFrom(0, 0, b)
+			if err != nil {
+				return false
+			}
+			md := valRef.KVMetadata()
+			return md != nil && md.Deleted()
+		})
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
@@ -196,34 +204,34 @@ func (idx *indexer) SyncSnapshot() (*tbtree.Snapshot, error) {
 	return idx.index.SyncSnapshot()
 }
 
-func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
+func (idx *indexer) Get(key []byte) (value []byte, tx uint64, lastDeleteAtTx uint64, hc uint64, err error) {
 	idx.rwmutex.RLock()
 	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
-		return nil, 0, 0, ErrAlreadyClosed
+		return nil, 0, 0, 0, ErrAlreadyClosed
 	}
 
 	return idx.index.Get(key)
 }
 
-func (idx *indexer) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (value []byte, tx uint64, hc uint64, err error) {
+func (idx *indexer) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (value []byte, tx uint64, lastDeleteAtTs uint64, hc uint64, err error) {
 	idx.rwmutex.RLock()
 	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
-		return nil, 0, 0, ErrAlreadyClosed
+		return nil, 0, 0, 0, ErrAlreadyClosed
 	}
 
 	return idx.index.GetBetween(key, initialTxID, finalTxID)
 }
 
-func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, hCount uint64, err error) {
+func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, lastDeleteAtTx uint64, hCount uint64, err error) {
 	idx.rwmutex.RLock()
 	defer idx.rwmutex.RUnlock()
 
 	if idx.closed {
-		return nil, 0, ErrAlreadyClosed
+		return nil, 0, 0, ErrAlreadyClosed
 	}
 
 	return idx.index.History(key, offset, descOrder, limit)
@@ -566,6 +574,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 			idx._kvs[indexableEntries].K = targetKey
 			idx._kvs[indexableEntries].V = b[:n]
 			idx._kvs[indexableEntries].T = txID + uint64(i)
+			idx._kvs[indexableEntries].Deleted = e.md != nil && e.md.Deleted()
 
 			indexableEntries++
 
@@ -584,7 +593,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 				}
 
 				// the previous entry as of txID must be deleted from the target index
-				_, prevTxID, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
+				_, prevTxID, _, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
 				if err == nil {
 					prevEntry, prevTxHdr, err := idx.store.ReadTxEntry(prevTxID, e.key(), false)
 					if err != nil {
@@ -635,6 +644,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 					idx._kvs[indexableEntries].K = targetPrevKey
 					idx._kvs[indexableEntries].V = b[:n]
 					idx._kvs[indexableEntries].T = txID + uint64(i)
+					idx._kvs[indexableEntries].Deleted = prevEntry.md != nil && prevEntry.md.Deleted()
 
 					indexableEntries++
 				} else if !errors.Is(err, ErrKeyNotFound) {

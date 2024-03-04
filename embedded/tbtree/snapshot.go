@@ -121,7 +121,7 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	}
 
 	// Delegate the retrieval to the root node
-	v, ts, hc, err := s.root.get(key)
+	v, ts, _, hc, err := s.root.get(key)
 	return cp(v), ts, hc, err
 }
 
@@ -137,34 +137,34 @@ func (s *Snapshot) GetBetween(key []byte, initialTs, finalTs uint64) (value []by
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	v, ts, hc, err := s.root.getBetween(key, initialTs, finalTs)
+	v, ts, _, hc, err := s.root.getBetween(key, initialTs, finalTs)
 	return cp(v), ts, hc, err
 }
 
 // History retrieves the history of a key in the snapshot.
 // It locks the snapshot for reading, and delegates the history retrieval to the root node.
-// The method returns an array of timestamps, the hash count, and an error.
+// The method returns an array of timestamps, the id of the last transaction at which the key was deleted, the hash count, and an error.
 // Example usage:
 //
-//	timestamps, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error) {
+//	timestamps, lastDeleteAtTx, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, lastDeleteTs uint64, hCount uint64, err error) {
 	// Acquire a read lock on the snapshot
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	// Check if the snapshot is closed
 	if s.closed {
-		return nil, 0, ErrAlreadyClosed
+		return nil, 0, 0, ErrAlreadyClosed
 	}
 
 	// Check if the key argument is nil
 	if key == nil {
-		return nil, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
 	// Check if the limit argument is less than 1
 	if limit < 1 {
-		return nil, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
 	// Delegate the history retrieval to the root node
