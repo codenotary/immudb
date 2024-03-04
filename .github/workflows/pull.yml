@@ -38,7 +38,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Test
         run: make test
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: securego/gosec@v2.17.0
         with:
           args: -fmt=json -out=results-$JOB_ID.json -no-fail ./...
@@ -135,7 +135,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.18"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           # Spawn minio docker container in the background
           docker run -d -t -p 9000:9000 --name minio \
@@ -199,7 +199,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.18"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - run: ./perf-test-suite > perf-test-results.json
       - name: Upload test results

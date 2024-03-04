@@ -14,7 +14,7 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: "1.18"
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Build stress tool
       run: |
         go build embedded/tools/stress_tool/stress_tool.go
