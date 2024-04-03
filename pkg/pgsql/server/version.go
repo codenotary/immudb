@@ -29,7 +29,7 @@ func (s *session) writeVersionInfo() error {
 	}
 	rows := []*schema.Row{{
 		Columns: []string{"version"},
-		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: pgmeta.PgsqlProtocolVersionMessage}}},
+		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: pgmeta.PgsqlServerVersionMessage}}},
 	}}
 	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
 		return err

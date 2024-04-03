@@ -58,7 +58,7 @@ func (s *session) InitializeSession() (err error) {
 	s.protocolVersion = parseProtocolVersion(pvb)
 
 	// SSL Request packet
-	if s.protocolVersion == "1234.5679" {
+	if s.protocolVersion == pgmeta.PgsqlSSLRequestProtocolVersion {
 		if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
 			if _, err = s.writeMessage([]byte(`N`)); err != nil {
 				return err
@@ -86,8 +86,20 @@ func (s *session) InitializeSession() (err error) {
 		s.protocolVersion = parseProtocolVersion(pvb)
 	}
 
+	if !isValidProtocolVersion(s.protocolVersion) {
+		return fmt.Errorf("%w: %s", pgmeta.ErrInvalidPgsqlProtocolVersion, s.protocolVersion)
+	}
+
 	// startup message
-	connStringLenght := int(binary.BigEndian.Uint32(lb) - 4)
+	connStringLenght := int(binary.BigEndian.Uint32(lb) - 8)
+	if connStringLenght < 0 {
+		return pserr.ErrMalformedMessage
+	}
+
+	if connStringLenght > pgmeta.MaxMsgSize {
+		return pserr.ErrMessageTooLarge
+	}
+
 	connString := make([]byte, connStringLenght)
 
 	if _, err := s.mr.Read(connString); err != nil {
@@ -214,7 +226,7 @@ func (s *session) HandleStartup(ctx context.Context) (err error) {
 	}
 
 	// todo this is needed by jdbc driver. Here is added the minor supported version at the moment
-	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte(pgmeta.PgsqlProtocolVersion))); err != nil {
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte(pgmeta.PgsqlServerVersion))); err != nil {
 		return err
 	}
 
@@ -225,6 +237,10 @@ func parseProtocolVersion(payload []byte) string {
 	major := int(binary.BigEndian.Uint16(payload[0:2]))
 	minor := int(binary.BigEndian.Uint16(payload[2:4]))
 	return fmt.Sprintf("%d.%d", major, minor)
+}
+
+func isValidProtocolVersion(version string) bool {
+	return version == pgmeta.PgsqlProtocolVersion || version == pgmeta.PgsqlSSLRequestProtocolVersion
 }
 
 func (s *session) Close() error {
