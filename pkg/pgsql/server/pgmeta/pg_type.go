@@ -17,15 +17,21 @@ limitations under the License.
 package pgmeta
 
 import (
+	"errors"
 	"fmt"
 )
 
-const PgTypeMapOid = 0
-const PgTypeMapLength = 1
+const (
+	PgTypeMapOid    = 0
+	PgTypeMapLength = 1
 
-const PgsqlProtocolVersion = "9.6"
+	PgsqlProtocolVersion           = "3.0"
+	PgsqlSSLRequestProtocolVersion = "1234.5679"
+	PgsqlServerVersion             = "9.6"
+)
 
-var PgsqlProtocolVersionMessage = fmt.Sprintf("pgsql wire protocol %s or greater version implemented by immudb", PgsqlProtocolVersion)
+var PgsqlServerVersionMessage = fmt.Sprintf("pgsql server %s or greater version implemented by immudb", PgsqlServerVersion)
+var ErrInvalidPgsqlProtocolVersion = errors.New("invalid pgsql protocol version")
 
 // PgTypeMap maps the immudb type descriptor with pgsql pgtype map.
 // First int is the oid value (retrieved with select * from pg_type;)
