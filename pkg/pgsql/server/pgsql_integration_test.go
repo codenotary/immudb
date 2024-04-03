@@ -727,7 +727,7 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 	var version string
 	err = db.QueryRow("SELECT version()").Scan(&version)
 	require.NoError(t, err)
-	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
+	require.Equal(t, pgmeta.PgsqlServerVersionMessage, version)
 
 	_, err = db.Exec("DEALLOCATE \"_PLAN0x7fb2c0822800\"")
 	require.NoError(t, err)
