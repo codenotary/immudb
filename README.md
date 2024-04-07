@@ -319,6 +319,10 @@ The following topics are important to us and are planned or already being worked
 
 We welcome [contributors](CONTRIBUTING.md). Feel free to join the team!
 
+<a href="https://github.com/codenotary/immudb/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=codenotary/immudb" />
+</a>
+
 Learn how to [build](BUILD.md) immudb components in both binary and Docker image form.
 
 To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/immudb/issues).
