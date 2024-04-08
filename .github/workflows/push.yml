@@ -221,12 +221,12 @@ jobs:
       env:
         JOB_NAME: ${{ github.job }}
         JOB_ID: ${{ github.run_id }}
-        DOCKER_IMAGE_IMMUDB: "codenotary/immudb"
-        DOCKER_IMAGE_IMMUDB_FIPS: "codenotary/immudb-fips"
-        DOCKER_IMAGE_IMMUADMIN: "codenotary/immuadmin"
-        DOCKER_IMAGE_IMMUADMIN_FIPS: "codenotary/immuadmin-fips"
-        DOCKER_IMAGE_IMMUCLIENT: "codenotary/immuclient"
-        DOCKER_IMAGE_IMMUCLIENT_FIPS: "codenotary/immuclient-fips"
+        DOCKER_IMAGE_IMMUDB: "${{ vars.DOCKER_HUB_USER }}/immudb"
+        DOCKER_IMAGE_IMMUDB_FIPS: "${{ vars.DOCKER_HUB_USER }}/immudb-fips"
+        DOCKER_IMAGE_IMMUADMIN: "${{ vars.DOCKER_HUB_USER }}/immuadmin"
+        DOCKER_IMAGE_IMMUADMIN_FIPS: "${{ vars.DOCKER_HUB_USER }}/immuadmin-fips"
+        DOCKER_IMAGE_IMMUCLIENT: "${{ vars.DOCKER_HUB_USER }}/immuclient"
+        DOCKER_IMAGE_IMMUCLIENT_FIPS: "${{ vars.DOCKER_HUB_USER }}/immuclient-fips"
         DOCKER_BUILDKIT: "1"
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
