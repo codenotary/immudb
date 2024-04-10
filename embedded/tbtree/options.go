@@ -79,7 +79,8 @@ type Options struct {
 	maxValueSize int
 	fileSize     int
 
-	appFactory AppFactoryFunc
+	appFactory     AppFactoryFunc
+	isDeletedValue func([]byte) bool
 }
 
 func DefaultOptions() *Options {
@@ -282,5 +283,10 @@ func (opts *Options) WithCompactionThld(compactionThld int) *Options {
 
 func (opts *Options) WithDelayDuringCompaction(delay time.Duration) *Options {
 	opts.delayDuringCompaction = delay
+	return opts
+}
+
+func (opts *Options) WithIsDeletedValueFunc(isDeletedValue func([]byte) bool) *Options {
+	opts.isDeletedValue = isDeletedValue
 	return opts
 }
