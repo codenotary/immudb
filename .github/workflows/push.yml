@@ -253,7 +253,7 @@ jobs:
             context: .
             target: ${{ env.DEBIAN_VERSION }}
             tags: |
-                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${ env.DEBIAN_VERSION }
+                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }}
             file: build/Dockerfile
 
         - name: Build and push Docker image for Dockerfile ${{ env.ALMA_VERSION }}
@@ -261,7 +261,7 @@ jobs:
           with:
             context: .
             tags: |
-                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${ env.ALMA_VERSION }
+                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }}
             file: build/Dockerfile.alma
 
         - name: Build and push Docker image for Dockerfile.immuadmin
