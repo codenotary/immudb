@@ -424,6 +424,12 @@ func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataS
 			return nil, err
 		}
 
+		if l > d.maxResultSize {
+			return res, fmt.Errorf("%w: found at least %d rows (the maximum limit). "+
+				"Query constraints can be applied using the LIMIT clause",
+				ErrResultSizeLimitReached, d.maxResultSize)
+		}
+
 		rrow := &schema.Row{
 			Columns: make([]string, len(res.Columns)),
 			Values:  make([]*schema.SQLValue, len(res.Columns)),
@@ -443,12 +449,6 @@ func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataS
 		}
 
 		res.Rows = append(res.Rows, rrow)
-
-		if l == d.maxResultSize {
-			return res, fmt.Errorf("%w: found at least %d rows (the maximum limit). "+
-				"Query constraints can be applied using the LIMIT clause",
-				ErrResultSizeLimitReached, d.maxResultSize)
-		}
 	}
 
 	return res, nil
