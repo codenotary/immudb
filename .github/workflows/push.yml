@@ -232,85 +232,22 @@ jobs:
         ALMA_VERSION: almalinux-8-minimal
       steps:
         - uses: actions/checkout@v4
-        - name: Set up QEMU
-          uses: docker/setup-qemu-action@v3
-
-        - name: Set up Docker Buildx
-          uses: docker/setup-buildx-action@v3
-
-        - name: Build and push Docker image for Dockerfile
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            target: scratch
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev
-            file: build/Dockerfile
-
-        - name: Build and push Docker image for Dockerfile ${{ env.DEBIAN_VERSION }}
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            target: ${{ env.DEBIAN_VERSION }}
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }}
-            file: build/Dockerfile
-
-        - name: Build and push Docker image for Dockerfile ${{ env.ALMA_VERSION }}
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }}
-            file: build/Dockerfile.alma
-
-        - name: Build and push Docker image for Dockerfile.immuadmin
-          uses: docker/build-push-action@v5
-          with:
-              context: .
-              tags: |
-                    ${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev
-              file: build/Dockerfile.immuadmin
-
-        - name: Build and push Docker image for Dockerfile.immuclient
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev
-            file: build/Dockerfile.immuclient
-
-        - name: Build and push Docker image for fips/Dockerfile
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev
-            file: build/fips/Dockerfile
-
-        - name: Build and push Docker image for fips/Dockerfile.immuadmin
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev
-            file: build/fips/Dockerfile.immuadmin
-
-        - name: Build and push Docker image for fips/Dockerfile.immuclient
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            tags: |
-                ${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev
-            file: build/fips/Dockerfile.immuclient
-
-        - name: Push docker images
+        - name: Build docker images
           shell: bash
           run: |
             if [[ "${GITHUB_REF}" =~ ^refs/tags/v([0-9]+)\.([A-Z0-9]+)\.([0-9]+)$ ]]; then
               VERSION_TAG="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
               VERSION_TAG_SHORT="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
             fi
+
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" --target scratch -f build/Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" --target ${DEBIAN_VERSION} -f build/Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" -f build/Dockerfile.alma .
+            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f build/Dockerfile.immuadmin .
+            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f build/Dockerfile.immuclient .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB_FIPS}:dev" -f build/fips/Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev" -f build/fips/Dockerfile.immuadmin .
+            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev" -f build/fips/Dockerfile.immuclient .
 
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
 
