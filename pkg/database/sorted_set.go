@@ -195,6 +195,12 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 			return nil, err
 		}
 
+		if l == d.maxResultSize {
+			return entries, fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
+				"Pagination over large results can be achieved by using the limit, seekKey, seekScore and seekAtTx arguments",
+				ErrResultSizeLimitReached, d.maxResultSize)
+		}
+
 		// zKey = [1+setLenLen+len(req.Set)+scoreLen+keyLenLen+1+len(req.Key)+txIDLen]
 		scoreOff := 1 + setLenLen + len(req.Set)
 		scoreB := binary.BigEndian.Uint64(zKey[scoreOff:])
@@ -231,12 +237,6 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 		}
 
 		entries.Entries = append(entries.Entries, zentry)
-
-		if l == d.maxResultSize {
-			return entries, fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
-				"Pagination over large results can be achieved by using the limit, seekKey, seekScore and seekAtTx arguments",
-				ErrResultSizeLimitReached, d.maxResultSize)
-		}
 	}
 
 	return entries, nil
