@@ -2102,7 +2102,7 @@ func TestErrorDuringUpdate(t *testing.T) {
 	_, _, err := engine.Exec(
 		context.Background(), nil,
 		`
-		create table mytable(id varchar[256], value integer, primary key id);
+		create table mytable(id varchar[128], value integer, primary key id);
 		insert into mytable(id, value) values('aa',12), ('ab',13);
 	`, nil)
 	require.NoError(t, err)
