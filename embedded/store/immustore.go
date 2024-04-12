@@ -21,7 +21,6 @@ import (
 	"container/list"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -39,11 +38,11 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/htree"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
-
-	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/pkg/helpers/slices"
 )
 
 var ErrIllegalArguments = embedded.ErrIllegalArguments
@@ -3212,11 +3211,11 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 			return ErrMaxValueLenExceeded
 		}
 
-		b64k := base64.StdEncoding.EncodeToString(kv.Key)
-		if _, ok := m[b64k]; ok {
+		ks := slices.BytesToString(kv.Key)
+		if _, ok := m[ks]; ok {
 			return ErrDuplicatedKey
 		}
-		m[b64k] = struct{}{}
+		m[ks] = struct{}{}
 	}
 
 	return nil
