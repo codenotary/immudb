@@ -425,7 +425,7 @@ func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataS
 		}
 
 		if l > d.maxResultSize {
-			return res, fmt.Errorf("%w: found at least %d rows (the maximum limit). "+
+			return res, fmt.Errorf("%w: found more than %d rows (the maximum limit). "+
 				"Query constraints can be applied using the LIMIT clause",
 				ErrResultSizeLimitReached, d.maxResultSize)
 		}

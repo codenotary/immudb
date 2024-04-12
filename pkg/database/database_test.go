@@ -914,7 +914,7 @@ func TestTxScan(t *testing.T) {
 				},
 			},
 		})
-		require.ErrorIs(t, err, ErrResultSizeLimitReached)
+		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -952,7 +952,7 @@ func TestTxScan(t *testing.T) {
 		txList, err := db.TxScan(context.Background(), &schema.TxScanRequest{
 			InitialTx: initialState.TxId + 1,
 		})
-		require.ErrorIs(t, err, ErrResultSizeLimitReached)
+		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -1008,7 +1008,7 @@ func TestHistory(t *testing.T) {
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 
 	for i, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
@@ -1025,7 +1025,7 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Desc:    true,
 	})
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 
 	for i, val := range dec.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)

@@ -65,7 +65,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, res.Rows, 4)
 
 	ntx, ctxs, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: `
-		INSERT INTO table1(title, active, payload) VALUES ('title1', null, null), ('title2', true, null), ('title3', false, x'AADD')
+		INSERT INTO table1(title, active, payload) VALUES ('title1', null, null), ('title2', true, null), ('title3', false, x'AADD'), ('title4', false, x'ABCD')
 	`})
 	require.NoError(t, err)
 	require.Nil(t, ntx)
@@ -91,7 +91,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
 
-	q = "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 3 AND active != @active"
+	q = "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 4 AND active != @active"
 	res, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
 	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 	require.Len(t, res.Rows, 2)
@@ -143,7 +143,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
-			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 4}}},
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 5}}},
 		},
 		ProveSinceTx: 0,
 	})
@@ -173,7 +173,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
-			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 4}}},
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 5}}},
 		},
 		ProveSinceTx: 0,
 	})
