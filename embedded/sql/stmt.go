@@ -842,6 +842,9 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 		// pk entry
 		mappedPKey := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals, pkEncVals)
+		if len(mappedPKey) > MaxKeyLen {
+			return nil, ErrMaxKeyLengthExceeded
+		}
 
 		_, err = tx.get(ctx, mappedPKey)
 		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
