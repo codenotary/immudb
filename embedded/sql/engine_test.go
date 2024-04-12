@@ -1806,7 +1806,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	})
 
 	t.Run("insertion in table with varchar pk", func(t *testing.T) {
-		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE languages (code VARCHAR[255],name VARCHAR[255],PRIMARY KEY code)", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE languages (code VARCHAR[128],name VARCHAR[255],PRIMARY KEY code)", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO languages (code,name) VALUES ('code1', 'name1')", nil)
