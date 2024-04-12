@@ -159,11 +159,18 @@ jobs:
           docker rm -f minio
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sonarsource:
+    name: Coverage
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_NEW_TOKEN }}
 
   performance-test-suite-detect-runners:
     runs-on: ubuntu-latest
