@@ -1473,7 +1473,6 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 	defer d.releaseTx(tx)
 
 	limit := int(req.Limit)
-
 	if req.Limit == 0 {
 		limit = d.maxResultSize
 	}
@@ -1506,13 +1505,6 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 		}
 
 		txList.Txs = append(txList.Txs, sTx)
-
-		if l == d.maxResultSize {
-			return txList,
-				fmt.Errorf("%w: found at least %d entries (maximum limit). "+
-					"Pagination over large results can be achieved by using the limit and initialTx arguments",
-					ErrResultSizeLimitReached, d.maxResultSize)
-		}
 	}
 
 	return txList, nil
@@ -1546,14 +1538,13 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 	}
 
 	limit := int(req.Limit)
-
-	if req.Limit == 0 {
+	if limit == 0 {
 		limit = d.maxResultSize
 	}
 
 	key := EncodeKey(req.Key)
 
-	valRefs, hCount, err := d.st.History(key, req.Offset, req.Desc, limit)
+	valRefs, _, err := d.st.History(key, req.Offset, req.Desc, limit)
 	if err != nil && err != store.ErrOffsetOutOfRange {
 		return nil, err
 	}
@@ -1580,14 +1571,6 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 			Revision: valRef.HC(),
 		}
 	}
-
-	if limit == d.maxResultSize && hCount >= uint64(d.maxResultSize) {
-		return list,
-			fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
-				"Pagination over large results can be achieved by using the limit and initialTx arguments",
-				ErrResultSizeLimitReached, d.maxResultSize)
-	}
-
 	return list, nil
 }
 
