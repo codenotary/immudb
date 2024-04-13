@@ -320,14 +320,14 @@ jobs:
           set -o pipefail
           ./ext-tools/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,fs,cmdtest,sservice,version,tools,webconsole,protomodel,schema,swagger  --tags minio || true
           cat coverage.txt | grep -v "test" | grep -v "schema" | grep -v "protomodel" | grep -v "swagger" | grep -v "webserver.go" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "fs" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" | grep -v "webconsole" > coverage.out
-          ./ext-tools/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken "$SECRET_TOKEN"
+          ./ext-tools/goveralls -coverprofile=coverage.out -service=gh-ci
 
           # Stop minio
           docker rm -f minio
         env:
-          SECRET_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_NEW_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
