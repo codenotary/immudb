@@ -41,7 +41,7 @@ import (
 	"github.com/codenotary/immudb/pkg/immuos"
 )
 
-// userDatabasePairs keeps an associacion of username to userdata
+// usernameToUserdataMap keeps an associacion of username to userdata
 type usernameToUserdataMap struct {
 	Userdata map[string]*auth.User
 	sync.RWMutex
