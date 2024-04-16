@@ -1596,7 +1596,7 @@ func (d *db) Close() (err error) {
 
 	defer func() {
 		if err == nil {
-			d.Logger.Infof("database '%s' succesfully closed", d.name)
+			d.Logger.Infof("database '%s' successfully closed", d.name)
 		} else {
 			d.Logger.Infof("%v: while closing database '%s'", err, d.name)
 		}
