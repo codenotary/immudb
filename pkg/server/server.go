@@ -921,7 +921,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully created", req.Name)
+			s.Logger.Infof("database '%s' successfully created", req.Name)
 		} else {
 			s.Logger.Infof("database '%s' could not be created. Reason: %v", req.Name, err)
 		}
@@ -1023,7 +1023,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully loaded", req.Database)
+			s.Logger.Infof("database '%s' successfully loaded", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be loaded. Reason: %v", req.Database, err)
 		}
@@ -1101,7 +1101,7 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully unloaded", req.Database)
+			s.Logger.Infof("database '%s' successfully unloaded", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be unloaded. Reason: %v", req.Database, err)
 		}
@@ -1176,7 +1176,7 @@ func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatab
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully deleted", req.Database)
+			s.Logger.Infof("database '%s' successfully deleted", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be deleted. Reason: %v", req.Database, err)
 		}
@@ -1251,7 +1251,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully updated", req.Database)
+			s.Logger.Infof("database '%s' successfully updated", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be updated. Reason: %v", req.Database, err)
 		}
@@ -1699,7 +1699,7 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully truncated", req.Database)
+			s.Logger.Infof("database '%s' successfully truncated", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be truncated. Reason: %v", req.Database, err)
 		}
