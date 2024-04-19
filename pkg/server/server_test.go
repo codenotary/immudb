@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/stream"
 	"golang.org/x/crypto/bcrypt"
@@ -168,7 +169,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.ErrorContains(t, err, "password")
 
-		txID, err = s.sysDB.Size()
+		txID, err = s.sysDB.TxCount()
 		require.NoError(t, err)
 	})
 
@@ -179,7 +180,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		err := s.loadSystemDatabase(dbRootpath, nil, "password2", false)
 		require.NoError(t, err)
 
-		currTxID, err := s.sysDB.Size()
+		currTxID, err := s.sysDB.TxCount()
 		require.NoError(t, err)
 		require.Equal(t, txID, currTxID)
 
@@ -198,7 +199,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 
 		// There should be new TX with updated password
-		currTxID, err := s.sysDB.Size()
+		currTxID, err := s.sysDB.TxCount()
 		require.NoError(t, err)
 		require.Equal(t, txID+1, currTxID)
 
@@ -217,7 +218,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 
 		// No ne TX is needed
-		currTxID, err := s.sysDB.Size()
+		currTxID, err := s.sysDB.TxCount()
 		require.NoError(t, err)
 		require.Equal(t, txID+1, currTxID)
 
@@ -1007,8 +1008,14 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerInfo(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
+	resp, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
 	require.NoError(t, err)
+
+	require.Equal(t, resp.Version, version.Version)
+	require.Equal(t, resp.StartedAt, startedAt.Unix())
+	require.Equal(t, resp.NumTransactions, int64(16))
+	require.GreaterOrEqual(t, resp.NumDatabases, int32(1))
+	require.Greater(t, resp.DatabasesDiskSize, int64(0))
 }
 
 func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {

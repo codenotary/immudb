@@ -49,7 +49,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.CurrentState()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.Size()
+	_, err = cdb.TxCount()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.Set(context.Background(), nil)

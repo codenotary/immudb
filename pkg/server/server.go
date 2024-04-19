@@ -139,7 +139,7 @@ func (s *ImmuServer) Initialize() error {
 
 	defaultDB, _ := s.dbList.GetByIndex(defaultDbIndex)
 
-	dbSize, _ := defaultDB.Size()
+	dbSize, _ := defaultDB.TxCount()
 	if dbSize <= 1 {
 		s.Logger.Infof("started with an empty default database")
 	}
@@ -802,7 +802,63 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 
 // ServerInfo returns information about the server instance.
 func (s *ImmuServer) ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error) {
-	return &schema.ServerInfoResponse{Version: version.Version}, nil
+	dbSize, err := s.totalDBSize()
+	if err != nil {
+		return nil, err
+	}
+
+	numTransactions, err := s.numTransactions()
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.ServerInfoResponse{
+		Version:           version.Version,
+		StartedAt:         startedAt.Unix(),
+		NumTransactions:   int64(numTransactions),
+		NumDatabases:      int32(s.dbList.Length()),
+		DatabasesDiskSize: dbSize,
+	}, err
+}
+
+func (s *ImmuServer) numTransactions() (uint64, error) {
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
+	var count uint64
+	for i := 0; i < s.dbList.Length(); i++ {
+		db, err := s.dbList.GetByIndex(i)
+		if err != nil {
+			return 0, err
+		}
+
+		dbTxCount, err := db.TxCount()
+		if err != nil {
+			return 0, err
+		}
+		count += dbTxCount
+	}
+	return count, nil
+}
+
+func (s *ImmuServer) totalDBSize() (int64, error) {
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
+	var size int64
+	for i := 0; i < s.dbList.Length(); i++ {
+		db, err := s.dbList.GetByIndex(i)
+		if err != nil {
+			return -1, err
+		}
+
+		dbSize, err := db.Size()
+		if err != nil {
+			return -1, err
+		}
+		size += int64(dbSize)
+	}
+	return size, nil
 }
 
 // Health ...
