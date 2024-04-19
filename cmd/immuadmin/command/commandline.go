@@ -19,6 +19,7 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
@@ -54,6 +55,7 @@ type commandline struct {
 	config         c.Config
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
+	terminalReader c.TerminalReader
 	context        context.Context
 	ts             tokenservice.TokenService
 	onError        func(msg interface{})
@@ -64,6 +66,7 @@ func NewCommandLine() *commandline {
 	cl := &commandline{}
 	cl.config.Name = "immuadmin"
 	cl.passwordReader = c.DefaultPasswordReader
+	cl.terminalReader = c.NewTerminalReader(os.Stdin)
 	cl.context = context.Background()
 	//
 	return cl
