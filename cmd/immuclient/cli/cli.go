@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/peterh/liner"
 	"github.com/spf13/viper"
@@ -234,7 +235,7 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 		cli.immucl.SetValueOnly(false)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "ERROR: %s \n", err.Error())
+		fmt.Fprintf(os.Stdout, "ERROR: %s \n", helper.UnwrapMessage(err))
 		return
 	}
 	fmt.Fprintf(os.Stdout, "%v \n", result)

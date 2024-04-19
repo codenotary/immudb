@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -96,6 +97,8 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 }
 
 func (cl *commandline) quit(msg interface{}) {
+	msg = helper.UnwrapMessage(msg)
+
 	if cl.onError == nil {
 		c.QuitToStdErr(msg)
 	}
