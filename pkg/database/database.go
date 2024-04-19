@@ -71,6 +71,8 @@ type DB interface {
 
 	Size() (uint64, error)
 
+	TxCount() (uint64, error)
+
 	// Key-Value
 	Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error)
 	VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
@@ -911,8 +913,12 @@ func (d *db) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.En
 	return list, nil
 }
 
-// Size ...
 func (d *db) Size() (uint64, error) {
+	return d.st.Size()
+}
+
+// TxCount ...
+func (d *db) TxCount() (uint64, error) {
 	return d.st.TxCount(), nil
 }
 

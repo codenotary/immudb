@@ -126,7 +126,7 @@ func TestDefaultDbCreation(t *testing.T) {
 
 	defer db.Close()
 
-	n, err := db.Size()
+	n, err := db.TxCount()
 	require.NoError(t, err)
 	require.Zero(t, n)
 
