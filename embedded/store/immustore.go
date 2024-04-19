@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -1362,6 +1363,26 @@ func (s *ImmuStore) MaxKeyLen() int {
 
 func (s *ImmuStore) MaxValueLen() int {
 	return s.maxValueLen
+}
+
+func (s *ImmuStore) Size() (uint64, error) {
+	var size uint64
+
+	err := filepath.WalkDir(s.path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			size += uint64(info.Size())
+		}
+		return nil
+	})
+	return size, err
 }
 
 func (s *ImmuStore) TxCount() uint64 {

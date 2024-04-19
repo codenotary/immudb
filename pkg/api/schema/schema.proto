@@ -605,6 +605,18 @@ message ServerInfoRequest {}
 message ServerInfoResponse {
   // The version of the server instance.
   string version = 1;
+
+  // Unix timestamp (seconds) indicating when the server process has been started.
+  int64 startedAt = 2;
+
+  // Total number of transactions across all databases.
+  int64 numTransactions = 3;
+
+  // Total number of databases present.
+  int32 numDatabases = 4;
+
+  // Total disk size used by all databases.
+  int64 databasesDiskSize = 5;
 }
 
 message HealthResponse {

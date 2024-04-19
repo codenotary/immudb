@@ -82,6 +82,10 @@ func (db *closedDB) Size() (uint64, error) {
 	return 0, store.ErrAlreadyClosed
 }
 
+func (db *closedDB) TxCount() (uint64, error) {
+	return 0, store.ErrAlreadyClosed
+}
+
 func (db *closedDB) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
