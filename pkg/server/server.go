@@ -491,7 +491,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	if !s.sysDB.IsReplica() {
 		s.sysDB.SetSyncReplication(false)
 
-		adminUsername, _, err := s.insertNewUser(context.Background(), []byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
+		adminUsername, _, err := s.insertNewUser(context.Background(), []byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", "")
 		if err != nil {
 			return logErr(s.Logger, "%v", err)
 		}

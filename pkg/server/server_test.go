@@ -1385,17 +1385,15 @@ func TestServerErrors(t *testing.T) {
 	adminCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	// insertNewUser errors
-	_, _, err = s.insertNewUser(context.Background(), []byte("%"), nil, 1, DefaultDBName, true, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), []byte("%"), nil, 1, DefaultDBName, auth.SysAdminUsername)
 	require.ErrorContains(t, err, "username can only contain letters, digits and underscores")
 
 	username := "someusername"
 	usernameBytes := []byte(username)
 	password := "$omePassword1"
 	passwordBytes := []byte(password)
-	_, _, err = s.insertNewUser(context.Background(), usernameBytes, []byte("a"), 1, DefaultDBName, true, auth.SysAdminUsername)
-	require.ErrorContains(t, err, auth.PasswordRequirementsMsg)
 
-	_, _, err = s.insertNewUser(context.Background(), usernameBytes, passwordBytes, 99, DefaultDBName, false, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), usernameBytes, passwordBytes, 99, DefaultDBName, auth.SysAdminUsername)
 	require.ErrorContains(t, err, "unknown permission")
 
 	// getLoggedInUserDataFromUsername errors
