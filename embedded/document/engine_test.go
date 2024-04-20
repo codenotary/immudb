@@ -5,7 +5,7 @@ SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://mariadb.com/bsl11/
+	https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -372,6 +372,41 @@ func TestListCollections(t *testing.T) {
 	collectionList, err := engine.GetCollections(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, len(collections), len(collectionList))
+}
+
+func TestUniqueConstraintViolation(t *testing.T) {
+	engine := makeEngine(t)
+
+	err := engine.CreateCollection(
+		context.Background(),
+		"admin",
+		"testCollection",
+		"",
+		[]*protomodel.Field{
+			{Name: "name", Type: protomodel.FieldType_STRING},
+			{Name: "surname", Type: protomodel.FieldType_STRING},
+		},
+		[]*protomodel.Index{
+			{Fields: []string{"name"}, IsUnique: true},
+		},
+	)
+	require.NoError(t, err)
+
+	_, _, err = engine.InsertDocument(context.Background(), "admin", "testCollection", &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"name":    structpb.NewStringValue("John"),
+			"surname": structpb.NewStringValue("Doe"),
+		},
+	})
+	require.NoError(t, err)
+
+	_, _, err = engine.InsertDocument(context.Background(), "admin", "testCollection", &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"name":    structpb.NewStringValue("John"),
+			"surname": structpb.NewStringValue("Moore"),
+		},
+	})
+	require.ErrorIs(t, err, ErrConflict)
 }
 
 func TestGetDocument(t *testing.T) {
