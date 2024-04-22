@@ -1437,13 +1437,48 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 
+	resp := &schema.DatabaseListResponseV2{}
+
+	databases, err := s.listLoggedInUserDatabases(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, db := range databases {
+		dbOpts, err := s.loadDBOptions(db.GetName(), false)
+		if err != nil {
+			return nil, err
+		}
+
+		size, err := db.Size()
+		if err != nil {
+			return nil, err
+		}
+
+		txCount, err := db.TxCount()
+		if err != nil {
+			return nil, err
+		}
+
+		info := &schema.DatabaseInfo{
+			Name:            db.GetName(),
+			Settings:        dbOpts.databaseNullableSettings(),
+			Loaded:          !db.IsClosed(),
+			DiskSize:        size,
+			NumTransactions: txCount,
+		}
+		resp.Databases = append(resp.Databases, info)
+	}
+	return resp, nil
+}
+
+func (s *ImmuServer) listLoggedInUserDatabases(ctx context.Context) ([]database.DB, error) {
 	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login")
 	}
 
-	resp := &schema.DatabaseListResponseV2{}
-
+	databases := make([]database.DB, 0, s.dbList.Length())
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
 			db, err := s.dbList.GetByIndex(i)
@@ -1453,19 +1488,7 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			if err != nil {
 				return nil, err
 			}
-
-			dbOpts, err := s.loadDBOptions(db.GetName(), false)
-			if err != nil {
-				return nil, err
-			}
-
-			dbWithSettings := &schema.DatabaseWithSettings{
-				Name:     db.GetName(),
-				Settings: dbOpts.databaseNullableSettings(),
-				Loaded:   !db.IsClosed(),
-			}
-
-			resp.Databases = append(resp.Databases, dbWithSettings)
+			databases = append(databases, db)
 		}
 	} else {
 		for _, perm := range loggedInuser.Permissions {
@@ -1476,23 +1499,10 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			if err != nil {
 				return nil, err
 			}
-
-			dbOpts, err := s.loadDBOptions(perm.Database, false)
-			if err != nil {
-				return nil, err
-			}
-
-			dbWithSettings := &schema.DatabaseWithSettings{
-				Name:     perm.Database,
-				Settings: dbOpts.databaseNullableSettings(),
-				Loaded:   !db.IsClosed(),
-			}
-
-			resp.Databases = append(resp.Databases, dbWithSettings)
+			databases = append(databases, db)
 		}
 	}
-
-	return resp, nil
+	return databases, nil
 }
 
 // UseDatabase ...

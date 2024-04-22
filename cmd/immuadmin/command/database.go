@@ -18,9 +18,11 @@ package immuadmin
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -106,10 +108,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			}
 			c.PrintTable(
 				cmd.OutOrStdout(),
-				[]string{"Database Name", "Status"},
+				[]string{"Database Name", "Status", "Is Replica", "Disk Size", "Transactions"},
 				len(resp.Databases),
 				func(i int) []string {
-					row := make([]string, 2)
+					row := make([]string, 5)
 
 					db := resp.Databases[i]
 
@@ -123,6 +125,12 @@ func (cl *commandline) database(cmd *cobra.Command) {
 					} else {
 						row[1] += "UNLOADED"
 					}
+
+					isReplica := db.Settings.ReplicationSettings.Replica != nil && db.Settings.ReplicationSettings.Replica.Value
+
+					row[2] = strings.ToUpper(strconv.FormatBool(isReplica))
+					row[3] = helper.FormatByteSize(db.DiskSize)
+					row[4] = strconv.FormatUint(db.NumTransactions, 10)
 
 					return row
 				},
