@@ -1360,10 +1360,10 @@ message DatabaseListRequestV2 {}
 
 message DatabaseListResponseV2 {
   // Database list with current database settings
-  repeated DatabaseWithSettings databases = 1;
+  repeated DatabaseInfo databases = 1;
 }
 
-message DatabaseWithSettings {
+message DatabaseInfo {
   // Database name
   string name = 1;
 
@@ -1372,6 +1372,12 @@ message DatabaseWithSettings {
 
   // If true, this database is currently loaded into memory
   bool loaded = 3;
+
+  // database disk size
+  uint64 diskSize = 4;
+
+  // total number of transactions
+  uint64 numTransactions = 5;
 }
 
 message Chunk {
