@@ -118,9 +118,8 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
 		cl.quit(err)
 	}
-	cl.immuClient.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))
+	cl.immuClient.WithTokenService(cl.ts)
 	return
-
 }
 
 func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {
