@@ -11,16 +11,17 @@ COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
+ARG IMMUADMIN_TOKENFILE_PATH=/var/lib/immudb
 
 ENV IMMUADMIN_IMMUDB_ADDRESS="127.0.0.1" \
     IMMUADMIN_IMMUDB_PORT="3322" \
     IMMUADMIN_MTLS="false" \
-    IMMUADMIN_TOKENFILE="/var/lib/immudb"
+    IMMUADMIN_TOKENFILE="$IMMUADMIN_TOKENFILE_PATH/token_admin"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
-    mkdir -p "$IMMUADMIN_TOKENFILE" && \
-    chown -R immu:immu "$IMMUADMIN_TOKENFILE" && \
+    mkdir -p "$IMMUADMIN_TOKENFILE_PATH" && \
+    chown -R immu:immu "$IMMUADMIN_TOKENFILE_PATH" && \
     chmod +x /usr/local/bin/immuadmin
 
 USER immu
