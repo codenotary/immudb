@@ -1553,6 +1553,20 @@ type TypedValue interface {
 	IsNull() bool
 }
 
+type Tuple []TypedValue
+
+func (t Tuple) Compare(other Tuple) (int, error) {
+	i := 0
+	for i < len(t) && i < len(other) {
+		res, err := t[i].Compare(other[i])
+		if err != nil || res != 0 {
+			return res, err
+		}
+		i++
+	}
+	return len(t) - len(other), nil
+}
+
 func NewNull(t SQLValueType) *NullValue {
 	return &NullValue{t: t}
 }
@@ -2438,30 +2452,6 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	if len(stmt.orderBy) > 1 {
 		return nil, ErrLimitedOrderBy
 	}
-
-	if len(stmt.orderBy) > 0 {
-		tableRef, ok := stmt.ds.(*tableRef)
-		if !ok {
-			return nil, ErrLimitedOrderBy
-		}
-
-		table, err := tableRef.referencedTable(tx)
-		if err != nil {
-			return nil, err
-		}
-
-		colName := stmt.orderBy[0].sel.col
-
-		indexed, err := table.IsIndexed(colName)
-		if err != nil {
-			return nil, err
-		}
-
-		if !indexed {
-			return nil, ErrLimitedOrderBy
-		}
-	}
-
 	return tx, nil
 }
 
@@ -2491,6 +2481,13 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 
 	if stmt.where != nil {
 		rowReader = newConditionalRowReader(rowReader, stmt.where)
+	}
+
+	if scanSpecs.SortRequired {
+		rowReader, err = newSortRowReader(rowReader, stmt.orderBySelectors(), scanSpecs.DescOrder)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	containsAggregations := false
@@ -2596,9 +2593,15 @@ func (stmt *SelectStmt) Alias() string {
 }
 
 func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (*ScanSpecs, error) {
+	sortingRequired := len(stmt.orderBy) > 0
+	descOrder := sortingRequired && stmt.orderBy[0].descOrder
+
 	tableRef, isTableRef := stmt.ds.(*tableRef)
 	if !isTableRef {
-		return nil, nil
+		return &ScanSpecs{
+			SortRequired: sortingRequired,
+			DescOrder:    descOrder,
+		}, nil
 	}
 
 	table, err := tableRef.referencedTable(tx)
@@ -2614,39 +2617,12 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		}
 	}
 
-	var preferredIndex *Index
-
-	if len(stmt.indexOn) > 0 {
-		cols := make([]*Column, len(stmt.indexOn))
-
-		for i, colName := range stmt.indexOn {
-			col, err := table.GetColumnByName(colName)
-			if err != nil {
-				return nil, err
-			}
-
-			cols[i] = col
-		}
-
-		index, err := table.GetIndexByName(indexName(table.name, cols))
-		if err != nil {
-			return nil, err
-		}
-
-		preferredIndex = index
+	preferredIndex, err := stmt.selectIndex(table)
+	if err != nil {
+		return nil, err
 	}
 
 	var sortingIndex *Index
-	var descOrder bool
-
-	if stmt.orderBy == nil {
-		if preferredIndex == nil {
-			sortingIndex = table.primaryIndex
-		} else {
-			sortingIndex = preferredIndex
-		}
-	}
-
 	if len(stmt.orderBy) > 0 {
 		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
 		if err != nil {
@@ -2657,16 +2633,19 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 			if idx.sortableUsing(col.id, rangesByColID) {
 				if preferredIndex == nil || idx.id == preferredIndex.id {
 					sortingIndex = idx
+					sortingRequired = false
 					break
 				}
 			}
 		}
-
-		descOrder = stmt.orderBy[0].descOrder
 	}
 
 	if sortingIndex == nil {
-		return nil, ErrNoAvailableIndex
+		if preferredIndex == nil {
+			sortingIndex = table.primaryIndex
+		} else {
+			sortingIndex = preferredIndex
+		}
 	}
 
 	if tableRef.history && !sortingIndex.IsPrimary() {
@@ -2678,7 +2657,37 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		rangesByColID:  rangesByColID,
 		IncludeHistory: tableRef.history,
 		DescOrder:      descOrder,
+		SortRequired:   sortingRequired,
 	}, nil
+}
+
+func (stmt *SelectStmt) selectIndex(table *Table) (*Index, error) {
+	if len(stmt.indexOn) == 0 {
+		return nil, nil
+	}
+
+	cols := make([]*Column, len(stmt.indexOn))
+	for i, colName := range stmt.indexOn {
+		col, err := table.GetColumnByName(colName)
+		if err != nil {
+			return nil, err
+		}
+
+		cols[i] = col
+	}
+	return table.GetIndexByName(indexName(table.name, cols))
+}
+
+func (stmt *SelectStmt) orderBySelectors() []Selector {
+	var selectors []Selector
+	for _, col := range stmt.orderBy {
+		sel := &ColSelector{
+			table: col.sel.table,
+			col:   col.sel.col,
+		}
+		selectors = append(selectors, sel)
+	}
+	return selectors
 }
 
 type UnionStmt struct {

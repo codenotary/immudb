@@ -54,13 +54,12 @@ var ErrNotNullableColumnCannotBeNull = errors.New("not nullable column can not b
 var ErrNewColumnMustBeNullable = errors.New("new column must be nullable")
 var ErrIndexAlreadyExists = errors.New("index already exists")
 var ErrMaxNumberOfColumnsInIndexExceeded = errors.New("number of columns in multi-column index exceeded")
-var ErrNoAvailableIndex = errors.New("no available index")
 var ErrIndexNotFound = errors.New("index not found")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrInferredMultipleTypes = errors.New("inferred multiple types")
 var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
-var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
+var ErrLimitedOrderBy = errors.New("order by is limited to one column")
 var ErrLimitedGroupBy = errors.New("group by requires ordering by the grouping column")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
@@ -104,6 +103,7 @@ type Engine struct {
 
 	prefix                        []byte
 	distinctLimit                 int
+	sortBufferSize                int
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
 
@@ -144,6 +144,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		store:                         st,
 		prefix:                        make([]byte, len(opts.prefix)),
 		distinctLimit:                 opts.distinctLimit,
+		sortBufferSize:                opts.sortBufferSize,
 		autocommit:                    opts.autocommit,
 		lazyIndexConstraintValidation: opts.lazyIndexConstraintValidation,
 		multidbHandler:                opts.multidbHandler,
@@ -504,6 +505,33 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 	}
 
 	return currTx, committedTxs, stmts[execStmts:], nil
+}
+
+func (e *Engine) queryAll(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) ([]*Row, error) {
+	reader, err := e.Query(ctx, tx, sql, params)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	return readAllRows(ctx, reader)
+}
+
+func readAllRows(ctx context.Context, reader RowReader) ([]*Row, error) {
+	rows := make([]*Row, 0, 100)
+	for {
+		row, err := reader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 func (e *Engine) Query(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (RowReader, error) {
