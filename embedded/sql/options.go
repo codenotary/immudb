@@ -22,10 +22,14 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-var defaultDistinctLimit = 1 << 20 // ~ 1mi rows
+const (
+	defaultDistinctLimit  = 1 << 20 // ~ 1mi rows
+	defaultSortBufferSize = 1024
+)
 
 type Options struct {
 	prefix                        []byte
+	sortBufferSize                int
 	distinctLimit                 int
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
@@ -35,7 +39,8 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
-		distinctLimit: defaultDistinctLimit,
+		sortBufferSize: defaultSortBufferSize,
+		distinctLimit:  defaultDistinctLimit,
 	}
 }
 
@@ -46,6 +51,10 @@ func (opts *Options) Validate() error {
 
 	if opts.distinctLimit <= 0 {
 		return fmt.Errorf("%w: invalid DistinctLimit value", store.ErrInvalidOptions)
+	}
+
+	if opts.sortBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid SortBufferSize value", store.ErrInvalidOptions)
 	}
 
 	return nil
@@ -73,5 +82,13 @@ func (opts *Options) WithLazyIndexConstraintValidation(lazyIndexConstraintValida
 
 func (opts *Options) WithMultiDBHandler(multidbHandler MultiDBHandler) *Options {
 	opts.multidbHandler = multidbHandler
+	return opts
+}
+
+// WithSortBufferSize specifies the size of the buffer used to sort rows in-memory
+// when executing queries containing an ORDER BY clause. The default value is 1024.
+// Increasing this value improves sorting speed at the expense of higher memory usage.
+func (opts *Options) WithSortBufferSize(size int) *Options {
+	opts.sortBufferSize = size
 	return opts
 }
