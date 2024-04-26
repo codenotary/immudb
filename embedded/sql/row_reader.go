@@ -45,6 +45,7 @@ type ScanSpecs struct {
 	rangesByColID  map[uint32]*typedValueRange
 	IncludeHistory bool
 	DescOrder      bool
+	SortRequired   bool
 }
 
 type Row struct {

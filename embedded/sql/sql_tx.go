@@ -19,6 +19,7 @@ package sql
 import (
 	"context"
 	"errors"
+	"os"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/multierr"
@@ -31,7 +32,8 @@ type SQLTx struct {
 
 	opts *TxOptions
 
-	tx *store.OngoingTx
+	tx        *store.OngoingTx
+	tempFiles []*os.File
 
 	catalog *Catalog // in-mem catalog
 
@@ -115,10 +117,14 @@ func (sqlTx *SQLTx) getWithPrefix(ctx context.Context, prefix, neq []byte) (key 
 }
 
 func (sqlTx *SQLTx) Cancel() error {
+	defer sqlTx.removeTempFiles()
+
 	return sqlTx.tx.Cancel()
 }
 
 func (sqlTx *SQLTx) Commit(ctx context.Context) error {
+	defer sqlTx.removeTempFiles()
+
 	err := sqlTx.tx.RequireMVCCOnFollowingTxs(sqlTx.mutatedCatalog)
 	if err != nil {
 		return err
@@ -155,5 +161,28 @@ func (sqlTx *SQLTx) addOnCommittedCallback(callback onCommittedCallback) error {
 
 	sqlTx.onCommittedCallbacks = append(sqlTx.onCommittedCallbacks, callback)
 
+	return nil
+}
+
+func (sqlTx *SQLTx) createTempFile() (*os.File, error) {
+	tempFile, err := os.CreateTemp("", "immudb")
+	if err == nil {
+		sqlTx.tempFiles = append(sqlTx.tempFiles, tempFile)
+	}
+	return tempFile, err
+}
+
+func (sqlTx *SQLTx) removeTempFiles() error {
+	for _, file := range sqlTx.tempFiles {
+		err := file.Close()
+		if err != nil {
+			return err
+		}
+
+		err = os.Remove(file.Name())
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
