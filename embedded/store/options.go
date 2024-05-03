@@ -64,6 +64,8 @@ type AppFactoryFunc func(
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
 
+type AppRemoveFunc func(rootPath, subPath string) error
+
 type TimeFunc func() time.Time
 
 type Options struct {
@@ -83,6 +85,8 @@ type Options struct {
 	logger logger.Logger
 
 	appFactory AppFactoryFunc
+
+	appRemove AppRemoveFunc
 
 	CompactionDisabled bool
 
@@ -458,6 +462,11 @@ func (opts *Options) WithLogger(logger logger.Logger) *Options {
 
 func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 	opts.appFactory = appFactory
+	return opts
+}
+
+func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
+	opts.appRemove = appRemove
 	return opts
 }
 

@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -120,9 +118,11 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
 
 	if opts.appFactory != nil {
-		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
-			return opts.appFactory(rootPath, subPath, appOpts)
-		})
+		indexOpts.WithAppFactory(tbtree.AppFactoryFunc(opts.appFactory))
+	}
+
+	if opts.appRemove != nil {
+		indexOpts.WithAppRemoveFunc(tbtree.AppRemoveFunc(opts.appRemove))
 	}
 
 	index, err := tbtree.Open(path, indexOpts)

@@ -105,6 +105,9 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 				return err
 			}
 			s.UUID, err = xid.FromBytes(remoteID)
+			if err != nil {
+				return err
+			}
 		} else {
 			localID, err := ioutil.ReadFile(localIdentifierFile)
 			if err != nil {
@@ -143,26 +146,13 @@ func (s *ImmuServer) updateRemoteUUID(remoteStorage remotestorage.Storage) error
 func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.Storage, stOpts *store.Options) *store.Options {
 	if remoteStorage != nil {
 		stOpts.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
-			baseDir, err := filepath.Abs(s.Options.Dir)
-			if err != nil {
-				return nil, err
-			}
-			baseDir += string(filepath.Separator)
-
 			remoteAppOpts := remoteapp.DefaultOptions()
 			remoteAppOpts.Options = *opts
 
-			fsPath, err := filepath.Abs(filepath.Join(rootPath, subPath))
+			s3Path, err := getS3RemotePath(s.Options.Dir, rootPath, subPath)
 			if err != nil {
 				return nil, err
 			}
-			if !strings.HasPrefix(fsPath, baseDir) {
-				return nil, errors.New("path assertion failed")
-			}
-			s3Path := strings.ReplaceAll(
-				fsPath[len(baseDir):]+"/",
-				string(filepath.Separator), "/",
-			)
 
 			return remoteapp.Open(
 				filepath.Join(rootPath, subPath),
@@ -171,11 +161,21 @@ func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.
 				remoteAppOpts,
 			)
 		}).
-			WithFileSize(1 << 20).       // Reduce file size for better cache granularity
-			WithCompactionDisabled(true) // Disable index compaction
+			WithFileSize(1 << 20). // Reduce file size for better cache granularity
+			WithAppRemoveFunc(func(rootPath, subPath string) error {
+				s3Path, err := getS3RemotePath(s.Options.Dir, rootPath, subPath)
+				if err != nil {
+					return err
+				}
+
+				err = os.RemoveAll(filepath.Join(rootPath, subPath))
+				if err != nil {
+					return err
+				}
+				return remoteStorage.RemoveAll(context.Background(), s3Path)
+			})
 
 		Metrics.RemoteStorageKind.WithLabelValues(name, remoteStorage.Kind()).Set(1)
-
 	} else {
 
 		// No remote storage
@@ -183,4 +183,25 @@ func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.
 	}
 
 	return stOpts
+}
+
+func getS3RemotePath(dir, rootPath, subPath string) (string, error) {
+	baseDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	baseDir += string(filepath.Separator)
+
+	fsPath, err := filepath.Abs(filepath.Join(rootPath, subPath))
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(fsPath, baseDir) {
+		return "", errors.New("path assertion failed")
+	}
+
+	return strings.ReplaceAll(
+		fsPath[len(baseDir):]+"/",
+		string(filepath.Separator), "/",
+	), nil
 }

@@ -565,7 +565,62 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 	return nil
 }
 
-// Exists checks if a remove resource exists and can be read.
+func (s *Storage) Remove(ctx context.Context, name string) error {
+	err := s.validateName(name, false)
+	if err != nil {
+		return err
+	}
+
+	deleteURL, err := s.originalRequestURL(name)
+	if err != nil {
+		return err
+	}
+
+	resp, err := s.requestWithRedirects(
+		ctx,
+		"DELETE",
+		deleteURL,
+		[]int{204},
+		func() (io.Reader, string, error) {
+			return nil, "", nil
+		},
+		func(req *http.Request) error { return nil },
+	)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+func (s *Storage) RemoveAll(ctx context.Context, folder string) error {
+	err := s.validateName(folder, true)
+	if err != nil {
+		return err
+	}
+
+	entries, subFolders, err := s.ListEntries(ctx, folder)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		err := s.Remove(ctx, folder+e.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, subFolder := range subFolders {
+		err := s.RemoveAll(ctx, folder+subFolder+"/")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Exists checks if a remote resource exists and can be read.
 // Note that due to an asynchronous nature of cloud storage,
 // a resource stored with the Put method may not be immediately accessible.
 func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
