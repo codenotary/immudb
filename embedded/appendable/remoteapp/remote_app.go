@@ -147,7 +147,7 @@ func (r *RemoteStorageAppendable) uploadFinished(chunkID int64, state chunkState
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	log.Printf("Uploadnig of chunk %d finished in state: %v", chunkID, state)
+	log.Printf("Uploading of chunk %d finished in state: %v", chunkID, state)
 
 	r.chunkInfos[chunkID].state = state
 	r.chunkInfos[chunkID].cancelUpload = nil

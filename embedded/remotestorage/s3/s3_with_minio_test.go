@@ -93,11 +93,24 @@ func TestS3WithServer(t *testing.T) {
 		require.Equal(t, []byte("ello "), data)
 	})
 
+	t.Run("delete file", func(t *testing.T) {
+		err := s.Remove(ctx, "test1")
+		require.NoError(t, err)
+
+		exists, err := s.Exists(ctx, "test1")
+		require.NoError(t, err)
+		require.False(t, exists)
+
+		_, err = s.Get(ctx, "test1", 0, -1)
+		require.Error(t, err)
+	})
+
+	const (
+		foldersCount = 3
+		entriesCount = 20
+	)
+
 	t.Run("create multiple file-s in multiple folders", func(t *testing.T) {
-
-		const foldersCount = 3
-		const entriesCount = 20
-
 		for i := 0; i < foldersCount; i++ {
 			for j := 0; j < entriesCount; j++ {
 				fl, err := ioutil.TempFile("", "")
@@ -126,5 +139,31 @@ func TestS3WithServer(t *testing.T) {
 		require.EqualValues(t, 15, entries[0].Size)
 		require.EqualValues(t, 15, entries[1].Size)
 		require.EqualValues(t, 16, entries[2].Size)
+	})
+
+	t.Run("delete folder with no subfolders", func(t *testing.T) {
+		err := s.RemoveAll(ctx, "test2/folder0/")
+		require.NoError(t, err)
+
+		entries, sub, err := s.ListEntries(ctx, "test2/folder0/")
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		require.Empty(t, sub)
+
+		entries, sub, err = s.ListEntries(ctx, "test2/")
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		require.Len(t, sub, foldersCount-1)
+		require.Equal(t, sub[0], "folder1")
+	})
+
+	t.Run("delete folder with subfolders", func(t *testing.T) {
+		err := s.RemoveAll(ctx, "test2/")
+		require.NoError(t, err)
+
+		entries, sub, err := s.ListEntries(ctx, "test2/")
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		require.Empty(t, sub)
 	})
 }

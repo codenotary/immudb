@@ -44,7 +44,13 @@ type Storage interface {
 	// Put saves a local file to a remote storage
 	Put(ctx context.Context, name string, fileName string) error
 
-	// Exists checks if a remove resource exists and can be read.
+	// Remove deletes a remote object
+	Remove(ctx context.Context, name string) error
+
+	// RemoveAll deletes all remote objects contained in a folder
+	RemoveAll(ctx context.Context, path string) error
+
+	// Exists checks if a remote resource exists and can be read.
 	// Note that due to an asynchronous nature of cluod storage,
 	// a resource stored with the Put method may not be immediately accessible.
 	Exists(ctx context.Context, name string) (bool, error)

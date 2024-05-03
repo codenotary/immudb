@@ -97,7 +97,7 @@ var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID",
 
 var ErrSourceTxNewerThanTargetTx = fmt.Errorf("%w: source tx is newer than target tx", ErrIllegalArguments)
 
-var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
+var ErrCompactionDisabled = errors.New("compaction is disabled")
 
 var ErrMetadataUnsupported = errors.New(
 	"metadata is unsupported when in 1.1 compatibility mode, " +
@@ -1274,7 +1274,7 @@ func (s *ImmuStore) WaitForIndexingUpto(ctx context.Context, txID uint64) error 
 
 func (s *ImmuStore) CompactIndexes() error {
 	if s.compactionDisabled {
-		return ErrCompactionUnsupported
+		return ErrCompactionDisabled
 	}
 
 	s.indexersMux.RLock()

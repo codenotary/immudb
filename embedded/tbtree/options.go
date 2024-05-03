@@ -53,6 +53,8 @@ type AppFactoryFunc func(
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
 
+type AppRemoveFunc func(rootPath, subPath string) error
+
 type Options struct {
 	logger logger.Logger
 
@@ -80,6 +82,7 @@ type Options struct {
 	fileSize     int
 
 	appFactory AppFactoryFunc
+	appRemove  AppRemoveFunc
 }
 
 func DefaultOptions() *Options {
@@ -192,6 +195,11 @@ func (opts *Options) WithLogger(logger logger.Logger) *Options {
 
 func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 	opts.appFactory = appFactory
+	return opts
+}
+
+func (opts *Options) WithAppRemoveFunc(AppRemove AppRemoveFunc) *Options {
+	opts.appRemove = AppRemove
 	return opts
 }
 
