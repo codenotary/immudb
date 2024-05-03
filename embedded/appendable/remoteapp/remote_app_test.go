@@ -422,6 +422,14 @@ func (r *remoteStorageMockingWrapper) Put(ctx context.Context, name string, file
 	return r.wrapped.Put(ctx, name, fileName)
 }
 
+func (r *remoteStorageMockingWrapper) Remove(ctx context.Context, name string) error {
+	panic("unimplemented")
+}
+
+func (r *remoteStorageMockingWrapper) RemoveAll(ctx context.Context, path string) error {
+	panic("unimplemented")
+}
+
 func (r *remoteStorageMockingWrapper) Exists(ctx context.Context, name string) (bool, error) {
 	if r.fnExists != nil {
 		return r.fnExists(ctx, name, func() (bool, error) {

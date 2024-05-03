@@ -165,7 +165,8 @@ func (e *cLogEntry) deserialize(b []byte) {
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	path   string
+	path string
+
 	logger logger.Logger
 
 	nLog   appendable.Appendable
@@ -199,6 +200,8 @@ type TBtree struct {
 	nodesLogMaxOpenedFiles     int
 	historyLogMaxOpenedFiles   int
 	commitLogMaxOpenedFiles    int
+	appFactory                 AppFactoryFunc
+	appRemove                  AppRemoveFunc
 
 	snapshots      map[uint64]*Snapshot
 	maxSnapshotID  uint64
@@ -329,6 +332,14 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		}
 	}
 
+	appRemove := opts.appRemove
+	if appRemove == nil {
+		appRemove = func(rootPath, subPath string) error {
+			path := filepath.Join(rootPath, subPath)
+			return os.RemoveAll(path)
+		}
+	}
+
 	appendableOpts.WithFileExt("hx")
 	appendableOpts.WithMaxOpenedFiles(opts.historyLogMaxOpenedFiles)
 	hLog, err := appFactory(path, historyFolder, appendableOpts)
@@ -391,7 +402,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 			nLog.Close()
 			cLog.Close()
 
-			err = discardSnapshots(path, snapIDs[i-1:i], opts.logger)
+			err = discardSnapshots(path, snapIDs[i-1:i], appRemove, opts.logger)
 			if err != nil {
 				opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 			}
@@ -402,7 +413,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		opts.logger.Infof("successfully read snapshots at '%s'", snapPath)
 
 		// Discard older snapshots upon successful validation
-		err = discardSnapshots(path, snapIDs[:i-1], opts.logger)
+		err = discardSnapshots(path, snapIDs[:i-1], appRemove, opts.logger)
 		if err != nil {
 			opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 		}
@@ -468,27 +479,24 @@ func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []
 	return snapIDs, nil
 }
 
-func discardSnapshots(path string, snapIDs []uint64, logger logger.Logger) error {
+func discardSnapshots(path string, snapIDs []uint64, appRemove AppRemoveFunc, logger logger.Logger) error {
 	for _, snapID := range snapIDs {
 		nFolder := snapFolder(nodesFolderPrefix, snapID)
 		cFolder := snapFolder(commitFolderPrefix, snapID)
 
-		nPath := filepath.Join(path, nFolder)
-		cPath := filepath.Join(path, cFolder)
+		logger.Infof("discarding snapshot with id=%d at '%s'..., %d", snapID, path)
 
-		logger.Infof("discarding snapshots at '%s'...", cPath)
-
-		err := os.RemoveAll(nPath) // TODO: nLog.Remove()
+		err := appRemove(path, nFolder)
 		if err != nil {
 			return err
 		}
 
-		err = os.RemoveAll(cPath) // TODO: cLog.Remove()
+		err = appRemove(path, cFolder)
 		if err != nil {
 			return err
 		}
 
-		logger.Infof("snapshots at '%s' has been discarded", cPath)
+		logger.Infof("snapshot with id=%d at '%s' has been discarded, %d", snapID, path)
 	}
 
 	return nil
@@ -577,6 +585,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		historyLogMaxOpenedFiles: opts.historyLogMaxOpenedFiles,
 		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
 		readOnly:                 opts.readOnly,
+		appFactory:               opts.appFactory,
+		appRemove:                opts.appRemove,
 		snapshots:                make(map[uint64]*Snapshot),
 	}
 
@@ -718,7 +728,9 @@ func (t *TBtree) GetOptions() *Options {
 		WithDelayDuringCompaction(t.delayDuringCompaction).
 		WithNodesLogMaxOpenedFiles(t.nodesLogMaxOpenedFiles).
 		WithHistoryLogMaxOpenedFiles(t.historyLogMaxOpenedFiles).
-		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles)
+		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles).
+		WithAppFactory(t.appFactory).
+		WithAppRemoveFunc(t.appRemove)
 }
 
 func (t *TBtree) cachePut(n node) {
