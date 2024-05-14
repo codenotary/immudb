@@ -41,11 +41,12 @@ type RowReader interface {
 }
 
 type ScanSpecs struct {
-	Index          *Index
-	rangesByColID  map[uint32]*typedValueRange
-	IncludeHistory bool
-	DescOrder      bool
-	SortRequired   bool
+	Index              *Index
+	rangesByColID      map[uint32]*typedValueRange
+	IncludeHistory     bool
+	DescOrder          bool
+	groupBySortColumns []*OrdCol
+	orderBySortCols    []*OrdCol
 }
 
 type Row struct {

@@ -27,30 +27,31 @@ import (
 type groupedRowReader struct {
 	rowReader RowReader
 
-	selectors []Selector
+	selectors   []Selector
+	groupByCols []*ColSelector
+	cols        []ColDescriptor
 
-	groupBy []*ColSelector
-
-	currRow  *Row
-	nonEmpty bool
+	currRow *Row
+	empty   bool
 }
 
 func newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
-	if rowReader == nil || len(selectors) == 0 || len(groupBy) > 1 {
+	if rowReader == nil || len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	// TODO: leverage multi-column indexing
-	if len(groupBy) == 1 &&
-		rowReader.OrderBy()[0].Selector() != EncodeSelector(groupBy[0].resolve(rowReader.TableAlias())) {
-		return nil, ErrLimitedGroupBy
+	gr := &groupedRowReader{
+		rowReader:   rowReader,
+		selectors:   selectors,
+		groupByCols: groupBy,
+		empty:       true,
 	}
 
-	return &groupedRowReader{
-		rowReader: rowReader,
-		selectors: selectors,
-		groupBy:   groupBy,
-	}, nil
+	cols, err := gr.columns()
+	if err == nil {
+		gr.cols = cols
+	}
+	return gr, err
 }
 
 func (gr *groupedRowReader) onClose(callback func()) {
@@ -74,18 +75,29 @@ func (gr *groupedRowReader) ScanSpecs() *ScanSpecs {
 }
 
 func (gr *groupedRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
-	colsBySel, err := gr.colsBySelector(ctx)
+	return gr.cols, nil
+}
+
+func (gr *groupedRowReader) columns() ([]ColDescriptor, error) {
+	colsBySel, err := gr.colsBySelector(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	colsByPos := make([]ColDescriptor, len(gr.selectors))
-
-	for i, sel := range gr.selectors {
+	selectorMap := make(map[string]bool)
+	colsByPos := make([]ColDescriptor, 0, len(gr.selectors))
+	for _, sel := range gr.selectors {
 		encSel := EncodeSelector(sel.resolve(gr.rowReader.TableAlias()))
-		colsByPos[i] = colsBySel[encSel]
+		colsByPos = append(colsByPos, colsBySel[encSel])
+		selectorMap[encSel] = true
 	}
 
+	for _, col := range gr.groupByCols {
+		sel := EncodeSelector(col.resolve(gr.rowReader.TableAlias()))
+		if !selectorMap[sel] {
+			colsByPos = append(colsByPos, colsBySel[sel])
+		}
+	}
 	return colsByPos, nil
 }
 
@@ -121,18 +133,13 @@ func (gr *groupedRowReader) colsBySelector(ctx context.Context) (map[string]ColD
 			return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 		}
 
-		if aggFn == MAX || aggFn == MIN {
-			colDescriptors[encSel] = colDesc
-		} else {
-			// SUM, AVG
-			colDescriptors[encSel] = des
-		}
+		des.Type = colDesc.Type
+		colDescriptors[encSel] = des
 	}
-
 	return colDescriptors, nil
 }
 
-func allAgregations(selectors []Selector) bool {
+func allAggregations(selectors []Selector) bool {
 	for _, sel := range selectors {
 		_, isAggregation := sel.(*AggColSelector)
 		if !isAggregation {
@@ -188,63 +195,25 @@ func (gr *groupedRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
 		row, err := gr.rowReader.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
-			if !gr.nonEmpty && allAgregations(gr.selectors) {
-				// special case when all selectors are aggregations
-				zeroRow := &Row{
-					ValuesByPosition: make([]TypedValue, len(gr.selectors)),
-					ValuesBySelector: make(map[string]TypedValue, len(gr.selectors)),
-				}
-
-				colsBySelector, err := gr.colsBySelector(ctx)
-				if err != nil {
-					return nil, err
-				}
-
-				for i, sel := range gr.selectors {
-					aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
-					encSel := EncodeSelector(aggFn, table, col)
-
-					var zero TypedValue
-					if aggFn == COUNT {
-						zero = zeroForType(IntegerType)
-					} else {
-						zero = zeroForType(colsBySelector[encSel].Type)
-					}
-
-					zeroRow.ValuesByPosition[i] = zero
-					zeroRow.ValuesBySelector[encSel] = zero
-				}
-
-				gr.nonEmpty = true
-
-				return zeroRow, nil
-			}
-
-			if gr.currRow == nil {
-				return nil, err
-			}
-
-			r := gr.currRow
-			gr.currRow = nil
-
-			return r, nil
+			return gr.emitCurrentRow(ctx)
 		}
+
 		if err != nil {
 			return nil, err
 		}
 
-		gr.nonEmpty = true
+		gr.empty = false
 
 		if gr.currRow == nil {
 			gr.currRow = row
-			err = gr.initAggregations()
+			err = gr.initAggregations(gr.currRow)
 			if err != nil {
 				return nil, err
 			}
 			continue
 		}
 
-		compatible, err := gr.currRow.compatible(row, gr.groupBy, gr.rowReader.TableAlias())
+		compatible, err := gr.currRow.compatible(row, gr.groupByCols, gr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
@@ -253,104 +222,28 @@ func (gr *groupedRowReader) Read(ctx context.Context) (*Row, error) {
 			r := gr.currRow
 			gr.currRow = row
 
-			err = gr.initAggregations()
+			err = gr.initAggregations(gr.currRow)
 			if err != nil {
 				return nil, err
 			}
-
 			return r, nil
 		}
 
 		// Compatible rows get merged
-		for _, v := range gr.currRow.ValuesBySelector {
-			aggV, isAggregatedValue := v.(AggregatedValue)
-
-			if isAggregatedValue {
-				if aggV.ColBounded() {
-					val, exists := row.ValuesBySelector[aggV.Selector()]
-					if !exists {
-						return nil, ErrColumnDoesNotExist
-					}
-
-					err = aggV.updateWith(val)
-					if err != nil {
-						return nil, err
-					}
-				}
-
-				if !aggV.ColBounded() {
-					err = aggV.updateWith(nil)
-					if err != nil {
-						return nil, err
-					}
-				}
-			}
+		err = updateRow(gr.currRow, row)
+		if err != nil {
+			return nil, err
 		}
 	}
 }
 
-func (gr *groupedRowReader) initAggregations() error {
-	// augment row with aggregated values
-	for _, sel := range gr.selectors {
-		aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
-
-		encSel := EncodeSelector(aggFn, table, col)
-
-		var v TypedValue
-
-		switch aggFn {
-		case COUNT:
-			{
-				if col != "*" {
-					return ErrLimitedCount
-				}
-
-				v = &CountValue{sel: EncodeSelector("", table, col)}
-			}
-		case SUM:
-			{
-				v = &SumValue{
-					val: &NullValue{t: AnyType},
-					sel: EncodeSelector("", table, col),
-				}
-			}
-		case MIN:
-			{
-				v = &MinValue{
-					val: &NullValue{t: AnyType},
-					sel: EncodeSelector("", table, col),
-				}
-			}
-		case MAX:
-			{
-				v = &MaxValue{
-					val: &NullValue{t: AnyType},
-					sel: EncodeSelector("", table, col),
-				}
-			}
-		case AVG:
-			{
-				v = &AVGValue{
-					s:   &NullValue{t: AnyType},
-					sel: EncodeSelector("", table, col),
-				}
-			}
-		default:
-			{
-				continue
-			}
-		}
-
-		gr.currRow.ValuesByPosition = append(gr.currRow.ValuesByPosition, v)
-		gr.currRow.ValuesBySelector[encSel] = v
-	}
-
-	for _, v := range gr.currRow.ValuesBySelector {
+func updateRow(currRow, newRow *Row) error {
+	for _, v := range currRow.ValuesBySelector {
 		aggV, isAggregatedValue := v.(AggregatedValue)
 
 		if isAggregatedValue {
 			if aggV.ColBounded() {
-				val, exists := gr.currRow.ValuesBySelector[aggV.Selector()]
+				val, exists := newRow.ValuesBySelector[aggV.Selector()]
 				if !exists {
 					return ErrColumnDoesNotExist
 				}
@@ -369,8 +262,130 @@ func (gr *groupedRowReader) initAggregations() error {
 			}
 		}
 	}
-
 	return nil
+}
+
+func (gr *groupedRowReader) emitCurrentRow(ctx context.Context) (*Row, error) {
+	if gr.empty && allAggregations(gr.selectors) && len(gr.groupByCols) == 0 {
+		zr, err := gr.zeroRow(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		gr.empty = false
+		return zr, nil
+	}
+
+	if gr.currRow == nil {
+		return nil, ErrNoMoreRows
+	}
+
+	r := gr.currRow
+	gr.currRow = nil
+
+	return r, nil
+}
+
+func (gr *groupedRowReader) zeroRow(ctx context.Context) (*Row, error) {
+	// special case when all selectors are aggregations
+	zeroRow := &Row{
+		ValuesByPosition: make([]TypedValue, len(gr.selectors)),
+		ValuesBySelector: make(map[string]TypedValue, len(gr.selectors)),
+	}
+
+	colsBySelector, err := gr.colsBySelector(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, sel := range gr.selectors {
+		aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
+		encSel := EncodeSelector(aggFn, table, col)
+
+		var zero TypedValue
+		if aggFn == COUNT {
+			zero = zeroForType(IntegerType)
+		} else {
+			zero = zeroForType(colsBySelector[encSel].Type)
+		}
+
+		zeroRow.ValuesByPosition[i] = zero
+		zeroRow.ValuesBySelector[encSel] = zero
+	}
+	return zeroRow, nil
+}
+
+func (gr *groupedRowReader) initAggregations(row *Row) error {
+	// augment row with aggregated values
+	for _, sel := range gr.selectors {
+		aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
+		v, err := initAggValue(aggFn, table, col)
+		if err != nil {
+			return err
+		}
+
+		if v == nil {
+			continue
+		}
+
+		encSel := EncodeSelector(aggFn, table, col)
+		row.ValuesBySelector[encSel] = v
+	}
+
+	for i, col := range gr.cols {
+		v := row.ValuesBySelector[col.Selector()]
+
+		if i < len(row.ValuesByPosition) {
+			row.ValuesByPosition[i] = v
+		} else {
+			row.ValuesByPosition = append(row.ValuesByPosition, v)
+		}
+	}
+	row.ValuesByPosition = row.ValuesByPosition[:len(gr.cols)]
+	return updateRow(row, row)
+}
+
+func initAggValue(aggFn, table, col string) (TypedValue, error) {
+	var v TypedValue
+	switch aggFn {
+	case COUNT:
+		{
+			if col != "*" {
+				return nil, ErrLimitedCount
+			}
+
+			v = &CountValue{sel: EncodeSelector("", table, col)}
+		}
+	case SUM:
+		{
+			v = &SumValue{
+				val: &NullValue{t: AnyType},
+				sel: EncodeSelector("", table, col),
+			}
+		}
+	case MIN:
+		{
+			v = &MinValue{
+				val: &NullValue{t: AnyType},
+				sel: EncodeSelector("", table, col),
+			}
+		}
+	case MAX:
+		{
+			v = &MaxValue{
+				val: &NullValue{t: AnyType},
+				sel: EncodeSelector("", table, col),
+			}
+		}
+	case AVG:
+		{
+			v = &AVGValue{
+				s:   &NullValue{t: AnyType},
+				sel: EncodeSelector("", table, col),
+			}
+		}
+	}
+	return v, nil
 }
 
 func (gr *groupedRowReader) Close() error {
