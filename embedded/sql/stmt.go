@@ -1558,16 +1558,18 @@ type TypedValue interface {
 
 type Tuple []TypedValue
 
-func (t Tuple) Compare(other Tuple) (int, error) {
-	i := 0
-	for i < len(t) && i < len(other) {
+func (t Tuple) Compare(other Tuple) (int, int, error) {
+	if len(t) != len(other) {
+		return -1, -1, ErrNotComparableValues
+	}
+
+	for i := range t {
 		res, err := t[i].Compare(other[i])
 		if err != nil || res != 0 {
-			return res, err
+			return res, i, err
 		}
-		i++
 	}
-	return len(t) - len(other), nil
+	return 0, -1, nil
 }
 
 func NewNull(t SQLValueType) *NullValue {
@@ -2480,14 +2482,47 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		return nil, ErrHavingClauseRequiresGroupClause
 	}
 
-	if len(stmt.groupBy) > 1 {
-		return nil, ErrLimitedGroupBy
+	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
+		for _, sel := range stmt.selectors {
+			_, isAgg := sel.(*AggColSelector)
+			if !isAgg && !stmt.groupByContains(sel) {
+				return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+			}
+		}
 	}
 
-	if len(stmt.orderBy) > 1 {
-		return nil, ErrLimitedOrderBy
+	if len(stmt.orderBy) > 0 {
+		for _, col := range stmt.orderBy {
+			sel := col.sel
+			_, isAgg := sel.(*AggColSelector)
+			if (isAgg && !stmt.containsSelector(sel)) || (!isAgg && len(stmt.groupBy) > 0 && !stmt.groupByContains(sel)) {
+				return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+			}
+		}
 	}
 	return tx, nil
+}
+
+func (stmt *SelectStmt) containsSelector(s Selector) bool {
+	encSel := EncodeSelector(s.resolve(stmt.Alias()))
+
+	for _, sel := range stmt.selectors {
+		if EncodeSelector(sel.resolve(stmt.Alias())) == encSel {
+			return true
+		}
+	}
+	return false
+}
+
+func (stmt *SelectStmt) groupByContains(sel Selector) bool {
+	encSel := EncodeSelector(sel.resolve(stmt.Alias()))
+
+	for _, colSel := range stmt.groupBy {
+		if EncodeSelector(colSel.resolve(stmt.Alias())) == encSel {
+			return true
+		}
+	}
+	return false
 }
 
 func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
@@ -2507,7 +2542,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}()
 
 	if stmt.joins != nil {
-		jointRowReader, err := newJointRowReader(rowReader, stmt.joins)
+		var jointRowReader *jointRowReader
+		jointRowReader, err = newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
@@ -2518,28 +2554,18 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		rowReader = newConditionalRowReader(rowReader, stmt.where)
 	}
 
-	if scanSpecs.SortRequired {
-		rowReader, err = newSortRowReader(rowReader, stmt.orderBySelectors(), scanSpecs.DescOrder)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	containsAggregations := false
-	for _, sel := range stmt.selectors {
-		_, containsAggregations = sel.(*AggColSelector)
-		if containsAggregations {
-			break
-		}
-	}
-
-	if containsAggregations {
-		var groupBy []*ColSelector
-		if stmt.groupBy != nil {
-			groupBy = stmt.groupBy
+	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
+		if len(scanSpecs.groupBySortColumns) > 0 {
+			var sortRowReader *sortRowReader
+			sortRowReader, err = newSortRowReader(rowReader, scanSpecs.groupBySortColumns)
+			if err != nil {
+				return nil, err
+			}
+			rowReader = sortRowReader
 		}
 
-		groupedRowReader, err := newGroupedRowReader(rowReader, stmt.selectors, groupBy)
+		var groupedRowReader *groupedRowReader
+		groupedRowReader, err = newGroupedRowReader(rowReader, stmt.selectors, stmt.groupBy)
 		if err != nil {
 			return nil, err
 		}
@@ -2550,6 +2576,15 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}
 
+	if len(scanSpecs.orderBySortCols) > 0 {
+		var sortRowReader *sortRowReader
+		sortRowReader, err = newSortRowReader(rowReader, stmt.orderBy)
+		if err != nil {
+			return nil, err
+		}
+		rowReader = sortRowReader
+	}
+
 	projectedRowReader, err := newProjectedRowReader(ctx, rowReader, stmt.as, stmt.selectors)
 	if err != nil {
 		return nil, err
@@ -2557,7 +2592,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	rowReader = projectedRowReader
 
 	if stmt.distinct {
-		distinctRowReader, err := newDistinctRowReader(ctx, rowReader)
+		var distinctRowReader *distinctRowReader
+		distinctRowReader, err = newDistinctRowReader(ctx, rowReader)
 		if err != nil {
 			return nil, err
 		}
@@ -2565,7 +2601,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	if stmt.offset != nil {
-		offset, err := evalExpAsInt(tx, stmt.offset, params)
+		var offset int
+		offset, err = evalExpAsInt(tx, stmt.offset, params)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid offset", err)
 		}
@@ -2574,7 +2611,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	if stmt.limit != nil {
-		limit, err := evalExpAsInt(tx, stmt.limit, params)
+		var limit int
+		limit, err = evalExpAsInt(tx, stmt.limit, params)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid limit", err)
 		}
@@ -2589,6 +2627,64 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	return rowReader, nil
+}
+
+func (stmt *SelectStmt) rearrangeOrdColumns(groupByCols, orderByCols []*OrdCol) ([]*OrdCol, []*OrdCol) {
+	if len(groupByCols) > 0 && len(orderByCols) > 0 && !ordColumnsHaveAggregations(orderByCols) {
+		if ordColsHasPrefix(orderByCols, groupByCols, stmt.Alias()) {
+			return orderByCols, nil
+		}
+
+		if ordColsHasPrefix(groupByCols, orderByCols, stmt.Alias()) {
+			for i := range orderByCols {
+				groupByCols[i].descOrder = orderByCols[i].descOrder
+			}
+			return groupByCols, nil
+		}
+	}
+	return groupByCols, orderByCols
+}
+
+func ordColsHasPrefix(cols, prefix []*OrdCol, table string) bool {
+	if len(prefix) > len(cols) {
+		return false
+	}
+
+	for i := range prefix {
+		if EncodeSelector(prefix[i].sel.resolve(table)) != EncodeSelector(cols[i].sel.resolve(table)) {
+			return false
+		}
+	}
+	return true
+}
+
+func (stmt *SelectStmt) groupByOrdColumns() []*OrdCol {
+	groupByCols := stmt.groupBy
+
+	ordCols := make([]*OrdCol, 0, len(groupByCols))
+	for _, col := range groupByCols {
+		ordCols = append(ordCols, &OrdCol{sel: col})
+	}
+	return ordCols
+}
+
+func ordColumnsHaveAggregations(cols []*OrdCol) bool {
+	for _, ordCol := range cols {
+		if _, isAgg := ordCol.sel.(*AggColSelector); isAgg {
+			return true
+		}
+	}
+	return false
+}
+
+func (stmt *SelectStmt) containsAggregations() bool {
+	for _, sel := range stmt.selectors {
+		_, isAgg := sel.(*AggColSelector)
+		if isAgg {
+			return true
+		}
+	}
+	return false
 }
 
 func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, error) {
@@ -2628,14 +2724,15 @@ func (stmt *SelectStmt) Alias() string {
 }
 
 func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (*ScanSpecs, error) {
-	sortingRequired := len(stmt.orderBy) > 0
-	descOrder := sortingRequired && stmt.orderBy[0].descOrder
+	groupByCols, orderByCols := stmt.groupByOrdColumns(), stmt.orderBy
 
 	tableRef, isTableRef := stmt.ds.(*tableRef)
 	if !isTableRef {
+		groupByCols, orderByCols = stmt.rearrangeOrdColumns(groupByCols, orderByCols)
+
 		return &ScanSpecs{
-			SortRequired: sortingRequired,
-			DescOrder:    descOrder,
+			groupBySortColumns: groupByCols,
+			orderBySortCols:    orderByCols,
 		}, nil
 	}
 
@@ -2652,51 +2749,67 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		}
 	}
 
-	preferredIndex, err := stmt.selectIndex(table)
+	preferredIndex, err := stmt.getPreferredIndex(table)
 	if err != nil {
 		return nil, err
 	}
 
 	var sortingIndex *Index
-	if len(stmt.orderBy) > 0 {
-		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, idx := range table.indexesByColID[col.id] {
-			if idx.sortableUsing(col.id, rangesByColID) {
-				if preferredIndex == nil || idx.id == preferredIndex.id {
-					sortingIndex = idx
-					sortingRequired = false
-					break
-				}
-			}
-		}
+	if preferredIndex == nil {
+		sortingIndex = stmt.selectSortingIndex(groupByCols, orderByCols, table, rangesByColID)
+	} else {
+		sortingIndex = preferredIndex
 	}
 
 	if sortingIndex == nil {
-		if preferredIndex == nil {
-			sortingIndex = table.primaryIndex
-		} else {
-			sortingIndex = preferredIndex
-		}
+		sortingIndex = table.primaryIndex
 	}
 
 	if tableRef.history && !sortingIndex.IsPrimary() {
 		return nil, fmt.Errorf("%w: historical queries are supported over primary index", ErrIllegalArguments)
 	}
 
+	var descOrder bool
+	if len(groupByCols) > 0 && sortingIndex.coversOrdCols(groupByCols, rangesByColID) {
+		groupByCols = nil
+	}
+
+	if len(groupByCols) == 0 && len(orderByCols) > 0 && sortingIndex.coversOrdCols(orderByCols, rangesByColID) {
+		descOrder = orderByCols[0].descOrder
+		orderByCols = nil
+	}
+
+	groupByCols, orderByCols = stmt.rearrangeOrdColumns(groupByCols, orderByCols)
+
 	return &ScanSpecs{
-		Index:          sortingIndex,
-		rangesByColID:  rangesByColID,
-		IncludeHistory: tableRef.history,
-		DescOrder:      descOrder,
-		SortRequired:   sortingRequired,
+		Index:              sortingIndex,
+		rangesByColID:      rangesByColID,
+		IncludeHistory:     tableRef.history,
+		DescOrder:          descOrder,
+		groupBySortColumns: groupByCols,
+		orderBySortCols:    orderByCols,
 	}, nil
 }
 
-func (stmt *SelectStmt) selectIndex(table *Table) (*Index, error) {
+func (stmt *SelectStmt) selectSortingIndex(groupByCols, orderByCols []*OrdCol, table *Table, rangesByColId map[uint32]*typedValueRange) *Index {
+	sortCols := groupByCols
+	if len(sortCols) == 0 {
+		sortCols = orderByCols
+	}
+
+	if len(sortCols) == 0 {
+		return nil
+	}
+
+	for _, idx := range table.indexes {
+		if idx.coversOrdCols(sortCols, rangesByColId) {
+			return idx
+		}
+	}
+	return nil
+}
+
+func (stmt *SelectStmt) getPreferredIndex(table *Table) (*Index, error) {
 	if len(stmt.indexOn) == 0 {
 		return nil, nil
 	}
@@ -2713,18 +2826,6 @@ func (stmt *SelectStmt) selectIndex(table *Table) (*Index, error) {
 	return table.GetIndexByName(indexName(table.name, cols))
 }
 
-func (stmt *SelectStmt) orderBySelectors() []Selector {
-	var selectors []Selector
-	for _, col := range stmt.orderBy {
-		sel := &ColSelector{
-			table: col.sel.table,
-			col:   col.sel.col,
-		}
-		selectors = append(selectors, sel)
-	}
-	return selectors
-}
-
 type UnionStmt struct {
 	distinct    bool
 	left, right DataSource
@@ -2735,7 +2836,6 @@ func (stmt *UnionStmt) inferParameters(ctx context.Context, tx *SQLTx, params ma
 	if err != nil {
 		return err
 	}
-
 	return stmt.right.inferParameters(ctx, tx, params)
 }
 
@@ -2966,7 +3066,7 @@ type JoinSpec struct {
 }
 
 type OrdCol struct {
-	sel       *ColSelector
+	sel       Selector
 	descOrder bool
 }
 

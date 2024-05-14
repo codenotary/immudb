@@ -20,19 +20,25 @@ import (
 	"context"
 )
 
+type sortDirection int8
+
+const (
+	sortDirectionDesc sortDirection = -1
+	sortDirectionAsc  sortDirection = 1
+)
+
 type sortRowReader struct {
 	rowReader          RowReader
-	selectors          []Selector
+	ordCols            []*OrdCol
 	orderByDescriptors []ColDescriptor
 	sortKeysPositions  []int
-	desc               bool
 	sorter             fileSorter
 
 	resultReader resultReader
 }
 
-func newSortRowReader(rowReader RowReader, selectors []Selector, desc bool) (*sortRowReader, error) {
-	if rowReader == nil || len(selectors) == 0 {
+func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, error) {
+	if rowReader == nil || len(ordCols) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
@@ -51,14 +57,16 @@ func newSortRowReader(rowReader RowReader, selectors []Selector, desc bool) (*so
 		return nil, err
 	}
 
-	sortKeysPositions := getSortKeysPositions(colPosBySelector, selectors, rowReader.TableAlias())
+	sortKeysPositions, err := getSortKeysPositions(colPosBySelector, ordCols, rowReader.TableAlias())
+	if err != nil {
+		return nil, err
+	}
 
 	tx := rowReader.Tx()
 	sr := &sortRowReader{
 		rowReader:          rowReader,
 		orderByDescriptors: getOrderByDescriptors(descriptors, sortKeysPositions),
-		selectors:          selectors,
-		desc:               desc,
+		ordCols:            ordCols,
 		sortKeysPositions:  sortKeysPositions,
 		sorter: fileSorter{
 			colPosBySelector: colPosBySelector,
@@ -69,15 +77,26 @@ func newSortRowReader(rowReader RowReader, selectors []Selector, desc bool) (*so
 		},
 	}
 
-	sr.sorter.cmp = func(t1, t2 Tuple) bool {
-		k1 := sr.extractSortKey(t1)
-		k2 := sr.extractSortKey(t2)
-
-		res, _ := k1.Compare(k2)
-		if desc {
-			return res > 0
+	directions := make([]sortDirection, len(ordCols))
+	for i, col := range ordCols {
+		directions[i] = sortDirectionAsc
+		if col.descOrder {
+			directions[i] = sortDirectionDesc
 		}
-		return res <= 0
+	}
+
+	k1 := make(Tuple, len(sortKeysPositions))
+	k2 := make(Tuple, len(sortKeysPositions))
+
+	sr.sorter.cmp = func(t1, t2 Tuple) int {
+		sr.extractSortKey(t1, k1)
+		sr.extractSortKey(t2, k2)
+
+		res, idx, _ := k1.Compare(k2)
+		if idx >= 0 {
+			return res * int(directions[idx])
+		}
+		return res
 	}
 	return sr, nil
 }
@@ -95,15 +114,19 @@ func getColTypes(r RowReader) ([]string, error) {
 	return cols, err
 }
 
-func getSortKeysPositions(colPosBySelector map[string]int, selectors []Selector, tableAlias string) []int {
-	sortKeysPositions := make([]int, len(selectors))
-	for i, sel := range selectors {
-		aggFn, table, col := sel.resolve(tableAlias)
+func getSortKeysPositions(colPosBySelector map[string]int, cols []*OrdCol, tableAlias string) ([]int, error) {
+	sortKeysPositions := make([]int, len(cols))
+	for i, col := range cols {
+		aggFn, table, col := col.sel.resolve(tableAlias)
 		encSel := EncodeSelector(aggFn, table, col)
-		pos := colPosBySelector[encSel]
+
+		pos, exists := colPosBySelector[encSel]
+		if !exists {
+			return nil, ErrColumnDoesNotExist
+		}
 		sortKeysPositions[i] = pos
 	}
-	return sortKeysPositions
+	return sortKeysPositions, nil
 }
 
 func getColPositionsBySelector(desc []ColDescriptor) (map[string]int, error) {
@@ -114,12 +137,10 @@ func getColPositionsBySelector(desc []ColDescriptor) (map[string]int, error) {
 	return colPositionsBySelector, nil
 }
 
-func (sr *sortRowReader) extractSortKey(t Tuple) Tuple {
-	sortKey := make([]TypedValue, len(sr.sortKeysPositions))
+func (sr *sortRowReader) extractSortKey(t Tuple, out Tuple) {
 	for i, pos := range sr.sortKeysPositions {
-		sortKey[i] = t[pos]
+		out[i] = t[pos]
 	}
-	return sortKey
 }
 
 func getOrderByDescriptors(descriptors []ColDescriptor, sortKeysPositions []int) []ColDescriptor {

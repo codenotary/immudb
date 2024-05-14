@@ -31,7 +31,7 @@ func TestSortRowReader(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = newSortRowReader(nil, nil, false)
+	_, err = newSortRowReader(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
@@ -47,10 +47,10 @@ func TestSortRowReader(t *testing.T) {
 
 	table := tx.catalog.tables[0]
 
-	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex, SortRequired: true})
+	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
-	sr, err := newSortRowReader(r, []Selector{&ColSelector{col: "number"}}, false)
+	sr, err := newSortRowReader(r, []*OrdCol{{sel: &ColSelector{col: "number"}}})
 	require.NoError(t, err)
 
 	orderBy := sr.OrderBy()
@@ -68,6 +68,5 @@ func TestSortRowReader(t *testing.T) {
 	scanSpecs := sr.ScanSpecs()
 	require.NotNil(t, scanSpecs)
 	require.NotNil(t, scanSpecs.Index)
-	require.True(t, scanSpecs.SortRequired)
 	require.True(t, scanSpecs.Index.IsPrimary())
 }

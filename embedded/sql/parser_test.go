@@ -1150,6 +1150,29 @@ func TestSelectStmt(t *testing.T) {
 				}},
 			expectedError: nil,
 		},
+		{
+			input: "SELECT COUNT(*), SUM(age) FROM table1 ORDER BY SUM(age)",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&AggColSelector{aggFn: "COUNT", col: "*"},
+						&AggColSelector{aggFn: "SUM", col: "age"},
+					},
+					ds:    &tableRef{table: "table1"},
+					where: nil,
+					orderBy: []*OrdCol{
+						{
+							sel: &AggColSelector{
+								aggFn: "SUM",
+								col:   "age",
+								as:    "",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, tc := range testCases {

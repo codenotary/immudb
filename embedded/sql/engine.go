@@ -59,8 +59,7 @@ var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrInferredMultipleTypes = errors.New("inferred multiple types")
 var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
-var ErrLimitedOrderBy = errors.New("order by is limited to one column")
-var ErrLimitedGroupBy = errors.New("group by requires ordering by the grouping column")
+var ErrColumnMustAppearInGroupByOrAggregation = errors.New("must appear in the group by clause or be used in an aggregated function")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
 var ErrBrokenCatalogColSpecExpirable = fmt.Errorf("%w: catalog column entry set as expirable", ErrCorruptedData)
@@ -514,24 +513,7 @@ func (e *Engine) queryAll(ctx context.Context, tx *SQLTx, sql string, params map
 	}
 	defer reader.Close()
 
-	return readAllRows(ctx, reader)
-}
-
-func readAllRows(ctx context.Context, reader RowReader) ([]*Row, error) {
-	rows := make([]*Row, 0, 100)
-	for {
-		row, err := reader.Read(ctx)
-		if err == ErrNoMoreRows {
-			break
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		rows = append(rows, row)
-	}
-	return rows, nil
+	return ReadAllRows(ctx, reader)
 }
 
 func (e *Engine) Query(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (RowReader, error) {
