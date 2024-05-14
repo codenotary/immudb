@@ -1409,7 +1409,10 @@ message SQLQueryRequest {
   repeated NamedParam params = 2;
 
   // If true, reuse previously opened snapshot
-  bool reuseSnapshot = 3;
+  bool reuseSnapshot = 3 [deprecated = true];
+
+  // Wheter the client accepts a streaming response
+  bool acceptStream = 4;
 }
 
 message NamedParam {
@@ -1595,7 +1598,7 @@ service ImmuService {
 
   rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {}
 
-  rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {}
+  rpc TxSQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {}
 
   rpc Login(LoginRequest) returns (LoginResponse) {
     option deprecated = true;
@@ -1645,7 +1648,7 @@ service ImmuService {
 
   rpc Delete(DeleteKeysRequest) returns (TxHeader) {
     option (google.api.http) = {
-      post: "/db/delete"
+      post: "/db/deletekey"
       body: "*"
     };
   }
@@ -1928,7 +1931,7 @@ service ImmuService {
     };
   }
 
-  rpc SQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+  rpc SQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {
     option (google.api.http) = {
       post: "/db/sqlquery"
       body: "*"

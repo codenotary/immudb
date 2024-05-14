@@ -170,10 +170,10 @@ build/codegen:
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  --go_out=paths=source_relative:pkg/api/schema \
-	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/schema
-      --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema
-	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md
-	  --swagger_out=logtostderr=true:pkg/api/schema
+	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/schema \
+      --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
+	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
+	  --swagger_out=logtostderr=true:pkg/api/schema \
 
 .PHONY: build/codegenv2
 build/codegenv2:

@@ -220,6 +220,38 @@
         ]
       }
     },
+    "/db/deletekey": {
+      "post": {
+        "operationId": "ImmuService_Delete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxHeader"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDeleteKeysRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/execall": {
       "post": {
         "operationId": "ImmuService_ExecAll",
@@ -736,9 +768,18 @@
         "operationId": "ImmuService_SQLQuery",
         "responses": {
           "200": {
-            "description": "A successful response.",
+            "description": "A successful response.(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/schemaSQLQueryResult"
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/schemaSQLQueryResult"
+                },
+                "error": {
+                  "$ref": "#/definitions/runtimeStreamError"
+                }
+              },
+              "title": "Stream result of schemaSQLQueryResult"
             }
           },
           "default": {
@@ -2022,6 +2063,33 @@
         }
       }
     },
+    "schemaDatabaseInfo": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Database name"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Current database settings"
+        },
+        "loaded": {
+          "type": "boolean",
+          "title": "If true, this database is currently loaded into memory"
+        },
+        "diskSize": {
+          "type": "string",
+          "format": "uint64",
+          "title": "database disk size"
+        },
+        "numTransactions": {
+          "type": "string",
+          "format": "uint64",
+          "title": "total number of transactions"
+        }
+      }
+    },
     "schemaDatabaseListRequestV2": {
       "type": "object"
     },
@@ -2043,7 +2111,7 @@
         "databases": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaDatabaseWithSettings"
+            "$ref": "#/definitions/schemaDatabaseInfo"
           },
           "title": "Database list with current database settings"
         }
@@ -2147,6 +2215,10 @@
         "embeddedValues": {
           "$ref": "#/definitions/schemaNullableBool",
           "title": "If set to true, values are stored together with the transaction header (true by default)"
+        },
+        "preallocFiles": {
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "Enable file preallocation"
         }
       }
     },
@@ -2221,23 +2293,6 @@
         "settings": {
           "$ref": "#/definitions/schemaDatabaseNullableSettings",
           "title": "Database settings"
-        }
-      }
-    },
-    "schemaDatabaseWithSettings": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "title": "Database name"
-        },
-        "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings",
-          "title": "Current database settings"
-        },
-        "loaded": {
-          "type": "boolean",
-          "title": "If true, this database is currently loaded into memory"
         }
       }
     },
@@ -3211,6 +3266,10 @@
         "reuseSnapshot": {
           "type": "boolean",
           "title": "If true, reuse previously opened snapshot"
+        },
+        "acceptStream": {
+          "type": "boolean",
+          "title": "Wheter the client accepts a streaming response"
         }
       }
     },
@@ -3330,6 +3389,26 @@
         "version": {
           "type": "string",
           "description": "The version of the server instance."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "int64",
+          "description": "Unix timestamp (seconds) indicating when the server process has been started."
+        },
+        "numTransactions": {
+          "type": "string",
+          "format": "int64",
+          "description": "Total number of transactions across all databases."
+        },
+        "numDatabases": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Total number of databases present."
+        },
+        "databasesDiskSize": {
+          "type": "string",
+          "format": "int64",
+          "description": "Total disk size used by all databases."
         }
       },
       "description": "ServerInfoResponse contains information about the server instance."
@@ -3555,6 +3634,11 @@
           "type": "string",
           "format": "uint64",
           "title": "Entry expiration information"
+        },
+        "extra": {
+          "type": "string",
+          "format": "byte",
+          "title": "Extra data"
         }
       },
       "title": "TxMetadata contains metadata set to whole transaction"
@@ -3803,6 +3887,11 @@
             "format": "int32"
           },
           "title": "Mapping of column IDs to their length constraints"
+        },
+        "MaxColId": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Variable is used to assign unique ids to new columns as they are created"
         }
       }
     },

@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
@@ -47,6 +48,7 @@ type Options struct {
 	TLSConfig                   *tls.Config
 	auth                        bool
 	MaxRecvMsgSize              int
+	MaxResultSize               int
 	NoHistograms                bool
 	Detached                    bool
 	MetricsServer               bool
@@ -118,6 +120,7 @@ func DefaultOptions() *Options {
 		TLSConfig:                   nil,
 		auth:                        true,
 		MaxRecvMsgSize:              1024 * 1024 * 32, // 32Mb
+		MaxResultSize:               database.MaxKeyScanLimit,
 		NoHistograms:                false,
 		Detached:                    false,
 		MetricsServer:               true,
@@ -222,6 +225,12 @@ func (o *Options) WithAuth(authEnabled bool) *Options {
 
 func (o *Options) WithMaxRecvMsgSize(maxRecvMsgSize int) *Options {
 	o.MaxRecvMsgSize = maxRecvMsgSize
+	return o
+}
+
+// WithMaxResultSize sets the maximum number of results returned by any unary rpc method
+func (o *Options) WithMaxResultSize(maxResultSize int) *Options {
+	o.MaxResultSize = maxResultSize
 	return o
 }
 

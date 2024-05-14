@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -1056,4 +1057,42 @@ func TestUUIDType(t *testing.T) {
 
 	err = (&Varchar{}).selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
 	require.NoError(t, err)
+}
+
+func TestTypedValueString(t *testing.T) {
+	n := &NullValue{}
+	require.Equal(t, "NULL", n.String())
+
+	i := &Integer{val: 10}
+	require.Equal(t, "10", i.String())
+
+	s := &Varchar{val: "test"}
+	require.Equal(t, "test", s.String())
+
+	b := &Bool{val: true}
+	require.Equal(t, "true", b.String())
+
+	blob := &Blob{val: []byte{1, 2, 3}}
+	require.Equal(t, hex.EncodeToString([]byte{1, 2, 3}), blob.String())
+
+	ts := &Timestamp{val: time.Date(2024, time.April, 24, 10, 10, 10, 10, time.UTC)}
+	require.Equal(t, "2024-04-24 10:10:10", ts.String())
+
+	id := &UUID{val: uuid.New()}
+	require.Equal(t, id.val.String(), id.String())
+
+	count := &CountValue{c: 1}
+	require.Equal(t, "1", count.String())
+
+	sum := &SumValue{val: i}
+	require.Equal(t, "10", sum.String())
+
+	min := &MinValue{val: i}
+	require.Equal(t, "10", min.String())
+
+	max := &MaxValue{val: i}
+	require.Equal(t, "10", max.String())
+
+	avg := &AVGValue{s: &Float64{val: 10}, c: 4}
+	require.Equal(t, "2.5", avg.String())
 }

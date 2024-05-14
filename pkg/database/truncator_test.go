@@ -325,10 +325,10 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 	}
 
 	query := func(t *testing.T, stmt string, expectedRows int) {
-		res, err := db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
+		rows, err := db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
 		require.NoError(t, err)
 		require.NoError(t, err)
-		require.Len(t, res.Rows, expectedRows)
+		require.Len(t, rows, expectedRows)
 	}
 
 	// create a new table
@@ -474,10 +474,10 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 	}
 
 	query := func(t *testing.T, stmt string, expectedRows int) {
-		res, err := db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
+		rows, err := db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
 		require.NoError(t, err)
 		require.NoError(t, err)
-		require.Len(t, res.Rows, expectedRows)
+		require.Len(t, rows, expectedRows)
 	}
 
 	verify := func(t *testing.T, txID uint64) {
@@ -626,10 +626,10 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 	}
 
 	query := func(t *testing.T, stmt string, expectedRows int) {
-		res, err := db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
+		rows, err := db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
 		require.NoError(t, err)
 		require.NoError(t, err)
-		require.Len(t, res.Rows, expectedRows)
+		require.Len(t, rows, expectedRows)
 	}
 
 	verify := func(t *testing.T, txID uint64) {

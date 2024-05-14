@@ -492,8 +492,12 @@ type ImmuClient interface {
 
 	// SQLQuery performs a query (read-only) operation.
 	//
+	// Deprecated: use SQLQueryReader instead.
 	// The renewSnapshot parameter is deprecated and  is ignored by the server.
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
+
+	// SQLQueryReader submits an SQL query to the server and returns a reader object for efficient retrieval of all rows in the result set.
+	SQLQueryReader(ctx context.Context, sql string, params map[string]interface{}) (SQLQueryRowReader, error)
 
 	// ListTables returns a list of SQL tables.
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
@@ -709,7 +713,13 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
 			// todo here is possible to remove ClientUnaryInterceptor and use only tokenInterceptor
-			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
+			opts = append(opts, grpc.WithStreamInterceptor(
+				grpc_middleware.ChainStreamClient(
+					c.TokenStreamInterceptor,
+					auth.ClientStreamInterceptor(token),
+					c.SessionIDInjectorStreamInterceptor,
+				)),
+			)
 		}
 	}
 	uic = append(uic, c.SessionIDInjectorInterceptor)

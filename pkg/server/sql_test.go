@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -50,7 +51,7 @@ func TestSQLInteraction(t *testing.T) {
 	_, err = s.SQLExec(ctx, nil)
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
-	_, err = s.SQLQuery(ctx, nil)
+	err = s.SQLQuery(nil, &ImmuService_SQLQueryServerMock{ctx: ctx})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.DescribeTable(ctx, nil)
@@ -92,9 +93,16 @@ func TestSQLInteraction(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, xres.Txs, 1)
 
-	res, err = s.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: "SELECT * FROM table1"})
+	var nRows int
+	err = s.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM table1"}, &ImmuService_SQLQueryServerMock{
+		ctx: ctx,
+		sendFunc: func(sr *schema.SQLQueryResult) error {
+			nRows += len(sr.Rows)
+			return nil
+		},
+	})
 	require.NoError(t, err)
-	require.Len(t, res.Rows, 3)
+	require.Equal(t, nRows, 3)
 
 	e, err := s.VerifiableSQLGet(ctx, &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}}},
@@ -183,4 +191,18 @@ func TestSQLExecCreateDatabase(t *testing.T) {
 
 	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE db2;"})
 	require.ErrorContains(t, err, sql.ErrDatabaseAlreadyExists.Error())
+}
+
+type ImmuService_SQLQueryServerMock struct {
+	grpc.ServerStream
+	sendFunc func(*schema.SQLQueryResult) error
+	ctx      context.Context
+}
+
+func (s *ImmuService_SQLQueryServerMock) Send(res *schema.SQLQueryResult) error {
+	return s.sendFunc(res)
+}
+
+func (s *ImmuService_SQLQueryServerMock) Context() context.Context {
+	return s.ctx
 }

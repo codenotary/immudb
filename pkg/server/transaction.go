@@ -132,18 +132,24 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 	return new(empty.Empty), res
 }
 
-func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	if request == nil {
-		return nil, ErrIllegalArguments
+func (s *ImmuServer) TxSQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_TxSQLQueryServer) error {
+	if req == nil {
+		return ErrIllegalArguments
 	}
 	if s.Options.GetMaintenance() {
-		return nil, ErrNotAllowedInMaintenanceMode
+		return ErrNotAllowedInMaintenanceMode
 	}
 
-	tx, err := s.SessManager.GetTransactionFromContext(ctx)
+	tx, err := s.SessManager.GetTransactionFromContext(srv.Context())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return tx.SQLQuery(ctx, request)
+	reader, err := tx.SQLQuery(srv.Context(), req)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	return s.streamRows(context.Background(), reader, tx.Database().MaxResultSize(), srv.Send)
 }
