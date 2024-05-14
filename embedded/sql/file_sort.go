@@ -33,7 +33,7 @@ type sortedChunk struct {
 type fileSorter struct {
 	colPosBySelector map[string]int
 	colTypes         []string
-	cmp              func(r1, r2 Tuple) bool
+	cmp              func(r1, r2 Tuple) int
 
 	tx          *SQLTx
 	sortBufSize int
@@ -196,7 +196,7 @@ func (s *fileSorter) mergeChunks(lr, rr *fileRowReader, writer io.Writer) error 
 		}
 
 		var rawData []byte
-		if s.cmp(t1, t2) {
+		if s.cmp(t1, t2) < 0 {
 			rawData = lr.rowBuf.Bytes()
 			t1 = nil
 		} else {
@@ -291,12 +291,12 @@ func (r *fileRowReader) Read() (*Row, error) {
 	return row, nil
 }
 
-func decodeValues(data []byte, cols []string) ([]TypedValue, error) {
-	values := make([]TypedValue, len(cols))
+func decodeValues(data []byte, colTypes []SQLValueType) ([]TypedValue, error) {
+	values := make([]TypedValue, len(colTypes))
 
 	var voff int
-	for i, col := range cols {
-		v, n, err := DecodeValue(data[voff:], col)
+	for i, col := range colTypes {
+		v, n, err := DecodeNullableValue(data[voff:], col)
 		if err != nil {
 			return nil, err
 		}
@@ -319,7 +319,7 @@ func (s *fileSorter) sortBuffer() {
 		r1 := buf[i]
 		r2 := buf[j]
 
-		return s.cmp(r1.ValuesByPosition, r2.ValuesByPosition)
+		return s.cmp(r1.ValuesByPosition, r2.ValuesByPosition) < 0
 	})
 }
 
@@ -370,7 +370,7 @@ func encodeRow(r *Row) ([]byte, error) {
 	buf.Write([]byte{0, 0}) // make room for size field
 
 	for _, v := range r.ValuesByPosition {
-		rawValue, err := EncodeValue(v, v.Type(), -1)
+		rawValue, err := EncodeNullableValue(v, v.Type(), -1)
 		if err != nil {
 			return nil, err
 		}

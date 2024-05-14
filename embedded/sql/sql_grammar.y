@@ -884,12 +884,12 @@ opt_indexon:
     }
 
 ordcols:
-    col opt_ord
+    selector opt_ord
     {
         $$ = []*OrdCol{{sel: $1, descOrder: $2}}
     }
 |
-    ordcols ',' col opt_ord
+    ordcols ',' selector opt_ord
     {
         $$ = append($1, &OrdCol{sel: $3, descOrder: $4})
     }
