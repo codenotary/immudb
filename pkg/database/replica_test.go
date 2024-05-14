@@ -121,8 +121,9 @@ func TestSwitchToReplica(t *testing.T) {
 	_, err = replica.DescribeTable(context.Background(), nil, "mytable")
 	require.NoError(t, err)
 
-	_, err = replica.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
+	reader, err := replica.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
 	require.NoError(t, err)
+	require.NoError(t, reader.Close())
 
 	_, err = replica.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{

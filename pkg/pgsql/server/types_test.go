@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,16 +44,16 @@ func Test_getInt64(t *testing.T) {
 	require.Equal(t, int64(1), i)
 
 	bxxx := make([]byte, 64)
-	i, err = getInt64(bxxx)
+	_, err = getInt64(bxxx)
 	require.ErrorContains(t, err, fmt.Sprintf("cannot convert a slice of %d byte in an INTEGER parameter", len(bxxx)))
 }
 
 func Test_buildNamedParams(t *testing.T) {
 	// integer error
-	cols := []*schema.Column{
+	cols := []sql.ColDescriptor{
 		{
-			Name: "p1",
-			Type: "INTEGER",
+			Column: "p1",
+			Type:   "INTEGER",
 		},
 	}
 	pt := []interface{}{[]byte(`1`)}
@@ -61,10 +61,10 @@ func Test_buildNamedParams(t *testing.T) {
 	require.ErrorContains(t, err, fmt.Sprintf("cannot convert a slice of %d byte in an INTEGER parameter", len(cols)))
 
 	// varchar error
-	cols = []*schema.Column{
+	cols = []sql.ColDescriptor{
 		{
-			Name: "p1",
-			Type: "VARCHAR",
+			Column: "p1",
+			Type:   "VARCHAR",
 		},
 	}
 	pt = []interface{}{[]byte(`1`)}
@@ -72,10 +72,10 @@ func Test_buildNamedParams(t *testing.T) {
 	require.NoError(t, err)
 
 	// blob
-	cols = []*schema.Column{
+	cols = []sql.ColDescriptor{
 		{
-			Name: "p1",
-			Type: "BLOB",
+			Column: "p1",
+			Type:   "BLOB",
 		},
 	}
 	pt = []interface{}{[]byte(`1`)}
@@ -83,10 +83,10 @@ func Test_buildNamedParams(t *testing.T) {
 	require.NoError(t, err)
 
 	// blob text error
-	cols = []*schema.Column{
+	cols = []sql.ColDescriptor{
 		{
-			Name: "p1",
-			Type: "BLOB",
+			Column: "p1",
+			Type:   "BLOB",
 		},
 	}
 	pt = []interface{}{"blob"}

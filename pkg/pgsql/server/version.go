@@ -17,19 +17,21 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/embedded/sql"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
 func (s *session) writeVersionInfo() error {
-	cols := []*schema.Column{{Name: "version", Type: "VARCHAR"}}
+	cols := []sql.ColDescriptor{{Column: "version", Type: sql.VarcharType}}
 	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
 		return err
 	}
-	rows := []*schema.Row{{
-		Columns: []string{"version"},
-		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: pgmeta.PgsqlServerVersionMessage}}},
+
+	value := sql.NewVarchar(pgmeta.PgsqlServerVersionMessage)
+	rows := []*sql.Row{{
+		ValuesByPosition: []sql.TypedValue{value},
+		ValuesBySelector: map[string]sql.TypedValue{"version": value},
 	}}
 	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
 		return err

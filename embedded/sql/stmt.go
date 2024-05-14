@@ -20,10 +20,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1551,6 +1553,7 @@ type TypedValue interface {
 	RawValue() interface{}
 	Compare(val TypedValue) (int, error)
 	IsNull() bool
+	String() string
 }
 
 type Tuple []TypedValue
@@ -1585,6 +1588,10 @@ func (n *NullValue) RawValue() interface{} {
 
 func (n *NullValue) IsNull() bool {
 	return true
+}
+
+func (n *NullValue) String() string {
+	return "NULL"
 }
 
 func (n *NullValue) Compare(val TypedValue) (int, error) {
@@ -1651,6 +1658,10 @@ func (v *Integer) Type() SQLValueType {
 
 func (v *Integer) IsNull() bool {
 	return false
+}
+
+func (v *Integer) String() string {
+	return strconv.FormatInt(v.val, 10)
 }
 
 func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -1728,6 +1739,10 @@ func (v *Timestamp) IsNull() bool {
 	return false
 }
 
+func (v *Timestamp) String() string {
+	return v.val.Format("2006-01-02 15:04:05.999999")
+}
+
 func (v *Timestamp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return TimestampType, nil
 }
@@ -1802,6 +1817,10 @@ func (v *Varchar) IsNull() bool {
 	return false
 }
 
+func (v *Varchar) String() string {
+	return v.val
+}
+
 func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return VarcharType, nil
 }
@@ -1868,6 +1887,10 @@ func (v *UUID) IsNull() bool {
 	return false
 }
 
+func (v *UUID) String() string {
+	return v.val.String()
+}
+
 func (v *UUID) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return UUIDType, nil
 }
@@ -1932,6 +1955,10 @@ func (v *Bool) Type() SQLValueType {
 
 func (v *Bool) IsNull() bool {
 	return false
+}
+
+func (v *Bool) String() string {
+	return strconv.FormatBool(v.val)
 }
 
 func (v *Bool) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -2008,6 +2035,10 @@ func (v *Blob) IsNull() bool {
 	return false
 }
 
+func (v *Blob) String() string {
+	return hex.EncodeToString(v.val)
+}
+
 func (v *Blob) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return BLOBType, nil
 }
@@ -2072,6 +2103,10 @@ func (v *Float64) Type() SQLValueType {
 
 func (v *Float64) IsNull() bool {
 	return false
+}
+
+func (v *Float64) String() string {
+	return strconv.FormatFloat(float64(v.val), 'f', -1, 64)
 }
 
 func (v *Float64) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {

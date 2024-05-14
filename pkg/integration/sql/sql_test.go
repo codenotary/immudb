@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -256,6 +257,80 @@ func TestImmuClient_SQL(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestImmuClient_SQLQueryReader(t *testing.T) {
+	options := server.DefaultOptions().WithDir(t.TempDir()).WithMaxResultSize(2)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	ctx := context.Background()
+
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	defer client.CloseSession(ctx)
+
+	_, err = client.SQLExec(ctx, `
+		CREATE TABLE test_table (
+			id INTEGER AUTO_INCREMENT,
+			value INTEGER,
+
+			PRIMARY KEY (id)
+		);
+	`, nil)
+	require.NoError(t, err)
+
+	for n := 0; n < 10; n++ {
+		_, err := client.SQLExec(ctx, "INSERT INTO test_table(value) VALUES (@value)", map[string]interface{}{"value": n + 10})
+		require.NoError(t, err)
+	}
+
+	reader, err := client.SQLQueryReader(ctx, "SELECT * FROM test_table WHERE value < 0", nil)
+	require.NoError(t, err)
+	require.False(t, reader.Next())
+
+	_, err = reader.Read()
+	require.ErrorIs(t, err, sql.ErrNoMoreRows)
+
+	_, err = client.SQLQuery(ctx, "SELECT * FROM test_table", nil, false)
+	require.ErrorContains(t, err, database.ErrResultSizeLimitReached.Error())
+
+	reader, err = client.SQLQueryReader(ctx, "SELECT * FROM test_table", nil)
+	require.NoError(t, err)
+
+	cols := reader.Columns()
+	require.Equal(t, cols[0].Name, "(test_table.id)")
+	require.Equal(t, cols[0].Type, sql.IntegerType)
+	require.Equal(t, cols[1].Name, "(test_table.value)")
+	require.Equal(t, cols[1].Type, sql.IntegerType)
+
+	n := 0
+	for reader.Next() {
+		row, err := reader.Read()
+		require.NoError(t, err)
+		require.Len(t, row, 2)
+
+		require.Equal(t, int64(n+1), row[0])
+		require.Equal(t, int64(n+10), row[1])
+		n++
+	}
+
+	require.Equal(t, n, 10)
+	require.NoError(t, reader.Close())
+	require.ErrorIs(t, reader.Close(), sql.ErrAlreadyClosed)
+
+	reader, err = client.SQLQueryReader(ctx, "SELECT * FROM test_table", nil)
+	require.NoError(t, err)
+
+	require.True(t, reader.Next())
+	require.NoError(t, reader.Close())
+	require.False(t, reader.Next())
+
+	row, err := reader.Read()
+	require.Nil(t, row)
+	require.ErrorIs(t, err, sql.ErrAlreadyClosed)
 }
 
 func TestImmuClient_SQL_UserStmts(t *testing.T) {

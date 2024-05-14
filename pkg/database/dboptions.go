@@ -39,6 +39,7 @@ type Options struct {
 	syncAcks        int // only if !replica
 
 	readTxPoolSize int
+	maxResultSize  int
 
 	// TruncationFrequency determines how frequently to truncate data from the database.
 	TruncationFrequency time.Duration
@@ -52,6 +53,7 @@ func DefaultOption() *Options {
 	return &Options{
 		dbRootPath:          DefaultDbRootPath,
 		storeOpts:           store.DefaultOptions(),
+		maxResultSize:       MaxKeyScanLimit,
 		readTxPoolSize:      DefaultReadTxPoolSize,
 		TruncationFrequency: DefaultTruncationFrequency,
 	}
@@ -111,5 +113,10 @@ func (o *Options) WithTruncationFrequency(c time.Duration) *Options {
 
 func (o *Options) WithRetentionPeriod(c time.Duration) *Options {
 	o.RetentionPeriod = c
+	return o
+}
+
+func (o *Options) WithMaxResultSize(maxResultSize int) *Options {
+	o.maxResultSize = maxResultSize
 	return o
 }

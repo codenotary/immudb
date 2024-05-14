@@ -31,8 +31,12 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 )
 
-const helpPrefix = "select relname, nspname, relkind from pg_catalog.pg_class c, pg_catalog.pg_namespace n where relkind in ('r', 'v', 'm', 'f', 'p') and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1') and n.oid = relnamespace order by nspname, relname"
-const tableHelpPrefix = "select n.nspname, c.relname, a.attname, a.atttypid, t.typname, a.attnum, a.attlen, a.atttypmod, a.attnotnull, c.relhasrules, c.relkind, c.oid, pg_get_expr(d.adbin, d.adrelid), case t.typtype when 'd' then t.typbasetype else 0 end, t.typtypmod, c.relhasoids, '', c.relhassubclass from (((pg_catalog.pg_class c inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace and c.relname like '"
+const (
+	helpPrefix      = "select relname, nspname, relkind from pg_catalog.pg_class c, pg_catalog.pg_namespace n where relkind in ('r', 'v', 'm', 'f', 'p') and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1') and n.oid = relnamespace order by nspname, relname"
+	tableHelpPrefix = "select n.nspname, c.relname, a.attname, a.atttypid, t.typname, a.attnum, a.attlen, a.atttypmod, a.attnotnull, c.relhasrules, c.relkind, c.oid, pg_get_expr(d.adbin, d.adrelid), case t.typtype when 'd' then t.typbasetype else 0 end, t.typtypmod, c.relhasoids, '', c.relhassubclass from (((pg_catalog.pg_class c inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace and c.relname like '"
+
+	maxRowsPerMessage = 1024
+)
 
 func (s *session) QueryMachine() error {
 	var waitForSync = false
@@ -96,8 +100,8 @@ func (s *session) QueryMachine() error {
 				continue
 			}
 
-			var paramCols []*schema.Column
-			var resCols []*schema.Column
+			var paramCols []sql.ColDescriptor
+			var resCols []sql.ColDescriptor
 			var stmt sql.SQLStmt
 
 			if !s.isInBlackList(v.Statements) {
@@ -299,19 +303,26 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 }
 
 func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	res, err := s.db.SQLQueryPrepared(s.ctx, s.tx, st, parameters)
+	reader, err := s.db.SQLQueryPrepared(s.ctx, s.tx, st, schema.NamedParamsFromProto(parameters))
+	if err != nil {
+		return err
+	}
+
+	cols, err := reader.Columns(s.ctx)
 	if err != nil {
 		return err
 	}
 
 	if !skipRowDesc {
-		if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
+		if _, err = s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
 			return err
 		}
 	}
 
-	_, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), resultColumnFormatCodes))
-	return err
+	return sql.ReadRowsBatch(s.ctx, reader, maxRowsPerMessage, func(rowBatch []*sql.Row) error {
+		_, err := s.writeMessage(bm.DataRow(rowBatch, len(cols), resultColumnFormatCodes))
+		return err
+	})
 }
 
 func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
@@ -338,25 +349,22 @@ type statement struct {
 	Name         string
 	SQLStatement string
 	PreparedStmt sql.SQLStmt
-	Params       []*schema.Column
-	Results      []*schema.Column
+	Params       []sql.ColDescriptor
+	Results      []sql.ColDescriptor
 }
 
-func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]*schema.Column, []*schema.Column, error) {
-	resCols := make([]*schema.Column, 0)
+func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]sql.ColDescriptor, []sql.ColDescriptor, error) {
+	var resCols []sql.ColDescriptor
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.db.SQLQueryRowReader(s.ctx, s.tx, sel, nil)
+		rr, err := s.db.SQLQueryPrepared(s.ctx, s.tx, sel, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		cols, err := rr.Columns(s.ctx)
+		resCols, err = rr.Columns(s.ctx)
 		if err != nil {
 			return nil, nil, err
-		}
-		for _, c := range cols {
-			resCols = append(resCols, &schema.Column{Name: c.Selector(), Type: c.Type})
 		}
 	}
 
@@ -375,10 +383,9 @@ func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]*schema.Column, [
 	}
 	sort.Strings(paramsNameList)
 
-	paramCols := make([]*schema.Column, 0)
+	paramCols := make([]sql.ColDescriptor, 0)
 	for _, n := range paramsNameList {
-		paramCols = append(paramCols, &schema.Column{Name: n, Type: r[n]})
+		paramCols = append(paramCols, sql.ColDescriptor{Column: n, Type: r[n]})
 	}
-
 	return paramCols, resCols, nil
 }

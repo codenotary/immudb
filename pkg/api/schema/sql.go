@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/google/uuid"
 )
 
 func EncodeParams(params map[string]interface{}) ([]*NamedParam, error) {
@@ -41,6 +42,14 @@ func EncodeParams(params map[string]interface{}) ([]*NamedParam, error) {
 	}
 
 	return namedParams, nil
+}
+
+func NamedParamsFromProto(protoParams []*NamedParam) map[string]interface{} {
+	params := make(map[string]interface{})
+	for _, p := range protoParams {
+		params[p.Name] = RawValue(p.Value)
+	}
+	return params
 }
 
 func asSQLValue(v interface{}) (*SQLValue, error) {
@@ -110,4 +119,39 @@ func asSQLValue(v interface{}) (*SQLValue, error) {
 		}
 	}
 	return nil, sql.ErrInvalidValue
+}
+
+func TypedValueToRowValue(tv sql.TypedValue) *SQLValue {
+	switch tv.Type() {
+	case sql.IntegerType:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: tv.RawValue().(int64)}}
+		}
+	case sql.VarcharType:
+		{
+			return &SQLValue{Value: &SQLValue_S{S: tv.RawValue().(string)}}
+		}
+	case sql.UUIDType:
+		{
+			u := tv.RawValue().(uuid.UUID)
+			return &SQLValue{Value: &SQLValue_S{S: u.String()}}
+		}
+	case sql.BooleanType:
+		{
+			return &SQLValue{Value: &SQLValue_B{B: tv.RawValue().(bool)}}
+		}
+	case sql.BLOBType:
+		{
+			return &SQLValue{Value: &SQLValue_Bs{Bs: tv.RawValue().([]byte)}}
+		}
+	case sql.TimestampType:
+		{
+			return &SQLValue{Value: &SQLValue_Ts{Ts: sql.TimeToInt64(tv.RawValue().(time.Time))}}
+		}
+	case sql.Float64Type:
+		{
+			return &SQLValue{Value: &SQLValue_F{F: tv.RawValue().(float64)}}
+		}
+	}
+	return nil
 }

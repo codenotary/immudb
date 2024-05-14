@@ -50,9 +50,9 @@ func TestImmuServer_Transaction(t *testing.T) {
 	_, err = s.TxSQLExec(context.Background(), &schema.SQLExecRequest{})
 	require.ErrorIs(t, err, ErrNotAllowedInMaintenanceMode)
 
-	_, err = s.TxSQLQuery(context.Background(), nil)
+	err = s.TxSQLQuery(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = s.TxSQLQuery(context.Background(), &schema.SQLQueryRequest{})
+	err = s.TxSQLQuery(&schema.SQLQueryRequest{}, nil)
 	require.ErrorIs(t, err, ErrNotAllowedInMaintenanceMode)
 }
