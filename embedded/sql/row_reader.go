@@ -515,3 +515,47 @@ func (r *rawRowReader) Close() error {
 
 	return r.reader.Close()
 }
+
+func ReadAllRows(ctx context.Context, reader RowReader) ([]*Row, error) {
+	var rows []*Row
+	err := ReadRowsBatch(ctx, reader, 100, func(rowBatch []*Row) error {
+		if rows == nil {
+			rows = make([]*Row, 0, len(rowBatch))
+		}
+		rows = append(rows, rowBatch...)
+		return nil
+	})
+	return rows, err
+}
+
+func ReadRowsBatch(ctx context.Context, reader RowReader, batchSize int, onBatch func([]*Row) error) error {
+	rows := make([]*Row, batchSize)
+
+	hasMoreRows := true
+	for hasMoreRows {
+		n, err := readNRows(ctx, reader, batchSize, rows)
+
+		if n > 0 {
+			if err := onBatch(rows[:n]); err != nil {
+				return err
+			}
+		}
+
+		hasMoreRows = !errors.Is(err, ErrNoMoreRows)
+		if err != nil && hasMoreRows {
+			return err
+		}
+	}
+	return nil
+}
+
+func readNRows(ctx context.Context, reader RowReader, n int, outRows []*Row) (int, error) {
+	for i := 0; i < n; i++ {
+		r, err := reader.Read(ctx)
+		if err != nil {
+			return i, err
+		}
+		outRows[i] = r
+	}
+	return n, nil
+}

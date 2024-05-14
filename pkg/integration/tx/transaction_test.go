@@ -18,18 +18,23 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immudb "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 )
 
-func setupTest(t *testing.T) (*servertest.BufconnServer, immudb.ImmuClient) {
+func setupTest(t *testing.T, maxResultSize int) (*servertest.BufconnServer, immudb.ImmuClient) {
 	options := server.DefaultOptions().WithDir(t.TempDir())
+	if maxResultSize > 0 {
+		options = options.WithMaxResultSize(maxResultSize)
+	}
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -45,7 +50,7 @@ func setupTest(t *testing.T) (*servertest.BufconnServer, immudb.ImmuClient) {
 }
 
 func TestTransaction_SetAndGet(t *testing.T) {
-	_, client := setupTest(t)
+	_, client := setupTest(t, -1)
 
 	// tx mode
 	tx, err := client.NewTx(context.Background(), immudb.UnsafeMVCC(), immudb.SnapshotMustIncludeTxID(0), immudb.SnapshotRenewalPeriod(0))
@@ -88,8 +93,52 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestTransaction_SQLReader(t *testing.T) {
+	_, client := setupTest(t, 2)
+
+	_, err := client.SQLExec(context.Background(), `CREATE TABLE table1(
+		id INTEGER,
+		title VARCHAR[100],
+
+		PRIMARY KEY id
+		);`, nil)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		params := map[string]interface{}{
+			"id":    i + 1,
+			"title": fmt.Sprintf("title%d", i),
+		}
+		_, err := client.SQLExec(context.Background(), "INSERT INTO table1(id, title) VALUES (@id, @title)", params)
+		require.NoError(t, err)
+	}
+
+	tx, err := client.NewTx(context.Background())
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	_, err = tx.SQLQuery(context.Background(), "SELECT id, title FROM table1", nil)
+	require.ErrorContains(t, err, database.ErrResultSizeLimitReached.Error())
+
+	reader, err := tx.SQLQueryReader(context.Background(), "SELECT id, title FROM table1", nil)
+	require.NoError(t, err)
+
+	n := 0
+	for reader.Next() {
+		row, err := reader.Read()
+		require.NoError(t, err)
+		require.Len(t, row, 2)
+		require.Equal(t, int64(n+1), row[0])
+		require.Equal(t, fmt.Sprintf("title%d", n), row[1])
+
+		n++
+	}
+
+	require.Equal(t, 10, n)
+}
+
 func TestTransaction_Rollback(t *testing.T) {
-	_, client := setupTest(t)
+	_, client := setupTest(t, -1)
 
 	_, err := client.SQLExec(context.Background(), "CREATE DATABASE db1;", nil)
 	require.NoError(t, err)
@@ -131,7 +180,7 @@ func TestTransaction_Rollback(t *testing.T) {
 }
 
 func TestTransaction_MultipleReadWriteTransactions(t *testing.T) {
-	_, client := setupTest(t)
+	_, client := setupTest(t, -1)
 
 	tx1, err := client.NewTx(context.Background())
 	require.NoError(t, err)
@@ -147,7 +196,7 @@ func TestTransaction_MultipleReadWriteTransactions(t *testing.T) {
 }
 
 func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
-	bs, client := setupTest(t)
+	bs, client := setupTest(t, -1)
 
 	txDefaultDB, err := client.NewTx(context.Background())
 	require.NoError(t, err)
@@ -196,7 +245,7 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 }
 
 func TestTransaction_MultiNoErr(t *testing.T) {
-	_, client := setupTest(t)
+	_, client := setupTest(t, -1)
 	ctx := context.Background()
 
 	tx, err := client.NewTx(ctx)
@@ -274,7 +323,7 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 }
 
 func TestTransaction_HandlingReadConflict(t *testing.T) {
-	_, client := setupTest(t)
+	_, client := setupTest(t, -1)
 	ctx := context.Background()
 
 	tx, err := client.NewTx(ctx)

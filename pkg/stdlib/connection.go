@@ -81,7 +81,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	if !c.immuClient.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
-	queryResult := &schema.SQLQueryResult{}
 
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
@@ -89,19 +88,18 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	}
 
 	if c.tx != nil {
-		queryResult, err = c.tx.SQLQuery(ctx, query, vals)
+		reader, err := c.tx.SQLQueryReader(ctx, query, vals)
 		if err != nil {
 			return nil, err
 		}
-		return &Rows{rows: queryResult.Rows, columns: queryResult.Columns}, nil
+		return newRows(reader), nil
 	}
 
-	queryResult, err = c.immuClient.SQLQuery(ctx, query, vals, true)
+	reader, err := c.immuClient.SQLQueryReader(ctx, query, vals)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Rows{rows: queryResult.Rows, columns: queryResult.Columns}, nil
+	return newRows(reader), nil
 }
 
 func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {

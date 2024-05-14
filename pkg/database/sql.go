@@ -21,13 +21,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-
-	"github.com/google/uuid"
 )
 
 func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
@@ -365,7 +362,7 @@ func (d *db) SQLExecPrepared(ctx context.Context, tx *sql.SQLTx, stmts []sql.SQL
 	return d.sqlEngine.ExecPreparedStmts(ctx, tx, stmts, params)
 }
 
-func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (sql.RowReader, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -379,82 +376,23 @@ func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRe
 	if !ok {
 		return nil, sql.ErrExpectingDQLStmt
 	}
-
-	return d.SQLQueryPrepared(ctx, tx, stmt, req.Params)
+	reader, err := d.SQLQueryPrepared(ctx, tx, stmt, schema.NamedParamsFromProto(req.Params))
+	if !req.AcceptStream {
+		reader = &limitRowReader{RowReader: reader, maxRows: d.maxResultSize}
+	}
+	return reader, err
 }
 
-func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
-	params := make(map[string]interface{})
-
-	for _, p := range namedParams {
-		params[p.Name] = schema.RawValue(p.Value)
-	}
-
-	r, err := d.SQLQueryRowReader(ctx, tx, stmt, params)
+func (d *db) SQLQueryAll(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) ([]*sql.Row, error) {
+	reader, err := d.SQLQuery(ctx, tx, req)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
-
-	colDescriptors, err := r.Columns(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	cols := make([]*schema.Column, len(colDescriptors))
-
-	for i, c := range colDescriptors {
-		des := &sql.ColDescriptor{
-			AggFn:  c.AggFn,
-			Table:  c.Table,
-			Column: c.Column,
-			Type:   c.Type,
-		}
-		cols[i] = &schema.Column{Name: des.Selector(), Type: des.Type}
-	}
-
-	res := &schema.SQLQueryResult{Columns: cols}
-
-	for l := 1; ; l++ {
-		row, err := r.Read(ctx)
-		if err == sql.ErrNoMoreRows {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		if l > d.maxResultSize {
-			return res, fmt.Errorf("%w: found more than %d rows (the maximum limit). "+
-				"Query constraints can be applied using the LIMIT clause",
-				ErrResultSizeLimitReached, d.maxResultSize)
-		}
-
-		rrow := &schema.Row{
-			Columns: make([]string, len(res.Columns)),
-			Values:  make([]*schema.SQLValue, len(res.Columns)),
-		}
-
-		for i := range colDescriptors {
-			rrow.Columns[i] = cols[i].Name
-
-			v := row.ValuesByPosition[i]
-
-			_, isNull := v.(*sql.NullValue)
-			if isNull {
-				rrow.Values[i] = &schema.SQLValue{Value: &schema.SQLValue_Null{}}
-			} else {
-				rrow.Values[i] = typedValueToRowValue(v)
-			}
-		}
-
-		res.Rows = append(res.Rows, rrow)
-	}
-
-	return res, nil
+	defer reader.Close()
+	return sql.ReadAllRows(ctx, reader)
 }
 
-func (d *db) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
+func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -479,37 +417,24 @@ func (d *db) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sq
 	return d.sqlEngine.InferParametersPreparedStmts(ctx, tx, []sql.SQLStmt{stmt})
 }
 
-func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
-	switch tv.Type() {
-	case sql.IntegerType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.RawValue().(int64)}}
-		}
-	case sql.VarcharType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
-		}
-	case sql.UUIDType:
-		{
-			u := tv.RawValue().(uuid.UUID)
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: u.String()}}
-		}
-	case sql.BooleanType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.RawValue().(bool)}}
-		}
-	case sql.BLOBType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.RawValue().([]byte)}}
-		}
-	case sql.TimestampType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.RawValue().(time.Time))}}
-		}
-	case sql.Float64Type:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_F{F: tv.RawValue().(float64)}}
-		}
+type limitRowReader struct {
+	sql.RowReader
+	nRead   int
+	maxRows int
+}
+
+func (r *limitRowReader) Read(ctx context.Context) (*sql.Row, error) {
+	row, err := r.RowReader.Read(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	if r.nRead == r.maxRows {
+		return nil, fmt.Errorf("%w: found more than %d rows (the maximum limit). "+
+			"Query constraints can be applied using the LIMIT clause",
+			ErrResultSizeLimitReached, r.maxRows)
+	}
+
+	r.nRead++
+	return row, nil
 }

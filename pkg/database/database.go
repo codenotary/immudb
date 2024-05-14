@@ -108,9 +108,9 @@ type DB interface {
 	InferParameters(ctx context.Context, tx *sql.SQLTx, sql string) (map[string]sql.SQLValueType, error)
 	InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.SQLStmt) (map[string]sql.SQLValueType, error)
 
-	SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
-	SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error)
-	SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error)
+	SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (sql.RowReader, error)
+	SQLQueryAll(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) ([]*sql.Row, error)
+	SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error)
 
 	VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 
@@ -169,25 +169,25 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log logger.Logger) (DB, error) {
+func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	log.Infof("opening database '%s' {replica = %v}...", dbName, op.replica)
+	log.Infof("opening database '%s' {replica = %v}...", dbName, opts.replica)
 
 	var replicaStates map[string]*replicaState
 	// replica states are only managed in primary with synchronous replication
-	if !op.replica && op.syncAcks > 0 {
-		replicaStates = make(map[string]*replicaState, op.syncAcks)
+	if !opts.replica && opts.syncAcks > 0 {
+		replicaStates = make(map[string]*replicaState, opts.syncAcks)
 	}
 
 	dbi := &db{
 		Logger:        log,
-		options:       op,
+		options:       opts,
 		name:          dbName,
 		replicaStates: replicaStates,
-		maxResultSize: MaxKeyScanLimit,
+		maxResultSize: opts.maxResultSize,
 		mutex:         &instrumentedRWMutex{},
 	}
 
@@ -197,10 +197,10 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
-	stOpts := op.GetStoreOptions().
+	stOpts := opts.GetStoreOptions().
 		WithLogger(log).
 		WithMultiIndexing(true).
-		WithExternalCommitAllowance(op.syncReplication)
+		WithExternalCommitAllowance(opts.syncReplication)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
@@ -218,7 +218,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		}
 	}
 
-	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, op.replica)
+	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
@@ -226,29 +226,29 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
-		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
-	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
 		return nil, err
 	}
-	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
-	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
+	txPool, err := dbi.st.NewTxHolderPool(opts.readTxPoolSize, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "unable to create tx pool: %s", err)
 	}
 	dbi.txPool = txPool
 
-	if op.replica {
-		dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, op.replica)
+	if opts.replica {
+		dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, opts.replica)
 		return dbi, nil
 	}
 
-	dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, op.replica)
+	dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, opts.replica)
 
 	return dbi, nil
 }
@@ -270,29 +270,29 @@ func (d *db) releaseTx(tx *store.Tx) {
 }
 
 // NewDB Creates a new Database along with it's directories and files
-func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log logger.Logger) (DB, error) {
+func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	log.Infof("creating database '%s' {replica = %v}...", dbName, op.replica)
+	log.Infof("creating database '%s' {replica = %v}...", dbName, opts.replica)
 
 	var replicaStates map[string]*replicaState
 	// replica states are only managed in primary with synchronous replication
-	if !op.replica && op.syncAcks > 0 {
-		replicaStates = make(map[string]*replicaState, op.syncAcks)
+	if !opts.replica && opts.syncAcks > 0 {
+		replicaStates = make(map[string]*replicaState, opts.syncAcks)
 	}
 
 	dbi := &db{
 		Logger:        log,
-		options:       op,
+		options:       opts,
 		name:          dbName,
 		replicaStates: replicaStates,
-		maxResultSize: MaxKeyScanLimit,
+		maxResultSize: opts.maxResultSize,
 		mutex:         &instrumentedRWMutex{},
 	}
 
-	dbDir := filepath.Join(op.GetDBRootPath(), dbName)
+	dbDir := filepath.Join(opts.GetDBRootPath(), dbName)
 
 	_, err := os.Stat(dbDir)
 	if err == nil {
@@ -303,8 +303,8 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "unable to create data folder: %s", err)
 	}
 
-	stOpts := op.GetStoreOptions().
-		WithExternalCommitAllowance(op.syncReplication).
+	stOpts := opts.GetStoreOptions().
+		WithExternalCommitAllowance(opts.syncReplication).
 		WithMultiIndexing(true).
 		WithLogger(log)
 
@@ -324,7 +324,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		}
 	}
 
-	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
+	txPool, err := dbi.st.NewTxHolderPool(opts.readTxPoolSize, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "unable to create tx pool: %s", err)
 	}
@@ -334,22 +334,22 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		WithPrefix([]byte{SQLPrefix}).
 		WithMultiDBHandler(multidbHandler)
 
-	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, op.replica)
+	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
-		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
-	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
-	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
-	dbi.Logger.Infof("database '%s' successfully created {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("database '%s' successfully created {replica = %v}", dbName, opts.replica)
 
 	return dbi, nil
 }

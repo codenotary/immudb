@@ -234,7 +234,8 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithSyncAcks(opts.SyncAcks).
 		WithReadTxPoolSize(opts.ReadTxPoolSize).
 		WithRetentionPeriod(time.Millisecond * time.Duration(opts.RetentionPeriod)).
-		WithTruncationFrequency(time.Millisecond * time.Duration(opts.TruncationFrequency))
+		WithTruncationFrequency(time.Millisecond * time.Duration(opts.TruncationFrequency)).
+		WithMaxResultSize(s.Options.MaxResultSize)
 }
 
 func (opts *dbOptions) storeOptions() *store.Options {

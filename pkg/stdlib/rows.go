@@ -19,7 +19,6 @@ package stdlib
 import (
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -29,12 +28,19 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 type Rows struct {
-	index   uint64
-	rows    []*schema.Row
-	columns []*schema.Column
+	reader  client.SQLQueryRowReader
+	columns []client.Column
+}
+
+func newRows(reader client.SQLQueryRowReader) *Rows {
+	return &Rows{
+		reader:  reader,
+		columns: reader.Columns(),
+	}
 }
 
 func (r *Rows) Columns() []string {
@@ -47,81 +53,39 @@ func (r *Rows) Columns() []string {
 }
 
 // ColumnTypeDatabaseTypeName
-// 	IntegerType   SQLValueType = "INTEGER"
+//
+//	IntegerType   SQLValueType = "INTEGER"
 //	BooleanType   SQLValueType = "BOOLEAN"
 //	VarcharType   SQLValueType = "VARCHAR"
 //	BLOBType      SQLValueType = "BLOB"
 //	TimestampType SQLValueType = "TIMESTAMP"
 //	AnyType       SQLValueType = "ANY"
 func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
-	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
+	if index >= len(r.columns) {
 		return ""
 	}
-	op := r.rows[0].Values[index].Value
-
-	switch op.(type) {
-	case *schema.SQLValue_Null:
-		{
-			return "ANY"
-		}
-	case *schema.SQLValue_N:
-		{
-			return "INTEGER"
-		}
-	case *schema.SQLValue_S:
-		{
-			return "VARCHAR"
-		}
-	case *schema.SQLValue_B:
-		{
-			return "BOOLEAN"
-		}
-	case *schema.SQLValue_Bs:
-		{
-			return "BLOB"
-		}
-	case *schema.SQLValue_Ts:
-		{
-			return "TIMESTAMP"
-		}
-	default:
-		return "ANY"
-	}
+	return r.columns[index].Type
 }
 
 // ColumnTypeLength If length is not limited other than system limits, it should return math.MaxInt64
 func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
-	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
+	if index >= len(r.columns) {
 		return 0, false
 	}
 
-	op := r.rows[0].Values[index].Value
+	col := r.columns[index]
 
-	switch op.(type) {
-	case *schema.SQLValue_Null:
-		{
-			return 0, false
-		}
-	case *schema.SQLValue_N:
-		{
-			return 8, false
-		}
-	case *schema.SQLValue_S:
-		{
-			return math.MaxInt64, true
-		}
-	case *schema.SQLValue_B:
-		{
-			return 1, false
-		}
-	case *schema.SQLValue_Bs:
-		{
-			return math.MaxInt64, true
-		}
-	case *schema.SQLValue_Ts:
-		{
-			return math.MaxInt64, true
-		}
+	switch col.Type {
+	case sql.IntegerType:
+		return 8, false
+	case sql.VarcharType:
+		return math.MaxInt64, true
+	case sql.BooleanType:
+		return 1, false
+	case sql.BLOBType:
+		return math.MaxInt64, true
+	case sql.TimestampType:
+		return math.MaxInt64, true
 	default:
 		return math.MaxInt64, true
 	}
@@ -135,37 +99,23 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 
 // ColumnTypeScanType returns the value type that can be used to scan types into.
 func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
-	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
+	if index >= len(r.columns) {
 		return nil
 	}
 
-	op := r.rows[0].Values[index].Value
+	col := r.columns[index]
 
-	switch op.(type) {
-	case *schema.SQLValue_Null:
-		{
-			return reflect.TypeOf(nil)
-		}
-	case *schema.SQLValue_N:
-		{
-			return reflect.TypeOf(int64(0))
-		}
-	case *schema.SQLValue_S:
-		{
-			return reflect.TypeOf("")
-		}
-	case *schema.SQLValue_B:
-		{
-			return reflect.TypeOf(true)
-		}
-	case *schema.SQLValue_Bs:
-		{
-			return reflect.TypeOf([]byte{})
-		}
-	case *schema.SQLValue_Ts:
-		{
-			return reflect.TypeOf(time.Time{})
-		}
+	switch col.Type {
+	case sql.IntegerType:
+		return reflect.TypeOf(int64(0))
+	case sql.VarcharType:
+		return reflect.TypeOf("")
+	case sql.BooleanType:
+		return reflect.TypeOf(true)
+	case sql.BLOBType:
+		return reflect.TypeOf([]byte{})
+	case sql.TimestampType:
+		return reflect.TypeOf(time.Time{})
 	default:
 		return reflect.TypeOf("")
 	}
@@ -177,19 +127,23 @@ func (r *Rows) Close() error {
 }
 
 func (r *Rows) Next(dest []driver.Value) error {
-	if r.index >= uint64(len(r.rows)) {
+	if !r.reader.Next() {
 		return io.EOF
 	}
 
-	row := r.rows[r.index]
+	var row client.Row
 
-	for idx, val := range row.Values {
-		dest[idx] = RenderValue(val.Value)
+	row, err := r.reader.Read()
+	if errors.Is(err, sql.ErrNoMoreRows) {
+		return io.EOF
 	}
 
-	r.index++
-
-	return nil
+	if err == nil {
+		for idx, val := range row {
+			dest[idx] = val
+		}
+	}
+	return err
 }
 
 func namedValuesToSqlMap(argsV []driver.NamedValue) (map[string]interface{}, error) {
@@ -225,42 +179,41 @@ func convertToPlainVals(vals map[string]interface{}) map[string]interface{} {
 		if reflect.ValueOf(nv).Kind() == reflect.Ptr && reflect.ValueOf(nv).IsNil() {
 			nv = nil
 		}
-		t := nv
-		switch t.(type) {
+		switch t := nv.(type) {
 		case *uint:
-			vals[key] = *t.(*uint)
+			vals[key] = *t
 		case *uint8:
-			vals[key] = *t.(*uint8)
+			vals[key] = *t
 		case *uint16:
-			vals[key] = *t.(*uint16)
+			vals[key] = *t
 		case *uint32:
-			vals[key] = *t.(*uint32)
+			vals[key] = *t
 		case *uint64:
-			vals[key] = *t.(*uint64)
+			vals[key] = *t
 		case *int:
-			vals[key] = *t.(*int)
+			vals[key] = *t
 		case *int8:
-			vals[key] = *t.(*int8)
+			vals[key] = *t
 		case *int16:
-			vals[key] = *t.(*int16)
+			vals[key] = *t
 		case *int32:
-			vals[key] = *t.(*int32)
+			vals[key] = *t
 		case *int64:
-			vals[key] = *t.(*int64)
+			vals[key] = *t
 		case *string:
-			vals[key] = *t.(*string)
+			vals[key] = *t
 		case *bool:
-			vals[key] = *t.(*bool)
+			vals[key] = *t
 		case *float32:
-			vals[key] = *t.(*float32)
+			vals[key] = *t
 		case *float64:
-			vals[key] = *t.(*float64)
+			vals[key] = *t
 		case *complex64:
-			vals[key] = *t.(*complex64)
+			vals[key] = *t
 		case *complex128:
-			vals[key] = *t.(*complex128)
+			vals[key] = *t
 		case *time.Time:
-			vals[key] = *t.(*time.Time)
+			vals[key] = *t
 		default:
 			vals[key] = nv
 		}
@@ -293,36 +246,6 @@ func callValuerValue(vr driver.Valuer) (v driver.Value, err error) {
 		return nil, nil
 	}
 	return vr.Value()
-}
-
-func RenderValue(op interface{}) interface{} {
-	switch v := op.(type) {
-	case *schema.SQLValue_Null:
-		{
-			return nil
-		}
-	case *schema.SQLValue_N:
-		{
-			return v.N
-		}
-	case *schema.SQLValue_S:
-		{
-			return v.S
-		}
-	case *schema.SQLValue_B:
-		{
-			return v.B
-		}
-	case *schema.SQLValue_Bs:
-		{
-			return v.Bs
-		}
-	case *schema.SQLValue_Ts:
-		{
-			return sql.TimeFromInt64(v.Ts)
-		}
-	}
-	return []byte(fmt.Sprintf("%v", op))
 }
 
 // RowsAffected implements Result for an INSERT or UPDATE operation

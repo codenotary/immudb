@@ -16,6 +16,8 @@ limitations under the License.
 
 package sql
 
+import "strconv"
+
 type AggregatedValue interface {
 	TypedValue
 	updateWith(val TypedValue) error
@@ -42,6 +44,10 @@ func (v *CountValue) Type() SQLValueType {
 
 func (v *CountValue) IsNull() bool {
 	return false
+}
+
+func (v *CountValue) String() string {
+	return strconv.FormatInt(v.c, 10)
 }
 
 func (v *CountValue) RawValue() interface{} {
@@ -127,6 +133,10 @@ func (v *SumValue) Type() SQLValueType {
 
 func (v *SumValue) IsNull() bool {
 	return v.val.IsNull()
+}
+
+func (v *SumValue) String() string {
+	return v.val.String()
 }
 
 func (v *SumValue) RawValue() interface{} {
@@ -219,6 +229,10 @@ func (v *MinValue) Type() SQLValueType {
 
 func (v *MinValue) IsNull() bool {
 	return v.val.IsNull()
+}
+
+func (v *MinValue) String() string {
+	return v.val.String()
 }
 
 func (v *MinValue) RawValue() interface{} {
@@ -320,6 +334,10 @@ func (v *MaxValue) IsNull() bool {
 	return v.val.IsNull()
 }
 
+func (v *MaxValue) String() string {
+	return v.val.String()
+}
+
 func (v *MaxValue) RawValue() interface{} {
 	return v.val.RawValue()
 }
@@ -418,6 +436,10 @@ func (v *AVGValue) Type() SQLValueType {
 
 func (v *AVGValue) IsNull() bool {
 	return v.s.IsNull()
+}
+
+func (v *AVGValue) String() string {
+	return v.calculate().String()
 }
 
 func (v *AVGValue) calculate() TypedValue {

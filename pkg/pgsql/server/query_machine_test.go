@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
@@ -281,9 +282,9 @@ func TestSession_QueriesMachine(t *testing.T) {
 					Name:         "st",
 					SQLStatement: "test",
 					PreparedStmt: nil,
-					Params: []*schema.Column{{
-						Name: "test",
-						Type: "INTEGER",
+					Params: []sql.ColDescriptor{{
+						Column: "test",
+						Type:   "INTEGER",
 					}},
 					Results: nil,
 				},

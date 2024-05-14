@@ -74,27 +74,31 @@ func TestSQLExecAndQuery(t *testing.T) {
 	params := make([]*schema.NamedParam, 1)
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
 
-	_, err = db.SQLQueryPrepared(context.Background(), nil, nil, nil)
+	_, err = db.SQLQueryAll(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.SQLQuery(context.Background(), nil, nil)
+	_, err = db.SQLQueryAll(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "invalid sql statement"})
+	_, err = db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: "invalid sql statement"})
 	require.ErrorContains(t, err, "syntax error")
 
-	_, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"})
+	_, err = db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"})
 	require.ErrorIs(t, err, sql.ErrExpectingDQLStmt)
 
 	q := "SELECT * FROM table1 LIMIT 1"
-	res, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
+	rows, err := db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
 	require.NoError(t, err)
-	require.Len(t, res.Rows, 1)
+	require.Len(t, rows, 1)
 
 	q = "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 4 AND active != @active"
-	res, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
+	rows, err = db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
 	require.ErrorIs(t, err, ErrResultSizeLimitReached)
-	require.Len(t, res.Rows, 2)
+	require.Len(t, rows, 2)
+
+	rows, err = db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params, AcceptStream: true})
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
 
 	inferredParams, err := db.InferParameters(context.Background(), nil, q)
 	require.NoError(t, err)
