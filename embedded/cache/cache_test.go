@@ -18,20 +18,35 @@ package cache
 
 import (
 	"errors"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
+func setupCache(t *testing.T) *Cache {
+	rand.Seed(time.Now().UnixNano())
+
+	size := 10 + rand.Intn(100)
+
+	cache, err := NewCache(size)
+	require.NoError(t, err)
+	return cache
+}
+
 func TestCacheCreation(t *testing.T) {
-	_, err := NewLRUCache(0)
+	_, err := NewCache(0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	cacheSize := 10
-	cache, err := NewLRUCache(cacheSize)
+	cache, err := NewCache(cacheSize)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
 	require.Equal(t, cacheSize, cache.Size())
+
+	_, _, err = cache.evict()
+	require.Error(t, err)
 
 	_, err = cache.Get(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
@@ -59,14 +74,14 @@ func TestCacheCreation(t *testing.T) {
 	}
 
 	for i := 0; i < cacheSize/2; i++ {
-		v, err := cache.Get(i)
-		require.NoError(t, err)
-		require.Equal(t, v, 10*i)
+		_, err := cache.Get(i)
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	}
 
 	for i := cacheSize / 2; i < cacheSize; i++ {
-		_, err = cache.Get(i)
-		require.ErrorIs(t, err, ErrKeyNotFound)
+		v, err := cache.Get(i)
+		require.NoError(t, err, ErrKeyNotFound)
+		require.Equal(t, v, 10*i)
 	}
 
 	for i := cacheSize; i < cacheSize+cacheSize/2; i++ {
@@ -76,9 +91,88 @@ func TestCacheCreation(t *testing.T) {
 	}
 }
 
+func TestEvictionPolicy(t *testing.T) {
+	fillCache := func(cache *Cache) {
+		for i := 0; i < cache.Size(); i++ {
+			key, value, err := cache.Put(i, i+1)
+			require.NoError(t, err)
+			require.Nil(t, key)
+			require.Nil(t, value)
+		}
+	}
+
+	t.Run("should evict non visited items", func(t *testing.T) {
+		t.Run("starting from element at middle", func(t *testing.T) {
+			cache := setupCache(t)
+
+			fillCache(cache)
+
+			el := rand.Intn(cache.Size())
+			for i := 0; i < el; i++ {
+				_, err := cache.Get(i)
+				require.NoError(t, err)
+			}
+
+			for i := el; i < cache.Size(); i++ {
+				key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+				require.NoError(t, err)
+				require.Equal(t, i%cache.size, key)
+			}
+		})
+
+		t.Run("at even positions", func(t *testing.T) {
+			cache := setupCache(t)
+
+			fillCache(cache)
+
+			for i := 0; i < (cache.Size()+1)/2; i++ {
+				_, err := cache.Get(2 * i)
+				require.NoError(t, err)
+			}
+
+			for i := 0; i < cache.Size()/2; i++ {
+				key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+				require.NoError(t, err)
+				require.Equal(t, key, 2*i+1)
+			}
+		})
+
+		t.Run("starting from back", func(t *testing.T) {
+			cache := setupCache(t)
+
+			fillCache(cache)
+
+			n := 1 + rand.Intn(cache.Size()-1)
+			for i := 0; i < n; i++ {
+				key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+				require.NoError(t, err)
+				require.Equal(t, key, i)
+			}
+		})
+	})
+
+	t.Run("should evict visited items", func(t *testing.T) {
+		cache := setupCache(t)
+
+		fillCache(cache)
+
+		for i := 0; i < cache.Size(); i++ {
+			_, err := cache.Get(i)
+			require.NoError(t, err)
+		}
+
+		n := 1 + rand.Intn(cache.Size()-1)
+		for i := 0; i < n; i++ {
+			key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+			require.NoError(t, err)
+			require.Equal(t, key, i)
+		}
+	})
+}
+
 func TestApply(t *testing.T) {
 	cacheSize := 10
-	cache, err := NewLRUCache(cacheSize)
+	cache, err := NewCache(cacheSize)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
 	require.Equal(t, cacheSize, cache.Size())
@@ -104,7 +198,7 @@ func TestApply(t *testing.T) {
 
 func TestPop(t *testing.T) {
 	cacheSize := 10
-	cache, err := NewLRUCache(cacheSize)
+	cache, err := NewCache(cacheSize)
 	require.NoError(t, err)
 
 	for i := 0; i < cacheSize; i++ {
@@ -137,7 +231,7 @@ func TestPop(t *testing.T) {
 
 func TestReplace(t *testing.T) {
 	cacheSize := 10
-	cache, err := NewLRUCache(cacheSize)
+	cache, err := NewCache(cacheSize)
 	require.NoError(t, err)
 
 	for i := 0; i < cacheSize; i++ {
@@ -172,7 +266,7 @@ func TestReplace(t *testing.T) {
 
 func TestCacheResizing(t *testing.T) {
 	initialCacheSize := 10
-	cache, err := NewLRUCache(initialCacheSize)
+	cache, err := NewCache(initialCacheSize)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
 	require.Equal(t, initialCacheSize, cache.Size())
@@ -189,8 +283,9 @@ func TestCacheResizing(t *testing.T) {
 	require.Equal(t, largerCacheSize, cache.Size())
 
 	for i := 0; i < initialCacheSize; i++ {
-		_, err = cache.Get(i)
+		v, err := cache.Get(i)
 		require.NoError(t, err)
+		require.Equal(t, i, v)
 	}
 
 	for i := initialCacheSize; i < largerCacheSize; i++ {
@@ -205,11 +300,11 @@ func TestCacheResizing(t *testing.T) {
 
 	for i := 0; i < initialCacheSize; i++ {
 		_, err = cache.Get(i)
-		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.NoError(t, err)
 	}
 
 	for i := initialCacheSize; i < largerCacheSize; i++ {
 		_, err = cache.Get(i)
-		require.NoError(t, err)
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	}
 }
