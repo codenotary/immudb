@@ -170,7 +170,7 @@ type TBtree struct {
 	logger logger.Logger
 
 	nLog   appendable.Appendable
-	cache  *cache.LRUCache
+	cache  *cache.Cache
 	nmutex sync.Mutex // mutex for cache and file reading
 
 	hLog appendable.Appendable
@@ -555,7 +555,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 	}
 
-	cache, err := cache.NewLRUCache(opts.cacheSize)
+	cache, err := cache.NewCache(opts.cacheSize)
 	if err != nil {
 		return nil, err
 	}

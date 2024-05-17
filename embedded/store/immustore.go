@@ -154,10 +154,10 @@ type ImmuStore struct {
 	vLogUnlockedList *list.List
 	vLogsCond        *sync.Cond
 
-	vLogCache *cache.LRUCache
+	vLogCache *cache.Cache
 
 	txLog      appendable.Appendable
-	txLogCache *cache.LRUCache
+	txLogCache *cache.Cache
 
 	cLog          appendable.Appendable
 	cLogEntrySize int
@@ -571,10 +571,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	var vLogCache *cache.LRUCache
+	var vLogCache *cache.Cache
 
 	if opts.VLogCacheSize > 0 {
-		vLogCache, err = cache.NewLRUCache(opts.VLogCacheSize)
+		vLogCache, err = cache.NewCache(opts.VLogCacheSize)
 		if err != nil {
 			return nil, err
 		}
@@ -602,7 +602,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
-	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
+	txLogCache, err := cache.NewCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
 	if err != nil {
 		return nil, err
 	}

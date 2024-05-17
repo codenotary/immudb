@@ -5692,7 +5692,7 @@ type DatabaseNullableSettings struct {
 	MaxConcurrency *NullableUint32 `protobuf:"bytes,13,opt,name=maxConcurrency,proto3" json:"maxConcurrency,omitempty"`
 	// Maximum number of simultaneous IO writes
 	MaxIOConcurrency *NullableUint32 `protobuf:"bytes,14,opt,name=maxIOConcurrency,proto3" json:"maxIOConcurrency,omitempty"`
-	// Size of the LRU cache for transaction logs
+	// Size of the cache for transaction logs
 	TxLogCacheSize *NullableUint32 `protobuf:"bytes,15,opt,name=txLogCacheSize,proto3" json:"txLogCacheSize,omitempty"`
 	// Maximum number of simultaneous value files opened
 	VLogMaxOpenedFiles *NullableUint32 `protobuf:"bytes,16,opt,name=vLogMaxOpenedFiles,proto3" json:"vLogMaxOpenedFiles,omitempty"`
@@ -5718,7 +5718,7 @@ type DatabaseNullableSettings struct {
 	MaxActiveTransactions *NullableUint32 `protobuf:"bytes,26,opt,name=maxActiveTransactions,proto3" json:"maxActiveTransactions,omitempty"`
 	// Limit the number of read entries per transaction
 	MvccReadSetLimit *NullableUint32 `protobuf:"bytes,27,opt,name=mvccReadSetLimit,proto3" json:"mvccReadSetLimit,omitempty"`
-	// Size of the LRU cache for value logs
+	// Size of the cache for value logs
 	VLogCacheSize *NullableUint32 `protobuf:"bytes,28,opt,name=vLogCacheSize,proto3" json:"vLogCacheSize,omitempty"`
 	// Truncation settings
 	TruncationSettings *TruncationNullableSettings `protobuf:"bytes,29,opt,name=truncationSettings,proto3" json:"truncationSettings,omitempty"`
@@ -6157,7 +6157,7 @@ type IndexNullableSettings struct {
 	FlushThreshold *NullableUint32 `protobuf:"bytes,1,opt,name=flushThreshold,proto3" json:"flushThreshold,omitempty"`
 	// Number of new index entries between disk flushes with file sync
 	SyncThreshold *NullableUint32 `protobuf:"bytes,2,opt,name=syncThreshold,proto3" json:"syncThreshold,omitempty"`
-	// Size of the Btree node LRU cache
+	// Size of the Btree node cache
 	CacheSize *NullableUint32 `protobuf:"bytes,3,opt,name=cacheSize,proto3" json:"cacheSize,omitempty"`
 	// Max size of a single Btree node in bytes
 	MaxNodeSize *NullableUint32 `protobuf:"bytes,4,opt,name=maxNodeSize,proto3" json:"maxNodeSize,omitempty"`
