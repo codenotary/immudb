@@ -210,7 +210,7 @@ func TestWritePastFirstChunk(t *testing.T) {
 
 	assert.True(t, waitForObject(mem, "00000005.aof"))
 
-	// LRU cache shuld contain chunks: 3, 4, 5 now, 6th is the active one
+	// Cache shuld contain chunks: 3, 4, 5 now, 6th is the active one
 	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000000.aof", path)))
 	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000001.aof", path)))
 	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000002.aof", path)))

@@ -1036,7 +1036,7 @@ message DatabaseNullableSettings {
   // Maximum number of simultaneous IO writes
   NullableUint32 maxIOConcurrency = 14;
 
-  // Size of the LRU cache for transaction logs
+  // Size of the cache for transaction logs
   NullableUint32 txLogCacheSize = 15;
 
   // Maximum number of simultaneous value files opened
@@ -1075,7 +1075,7 @@ message DatabaseNullableSettings {
   // Limit the number of read entries per transaction
   NullableUint32 mvccReadSetLimit = 27;
 
-  // Size of the LRU cache for value logs
+  // Size of the cache for value logs
   NullableUint32 vLogCacheSize = 28;
 
   // Truncation settings
@@ -1144,7 +1144,7 @@ message IndexNullableSettings {
   // Number of new index entries between disk flushes with file sync
   NullableUint32 syncThreshold = 2;
 
-  // Size of the Btree node LRU cache
+  // Size of the Btree node cache
   NullableUint32 cacheSize = 3;
 
   // Max size of a single Btree node in bytes

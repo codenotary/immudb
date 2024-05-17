@@ -477,7 +477,7 @@ DEPRECATED
 | excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, do not include commit timestamp in transaction headers |
 | maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commits prepared for write |
 | maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous IO writes |
-| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for transaction logs |
+| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the cache for transaction logs |
 | vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous value files opened |
 | txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous transaction log files opened |
 | commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commit log files opened |
@@ -490,7 +490,7 @@ DEPRECATED
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
 | maxActiveTransactions | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of pre-committed transactions |
 | mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
-| vLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for value logs |
+| vLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the cache for value logs |
 | truncationSettings | [TruncationNullableSettings](#immudb.schema.TruncationNullableSettings) |  | Truncation settings |
 | embeddedValues | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, values are stored together with the transaction header (true by default) |
 | preallocFiles | [NullableBool](#immudb.schema.NullableBool) |  | Enable file preallocation |
@@ -916,7 +916,7 @@ DualProofV2 contains inclusion and consistency proofs
 | ----- | ---- | ----- | ----------- |
 | flushThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes |
 | syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes with file sync |
-| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node LRU cache |
+| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node cache |
 | maxNodeSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Max size of a single Btree node in bytes |
 | maxActiveSnapshots | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of active btree snapshots |
 | renewSnapRootAfter | [NullableUint64](#immudb.schema.NullableUint64) |  | Time in milliseconds between the most recent DB snapshot is automatically renewed |

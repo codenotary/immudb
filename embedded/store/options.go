@@ -102,13 +102,13 @@ type Options struct {
 	// Maximum number of simultaneous IO writes
 	MaxIOConcurrency int
 
-	// Size of the LRU cache for transaction logs
+	// Size of the cache for transaction logs
 	TxLogCacheSize int
 
 	// Maximum number of simultaneous value files opened
 	VLogMaxOpenedFiles int
 
-	// Size of the LRU cache for value logs
+	// Size of the cache for value logs
 	VLogCacheSize int
 
 	// Maximum number of simultaneous transaction log files opened
@@ -147,7 +147,7 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	// Size of the Btree node LRU cache
+	// Size of the Btree node cache
 	CacheSize int
 
 	// Number of new index entries between disk flushes
