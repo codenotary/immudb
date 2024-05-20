@@ -107,6 +107,8 @@ type ImmuServiceClient interface {
 	ReplicateTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_ReplicateTxClient, error)
 	StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExportTxClient, error)
 	SQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*SQLExecResult, error)
+	// For backward compatibility with the grpc-gateway API
+	UnarySQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (ImmuService_SQLQueryClient, error)
 	ListTables(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	DescribeTable(ctx context.Context, in *Table, opts ...grpc.CallOption) (*SQLQueryResult, error)
@@ -1017,6 +1019,15 @@ func (c *immuServiceClient) SQLExec(ctx context.Context, in *SQLExecRequest, opt
 	return out, nil
 }
 
+func (c *immuServiceClient) UnarySQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error) {
+	out := new(SQLQueryResult)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/UnarySQLQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (ImmuService_SQLQueryClient, error) {
 	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[12], "/immudb.schema.ImmuService/SQLQuery", opts...)
 	if err != nil {
@@ -1177,6 +1188,8 @@ type ImmuServiceServer interface {
 	ReplicateTx(ImmuService_ReplicateTxServer) error
 	StreamExportTx(ImmuService_StreamExportTxServer) error
 	SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error)
+	// For backward compatibility with the grpc-gateway API
+	UnarySQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
 	SQLQuery(*SQLQueryRequest, ImmuService_SQLQueryServer) error
 	ListTables(context.Context, *emptypb.Empty) (*SQLQueryResult, error)
 	DescribeTable(context.Context, *Table) (*SQLQueryResult, error)
@@ -1388,6 +1401,9 @@ func (UnimplementedImmuServiceServer) StreamExportTx(ImmuService_StreamExportTxS
 }
 func (UnimplementedImmuServiceServer) SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SQLExec not implemented")
+}
+func (UnimplementedImmuServiceServer) UnarySQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnarySQLQuery not implemented")
 }
 func (UnimplementedImmuServiceServer) SQLQuery(*SQLQueryRequest, ImmuService_SQLQueryServer) error {
 	return status.Errorf(codes.Unimplemented, "method SQLQuery not implemented")
@@ -2683,6 +2699,24 @@ func _ImmuService_SQLExec_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_UnarySQLQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SQLQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).UnarySQLQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/UnarySQLQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).UnarySQLQuery(ctx, req.(*SQLQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_SQLQuery_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SQLQueryRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -3002,6 +3036,10 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SQLExec",
 			Handler:    _ImmuService_SQLExec_Handler,
+		},
+		{
+			MethodName: "UnarySQLQuery",
+			Handler:    _ImmuService_UnarySQLQuery_Handler,
 		},
 		{
 			MethodName: "ListTables",

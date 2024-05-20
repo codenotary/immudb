@@ -410,8 +410,8 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 	return nil
 }
 
-func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
-	if ctx.Err() != nil {
+func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
@@ -419,7 +419,7 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 	var vref store.ValueRef
 
 	// evaluation of txRange is postponed to allow parameters to be provided after rowReader initialization
-	err = r.reduceTxRange()
+	err := r.reduceTxRange()
 	if errors.Is(err, store.ErrTxNotFound) {
 		return nil, ErrNoMoreRows
 	}
