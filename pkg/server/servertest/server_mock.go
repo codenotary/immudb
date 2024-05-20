@@ -367,6 +367,10 @@ func (s *ServerMock) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 	return s.Srv.SQLExec(ctx, req)
 }
 
+func (s *ServerMock) UnarySQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	return s.Srv.UnarySQLQuery(ctx, req)
+}
+
 func (s *ServerMock) SQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_SQLQueryServer) error {
 	return s.Srv.SQLQuery(req, srv)
 }

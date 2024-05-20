@@ -2154,7 +2154,7 @@
         },
         "txLogCacheSize": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Size of the LRU cache for transaction logs"
+          "title": "Size of the cache for transaction logs"
         },
         "vLogMaxOpenedFiles": {
           "$ref": "#/definitions/schemaNullableUint32",
@@ -2206,7 +2206,7 @@
         },
         "vLogCacheSize": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Size of the LRU cache for value logs"
+          "title": "Size of the cache for value logs"
         },
         "truncationSettings": {
           "$ref": "#/definitions/schemaTruncationNullableSettings",
@@ -2635,7 +2635,7 @@
         },
         "cacheSize": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Size of the Btree node LRU cache"
+          "title": "Size of the Btree node cache"
         },
         "maxNodeSize": {
           "$ref": "#/definitions/schemaNullableUint32",
