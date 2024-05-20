@@ -109,19 +109,28 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 	return res, err
 }
 
-func (s *ImmuServer) SQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_SQLQueryServer) error {
-	db, err := s.getDBFromCtx(srv.Context(), "SQLQuery")
+func (s *ImmuServer) UnarySQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	var sqlRes *schema.SQLQueryResult
+	err := s.sqlQuery(ctx, req, func(res *schema.SQLQueryResult) error {
+		sqlRes = res
+		return nil
+	})
+	return sqlRes, err
+}
+
+func (s *ImmuServer) sqlQuery(ctx context.Context, req *schema.SQLQueryRequest, send func(*schema.SQLQueryResult) error) error {
+	db, err := s.getDBFromCtx(ctx, "SQLQuery")
 	if err != nil {
 		return err
 	}
 
-	tx, err := db.NewSQLTx(srv.Context(), sql.DefaultTxOptions().WithReadOnly(true))
+	tx, err := db.NewSQLTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return err
 	}
 	defer tx.Cancel()
 
-	reader, err := db.SQLQuery(srv.Context(), tx, req)
+	reader, err := db.SQLQuery(ctx, tx, req)
 	if err != nil {
 		return err
 	}
@@ -131,7 +140,11 @@ func (s *ImmuServer) SQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuServic
 	// for transferring less than db.MaxResultSize() rows.
 	// As a consequence, clients which are still using the old unary rpc version of SQLQuery will get stuck because
 	// they don't know how to handle multiple messages.
-	return s.streamRows(srv.Context(), reader, db.MaxResultSize(), srv.Send)
+	return s.streamRows(ctx, reader, db.MaxResultSize(), send)
+}
+
+func (s *ImmuServer) SQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_SQLQueryServer) error {
+	return s.sqlQuery(srv.Context(), req, srv.Send)
 }
 
 func (s *ImmuServer) streamRows(ctx context.Context, reader sql.RowReader, batchSize int, send func(*schema.SQLQueryResult) error) error {

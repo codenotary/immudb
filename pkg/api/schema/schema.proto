@@ -1931,6 +1931,14 @@ service ImmuService {
     };
   }
 
+  // For backward compatibility with the grpc-gateway API
+  rpc UnarySQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+    option (google.api.http) = {
+      post: "/db/sqlquery"
+      body: "*"
+    };
+  }
+
   rpc SQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {
     option (google.api.http) = {
       post: "/db/sqlquery"
