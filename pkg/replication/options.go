@@ -19,14 +19,20 @@ package replication
 import (
 	"fmt"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client"
 )
 
-const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
-const DefaultPrefetchTxBufferSize int = 100
-const DefaultReplicationCommitConcurrency int = 10
-const DefaultAllowTxDiscarding = false
-const DefaultSkipIntegrityCheck = false
-const DefaultWaitForIndexing = false
+const (
+	DefaultChunkSize                    int = 64 * 1024 // 64 * 1024 64 KiB
+	DefaultPrefetchTxBufferSize         int = 100
+	DefaultReplicationCommitConcurrency int = 10
+	DefaultAllowTxDiscarding                = false
+	DefaultSkipIntegrityCheck               = false
+	DefaultWaitForIndexing                  = false
+)
+
+type ClientFactory func(string, int) client.ImmuClient
 
 type Options struct {
 	primaryDatabase string
@@ -44,7 +50,8 @@ type Options struct {
 	skipIntegrityCheck bool
 	waitForIndexing    bool
 
-	delayer Delayer
+	delayer       Delayer
+	clientFactory ClientFactory
 }
 
 func DefaultOptions() *Options {
@@ -63,7 +70,17 @@ func DefaultOptions() *Options {
 		allowTxDiscarding:            DefaultAllowTxDiscarding,
 		skipIntegrityCheck:           DefaultSkipIntegrityCheck,
 		waitForIndexing:              DefaultWaitForIndexing,
+		clientFactory:                newClient,
 	}
+}
+
+func newClient(host string, port int) client.ImmuClient {
+	opts := client.DefaultOptions().
+		WithAddress(host).
+		WithPort(port).
+		WithDisableIdentityCheck(true)
+
+	return client.NewClient().WithOptions(opts)
 }
 
 func (opts *Options) Validate() error {
@@ -159,5 +176,11 @@ func (o *Options) WithWaitForIndexing(waitForIndexing bool) *Options {
 // WithDelayer sets delayer used to pause re-attempts
 func (o *Options) WithDelayer(delayer Delayer) *Options {
 	o.delayer = delayer
+	return o
+}
+
+// WithClientFactoryFunc specifies a function to instantiate a new client
+func (o *Options) WithClientFactoryFunc(clientFactory func(string, int) client.ImmuClient) *Options {
+	o.clientFactory = clientFactory
 	return o
 }
