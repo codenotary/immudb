@@ -75,13 +75,14 @@ jobs:
           **Duration**: ${{ env.duration }}s | **immudb version**: ${{ env.version }}\n
           $(jq -r '.benchmarks[] | .name + "\n" + .summary' perf-test-results.json) \n
           **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
-          \"}" > mattermost.json
+          \"}" > mattermost.json && echo MM_PAYLOAD=\'$(cat mattermost.json)\' >> $GITHUB_ENV
       - name: Notify on immudb channel on Mattermost
         if: github.event.schedule == '0 0 * * *'
         uses: mattermost/action-mattermost-notify@master
         with:
           MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
           MATTERMOST_CHANNEL: 'immudb-tests'
+          PAYLOAD: ${{ env.MM_PAYLOAD }}
 
   performance-test-suite-upload-s3:
     if: github.event.schedule != '0 0 * * *'
