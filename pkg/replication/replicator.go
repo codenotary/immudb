@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
@@ -42,6 +43,7 @@ var ErrAlreadyStopped = errors.New("already stopped")
 var ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
 var ErrNoSynchronousReplicationOnPrimary = errors.New("primary is not running with synchronous replication")
 var ErrInvalidReplicationMetadata = errors.New("invalid replication metadata retrieved")
+var ErrPrimaryServerVersionMismatch = errors.New("primary server version does not match")
 
 type prefetchTxEntry struct {
 	data    []byte
@@ -81,6 +83,7 @@ type TxReplicator struct {
 	consecutiveFailures int
 
 	running bool
+	err     error
 
 	mutex sync.Mutex
 
@@ -123,7 +126,7 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 		return false
 	}
 
-	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrReplicaDivergedFromPrimary) {
+	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrReplicaDivergedFromPrimary) || errors.Is(err, ErrPrimaryServerVersionMismatch) {
 		return true
 	}
 
@@ -168,24 +171,7 @@ func (txr *TxReplicator) Start() error {
 
 	txr.running = true
 
-	go func() {
-		txr.logger.Infof("Replication for '%s' started fetching transaction from '%s'...", txr.db.GetName(), txr._primaryDB)
-
-		var err error
-
-		for {
-			err := txr.fetchNextTx()
-			if txr.handleError(err) {
-				break
-			}
-		}
-
-		txr.logger.Infof("Replication for '%s' stopped fetching transaction from '%s'", txr.db.GetName(), txr._primaryDB)
-
-		if errors.Is(err, ErrReplicaDivergedFromPrimary) {
-			txr.Stop()
-		}
-	}()
+	go txr.replicationLoop()
 
 	txr.metrics.reset()
 
@@ -207,6 +193,24 @@ func (txr *TxReplicator) Start() error {
 	txr.logger.Infof("Replication from '%s' to '%s' successfully initialized", txr._primaryDB, txr.db.GetName())
 
 	return nil
+}
+
+func (txr *TxReplicator) replicationLoop() {
+	txr.logger.Infof("Replication for '%s' started fetching transaction from '%s'...", txr.db.GetName(), txr._primaryDB)
+
+	var err error
+	for {
+		err = txr.fetchNextTx()
+		if txr.handleError(err) {
+			break
+		}
+	}
+
+	txr.logger.Infof("Replication for '%s' stopped fetching transaction from '%s'", txr.db.GetName(), txr._primaryDB)
+
+	if errors.Is(err, ErrReplicaDivergedFromPrimary) || errors.Is(err, ErrPrimaryServerVersionMismatch) {
+		txr.stopWithErr(err)
+	}
 }
 
 func (txr *TxReplicator) replicateSingleTx(data []byte) bool {
@@ -270,17 +274,21 @@ func (txr *TxReplicator) connect() error {
 		txr.opts.primaryPort,
 		txr.db.GetName())
 
-	opts := client.DefaultOptions().
-		WithAddress(txr.opts.primaryHost).
-		WithPort(txr.opts.primaryPort).
-		WithDisableIdentityCheck(true)
-
-	txr.client = client.NewClient().WithOptions(opts)
+	txr.client = txr.opts.clientFactory(txr.opts.primaryHost, txr.opts.primaryPort)
 
 	err := txr.client.OpenSession(
 		txr.context, []byte(txr.opts.primaryUsername), []byte(txr.opts.primaryPassword), txr.opts.primaryDatabase)
 	if err != nil {
 		return err
+	}
+
+	info, err := txr.client.ServerInfo(txr.context, &schema.ServerInfoRequest{})
+	if err != nil {
+		txr.logger.Errorf("Connection to %s failed: unable to get primary server info: %w", txr.db.GetName(), err)
+		return err
+	}
+	if info.Version != version.Version {
+		return ErrPrimaryServerVersionMismatch
 	}
 
 	txr.logger.Infof("Connection to '%s':'%d' for database '%s' successfully established",
@@ -336,8 +344,6 @@ func (txr *TxReplicator) fetchNextTx() error {
 		return err
 	}
 
-	syncReplicationEnabled := txr.db.IsSyncReplicationEnabled()
-
 	if txr.lastTx == 0 {
 		txr.lastTx = commitState.PrecommittedTxId
 	}
@@ -346,6 +352,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 
 	var state *schema.ReplicaState
 
+	syncReplicationEnabled := txr.db.IsSyncReplicationEnabled()
 	if syncReplicationEnabled {
 		state = &schema.ReplicaState{
 			UUID:             txr.uuid.String(),
@@ -361,9 +368,6 @@ func (txr *TxReplicator) fetchNextTx() error {
 		ReplicaState:       state,
 		AllowPreCommitted:  syncReplicationEnabled,
 		SkipIntegrityCheck: txr.skipIntegrityCheck,
-	}
-	if err != nil {
-		return err
 	}
 
 	txr.exportTxStream.Send(req)
@@ -459,6 +463,10 @@ func (txr *TxReplicator) fetchNextTx() error {
 }
 
 func (txr *TxReplicator) Stop() error {
+	return txr.stopWithErr(nil)
+}
+
+func (txr *TxReplicator) stopWithErr(err error) error {
 	if txr.cancelFunc != nil {
 		txr.cancelFunc()
 	}
@@ -477,8 +485,16 @@ func (txr *TxReplicator) Stop() error {
 	txr.disconnect()
 
 	txr.running = false
+	txr.err = err
 
 	txr.logger.Infof("Replication of database '%s' successfully stopped", txr.db.GetName())
 
 	return nil
+}
+
+func (txr *TxReplicator) Error() error {
+	txr.mutex.Lock()
+	defer txr.mutex.Unlock()
+
+	return txr.err
 }
