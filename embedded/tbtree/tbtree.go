@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -41,26 +40,28 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var ErrIllegalArguments = fmt.Errorf("tbtree: %w", embedded.ErrIllegalArguments)
-var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
-var ErrorPathIsNotADirectory = errors.New("tbtree: path is not a directory")
-var ErrReadingFileContent = errors.New("tbtree: error reading required file content")
-var ErrKeyNotFound = fmt.Errorf("tbtree: %w", embedded.ErrKeyNotFound)
-var ErrorMaxKeySizeExceeded = errors.New("tbtree: max key size exceeded")
-var ErrorMaxValueSizeExceeded = errors.New("tbtree: max value size exceeded")
-var ErrOffsetOutOfRange = fmt.Errorf("tbtree: %w", embedded.ErrOffsetOutOfRange)
-var ErrIllegalState = embedded.ErrIllegalState // TODO: grpc error mapping hardly relies on the actual message, see IllegalStateHandlerInterceptor
-var ErrAlreadyClosed = errors.New("tbtree: index already closed")
-var ErrSnapshotsNotClosed = errors.New("tbtree: snapshots not closed")
-var ErrorToManyActiveSnapshots = errors.New("tbtree: max active snapshots limit reached")
-var ErrCorruptedFile = errors.New("tbtree: file is corrupted")
-var ErrCorruptedCLog = errors.New("tbtree: commit log is corrupted")
-var ErrCompactAlreadyInProgress = errors.New("tbtree: compact already in progress")
-var ErrCompactionThresholdNotReached = errors.New("tbtree: compaction threshold not yet reached")
-var ErrIncompatibleDataFormat = errors.New("tbtree: incompatible data format")
-var ErrTargetPathAlreadyExists = errors.New("tbtree: target folder already exists")
-var ErrNoMoreEntries = fmt.Errorf("tbtree: %w", embedded.ErrNoMoreEntries)
-var ErrReadersNotClosed = errors.New("tbtree: readers not closed")
+var (
+	ErrIllegalArguments              = fmt.Errorf("tbtree: %w", embedded.ErrIllegalArguments)
+	ErrInvalidOptions                = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
+	ErrorPathIsNotADirectory         = errors.New("tbtree: path is not a directory")
+	ErrReadingFileContent            = errors.New("tbtree: error reading required file content")
+	ErrKeyNotFound                   = fmt.Errorf("tbtree: %w", embedded.ErrKeyNotFound)
+	ErrorMaxKeySizeExceeded          = errors.New("tbtree: max key size exceeded")
+	ErrorMaxValueSizeExceeded        = errors.New("tbtree: max value size exceeded")
+	ErrOffsetOutOfRange              = fmt.Errorf("tbtree: %w", embedded.ErrOffsetOutOfRange)
+	ErrIllegalState                  = embedded.ErrIllegalState // TODO: grpc error mapping hardly relies on the actual message, see IllegalStateHandlerInterceptor
+	ErrAlreadyClosed                 = errors.New("tbtree: index already closed")
+	ErrSnapshotsNotClosed            = errors.New("tbtree: snapshots not closed")
+	ErrorToManyActiveSnapshots       = errors.New("tbtree: max active snapshots limit reached")
+	ErrCorruptedFile                 = errors.New("tbtree: file is corrupted")
+	ErrCorruptedCLog                 = errors.New("tbtree: commit log is corrupted")
+	ErrCompactAlreadyInProgress      = errors.New("tbtree: compact already in progress")
+	ErrCompactionThresholdNotReached = errors.New("tbtree: compaction threshold not yet reached")
+	ErrIncompatibleDataFormat        = errors.New("tbtree: incompatible data format")
+	ErrTargetPathAlreadyExists       = errors.New("tbtree: target folder already exists")
+	ErrNoMoreEntries                 = fmt.Errorf("tbtree: %w", embedded.ErrNoMoreEntries)
+	ErrReadersNotClosed              = errors.New("tbtree: readers not closed")
+)
 
 const Version = 3
 
@@ -454,7 +455,7 @@ func snapFolder(folder string, snapID uint64) string {
 }
 
 func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []uint64, err error) {
-	fis, err := ioutil.ReadDir(path)
+	fis, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +738,8 @@ func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
-	r, _, _ := t.cache.Put(n.offset(), n)
+	size, _ := n.size()
+	r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
 	if r != nil {
 		metricsCacheEvict.WithLabelValues(t.path).Inc()
 	}
@@ -765,7 +767,8 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 		}
 
 		if updateCache {
-			r, _, _ := t.cache.Put(n.offset(), n)
+			size, _ := n.size()
+			r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
 			if r != nil {
 				metricsCacheEvict.WithLabelValues(t.path).Inc()
 			}
@@ -1368,9 +1371,6 @@ func (t *TBtree) Compact() (uint64, error) {
 	}
 
 	snap := t.newSnapshot(0, t.root)
-	if err != nil {
-		return 0, err
-	}
 
 	t.compacting = true
 	defer func() {

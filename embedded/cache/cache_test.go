@@ -43,7 +43,7 @@ func TestCacheCreation(t *testing.T) {
 	cache, err := NewCache(cacheSize)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
-	require.Equal(t, cacheSize, cache.Size())
+	require.Equal(t, cacheSize, cache.MaxWeight())
 
 	_, _, err = cache.evict()
 	require.Error(t, err)
@@ -93,7 +93,7 @@ func TestCacheCreation(t *testing.T) {
 
 func TestEvictionPolicy(t *testing.T) {
 	fillCache := func(cache *Cache) {
-		for i := 0; i < cache.Size(); i++ {
+		for i := 0; i < cache.MaxWeight(); i++ {
 			key, value, err := cache.Put(i, i+1)
 			require.NoError(t, err)
 			require.Nil(t, key)
@@ -101,22 +101,34 @@ func TestEvictionPolicy(t *testing.T) {
 		}
 	}
 
+	t.Run("should evict multiple items", func(t *testing.T) {
+		cache := setupCache(t)
+		fillCache(cache)
+
+		el := rand.Intn(cache.MaxWeight())
+
+		_, _, err := cache.PutWeighted(cache.MaxWeight(), cache.MaxWeight()+1, el+1)
+		require.NoError(t, err)
+
+		require.Equal(t, cache.Weight(), cache.EntriesCount()+el)
+		require.Equal(t, cache.MaxWeight()-el, cache.EntriesCount())
+	})
+
 	t.Run("should evict non visited items", func(t *testing.T) {
 		t.Run("starting from element at middle", func(t *testing.T) {
 			cache := setupCache(t)
-
 			fillCache(cache)
 
-			el := rand.Intn(cache.Size())
+			el := rand.Intn(cache.MaxWeight())
 			for i := 0; i < el; i++ {
 				_, err := cache.Get(i)
 				require.NoError(t, err)
 			}
 
-			for i := el; i < cache.Size(); i++ {
-				key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+			for i := el; i < cache.MaxWeight(); i++ {
+				key, _, err := cache.Put(cache.MaxWeight()+i, cache.MaxWeight()+i+1)
 				require.NoError(t, err)
-				require.Equal(t, i%cache.size, key)
+				require.Equal(t, i%cache.maxWeight, key)
 			}
 		})
 
@@ -125,13 +137,13 @@ func TestEvictionPolicy(t *testing.T) {
 
 			fillCache(cache)
 
-			for i := 0; i < (cache.Size()+1)/2; i++ {
+			for i := 0; i < (cache.MaxWeight()+1)/2; i++ {
 				_, err := cache.Get(2 * i)
 				require.NoError(t, err)
 			}
 
-			for i := 0; i < cache.Size()/2; i++ {
-				key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+			for i := 0; i < cache.MaxWeight()/2; i++ {
+				key, _, err := cache.Put(cache.MaxWeight()+i, cache.MaxWeight()+i+1)
 				require.NoError(t, err)
 				require.Equal(t, key, 2*i+1)
 			}
@@ -142,9 +154,9 @@ func TestEvictionPolicy(t *testing.T) {
 
 			fillCache(cache)
 
-			n := 1 + rand.Intn(cache.Size()-1)
+			n := 1 + rand.Intn(cache.MaxWeight()-1)
 			for i := 0; i < n; i++ {
-				key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+				key, _, err := cache.Put(cache.MaxWeight()+i, cache.MaxWeight()+i+1)
 				require.NoError(t, err)
 				require.Equal(t, key, i)
 			}
@@ -156,14 +168,14 @@ func TestEvictionPolicy(t *testing.T) {
 
 		fillCache(cache)
 
-		for i := 0; i < cache.Size(); i++ {
+		for i := 0; i < cache.MaxWeight(); i++ {
 			_, err := cache.Get(i)
 			require.NoError(t, err)
 		}
 
-		n := 1 + rand.Intn(cache.Size()-1)
+		n := 1 + rand.Intn(cache.MaxWeight()-1)
 		for i := 0; i < n; i++ {
-			key, _, err := cache.Put(cache.Size()+i, cache.Size()+i+1)
+			key, _, err := cache.Put(cache.MaxWeight()+i, cache.MaxWeight()+i+1)
 			require.NoError(t, err)
 			require.Equal(t, key, i)
 		}
@@ -175,7 +187,7 @@ func TestApply(t *testing.T) {
 	cache, err := NewCache(cacheSize)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
-	require.Equal(t, cacheSize, cache.Size())
+	require.Equal(t, cacheSize, cache.MaxWeight())
 
 	for i := 0; i < cacheSize; i++ {
 		_, _, err = cache.Put(i, 10*i)
@@ -269,7 +281,7 @@ func TestCacheResizing(t *testing.T) {
 	cache, err := NewCache(initialCacheSize)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
-	require.Equal(t, initialCacheSize, cache.Size())
+	require.Equal(t, initialCacheSize, cache.MaxWeight())
 
 	for i := 0; i < initialCacheSize; i++ {
 		rkey, _, err := cache.Put(i, i)
@@ -280,7 +292,7 @@ func TestCacheResizing(t *testing.T) {
 	// cache growing
 	largerCacheSize := 20
 	cache.Resize(largerCacheSize)
-	require.Equal(t, largerCacheSize, cache.Size())
+	require.Equal(t, largerCacheSize, cache.MaxWeight())
 
 	for i := 0; i < initialCacheSize; i++ {
 		v, err := cache.Get(i)
@@ -296,7 +308,7 @@ func TestCacheResizing(t *testing.T) {
 
 	// cache shrinking
 	cache.Resize(initialCacheSize)
-	require.Equal(t, initialCacheSize, cache.Size())
+	require.Equal(t, initialCacheSize, cache.MaxWeight())
 
 	for i := 0; i < initialCacheSize; i++ {
 		_, err = cache.Get(i)
@@ -307,4 +319,80 @@ func TestCacheResizing(t *testing.T) {
 		_, err = cache.Get(i)
 		require.ErrorIs(t, err, ErrKeyNotFound)
 	}
+}
+
+func TestPutWeighted(t *testing.T) {
+	t.Run("should evict entries according to weight", func(t *testing.T) {
+		cache, err := NewCache(1024 * 1024) // 1MB
+		require.NoError(t, err)
+
+		weights := make([]int, 0, 1000)
+
+		expectedWeight := 0
+
+		n := 0
+		currWeight := 100 + rand.Intn(1024)
+		for cache.Weight()+currWeight <= cache.MaxWeight() {
+			k, v, err := cache.PutWeighted(n, n, currWeight)
+			require.NoError(t, err)
+			require.Nil(t, k)
+			require.Nil(t, v)
+
+			expectedWeight += currWeight
+			weights = append(weights, currWeight)
+			currWeight = 100 + rand.Intn(1024)
+			n++
+		}
+		require.Equal(t, expectedWeight, cache.Weight())
+		require.Equal(t, n, cache.EntriesCount())
+
+		weight := currWeight + rand.Intn(cache.Weight()-currWeight+1)
+
+		expectedEvictedWeight := 0
+		expectedEntriesCount := 0
+		for i, w := range weights {
+			expectedEvictedWeight += w
+
+			if expectedEvictedWeight+cache.Available() >= weight {
+				expectedEntriesCount = n - i
+				break
+			}
+		}
+
+		_, _, err = cache.PutWeighted(n+1, n+1, weight)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedEntriesCount, cache.EntriesCount())
+		require.Equal(t, expectedWeight-expectedEvictedWeight+weight, cache.Weight())
+	})
+
+	t.Run("update existing item weight", func(t *testing.T) {
+		cache, err := NewCache(5)
+		require.NoError(t, err)
+
+		_, _, err = cache.PutWeighted(1, 1, 0)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, _, err = cache.PutWeighted(1, 1, 10)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		cache.PutWeighted(1, 1, 2)
+		cache.PutWeighted(2, 2, 3)
+
+		require.Equal(t, 5, cache.Weight())
+
+		key, _, err := cache.PutWeighted(2, 2, 1)
+		require.NoError(t, err)
+		require.Nil(t, key)
+		require.Equal(t, 3, cache.Weight())
+		require.Equal(t, 2, cache.EntriesCount())
+
+		key, _, err = cache.PutWeighted(2, 2, 4)
+		require.NoError(t, err)
+		require.Equal(t, key, 1)
+
+		require.Equal(t, 4, cache.Weight())
+		require.Equal(t, 1, cache.EntriesCount())
+	})
+
 }

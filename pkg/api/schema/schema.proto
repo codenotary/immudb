@@ -1144,7 +1144,7 @@ message IndexNullableSettings {
   // Number of new index entries between disk flushes with file sync
   NullableUint32 syncThreshold = 2;
 
-  // Size of the Btree node cache
+  // Size of the Btree node cache in bytes
   NullableUint32 cacheSize = 3;
 
   // Max size of a single Btree node in bytes
