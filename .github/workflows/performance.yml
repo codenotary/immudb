@@ -1,6 +1,7 @@
 name: Performance tests
 
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       go-version:
