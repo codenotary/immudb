@@ -828,6 +828,9 @@ func (s *ImmuServer) numTransactions() (uint64, error) {
 	var count uint64
 	for i := 0; i < s.dbList.Length(); i++ {
 		db, err := s.dbList.GetByIndex(i)
+		if err == database.ErrDatabaseNotExists {
+			continue
+		}
 		if err != nil {
 			return 0, err
 		}
@@ -848,6 +851,9 @@ func (s *ImmuServer) totalDBSize() (int64, error) {
 	var size int64
 	for i := 0; i < s.dbList.Length(); i++ {
 		db, err := s.dbList.GetByIndex(i)
+		if err == database.ErrDatabaseNotExists {
+			continue
+		}
 		if err != nil {
 			return -1, err
 		}
