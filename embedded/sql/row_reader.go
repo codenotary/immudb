@@ -496,7 +496,20 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 
 		voff += n
 
-		valuesByPosition[pos] = val
+		// make sure value is inserted in the correct position
+		for pos < len(r.table.cols) && r.table.cols[pos].id < colID {
+			pos++
+		}
+
+		if pos == len(r.table.cols) || r.table.cols[pos].id != colID {
+			return nil, ErrCorruptedData
+		}
+
+		if r.scanSpecs.IncludeHistory {
+			valuesByPosition[pos+1] = val
+		} else {
+			valuesByPosition[pos] = val
+		}
 		pos++
 
 		valuesBySelector[EncodeSelector("", r.tableAlias, col.colName)] = val
