@@ -34,9 +34,10 @@ var (
 type Cache struct {
 	data map[interface{}]*entry
 
-	hand *list.Element
-	list *list.List
-	size int
+	hand      *list.Element
+	list      *list.List
+	weight    int
+	maxWeight int
 
 	mutex sync.RWMutex
 }
@@ -44,49 +45,86 @@ type Cache struct {
 type entry struct {
 	value   interface{}
 	visited uint32
+	weight  int
 	order   *list.Element
 }
 
-func NewCache(size int) (*Cache, error) {
-	if size < 1 {
+func NewCache(maxWeight int) (*Cache, error) {
+	if maxWeight < 1 {
 		return nil, ErrIllegalArguments
 	}
 
 	return &Cache{
-		data: make(map[interface{}]*entry, size),
-		list: list.New(),
-		size: size,
+		data:      make(map[interface{}]*entry),
+		list:      list.New(),
+		weight:    0,
+		maxWeight: maxWeight,
 	}, nil
 }
 
-func (c *Cache) Resize(size int) {
+func (c *Cache) Resize(newWeight int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for size < c.list.Len() {
-		c.evict()
+	for c.weight > newWeight {
+		_, entry, _ := c.evict()
+		c.weight -= entry.weight
 	}
 
-	c.size = size
+	c.maxWeight = newWeight
 }
 
 func (c *Cache) Put(key interface{}, value interface{}) (interface{}, interface{}, error) {
-	if key == nil || value == nil {
-		return nil, nil, ErrIllegalArguments
-	}
+	return c.PutWeighted(key, value, 1)
+}
 
+func (c *Cache) PutWeighted(key interface{}, value interface{}, weight int) (interface{}, interface{}, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	return c.put(key, value, weight, 0)
+}
+
+func (c *Cache) put(key interface{}, value interface{}, weight int, visited uint32) (interface{}, interface{}, error) {
+	if key == nil || value == nil || weight == 0 || weight > c.maxWeight {
+		return nil, nil, ErrIllegalArguments
+	}
+
 	e, ok := c.data[key]
 	if ok {
+		if c.weight-e.weight+weight > c.maxWeight {
+			c.pop(key)
+			return c.put(key, value, weight, 1)
+		}
+
+		c.weight = c.weight - e.weight + weight
+
 		e.visited = 1
 		e.value = value
+		e.weight = weight
+
 		return nil, nil, nil
 	}
 
+	evictedKey, evictedValue, err := c.evictWhileFull(weight)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	c.weight += weight
+
+	c.data[key] = &entry{
+		value:   value,
+		visited: visited,
+		weight:  weight,
+		order:   c.list.PushFront(key),
+	}
+	return evictedKey, evictedValue, nil
+}
+
+func (c *Cache) evictWhileFull(weight int) (interface{}, interface{}, error) {
 	var rkey, rvalue interface{}
-	if c.list.Len() >= c.size {
+	for c.weight+weight > c.maxWeight {
 		evictedKey, entry, err := c.evict()
 		if err != nil {
 			return nil, nil, err
@@ -94,12 +132,8 @@ func (c *Cache) Put(key interface{}, value interface{}) (interface{}, interface{
 
 		rkey = evictedKey
 		rvalue = entry.value
-	}
 
-	c.data[key] = &entry{
-		value:   value,
-		visited: 0,
-		order:   c.list.PushFront(key),
+		c.weight -= entry.weight
 	}
 	return rkey, rvalue, nil
 }
@@ -158,6 +192,10 @@ func (c *Cache) Pop(key interface{}) (interface{}, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	return c.pop(key)
+}
+
+func (c *Cache) pop(key interface{}) (interface{}, error) {
 	e, ok := c.data[key]
 	if !ok {
 		return nil, ErrKeyNotFound
@@ -169,6 +207,8 @@ func (c *Cache) Pop(key interface{}) (interface{}, error) {
 
 	c.list.Remove(e.order)
 	delete(c.data, key)
+
+	c.weight -= e.weight
 
 	return e.value, nil
 }
@@ -191,11 +231,25 @@ func (c *Cache) Replace(k interface{}, v interface{}) (interface{}, error) {
 	return oldV, nil
 }
 
-func (c *Cache) Size() int {
+func (c *Cache) Weight() int {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	return c.size
+	return c.weight
+}
+
+func (c *Cache) Available() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.maxWeight - c.weight
+}
+
+func (c *Cache) MaxWeight() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.maxWeight
 }
 
 func (c *Cache) EntriesCount() int {
