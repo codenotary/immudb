@@ -53,6 +53,6 @@ jobs:
     - name: Notify on immudb channel on Mattermost
       if: github.event.schedule == '0 0 * * *'
       uses: mattermost/action-mattermost-notify@master
-      env:
+      with:
         MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
         MATTERMOST_CHANNEL: 'immudb-tests'
