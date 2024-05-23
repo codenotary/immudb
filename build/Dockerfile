@@ -83,6 +83,7 @@ COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
 COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_HOME"
 COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_DIR"
+COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty /tmp
 COPY --from=build "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certificates.crt"
 
 EXPOSE 3322
