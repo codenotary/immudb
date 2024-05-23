@@ -190,7 +190,7 @@ func TestInitializeRemoteStorageEmptyRemoteStorageErrorOnExists(t *testing.T) {
 	}
 
 	err := s.initializeRemoteStorage(mem)
-	require.True(t, errors.Is(err, injectedErr))
+	require.ErrorIs(t, err, injectedErr)
 }
 
 func TestInitializeRemoteStorageEmptyRemoteStorageErrorOnListEntries(t *testing.T) {

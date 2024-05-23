@@ -76,15 +76,15 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 	}
 
 	if s.Options.RemoteStorageOptions.S3ExternalIdentifier {
-		if err := s.loadRemoteIdentifier(context.Background()); err != nil {
+		if err := s.loadRemoteIdentifier(context.Background(), storage); err != nil {
 			return err
 		}
 	}
-	return s.createRemoteSubFolders()
+	return s.createRemoteSubFolders(storage)
 }
 
-func (s *ImmuServer) createRemoteSubFolders() error {
-	_, subFolders, err := s.remoteStorage.ListEntries(context.Background(), "")
+func (s *ImmuServer) createRemoteSubFolders(storage remotestorage.Storage) error {
+	_, subFolders, err := storage.ListEntries(context.Background(), "")
 	if err != nil {
 		return err
 	}
@@ -101,17 +101,17 @@ func (s *ImmuServer) createRemoteSubFolders() error {
 	return nil
 }
 
-func (s *ImmuServer) loadRemoteIdentifier(ctx context.Context) error {
-	hasRemoteIdentifier, err := s.remoteStorage.Exists(ctx, IDENTIFIER_FNAME)
+func (s *ImmuServer) loadRemoteIdentifier(ctx context.Context, storage remotestorage.Storage) error {
+	hasRemoteIdentifier, err := storage.Exists(ctx, IDENTIFIER_FNAME)
 	if err != nil {
 		return err
 	}
 
 	if !hasRemoteIdentifier {
-		return s.initRemoteIdentifier(ctx)
+		return s.initRemoteIdentifier(ctx, storage)
 	}
 
-	remoteIDStream, err := s.remoteStorage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
+	remoteIDStream, err := storage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
 	if err != nil {
 		return err
 	}
@@ -143,14 +143,14 @@ func (s *ImmuServer) loadRemoteIdentifier(ctx context.Context) error {
 	return err
 }
 
-func (s *ImmuServer) initRemoteIdentifier(ctx context.Context) error {
+func (s *ImmuServer) initRemoteIdentifier(ctx context.Context, storage remotestorage.Storage) error {
 	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
 
 	s.UUID = xid.New()
 	if err := os.WriteFile(localIdentifierFile, s.UUID.Bytes(), os.ModePerm); err != nil {
 		return err
 	}
-	return s.remoteStorage.Put(ctx, IDENTIFIER_FNAME, localIdentifierFile)
+	return storage.Put(ctx, IDENTIFIER_FNAME, localIdentifierFile)
 }
 
 func (s *ImmuServer) updateRemoteUUID(remoteStorage remotestorage.Storage) error {
