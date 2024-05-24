@@ -966,7 +966,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	s.dbListMutex.Lock()
 	defer s.dbListMutex.Unlock()
 
-	//check if database exists
+	// check if database exists
 	if s.dbList.GetId(req.Name) >= 0 {
 		if !req.IfNotExists {
 			return nil, database.ErrDatabaseAlreadyExists
@@ -984,7 +984,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		}, nil
 	}
 
-	dbOpts := s.defaultDBOptions(req.Name)
+	dbOpts := s.defaultDBOptions(req.Name, user.Username)
 
 	if req.Settings != nil {
 		err = s.overwriteWith(dbOpts, req.Settings, false)
@@ -1476,6 +1476,8 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			Loaded:          !db.IsClosed(),
 			DiskSize:        size,
 			NumTransactions: txCount,
+			CreatedAt:       uint64(dbOpts.CreatedAt.Unix()),
+			CreatedBy:       dbOpts.CreatedBy,
 		}
 		resp.Databases = append(resp.Databases, info)
 	}

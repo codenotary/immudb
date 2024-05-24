@@ -1378,6 +1378,12 @@ message DatabaseInfo {
 
   // total number of transactions
   uint64 numTransactions = 5;
+
+  // the time when the db was created
+  uint64 created_at = 6;
+
+  // the user who created the database
+  string created_by = 7;
 }
 
 message Chunk {
