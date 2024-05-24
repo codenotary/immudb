@@ -415,6 +415,8 @@ DEPRECATED
 | loaded | [bool](#bool) |  | If true, this database is currently loaded into memory |
 | diskSize | [uint64](#uint64) |  | database disk size |
 | numTransactions | [uint64](#uint64) |  | total number of transactions |
+| created_at | [uint64](#uint64) |  | the time when the db was created |
+| created_by | [string](#string) |  | the user who created the database |
 
 
 
@@ -916,7 +918,7 @@ DualProofV2 contains inclusion and consistency proofs
 | ----- | ---- | ----- | ----------- |
 | flushThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes |
 | syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes with file sync |
-| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node cache |
+| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node cache in bytes |
 | maxNodeSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Max size of a single Btree node in bytes |
 | maxActiveSnapshots | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of active btree snapshots |
 | renewSnapRootAfter | [NullableUint64](#immudb.schema.NullableUint64) |  | Time in milliseconds between the most recent DB snapshot is automatically renewed |

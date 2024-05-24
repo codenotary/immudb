@@ -2087,6 +2087,15 @@
           "type": "string",
           "format": "uint64",
           "title": "total number of transactions"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "uint64",
+          "title": "the time when the db was created"
+        },
+        "created_by": {
+          "type": "string",
+          "title": "the user who created the database"
         }
       }
     },
@@ -2635,7 +2644,7 @@
         },
         "cacheSize": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Size of the Btree node cache"
+          "title": "Size of the Btree node cache in bytes"
         },
         "maxNodeSize": {
           "$ref": "#/definitions/schemaNullableUint32",

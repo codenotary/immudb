@@ -108,10 +108,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			}
 			c.PrintTable(
 				cmd.OutOrStdout(),
-				[]string{"Database Name", "Status", "Is Replica", "Disk Size", "Transactions"},
+				[]string{"Database Name", "Created At", "Created By", "Status", "Is Replica", "Disk Size", "Transactions"},
 				len(resp.Databases),
 				func(i int) []string {
-					row := make([]string, 5)
+					row := make([]string, 7)
 
 					db := resp.Databases[i]
 
@@ -120,17 +120,20 @@ func (cl *commandline) database(cmd *cobra.Command) {
 					}
 					row[0] += db.Name
 
+					row[1] = time.Unix(int64(db.CreatedAt), 0).Format("2006-01-02")
+					row[2] = db.CreatedBy
+
 					if db.GetLoaded() {
-						row[1] += "LOADED"
+						row[3] += "LOADED"
 					} else {
-						row[1] += "UNLOADED"
+						row[3] += "UNLOADED"
 					}
 
 					isReplica := db.Settings.ReplicationSettings.Replica != nil && db.Settings.ReplicationSettings.Replica.Value
 
-					row[2] = strings.ToUpper(strconv.FormatBool(isReplica))
-					row[3] = helper.FormatByteSize(db.DiskSize)
-					row[4] = strconv.FormatUint(db.NumTransactions, 10)
+					row[4] = strings.ToUpper(strconv.FormatBool(isReplica))
+					row[5] = helper.FormatByteSize(db.DiskSize)
+					row[6] = strconv.FormatUint(db.NumTransactions, 10)
 
 					return row
 				},

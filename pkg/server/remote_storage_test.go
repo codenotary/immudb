@@ -471,7 +471,7 @@ func testAppendableIsUploadedToRemoteStorage(t *testing.T) (string, remotestorag
 
 	s.remoteStorage = memory.Open()
 
-	stOpts := s.databaseOptionsFrom(s.defaultDBOptions("testdb")).GetStoreOptions().WithEmbeddedValues(false)
+	stOpts := s.databaseOptionsFrom(s.defaultDBOptions("testdb", "")).GetStoreOptions().WithEmbeddedValues(false)
 
 	path := filepath.Join(dir, "testdb")
 	st, err := store.Open(path, stOpts)
