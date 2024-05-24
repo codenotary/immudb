@@ -2087,6 +2087,15 @@
           "type": "string",
           "format": "uint64",
           "title": "total number of transactions"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "uint64",
+          "title": "the time when the db was created"
+        },
+        "created_by": {
+          "type": "string",
+          "title": "the user who created the database"
         }
       }
     },

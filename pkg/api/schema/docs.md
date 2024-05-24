@@ -415,6 +415,8 @@ DEPRECATED
 | loaded | [bool](#bool) |  | If true, this database is currently loaded into memory |
 | diskSize | [uint64](#uint64) |  | database disk size |
 | numTransactions | [uint64](#uint64) |  | total number of transactions |
+| created_at | [uint64](#uint64) |  | the time when the db was created |
+| created_by | [string](#string) |  | the user who created the database |
 
 
 
