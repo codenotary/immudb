@@ -8,7 +8,8 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 -->
 
-# immudb [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
+# immudb <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
+
 
 [![Documentation](https://img.shields.io/website?label=Docs&url=https%3A%2F%2Fdocs.immudb.io%2F)](https://docs.immudb.io/)
 [![Build Status](https://github.com/codenotary/immudb/actions/workflows/push.yml/badge.svg)](https://github.com/codenotary/immudb/actions/workflows/push.yml)
