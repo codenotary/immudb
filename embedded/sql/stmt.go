@@ -1053,7 +1053,7 @@ func checkConstraints(tx *SQLTx, checks map[string]ValueExp, row *Row, table str
 	for _, check := range checks {
 		val, err := check.reduce(tx, row, table)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrCheckConstraintViolation, err)
+			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, err)
 		}
 
 		if val.Type() != BooleanType {
