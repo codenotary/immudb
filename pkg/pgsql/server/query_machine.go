@@ -105,7 +105,7 @@ func (s *session) QueryMachine() error {
 			var stmt sql.SQLStmt
 
 			if !s.isInBlackList(v.Statements) {
-				stmts, err := sql.Parse(strings.NewReader(v.Statements))
+				stmts, err := sql.ParseSQL(strings.NewReader(v.Statements))
 				if err != nil {
 					waitForSync = extQueryMode
 					s.HandleError(err)
@@ -272,7 +272,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return err
 	}
 
-	stmts, err := sql.Parse(strings.NewReader(statements))
+	stmts, err := sql.ParseSQL(strings.NewReader(statements))
 	if err != nil {
 		return err
 	}

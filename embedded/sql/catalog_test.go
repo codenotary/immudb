@@ -40,25 +40,25 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByName("table1")
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("", nil, 0)
+	_, err = db.newTable("", nil, nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", nil, 0)
+	_, err = db.newTable("table1", nil, nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", map[uint32]*ColSpec{}, 0)
+	_, err = db.newTable("table1", map[uint32]*ColSpec{}, nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.newTable("table1", map[uint32]*ColSpec{
 		1: {colName: "id", colType: IntegerType},
 		2: {colName: "id", colType: IntegerType},
-	}, 2)
+	}, nil, 2)
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
 	table, err := db.newTable("table1", map[uint32]*ColSpec{
 		1: {colName: "id", colType: IntegerType},
 		2: {colName: "title", colType: IntegerType},
-	}, 2)
+	}, nil, 2)
 	require.NoError(t, err)
 	require.Equal(t, "table1", table.Name())
 
@@ -85,7 +85,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.newTable("table1", map[uint32]*ColSpec{
 		1: {colName: "id", colType: IntegerType},
 		2: {colName: "title", colType: IntegerType},
-	}, 2)
+	}, nil, 2)
 	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	indexed, err := table.IsIndexed("id")
@@ -189,7 +189,7 @@ func TestCatalogTableLength(t *testing.T) {
 		for _, v := range []string{"table1", "table2", "table3"} {
 			_, err := catlog.newTable(v, map[uint32]*ColSpec{
 				1: {colName: "id", colType: IntegerType},
-			}, 1)
+			}, nil, 1)
 			require.ErrorIs(t, err, ErrTableAlreadyExists)
 		}
 		require.Equal(t, totalTablesCount, catlog.maxTableID)
@@ -204,8 +204,7 @@ func TestCatalogTableLength(t *testing.T) {
 		for _, v := range []string{"table4", "table5", "table6"} {
 			_, err := catlog.newTable(v, map[uint32]*ColSpec{
 				1: {colName: "id", colType: IntegerType},
-			}, 1,
-			)
+			}, nil, 1)
 			require.NoError(t, err)
 		}
 		require.Equal(t, totalTablesCount+3, catlog.maxTableID)
@@ -296,7 +295,7 @@ func TestCatalogTableLength(t *testing.T) {
 			PRIMARY KEY(id)
 		)
 		`
-		stmts, err := Parse(strings.NewReader(sql))
+		stmts, err := ParseSQL(strings.NewReader(sql))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(stmts))
 		stmt := stmts[0]
