@@ -398,9 +398,13 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 	row := zeroRow(stmt.table, stmt.colsSpec)
 	for _, check := range stmt.checks {
-		_, err := check.reduce(tx, row, stmt.table)
+		value, err := check.reduce(tx, row, stmt.table)
 		if err != nil {
 			return nil, err
+		}
+
+		if value.Type() != BooleanType {
+			return nil, ErrInvalidCheckConstraint
 		}
 	}
 
@@ -1755,7 +1759,6 @@ type TypedValue interface {
 	RawValue() interface{}
 	Compare(val TypedValue) (int, error)
 	IsNull() bool
-	String() string
 }
 
 type Tuple []TypedValue
@@ -2022,7 +2025,7 @@ func (v *Varchar) IsNull() bool {
 }
 
 func (v *Varchar) String() string {
-	return v.val
+	return fmt.Sprintf("'%s'", v.val)
 }
 
 func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -2627,7 +2630,7 @@ func (v *Param) selectorRanges(table *Table, asTable string, params map[string]i
 }
 
 func (v *Param) String() string {
-	return v.id
+	return "@" + v.id
 }
 
 type Comparison int
@@ -3836,7 +3839,7 @@ func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map
 }
 
 func (bexp *LikeBoolExp) String() string {
-	return fmt.Sprintf("(%s LIKE '%s')", bexp.val.String(), bexp.pattern.String())
+	return fmt.Sprintf("(%s LIKE %s)", bexp.val.String(), bexp.pattern.String())
 }
 
 type CmpBoolExp struct {
@@ -4006,7 +4009,8 @@ func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[
 }
 
 func (bexp *CmpBoolExp) String() string {
-	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), CmpOperatorToString(bexp.op), bexp.right.String())
+	opStr := CmpOperatorToString(bexp.op)
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), opStr, bexp.right.String())
 }
 
 func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID map[uint32]*typedValueRange) error {
@@ -4437,7 +4441,11 @@ func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[s
 }
 
 func (bexp *InListExp) String() string {
-	return ""
+	values := make([]string, len(bexp.values))
+	for i, exp := range bexp.values {
+		values[i] = exp.String()
+	}
+	return fmt.Sprintf("%s IN (%s)", bexp.val.String(), strings.Join(values, ","))
 }
 
 type FnDataSourceStmt struct {

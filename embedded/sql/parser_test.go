@@ -1731,5 +1731,25 @@ func TestFloatCornerCases(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestExprString(t *testing.T) {
+	exps := []string{
+		"(1 + 1) / (2 * 5 - 10)",
+		"@param LIKE 'pattern'",
+		"((col1 AND (col2 < 10)) OR (@param = 3 AND (col4 = TRUE))) AND NOT (col5 = 'value' OR (2 + 2 != 4))",
+		"CAST (func_call(1, 'two', 2.5) AS TIMESTAMP)",
+		"col IN (TRUE, 1, 'test', 1.5)",
+	}
+
+	for i, e := range exps {
+		t.Run(fmt.Sprintf("test_expression_%d", i+1), func(t *testing.T) {
+			exp, err := ParseExpFromString(e)
+			require.NoError(t, err)
+
+			parsedExp, err := ParseExpFromString(exp.String())
+			require.NoError(t, err)
+			require.Equal(t, exp, parsedExp)
+		})
+	}
 }
