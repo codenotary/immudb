@@ -178,7 +178,7 @@ func (tx *OngoingTx) IsReadOnly() bool {
 
 func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 	tx.metadata = md
-	return nil
+	return tx
 }
 
 func (tx *OngoingTx) Timestamp() time.Time {

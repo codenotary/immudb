@@ -39,11 +39,13 @@ type User struct {
 	CreatedAt      time.Time    `json:"createdat"` //time in which this user is created/updated
 }
 
-// SysAdminUsername the system admin username
-var SysAdminUsername = "immudb"
+var (
+	// SysAdminUsername the system admin username
+	SysAdminUsername = "immudb"
 
-// SysAdminPassword the admin password (can be default or from command flags, config or env var)
-var SysAdminPassword = SysAdminUsername
+	// SysAdminPassword the admin password (can be default or from command flags, config or env var)
+	SysAdminPassword = SysAdminUsername
+)
 
 // SetPassword Hashes and salts the password and assigns it to hashedPassword of User
 func (u *User) SetPassword(plainPassword []byte) ([]byte, error) {
@@ -63,10 +65,16 @@ func (u *User) ComparePasswords(plainPassword []byte) error {
 	return ComparePasswords(u.HashedPassword, plainPassword)
 }
 
-// IsValidUsername is a regexp function used to check username requirements
-var IsValidUsername = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
+const maxUsernameLen = 63
 
-//HasPermission checks if user has such permission for this database
+var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+// IsValidUsername is a function used to check username requirements
+func IsValidUsername(user string) bool {
+	return len(user) <= maxUsernameLen && usernameRegex.MatchString(user)
+}
+
+// HasPermission checks if user has such permission for this database
 func (u *User) HasPermission(database string, permission uint32) bool {
 	for _, val := range u.Permissions {
 		if (val.Database == database) &&
@@ -77,7 +85,7 @@ func (u *User) HasPermission(database string, permission uint32) bool {
 	return false
 }
 
-//HasAtLeastOnePermission checks if user has this permission for at least one database
+// HasAtLeastOnePermission checks if user has this permission for at least one database
 func (u *User) HasAtLeastOnePermission(permission uint32) bool {
 	for _, val := range u.Permissions {
 		if val.Permission == permission {
@@ -87,7 +95,7 @@ func (u *User) HasAtLeastOnePermission(permission uint32) bool {
 	return false
 }
 
-//WhichPermission returns the permission that this user has on this database
+// WhichPermission returns the permission that this user has on this database
 func (u *User) WhichPermission(database string) uint32 {
 	if u.IsSysAdmin {
 		return PermissionSysAdmin
@@ -100,7 +108,7 @@ func (u *User) WhichPermission(database string) uint32 {
 	return PermissionNone
 }
 
-//RevokePermission revoke database permission from user
+// RevokePermission revoke database permission from user
 func (u *User) RevokePermission(database string) bool {
 	for i, val := range u.Permissions {
 		if val.Database == database {
@@ -112,7 +120,7 @@ func (u *User) RevokePermission(database string) bool {
 	return false
 }
 
-//GrantPermission add permission to database
+// GrantPermission add permission to database
 func (u *User) GrantPermission(database string, permission uint32) bool {
 	//first remove any previous permission for this db
 	u.RevokePermission(database)
