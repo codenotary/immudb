@@ -62,7 +62,6 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 		kmap := make(map[[sha256.Size]byte]bool)
 
 		for i, op := range req.Operations {
-
 			e := &store.EntrySpec{}
 
 			switch x := op.Operation.(type) {

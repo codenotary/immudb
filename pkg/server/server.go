@@ -225,6 +225,7 @@ func (s *ImmuServer) Initialize() error {
 		grpc_prometheus.UnaryServerInterceptor,
 		auth.ServerUnaryInterceptor,
 		s.SessionAuthInterceptor,
+		s.InjectRequestMetadataUnaryInterceptor,
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
@@ -232,7 +233,9 @@ func (s *ImmuServer) Initialize() error {
 		uuidContext.UUIDStreamContextSetter,
 		grpc_prometheus.StreamServerInterceptor,
 		auth.ServerStreamInterceptor,
+		s.InjectRequestMetadataStreamInterceptor,
 	}
+
 	grpcSrvOpts = append(
 		grpcSrvOpts,
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
@@ -258,6 +261,7 @@ func (s *ImmuServer) Initialize() error {
 			pgsqlsrv.TLSConfig(s.Options.TLSConfig),
 			pgsqlsrv.Logger(s.Logger),
 			pgsqlsrv.DatabaseList(s.dbList),
+			pgsqlsrv.LogRequestMetadata(s.Options.LogRequestMetadata),
 		)
 
 		if err = s.PgsqlSrv.Initialize(); err != nil {
@@ -313,7 +317,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	if s.Options.WebServer {
 		if err := s.setUpWebServer(context.Background()); err != nil {
-			log.Fatal(fmt.Sprintf("failed to setup web API/console server: %v", err))
+			log.Fatalf("failed to setup web API/console server: %v", err)
 		}
 		defer func() {
 			if err := s.webServer.Close(); err != nil {

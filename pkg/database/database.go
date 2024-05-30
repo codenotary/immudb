@@ -36,18 +36,22 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-const MaxKeyResolutionLimit = 1
-const MaxKeyScanLimit = 2500
+const (
+	MaxKeyResolutionLimit = 1
+	MaxKeyScanLimit       = 2500
+)
 
-var ErrKeyResolutionLimitReached = errors.New("key resolution limit reached. It may be due to cyclic references")
-var ErrResultSizeLimitExceeded = errors.New("result size limit exceeded")
-var ErrResultSizeLimitReached = errors.New("result size limit reached")
-var ErrIllegalArguments = store.ErrIllegalArguments
-var ErrIllegalState = store.ErrIllegalState
-var ErrIsReplica = errors.New("database is read-only because it's a replica")
-var ErrNotReplica = errors.New("database is NOT a replica")
-var ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
-var ErrInvalidRevision = errors.New("invalid key revision number")
+var (
+	ErrKeyResolutionLimitReached  = errors.New("key resolution limit reached. It may be due to cyclic references")
+	ErrResultSizeLimitExceeded    = errors.New("result size limit exceeded")
+	ErrResultSizeLimitReached     = errors.New("result size limit reached")
+	ErrIllegalArguments           = store.ErrIllegalArguments
+	ErrIllegalState               = store.ErrIllegalState
+	ErrIsReplica                  = errors.New("database is read-only because it's a replica")
+	ErrNotReplica                 = errors.New("database is NOT a replica")
+	ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
+	ErrInvalidRevision            = errors.New("invalid key revision number")
+)
 
 type DB interface {
 	GetName() string
@@ -388,7 +392,7 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 		return nil, ErrIllegalArguments
 	}
 
-	tx, err := d.st.NewWriteOnlyTx(ctx)
+	tx, err := d.newWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +425,6 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	}
 
 	for i := range req.Preconditions {
-
 		c, err := PreconditionFromProto(req.Preconditions[i])
 		if err != nil {
 			return nil, err
@@ -445,6 +448,40 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	}
 
 	return schema.TxHeaderToProto(hdr), nil
+}
+
+func (d *db) newWriteOnlyTx(ctx context.Context) (*store.OngoingTx, error) {
+	tx, err := d.st.NewWriteOnlyTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return d.txWithMetadata(ctx, tx)
+}
+
+func (d *db) newTx(ctx context.Context, opts *store.TxOptions) (*store.OngoingTx, error) {
+	tx, err := d.st.NewTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return d.txWithMetadata(ctx, tx)
+}
+
+func (d *db) txWithMetadata(ctx context.Context, tx *store.OngoingTx) (*store.OngoingTx, error) {
+	meta := schema.MetadataFromContext(ctx)
+	if len(meta) > 0 {
+		txmd := store.NewTxMetadata()
+
+		data, err := meta.Marshal()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := txmd.WithExtra(data); err != nil {
+			return nil, err
+		}
+		return tx.WithMetadata(txmd), nil
+	}
+	return tx, nil
 }
 
 func checkKeyRequest(req *schema.KeyRequest) error {
@@ -853,7 +890,7 @@ func (d *db) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema
 		})
 	}
 
-	tx, err := d.st.NewTx(ctx, opts)
+	tx, err := d.newTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
