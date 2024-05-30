@@ -304,6 +304,16 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	}()
 
 	go func() {
+		md := schema.MetadataFromContext(ctx)
+		if len(md) > 0 {
+			data, err := md.Marshal()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			opts = opts.WithExtra(data)
+		}
+
 		tx, err = d.sqlEngine.NewTx(txCtx, opts)
 		if err != nil {
 			errChan <- err

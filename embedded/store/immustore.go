@@ -1549,7 +1549,8 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		return nil, fmt.Errorf("%w: transaction does not validate against header", err)
 	}
 
-	if len(otx.entries) == 0 && otx.metadata.IsEmpty() {
+	// extra metadata are specified by the client and thus they are only allowed when entries is non empty
+	if len(otx.entries) == 0 && (otx.metadata.IsEmpty() || otx.metadata.HasExtraOnly()) {
 		return nil, ErrNoEntriesProvided
 	}
 

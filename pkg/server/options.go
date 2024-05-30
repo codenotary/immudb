@@ -76,6 +76,7 @@ type Options struct {
 	LogFormat                   string
 	GRPCReflectionServerEnabled bool
 	SwaggerUIEnabled            bool
+	LogRequestMetadata          bool
 }
 
 type RemoteStorageOptions struct {
@@ -145,6 +146,7 @@ func DefaultOptions() *Options {
 		PProf:                       false,
 		GRPCReflectionServerEnabled: true,
 		SwaggerUIEnabled:            true,
+		LogRequestMetadata:          false,
 	}
 }
 
@@ -493,6 +495,11 @@ func (o *Options) WithGRPCReflectionServerEnabled(enabled bool) *Options {
 
 func (o *Options) WithSwaggerUIEnabled(enabled bool) *Options {
 	o.SwaggerUIEnabled = enabled
+	return o
+}
+
+func (o *Options) WithLogRequestMetadata(enabled bool) *Options {
+	o.LogRequestMetadata = enabled
 	return o
 }
 

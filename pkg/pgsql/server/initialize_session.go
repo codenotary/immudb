@@ -154,6 +154,7 @@ func (s *session) HandleStartup(ctx context.Context) (err error) {
 	if !ok || user == "" {
 		return pserr.ErrUsernameNotprovided
 	}
+	s.user = user
 
 	db, ok := s.connParams["database"]
 	if !ok {

@@ -303,7 +303,12 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 }
 
 func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	reader, err := s.db.SQLQueryPrepared(s.ctx, s.tx, st, schema.NamedParamsFromProto(parameters))
+	tx, err := s.sqlTx()
+	if err != nil {
+		return err
+	}
+
+	reader, err := s.db.SQLQueryPrepared(s.ctx, tx, st, schema.NamedParamsFromProto(parameters))
 	if err != nil {
 		return err
 	}
@@ -332,7 +337,12 @@ func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultC
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	ntx, _, err := s.db.SQLExecPrepared(s.ctx, s.tx, []sql.SQLStmt{st}, params)
+	tx, err := s.sqlTx()
+	if err != nil {
+		return err
+	}
+
+	ntx, _, err := s.db.SQLExecPrepared(s.ctx, tx, []sql.SQLStmt{st}, params)
 	s.tx = ntx
 
 	return err
