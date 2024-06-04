@@ -22,8 +22,7 @@ import (
 )
 
 type projectedRowReader struct {
-	rowReader RowReader
-
+	rowReader  RowReader
 	tableAlias string
 
 	selectors []Selector
@@ -125,15 +124,14 @@ func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]Co
 	}
 
 	colDescriptors := make(map[string]ColDescriptor, len(pr.selectors))
+	emptyParams := make(map[string]string)
 
 	for i, sel := range pr.selectors {
 		aggFn, table, col := sel.resolve(pr.rowReader.TableAlias())
 
-		encSel := EncodeSelector(aggFn, table, col)
-
-		colDesc, ok := dsColDescriptors[encSel]
-		if !ok {
-			return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+		sqlType, err := sel.inferType(dsColDescriptors, emptyParams, pr.rowReader.TableAlias())
+		if err != nil {
+			return nil, err
 		}
 
 		if pr.tableAlias != "" {
@@ -156,7 +154,7 @@ func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]Co
 			AggFn:  aggFn,
 			Table:  table,
 			Column: col,
-			Type:   colDesc.Type,
+			Type:   sqlType,
 		}
 
 		colDescriptors[des.Selector()] = des
@@ -185,15 +183,12 @@ func (pr *projectedRowReader) Read(ctx context.Context) (*Row, error) {
 	}
 
 	for i, sel := range pr.selectors {
-		aggFn, table, col := sel.resolve(pr.rowReader.TableAlias())
-
-		encSel := EncodeSelector(aggFn, table, col)
-
-		val, ok := row.ValuesBySelector[encSel]
-		if !ok {
-			return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+		v, err := sel.reduce(pr.Tx(), row, pr.rowReader.TableAlias())
+		if err != nil {
+			return nil, err
 		}
 
+		aggFn, table, col := sel.resolve(pr.rowReader.TableAlias())
 		if pr.tableAlias != "" {
 			table = pr.tableAlias
 		}
@@ -210,10 +205,9 @@ func (pr *projectedRowReader) Read(ctx context.Context) (*Row, error) {
 			}
 		}
 
-		prow.ValuesByPosition[i] = val
-		prow.ValuesBySelector[EncodeSelector(aggFn, table, col)] = val
+		prow.ValuesByPosition[i] = v
+		prow.ValuesBySelector[EncodeSelector(aggFn, table, col)] = v
 	}
-
 	return prow, nil
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -28,12 +29,20 @@ type converterFunc func(TypedValue) (TypedValue, error)
 
 func getConverter(src, dst SQLValueType) (converterFunc, error) {
 	if src == dst {
+		if src == JSONType {
+			return jsonConverted(dst), nil
+		}
+
 		return func(tv TypedValue) (TypedValue, error) {
 			return tv, nil
 		}, nil
 	}
 
 	if src == AnyType {
+		if dst == JSONType {
+			return jsonConverted(dst), nil
+		}
+
 		return func(val TypedValue) (TypedValue, error) {
 			if val.RawValue() == nil {
 				return &NullValue{t: dst}, nil
@@ -43,7 +52,6 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 	}
 
 	if dst == TimestampType {
-
 		if src == IntegerType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.RawValue() == nil {
@@ -93,11 +101,9 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
 			ErrUnsupportedCast,
 		)
-
 	}
 
 	if dst == Float64Type {
-
 		if src == IntegerType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.RawValue() == nil {
@@ -125,15 +131,30 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			}, nil
 		}
 
+		if src == JSONType {
+			return jsonConverted(dst), nil
+		}
+
 		return nil, fmt.Errorf(
 			"%w: only INTEGER and VARCHAR types can be cast as FLOAT",
 			ErrUnsupportedCast,
 		)
+	}
 
+	if dst == BooleanType {
+		if src == JSONType {
+			return jsonConverted(dst), nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: cannot cast %s to %s",
+			ErrUnsupportedCast,
+			src,
+			dst,
+		)
 	}
 
 	if dst == IntegerType {
-
 		if src == Float64Type {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.RawValue() == nil {
@@ -161,15 +182,17 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			}, nil
 		}
 
+		if src == JSONType {
+			return jsonConverted(dst), nil
+		}
+
 		return nil, fmt.Errorf(
 			"%w: only INTEGER and VARCHAR types can be cast as INTEGER",
 			ErrUnsupportedCast,
 		)
-
 	}
 
 	if dst == UUIDType {
-
 		if src == VarcharType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.RawValue() == nil {
@@ -216,11 +239,9 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			"%w: only BLOB and VARCHAR types can be cast as UUID",
 			ErrUnsupportedCast,
 		)
-
 	}
 
 	if dst == BLOBType {
-
 		if src == VarcharType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.RawValue() == nil {
@@ -253,7 +274,6 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 	}
 
 	if dst == VarcharType {
-
 		if src == UUIDType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.RawValue() == nil {
@@ -266,16 +286,81 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			}, nil
 		}
 
+		if src == JSONType {
+			return jsonConverted(dst), nil
+		}
+
 		return nil, fmt.Errorf(
 			"%w: only UUID type can be cast as VARCHAR",
 			ErrUnsupportedCast,
 		)
+	}
 
+	if dst == JSONType {
+		return func(tv TypedValue) (TypedValue, error) {
+			if tv.RawValue() == nil {
+				return &NullValue{t: JSONType}, nil
+			}
+
+			switch tv.Type() {
+			case Float64Type, IntegerType, BooleanType, AnyType:
+				return &JSON{val: tv.RawValue()}, nil
+			case VarcharType:
+				var x interface{}
+				err := json.Unmarshal([]byte(tv.String()), &x)
+				return &JSON{val: x}, err
+			}
+
+			return nil, fmt.Errorf(
+				"%w: can not cast %s value as %s",
+				ErrUnsupportedCast,
+				tv.Type(),
+				JSONType,
+			)
+		}, nil
+	}
+
+	if dst == AnyType && src == JSONType {
+		return func(tv TypedValue) (TypedValue, error) {
+			if !tv.IsNull() {
+				return &NullValue{t: AnyType}, nil
+			}
+			return nil, ErrInvalidValue
+		}, nil
 	}
 
 	return nil, fmt.Errorf(
 		"%w: can not cast %s value as %s",
 		ErrUnsupportedCast,
-		src, dst,
+		src,
+		dst,
 	)
+}
+
+func jsonConverted(t SQLValueType) converterFunc {
+	return func(val TypedValue) (TypedValue, error) {
+		if val.IsNull() {
+			return &JSON{val: nil}, nil
+		}
+
+		jsonVal := val.(*JSON)
+		if t == VarcharType {
+			return NewVarchar(jsonVal.String()), nil
+		}
+
+		val, ok := jsonVal.castToTypedValue()
+		if !ok {
+			return nil, fmt.Errorf(
+				"%w: can not cast JSON as %s",
+				ErrUnsupportedCast,
+				t,
+			)
+		}
+
+		conv, err := getConverter(val.Type(), t)
+		if err != nil {
+			return nil, err
+		}
+		return conv(val)
+	}
 }

@@ -47,6 +47,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     col *ColSelector
     sel Selector
     sels []Selector
+    jsonFields []string
     distinct bool
     ds DataSource
     tableRef *tableRef
@@ -93,6 +94,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 %token <dot> DOT
+%token <arrow> ARROW
 
 %left  ','
 %right AS
@@ -118,6 +120,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <value> val fnCall
 %type <sel> selector
 %type <sels> opt_selectors selectors
+%type <jsonFields> jsonFields
 %type <col> col
 %type <distinct> opt_distinct opt_all
 %type <ds> ds
@@ -658,6 +661,11 @@ selector:
         $$ = $1
     }
 |
+    col jsonFields
+    {
+        $$ = &JSONSelector{ColSelector: $1, fields: $2}
+    }
+|
     AGGREGATE_FUNC '(' '*' ')'
     {
         $$ = &AggColSelector{aggFn: $1, col: "*"}
@@ -666,6 +674,17 @@ selector:
     AGGREGATE_FUNC '(' col ')'
     {
         $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col}
+    }
+
+jsonFields:
+    ARROW VARCHAR
+    {
+        $$ = []string{$2}
+    }
+|
+    jsonFields ARROW VARCHAR
+    {
+        $$ = append($$, $3)
     }
 
 col:

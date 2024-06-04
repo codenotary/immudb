@@ -184,7 +184,6 @@ func RenderValueAsByte(op isSQLValue_Value) []byte {
 			return []byte(strconv.FormatFloat(float64(v.F), 'f', -1, 64))
 		}
 	}
-
 	return []byte(fmt.Sprintf("%v", op))
 }
 
@@ -223,6 +222,5 @@ func RawValue(v *SQLValue) interface{} {
 			return tv.F
 		}
 	}
-
 	return nil
 }
