@@ -37,7 +37,7 @@ const (
 	catalogPrefix       = "CTL."
 	catalogTablePrefix  = "CTL.TABLE."  // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
 	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
-	catalogCheckPrefix  = "CTL.CHECK."  // (key=CTL.CHECK.{1}{tableID}{checkID}, value={checkExpText})
+	catalogCheckPrefix  = "CTL.CHECK."  // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
 	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
 
 	RowPrefix = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
@@ -359,7 +359,7 @@ type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
 	colsSpec    []*ColSpec
-	checks      []ValueExp
+	checks      []CheckConstraint
 	pkColNames  []string
 }
 
@@ -398,7 +398,7 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 	row := zeroRow(stmt.table, stmt.colsSpec)
 	for _, check := range stmt.checks {
-		value, err := check.reduce(tx, row, stmt.table)
+		value, err := check.exp.reduce(tx, row, stmt.table)
 		if err != nil {
 			return nil, err
 		}
@@ -408,9 +408,17 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
-	checks := make(map[string]ValueExp)
-	for i, check := range stmt.checks {
-		name := fmt.Sprintf("%s_check%d", stmt.table, i+1)
+	nextUnnamedCheck := 0
+	checks := make(map[string]CheckConstraint)
+	for id, check := range stmt.checks {
+		name := fmt.Sprintf("%s_check%d", stmt.table, nextUnnamedCheck+1)
+		if check.name != "" {
+			name = check.name
+		} else {
+			nextUnnamedCheck++
+		}
+		check.id = uint32(id)
+		check.name = name
 		checks[name] = check
 	}
 
@@ -438,8 +446,8 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
-	for name, check := range checks {
-		if err := persistExpr(tx, table, name, check); err != nil {
+	for _, check := range checks {
+		if err := persistCheck(tx, table, &check); err != nil {
 			return nil, err
 		}
 	}
@@ -484,17 +492,30 @@ func persistColumn(tx *SQLTx, col *Column) error {
 	return tx.set(mappedKey, nil, v)
 }
 
-func persistExpr(tx *SQLTx, table *Table, name string, e ValueExp) error {
-	expText := e.String()
-
+func persistCheck(tx *SQLTx, table *Table, check *CheckConstraint) error {
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogCheckPrefix,
 		EncodeID(DatabaseID),
 		EncodeID(table.id),
-		[]byte(name),
+		EncodeID(check.id),
 	)
-	return tx.set(mappedKey, nil, []byte(expText))
+
+	name := check.name
+	expText := check.exp.String()
+
+	val := make([]byte, 2+len(name)+len(expText))
+
+	if len(name) > 256 {
+		return fmt.Errorf("constraint name len: %w", ErrMaxLengthExceeded)
+	}
+
+	val[0] = byte(len(name)) - 1
+
+	copy(val[1:], []byte(name))
+	copy(val[1+len(name):], []byte(expText))
+
+	return tx.set(mappedKey, nil, val)
 }
 
 type ColSpec struct {
@@ -770,7 +791,7 @@ func canDropColumn(tx *SQLTx, table *Table, col *Column) error {
 
 	row := zeroRow(table.Name(), colSpecs)
 	for name, check := range table.checkConstraints {
-		_, err := check.reduce(tx, row, table.name)
+		_, err := check.exp.reduce(tx, row, table.name)
 		if errors.Is(err, ErrColumnDoesNotExist) {
 			return fmt.Errorf("%w %s because %s constraint requires it", ErrCannotDropColumn, col.Name(), name)
 		}
@@ -806,24 +827,25 @@ func (stmt *DropConstraintStmt) execAt(ctx context.Context, tx *SQLTx, params ma
 		return nil, err
 	}
 
-	if err := table.deleteCheck(stmt.constraintName); err != nil {
+	id, err := table.deleteCheck(stmt.constraintName)
+	if err != nil {
 		return nil, err
 	}
 
-	err = persistCheckDeletion(ctx, tx, table.id, stmt.constraintName)
+	err = persistCheckDeletion(ctx, tx, table.id, id)
 
 	tx.mutatedCatalog = true
 
 	return tx, err
 }
 
-func persistCheckDeletion(ctx context.Context, tx *SQLTx, tableID uint32, checkName string) error {
+func persistCheckDeletion(ctx context.Context, tx *SQLTx, tableID uint32, checkId uint32) error {
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
 		catalogCheckPrefix,
 		EncodeID(DatabaseID),
 		EncodeID(tableID),
-		[]byte(checkName),
+		EncodeID(checkId),
 	)
 	return tx.delete(ctx, mappedKey)
 }
@@ -1053,9 +1075,9 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	return tx, nil
 }
 
-func checkConstraints(tx *SQLTx, checks map[string]ValueExp, row *Row, table string) error {
+func checkConstraints(tx *SQLTx, checks map[string]CheckConstraint, row *Row, table string) error {
 	for _, check := range checks {
-		val, err := check.reduce(tx, row, table)
+		val, err := check.exp.reduce(tx, row, table)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, err)
 		}
@@ -1065,7 +1087,7 @@ func checkConstraints(tx *SQLTx, checks map[string]ValueExp, row *Row, table str
 		}
 
 		if !val.RawValue().(bool) {
-			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, check.String())
+			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, check.exp.String())
 		}
 	}
 	return nil

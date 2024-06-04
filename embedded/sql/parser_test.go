@@ -293,7 +293,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
 		},
 		{
-			input: "CREATE TABLE table1(id INTEGER, balance FLOAT, CHECK (balance >= 0), PRIMARY KEY id)",
+			input: "CREATE TABLE table1(id INTEGER, balance FLOAT, CONSTRAINT non_negative_balance CHECK (balance >= 0), PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -301,11 +301,14 @@ func TestCreateTableStmt(t *testing.T) {
 						{colName: "id", colType: IntegerType},
 						{colName: "balance", colType: Float64Type},
 					},
-					checks: []ValueExp{
-						&CmpBoolExp{
-							op:    GE,
-							left:  &ColSelector{col: "balance"},
-							right: &Integer{val: 0},
+					checks: []CheckConstraint{
+						{
+							name: "non_negative_balance",
+							exp: &CmpBoolExp{
+								op:    GE,
+								left:  &ColSelector{col: "balance"},
+								right: &Integer{val: 0},
+							},
 						},
 					},
 					pkColNames: []string{"id"},

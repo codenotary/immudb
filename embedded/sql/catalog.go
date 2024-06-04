@@ -41,6 +41,12 @@ type Catalog struct {
 	maxTableID uint32 // The maxTableID variable is used to assign unique ids to new tables as they are created.
 }
 
+type CheckConstraint struct {
+	id   uint32
+	name string
+	exp  ValueExp
+}
+
 type Table struct {
 	catalog          *Catalog
 	id               uint32
@@ -51,7 +57,7 @@ type Table struct {
 	indexes          []*Index
 	indexesByName    map[string]*Index
 	indexesByColID   map[uint32][]*Index
-	checkConstraints map[string]ValueExp
+	checkConstraints map[string]CheckConstraint
 	primaryIndex     *Index
 	autoIncrementPK  bool
 	maxPK            int64
@@ -362,7 +368,7 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
-func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, checkConstraints map[string]ValueExp, maxColID uint32) (table *Table, err error) {
+func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, checkConstraints map[string]CheckConstraint, maxColID uint32) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -648,14 +654,14 @@ func (t *Table) deleteColumn(col *Column) error {
 	return nil
 }
 
-func (t *Table) deleteCheck(name string) error {
-	_, exists := t.checkConstraints[name]
+func (t *Table) deleteCheck(name string) (uint32, error) {
+	c, exists := t.checkConstraints[name]
 	if !exists {
-		return fmt.Errorf("%s.%s: %w", t.name, name, ErrConstraintNotFound)
+		return 0, fmt.Errorf("%s.%s: %w", t.name, name, ErrConstraintNotFound)
 	}
 
 	delete(t.checkConstraints, name)
-	return nil
+	return c.id, nil
 }
 
 func (t *Table) deleteIndex(index *Index) error {
@@ -854,26 +860,20 @@ func loadColSpec(sqlPrefix, key, value []byte, tableID uint32) (*ColSpec, uint32
 	}, colID, nil
 }
 
-func loadCheckConstraints(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte, copyToTx bool) (map[string]ValueExp, error) {
+func loadCheckConstraints(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte, copyToTx bool) (map[string]CheckConstraint, error) {
 	prefix := MapKey(sqlPrefix, catalogCheckPrefix, EncodeID(dbID), EncodeID(tableID))
-	checks := make(map[string]ValueExp)
+	checks := make(map[string]CheckConstraint)
 
 	err := iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
 		if deleted {
 			return nil
 		}
 
-		name, err := unmapCheckConstraint(sqlPrefix, key)
+		check, err := parseCheckConstraint(sqlPrefix, key, value)
 		if err != nil {
 			return err
 		}
-
-		exp, err := ParseExpFromString(string(value))
-		if err != nil {
-			return err
-		}
-
-		checks[name] = exp
+		checks[check.name] = *check
 
 		if copyToTx {
 			return tx.Set(key, nil, value)
@@ -962,17 +962,37 @@ func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
 	return
 }
 
-func unmapCheckConstraint(prefix, mkey []byte) (string, error) {
+func unmapCheckID(prefix, mkey []byte) (uint32, error) {
 	encID, err := trimPrefix(prefix, mkey, []byte(catalogCheckPrefix))
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
-	if len(encID) < 2*EncIDLen {
-		return "", ErrCorruptedData
+	if len(encID) < 3*EncIDLen {
+		return 0, ErrCorruptedData
+	}
+	return binary.BigEndian.Uint32(encID[2*EncIDLen:]), nil
+}
+
+func parseCheckConstraint(prefix, key, value []byte) (*CheckConstraint, error) {
+	id, err := unmapCheckID(prefix, key)
+	if err != nil {
+		return nil, err
 	}
 
-	return string(encID[2*EncIDLen:]), nil
+	nameLen := value[0] + 1
+	name := string(value[1 : 1+nameLen])
+
+	exp, err := ParseExpFromString(string(value[1+nameLen:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return &CheckConstraint{
+		id:   id,
+		name: name,
+		exp:  exp,
+	}, nil
 }
 
 func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQLValueType, err error) {

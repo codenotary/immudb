@@ -8191,7 +8191,7 @@ func TestCheckConstraints(t *testing.T) {
 			balance FLOAT,
 
 			CHECK (account IS NULL) OR (account LIKE '^account_.*'),
-			CHECK (in_balance + out_balance = balance),
+			CONSTRAINT in_out_balance_sum CHECK (in_balance + out_balance = balance),
 			CHECK (in_balance >= 0),
 			CHECK (out_balance <= 0),
 			CHECK (balance >= 0),
@@ -8241,10 +8241,10 @@ func TestCheckConstraints(t *testing.T) {
 	})
 
 	t.Run("drop constraint", func(t *testing.T) {
-		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT table_with_checks_check2", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT in_out_balance_sum", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT table_with_checks_check2", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT in_out_balance_sum", nil)
 		require.ErrorIs(t, err, ErrConstraintNotFound)
 
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES (NULL, 10, -1.5, 9.0)", nil)

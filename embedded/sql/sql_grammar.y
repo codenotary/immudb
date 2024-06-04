@@ -56,7 +56,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
-    checks []ValueExp
+    checks []CheckConstraint
     exp ValueExp
     binExp ValueExp
     err error
@@ -938,7 +938,12 @@ opt_checks:
 |
     CHECK exp ',' opt_checks
     {
-        $$ = append([]ValueExp{$2}, $4...)
+        $$ = append([]CheckConstraint{{exp: $2}}, $4...)
+    }
+|
+    CONSTRAINT IDENTIFIER CHECK exp ',' opt_checks
+    {
+        $$ = append([]CheckConstraint{{name: $2, exp: $4}}, $6...)
     }
 
 exp:
