@@ -152,6 +152,8 @@ func TypedValueToRowValue(tv sql.TypedValue) *SQLValue {
 		{
 			return &SQLValue{Value: &SQLValue_F{F: tv.RawValue().(float64)}}
 		}
+	case sql.JSONType:
+		return &SQLValue{Value: &SQLValue_S{S: tv.String()}}
 	}
 	return nil
 }

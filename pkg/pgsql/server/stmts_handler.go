@@ -49,6 +49,7 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 	}
 	return nil
 }
+
 func (s *session) tryToHandleInternally(command interface{}) error {
 	switch cmd := command.(type) {
 	case *version:

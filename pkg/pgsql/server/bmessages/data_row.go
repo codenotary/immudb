@@ -65,6 +65,12 @@ func DataRow(rows []*sql.Row, colNumb int, ResultColumnFormatCodes []int16) []by
 							value = make([]byte, 8)
 							binary.BigEndian.PutUint64(value, uint64(rv.(int64)))
 						}
+					case sql.JSONType:
+						{
+							jsonStr := val.String()
+							binary.BigEndian.PutUint32(valueLength, uint32(len(jsonStr)))
+							value = []byte(jsonStr)
+						}
 					case sql.VarcharType:
 						{
 							s := rv.(string)

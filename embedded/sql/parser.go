@@ -118,6 +118,7 @@ var types = map[string]SQLValueType{
 	"BLOB":      BLOBType,
 	"TIMESTAMP": TimestampType,
 	"FLOAT":     Float64Type,
+	"JSON":      JSONType,
 }
 
 var aggregateFns = map[string]AggregateFn{
@@ -274,6 +275,11 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 	if isSeparator(ch) {
 		return STMT_SEPARATOR
+	}
+
+	if ch == '-' && l.r.nextChar == '>' {
+		l.r.ReadByte()
+		return ARROW
 	}
 
 	if isBLOBPrefix(ch) && isQuote(l.r.nextChar) {

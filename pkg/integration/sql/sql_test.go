@@ -18,6 +18,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -276,6 +277,7 @@ func TestImmuClient_SQLQueryReader(t *testing.T) {
 		CREATE TABLE test_table (
 			id INTEGER AUTO_INCREMENT,
 			value INTEGER,
+			data JSON,
 
 			PRIMARY KEY (id)
 		);
@@ -283,14 +285,25 @@ func TestImmuClient_SQLQueryReader(t *testing.T) {
 	require.NoError(t, err)
 
 	for n := 0; n < 10; n++ {
-		_, err := client.SQLExec(ctx, "INSERT INTO test_table(value) VALUES (@value)", map[string]interface{}{"value": n + 10})
+		name := fmt.Sprintf("name%d", n)
+
+		_, err := client.SQLExec(
+			ctx,
+			"INSERT INTO test_table(value, data) VALUES (@value, @data)",
+			map[string]interface{}{
+				"value": n + 10,
+				"data":  fmt.Sprintf(`{"name": "%s"}`, name),
+			})
 		require.NoError(t, err)
 	}
 
 	reader, err := client.SQLQueryReader(ctx, "SELECT * FROM test_table WHERE value < 0", nil)
 	require.NoError(t, err)
-	require.False(t, reader.Next())
 
+	_, err = reader.Read()
+	require.Error(t, err)
+
+	require.False(t, reader.Next())
 	_, err = reader.Read()
 	require.ErrorIs(t, err, sql.ErrNoMoreRows)
 
@@ -305,15 +318,24 @@ func TestImmuClient_SQLQueryReader(t *testing.T) {
 	require.Equal(t, cols[0].Type, sql.IntegerType)
 	require.Equal(t, cols[1].Name, "(test_table.value)")
 	require.Equal(t, cols[1].Type, sql.IntegerType)
+	require.Equal(t, cols[2].Name, "(test_table.data)")
+	require.Equal(t, cols[2].Type, sql.JSONType)
 
 	n := 0
 	for reader.Next() {
 		row, err := reader.Read()
 		require.NoError(t, err)
-		require.Len(t, row, 2)
+		require.Len(t, row, 3)
+
+		name := fmt.Sprintf("name%d", n)
+
+		var data interface{}
+		err = json.Unmarshal([]byte(row[2].(string)), &data)
+		require.NoError(t, err)
 
 		require.Equal(t, int64(n+1), row[0])
 		require.Equal(t, int64(n+10), row[1])
+		require.Equal(t, map[string]interface{}{"name": name}, data)
 		n++
 	}
 
@@ -498,4 +520,60 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
 	require.ErrorIs(t, err, ic.ErrNotConnected)
+}
+
+func TestQueryTxMetadata(t *testing.T) {
+	options := server.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithLogRequestMetadata(true)
+
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	defer client.CloseSession(context.Background())
+
+	_, err = client.SQLExec(
+		context.Background(),
+		`CREATE TABLE mytable(
+			id INTEGER,
+			data JSON,
+
+			PRIMARY KEY (id)
+		)`,
+		nil,
+	)
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(
+		context.Background(),
+		`INSERT INTO mytable(id, data) VALUES (1, '{"name": "John Doe"}')`,
+		nil,
+	)
+	require.NoError(t, err)
+
+	it, err := client.SQLQueryReader(
+		context.Background(),
+		"SELECT _tx_metadata FROM mytable",
+		nil,
+	)
+	require.NoError(t, err)
+
+	require.True(t, it.Next())
+
+	row, err := it.Read()
+	require.NoError(t, err)
+
+	var md map[string]interface{}
+	err = json.Unmarshal([]byte(row[0].(string)), &md)
+	require.NoError(t, err)
+
+	require.Equal(
+		t,
+		map[string]interface{}{"usr": "immudb", "ip": "bufconn"},
+		md,
+	)
 }

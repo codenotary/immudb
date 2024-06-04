@@ -19,6 +19,7 @@ package sql
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -2786,6 +2787,350 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestJSON(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(), nil,
+		`
+		CREATE TABLE tbl_with_json (
+			id INTEGER AUTO_INCREMENT,
+			json_data JSON NOT NULL,
+
+			PRIMARY KEY(id)
+		)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`INSERT INTO tbl_with_json(json_data) VALUES ('invalid json value')`,
+		nil,
+	)
+	require.ErrorIs(t, err, ErrInvalidValue)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`INSERT INTO tbl_with_json(json_data) VALUES (10)`,
+		nil,
+	)
+	require.ErrorIs(t, err, ErrInvalidValue)
+
+	n := 100
+	for i := 0; i < n; i++ {
+		data := fmt.Sprintf(
+			`{"usr": {"name": "%s", "active": %t, "details": {"age": %d, "city": "%s"}, "perms": ["r", "w"]}}`,
+			fmt.Sprintf("name%d", i+1),
+			i%2 == 0,
+			i+1,
+			fmt.Sprintf("city%d", i+1),
+		)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			fmt.Sprintf(`INSERT INTO tbl_with_json(json_data) VALUES ('%s')`, data),
+			nil,
+		)
+		require.NoError(t, err)
+	}
+
+	t.Run("apply -> operator on non JSON column", func(t *testing.T) {
+		_, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT id->'name' FROM tbl_with_json",
+			nil,
+		)
+		require.ErrorContains(t, err, "-> operator cannot be applied on column of type INTEGER")
+	})
+
+	t.Run("filter json fields", func(t *testing.T) {
+		t.Run("filter boolean value", func(t *testing.T) {
+			rows, err := engine.queryAll(
+				context.Background(),
+				nil,
+				`
+					SELECT json_data->'usr'
+					FROM tbl_with_json
+					WHERE json_data->'usr'->'active' = TRUE
+				`,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, rows, n/2)
+
+			for i, row := range rows {
+				usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->usr")].RawValue().(map[string]interface{})
+
+				require.Equal(t, map[string]interface{}{
+					"name":   fmt.Sprintf("name%d", (2*i + 1)),
+					"active": true,
+					"details": map[string]interface{}{
+						"age":  float64((2*i + 1)),
+						"city": fmt.Sprintf("city%d", (2*i + 1)),
+					},
+					"perms": []interface{}{
+						"r", "w",
+					},
+				}, usr)
+			}
+		})
+
+		t.Run("filter numeric value", func(t *testing.T) {
+			rows, err := engine.queryAll(
+				context.Background(),
+				nil,
+				`
+					SELECT json_data->'usr'->'name'
+					FROM tbl_with_json
+					WHERE json_data->'usr'->'details'->'age' + 1 >= 52
+				`,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, rows, n/2)
+
+			for i, row := range rows {
+				name := row.ValuesByPosition[0].RawValue()
+				require.Equal(t, name, fmt.Sprintf("name%d", 51+i))
+			}
+		})
+
+		t.Run("filter varchar value", func(t *testing.T) {
+			rows, err := engine.queryAll(
+				context.Background(),
+				nil,
+				`
+					SELECT json_data->'usr'->'name'
+					FROM tbl_with_json
+					WHERE json_data->'usr'->'name' LIKE '^name.*' AND json_data->'usr'->'perms'->'0' = 'r'
+				`,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, rows, n)
+
+			for i, row := range rows {
+				name := row.ValuesByPosition[0].RawValue()
+				require.Equal(t, name, fmt.Sprintf("name%d", i+1))
+			}
+		})
+	})
+
+	t.Run("order by json field", func(t *testing.T) {
+		_, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`
+				SELECT json_data
+				FROM tbl_with_json
+				ORDER BY json_data
+			`,
+			nil,
+		)
+		require.ErrorIs(t, err, ErrNotComparableValues)
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`
+				SELECT json_data->'usr', json_data->'usr'->'details'->'age' as age, json_data->'usr'->'details'->'city' as city, json_data->'usr'->'name' as name
+				FROM tbl_with_json
+				ORDER BY json_data->'usr'->'details'->'age' DESC
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		for i, row := range rows {
+			usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->usr")].RawValue().(map[string]interface{})
+			name, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "name")].RawValue().(string)
+			age, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "age")].RawValue().(float64)
+			city, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "city")].RawValue().(string)
+
+			require.Equal(t, map[string]interface{}{
+				"name":   name,
+				"active": (n-1-i)%2 == 0,
+				"details": map[string]interface{}{
+					"age":  age,
+					"city": city,
+				},
+				"perms": []interface{}{"r", "w"},
+			}, usr)
+
+			require.Equal(t, fmt.Sprintf("name%d", n-i), name)
+			require.Equal(t, float64(n-i), age)
+			require.Equal(t, fmt.Sprintf("city%d", n-i), city)
+		}
+	})
+
+	t.Run("test join on json field", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER AUTO_INCREMENT, value VARCHAR, PRIMARY KEY(id))", nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 10; i++ {
+			_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(value) VALUES (@name)", map[string]interface{}{"name": fmt.Sprintf("name%d", i+1)})
+			require.NoError(t, err)
+		}
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT table1.value, json_data->'usr'->'name' FROM tbl_with_json JOIN table1 ON table1.value = tbl_with_json.json_data->'usr'->'name' ORDER BY table1.id",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 10)
+
+		for i, row := range rows {
+			require.Len(t, row.ValuesByPosition, 2)
+			require.Equal(t, fmt.Sprintf("name%d", i+1), row.ValuesByPosition[0].RawValue())
+			require.Equal(t, row.ValuesByPosition[0].RawValue(), row.ValuesByPosition[1].RawValue())
+		}
+	})
+
+	_, _, err = engine.Exec(context.Background(), nil, "DELETE FROM tbl_with_json", nil)
+	require.NoError(t, err)
+
+	randJson := func(src *rand.Rand) interface{} {
+		switch src.Intn(6) {
+		case 0:
+			return src.Float64()
+		case 1:
+			return fmt.Sprintf("string%d", src.Int63())
+		case 2:
+			return src.Int()%2 == 0
+		case 3:
+			return map[string]interface{}{
+				"test": "value",
+			}
+		case 4:
+			return []interface{}{"test", true, 10.5}
+		}
+		return nil
+	}
+
+	seed := time.Now().UnixNano()
+	src := rand.New(rand.NewSource(seed))
+	for i := 0; i < n; i++ {
+		data := randJson(src)
+
+		jsonData, err := json.Marshal(data)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO tbl_with_json(json_data) VALUES (@data)",
+			map[string]interface{}{"data": string(jsonData)},
+		)
+		require.NoError(t, err)
+	}
+
+	t.Run("lookup field", func(t *testing.T) {
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT json_data, json_data->'test' FROM tbl_with_json",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		for _, row := range rows {
+			data := row.ValuesByPosition[0].RawValue()
+			value := row.ValuesByPosition[1].RawValue()
+			if _, isObject := data.(map[string]interface{}); isObject {
+				require.Equal(t, "value", row.ValuesByPosition[1].RawValue())
+			} else {
+				require.Nil(t, value)
+			}
+		}
+	})
+
+	t.Run("query json with mixed types", func(t *testing.T) {
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT json_data FROM tbl_with_json",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		stringValues := 0
+
+		src := rand.New(rand.NewSource(seed))
+		for _, row := range rows {
+			s := row.ValuesByPosition[0].RawValue()
+			require.Equal(t, randJson(src), s)
+
+			if _, ok := s.(string); ok {
+				stringValues++
+			}
+		}
+
+		rows, err = engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT COUNT(*) FROM tbl_with_json WHERE json_typeof(json_data) = 'STRING'",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(stringValues))
+	})
+
+	t.Run("update json data", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			fmt.Sprintf(`UPDATE tbl_with_json SET json_data = '%d' WHERE json_typeof(json_data) = 'STRING'`, rand.Int63()),
+			nil,
+		)
+		require.NoError(t, err)
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT COUNT(*) FROM tbl_with_json WHERE json_typeof(json_data) = 'STRING'",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Zero(t, rows[0].ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("cannot index json column", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"CREATE INDEX ON tbl_with_json(json_data);", nil)
+		require.ErrorIs(t, err, ErrCannotIndexJson)
+
+		_, _, err = engine.Exec(
+			context.Background(), nil,
+			`
+			CREATE TABLE test (
+				json_data JSON NOT NULL,
+	
+				PRIMARY KEY(json_data)
+			)`, nil)
+		require.ErrorIs(t, err, ErrCannotIndexJson)
+	})
+}
+
 func TestQueryCornerCases(t *testing.T) {
 	opts := store.DefaultOptions().WithMultiIndexing(true)
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
@@ -2813,7 +3158,6 @@ func TestQueryCornerCases(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("run out of snapshots", func(t *testing.T) {
-
 		// Get one tx that takes the snapshot
 		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 		require.NoError(t, err)
@@ -8167,4 +8511,87 @@ func (t *BrokenCatalogTestSuite) TestErrorDroppedPrimaryIndexColumn() {
 
 	err = c.load(context.Background(), tx.tx)
 	t.Require().ErrorIs(err, ErrColumnDoesNotExist)
+}
+
+func TestQueryTxMetadata(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st,
+		DefaultOptions().WithPrefix(sqlPrefix).WithParseTxMetadataFunc(func(b []byte) (map[string]interface{}, error) {
+			var md map[string]interface{}
+			err := json.Unmarshal(b, &md)
+			return md, err
+		}),
+	)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(), nil,
+		`
+		CREATE TABLE mytbl (
+			id INTEGER AUTO_INCREMENT,
+
+			PRIMARY KEY(id)
+		)`, nil)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		extra, err := json.Marshal(map[string]interface{}{
+			"n": i + 1,
+		})
+		require.NoError(t, err)
+
+		txOpts := DefaultTxOptions().WithExtra(extra)
+		tx, err := engine.NewTx(context.Background(), txOpts)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			tx,
+			fmt.Sprintf("INSERT INTO mytbl(id) VALUES (%d)", i+1),
+			nil,
+		)
+		require.NoError(t, err)
+	}
+
+	rows, err := engine.queryAll(
+		context.Background(),
+		nil,
+		"SELECT _tx_metadata->'n' FROM mytbl",
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, rows, 10)
+
+	for i, row := range rows {
+		n := row.ValuesBySelector[EncodeSelector("", "mytbl", "_tx_metadata->n")].RawValue()
+		require.Equal(t, float64(i+1), n)
+	}
+
+	engine.parseTxMetadata = nil
+
+	_, err = engine.queryAll(
+		context.Background(),
+		nil,
+		"SELECT _tx_metadata->'n' FROM mytbl",
+		nil,
+	)
+	require.ErrorContains(t, err, "unable to parse tx metadata")
+
+	engine.parseTxMetadata = func(b []byte) (map[string]interface{}, error) {
+		return nil, fmt.Errorf("parse error")
+	}
+
+	_, err = engine.queryAll(
+		context.Background(),
+		nil,
+		"SELECT _tx_metadata->'n' FROM mytbl",
+		nil,
+	)
+	require.ErrorIs(t, err, ErrInvalidTxMetadata)
 }
