@@ -31,7 +31,6 @@ type sortRowReader struct {
 	rowReader          RowReader
 	ordCols            []*OrdCol
 	orderByDescriptors []ColDescriptor
-	sortKeysPositions  []int
 	sorter             fileSorter
 
 	resultReader resultReader
@@ -57,7 +56,7 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 		return nil, err
 	}
 
-	sortKeysPositions, err := getSortKeysPositions(colPosBySelector, ordCols, rowReader.TableAlias())
+	orderByDescriptors, err := getOrderByDescriptors(ordCols, rowReader)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +64,8 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 	tx := rowReader.Tx()
 	sr := &sortRowReader{
 		rowReader:          rowReader,
-		orderByDescriptors: getOrderByDescriptors(descriptors, sortKeysPositions),
 		ordCols:            ordCols,
-		sortKeysPositions:  sortKeysPositions,
+		orderByDescriptors: orderByDescriptors,
 		sorter: fileSorter{
 			colPosBySelector: colPosBySelector,
 			colTypes:         colTypes,
@@ -85,20 +83,65 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 		}
 	}
 
-	k1 := make(Tuple, len(sortKeysPositions))
-	k2 := make(Tuple, len(sortKeysPositions))
+	t1 := make(Tuple, len(ordCols))
+	t2 := make(Tuple, len(ordCols))
 
-	sr.sorter.cmp = func(t1, t2 Tuple) int {
-		sr.extractSortKey(t1, k1)
-		sr.extractSortKey(t2, k2)
-
-		res, idx, _ := k1.Compare(k2)
-		if idx >= 0 {
-			return res * int(directions[idx])
+	sr.sorter.cmp = func(r1, r2 *Row) (int, error) {
+		if err := sr.evalSortSelectors(r1, t1); err != nil {
+			return 0, err
 		}
-		return res
+
+		if err := sr.evalSortSelectors(r2, t2); err != nil {
+			return 0, err
+		}
+
+		res, idx, err := t1.Compare(t2)
+		if err != nil {
+			return 0, err
+		}
+
+		if idx >= 0 {
+			return res * int(directions[idx]), nil
+		}
+		return res, nil
 	}
 	return sr, nil
+}
+
+func (s *sortRowReader) evalSortSelectors(inRow *Row, out Tuple) error {
+	for i, col := range s.ordCols {
+		val, err := col.sel.reduce(s.Tx(), inRow, s.TableAlias())
+		if err != nil {
+			return err
+		}
+		out[i] = val
+	}
+	return nil
+}
+
+func getOrderByDescriptors(ordCols []*OrdCol, rowReader RowReader) ([]ColDescriptor, error) {
+	colsBySel, err := rowReader.colsBySelector(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	params := make(map[string]string)
+	orderByDescriptors := make([]ColDescriptor, len(ordCols))
+	for i, col := range ordCols {
+		sqlType, err := col.sel.inferType(colsBySel, params, rowReader.TableAlias())
+		if err != nil {
+			return nil, err
+		}
+
+		aggFn, table, col := col.sel.resolve(rowReader.TableAlias())
+		orderByDescriptors[i] = ColDescriptor{
+			AggFn:  aggFn,
+			Table:  table,
+			Column: col,
+			Type:   sqlType,
+		}
+	}
+	return orderByDescriptors, nil
 }
 
 func getColTypes(r RowReader) ([]string, error) {
@@ -114,41 +157,12 @@ func getColTypes(r RowReader) ([]string, error) {
 	return cols, err
 }
 
-func getSortKeysPositions(colPosBySelector map[string]int, cols []*OrdCol, tableAlias string) ([]int, error) {
-	sortKeysPositions := make([]int, len(cols))
-	for i, col := range cols {
-		aggFn, table, col := col.sel.resolve(tableAlias)
-		encSel := EncodeSelector(aggFn, table, col)
-
-		pos, exists := colPosBySelector[encSel]
-		if !exists {
-			return nil, ErrColumnDoesNotExist
-		}
-		sortKeysPositions[i] = pos
-	}
-	return sortKeysPositions, nil
-}
-
 func getColPositionsBySelector(desc []ColDescriptor) (map[string]int, error) {
 	colPositionsBySelector := make(map[string]int)
 	for i, desc := range desc {
 		colPositionsBySelector[desc.Selector()] = i
 	}
 	return colPositionsBySelector, nil
-}
-
-func (sr *sortRowReader) extractSortKey(t Tuple, out Tuple) {
-	for i, pos := range sr.sortKeysPositions {
-		out[i] = t[pos]
-	}
-}
-
-func getOrderByDescriptors(descriptors []ColDescriptor, sortKeysPositions []int) []ColDescriptor {
-	orderByDescriptors := make([]ColDescriptor, len(sortKeysPositions))
-	for i, pos := range sortKeysPositions {
-		orderByDescriptors[i] = descriptors[pos]
-	}
-	return orderByDescriptors
 }
 
 func (sr *sortRowReader) onClose(callback func()) {

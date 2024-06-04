@@ -262,16 +262,18 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 	cols["(mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(mytable.*)"] = ColDescriptor{Type: IntegerType}
 	cols["(mytable.ft)"] = ColDescriptor{Type: Float64Type}
+	cols["(mytable.data)"] = ColDescriptor{Type: JSONType}
 
 	params := make(map[string]SQLValueType)
 
 	testCases := []struct {
-		exp           ValueExp
-		cols          map[string]ColDescriptor
-		params        map[string]SQLValueType
-		implicitTable string
-		requiredType  SQLValueType
-		expectedError error
+		exp                  ValueExp
+		cols                 map[string]ColDescriptor
+		params               map[string]SQLValueType
+		implicitTable        string
+		requiredType         SQLValueType
+		expectedInferredType SQLValueType
+		expectedError        error
 	}{
 		{
 			exp:           &NullValue{t: AnyType},
@@ -314,12 +316,30 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
+			exp:                  &Integer{},
+			cols:                 cols,
+			params:               params,
+			implicitTable:        "mytable",
+			requiredType:         JSONType,
+			expectedInferredType: IntegerType,
+			expectedError:        nil,
+		},
+		{
 			exp:           &Varchar{},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
 			requiredType:  VarcharType,
 			expectedError: nil,
+		},
+		{
+			exp:                  &Varchar{},
+			cols:                 cols,
+			params:               params,
+			implicitTable:        "mytable",
+			requiredType:         JSONType,
+			expectedInferredType: VarcharType,
+			expectedError:        nil,
 		},
 		{
 			exp:           &Varchar{},
@@ -336,6 +356,15 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			implicitTable: "mytable",
 			requiredType:  BooleanType,
 			expectedError: nil,
+		},
+		{
+			exp:                  &Bool{},
+			cols:                 cols,
+			params:               params,
+			implicitTable:        "mytable",
+			requiredType:         JSONType,
+			expectedInferredType: BooleanType,
+			expectedError:        nil,
 		},
 		{
 			exp:           &Bool{},
@@ -360,6 +389,68 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			implicitTable: "mytable",
 			requiredType:  IntegerType,
 			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &JSON{},
+			cols:          cols,
+			params:        params,
+			requiredType:  JSONType,
+			implicitTable: "mytable",
+			expectedError: nil,
+		},
+		{
+			exp:                  &JSON{val: "some-string"},
+			cols:                 cols,
+			params:               params,
+			requiredType:         VarcharType,
+			expectedInferredType: JSONType,
+			implicitTable:        "mytable",
+			expectedError:        nil,
+		},
+		{
+			exp:                  &JSON{val: int64(10)},
+			cols:                 cols,
+			params:               params,
+			requiredType:         Float64Type,
+			expectedInferredType: JSONType,
+			implicitTable:        "mytable",
+			expectedError:        nil,
+		},
+		{
+			exp:                  &JSON{val: float64(10.5)},
+			cols:                 cols,
+			params:               params,
+			requiredType:         IntegerType,
+			expectedInferredType: JSONType,
+			implicitTable:        "mytable",
+			expectedError:        ErrInvalidTypes,
+		},
+		{
+			exp:                  &JSON{val: true},
+			cols:                 cols,
+			params:               params,
+			requiredType:         BooleanType,
+			expectedInferredType: JSONType,
+			implicitTable:        "mytable",
+			expectedError:        nil,
+		},
+		{
+			exp:                  &JSON{val: nil},
+			cols:                 cols,
+			params:               params,
+			requiredType:         AnyType,
+			expectedInferredType: JSONType,
+			implicitTable:        "mytable",
+			expectedError:        nil,
+		},
+		{
+			exp:                  &JSON{val: int64(10)},
+			cols:                 cols,
+			params:               params,
+			requiredType:         IntegerType,
+			expectedInferredType: JSONType,
+			implicitTable:        "mytable",
+			expectedError:        nil,
 		},
 		{
 			exp:           &NotBoolExp{exp: &Bool{val: true}},
@@ -424,9 +515,14 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
+			expectedInferredType := tc.expectedInferredType
+			if expectedInferredType == "" {
+				expectedInferredType = tc.requiredType
+			}
+
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitTable)
 			require.NoError(t, err)
-			require.Equal(t, tc.requiredType, it)
+			require.Equal(t, expectedInferredType, it)
 		}
 	}
 }
@@ -667,7 +763,7 @@ func TestLikeBoolExpEdgeCases(t *testing.T) {
 		err = exp.requiresType(BooleanType, nil, nil, "")
 		require.ErrorIs(t, err, ErrInvalidTypes)
 
-		v := &NullValue{}
+		v := &Integer{}
 
 		row := &Row{
 			ValuesByPosition: []TypedValue{v},
@@ -768,7 +864,7 @@ func TestIsConstant(t *testing.T) {
 	require.False(t, (&ExistsBoolExp{}).isConstant())
 }
 
-func TestTimestmapType(t *testing.T) {
+func TestTimestamapType(t *testing.T) {
 
 	ts := &Timestamp{val: time.Date(2021, 12, 6, 11, 53, 0, 0, time.UTC)}
 
@@ -822,6 +918,167 @@ func TestTimestmapType(t *testing.T) {
 
 	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
 	require.NoError(t, err)
+}
+
+func TestJSONType(t *testing.T) {
+	js := &JSON{val: float64(10)}
+
+	require.True(t, js.isConstant())
+	require.False(t, js.IsNull())
+
+	it, err := js.inferType(map[string]ColDescriptor{}, map[string]string{}, "")
+	require.NoError(t, err)
+	require.Equal(t, JSONType, it)
+
+	v, err := js.substitute(map[string]interface{}{})
+	require.NoError(t, err)
+	require.Equal(t, js, v)
+
+	v, err = js.reduce(nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, js, v)
+
+	v = js.reduceSelectors(&Row{}, "")
+	require.Equal(t, js, v)
+
+	err = js.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
+
+	t.Run("test comparison functions", func(t *testing.T) {
+		type test struct {
+			a             TypedValue
+			b             TypedValue
+			res           int
+			expectedError error
+		}
+
+		tests := []test{
+			{
+				a: NewJson(10.5),
+				b: NewJson(10.5),
+			},
+			{
+				a:             NewJson(map[string]interface{}{}),
+				b:             NewJson(map[string]interface{}{}),
+				expectedError: ErrNotComparableValues,
+			},
+			{
+				a:   NewJson(10.5),
+				b:   NewFloat64(9.5),
+				res: 1,
+			},
+			{
+				a:   NewJson(true),
+				b:   NewBool(true),
+				res: 0,
+			},
+			{
+				a:   NewJson("test"),
+				b:   NewVarchar("test"),
+				res: 0,
+			},
+			{
+				a:   NewJson(int64(2)),
+				b:   NewInteger(8),
+				res: -1,
+			},
+			{
+				a:   NewJson(nil),
+				b:   NewNull(JSONType),
+				res: 0,
+			},
+			{
+				a:   NewJson(nil),
+				b:   NewNull(AnyType),
+				res: 0,
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(fmt.Sprintf("compare %s to %s", tc.a.Type(), tc.b.Type()), func(t *testing.T) {
+				res, err := tc.a.Compare(tc.b)
+				if tc.expectedError != nil {
+					require.ErrorIs(t, err, ErrNotComparableValues)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, tc.res, res)
+				}
+
+				res1, err := tc.b.Compare(tc.a)
+				if tc.expectedError != nil {
+					require.ErrorIs(t, err, ErrNotComparableValues)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, res, -res1)
+				}
+			})
+		}
+	})
+
+	t.Run("test casts", func(t *testing.T) {
+		type test struct {
+			src TypedValue
+			dst TypedValue
+		}
+
+		cases := []test{
+			{
+				src: &NullValue{t: JSONType},
+				dst: &JSON{val: nil},
+			},
+			{
+				src: &NullValue{t: AnyType},
+				dst: &JSON{val: nil},
+			},
+			{
+				src: &JSON{val: nil},
+				dst: &NullValue{t: AnyType},
+			},
+			{
+				src: &JSON{val: 10.5},
+				dst: &Float64{val: 10.5},
+			},
+			{
+				src: &Float64{val: 10.5},
+				dst: &JSON{val: 10.5},
+			},
+			{
+				src: &JSON{val: 10.5},
+				dst: &Integer{val: 10},
+			},
+			{
+				src: &Integer{val: 10},
+				dst: &JSON{val: int64(10)},
+			},
+			{
+				src: &JSON{val: true},
+				dst: &Bool{val: true},
+			},
+			{
+				src: &Bool{val: true},
+				dst: &JSON{val: true},
+			},
+			{
+				src: &JSON{val: "test"},
+				dst: &Varchar{val: `"test"`},
+			},
+			{
+				src: &Varchar{val: `{"name": "John Doe"}`},
+				dst: &JSON{val: map[string]interface{}{"name": "John Doe"}},
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(fmt.Sprintf("cast %s to %s", tc.src.Type(), tc.dst.Type()), func(t *testing.T) {
+				conv, err := getConverter(tc.src.Type(), tc.dst.Type())
+				require.NoError(t, err)
+
+				converted, err := conv(tc.src)
+				require.NoError(t, err)
+				require.Equal(t, converted, tc.dst)
+			})
+		}
+	})
 }
 
 func TestUnionSelectErrors(t *testing.T) {
@@ -1095,4 +1352,7 @@ func TestTypedValueString(t *testing.T) {
 
 	avg := &AVGValue{s: &Float64{val: 10}, c: 4}
 	require.Equal(t, "2.5", avg.String())
+
+	jsVal := &JSON{val: map[string]interface{}{"name": "John Doe"}}
+	require.Equal(t, jsVal.String(), `{"name":"John Doe"}`)
 }

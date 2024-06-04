@@ -6157,7 +6157,7 @@ type IndexNullableSettings struct {
 	FlushThreshold *NullableUint32 `protobuf:"bytes,1,opt,name=flushThreshold,proto3" json:"flushThreshold,omitempty"`
 	// Number of new index entries between disk flushes with file sync
 	SyncThreshold *NullableUint32 `protobuf:"bytes,2,opt,name=syncThreshold,proto3" json:"syncThreshold,omitempty"`
-	// Size of the Btree node cache
+	// Size of the Btree node cache in bytes
 	CacheSize *NullableUint32 `protobuf:"bytes,3,opt,name=cacheSize,proto3" json:"cacheSize,omitempty"`
 	// Max size of a single Btree node in bytes
 	MaxNodeSize *NullableUint32 `protobuf:"bytes,4,opt,name=maxNodeSize,proto3" json:"maxNodeSize,omitempty"`

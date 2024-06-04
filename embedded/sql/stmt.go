@@ -39,20 +39,34 @@ const (
 	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
 
-	RowPrefix = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
-
+	RowPrefix    = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
 	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
 )
 
-const DatabaseID = uint32(1) // deprecated but left to maintain backwards compatibility
-const PKIndexID = uint32(0)
+const (
+	DatabaseID = uint32(1) // deprecated but left to maintain backwards compatibility
+	PKIndexID  = uint32(0)
+)
 
 const (
 	nullableFlag      byte = 1 << iota
 	autoIncrementFlag byte = 1 << iota
 )
 
-const revCol = "_rev"
+const (
+	revCol        = "_rev"
+	txMetadataCol = "_tx_metadata"
+)
+
+var reservedColumns = map[string]struct{}{
+	revCol:        {},
+	txMetadataCol: {},
+}
+
+func isReservedCol(col string) bool {
+	_, ok := reservedColumns[col]
+	return ok
+}
 
 type SQLValueType = string
 
@@ -65,6 +79,7 @@ const (
 	Float64Type   SQLValueType = "FLOAT"
 	TimestampType SQLValueType = "TIMESTAMP"
 	AnyType       SQLValueType = "ANY"
+	JSONType      SQLValueType = "JSON"
 )
 
 func IsNumericType(t SQLValueType) bool {
@@ -125,14 +140,15 @@ const (
 )
 
 const (
-	NowFnCall       string = "NOW"
-	UUIDFnCall      string = "RANDOM_UUID"
-	DatabasesFnCall string = "DATABASES"
-	TablesFnCall    string = "TABLES"
-	TableFnCall     string = "TABLE"
-	UsersFnCall     string = "USERS"
-	ColumnsFnCall   string = "COLUMNS"
-	IndexesFnCall   string = "INDEXES"
+	NowFnCall        string = "NOW"
+	UUIDFnCall       string = "RANDOM_UUID"
+	DatabasesFnCall  string = "DATABASES"
+	TablesFnCall     string = "TABLES"
+	TableFnCall      string = "TABLE"
+	UsersFnCall      string = "USERS"
+	ColumnsFnCall    string = "COLUMNS"
+	IndexesFnCall    string = "INDEXES"
+	JSONTypeOfFnCall string = "JSON_TYPEOF"
 )
 
 type SQLStmt interface {
@@ -459,6 +475,10 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		col, err := table.GetColumnByName(colName)
 		if err != nil {
 			return nil, err
+		}
+
+		if col.Type() == JSONType {
+			return nil, ErrCannotIndexJson
 		}
 
 		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
@@ -1604,7 +1624,6 @@ func (n *NullValue) Compare(val TypedValue) (int, error) {
 	if val.RawValue() == nil {
 		return 0, nil
 	}
-
 	return -1, nil
 }
 
@@ -1671,7 +1690,7 @@ func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != IntegerType {
+	if t != IntegerType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
@@ -1705,6 +1724,11 @@ func (v *Integer) RawValue() interface{} {
 func (v *Integer) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
+	}
+
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
 	}
 
 	if val.Type() == Float64Type {
@@ -1828,10 +1852,9 @@ func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != VarcharType {
+	if t != VarcharType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
 	}
-
 	return nil
 }
 
@@ -1862,6 +1885,11 @@ func (v *Varchar) RawValue() interface{} {
 func (v *Varchar) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
+	}
+
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
 	}
 
 	if val.Type() != VarcharType {
@@ -1968,10 +1996,9 @@ func (v *Bool) inferType(cols map[string]ColDescriptor, params map[string]SQLVal
 }
 
 func (v *Bool) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != BooleanType {
+	if t != BooleanType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
 	}
-
 	return nil
 }
 
@@ -2002,6 +2029,11 @@ func (v *Bool) RawValue() interface{} {
 func (v *Bool) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
+	}
+
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
 	}
 
 	if val.Type() != BooleanType {
@@ -2116,10 +2148,9 @@ func (v *Float64) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Float64) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != Float64Type {
+	if t != Float64Type && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, Float64Type, t)
 	}
-
 	return nil
 }
 
@@ -2148,6 +2179,11 @@ func (v *Float64) RawValue() interface{} {
 }
 
 func (v *Float64) Compare(val TypedValue) (int, error) {
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
+	}
+
 	convVal, err := mayApplyImplicitConversion(val.RawValue(), Float64Type)
 	if err != nil {
 		return 0, err
@@ -2187,6 +2223,10 @@ func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLV
 		return UUIDType, nil
 	}
 
+	if strings.ToUpper(v.fn) == JSONTypeOfFnCall {
+		return VarcharType, nil
+	}
+
 	return AnyType, fmt.Errorf("%w: unknown function %s", ErrIllegalArguments, v.fn)
 }
 
@@ -2204,6 +2244,13 @@ func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, par
 			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, UUIDType, t)
 		}
 
+		return nil
+	}
+
+	if strings.ToUpper(v.fn) == JSONTypeOfFnCall {
+		if t != VarcharType {
+			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+		}
 		return nil
 	}
 
@@ -2241,6 +2288,26 @@ func (v *FnCall) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, 
 		return &UUID{val: uuid.New()}, nil
 	}
 
+	if strings.ToUpper(v.fn) == JSONTypeOfFnCall {
+		if len(v.params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, JSONTypeOfFnCall, 1, len(v.params))
+		}
+
+		v, err := v.params[0].reduce(tx, row, implicitTable)
+		if err != nil {
+			return nil, err
+		}
+
+		if v.IsNull() {
+			return NewNull(AnyType), nil
+		}
+
+		jsonVal, ok := v.(*JSON)
+		if !ok {
+			return nil, fmt.Errorf("%w: '%s' function expects an argument of type JSON", ErrIllegalArguments, JSONTypeOfFnCall)
+		}
+		return NewVarchar(jsonVal.primitiveType()), nil
+	}
 	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
@@ -2392,7 +2459,6 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 			return &Float64{val: v}, nil
 		}
 	}
-
 	return nil, ErrUnsupportedParameter
 }
 
@@ -2723,6 +2789,22 @@ func (stmt *SelectStmt) Alias() string {
 	return stmt.as
 }
 
+func (stmt *SelectStmt) hasTxMetadata() bool {
+	for _, sel := range stmt.selectors {
+		switch s := sel.(type) {
+		case *ColSelector:
+			if s.col == txMetadataCol {
+				return true
+			}
+		case *JSONSelector:
+			if s.ColSelector.col == txMetadataCol {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (*ScanSpecs, error) {
 	groupByCols, orderByCols := stmt.groupByOrdColumns(), stmt.orderBy
 
@@ -2785,6 +2867,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		Index:              sortingIndex,
 		rangesByColID:      rangesByColID,
 		IncludeHistory:     tableRef.history,
+		IncludeTxMetadata:  stmt.hasTxMetadata(),
 		DescOrder:          descOrder,
 		groupBySortColumns: groupByCols,
 		orderBySortCols:    orderByCols,
@@ -3102,7 +3185,6 @@ func (sel *ColSelector) resolve(implicitTable string) (aggFn, table, col string)
 	if sel.table != "" {
 		table = sel.table
 	}
-
 	return "", table, sel.col
 }
 
@@ -3409,7 +3491,19 @@ func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValu
 		return nil, err
 	}
 
+	vl = unwrapJSON(vl)
+	vr = unwrapJSON(vr)
+
 	return applyNumOperator(bexp.op, vl, vr)
+}
+
+func unwrapJSON(v TypedValue) TypedValue {
+	if jsonVal, ok := v.(*JSON); ok {
+		if sv, isSimple := jsonVal.castToTypedValue(); isSimple {
+			return sv
+		}
+	}
+	return v
 }
 
 func (bexp *NumExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -3564,12 +3658,13 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
-	if rval.Type() != VarcharType {
-		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
-	}
-
 	if rval.IsNull() {
 		return &Bool{val: false}, nil
+	}
+
+	rvalStr, ok := rval.RawValue().(string)
+	if !ok {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
 	}
 
 	rpattern, err := bexp.pattern.reduce(tx, row, implicitTable)
@@ -3581,7 +3676,7 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
 	}
 
-	matched, err := regexp.MatchString(rpattern.RawValue().(string), rval.RawValue().(string))
+	matched, err := regexp.MatchString(rpattern.RawValue().(string), rvalStr)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
@@ -3834,16 +3929,16 @@ func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID
 }
 
 func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
-	switch cmp {
-	case 0:
+	switch {
+	case cmp == 0:
 		{
 			return op == EQ || op == LE || op == GE
 		}
-	case -1:
+	case cmp < 0:
 		{
 			return op == NE || op == LT || op == LE
 		}
-	case 1:
+	case cmp > 0:
 		{
 			return op == NE || op == GT || op == GE
 		}
@@ -3922,14 +4017,18 @@ func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(tx, row, implicitTable)
-	if err != nil {
-		return nil, err
-	}
-
 	bl, isBool := vl.(*Bool)
 	if !isBool {
 		return nil, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
+	}
+
+	if (bexp.op == OR && bl.val) || (bexp.op == AND && !bl.val) {
+		return &Bool{val: bl.val}, nil
+	}
+
+	vr, err := bexp.right.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, err
 	}
 
 	br, isBool := vr.(*Bool)

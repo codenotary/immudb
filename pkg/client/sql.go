@@ -463,6 +463,10 @@ func (it *rowReader) Read() (Row, error) {
 		return nil, it.err
 	}
 
+	if it.nextRow < 0 {
+		return nil, errors.New("Read called without calling Next")
+	}
+
 	protoRow := it.rows[it.nextRow]
 	for i, protoVal := range protoRow.Values {
 		val := schema.RawValue(protoVal)

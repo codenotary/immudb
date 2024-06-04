@@ -2635,7 +2635,7 @@
         },
         "cacheSize": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Size of the Btree node cache"
+          "title": "Size of the Btree node cache in bytes"
         },
         "maxNodeSize": {
           "$ref": "#/definitions/schemaNullableUint32",

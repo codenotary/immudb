@@ -226,7 +226,8 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log
 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
-		WithMultiDBHandler(multidbHandler)
+		WithMultiDBHandler(multidbHandler).
+		WithParseTxMetadataFunc(parseTxMetadata)
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
@@ -255,6 +256,19 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log
 	dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, opts.replica)
 
 	return dbi, nil
+}
+
+func parseTxMetadata(data []byte) (map[string]interface{}, error) {
+	md := schema.Metadata{}
+	if err := md.Unmarshal(data); err != nil {
+		return nil, err
+	}
+
+	meta := make(map[string]interface{}, len(md))
+	for k, v := range md {
+		meta[k] = v
+	}
+	return meta, nil
 }
 
 func (d *db) Path() string {
@@ -336,7 +350,8 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log 
 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
-		WithMultiDBHandler(multidbHandler)
+		WithMultiDBHandler(multidbHandler).
+		WithParseTxMetadataFunc(parseTxMetadata)
 
 	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 

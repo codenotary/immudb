@@ -261,7 +261,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR(50), ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR(50), ts TIMESTAMP, active BOOLEAN, content BLOB, json_data JSON, PRIMARY KEY (id, name))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",
@@ -272,6 +272,7 @@ func TestCreateTableStmt(t *testing.T) {
 						{colName: "ts", colType: TimestampType},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
+						{colName: "json_data", colType: JSONType},
 					},
 					pkColNames: []string{"id", "name"},
 				}},
@@ -1151,27 +1152,19 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT COUNT(*), SUM(age) FROM table1 ORDER BY SUM(age)",
+			input: "SELECT json_data->'info'->'address'->'street' FROM table1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&AggColSelector{aggFn: "COUNT", col: "*"},
-						&AggColSelector{aggFn: "SUM", col: "age"},
-					},
-					ds:    &tableRef{table: "table1"},
-					where: nil,
-					orderBy: []*OrdCol{
-						{
-							sel: &AggColSelector{
-								aggFn: "SUM",
-								col:   "age",
-								as:    "",
-							},
+						&JSONSelector{
+							ColSelector: &ColSelector{col: "json_data"},
+							fields:      []string{"info", "address", "street"},
 						},
 					},
-				},
-			},
+					ds: &tableRef{table: "table1"},
+				}},
+			expectedError: nil,
 		},
 	}
 

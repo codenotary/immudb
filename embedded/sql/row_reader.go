@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -44,9 +45,22 @@ type ScanSpecs struct {
 	Index              *Index
 	rangesByColID      map[uint32]*typedValueRange
 	IncludeHistory     bool
+	IncludeTxMetadata  bool
 	DescOrder          bool
 	groupBySortColumns []*OrdCol
 	orderBySortCols    []*OrdCol
+}
+
+func (s *ScanSpecs) extraCols() int {
+	n := 0
+	if s.IncludeHistory {
+		n++
+	}
+
+	if s.IncludeTxMetadata {
+		n++
+	}
+	return n
 }
 
 type Row struct {
@@ -191,28 +205,34 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		tableAlias = table.name
 	}
 
-	var colsByPos []ColDescriptor
-	var colsBySel map[string]ColDescriptor
+	nCols := len(table.cols) + scanSpecs.extraCols()
 
-	var off int
+	colsByPos := make([]ColDescriptor, nCols)
+	colsBySel := make(map[string]ColDescriptor, nCols)
 
+	off := 0
 	if scanSpecs.IncludeHistory {
-		colsByPos = make([]ColDescriptor, 1+len(table.cols))
-		colsBySel = make(map[string]ColDescriptor, 1+len(table.cols))
-
 		colDescriptor := ColDescriptor{
 			Table:  tableAlias,
 			Column: revCol,
 			Type:   IntegerType,
 		}
 
-		colsByPos[0] = colDescriptor
+		colsByPos[off] = colDescriptor
 		colsBySel[colDescriptor.Selector()] = colDescriptor
+		off++
+	}
 
-		off = 1
-	} else {
-		colsByPos = make([]ColDescriptor, len(table.cols))
-		colsBySel = make(map[string]ColDescriptor, len(table.cols))
+	if scanSpecs.IncludeTxMetadata {
+		colDescriptor := ColDescriptor{
+			Table:  tableAlias,
+			Column: txMetadataCol,
+			Type:   JSONType,
+		}
+
+		colsByPos[off] = colDescriptor
+		colsBySel[colDescriptor.Selector()] = colDescriptor
+		off++
 	}
 
 	for i, c := range table.cols {
@@ -447,9 +467,15 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	for i, col := range r.colsByPos {
 		var val TypedValue
 
-		if col.Column == revCol {
+		switch col.Column {
+		case revCol:
 			val = &Integer{val: int64(vref.HC())}
-		} else {
+		case txMetadataCol:
+			val, err = r.parseTxMetadata(vref.TxMetadata())
+			if err != nil {
+				return nil, err
+			}
+		default:
 			val = &NullValue{t: col.Type}
 		}
 
@@ -460,6 +486,8 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	if len(v) < EncLenLen {
 		return nil, ErrCorruptedData
 	}
+
+	extraCols := r.scanSpecs.extraCols()
 
 	voff := 0
 
@@ -505,11 +533,8 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 			return nil, ErrCorruptedData
 		}
 
-		if r.scanSpecs.IncludeHistory {
-			valuesByPosition[pos+1] = val
-		} else {
-			valuesByPosition[pos] = val
-		}
+		valuesByPosition[pos+extraCols] = val
+
 		pos++
 
 		valuesBySelector[EncodeSelector("", r.tableAlias, col.colName)] = val
@@ -520,6 +545,25 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	}
 
 	return &Row{ValuesByPosition: valuesByPosition, ValuesBySelector: valuesBySelector}, nil
+}
+
+func (r *rawRowReader) parseTxMetadata(txmd *store.TxMetadata) (TypedValue, error) {
+	if txmd == nil {
+		return &NullValue{t: JSONType}, nil
+	}
+
+	if extra := txmd.Extra(); extra != nil {
+		if r.tx.engine.parseTxMetadata == nil {
+			return nil, fmt.Errorf("unable to parse tx metadata")
+		}
+
+		md, err := r.tx.engine.parseTxMetadata(extra)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrInvalidTxMetadata, err)
+		}
+		return &JSON{val: md}, nil
+	}
+	return &NullValue{t: JSONType}, nil
 }
 
 func (r *rawRowReader) Close() error {

@@ -33,7 +33,7 @@ type sortedChunk struct {
 type fileSorter struct {
 	colPosBySelector map[string]int
 	colTypes         []string
-	cmp              func(r1, r2 Tuple) int
+	cmp              func(r1, r2 *Row) (int, error)
 
 	tx          *SQLTx
 	sortBufSize int
@@ -64,7 +64,9 @@ func (s *fileSorter) update(r *Row) error {
 
 func (s *fileSorter) finalize() (resultReader, error) {
 	if s.nextIdx > 0 {
-		s.sortBuffer()
+		if err := s.sortBuffer(); err != nil {
+			return nil, err
+		}
 	}
 
 	// result rows are all in memory
@@ -98,12 +100,16 @@ func (s *fileSorter) mergeAllChunks() (resultReader, error) {
 	rbuf := &bufio.Reader{}
 
 	lr := &fileRowReader{
-		colTypes: s.colTypes,
-		reader:   lbuf,
+		colPosBySelector: s.colPosBySelector,
+		colTypes:         s.colTypes,
+		reader:           lbuf,
+		reuseRow:         true,
 	}
 	rr := &fileRowReader{
-		colTypes: s.colTypes,
-		reader:   rbuf,
+		colPosBySelector: s.colPosBySelector,
+		colTypes:         s.colTypes,
+		reader:           rbuf,
+		reuseRow:         true,
 	}
 
 	chunks := s.chunksToMerge
@@ -169,12 +175,12 @@ func (s *fileSorter) mergeAllChunks() (resultReader, error) {
 func (s *fileSorter) mergeChunks(lr, rr *fileRowReader, writer io.Writer) error {
 	var err error
 	var lrAtEOF bool
-	var t1, t2 Tuple
+	var r1, r2 *Row
 
 	for {
-		if t1 == nil {
-			t1, err = lr.ReadValues()
-			if err == io.EOF {
+		if r1 == nil {
+			r1, err = lr.Read()
+			if err == ErrNoMoreRows {
 				lrAtEOF = true
 				break
 			}
@@ -184,9 +190,9 @@ func (s *fileSorter) mergeChunks(lr, rr *fileRowReader, writer io.Writer) error 
 			}
 		}
 
-		if t2 == nil {
-			t2, err = rr.ReadValues()
-			if err == io.EOF {
+		if r2 == nil {
+			r2, err = rr.Read()
+			if err == ErrNoMoreRows {
 				break
 			}
 
@@ -196,15 +202,20 @@ func (s *fileSorter) mergeChunks(lr, rr *fileRowReader, writer io.Writer) error 
 		}
 
 		var rawData []byte
-		if s.cmp(t1, t2) < 0 {
-			rawData = lr.rowBuf.Bytes()
-			t1 = nil
-		} else {
-			rawData = rr.rowBuf.Bytes()
-			t2 = nil
+		res, err := s.cmp(r1, r2)
+		if err != nil {
+			return err
 		}
 
-		_, err := writer.Write(rawData)
+		if res < 0 {
+			rawData = lr.rowBuf.Bytes()
+			r1 = nil
+		} else {
+			rawData = rr.rowBuf.Bytes()
+			r2 = nil
+		}
+
+		_, err = writer.Write(rawData)
 		if err != nil {
 			return err
 		}
@@ -248,13 +259,15 @@ type fileRowReader struct {
 	colTypes         []SQLValueType
 	reader           io.Reader
 	rowBuf           bytes.Buffer
+	row              *Row
+	reuseRow         bool
 }
 
-func (r *fileRowReader) ReadValues() ([]TypedValue, error) {
+func (r *fileRowReader) readValues(out []TypedValue) error {
 	var size uint16
 	err := binary.Read(r.reader, binary.BigEndian, &size)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	r.rowBuf.Reset()
@@ -263,15 +276,17 @@ func (r *fileRowReader) ReadValues() ([]TypedValue, error) {
 
 	_, err = io.CopyN(&r.rowBuf, r.reader, int64(size))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	data := r.rowBuf.Bytes()
-	return decodeValues(data[2:], r.colTypes)
+	return decodeValues(data[2:], r.colTypes, out)
 }
 
 func (r *fileRowReader) Read() (*Row, error) {
-	values, err := r.ReadValues()
+	row := r.getRow()
+
+	err := r.readValues(row.ValuesByPosition)
 	if err == io.EOF {
 		return nil, ErrNoMoreRows
 	}
@@ -279,48 +294,60 @@ func (r *fileRowReader) Read() (*Row, error) {
 		return nil, err
 	}
 
-	valuesBySelector := make(map[string]TypedValue)
 	for sel, pos := range r.colPosBySelector {
-		valuesBySelector[sel] = values[pos]
-	}
-
-	row := &Row{
-		ValuesByPosition: values,
-		ValuesBySelector: valuesBySelector,
+		row.ValuesBySelector[sel] = row.ValuesByPosition[pos]
 	}
 	return row, nil
 }
 
-func decodeValues(data []byte, colTypes []SQLValueType) ([]TypedValue, error) {
-	values := make([]TypedValue, len(colTypes))
+func (r *fileRowReader) getRow() *Row {
+	row := r.row
+	if row == nil || !r.reuseRow {
+		row = &Row{
+			ValuesByPosition: make([]TypedValue, len(r.colPosBySelector)),
+			ValuesBySelector: make(map[string]TypedValue, len(r.colPosBySelector)),
+		}
+		r.row = row
+	}
+	return row
+}
 
+func decodeValues(data []byte, colTypes []SQLValueType, out []TypedValue) error {
 	var voff int
 	for i, col := range colTypes {
 		v, n, err := DecodeNullableValue(data[voff:], col)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		voff += n
 
-		values[i] = v
+		out[i] = v
 	}
-	return values, nil
+	return nil
 }
 
 func (s *fileSorter) sortAndFlushBuffer() error {
-	s.sortBuffer()
+	if err := s.sortBuffer(); err != nil {
+		return err
+	}
 	return s.flushBuffer()
 }
 
-func (s *fileSorter) sortBuffer() {
+func (s *fileSorter) sortBuffer() error {
 	buf := s.sortBuf[:s.nextIdx]
 
+	var outErr error
 	sort.Slice(buf, func(i, j int) bool {
 		r1 := buf[i]
 		r2 := buf[j]
 
-		return s.cmp(r1.ValuesByPosition, r2.ValuesByPosition) < 0
+		res, err := s.cmp(r1, r2)
+		if err != nil {
+			outErr = err
+		}
+		return res < 0
 	})
+	return outErr
 }
 
 func (s *fileSorter) flushBuffer() error {

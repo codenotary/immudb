@@ -55,6 +55,7 @@ var ErrNewColumnMustBeNullable = errors.New("new column must be nullable")
 var ErrIndexAlreadyExists = errors.New("index already exists")
 var ErrMaxNumberOfColumnsInIndexExceeded = errors.New("number of columns in multi-column index exceeded")
 var ErrIndexNotFound = errors.New("index not found")
+var ErrCannotIndexJson = errors.New("cannot index column of type json")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrInferredMultipleTypes = errors.New("inferred multiple types")
@@ -89,6 +90,7 @@ var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
 var ErrUnsupportedCast = fmt.Errorf("%w: unsupported cast", ErrInvalidValue)
 var ErrColumnMismatchInUnionStmt = errors.New("column mismatch in union statement")
+var ErrInvalidTxMetadata = errors.New("invalid transaction metadata")
 
 var MaxKeyLen = 512
 
@@ -105,8 +107,8 @@ type Engine struct {
 	sortBufferSize                int
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
-
-	multidbHandler MultiDBHandler
+	parseTxMetadata               func([]byte) (map[string]interface{}, error)
+	multidbHandler                MultiDBHandler
 }
 
 type MultiDBHandler interface {
@@ -146,6 +148,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		sortBufferSize:                opts.sortBufferSize,
 		autocommit:                    opts.autocommit,
 		lazyIndexConstraintValidation: opts.lazyIndexConstraintValidation,
+		parseTxMetadata:               opts.parseTxMetadata,
 		multidbHandler:                opts.multidbHandler,
 	}
 
