@@ -151,6 +151,9 @@ func TestCreateTable(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil)
 	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS balances (id INTEGER, balance FLOAT, CHECK (balance + id) >= 0, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
 }
 
 func TestTimestampType(t *testing.T) {
@@ -1372,13 +1375,13 @@ func TestAlterTableDropColumn(t *testing.T) {
 
 		t.Run("fail to drop indexed columns", func(t *testing.T) {
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN id", nil)
-			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+			require.ErrorIs(t, err, ErrCannotDropColumn)
 
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN name", nil)
-			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+			require.ErrorIs(t, err, ErrCannotDropColumn)
 
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN surname", nil)
-			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+			require.ErrorIs(t, err, ErrCannotDropColumn)
 		})
 
 		t.Run("fail to drop columns that does not exist", func(t *testing.T) {
@@ -5452,7 +5455,7 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
-	pstmt, err := Parse(strings.NewReader(stmt))
+	pstmt, err := ParseSQL(strings.NewReader(stmt))
 	require.NoError(t, err)
 	require.Len(t, pstmt, 1)
 
@@ -5558,7 +5561,7 @@ func TestInferParameters(t *testing.T) {
 func TestInferParametersPrepared(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
+	stmts, err := ParseSQL(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
@@ -8167,4 +8170,101 @@ func (t *BrokenCatalogTestSuite) TestErrorDroppedPrimaryIndexColumn() {
 
 	err = c.load(context.Background(), tx.tx)
 	t.Require().ErrorIs(err, ErrColumnDoesNotExist)
+}
+
+func TestCheckConstraints(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions())
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`CREATE TABLE table_with_checks (
+			id INTEGER AUTO_INCREMENT,
+			account VARCHAR,
+			in_balance FLOAT,
+			out_balance FLOAT,
+			balance FLOAT,
+
+			CHECK (account IS NULL) OR (account LIKE '^account_.*'),
+			CONSTRAINT in_out_balance_sum CHECK (in_balance + out_balance = balance),
+			CHECK (in_balance >= 0),
+			CHECK (out_balance <= 0),
+			CHECK (balance >= 0),
+
+			PRIMARY KEY id
+		)`, nil,
+	)
+	require.NoError(t, err)
+
+	t.Run("check constraint violation", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_one', 10, -1.5, 8.5)", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account', 20, -1.0, 19.0)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_two', 10, 1.5, 11.5)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_two', -1, 2.5, 1.5)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_two', 10, -1.5, 9.0)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`UPDATE table_with_checks
+		SET
+			in_balance = in_balance - 1, 
+			out_balance = out_balance + 1
+		WHERE id = 1`, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`UPDATE table_with_checks
+		SET
+			out_balance = out_balance - 1,
+			balance = balance - 1
+		WHERE id = 1`, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "UPDATE table_with_checks SET in_balance = in_balance + 1 WHERE id = 1", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "UPDATE table_with_checks SET in_balance = NULL", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+	})
+
+	t.Run("drop constraint", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT in_out_balance_sum", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT in_out_balance_sum", nil)
+		require.ErrorIs(t, err, ErrConstraintNotFound)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES (NULL, 10, -1.5, 9.0)", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_three', -1, -1.5, 9.0)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_three', 10, 1.5, 9.0)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+	})
+
+	t.Run("drop column with constraint", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP COLUMN account", nil)
+		require.ErrorIs(t, err, ErrCannotDropColumn)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT table_with_checks_check1", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP COLUMN account", nil)
+		require.NoError(t, err)
+	})
 }

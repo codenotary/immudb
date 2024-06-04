@@ -343,7 +343,7 @@ func (d *db) SQLExec(ctx context.Context, tx *sql.SQLTx, req *schema.SQLExecRequ
 		return nil, nil, ErrIllegalArguments
 	}
 
-	stmts, err := sql.Parse(strings.NewReader(req.Sql))
+	stmts, err := sql.ParseSQL(strings.NewReader(req.Sql))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -377,7 +377,7 @@ func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRe
 		return nil, ErrIllegalArguments
 	}
 
-	stmts, err := sql.Parse(strings.NewReader(req.Sql))
+	stmts, err := sql.ParseSQL(strings.NewReader(req.Sql))
 	if err != nil {
 		return nil, err
 	}

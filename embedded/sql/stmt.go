@@ -37,6 +37,7 @@ const (
 	catalogPrefix       = "CTL."
 	catalogTablePrefix  = "CTL.TABLE."  // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
 	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogCheckPrefix  = "CTL.CHECK."  // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
 	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
 
 	RowPrefix = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
@@ -100,12 +101,37 @@ const (
 	GE
 )
 
+func CmpOperatorToString(op CmpOperator) string {
+	switch op {
+	case EQ:
+		return "="
+	case NE:
+		return "!="
+	case LT:
+		return "<"
+	case LE:
+		return "<="
+	case GT:
+		return ">"
+	case GE:
+		return ">="
+	}
+	return ""
+}
+
 type LogicOperator = int
 
 const (
 	AND LogicOperator = iota
 	OR
 )
+
+func LogicOperatorToString(op LogicOperator) string {
+	if op == AND {
+		return "AND"
+	}
+	return "OR"
+}
 
 type NumOperator = int
 
@@ -115,6 +141,20 @@ const (
 	DIVOP
 	MULTOP
 )
+
+func NumOperatorString(op NumOperator) string {
+	switch op {
+	case ADDOP:
+		return "+"
+	case SUBSOP:
+		return "-"
+	case DIVOP:
+		return "/"
+	case MULTOP:
+		return "*"
+	}
+	return ""
+}
 
 type JoinType = int
 
@@ -319,6 +359,7 @@ type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
 	colsSpec    []*ColSpec
+	checks      []CheckConstraint
 	pkColNames  []string
 }
 
@@ -328,6 +369,21 @@ func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkC
 
 func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
+}
+
+func zeroRow(tableName string, cols []*ColSpec) *Row {
+	r := Row{
+		ValuesByPosition: make([]TypedValue, len(cols)),
+		ValuesBySelector: make(map[string]TypedValue, len(cols)),
+	}
+
+	for i, col := range cols {
+		v := zeroForType(col.colType)
+
+		r.ValuesByPosition[i] = v
+		r.ValuesBySelector[EncodeSelector("", tableName, col.colName)] = v
+	}
+	return &r
 }
 
 func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -340,7 +396,33 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		colSpecs[uint32(i)+1] = cs
 	}
 
-	table, err := tx.catalog.newTable(stmt.table, colSpecs, uint32(len(colSpecs)))
+	row := zeroRow(stmt.table, stmt.colsSpec)
+	for _, check := range stmt.checks {
+		value, err := check.exp.reduce(tx, row, stmt.table)
+		if err != nil {
+			return nil, err
+		}
+
+		if value.Type() != BooleanType {
+			return nil, ErrInvalidCheckConstraint
+		}
+	}
+
+	nextUnnamedCheck := 0
+	checks := make(map[string]CheckConstraint)
+	for id, check := range stmt.checks {
+		name := fmt.Sprintf("%s_check%d", stmt.table, nextUnnamedCheck+1)
+		if check.name != "" {
+			name = check.name
+		} else {
+			nextUnnamedCheck++
+		}
+		check.id = uint32(id)
+		check.name = name
+		checks[name] = check
+	}
+
+	table, err := tx.catalog.newTable(stmt.table, colSpecs, checks, uint32(len(colSpecs)))
 	if err != nil {
 		return nil, err
 	}
@@ -360,6 +442,12 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 		err := persistColumn(tx, col)
 		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, check := range checks {
+		if err := persistCheck(tx, table, &check); err != nil {
 			return nil, err
 		}
 	}
@@ -402,6 +490,32 @@ func persistColumn(tx *SQLTx, col *Column) error {
 	)
 
 	return tx.set(mappedKey, nil, v)
+}
+
+func persistCheck(tx *SQLTx, table *Table, check *CheckConstraint) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogCheckPrefix,
+		EncodeID(DatabaseID),
+		EncodeID(table.id),
+		EncodeID(check.id),
+	)
+
+	name := check.name
+	expText := check.exp.String()
+
+	val := make([]byte, 2+len(name)+len(expText))
+
+	if len(name) > 256 {
+		return fmt.Errorf("constraint name len: %w", ErrMaxLengthExceeded)
+	}
+
+	val[0] = byte(len(name)) - 1
+
+	copy(val[1:], []byte(name))
+	copy(val[1+len(name):], []byte(expText))
+
+	return tx.set(mappedKey, nil, val)
 }
 
 type ColSpec struct {
@@ -647,6 +761,11 @@ func (stmt *DropColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		return nil, err
 	}
 
+	err = canDropColumn(tx, table, col)
+	if err != nil {
+		return nil, err
+	}
+
 	err = table.deleteColumn(col)
 	if err != nil {
 		return nil, err
@@ -662,6 +781,28 @@ func (stmt *DropColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	return tx, nil
 }
 
+func canDropColumn(tx *SQLTx, table *Table, col *Column) error {
+	colSpecs := make([]*ColSpec, 0, len(table.Cols())-1)
+	for _, c := range table.cols {
+		if c.id != col.id {
+			colSpecs = append(colSpecs, &ColSpec{colName: c.Name(), colType: c.Type()})
+		}
+	}
+
+	row := zeroRow(table.Name(), colSpecs)
+	for name, check := range table.checkConstraints {
+		_, err := check.exp.reduce(tx, row, table.name)
+		if errors.Is(err, ErrColumnDoesNotExist) {
+			return fmt.Errorf("%w %s because %s constraint requires it", ErrCannotDropColumn, col.Name(), name)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
@@ -673,6 +814,44 @@ func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	)
 
 	return tx.delete(ctx, mappedKey)
+}
+
+type DropConstraintStmt struct {
+	table          string
+	constraintName string
+}
+
+func (stmt *DropConstraintStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := table.deleteCheck(stmt.constraintName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = persistCheckDeletion(ctx, tx, table.id, id)
+
+	tx.mutatedCatalog = true
+
+	return tx, err
+}
+
+func persistCheckDeletion(ctx context.Context, tx *SQLTx, tableID uint32, checkId uint32) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogCheckPrefix,
+		EncodeID(DatabaseID),
+		EncodeID(tableID),
+		EncodeID(checkId),
+	)
+	return tx.delete(ctx, mappedKey)
+}
+
+func (stmt *DropConstraintStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
 }
 
 type UpsertIntoStmt struct {
@@ -703,10 +882,11 @@ func NewRowSpec(values []ValueExp) *RowSpec {
 	}
 }
 
-type OnConflictDo struct {
-}
+type OnConflictDo struct{}
 
 func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	emptyDescriptors := make(map[string]ColDescriptor)
+
 	for _, row := range stmt.rows {
 		if len(stmt.cols) != len(row.Values) {
 			return ErrInvalidNumberOfValues
@@ -723,13 +903,12 @@ func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, para
 				return err
 			}
 
-			err = val.requiresType(col.colType, make(map[string]ColDescriptor), params, table.name)
+			err = val.requiresType(col.colType, emptyDescriptors, params, table.name)
 			if err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -762,6 +941,11 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	selPosByColID, err := stmt.validate(table)
 	if err != nil {
 		return nil, err
+	}
+
+	r := &Row{
+		ValuesByPosition: make([]TypedValue, len(table.cols)),
+		ValuesBySelector: make(map[string]TypedValue),
 	}
 
 	for _, row := range stmt.rows {
@@ -837,6 +1021,20 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			valuesByColID[colID] = rval
 		}
 
+		for i, col := range table.cols {
+			v := valuesByColID[col.id]
+
+			if v == nil {
+				v = NewNull(AnyType)
+			}
+			r.ValuesByPosition[i] = v
+			r.ValuesBySelector[EncodeSelector("", table.name, col.colName)] = v
+		}
+
+		if err := checkConstraints(tx, table.checkConstraints, r, table.name); err != nil {
+			return nil, err
+		}
+
 		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
@@ -875,6 +1073,24 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	}
 
 	return tx, nil
+}
+
+func checkConstraints(tx *SQLTx, checks map[string]CheckConstraint, row *Row, table string) error {
+	for _, check := range checks {
+		val, err := check.exp.reduce(tx, row, table)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, err)
+		}
+
+		if val.Type() != BooleanType {
+			return ErrInvalidCheckConstraint
+		}
+
+		if !val.RawValue().(bool) {
+			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, check.exp.String())
+		}
+	}
+	return nil
 }
 
 func (tx *SQLTx) encodeRowValue(valuesByColID map[uint32]TypedValue, table *Table) ([]byte, error) {
@@ -1295,6 +1511,17 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			valuesByColID[col.id] = rval
 		}
 
+		for i, col := range table.cols {
+			v := valuesByColID[col.id]
+
+			row.ValuesByPosition[i] = v
+			row.ValuesBySelector[EncodeSelector("", table.name, col.colName)] = v
+		}
+
+		if err := checkConstraints(tx, table.checkConstraints, row, table.name); err != nil {
+			return nil, err
+		}
+
 		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
@@ -1443,6 +1670,7 @@ type ValueExp interface {
 	reduceSelectors(row *Row, implicitTable string) ValueExp
 	isConstant() bool
 	selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error
+	String() string
 }
 
 type typedValueRange struct {
@@ -1553,7 +1781,6 @@ type TypedValue interface {
 	RawValue() interface{}
 	Compare(val TypedValue) (int, error)
 	IsNull() bool
-	String() string
 }
 
 type Tuple []TypedValue
@@ -1820,7 +2047,7 @@ func (v *Varchar) IsNull() bool {
 }
 
 func (v *Varchar) String() string {
-	return v.val
+	return fmt.Sprintf("'%s'", v.val)
 }
 
 func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -2256,6 +2483,14 @@ func (v *FnCall) selectorRanges(table *Table, asTable string, params map[string]
 	return nil
 }
 
+func (v *FnCall) String() string {
+	params := make([]string, len(v.params))
+	for i, p := range v.params {
+		params[i] = p.String()
+	}
+	return v.fn + "(" + strings.Join(params, ",") + ")"
+}
+
 type Cast struct {
 	val ValueExp
 	t   SQLValueType
@@ -2316,6 +2551,10 @@ func (c *Cast) isConstant() bool {
 
 func (c *Cast) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (c *Cast) String() string {
+	return fmt.Sprintf("CAST (%s AS %s)", c.val.String(), c.t)
 }
 
 type Param struct {
@@ -2410,6 +2649,10 @@ func (p *Param) isConstant() bool {
 
 func (v *Param) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (v *Param) String() string {
+	return "@" + v.id
 }
 
 type Comparison int
@@ -3184,6 +3427,10 @@ func (sel *ColSelector) selectorRanges(table *Table, asTable string, params map[
 	return nil
 }
 
+func (sel *ColSelector) String() string {
+	return sel.col
+}
+
 type AggColSelector struct {
 	aggFn AggregateFn
 	table string
@@ -3289,6 +3536,10 @@ func (sel *AggColSelector) isConstant() bool {
 
 func (sel *AggColSelector) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (sel *AggColSelector) String() string {
+	return sel.aggFn + "(" + sel.col + ")"
 }
 
 type NumExp struct {
@@ -3428,6 +3679,10 @@ func (bexp *NumExp) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
+func (bexp *NumExp) String() string {
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), NumOperatorString(bexp.op), bexp.right.String())
+}
+
 type NotBoolExp struct {
 	exp ValueExp
 }
@@ -3486,6 +3741,10 @@ func (bexp *NotBoolExp) isConstant() bool {
 
 func (bexp *NotBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *NotBoolExp) String() string {
+	return "NOT " + bexp.exp.String()
 }
 
 type LikeBoolExp struct {
@@ -3599,6 +3858,10 @@ func (bexp *LikeBoolExp) isConstant() bool {
 
 func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *LikeBoolExp) String() string {
+	return fmt.Sprintf("(%s LIKE %s)", bexp.val.String(), bexp.pattern.String())
 }
 
 type CmpBoolExp struct {
@@ -3767,6 +4030,11 @@ func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[
 	return updateRangeFor(column.id, rval, bexp.op, rangesByColID)
 }
 
+func (bexp *CmpBoolExp) String() string {
+	opStr := CmpOperatorToString(bexp.op)
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), opStr, bexp.right.String())
+}
+
 func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID map[uint32]*typedValueRange) error {
 	currRange, ranged := rangesByColID[colID]
 	var newRange *typedValueRange
@@ -3922,14 +4190,19 @@ func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(tx, row, implicitTable)
-	if err != nil {
-		return nil, err
-	}
-
 	bl, isBool := vl.(*Bool)
 	if !isBool {
 		return nil, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
+	}
+
+	// short-circuit evaluation
+	if (bl.val && bexp.op == OR) || (!bl.val && bexp.op == AND) {
+		return &Bool{val: bl.val}, nil
+	}
+
+	vr, err := bexp.right.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, err
 	}
 
 	br, isBool := vr.(*Bool)
@@ -4003,6 +4276,10 @@ func (bexp *BinBoolExp) selectorRanges(table *Table, asTable string, params map[
 	return nil
 }
 
+func (bexp *BinBoolExp) String() string {
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), LogicOperatorToString(bexp.op), bexp.right.String())
+}
+
 type ExistsBoolExp struct {
 	q DataSource
 }
@@ -4033,6 +4310,10 @@ func (bexp *ExistsBoolExp) isConstant() bool {
 
 func (bexp *ExistsBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *ExistsBoolExp) String() string {
+	return ""
 }
 
 type InSubQueryExp struct {
@@ -4067,6 +4348,10 @@ func (bexp *InSubQueryExp) isConstant() bool {
 
 func (bexp *InSubQueryExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *InSubQueryExp) String() string {
+	return ""
 }
 
 // TODO: once InSubQueryExp is supported, this struct may become obsolete by creating a ListDataSource struct
@@ -4175,6 +4460,14 @@ func (bexp *InListExp) isConstant() bool {
 func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	// TODO: may be determiined by smallest and bigggest value in the list
 	return nil
+}
+
+func (bexp *InListExp) String() string {
+	values := make([]string, len(bexp.values))
+	for i, exp := range bexp.values {
+		values[i] = exp.String()
+	}
+	return fmt.Sprintf("%s IN (%s)", bexp.val.String(), strings.Join(values, ","))
 }
 
 type FnDataSourceStmt struct {
@@ -4658,6 +4951,21 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		)
 		err = tx.delete(ctx, mappedKey)
 		if err != nil {
+			return nil, err
+		}
+	}
+
+	// delete checks
+	for name := range table.checkConstraints {
+		key := MapKey(
+			tx.sqlPrefix(),
+			catalogCheckPrefix,
+			EncodeID(DatabaseID),
+			EncodeID(table.id),
+			[]byte(name),
+		)
+
+		if err := tx.delete(ctx, key); err != nil {
 			return nil, err
 		}
 	}

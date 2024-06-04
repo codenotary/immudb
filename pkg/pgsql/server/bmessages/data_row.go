@@ -114,5 +114,10 @@ func renderValueAsByte(v sql.TypedValue) []byte {
 	if v.IsNull() {
 		return nil
 	}
+
+	if v.Type() == sql.VarcharType {
+		s, _ := v.RawValue().(string)
+		return []byte(s)
+	}
 	return []byte(v.String())
 }

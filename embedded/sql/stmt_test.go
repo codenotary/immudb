@@ -1067,7 +1067,7 @@ func TestTypedValueString(t *testing.T) {
 	require.Equal(t, "10", i.String())
 
 	s := &Varchar{val: "test"}
-	require.Equal(t, "test", s.String())
+	require.Equal(t, "'test'", s.String())
 
 	b := &Bool{val: true}
 	require.Equal(t, "true", b.String())
