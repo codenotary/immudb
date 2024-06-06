@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,12 +18,14 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -219,10 +221,15 @@ func TestImmuClient_SQL(t *testing.T) {
 			}
 		})
 
-		t.Run("add column key", func(t *testing.T) {
+		t.Run("add column", func(t *testing.T) {
 			_, err := client.SQLExec(ctx, `
 				ALTER TABLE table1 ADD COLUMN id INTEGER
 				`, nil)
+			require.NoError(t, err)
+
+			_, err = client.SQLExec(ctx, `
+				INSERT INTO table1(id2, id, active, title2) VALUES(4, 44, false, 'new row')
+			`, nil)
 			require.NoError(t, err)
 
 			res, err := client.SQLQuery(ctx, "SELECT id2, id, active, title2 FROM table1", nil, true)
@@ -234,7 +241,222 @@ func TestImmuClient_SQL(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+
+		t.Run("drop column", func(t *testing.T) {
+			_, err := client.SQLExec(ctx, `
+				ALTER TABLE table1 DROP COLUMN id
+			`, nil)
+			require.NoError(t, err)
+
+			res, err := client.SQLQuery(ctx, "SELECT id2, active, title2 FROM table1", nil, true)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			for _, row := range res.Rows {
+				err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+				require.NoError(t, err)
+			}
+		})
 	})
+}
+
+func TestImmuClient_SQLQueryReader(t *testing.T) {
+	options := server.DefaultOptions().WithDir(t.TempDir()).WithMaxResultSize(2)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	ctx := context.Background()
+
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	defer client.CloseSession(ctx)
+
+	_, err = client.SQLExec(ctx, `
+		CREATE TABLE test_table (
+			id INTEGER AUTO_INCREMENT,
+			value INTEGER,
+			data JSON,
+
+			PRIMARY KEY (id)
+		);
+	`, nil)
+	require.NoError(t, err)
+
+	for n := 0; n < 10; n++ {
+		name := fmt.Sprintf("name%d", n)
+
+		_, err := client.SQLExec(
+			ctx,
+			"INSERT INTO test_table(value, data) VALUES (@value, @data)",
+			map[string]interface{}{
+				"value": n + 10,
+				"data":  fmt.Sprintf(`{"name": "%s"}`, name),
+			})
+		require.NoError(t, err)
+	}
+
+	reader, err := client.SQLQueryReader(ctx, "SELECT * FROM test_table WHERE value < 0", nil)
+	require.NoError(t, err)
+
+	_, err = reader.Read()
+	require.Error(t, err)
+
+	require.False(t, reader.Next())
+	_, err = reader.Read()
+	require.ErrorIs(t, err, sql.ErrNoMoreRows)
+
+	_, err = client.SQLQuery(ctx, "SELECT * FROM test_table", nil, false)
+	require.ErrorContains(t, err, database.ErrResultSizeLimitReached.Error())
+
+	reader, err = client.SQLQueryReader(ctx, "SELECT * FROM test_table", nil)
+	require.NoError(t, err)
+
+	cols := reader.Columns()
+	require.Equal(t, cols[0].Name, "(test_table.id)")
+	require.Equal(t, cols[0].Type, sql.IntegerType)
+	require.Equal(t, cols[1].Name, "(test_table.value)")
+	require.Equal(t, cols[1].Type, sql.IntegerType)
+	require.Equal(t, cols[2].Name, "(test_table.data)")
+	require.Equal(t, cols[2].Type, sql.JSONType)
+
+	n := 0
+	for reader.Next() {
+		row, err := reader.Read()
+		require.NoError(t, err)
+		require.Len(t, row, 3)
+
+		name := fmt.Sprintf("name%d", n)
+
+		var data interface{}
+		err = json.Unmarshal([]byte(row[2].(string)), &data)
+		require.NoError(t, err)
+
+		require.Equal(t, int64(n+1), row[0])
+		require.Equal(t, int64(n+10), row[1])
+		require.Equal(t, map[string]interface{}{"name": name}, data)
+		n++
+	}
+
+	require.Equal(t, n, 10)
+	require.NoError(t, reader.Close())
+	require.ErrorIs(t, reader.Close(), sql.ErrAlreadyClosed)
+
+	reader, err = client.SQLQueryReader(ctx, "SELECT * FROM test_table", nil)
+	require.NoError(t, err)
+
+	require.True(t, reader.Next())
+	require.NoError(t, reader.Close())
+	require.False(t, reader.Next())
+
+	row, err := reader.Read()
+	require.Nil(t, row)
+	require.ErrorIs(t, err, sql.ErrAlreadyClosed)
+}
+
+func TestImmuClient_SQL_UserStmts(t *testing.T) {
+	options := server.DefaultOptions().WithDir(t.TempDir())
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	defer client.CloseSession(context.Background())
+
+	users, err := client.SQLQuery(context.Background(), "SHOW USERS", nil, true)
+	require.NoError(t, err)
+	require.Len(t, users.Rows, 1)
+
+	_, err = client.SQLExec(context.Background(), "CREATE USER user1 WITH PASSWORD 'user1Password!' READWRITE", nil)
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "CREATE USER user2 WITH PASSWORD 'user2Password!' READ", nil)
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "CREATE USER user3 WITH PASSWORD 'user3Password!' ADMIN", nil)
+	require.NoError(t, err)
+
+	users, err = client.SQLQuery(context.Background(), "SHOW USERS", nil, true)
+	require.NoError(t, err)
+	require.Len(t, users.Rows, 4)
+
+	user1Client := bs.NewClient(ic.DefaultOptions())
+
+	err = user1Client.OpenSession(
+		context.Background(),
+		[]byte("user1"),
+		[]byte("user1Password!"),
+		"defaultdb",
+	)
+	require.NoError(t, err)
+
+	err = user1Client.CloseSession(context.Background())
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "ALTER USER user1 WITH PASSWORD 'user1Password!!' READ", nil)
+	require.NoError(t, err)
+
+	err = user1Client.OpenSession(
+		context.Background(),
+		[]byte("user1"),
+		[]byte("user1Password!"),
+		"defaultdb",
+	)
+	require.ErrorContains(t, err, "invalid user name or password")
+
+	err = user1Client.OpenSession(
+		context.Background(),
+		[]byte("user1"),
+		[]byte("user1Password!!"),
+		"defaultdb",
+	)
+	require.NoError(t, err)
+
+	err = user1Client.CloseSession(context.Background())
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "ALTER USER user1 WITH PASSWORD 'user1Password!!' READWRITE", nil)
+	require.NoError(t, err)
+
+	users, err = client.SQLQuery(context.Background(), "SHOW USERS", nil, true)
+	require.NoError(t, err)
+	require.Len(t, users.Rows, 4)
+
+	_, err = client.SQLExec(context.Background(), "DROP USER user1", nil)
+	require.NoError(t, err)
+
+	users, err = client.SQLQuery(context.Background(), "SHOW USERS", nil, true)
+	require.NoError(t, err)
+	require.Len(t, users.Rows, 3)
+
+	err = user1Client.OpenSession(
+		context.Background(),
+		[]byte("user1"),
+		[]byte("user1Password!!"),
+		"defaultdb",
+	)
+	require.ErrorContains(t, err, "user is not active")
+
+	_, err = client.SQLExec(context.Background(), "CREATE USER user2 WITH PASSWORD 'user2Password!' READWRITE", nil)
+	require.ErrorContains(t, err, "user already exists")
+
+	_, err = client.SQLExec(context.Background(), "ALTER USER user4 WITH PASSWORD 'user4Password!!' READWRITE", nil)
+	require.ErrorContains(t, err, "not found")
+
+	_, err = user1Client.SQLExec(context.Background(), "SHOW USERS", nil)
+	require.ErrorContains(t, err, "not connected")
+
+	_, err = user1Client.SQLExec(context.Background(), "CREATE USER user4 WITH PASSWORD 'user4Password!' READWRITE", nil)
+	require.ErrorContains(t, err, "not connected")
+
+	_, err = user1Client.SQLExec(context.Background(), "ALTER USER user4 WITH PASSWORD 'user4Password!!' READWRITE", nil)
+	require.ErrorContains(t, err, "not connected")
+
+	_, err = user1Client.SQLExec(context.Background(), "DROP USER user3", nil)
+	require.ErrorContains(t, err, "not connected")
 }
 
 func TestImmuClient_SQL_Errors(t *testing.T) {
@@ -298,4 +520,60 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
 	require.ErrorIs(t, err, ic.ErrNotConnected)
+}
+
+func TestQueryTxMetadata(t *testing.T) {
+	options := server.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithLogRequestMetadata(true)
+
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	defer client.CloseSession(context.Background())
+
+	_, err = client.SQLExec(
+		context.Background(),
+		`CREATE TABLE mytable(
+			id INTEGER,
+			data JSON,
+
+			PRIMARY KEY (id)
+		)`,
+		nil,
+	)
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(
+		context.Background(),
+		`INSERT INTO mytable(id, data) VALUES (1, '{"name": "John Doe"}')`,
+		nil,
+	)
+	require.NoError(t, err)
+
+	it, err := client.SQLQueryReader(
+		context.Background(),
+		"SELECT _tx_metadata FROM mytable",
+		nil,
+	)
+	require.NoError(t, err)
+
+	require.True(t, it.Next())
+
+	row, err := it.Read()
+	require.NoError(t, err)
+
+	var md map[string]interface{}
+	err = json.Unmarshal([]byte(row[0].(string)), &md)
+	require.NoError(t, err)
+
+	require.Equal(
+		t,
+		map[string]interface{}{"usr": "immudb", "ip": "bufconn"},
+		md,
+	)
 }

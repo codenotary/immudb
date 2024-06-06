@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,19 +29,17 @@ var ErrDBNotprovided = errors.New("database name not provided")
 var ErrUsernameNotprovided = errors.New("user name not provided")
 var ErrPwNotprovided = errors.New("password not provided")
 var ErrDBNotExists = errors.New("selected db doesn't exists")
-var ErrUsernameNotFound = errors.New("user not found")
+var ErrInvalidUsernameOrPassword = errors.New("invalid user name or password")
 var ErrExpectedQueryMessage = errors.New("expected query message")
-var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
-var ErrCreateDBStatementNotSupported = errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
+var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported")
 var ErrSSLNotSupported = errors.New("SSL not supported")
 var ErrMaxStmtNumberExceeded = errors.New("maximum number of statements in a single query exceeded")
-var ErrNoStatementFound = errors.New("no statement found")
 var ErrMessageCannotBeHandledInternally = errors.New("message cannot be handled internally")
 var ErrMaxParamsNumberExceeded = errors.New("number of parameters exceeded the maximum limit")
 var ErrParametersValueSizeTooLarge = errors.New("provided parameters exceeded the maximum allowed size limit")
 var ErrNegativeParameterValueLen = errors.New("negative parameter length detected")
 var ErrMalformedMessage = errors.New("malformed message detected")
-var ErrMessageTooLarge = errors.New("payload message hit  allowed memory boundaries")
+var ErrMessageTooLarge = errors.New("payload message hit allowed memory boundaries")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
@@ -79,12 +77,6 @@ func MapPgError(err error) (er bm.ErrorResp) {
 			bm.Code(pgmeta.PgServerErrSyntaxError),
 			bm.Message(err.Error()),
 			bm.Hint("at the moment is possible to receive only 1 statement. Please split query or use a single statement"),
-		)
-	case errors.Is(err, ErrNoStatementFound):
-		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
-			bm.Code(pgmeta.ProgramLimitExceeded),
-			bm.Message(err.Error()),
-			bm.Hint("provide at least one statement"),
 		)
 	case errors.Is(err, ErrParametersValueSizeTooLarge):
 		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),

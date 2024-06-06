@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -32,27 +31,32 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 )
 
-// QueriesMachine ...
-func (s *session) QueriesMachine(ctx context.Context) (err error) {
-	s.Lock()
-	defer s.Unlock()
+const (
+	helpPrefix      = "select relname, nspname, relkind from pg_catalog.pg_class c, pg_catalog.pg_namespace n where relkind in ('r', 'v', 'm', 'f', 'p') and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1') and n.oid = relnamespace order by nspname, relname"
+	tableHelpPrefix = "select n.nspname, c.relname, a.attname, a.atttypid, t.typname, a.attnum, a.attlen, a.atttypmod, a.attnotnull, c.relhasrules, c.relkind, c.oid, pg_get_expr(d.adbin, d.adrelid), case t.typtype when 'd' then t.typbasetype else 0 end, t.typtypmod, c.relhasoids, '', c.relhassubclass from (((pg_catalog.pg_class c inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace and c.relname like '"
 
+	maxRowsPerMessage = 1024
+)
+
+func (s *session) QueryMachine() error {
 	var waitForSync = false
 
-	if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
+	_, err := s.writeMessage(bm.ReadyForQuery())
+	if err != nil {
 		return err
 	}
 
 	for {
 		msg, extQueryMode, err := s.nextMessage()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				s.log.Warningf("connection is closed")
 				return nil
 			}
-			s.ErrorHandle(err)
+			s.HandleError(err)
 			continue
 		}
+
 		// When an error is detected while processing any extended-query message, the backend issues ErrorResponse,
 		// then reads and discards messages until a Sync is reached, then issues ReadyForQuery and returns to normal
 		// message processing. (But note that no skipping occurs if an error is detected while processing Sync — this
@@ -67,34 +71,66 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			if err = s.fetchAndWriteResults(ctx, v.GetStatements(), nil, nil, false); err != nil {
-				s.ErrorHandle(err)
-				continue
+			statements := v.GetStatements()
+
+			if statements == helpPrefix {
+				statements = "show tables"
 			}
-			if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
-				s.ErrorHandle(err)
-				continue
+
+			if strings.HasPrefix(statements, tableHelpPrefix) {
+				tableName := strings.Split(strings.TrimPrefix(statements, tableHelpPrefix), "'")[0]
+				statements = fmt.Sprintf("select column_name as tq, column_name as tow, column_name as tn, column_name as COLUMN_NAME, type_name as DATA_TYPE, type_name as TYPE_NAME, type_name as p, type_name as l, type_name as s, type_name as r, is_nullable as NULLABLE, column_name as rk, column_name as cd, type_name as SQL_DATA_TYPE, type_name as sts, column_name as coll, type_name as orp, is_nullable as IS_NULLABLE, type_name as dz, type_name as ft, type_name as iau, type_name as pn, column_name as toi, column_name as btd, column_name as tmo, column_name as tin from table(%s)", tableName)
 			}
+
+			err := s.fetchAndWriteResults(statements, nil, nil, extQueryMode)
+			if err != nil {
+				waitForSync = extQueryMode
+				s.HandleError(err)
+			}
+
 			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
-				s.ErrorHandle(err)
-				continue
+				waitForSync = extQueryMode
 			}
 		case fm.ParseMsg:
-			var paramCols []*schema.Column
-			var resCols []*schema.Column
-			var stmt sql.SQLStmt
-			if !s.isInBlackList(v.Statements) {
-				if paramCols, resCols, err = s.inferParamAndResultCols(ctx, v.Statements); err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
-					continue
-				}
-			}
 			_, ok := s.statements[v.DestPreparedStatementName]
 			// unnamed prepared statement overrides previous
 			if ok && v.DestPreparedStatementName != "" {
-				s.ErrorHandle(errors.New("statement already present"))
-				waitForSync = true
+				waitForSync = extQueryMode
+				s.HandleError(fmt.Errorf("statement '%s' already present", v.DestPreparedStatementName))
+				continue
+			}
+
+			var paramCols []sql.ColDescriptor
+			var resCols []sql.ColDescriptor
+			var stmt sql.SQLStmt
+
+			if !s.isInBlackList(v.Statements) {
+				stmts, err := sql.Parse(strings.NewReader(v.Statements))
+				if err != nil {
+					waitForSync = extQueryMode
+					s.HandleError(err)
+					continue
+				}
+
+				// Note: as stated in the pgsql spec, the query string contained in a Parse message cannot include more than one SQL statement;
+				// else a syntax error is reported. This restriction does not exist in the simple-query protocol, but it does exist
+				// in the extended protocol, because allowing prepared statements or portals to contain multiple commands would
+				// complicate the protocol unduly.
+				if len(stmts) > 1 {
+					waitForSync = extQueryMode
+					s.HandleError(pserr.ErrMaxStmtNumberExceeded)
+					continue
+				}
+				if paramCols, resCols, err = s.inferParamAndResultCols(stmts[0]); err != nil {
+					waitForSync = extQueryMode
+					s.HandleError(err)
+					continue
+				}
+			}
+
+			_, err = s.writeMessage(bm.ParseComplete())
+			if err != nil {
+				waitForSync = extQueryMode
 				continue
 			}
 
@@ -109,11 +145,6 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 
 			s.statements[v.DestPreparedStatementName] = newStatement
 
-			if _, err = s.writeMessage(bm.ParseComplete()); err != nil {
-				s.ErrorHandle(err)
-				waitForSync = true
-				continue
-			}
 		case fm.DescribeMsg:
 			// The Describe message (statement variant) specifies the name of an existing prepared statement
 			// (or an empty string for the unnamed prepared statement). The response is a ParameterDescription
@@ -126,18 +157,18 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			if v.DescType == "S" {
 				st, ok := s.statements[v.Name]
 				if !ok {
-					s.ErrorHandle(errors.New("statement not found"))
-					waitForSync = true
+					waitForSync = extQueryMode
+					s.HandleError(fmt.Errorf("statement '%s' not found", v.Name))
 					continue
 				}
+
 				if _, err = s.writeMessage(bm.ParameterDescription(st.Params)); err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
+					waitForSync = extQueryMode
 					continue
 				}
+
 				if _, err := s.writeMessage(bm.RowDescription(st.Results, nil)); err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
+					waitForSync = extQueryMode
 					continue
 				}
 			}
@@ -146,42 +177,46 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 			// returned by executing the portal; or a NoData message if the portal does not contain a query that
 			// will return rows; or ErrorResponse if there is no such portal.
 			if v.DescType == "P" {
-				st, ok := s.portals[v.Name]
+				portal, ok := s.portals[v.Name]
 				if !ok {
-					s.ErrorHandle(fmt.Errorf("portal %s not found", v.Name))
-					waitForSync = true
+					waitForSync = extQueryMode
+					s.HandleError(fmt.Errorf("portal '%s' not found", v.Name))
 					continue
 				}
-				if _, err = s.writeMessage(bm.RowDescription(st.Statement.Results, st.ResultColumnFormatCodes)); err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
+
+				if _, err = s.writeMessage(bm.RowDescription(portal.Statement.Results, portal.ResultColumnFormatCodes)); err != nil {
+					waitForSync = extQueryMode
 					continue
 				}
 			}
 		case fm.SyncMsg:
-			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
-				s.ErrorHandle(err)
-			}
+			waitForSync = false
+			s.writeMessage(bm.ReadyForQuery())
 		case fm.BindMsg:
 			_, ok := s.portals[v.DestPortalName]
 			// unnamed portal overrides previous
 			if ok && v.DestPortalName != "" {
-				s.ErrorHandle(fmt.Errorf("portal %s already present", v.DestPortalName))
-				waitForSync = true
+				waitForSync = extQueryMode
+				s.HandleError(fmt.Errorf("portal '%s' already present", v.DestPortalName))
 				continue
 			}
 
 			st, ok := s.statements[v.PreparedStatementName]
 			if !ok {
-				s.ErrorHandle(fmt.Errorf("statement %s not found", v.PreparedStatementName))
-				waitForSync = true
+				waitForSync = extQueryMode
+				s.HandleError(fmt.Errorf("statement '%s' not found", v.PreparedStatementName))
 				continue
 			}
 
 			encodedParams, err := buildNamedParams(st.Params, v.ParamVals)
 			if err != nil {
-				s.ErrorHandle(err)
-				waitForSync = true
+				waitForSync = extQueryMode
+				s.HandleError(err)
+				continue
+			}
+
+			if _, err = s.writeMessage(bm.BindComplete()); err != nil {
+				waitForSync = extQueryMode
 				continue
 			}
 
@@ -191,108 +226,126 @@ func (s *session) QueriesMachine(ctx context.Context) (err error) {
 				Parameters:              encodedParams,
 				ResultColumnFormatCodes: v.ResultColumnFormatCodes,
 			}
-			s.portals[v.DestPortalName] = newPortal
 
-			if _, err = s.writeMessage(bm.BindComplete()); err != nil {
-				s.ErrorHandle(err)
-				waitForSync = true
-				continue
-			}
+			s.portals[v.DestPortalName] = newPortal
 		case fm.Execute:
 			//query execution
-			if err = s.fetchAndWriteResults(ctx, s.portals[v.PortalName].Statement.SQLStatement,
-				s.portals[v.PortalName].Parameters,
-				s.portals[v.PortalName].ResultColumnFormatCodes,
-				true); err != nil {
-				s.ErrorHandle(err)
-				waitForSync = true
+			portal, ok := s.portals[v.PortalName]
+			if !ok {
+				waitForSync = extQueryMode
+				s.HandleError(fmt.Errorf("portal '%s' not found", v.PortalName))
 				continue
 			}
-			if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
-				s.ErrorHandle(err)
-				waitForSync = true
+
+			delete(s.portals, v.PortalName)
+
+			err := s.fetchAndWriteResults(portal.Statement.SQLStatement,
+				portal.Parameters,
+				portal.ResultColumnFormatCodes,
+				extQueryMode,
+			)
+			if err != nil {
+				waitForSync = extQueryMode
+				s.HandleError(err)
 			}
 		case fm.FlushMsg:
 			// there is no buffer to be flushed
 		default:
-			s.ErrorHandle(pserr.ErrUnknowMessageType)
-			continue
+			waitForSync = extQueryMode
+			s.HandleError(pserr.ErrUnknowMessageType)
 		}
 	}
 }
 
-func (s *session) fetchAndWriteResults(ctx context.Context, statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, extQueryMode bool) error {
 	if s.isInBlackList(statements) {
-		return nil
+		_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+		return err
 	}
+
 	if i := s.isEmulableInternally(statements); i != nil {
 		if err := s.tryToHandleInternally(i); err != nil && err != pserr.ErrMessageCannotBeHandledInternally {
 			return err
 		}
-		return nil
+
+		_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+		return err
 	}
 
 	stmts, err := sql.Parse(strings.NewReader(statements))
 	if err != nil {
 		return err
 	}
+
 	for _, stmt := range stmts {
 		switch st := stmt.(type) {
 		case *sql.UseDatabaseStmt:
 			{
 				return pserr.ErrUseDBStatementNotSupported
 			}
-		case *sql.CreateDatabaseStmt:
-			{
-				return pserr.ErrCreateDBStatementNotSupported
-			}
 		case *sql.SelectStmt:
-			if err = s.query(ctx, st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+			if err = s.query(st, parameters, resultColumnFormatCodes, extQueryMode); err != nil {
 				return err
 			}
-		case sql.SQLStmt:
-			if err = s.exec(ctx, st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+		default:
+			if err = s.exec(st, parameters, resultColumnFormatCodes, extQueryMode); err != nil {
 				return err
 			}
 		}
 	}
-	return nil
-}
 
-func (s *session) query(ctx context.Context, st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	res, err := s.database.SQLQueryPrepared(ctx, nil, st, parameters)
+	_, err = s.writeMessage(bm.CommandComplete([]byte("ok")))
 	if err != nil {
 		return err
 	}
-	if res != nil && len(res.Rows) > 0 {
-		if !skipRowDesc {
-			if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
-				return err
-			}
-		}
-		if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), resultColumnFormatCodes)); err != nil {
-			return err
-		}
-		return nil
-	}
-	if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
-		return err
-	}
+
 	return nil
 }
 
-func (s *session) exec(ctx context.Context, st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	tx, err := s.sqlTx()
+	if err != nil {
+		return err
+	}
+
+	reader, err := s.db.SQLQueryPrepared(s.ctx, tx, st, schema.NamedParamsFromProto(parameters))
+	if err != nil {
+		return err
+	}
+
+	cols, err := reader.Columns(s.ctx)
+	if err != nil {
+		return err
+	}
+
+	if !skipRowDesc {
+		if _, err = s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
+			return err
+		}
+	}
+
+	return sql.ReadRowsBatch(s.ctx, reader, maxRowsPerMessage, func(rowBatch []*sql.Row) error {
+		_, err := s.writeMessage(bm.DataRow(rowBatch, len(cols), resultColumnFormatCodes))
+		return err
+	})
+}
+
+func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
 	params := make(map[string]interface{}, len(namedParams))
 
 	for _, p := range namedParams {
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	if _, _, err := s.database.SQLExecPrepared(ctx, nil, []sql.SQLStmt{st}, params); err != nil {
+	tx, err := s.sqlTx()
+	if err != nil {
 		return err
 	}
 
-	return nil
+	ntx, _, err := s.db.SQLExecPrepared(s.ctx, tx, []sql.SQLStmt{st}, params)
+	s.tx = ntx
+
+	return err
 }
 
 type portal struct {
@@ -306,49 +359,26 @@ type statement struct {
 	Name         string
 	SQLStatement string
 	PreparedStmt sql.SQLStmt
-	Params       []*schema.Column
-	Results      []*schema.Column
+	Params       []sql.ColDescriptor
+	Results      []sql.ColDescriptor
 }
 
-func (s *session) inferParamAndResultCols(ctx context.Context, statement string) ([]*schema.Column, []*schema.Column, error) {
-	// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
-	// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
-	// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
-	// multiple commands would complicate the protocol unduly.
-	stmts, err := sql.Parse(strings.NewReader(statement))
-	if err != nil {
-		return nil, nil, err
-	}
-	// The query string contained in a Parse message cannot include more than one SQL statement;
-	// else a syntax error is reported. This restriction does not exist in the simple-query protocol, but it does exist
-	// in the extended protocol, because allowing prepared statements or portals to contain multiple commands would
-	// complicate the protocol unduly.
-	if len(stmts) > 1 {
-		return nil, nil, pserr.ErrMaxStmtNumberExceeded
-	}
-	if len(stmts) == 0 {
-		return nil, nil, pserr.ErrNoStatementFound
-	}
-	stmt := stmts[0]
-
-	resCols := make([]*schema.Column, 0)
+func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]sql.ColDescriptor, []sql.ColDescriptor, error) {
+	var resCols []sql.ColDescriptor
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.database.SQLQueryRowReader(ctx, nil, sel, nil)
+		rr, err := s.db.SQLQueryPrepared(s.ctx, s.tx, sel, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		cols, err := rr.Columns(ctx)
+		resCols, err = rr.Columns(s.ctx)
 		if err != nil {
 			return nil, nil, err
-		}
-		for _, c := range cols {
-			resCols = append(resCols, &schema.Column{Name: c.Selector(), Type: c.Type})
 		}
 	}
 
-	r, err := s.database.InferParametersPrepared(ctx, nil, stmt)
+	r, err := s.db.InferParametersPrepared(s.ctx, s.tx, stmt)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -358,15 +388,14 @@ func (s *session) inferParamAndResultCols(ctx context.Context, statement string)
 	}
 
 	var paramsNameList []string
-	for n, _ := range r {
+	for n := range r {
 		paramsNameList = append(paramsNameList, n)
 	}
 	sort.Strings(paramsNameList)
 
-	paramCols := make([]*schema.Column, 0)
+	paramCols := make([]sql.ColDescriptor, 0)
 	for _, n := range paramsNameList {
-		paramCols = append(paramCols, &schema.Column{Name: n, Type: r[n]})
+		paramCols = append(paramCols, sql.ColDescriptor{Column: n, Type: r[n]})
 	}
-
 	return paramCols, resCols, nil
 }

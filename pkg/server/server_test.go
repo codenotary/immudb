@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/stream"
 	"golang.org/x/crypto/bcrypt"
@@ -168,7 +169,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.ErrorContains(t, err, "password")
 
-		txID, err = s.sysDB.Size()
+		txID, err = s.sysDB.TxCount()
 		require.NoError(t, err)
 	})
 
@@ -179,7 +180,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		err := s.loadSystemDatabase(dbRootpath, nil, "password2", false)
 		require.NoError(t, err)
 
-		currTxID, err := s.sysDB.Size()
+		currTxID, err := s.sysDB.TxCount()
 		require.NoError(t, err)
 		require.Equal(t, txID, currTxID)
 
@@ -198,7 +199,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 
 		// There should be new TX with updated password
-		currTxID, err := s.sysDB.Size()
+		currTxID, err := s.sysDB.TxCount()
 		require.NoError(t, err)
 		require.Equal(t, txID+1, currTxID)
 
@@ -217,7 +218,7 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 
 		// No ne TX is needed
-		currTxID, err := s.sysDB.Size()
+		currTxID, err := s.sysDB.TxCount()
 		require.NoError(t, err)
 		require.Equal(t, txID+1, currTxID)
 
@@ -1007,8 +1008,14 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerInfo(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
+	resp, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
 	require.NoError(t, err)
+
+	require.Equal(t, resp.Version, version.Version)
+	require.Equal(t, resp.StartedAt, startedAt.Unix())
+	require.Equal(t, resp.NumTransactions, int64(16))
+	require.GreaterOrEqual(t, resp.NumDatabases, int32(1))
+	require.Greater(t, resp.DatabasesDiskSize, int64(0))
 }
 
 func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -1235,17 +1242,9 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	countAll, err := s.CountAll(ctx, new(empty.Empty))
 	require.NoError(t, err)
 
-	if countAll.Count != 43 {
-		t.Fatalf("CountAll error: expected %d, got %d", 43, countAll.Count)
+	if countAll.Count == 0 {
+		t.Fatalf("CountAll error >0 got %d", countAll.Count)
 	}
-}
-
-func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.Count(context.Background(), &schema.KeyPrefix{
-		Prefix: kvs[0].Key,
-	})
-	require.NoError(t, err)
-
 }
 
 func TestServerDbOperations(t *testing.T) {
@@ -1280,10 +1279,11 @@ func TestServerDbOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Count(ctx, nil)
-	require.ErrorIs(t, err, ErrNotSupported)
+	require.Contains(t, err.Error(), store.ErrIllegalArguments.Error())
 
-	_, err = s.CountAll(ctx, nil)
-	require.ErrorIs(t, err, ErrNotSupported)
+	res, err := s.CountAll(ctx, nil)
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)
@@ -1310,8 +1310,7 @@ func TestServerDbOperations(t *testing.T) {
 	testServerTxScan(ctx, s, t)
 	testServerSafeReference(ctx, s, t)
 	testServerSafeReferenceError(ctx, s, t)
-	//testServerCount(ctx, s, t)
-	//testServerCountError(ctx, s, t)
+	testServerCount(ctx, s, t)
 }
 
 func TestServerUpdateConfigItem(t *testing.T) {
@@ -1393,17 +1392,15 @@ func TestServerErrors(t *testing.T) {
 	adminCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	// insertNewUser errors
-	_, _, err = s.insertNewUser(context.Background(), []byte("%"), nil, 1, DefaultDBName, true, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), []byte("%"), nil, 1, DefaultDBName, auth.SysAdminUsername)
 	require.ErrorContains(t, err, "username can only contain letters, digits and underscores")
 
 	username := "someusername"
 	usernameBytes := []byte(username)
 	password := "$omePassword1"
 	passwordBytes := []byte(password)
-	_, _, err = s.insertNewUser(context.Background(), usernameBytes, []byte("a"), 1, DefaultDBName, true, auth.SysAdminUsername)
-	require.ErrorContains(t, err, auth.PasswordRequirementsMsg)
 
-	_, _, err = s.insertNewUser(context.Background(), usernameBytes, passwordBytes, 99, DefaultDBName, false, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), usernameBytes, passwordBytes, 99, DefaultDBName, auth.SysAdminUsername)
 	require.ErrorContains(t, err, "unknown permission")
 
 	// getLoggedInUserDataFromUsername errors
@@ -1792,6 +1789,10 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotSupported)
 	_, err = s.UpdateAuthConfig(emptyCtx, &schema.AuthConfig{})
 	require.ErrorIs(t, err, ErrNotSupported)
+	_, err = s.Count(context.Background(), &schema.KeyPrefix{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
+	_, err = s.CountAll(context.Background(), &emptypb.Empty{})
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	// Login errors
 	s.Options.auth = false
@@ -1891,7 +1892,13 @@ func TestServerIsValidDBName(t *testing.T) {
 	err = isValidDBName("-")
 	require.ErrorContains(t, err, "punctuation marks and symbols are not allowed in database name")
 
+	err = isValidDBName("_")
+	require.NoError(t, err)
+
 	err = isValidDBName(strings.Repeat("a", 32))
+	require.NoError(t, err)
+
+	err = isValidDBName("_")
 	require.NoError(t, err)
 }
 
@@ -2033,12 +2040,18 @@ func TestServerDatabaseTruncate(t *testing.T) {
 	_, err := s.KeepAlive(context.Background(), &emptypb.Empty{})
 	require.Error(t, err)
 
+	_, err = s.OpenSession(context.Background(), nil)
+	require.Error(t, err)
+
 	resp, err := s.OpenSession(context.Background(), &schema.OpenSessionRequest{
 		Username:     []byte(auth.SysAdminUsername),
 		Password:     []byte(auth.SysAdminPassword),
 		DatabaseName: DefaultDBName,
 	})
 	require.NoError(t, err)
+
+	_, err = s.KeepAlive(context.Background(), &emptypb.Empty{})
+	require.Error(t, err)
 
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
 

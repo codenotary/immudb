@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
-func RowDescription(cols []*schema.Column, formatCodes []int16) []byte {
+func RowDescription(cols []sql.ColDescriptor, formatCodes []int16) []byte {
 	////##-> dataRowDescription
 	//Byte1('T')
 	messageType := []byte(`T`)
@@ -38,7 +38,7 @@ func RowDescription(cols []*schema.Column, formatCodes []int16) []byte {
 	for n, col := range cols {
 		// The field name.
 		// String
-		fieldName := []byte(col.Name)
+		fieldName := []byte(col.Selector())
 		fieldName = bytes.Join([][]byte{fieldName, {0}}, nil)
 		// If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
 		// Int32

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,10 +40,14 @@ type HeartBeater interface {
 	Stop()
 }
 
-func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, errhandler ErrorHandler) *heartBeater {
+func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, errhandler ErrorHandler, l logger.Logger) *heartBeater {
+	if l == nil {
+		l = logger.NewSimpleLogger("immuclient", stdos.Stdout)
+	}
+
 	return &heartBeater{
 		sessionID:     sessionID,
-		logger:        logger.NewSimpleLogger("immuclient", stdos.Stdout),
+		logger:        l,
 		serviceClient: sc,
 		done:          make(chan struct{}),
 		t:             time.NewTicker(keepAliveInterval),

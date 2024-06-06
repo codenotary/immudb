@@ -19,6 +19,7 @@
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse)
+    - [DatabaseInfo](#immudb.schema.DatabaseInfo)
     - [DatabaseListRequestV2](#immudb.schema.DatabaseListRequestV2)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
     - [DatabaseListResponseV2](#immudb.schema.DatabaseListResponseV2)
@@ -26,7 +27,6 @@
     - [DatabaseSettings](#immudb.schema.DatabaseSettings)
     - [DatabaseSettingsRequest](#immudb.schema.DatabaseSettingsRequest)
     - [DatabaseSettingsResponse](#immudb.schema.DatabaseSettingsResponse)
-    - [DatabaseWithSettings](#immudb.schema.DatabaseWithSettings)
     - [DebugInfo](#immudb.schema.DebugInfo)
     - [DeleteDatabaseRequest](#immudb.schema.DeleteDatabaseRequest)
     - [DeleteDatabaseResponse](#immudb.schema.DeleteDatabaseResponse)
@@ -402,6 +402,25 @@ DEPRECATED
 
 
 
+<a name="immudb.schema.DatabaseInfo"></a>
+
+### DatabaseInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Current database settings |
+| loaded | [bool](#bool) |  | If true, this database is currently loaded into memory |
+| diskSize | [uint64](#uint64) |  | database disk size |
+| numTransactions | [uint64](#uint64) |  | total number of transactions |
+
+
+
+
+
+
 <a name="immudb.schema.DatabaseListRequestV2"></a>
 
 ### DatabaseListRequestV2
@@ -435,7 +454,7 @@ DEPRECATED
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databases | [DatabaseWithSettings](#immudb.schema.DatabaseWithSettings) | repeated | Database list with current database settings |
+| databases | [DatabaseInfo](#immudb.schema.DatabaseInfo) | repeated | Database list with current database settings |
 
 
 
@@ -458,7 +477,7 @@ DEPRECATED
 | excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, do not include commit timestamp in transaction headers |
 | maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commits prepared for write |
 | maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous IO writes |
-| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for transaction logs |
+| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the cache for transaction logs |
 | vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous value files opened |
 | txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous transaction log files opened |
 | commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commit log files opened |
@@ -471,9 +490,10 @@ DEPRECATED
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
 | maxActiveTransactions | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of pre-committed transactions |
 | mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
-| vLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for value logs |
+| vLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the cache for value logs |
 | truncationSettings | [TruncationNullableSettings](#immudb.schema.TruncationNullableSettings) |  | Truncation settings |
 | embeddedValues | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, values are stored together with the transaction header (true by default) |
+| preallocFiles | [NullableBool](#immudb.schema.NullableBool) |  | Enable file preallocation |
 
 
 
@@ -526,23 +546,6 @@ DEPRECATED
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  | Database name |
 | settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Database settings |
-
-
-
-
-
-
-<a name="immudb.schema.DatabaseWithSettings"></a>
-
-### DatabaseWithSettings
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  | Database name |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Current database settings |
-| loaded | [bool](#bool) |  | If true, this database is currently loaded into memory |
 
 
 
@@ -913,7 +916,7 @@ DualProofV2 contains inclusion and consistency proofs
 | ----- | ---- | ----- | ----------- |
 | flushThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes |
 | syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes with file sync |
-| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node LRU cache |
+| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node cache in bytes |
 | maxNodeSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Max size of a single Btree node in bytes |
 | maxActiveSnapshots | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of active btree snapshots |
 | renewSnapRootAfter | [NullableUint64](#immudb.schema.NullableUint64) |  | Time in milliseconds between the most recent DB snapshot is automatically renewed |
@@ -1607,7 +1610,8 @@ Only succeed if given key was not modified after given transaction
 | ----- | ---- | ----- | ----------- |
 | sql | [string](#string) |  | SQL query |
 | params | [NamedParam](#immudb.schema.NamedParam) | repeated | Named query parameters |
-| reuseSnapshot | [bool](#bool) |  | If true, reuse previously opened snapshot |
+| reuseSnapshot | [bool](#bool) |  | **Deprecated.** If true, reuse previously opened snapshot |
+| acceptStream | [bool](#bool) |  | Wheter the client accepts a streaming response |
 
 
 
@@ -1709,6 +1713,10 @@ ServerInfoResponse contains information about the server instance.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | version | [string](#string) |  | The version of the server instance. |
+| startedAt | [int64](#int64) |  | Unix timestamp (seconds) indicating when the server process has been started. |
+| numTransactions | [int64](#int64) |  | Total number of transactions across all databases. |
+| numDatabases | [int32](#int32) |  | Total number of databases present. |
+| databasesDiskSize | [int64](#int64) |  | Total disk size used by all databases. |
 
 
 
@@ -1910,6 +1918,7 @@ TxMetadata contains metadata set to whole transaction
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | truncatedTxID | [uint64](#uint64) |  | Entry expiration information |
+| extra | [bytes](#bytes) |  | Extra data |
 
 
 
@@ -2164,6 +2173,7 @@ Reserved to reply with more advanced response later
 | ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated | Mapping of column names to their IDS |
 | ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated | Mapping of column IDs to their types |
 | ColLenById | [VerifiableSQLEntry.ColLenByIdEntry](#immudb.schema.VerifiableSQLEntry.ColLenByIdEntry) | repeated | Mapping of column IDs to their length constraints |
+| MaxColId | [uint32](#uint32) |  | Variable is used to assign unique ids to new columns as they are created |
 
 
 
@@ -2482,7 +2492,7 @@ immudb gRPC &amp; REST service
 | Commit | [.google.protobuf.Empty](#google.protobuf.Empty) | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) |  |
 | Rollback | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | TxSQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| TxSQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
+| TxSQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) stream |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Set | [SetRequest](#immudb.schema.SetRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
@@ -2535,7 +2545,8 @@ immudb gRPC &amp; REST service
 | replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
 | streamExportTx | [ExportTxRequest](#immudb.schema.ExportTxRequest) stream | [Chunk](#immudb.schema.Chunk) stream |  |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
-| SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
+| UnarySQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) | For backward compatibility with the grpc-gateway API |
+| SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) stream |  |
 | ListTables | [.google.protobuf.Empty](#google.protobuf.Empty) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |

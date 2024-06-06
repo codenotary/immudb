@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,11 +33,14 @@ import (
 func TestOpen(t *testing.T) {
 	s, err := Open(
 		"http://localhost:9000",
+		false,
+		"",
 		"minioadmin",
 		"minioadmin",
 		"immudb",
 		"",
 		"prefix",
+		"",
 	)
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -79,8 +82,11 @@ func TestCornerCases(t *testing.T) {
 	t.Run("bucket name can not be empty", func(t *testing.T) {
 		s, err := Open(
 			"http://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
+			"",
 			"",
 			"",
 			"",
@@ -93,9 +99,12 @@ func TestCornerCases(t *testing.T) {
 	t.Run("bucket name can not contain /", func(t *testing.T) {
 		s, err := Open(
 			"http://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"immudb/test",
+			"",
 			"",
 			"",
 		)
@@ -107,9 +116,12 @@ func TestCornerCases(t *testing.T) {
 	t.Run("prefix must be correctly normalized", func(t *testing.T) {
 		s, err := Open(
 			"http://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"immudb",
+			"",
 			"",
 			"",
 		)
@@ -118,22 +130,28 @@ func TestCornerCases(t *testing.T) {
 
 		s, err = Open(
 			"http://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"immudb",
 			"",
 			"/test/",
+			"",
 		)
 		require.NoError(t, err)
 		require.Equal(t, "test/", s.(*Storage).prefix)
 
 		s, err = Open(
 			"http://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"immudb",
 			"",
 			"/test",
+			"",
 		)
 		require.NoError(t, err)
 		require.Equal(t, "test/", s.(*Storage).prefix)
@@ -142,9 +160,12 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid url", func(t *testing.T) {
 		s, err := Open(
 			"h**s://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"bucket",
+			"",
 			"",
 			"",
 		)
@@ -155,9 +176,12 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid get / put / exists path", func(t *testing.T) {
 		s, err := Open(
 			"htts://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"bucket",
+			"",
 			"",
 			"",
 		)
@@ -179,9 +203,12 @@ func TestCornerCases(t *testing.T) {
 	t.Run("invalid get offset / size", func(t *testing.T) {
 		s, err := Open(
 			"htts://localhost:9000",
+			false,
+			"",
 			"minioadmin",
 			"minioadmin",
 			"bucket",
+			"",
 			"",
 			"",
 		)
@@ -192,12 +219,31 @@ func TestCornerCases(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidArgumentsOffsSize)
 	})
 
-	t.Run("invalid list path", func(t *testing.T) {
+	t.Run("invalid role and credentials settings", func(t *testing.T) {
 		s, err := Open(
-			"https://localhost:9000",
+			"htts://localhost:9000",
+			true,
+			"role",
 			"minioadmin",
 			"minioadmin",
 			"bucket",
+			"",
+			"",
+			"",
+		)
+		require.Error(t, err)
+		require.Nil(t, s)
+	})
+
+	t.Run("invalid list path", func(t *testing.T) {
+		s, err := Open(
+			"https://localhost:9000",
+			false,
+			"",
+			"minioadmin",
+			"minioadmin",
+			"bucket",
+			"",
 			"",
 			"",
 		)
@@ -216,7 +262,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, "", "", "bucket", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -231,7 +277,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, "", "", "bucket", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -246,10 +292,13 @@ func TestSignatureV4(t *testing.T) {
 	//  https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 	s, err := Open(
 		"https://examplebucket.s3.amazonaws.com",
+		false,
+		"",
 		"AKIAIOSFODNN7EXAMPLE",
 		"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"examplebucket",
 		"us-east-1",
+		"",
 		"",
 	)
 	require.NoError(t, err)
@@ -329,7 +378,7 @@ func TestHandlingRedirects(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, "", "", "bucket", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -712,7 +761,7 @@ func TestListEntries(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, "", "", "bucket", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()

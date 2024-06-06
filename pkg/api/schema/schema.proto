@@ -369,6 +369,8 @@ message TxHeader {
 message TxMetadata {
   // Entry expiration information
   uint64 truncatedTxID = 1;
+  // Extra data
+  bytes extra = 2;
 }
 
 // LinearProof contains the linear part of the proof (outside the main Merkle Tree)
@@ -603,6 +605,18 @@ message ServerInfoRequest {}
 message ServerInfoResponse {
   // The version of the server instance.
   string version = 1;
+
+  // Unix timestamp (seconds) indicating when the server process has been started.
+  int64 startedAt = 2;
+
+  // Total number of transactions across all databases.
+  int64 numTransactions = 3;
+
+  // Total number of databases present.
+  int32 numDatabases = 4;
+
+  // Total disk size used by all databases.
+  int64 databasesDiskSize = 5;
 }
 
 message HealthResponse {
@@ -1022,7 +1036,7 @@ message DatabaseNullableSettings {
   // Maximum number of simultaneous IO writes
   NullableUint32 maxIOConcurrency = 14;
 
-  // Size of the LRU cache for transaction logs
+  // Size of the cache for transaction logs
   NullableUint32 txLogCacheSize = 15;
 
   // Maximum number of simultaneous value files opened
@@ -1061,7 +1075,7 @@ message DatabaseNullableSettings {
   // Limit the number of read entries per transaction
   NullableUint32 mvccReadSetLimit = 27;
 
-  // Size of the LRU cache for value logs
+  // Size of the cache for value logs
   NullableUint32 vLogCacheSize = 28;
 
   // Truncation settings
@@ -1130,7 +1144,7 @@ message IndexNullableSettings {
   // Number of new index entries between disk flushes with file sync
   NullableUint32 syncThreshold = 2;
 
-  // Size of the Btree node LRU cache
+  // Size of the Btree node cache in bytes
   NullableUint32 cacheSize = 3;
 
   // Max size of a single Btree node in bytes
@@ -1297,6 +1311,9 @@ message VerifiableSQLEntry {
 
   // Mapping of column IDs to their length constraints
   map<uint32, int32> ColLenById = 11;
+
+  // Variable is used to assign unique ids to new columns as they are created
+  uint32 MaxColId = 12;
 }
 
 message UseDatabaseReply {
@@ -1343,10 +1360,10 @@ message DatabaseListRequestV2 {}
 
 message DatabaseListResponseV2 {
   // Database list with current database settings
-  repeated DatabaseWithSettings databases = 1;
+  repeated DatabaseInfo databases = 1;
 }
 
-message DatabaseWithSettings {
+message DatabaseInfo {
   // Database name
   string name = 1;
 
@@ -1355,6 +1372,12 @@ message DatabaseWithSettings {
 
   // If true, this database is currently loaded into memory
   bool loaded = 3;
+
+  // database disk size
+  uint64 diskSize = 4;
+
+  // total number of transactions
+  uint64 numTransactions = 5;
 }
 
 message Chunk {
@@ -1386,7 +1409,10 @@ message SQLQueryRequest {
   repeated NamedParam params = 2;
 
   // If true, reuse previously opened snapshot
-  bool reuseSnapshot = 3;
+  bool reuseSnapshot = 3 [deprecated = true];
+
+  // Wheter the client accepts a streaming response
+  bool acceptStream = 4;
 }
 
 message NamedParam {
@@ -1572,7 +1598,7 @@ service ImmuService {
 
   rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {}
 
-  rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {}
+  rpc TxSQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {}
 
   rpc Login(LoginRequest) returns (LoginResponse) {
     option deprecated = true;
@@ -1622,7 +1648,7 @@ service ImmuService {
 
   rpc Delete(DeleteKeysRequest) returns (TxHeader) {
     option (google.api.http) = {
-      post: "/db/delete"
+      post: "/db/deletekey"
       body: "*"
     };
   }
@@ -1905,7 +1931,15 @@ service ImmuService {
     };
   }
 
-  rpc SQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+  // For backward compatibility with the grpc-gateway API
+  rpc UnarySQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+    option (google.api.http) = {
+      post: "/db/sqlquery"
+      body: "*"
+    };
+  }
+
+  rpc SQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {
     option (google.api.http) = {
       post: "/db/sqlquery"
       body: "*"

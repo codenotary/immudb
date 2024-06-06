@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -51,11 +52,11 @@ func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 
 	otx := &OngoingTx{}
 
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.NoError(t, err)
 
 	otx.preconditions = []Precondition{nil}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrInvalidPrecondition)
 	require.ErrorIs(t, err, ErrInvalidPreconditionNull)
 
@@ -65,19 +66,19 @@ func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustNotExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
 	}
-	err = otx.checkPreconditions(st)
+	err = otx.checkPreconditions(context.Background(), st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
@@ -90,4 +91,6 @@ func TestOngoingTxOptions(t *testing.T) {
 	require.Error(t, opts.Validate())
 
 	require.Equal(t, 1*time.Hour, opts.WithSnapshotRenewalPeriod(1*time.Hour).SnapshotRenewalPeriod)
+	require.EqualValues(t, 1, opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 1 }).SnapshotMustIncludeTxID(100))
+	require.True(t, opts.WithUnsafeMVCC(true).UnsafeMVCC)
 }

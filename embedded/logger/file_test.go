@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -58,8 +58,24 @@ func TestFileLogger(t *testing.T) {
 	require.NoError(t, err)
 	logOutput = string(logBytes)
 	require.NotContains(t, logOutput, "some debug 3")
-	require.NotContains(t, logOutput, "ome info 2")
+	require.NotContains(t, logOutput, "some info 2")
 	require.Contains(t, logOutput, " WARNING: some warning 3")
 	require.Contains(t, logOutput, " ERROR: some error 3")
+	require.NoError(t, fl3.Close())
+
+	outputFile4 := filepath.Join(name, "test-file-logger-with-debug-level.log")
+	fl4, err := NewFileLoggerWithLevel(name, outputFile4, LogDebug)
+	require.NoError(t, err)
+	fl4.Debugf("some debug %d", 4)
+	fl4.Infof("some info %d", 4)
+	fl4.Warningf("some warning %d", 4)
+	fl4.Errorf("some error %d", 4)
+	logBytes, err = ioutil.ReadFile(outputFile4)
+	require.NoError(t, err)
+	logOutput = string(logBytes)
+	require.Contains(t, logOutput, "some debug 4")
+	require.Contains(t, logOutput, "some info 4")
+	require.Contains(t, logOutput, " WARNING: some warning 4")
+	require.Contains(t, logOutput, " ERROR: some error 4")
 	require.NoError(t, fl3.Close())
 }

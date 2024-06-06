@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ type TxOptions struct {
 	SnapshotRenewalPeriod   time.Duration
 	ExplicitClose           bool
 	UnsafeMVCC              bool
+	Extra                   []byte
 }
 
 func DefaultTxOptions() *TxOptions {
@@ -73,5 +74,10 @@ func (opts *TxOptions) WithExplicitClose(explicitClose bool) *TxOptions {
 
 func (opts *TxOptions) WithUnsafeMVCC(unsafeMVCC bool) *TxOptions {
 	opts.UnsafeMVCC = unsafeMVCC
+	return opts
+}
+
+func (opts *TxOptions) WithExtra(data []byte) *TxOptions {
+	opts.Extra = data
 	return opts
 }

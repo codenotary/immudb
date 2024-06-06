@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 
 type Snapshot struct {
 	st             *ImmuStore
+	prefix         []byte
 	snap           *tbtree.Snapshot
 	ts             time.Time
 	refInterceptor valueRefInterceptor
@@ -56,32 +58,51 @@ var (
 )
 
 type KeyReader interface {
-	Read() (key []byte, val ValueRef, err error)
-	ReadBetween(initialTxID uint64, finalTxID uint64) (key []byte, val ValueRef, err error)
+	Read(ctx context.Context) (key []byte, val ValueRef, err error)
+	ReadBetween(ctx context.Context, initialTxID uint64, finalTxID uint64) (key []byte, val ValueRef, err error)
 	Reset() error
 	Close() error
 }
 
 type KeyReaderSpec struct {
-	SeekKey       []byte
-	EndKey        []byte
-	Prefix        []byte
-	InclusiveSeek bool
-	InclusiveEnd  bool
-	DescOrder     bool
-	Filters       []FilterFn
-	Offset        uint64
+	SeekKey        []byte
+	EndKey         []byte
+	Prefix         []byte
+	InclusiveSeek  bool
+	InclusiveEnd   bool
+	IncludeHistory bool
+	DescOrder      bool
+	Filters        []FilterFn
+	Offset         uint64
 }
 
 func (s *Snapshot) set(key, value []byte) error {
 	return s.snap.Set(key, value)
 }
 
-func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
+func (s *Snapshot) Get(ctx context.Context, key []byte) (valRef ValueRef, err error) {
+	return s.GetWithFilters(ctx, key, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+func (s *Snapshot) GetBetween(ctx context.Context, key []byte, initialTxID, finalTxID uint64) (valRef ValueRef, err error) {
+	indexedVal, tx, hc, err := s.snap.GetBetween(key, initialTxID, finalTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	valRef, err = s.st.valueRefFrom(tx, hc, indexedVal)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.refInterceptor != nil {
+		return s.refInterceptor(key, valRef), nil
+	}
+
+	return valRef, nil
+}
+
+func (s *Snapshot) GetWithFilters(ctx context.Context, key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
 		return nil, err
@@ -110,11 +131,11 @@ func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef Value
 	return valRef, nil
 }
 
-func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return s.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+func (s *Snapshot) GetWithPrefix(ctx context.Context, prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return s.GetWithPrefixAndFilters(ctx, prefix, neq, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *Snapshot) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+func (s *Snapshot) GetWithPrefixAndFilters(ctx context.Context, prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	key, indexedVal, tx, hc, err := s.snap.GetWithPrefix(prefix, neq)
 	if err != nil {
 		return nil, nil, err
@@ -143,8 +164,28 @@ func (s *Snapshot) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ..
 	return key, valRef, nil
 }
 
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
-	return s.snap.History(key, offset, descOrder, limit)
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (valRefs []ValueRef, hCount uint64, err error) {
+	timedValues, hCount, err := s.snap.History(key, offset, descOrder, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	valRefs = make([]ValueRef, len(timedValues))
+
+	for i, timedValue := range timedValues {
+		valRef, err := s.st.valueRefFrom(timedValue.Ts, hCount-uint64(i), timedValue.Value)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		if s.refInterceptor != nil {
+			valRef = s.refInterceptor(key, valRef)
+		}
+
+		valRefs[i] = valRef
+	}
+
+	return valRefs, hCount, nil
 }
 
 func (s *Snapshot) Ts() uint64 {
@@ -157,12 +198,13 @@ func (s *Snapshot) Close() error {
 
 func (s *Snapshot) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	r, err := s.snap.NewReader(tbtree.ReaderSpec{
-		SeekKey:       spec.SeekKey,
-		EndKey:        spec.EndKey,
-		Prefix:        spec.Prefix,
-		InclusiveSeek: spec.InclusiveSeek,
-		InclusiveEnd:  spec.InclusiveEnd,
-		DescOrder:     spec.DescOrder,
+		SeekKey:        spec.SeekKey,
+		EndKey:         spec.EndKey,
+		Prefix:         spec.Prefix,
+		InclusiveSeek:  spec.InclusiveSeek,
+		InclusiveEnd:   spec.InclusiveEnd,
+		IncludeHistory: spec.IncludeHistory,
+		DescOrder:      spec.DescOrder,
 	})
 	if err != nil {
 		return nil, err
@@ -188,6 +230,7 @@ func (s *Snapshot) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		snap:           s,
 		reader:         r,
 		filters:        spec.Filters,
+		includeHistory: spec.IncludeHistory,
 		refInterceptor: refInterceptor,
 		offset:         spec.Offset,
 	}, nil
@@ -201,12 +244,13 @@ type ValueRef interface {
 	KVMetadata() *KVMetadata
 	HVal() [sha256.Size]byte
 	Len() uint32
+	VOff() int64
 }
 
 type valueRef struct {
 	tx     uint64
 	hc     uint64 // version
-	hVal   [32]byte
+	hVal   [sha256.Size]byte
 	vOff   int64
 	valLen uint32
 	txmd   *TxMetadata
@@ -344,48 +388,45 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
+func (v *valueRef) VOff() int64 {
+	return v.vOff
+}
+
 type storeKeyReader struct {
 	snap           *Snapshot
 	reader         *tbtree.Reader
 	filters        []FilterFn
+	includeHistory bool
+
 	refInterceptor valueRefInterceptor
 
 	offset  uint64
 	skipped uint64
 }
 
-func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
+func (r *storeKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
 	for {
-		key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
+		key, indexedVal, tx, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		e, header, err := r.snap.st.ReadTxEntry(ktxID, key, false)
+		val, err = r.snap.st.valueRefFrom(tx, hc, indexedVal)
 		if err != nil {
 			return nil, nil, err
-		}
-
-		val = &valueRef{
-			tx:     header.ID,
-			hc:     hc,
-			hVal:   e.hVal,
-			vOff:   int64(e.vOff),
-			valLen: uint32(e.vLen),
-			txmd:   header.Metadata,
-			kvmd:   e.md,
-			st:     r.snap.st,
 		}
 
 		valRef := r.refInterceptor(key, val)
 
 		filterEntry := false
 
-		for _, filter := range r.filters {
-			err = filter(valRef, r.snap.ts)
-			if err != nil {
-				filterEntry = true
-				break
+		if !r.includeHistory {
+			for _, filter := range r.filters {
+				err = filter(valRef, r.snap.ts)
+				if err != nil {
+					filterEntry = true
+					break
+				}
 			}
 		}
 
@@ -402,7 +443,7 @@ func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte,
 	}
 }
 
-func (r *storeKeyReader) Read() (key []byte, val ValueRef, err error) {
+func (r *storeKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, err error) {
 	for {
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
@@ -418,11 +459,13 @@ func (r *storeKeyReader) Read() (key []byte, val ValueRef, err error) {
 
 		filterEntry := false
 
-		for _, filter := range r.filters {
-			err = filter(valRef, r.snap.ts)
-			if err != nil {
-				filterEntry = true
-				break
+		if !r.includeHistory {
+			for _, filter := range r.filters {
+				err = filter(valRef, r.snap.ts)
+				if err != nil {
+					filterEntry = true
+					break
+				}
 			}
 		}
 

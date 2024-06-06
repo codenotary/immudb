@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -53,19 +53,19 @@ func newHistoryReader(id int, snap *Snapshot, spec *HistoryReaderSpec) (*History
 	}, nil
 }
 
-func (r *HistoryReader) Read() (tss []uint64, err error) {
+func (r *HistoryReader) Read() ([]TimedValue, error) {
 	if r.closed {
 		return nil, ErrAlreadyClosed
 	}
 
-	tss, _, err = r.snapshot.History(r.key, r.offset, r.descOrder, r.readLimit)
+	timedValues, _, err := r.snapshot.History(r.key, r.offset, r.descOrder, r.readLimit)
 	if err != nil {
 		return nil, err
 	}
 
-	r.offset += uint64(len(tss))
+	r.offset += uint64(len(timedValues))
 
-	return tss, nil
+	return timedValues, nil
 }
 
 func (r *HistoryReader) Close() error {

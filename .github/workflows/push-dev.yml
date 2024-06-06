@@ -14,14 +14,14 @@ jobs:
     name: build and push
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v5
       with:
        go-version: ${{ env.GO_VERSION }}
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: |
         GITTAG=$(git rev-parse HEAD | head -c 8)
-        docker build -t codenotary/immudb-dev1:$GITTAG .
-        docker image tag codenotary/immudb-dev1:$GITTAG codenotary/immudb-dev1:latest
+        docker build -t ${{ vars.DOCKER_HUB_USER }}/immudb-dev1:$GITTAG .
+        docker image tag ${{ vars.DOCKER_HUB_USER }}/immudb-dev1:$GITTAG ${{ vars.DOCKER_HUB_USER }}/immudb-dev1:latest
         docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
-        docker image push codenotary/immudb-dev1:$GITTAG
-        docker image push codenotary/immudb-dev1:latest
+        docker image push ${{ vars.DOCKER_HUB_USER }}/immudb-dev1:$GITTAG
+        docker image push ${{ vars.DOCKER_HUB_USER }}/immudb-dev1:latest

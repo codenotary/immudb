@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -41,26 +40,28 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var ErrIllegalArguments = fmt.Errorf("tbtree: %w", embedded.ErrIllegalArguments)
-var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
-var ErrorPathIsNotADirectory = errors.New("tbtree: path is not a directory")
-var ErrReadingFileContent = errors.New("tbtree: error reading required file content")
-var ErrKeyNotFound = fmt.Errorf("tbtree: %w", embedded.ErrKeyNotFound)
-var ErrorMaxKeySizeExceeded = errors.New("tbtree: max key size exceeded")
-var ErrorMaxValueSizeExceeded = errors.New("tbtree: max value size exceeded")
-var ErrOffsetOutOfRange = fmt.Errorf("tbtree: %w", embedded.ErrOffsetOutOfRange)
-var ErrIllegalState = embedded.ErrIllegalState // TODO: grpc error mapping hardly relies on the actual message, see IllegalStateHandlerInterceptor
-var ErrAlreadyClosed = errors.New("tbtree: index already closed")
-var ErrSnapshotsNotClosed = errors.New("tbtree: snapshots not closed")
-var ErrorToManyActiveSnapshots = errors.New("tbtree: max active snapshots limit reached")
-var ErrCorruptedFile = errors.New("tbtree: file is corrupted")
-var ErrCorruptedCLog = errors.New("tbtree: commit log is corrupted")
-var ErrCompactAlreadyInProgress = errors.New("tbtree: compact already in progress")
-var ErrCompactionThresholdNotReached = errors.New("tbtree: compaction threshold not yet reached")
-var ErrIncompatibleDataFormat = errors.New("tbtree: incompatible data format")
-var ErrTargetPathAlreadyExists = errors.New("tbtree: target folder already exists")
-var ErrNoMoreEntries = fmt.Errorf("tbtree: %w", embedded.ErrNoMoreEntries)
-var ErrReadersNotClosed = errors.New("tbtree: readers not closed")
+var (
+	ErrIllegalArguments              = fmt.Errorf("tbtree: %w", embedded.ErrIllegalArguments)
+	ErrInvalidOptions                = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
+	ErrorPathIsNotADirectory         = errors.New("tbtree: path is not a directory")
+	ErrReadingFileContent            = errors.New("tbtree: error reading required file content")
+	ErrKeyNotFound                   = fmt.Errorf("tbtree: %w", embedded.ErrKeyNotFound)
+	ErrorMaxKeySizeExceeded          = errors.New("tbtree: max key size exceeded")
+	ErrorMaxValueSizeExceeded        = errors.New("tbtree: max value size exceeded")
+	ErrOffsetOutOfRange              = fmt.Errorf("tbtree: %w", embedded.ErrOffsetOutOfRange)
+	ErrIllegalState                  = embedded.ErrIllegalState // TODO: grpc error mapping hardly relies on the actual message, see IllegalStateHandlerInterceptor
+	ErrAlreadyClosed                 = errors.New("tbtree: index already closed")
+	ErrSnapshotsNotClosed            = errors.New("tbtree: snapshots not closed")
+	ErrorToManyActiveSnapshots       = errors.New("tbtree: max active snapshots limit reached")
+	ErrCorruptedFile                 = errors.New("tbtree: file is corrupted")
+	ErrCorruptedCLog                 = errors.New("tbtree: commit log is corrupted")
+	ErrCompactAlreadyInProgress      = errors.New("tbtree: compact already in progress")
+	ErrCompactionThresholdNotReached = errors.New("tbtree: compaction threshold not yet reached")
+	ErrIncompatibleDataFormat        = errors.New("tbtree: incompatible data format")
+	ErrTargetPathAlreadyExists       = errors.New("tbtree: target folder already exists")
+	ErrNoMoreEntries                 = fmt.Errorf("tbtree: %w", embedded.ErrNoMoreEntries)
+	ErrReadersNotClosed              = errors.New("tbtree: readers not closed")
+)
 
 const Version = 3
 
@@ -129,7 +130,7 @@ func (e *cLogEntry) serialize() []byte {
 }
 
 func (e *cLogEntry) isValid() bool {
-	return e.initialHLogSize <= e.finalNLogSize &&
+	return e.initialNLogSize <= e.finalNLogSize &&
 		e.rootNodeSize > 0 &&
 		int64(e.rootNodeSize) <= e.finalNLogSize &&
 		e.initialHLogSize <= e.finalHLogSize
@@ -165,11 +166,12 @@ func (e *cLogEntry) deserialize(b []byte) {
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	path   string
+	path string
+
 	logger logger.Logger
 
 	nLog   appendable.Appendable
-	cache  *cache.LRUCache
+	cache  *cache.Cache
 	nmutex sync.Mutex // mutex for cache and file reading
 
 	hLog appendable.Appendable
@@ -199,6 +201,8 @@ type TBtree struct {
 	nodesLogMaxOpenedFiles     int
 	historyLogMaxOpenedFiles   int
 	commitLogMaxOpenedFiles    int
+	appFactory                 AppFactoryFunc
+	appRemove                  AppRemoveFunc
 
 	snapshots      map[uint64]*Snapshot
 	maxSnapshotID  uint64
@@ -226,7 +230,8 @@ type pathNode struct {
 type node interface {
 	insert(kvts []*KVT) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
-	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error)
+	getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error)
+	history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, error)
 	findLeafNode(seekKey []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	minKey() []byte
 	ts() uint64
@@ -276,12 +281,15 @@ type nodeRef struct {
 }
 
 type leafValue struct {
-	key    []byte
-	value  []byte
-	ts     uint64
-	tss    []uint64
-	hOff   int64
-	hCount uint64
+	key         []byte
+	timedValues []TimedValue
+	hOff        int64
+	hCount      uint64
+}
+
+type TimedValue struct {
+	Value []byte
+	Ts    uint64
 }
 
 func Open(path string, opts *Options) (*TBtree, error) {
@@ -325,6 +333,14 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		}
 	}
 
+	appRemove := opts.appRemove
+	if appRemove == nil {
+		appRemove = func(rootPath, subPath string) error {
+			path := filepath.Join(rootPath, subPath)
+			return os.RemoveAll(path)
+		}
+	}
+
 	appendableOpts.WithFileExt("hx")
 	appendableOpts.WithMaxOpenedFiles(opts.historyLogMaxOpenedFiles)
 	hLog, err := appFactory(path, historyFolder, appendableOpts)
@@ -347,13 +363,13 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		snapPath := filepath.Join(path, cFolder)
 
-		opts.logger.Infof("Reading snapshots at '%s'...", snapPath)
+		opts.logger.Infof("reading snapshots at '%s'...", snapPath)
 
 		appendableOpts.WithFileExt("n")
 		appendableOpts.WithMaxOpenedFiles(opts.nodesLogMaxOpenedFiles)
 		nLog, err := appFactory(path, nFolder, appendableOpts)
 		if err != nil {
-			opts.logger.Infof("Skipping snapshots at '%s', reading node data returned: %v", snapPath, err)
+			opts.logger.Infof("skipping snapshots at '%s', reading node data returned: %v", snapPath, err)
 			continue
 		}
 
@@ -362,7 +378,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		cLog, err := appFactory(path, cFolder, appendableOpts)
 		if err != nil {
 			nLog.Close()
-			opts.logger.Infof("Skipping snapshots at '%s', reading commit data returned: %v", snapPath, err)
+			opts.logger.Infof("skipping snapshots at '%s', reading commit data returned: %v", snapPath, err)
 			continue
 		}
 
@@ -371,7 +387,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		cLogSize, err := cLog.Size()
 		if err == nil && cLogSize < cLogEntrySize {
-			opts.logger.Infof("Skipping snapshots at '%s', reading commit data returned: %s", snapPath, "empty clog")
+			opts.logger.Infof("skipping snapshots at '%s', reading commit data returned: %s", snapPath, "empty clog")
 			discardSnapshotsFolder = true
 		}
 		if err == nil && !discardSnapshotsFolder {
@@ -379,7 +395,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 			t, err = OpenWith(path, nLog, hLog, cLog, opts)
 		}
 		if err != nil {
-			opts.logger.Infof("Skipping snapshots at '%s', opening btree returned: %v", snapPath, err)
+			opts.logger.Infof("skipping snapshots at '%s', opening btree returned: %v", snapPath, err)
 			discardSnapshotsFolder = true
 		}
 
@@ -387,20 +403,20 @@ func Open(path string, opts *Options) (*TBtree, error) {
 			nLog.Close()
 			cLog.Close()
 
-			err = discardSnapshots(path, snapIDs[i-1:i], opts.logger)
+			err = discardSnapshots(path, snapIDs[i-1:i], appRemove, opts.logger)
 			if err != nil {
-				opts.logger.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
+				opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 			}
 
 			continue
 		}
 
-		opts.logger.Infof("Successfully read snapshots at '%s'", snapPath)
+		opts.logger.Infof("successfully read snapshots at '%s'", snapPath)
 
 		// Discard older snapshots upon successful validation
-		err = discardSnapshots(path, snapIDs[:i-1], opts.logger)
+		err = discardSnapshots(path, snapIDs[:i-1], appRemove, opts.logger)
 		if err != nil {
-			opts.logger.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
+			opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 		}
 
 		return t, nil
@@ -439,7 +455,7 @@ func snapFolder(folder string, snapID uint64) string {
 }
 
 func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []uint64, err error) {
-	fis, err := ioutil.ReadDir(path)
+	fis, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +469,7 @@ func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []
 
 			id, err := strconv.ParseInt(strings.TrimPrefix(f.Name(), prefix), 10, 64)
 			if err != nil {
-				logger.Warningf("Invalid folder found '%s', skipped during index selection", f.Name())
+				logger.Warningf("invalid folder found '%s', skipped during index selection", f.Name())
 				continue
 			}
 
@@ -464,27 +480,24 @@ func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []
 	return snapIDs, nil
 }
 
-func discardSnapshots(path string, snapIDs []uint64, logger logger.Logger) error {
+func discardSnapshots(path string, snapIDs []uint64, appRemove AppRemoveFunc, logger logger.Logger) error {
 	for _, snapID := range snapIDs {
 		nFolder := snapFolder(nodesFolderPrefix, snapID)
 		cFolder := snapFolder(commitFolderPrefix, snapID)
 
-		nPath := filepath.Join(path, nFolder)
-		cPath := filepath.Join(path, cFolder)
+		logger.Infof("discarding snapshot with id=%d at '%s'..., %d", snapID, path)
 
-		logger.Infof("Discarding snapshots at '%s'...", cPath)
-
-		err := os.RemoveAll(nPath) // TODO: nLog.Remove()
+		err := appRemove(path, nFolder)
 		if err != nil {
 			return err
 		}
 
-		err = os.RemoveAll(cPath) // TODO: cLog.Remove()
+		err = appRemove(path, cFolder)
 		if err != nil {
 			return err
 		}
 
-		logger.Infof("Snapshots at '%s' has been discarded", cPath)
+		logger.Infof("snapshot with id=%d at '%s' has been discarded, %d", snapID, path)
 	}
 
 	return nil
@@ -543,7 +556,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 	}
 
-	cache, err := cache.NewLRUCache(opts.cacheSize)
+	cache, err := cache.NewCache(opts.cacheSize)
 	if err != nil {
 		return nil, err
 	}
@@ -573,6 +586,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		historyLogMaxOpenedFiles: opts.historyLogMaxOpenedFiles,
 		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
 		readOnly:                 opts.readOnly,
+		appFactory:               opts.appFactory,
+		appRemove:                opts.appRemove,
 		snapshots:                make(map[uint64]*Snapshot),
 	}
 
@@ -583,7 +598,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	for cLogSize > 0 {
 		var b [cLogEntrySize]byte
 		n, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			cLogSize -= int64(n)
 			break
 		}
@@ -601,7 +616,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 		if !mustDiscard {
 			nLogChecksum, nerr := appendable.Checksum(t.nLog, cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
-			if nerr != nil && nerr != io.EOF {
+			if nerr != nil && !errors.Is(nerr, io.EOF) {
 				return nil, fmt.Errorf("%w: while calculating nodes log checksum at '%s'", nerr, path)
 			}
 
@@ -610,8 +625,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 				return nil, fmt.Errorf("%w: while calculating history log checksum at '%s'", herr, path)
 			}
 
-			mustDiscard = nerr == io.EOF ||
-				herr == io.EOF ||
+			mustDiscard = errors.Is(nerr, io.EOF) ||
+				errors.Is(herr, io.EOF) ||
 				nLogChecksum != cLogEntry.nLogChecksum ||
 				hLogChecksum != cLogEntry.hLogChecksum
 
@@ -619,7 +634,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		if mustDiscard {
-			t.logger.Infof("Discarding snapshots due to %v at '%s'", err, path)
+			t.logger.Infof("discarding snapshots due to %v at '%s'", err, path)
 
 			discardedCLogEntries += int(t.committedLogSize/cLogEntrySize) + 1
 
@@ -667,7 +682,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		return nil, fmt.Errorf("%w: while setting initial offset of commit log for index '%s'", err, path)
 	}
 
-	opts.logger.Infof("Index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedCLogEntries)
+	opts.logger.Infof("index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedCLogEntries)
 
 	return t, nil
 }
@@ -684,7 +699,14 @@ func greatestKeyOfSize(size int) []byte {
 func requiredNodeSize(maxKeySize, maxValueSize int) int {
 	// space for at least two children is required for inner nodes
 	// 31 bytes are fixed in leafNode serialization while 29 bytes are fixed in innerNodes
-	return 2 * (31 + maxKeySize + maxValueSize)
+	minInnerNode := 2 * (29 + maxKeySize)
+	minLeafNode := 31 + maxKeySize + maxValueSize
+
+	if minInnerNode < minLeafNode {
+		return minLeafNode
+	}
+
+	return minInnerNode
 }
 
 func (t *TBtree) GetOptions() *Options {
@@ -707,14 +729,17 @@ func (t *TBtree) GetOptions() *Options {
 		WithDelayDuringCompaction(t.delayDuringCompaction).
 		WithNodesLogMaxOpenedFiles(t.nodesLogMaxOpenedFiles).
 		WithHistoryLogMaxOpenedFiles(t.historyLogMaxOpenedFiles).
-		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles)
+		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles).
+		WithAppFactory(t.appFactory).
+		WithAppRemoveFunc(t.appRemove)
 }
 
 func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
-	r, _, _ := t.cache.Put(n.offset(), n)
+	size, _ := n.size()
+	r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
 	if r != nil {
 		metricsCacheEvict.WithLabelValues(t.path).Inc()
 	}
@@ -742,7 +767,8 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 		}
 
 		if updateCache {
-			r, _, _ := t.cache.Put(n.offset(), n)
+			size, _ := n.size()
+			r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
 			if r != nil {
 				metricsCacheEvict.WithLabelValues(t.path).Inc()
 			}
@@ -905,18 +931,16 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 		}
 
 		leafValue := &leafValue{
-			key:    key,
-			value:  value,
-			ts:     ts,
-			tss:    nil,
-			hOff:   int64(hOff),
-			hCount: hCount,
+			key:         key,
+			timedValues: []TimedValue{{Value: value, Ts: ts}},
+			hOff:        int64(hOff),
+			hCount:      hCount,
 		}
 
 		l.values[c] = leafValue
 
-		if l._ts < leafValue.ts {
-			l._ts = leafValue.ts
+		if l._ts < ts {
+			l._ts = ts
 		}
 	}
 
@@ -939,7 +963,22 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	return cp(v), ts, hc, err
 }
 
-func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
+func (t *TBtree) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
+
+	if t.closed {
+		return nil, 0, 0, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return nil, 0, 0, ErrIllegalArguments
+	}
+
+	return t.root.getBetween(key, initialTs, finalTs)
+}
+
+func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tvs []TimedValue, hCount uint64, err error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
@@ -980,7 +1019,8 @@ func (t *TBtree) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []b
 	}
 
 	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
-		return leafValue.key, cp(leafValue.value), leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+		currValue := leafValue.timedValue()
+		return leafValue.key, cp(currValue.Value), currValue.Ts, leafValue.historyCount(), nil
 	}
 
 	return nil, nil, 0, 0, ErrKeyNotFound
@@ -994,7 +1034,7 @@ func (t *TBtree) Sync() error {
 		return ErrAlreadyClosed
 	}
 
-	_, _, err := t.flushTree(0, true, false, "Sync")
+	_, _, err := t.flushTree(0, true, false, "sync")
 	return err
 }
 
@@ -1010,7 +1050,7 @@ func (t *TBtree) FlushWith(cleanupPercentage float32, synced bool) (wN, wH int64
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree(cleanupPercentage, synced, true, "FlushWith")
+	return t.flushTree(cleanupPercentage, synced, true, "flushWith")
 }
 
 type appendableWriter struct {
@@ -1037,13 +1077,13 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 		cleanupPercentage = 0
 	}
 
-	t.logger.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, since_cleanup=%d} requested via %s...",
+	t.logger.Infof("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, since_cleanup=%d} requested via %s...",
 		t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, t.insertionCountSinceCleanup,
 		src,
 	)
 
 	if !t.root.mutated() && cleanupPercentage == 0 {
-		t.logger.Infof("Flushing not needed at '%s' {ts=%d, cleanup_percentage=%.2f}", t.path, t.root.ts(), cleanupPercentage)
+		t.logger.Infof("flushing not needed at '%s' {ts=%d, cleanup_percentage=%.2f}", t.path, t.root.ts(), cleanupPercentage)
 		return 0, 0, nil
 	}
 
@@ -1066,7 +1106,7 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 		metricsFlushedNodesTotal,
 		metricsFlushedEntriesLastCycle,
 		metricsFlushedEntriesTotal,
-		"Flushing",
+		"flushing",
 		t.root.ts(),
 		time.Minute,
 	)
@@ -1085,19 +1125,19 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 
 	_, actualNewMinOffset, wN, wH, err := snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	err = t.hLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
@@ -1106,13 +1146,13 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	if sync {
 		err = t.hLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+			return 0, 0, t.wrapNwarn("syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 		}
 
 		err = t.nLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+			return 0, 0, t.wrapNwarn("syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 		}
 	}
@@ -1141,25 +1181,25 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 
 	cLogEntry.nLogChecksum, err = appendable.Checksum(t.nLog, t.committedNLogSize, wN)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	cLogEntry.hLogChecksum, err = appendable.Checksum(t.hLog, t.committedHLogSize, wH)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	_, _, err = t.cLog.Append(cLogEntry.serialize())
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+		return 0, 0, t.wrapNwarn("flushing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 	}
 
@@ -1167,18 +1207,18 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	if cleanupPercentage != 0 {
 		t.insertionCountSinceCleanup = 0
 	}
-	t.logger.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully flushed",
+	t.logger.Infof("index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully flushed",
 		t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage)
 
 	if sync {
 		err = t.cLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+			return 0, 0, t.wrapNwarn("syncing index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 		}
 
 		t.insertionCountSinceSync = 0
-		t.logger.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully synced",
+		t.logger.Infof("index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} successfully synced",
 			t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage)
 
 		// prevent discarding data referenced by opened snapshots
@@ -1190,31 +1230,31 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 		}
 
 		if discardableNLogOffset > t.minOffset {
-			t.logger.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d}...",
+			t.logger.Infof("discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d}...",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, t.minOffset, actualNewMinOffset)
 
 			err = t.nLog.DiscardUpto(discardableNLogOffset)
 			if err != nil {
-				t.logger.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
+				t.logger.Warningf("discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f} returned: %v",
 					t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, err)
 			}
 
 			metricsBtreeNodesDataBeginOffset.WithLabelValues(t.path).Set(float64(discardableNLogOffset))
 
-			t.logger.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d} successfully discarded",
+			t.logger.Infof("unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f/%.2f, current_min_offset=%d, new_min_offset=%d} successfully discarded",
 				t.path, t.root.ts(), cleanupPercentageHint, cleanupPercentage, t.minOffset, actualNewMinOffset)
 		}
 
 		discardableCommitLogOffset := t.committedLogSize - int64(cLogEntrySize*len(t.snapshots)+1)
 		if discardableCommitLogOffset > 0 {
-			t.logger.Infof("Discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d}...", t.path, t.root.ts(), len(t.snapshots))
+			t.logger.Infof("discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d}...", t.path, t.root.ts(), len(t.snapshots))
 
 			err = t.cLog.DiscardUpto(discardableCommitLogOffset)
 			if err != nil {
-				t.logger.Warningf("Discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d} returned: %v", t.path, t.root.ts(), len(t.snapshots), err)
+				t.logger.Warningf("discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d} returned: %v", t.path, t.root.ts(), len(t.snapshots), err)
 			}
 
-			t.logger.Infof("Older snapshots at index '%s' {ts=%d, opened_snapshots=%d} successfully discarded", t.path, t.root.ts(), len(t.snapshots))
+			t.logger.Infof("older snapshots at index '%s' {ts=%d, opened_snapshots=%d} successfully discarded", t.path, t.root.ts(), len(t.snapshots))
 		}
 	}
 
@@ -1325,15 +1365,12 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
-	_, _, err := t.flushTree(0, false, false, "Compact")
+	_, _, err := t.flushTree(0, false, false, "compact")
 	if err != nil {
 		return 0, err
 	}
 
 	snap := t.newSnapshot(0, t.root)
-	if err != nil {
-		return 0, err
-	}
 
 	t.compacting = true
 	defer func() {
@@ -1344,14 +1381,14 @@ func (t *TBtree) Compact() (uint64, error) {
 	t.rwmutex.Unlock()
 	defer t.rwmutex.Lock()
 
-	t.logger.Infof("Dumping index '%s' {ts=%d}...", t.path, snap.Ts())
+	t.logger.Infof("dumping index '%s' {ts=%d}...", t.path, snap.Ts())
 
 	progressOutput, finishOutput := t.buildWriteProgressOutput(
 		metricsCompactedNodesLastCycle,
 		metricsCompactedNodesTotal,
 		metricsCompactedEntriesLastCycle,
 		metricsCompactedEntriesTotal,
-		"Dumping",
+		"dumping",
 		snap.Ts(),
 		time.Minute,
 	)
@@ -1359,10 +1396,10 @@ func (t *TBtree) Compact() (uint64, error) {
 
 	err = t.fullDump(snap, progressOutput)
 	if err != nil {
-		return 0, t.wrapNwarn("Dumping index '%s' {ts=%d} returned: %v", t.path, snap.Ts(), err)
+		return 0, t.wrapNwarn("dumping index '%s' {ts=%d} returned: %v", t.path, snap.Ts(), err)
 	}
 
-	t.logger.Infof("Index '%s' {ts=%d} successfully dumped", t.path, snap.Ts())
+	t.logger.Infof("index '%s' {ts=%d} successfully dumped", t.path, snap.Ts())
 
 	return snap.Ts(), nil
 }
@@ -1488,7 +1525,7 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 }
 
 func (t *TBtree) Close() error {
-	t.logger.Infof("Closing index '%s' {ts=%d}...", t.path, t.root.ts())
+	t.logger.Infof("closing index '%s' {ts=%d}...", t.path, t.root.ts())
 
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
@@ -1505,7 +1542,7 @@ func (t *TBtree) Close() error {
 
 	merrors := multierr.NewMultiErr()
 
-	_, _, err := t.flushTree(0, true, false, "Close")
+	_, _, err := t.flushTree(0, true, false, "close")
 	merrors.Append(err)
 
 	err = t.nLog.Close()
@@ -1519,10 +1556,10 @@ func (t *TBtree) Close() error {
 
 	err = merrors.Reduce()
 	if err != nil {
-		return t.wrapNwarn("Closing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return t.wrapNwarn("closing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
 
-	t.logger.Infof("Index '%s' {ts=%d} successfully closed", t.path, t.root.ts())
+	t.logger.Infof("index '%s' {ts=%d} successfully closed", t.path, t.root.ts())
 	return nil
 }
 
@@ -1546,7 +1583,7 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 	t.insertionCountSinceCleanup++
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "IncreaseTs")
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "increaseTs")
 		return err
 	}
 
@@ -1633,7 +1670,7 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 		if t == 0 {
 			// zero-valued timestamps are associated with current time plus one
 			t = currTs + 1
-		} else if kvt.T < currTs {
+		} else if kvt.T <= currTs { // insertion with a timestamp older or equal to the current timestamp should not be allowed
 			return fmt.Errorf("%w: specific timestamp is older than root's current timestamp", ErrIllegalArguments)
 		}
 
@@ -1691,7 +1728,7 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 	t.insertionCountSinceCleanup += len(immutableKVTs)
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "BulkInsert")
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "bulkInsert")
 		return err
 	}
 
@@ -1766,7 +1803,7 @@ func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(ts uint64, renewalPeriod
 
 		if snapshotRenewalNeeded {
 			// a new snapshot is dumped on disk including current root
-			_, _, err := t.flushTree(t.cleanupPercentage, false, false, "SnapshotSince")
+			_, _, err := t.flushTree(t.cleanupPercentage, false, false, "snapshotSince")
 			if err != nil {
 				return nil, err
 			}
@@ -1924,7 +1961,11 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err err
 	return n.nodes[n.indexOf(key)].get(key)
 }
 
-func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error) {
+func (n *innerNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+	return n.nodes[n.indexOf(key)].getBetween(key, initialTs, finalTs)
+}
+
+func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, error) {
 	return n.nodes[n.indexOf(key)].history(key, offset, descOrder, limit)
 }
 
@@ -2132,7 +2173,15 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error
 	return n.get(key)
 }
 
-func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error) {
+func (r *nodeRef) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+	n, err := r.t.nodeAt(r.off, true)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	return n.getBetween(key, initialTs, finalTs)
+}
+
+func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]TimedValue, uint64, error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, 0, err
@@ -2201,16 +2250,14 @@ func (l *leafNode) insert(kvts []*KVT) (nodes []node, depth int, err error) {
 	}
 
 	for i, lv := range l.values {
-		tss := make([]uint64, len(lv.tss))
-		copy(tss, lv.tss)
+		timedValues := make([]TimedValue, len(lv.timedValues))
+		copy(timedValues, lv.timedValues)
 
 		newLeaf.values[i] = &leafValue{
-			key:    lv.key,
-			value:  lv.value,
-			ts:     lv.ts,
-			tss:    tss,
-			hOff:   lv.hOff,
-			hCount: lv.hCount,
+			key:         lv.key,
+			timedValues: timedValues,
+			hOff:        lv.hOff,
+			hCount:      lv.hCount,
 		}
 	}
 
@@ -2224,28 +2271,24 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 		if found {
 			lv := l.values[i]
 
-			if kvt.T <= lv.ts {
+			if kvt.T < lv.timedValue().Ts {
 				// The validation can be done upfront at bulkInsert,
 				// but postponing it could reduce resource requirements during the earlier stages,
 				// resulting in higher performance due to concurrency.
-				return nil, 0, fmt.Errorf("%w: attempt to insert a value without a newer timestamp", ErrIllegalArguments)
+				return nil, 0, fmt.Errorf("%w: attempt to insert a value without an older timestamp", ErrIllegalArguments)
 			}
 
-			lv.value = kvt.V
-			lv.ts = kvt.T
-			lv.tss = append([]uint64{kvt.T}, lv.tss...)
+			if kvt.T > lv.timedValue().Ts {
+				lv.timedValues = append([]TimedValue{{Value: kvt.V, Ts: kvt.T}}, lv.timedValues...)
+			}
 		} else {
 			values := make([]*leafValue, len(l.values)+1)
 
 			copy(values, l.values[:i])
 
 			values[i] = &leafValue{
-				key:    kvt.K,
-				value:  kvt.V,
-				ts:     kvt.T,
-				tss:    []uint64{kvt.T},
-				hOff:   -1,
-				hCount: 0,
+				key:         kvt.K,
+				timedValues: []TimedValue{{Value: kvt.V, Ts: kvt.T}},
 			}
 
 			copy(values[i+1:], l.values[i:])
@@ -2271,10 +2314,24 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	}
 
 	leafValue := l.values[i]
-	return leafValue.value, leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+	timedValue := leafValue.timedValue()
+
+	return timedValue.Value, timedValue.Ts, leafValue.historyCount(), nil
 }
 
-func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]uint64, uint64, error) {
+func (l *leafNode) getBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+	i, found := l.indexOf(key)
+
+	if !found {
+		return nil, 0, 0, ErrKeyNotFound
+	}
+
+	leafValue := l.values[i]
+
+	return leafValue.lastUpdateBetween(l.t.hLog, initialTs, finalTs)
+}
+
+func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]TimedValue, uint64, error) {
 	i, found := l.indexOf(key)
 
 	if !found {
@@ -2283,7 +2340,11 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 
 	leafValue := l.values[i]
 
-	hCount := leafValue.hCount + uint64(len(leafValue.tss))
+	return leafValue.history(key, offset, desc, limit, l.t.hLog)
+}
+
+func (lv *leafValue) history(key []byte, offset uint64, desc bool, limit int, hLog appendable.Appendable) ([]TimedValue, uint64, error) {
+	hCount := lv.historyCount()
 
 	if offset == hCount {
 		return nil, 0, ErrNoMoreEntries
@@ -2293,45 +2354,56 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 		return nil, 0, ErrOffsetOutOfRange
 	}
 
-	tssLen := limit
+	timedValuesLen := limit
 	if uint64(limit) > hCount-offset {
-		tssLen = int(hCount - offset)
+		timedValuesLen = int(hCount - offset)
 	}
 
-	tss := make([]uint64, tssLen)
+	timedValues := make([]TimedValue, timedValuesLen)
 
 	initAt := offset
 	tssOff := 0
 
 	if !desc {
-		initAt = hCount - offset - uint64(tssLen)
+		initAt = hCount - offset - uint64(timedValuesLen)
 	}
 
-	if initAt < uint64(len(leafValue.tss)) {
-		for i := int(initAt); i < len(leafValue.tss) && tssOff < tssLen; i++ {
+	if initAt < uint64(len(lv.timedValues)) {
+		for i := int(initAt); i < len(lv.timedValues) && tssOff < timedValuesLen; i++ {
 			if desc {
-				tss[tssOff] = leafValue.tss[i]
+				timedValues[tssOff] = lv.timedValues[i]
 			} else {
-				tss[tssLen-1-tssOff] = leafValue.tss[i]
+				timedValues[timedValuesLen-1-tssOff] = lv.timedValues[i]
 			}
 
 			tssOff++
 		}
 	}
 
-	hOff := leafValue.hOff
+	hOff := lv.hOff
 
-	ti := uint64(len(leafValue.tss))
+	ti := uint64(len(lv.timedValues))
 
-	for tssOff < tssLen {
-		r := appendable.NewReaderFrom(l.t.hLog, hOff, DefaultMaxNodeSize)
+	for tssOff < timedValuesLen {
+		r := appendable.NewReaderFrom(hLog, hOff, DefaultMaxNodeSize)
 
 		hc, err := r.ReadUint32()
 		if err != nil {
 			return nil, 0, err
 		}
 
-		for i := 0; i < int(hc) && tssOff < tssLen; i++ {
+		for i := 0; i < int(hc) && tssOff < timedValuesLen; i++ {
+			valueLen, err := r.ReadUint16()
+			if err != nil {
+				return nil, 0, err
+			}
+
+			value := make([]byte, valueLen)
+			_, err = r.Read(value)
+			if err != nil {
+				return nil, 0, err
+			}
+
 			ts, err := r.ReadUint64()
 			if err != nil {
 				return nil, 0, err
@@ -2343,9 +2415,9 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 			}
 
 			if desc {
-				tss[tssOff] = ts
+				timedValues[tssOff] = TimedValue{Value: value, Ts: ts}
 			} else {
-				tss[tssLen-1-tssOff] = ts
+				timedValues[timedValuesLen-1-tssOff] = TimedValue{Value: value, Ts: ts}
 			}
 
 			tssOff++
@@ -2359,7 +2431,7 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 		hOff = int64(prevOff)
 	}
 
-	return tss, hCount, nil
+	return timedValues, hCount, nil
 }
 
 func (l *leafNode) findLeafNode(seekKey []byte, path path, _ int, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
@@ -2452,13 +2524,16 @@ func (l *leafNode) setTs(ts uint64) (node, error) {
 	}
 
 	for i := 0; i < len(l.values); i++ {
+		lv := l.values[i]
+
+		timedValues := make([]TimedValue, len(lv.timedValues))
+		copy(timedValues, lv.timedValues)
+
 		newLeaf.values[i] = &leafValue{
-			key:    l.values[i].key,
-			value:  l.values[i].value,
-			ts:     l.values[i].ts,
-			tss:    l.values[i].tss,
-			hOff:   l.values[i].hOff,
-			hCount: l.values[i].hCount,
+			key:         lv.key,
+			timedValues: timedValues,
+			hOff:        lv.hOff,
+			hCount:      lv.hCount,
 		}
 	}
 
@@ -2473,10 +2548,12 @@ func (l *leafNode) size() (int, error) {
 	size += 2 // kv count
 
 	for _, kv := range l.values {
+		tv := kv.timedValue()
+
 		size += 2             // Key length
 		size += len(kv.key)   // Key
 		size += 2             // Value length
-		size += len(kv.value) // Value
+		size += len(tv.Value) // Value
 		size += 8             // Ts
 		size += 8             // hOff
 		size += 8             // hCount
@@ -2540,28 +2617,36 @@ func (l *leafNode) updateTs() {
 	l._ts = 0
 
 	for i := 0; i < len(l.values); i++ {
-		if l._ts < l.values[i].ts {
-			l._ts = l.values[i].ts
+		if l._ts < l.values[i].timedValue().Ts {
+			l._ts = l.values[i].timedValue().Ts
 		}
 	}
+}
+
+func (lv *leafValue) timedValue() TimedValue {
+	return lv.timedValues[0]
+}
+
+func (lv *leafValue) historyCount() uint64 {
+	return lv.hCount + uint64(len(lv.timedValues))
 }
 
 func (lv *leafValue) size() int {
-	return 16 + len(lv.key) + len(lv.value)
+	return 16 + len(lv.key) + len(lv.timedValue().Value)
 }
 
-func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, finalTs uint64) (ts, hc uint64, err error) {
+func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
 	if initialTs > finalTs {
-		return 0, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	for i, ts := range lv.tss {
-		if ts < initialTs {
-			return 0, 0, ErrKeyNotFound
+	for i, tv := range lv.timedValues {
+		if tv.Ts < initialTs {
+			return nil, 0, 0, ErrKeyNotFound
 		}
 
-		if ts <= finalTs {
-			return ts, lv.hCount + uint64(len(lv.tss)-i-1), nil
+		if finalTs == 0 || tv.Ts <= finalTs {
+			return tv.Value, tv.Ts, lv.historyCount() - uint64(i), nil
 		}
 	}
 
@@ -2573,21 +2658,32 @@ func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, fi
 
 		hc, err := r.ReadUint32()
 		if err != nil {
-			return 0, 0, err
+			return nil, 0, 0, err
 		}
 
 		for j := 0; j < int(hc); j++ {
+			valueLen, err := r.ReadUint16()
+			if err != nil {
+				return nil, 0, 0, err
+			}
+
+			value := make([]byte, valueLen)
+			_, err = r.Read(value)
+			if err != nil {
+				return nil, 0, 0, err
+			}
+
 			ts, err := r.ReadUint64()
 			if err != nil {
-				return 0, 0, err
+				return nil, 0, 0, err
 			}
 
 			if ts < initialTs {
-				return 0, 0, ErrKeyNotFound
+				return nil, 0, 0, ErrKeyNotFound
 			}
 
 			if ts <= finalTs {
-				return ts, lv.hCount - skippedUpdates, nil
+				return value, ts, lv.hCount - skippedUpdates, nil
 			}
 
 			skippedUpdates++
@@ -2595,11 +2691,11 @@ func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, fi
 
 		prevOff, err := r.ReadUint64()
 		if err != nil {
-			return 0, 0, err
+			return nil, 0, 0, err
 		}
 
 		hOff = int64(prevOff)
 	}
 
-	return 0, 0, ErrKeyNotFound
+	return nil, 0, 0, ErrKeyNotFound
 }

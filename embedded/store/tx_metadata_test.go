@@ -1,9 +1,12 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
-Licensed under the Apache License, Version 2.0 (the "License");
+Copyright 2024 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-	http://www.apache.org/licenses/LICENSE-2.0
+
+    https://mariadb.com/bsl11/
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -57,7 +60,7 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = desmd.GetTruncatedTxID()
-	require.ErrorIs(t, err, ErrTxNotPresentInMetadata)
+	require.ErrorIs(t, err, ErrTruncationInfoNotPresentInMetadata)
 
 	desmd.WithTruncatedTxID(1)
 	require.True(t, desmd.HasTruncatedTxID())
@@ -71,11 +74,20 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), v)
 
+	require.Nil(t, desmd.Extra())
+
+	extraData := []byte("extra-data")
+
+	err = desmd.WithExtra(extraData)
+	require.NoError(t, err)
+
+	require.Equal(t, extraData, desmd.Extra())
+
 	require.False(t, desmd.IsEmpty())
 
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Len(t, bs, maxTxMetadataLen)
+	require.LessOrEqual(t, len(bs), maxTxMetadataLen)
 
 	err = desmd.ReadFrom(bs)
 	require.NoError(t, err)

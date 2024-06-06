@@ -19,7 +19,7 @@ func SetupWebconsole(mux *http.ServeMux, l logger.Logger, addr string) error {
 	if err != nil {
 		return err
 	}
-	l.Infof("Webconsole not built-in")
+	l.Infof("webconsole not built-in")
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/missing/", http.StatusTemporaryRedirect)
 	})

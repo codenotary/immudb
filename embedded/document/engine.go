@@ -1,11 +1,11 @@
 /*
-Copyright 2023 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+	https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -129,7 +129,7 @@ func validateFieldName(fieldName string) error {
 	return nil
 }
 
-func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
+func (e *Engine) CreateCollection(ctx context.Context, username, name, documentIdFieldName string, fields []*protomodel.Field, indexes []*protomodel.Index) error {
 	err := validateCollectionName(name)
 	if err != nil {
 		return err
@@ -147,6 +147,7 @@ func (e *Engine) CreateCollection(ctx context.Context, name, documentIdFieldName
 	// only catalog needs to be up to date
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -344,6 +345,8 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 				colType = protomodel.FieldType_BOOLEAN
 			case sql.VarcharType:
 				colType = protomodel.FieldType_STRING
+			case sql.UUIDType:
+				colType = protomodel.FieldType_UUID
 			case sql.IntegerType:
 				colType = protomodel.FieldType_INTEGER
 			case sql.Float64Type:
@@ -373,7 +376,7 @@ func collectionFromTable(table *sql.Table) *protomodel.Collection {
 	return collection
 }
 
-func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, documentIdFieldName string) error {
+func (e *Engine) UpdateCollection(ctx context.Context, username, collectionName string, documentIdFieldName string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -388,6 +391,7 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, do
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -428,7 +432,7 @@ func (e *Engine) UpdateCollection(ctx context.Context, collectionName string, do
 }
 
 // DeleteCollection deletes a collection.
-func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) error {
+func (e *Engine) DeleteCollection(ctx context.Context, username, collectionName string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -436,6 +440,7 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -462,7 +467,103 @@ func (e *Engine) DeleteCollection(ctx context.Context, collectionName string) er
 	return mayTranslateError(err)
 }
 
-func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields []string, isUnique bool) error {
+func (e *Engine) AddField(ctx context.Context, username, collectionName string, field *protomodel.Field) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
+	if field == nil {
+		return fmt.Errorf("%w: no field specified", ErrIllegalArguments)
+	}
+
+	err = validateFieldName(field.Name)
+	if err != nil {
+		return err
+	}
+
+	sqlType, err := protomodelValueTypeToSQLValueType(field.Type)
+	if err != nil {
+		return err
+	}
+
+	colLen, err := sqlValueTypeDefaultLength(sqlType)
+	if err != nil {
+		return err
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	colSpec := sql.NewColSpec(field.Name, sqlType, colLen, false, false)
+
+	addColumnStmt := sql.NewAddColumnStmt(collectionName, colSpec)
+
+	_, _, err = e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		sqlTx,
+		[]sql.SQLStmt{addColumnStmt},
+		nil,
+	)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
+}
+
+func (e *Engine) RemoveField(ctx context.Context, username, collectionName string, fieldName string) error {
+	err := validateCollectionName(collectionName)
+	if err != nil {
+		return err
+	}
+
+	err = validateFieldName(fieldName)
+	if err != nil {
+		return err
+	}
+
+	opts := sql.DefaultTxOptions().
+		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
+		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotRenewalPeriod(0).
+		WithExplicitClose(true)
+
+	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+	defer sqlTx.Cancel()
+
+	dropColumnStmt := sql.NewDropColumnStmt(collectionName, fieldName)
+
+	_, _, err = e.sqlEngine.ExecPreparedStmts(
+		ctx,
+		sqlTx,
+		[]sql.SQLStmt{dropColumnStmt},
+		nil,
+	)
+	if err != nil {
+		return mayTranslateError(err)
+	}
+
+	err = sqlTx.Commit(ctx)
+	return mayTranslateError(err)
+}
+
+func (e *Engine) CreateIndex(ctx context.Context, username, collectionName string, fields []string, isUnique bool) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -474,6 +575,7 @@ func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields 
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -507,7 +609,7 @@ func (e *Engine) CreateIndex(ctx context.Context, collectionName string, fields 
 	return mayTranslateError(err)
 }
 
-func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields []string) error {
+func (e *Engine) DeleteIndex(ctx context.Context, username, collectionName string, fields []string) error {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return err
@@ -519,6 +621,7 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
@@ -552,8 +655,8 @@ func (e *Engine) DeleteIndex(ctx context.Context, collectionName string, fields 
 	return mayTranslateError(err)
 }
 
-func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
-	txID, docIDs, err := e.InsertDocuments(ctx, collectionName, []*structpb.Struct{doc})
+func (e *Engine) InsertDocument(ctx context.Context, username, collectionName string, doc *structpb.Struct) (txID uint64, docID DocumentID, err error) {
+	txID, docIDs, err := e.InsertDocuments(ctx, username, collectionName, []*structpb.Struct{doc})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -561,9 +664,10 @@ func (e *Engine) InsertDocument(ctx context.Context, collectionName string, doc 
 	return txID, docIDs[0], nil
 }
 
-func (e *Engine) InsertDocuments(ctx context.Context, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
+func (e *Engine) InsertDocuments(ctx context.Context, username, collectionName string, docs []*structpb.Struct) (txID uint64, docIDs []DocumentID, err error) {
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
+		WithExtra([]byte(username)).
 		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0)
 
@@ -719,7 +823,7 @@ func (e *Engine) structValueFromFieldPath(doc *structpb.Struct, fieldPath string
 	return nil, fmt.Errorf("%w('%s')", ErrFieldDoesNotExist, fieldPath)
 }
 
-func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
+func (e *Engine) ReplaceDocuments(ctx context.Context, username string, query *protomodel.Query, doc *structpb.Struct) (revisions []*protomodel.DocumentAtRevision, err error) {
 	if query == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -730,7 +834,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 		}
 	}
 
-	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExtra([]byte(username)))
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
@@ -776,7 +880,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 
 	queryStmt := sql.NewSelectStmt(
 		[]sql.Selector{sql.NewColSelector(query.CollectionName, documentIdFieldName)},
-		query.CollectionName,
+		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
@@ -839,12 +943,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, query *protomodel.Query, 
 			return nil, err
 		}
 
-		err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, txID)
-		if err != nil {
-			return nil, err
-		}
-
-		encDoc, err := e.getEncodedDocument(searchKey, 0, false)
+		encDoc, err := e.getEncodedDocument(ctx, searchKey, txID)
 		if err != nil {
 			return nil, err
 		}
@@ -884,7 +983,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 
 	op := sql.NewSelectStmt(
 		[]sql.Selector{sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
-		query.CollectionName,
+		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
@@ -923,13 +1022,22 @@ func (e *Engine) CountDocuments(ctx context.Context, query *protomodel.Query, of
 		return 0, err
 	}
 
-	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")},
-		query.CollectionName,
+	ds := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewColSelector(query.CollectionName, table.Cols()[0].Name())},
+		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
 		sql.NewInteger(int64(query.Limit)),
 		sql.NewInteger(offset),
+	)
+
+	op := sql.NewSelectStmt(
+		[]sql.Selector{sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")},
+		ds,
+		nil,
+		nil,
+		nil,
+		nil,
 	)
 
 	r, err := e.sqlEngine.QueryPreparedStmt(ctx, sqlTx, op, nil)
@@ -964,7 +1072,7 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 		return 0, "", nil, err
 	}
 
-	encodedDoc, err = e.getEncodedDocument(searchKey, txID, false)
+	encodedDoc, err = e.getEncodedDocument(ctx, searchKey, txID)
 	if err != nil {
 		return 0, "", nil, err
 	}
@@ -973,7 +1081,7 @@ func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, 
 }
 
 // AuditDocument returns the audit history of a document.
-func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int) ([]*protomodel.DocumentAtRevision, error) {
+func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID DocumentID, desc bool, offset uint64, limit int, includePayload bool) ([]*protomodel.DocumentAtRevision, error) {
 	err := validateCollectionName(collectionName)
 	if err != nil {
 		return nil, err
@@ -990,34 +1098,29 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 		return nil, err
 	}
 
-	txIDs, hCount, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), desc, limit)
+	valRefs, _, err := e.sqlEngine.GetStore().History(searchKey, uint64(offset), desc, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	revision := offset + 1
-	if desc {
-		revision = hCount - offset
-	}
-
 	results := make([]*protomodel.DocumentAtRevision, 0)
 
-	for _, txID := range txIDs {
-		docAtRevision, err := e.getDocumentAtTransaction(searchKey, txID, false)
+	for _, valRef := range valRefs {
+		docAtRevision, err := e.getDocument(searchKey, valRef, includePayload)
+		if err != nil {
+			return nil, err
+		}
+
+		hdr, err := e.sqlEngine.GetStore().ReadTxHeader(valRef.Tx(), false, false)
 		if err != nil {
 			return nil, err
 		}
 
 		docAtRevision.DocumentId = docID.EncodeToHexString()
-		docAtRevision.Revision = revision
+		docAtRevision.Ts = hdr.Ts
+		docAtRevision.Revision = valRef.HC()
 
 		results = append(results, docAtRevision)
-
-		if desc {
-			revision--
-		} else {
-			revision++
-		}
 	}
 
 	return results, nil
@@ -1143,131 +1246,127 @@ func (e *Engine) getKeyForDocument(ctx context.Context, sqlTx *sql.SQLTx, collec
 
 	searchKey = sql.MapKey(
 		e.sqlEngine.GetPrefix(),
-		sql.PIndexPrefix,
-		sql.EncodeID(1),
+		sql.MappedPrefix,
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(table.PrimaryIndex().ID()),
+		pkEncVals,
 		pkEncVals,
 	)
 
 	return searchKey, nil
 }
 
-func (e *Engine) getDocumentAtTransaction(
-	key []byte,
-	atTx uint64,
-	skipIntegrityCheck bool,
-) (docAtRevision *protomodel.DocumentAtRevision, err error) {
-	encDoc, err := e.getEncodedDocument(key, atTx, skipIntegrityCheck)
-	if err != nil {
-		return nil, err
+func (e *Engine) getDocument(key []byte, valRef store.ValueRef, includePayload bool) (docAtRevision *protomodel.DocumentAtRevision, err error) {
+	var encodedDocVal []byte
+
+	if includePayload {
+		encodedDocVal, err = valRef.Resolve()
+		if err != nil {
+			return nil, mayTranslateError(err)
+		}
+	}
+
+	encDoc := &EncodedDocument{
+		TxID:            valRef.Tx(),
+		Revision:        valRef.HC(),
+		KVMetadata:      valRef.KVMetadata(),
+		EncodedDocument: encodedDocVal,
+	}
+
+	var username string
+
+	if valRef.TxMetadata() != nil {
+		username = string(valRef.TxMetadata().Extra())
 	}
 
 	if encDoc.KVMetadata != nil && encDoc.KVMetadata.Deleted() {
 		return &protomodel.DocumentAtRevision{
 			TransactionId: encDoc.TxID,
+			Username:      username,
 			Metadata:      kvMetadataToProto(encDoc.KVMetadata),
 		}, nil
 	}
 
-	voff := sql.EncLenLen + sql.EncIDLen
+	var doc *structpb.Struct
 
-	// DocumentIDField
-	_, n, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
-	if err != nil {
-		return nil, mayTranslateError(err)
-	}
+	if includePayload {
+		voff := sql.EncLenLen + sql.EncIDLen
 
-	voff += n + sql.EncIDLen
-
-	// DocumentBLOBField
-	encodedDoc, _, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
-	if err != nil {
-		return nil, mayTranslateError(err)
-	}
-
-	docBytes := encodedDoc.RawValue().([]byte)
-
-	doc := &structpb.Struct{}
-	err = proto.Unmarshal(docBytes, doc)
-	if err != nil {
-		return nil, err
-	}
-
-	return &protomodel.DocumentAtRevision{
-		TransactionId: encDoc.TxID,
-		Metadata:      kvMetadataToProto(encDoc.KVMetadata),
-		Document:      doc,
-	}, err
-}
-
-func (e *Engine) getEncodedDocument(
-	key []byte,
-	atTx uint64,
-	skipIntegrityCheck bool,
-) (encDoc *EncodedDocument, err error) {
-
-	var txID uint64
-	var encodedDoc []byte
-	var md *store.KVMetadata
-	var revision uint64
-
-	index := e.sqlEngine.GetStore()
-	if atTx == 0 {
-		valRef, err := index.Get(key)
+		// DocumentIDField
+		_, n, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
 		if err != nil {
 			return nil, mayTranslateError(err)
 		}
 
-		txID = valRef.Tx()
+		voff += n + sql.EncIDLen
 
-		md = valRef.KVMetadata()
-
-		encodedDoc, err = valRef.Resolve()
+		// DocumentBLOBField
+		encodedDoc, _, err := sql.DecodeValue(encDoc.EncodedDocument[voff:], sql.BLOBType)
 		if err != nil {
 			return nil, mayTranslateError(err)
 		}
 
-		// Revision can be calculated from the history count
-		revision = valRef.HC()
-	} else {
-		txID = atTx
-		md, encodedDoc, err = e.readMetadataAndValue(key, atTx, skipIntegrityCheck)
+		docBytes := encodedDoc.RawValue().([]byte)
+
+		doc = &structpb.Struct{}
+		err = proto.Unmarshal(docBytes, doc)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	return &protomodel.DocumentAtRevision{
+		TransactionId: encDoc.TxID,
+		Username:      username,
+		Metadata:      kvMetadataToProto(encDoc.KVMetadata),
+		Document:      doc,
+	}, err
+}
+
+func (e *Engine) getEncodedDocument(ctx context.Context, key []byte, atTx uint64) (encDoc *EncodedDocument, err error) {
+	if atTx > e.sqlEngine.GetStore().LastPrecommittedTxID() {
+		return nil, store.ErrTxNotFound
+	}
+
+	err = e.sqlEngine.GetStore().WaitForIndexingUpto(ctx, atTx)
+	if err != nil {
+		return nil, err
+	}
+
+	var valRef store.ValueRef
+
+	if atTx == 0 {
+		valRef, err = e.sqlEngine.GetStore().Get(ctx, key)
+	} else {
+		valRef, err = e.sqlEngine.GetStore().GetBetween(ctx, key, atTx, atTx)
+	}
+	if errors.Is(err, store.ErrKeyNotFound) {
+		return nil, ErrDocumentNotFound
+	}
+	if err != nil {
+		return nil, mayTranslateError(err)
+	}
+
+	encodedDoc, err := valRef.Resolve()
+	if err != nil {
+		return nil, mayTranslateError(err)
+	}
+
 	return &EncodedDocument{
-		TxID:            txID,
-		Revision:        revision,
-		KVMetadata:      md,
+		TxID:            valRef.Tx(),
+		Revision:        valRef.HC(),
+		KVMetadata:      valRef.KVMetadata(),
 		EncodedDocument: encodedDoc,
 	}, err
 }
 
-func (e *Engine) readMetadataAndValue(key []byte, atTx uint64, skipIntegrityCheck bool) (*store.KVMetadata, []byte, error) {
-	store := e.sqlEngine.GetStore()
-	entry, _, err := store.ReadTxEntry(atTx, key, skipIntegrityCheck)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	v, err := store.ReadValue(entry)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return entry.Metadata(), v, nil
-}
-
 // DeleteDocuments deletes documents matching the query
-func (e *Engine) DeleteDocuments(ctx context.Context, query *protomodel.Query) error {
+func (e *Engine) DeleteDocuments(ctx context.Context, username string, query *protomodel.Query) error {
 	if query == nil {
 		return ErrIllegalArguments
 	}
 
-	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+	sqlTx, err := e.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithExtra([]byte(username)))
 	if err != nil {
 		return mayTranslateError(err)
 	}

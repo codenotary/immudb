@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,7 +44,13 @@ type Storage interface {
 	// Put saves a local file to a remote storage
 	Put(ctx context.Context, name string, fileName string) error
 
-	// Exists checks if a remove resource exists and can be read.
+	// Remove deletes a remote object
+	Remove(ctx context.Context, name string) error
+
+	// RemoveAll deletes all remote objects contained in a folder
+	RemoveAll(ctx context.Context, path string) error
+
+	// Exists checks if a remote resource exists and can be read.
 	// Note that due to an asynchronous nature of cluod storage,
 	// a resource stored with the Put method may not be immediately accessible.
 	Exists(ctx context.Context, name string) (bool, error)

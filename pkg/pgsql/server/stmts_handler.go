@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import (
 
 var set = regexp.MustCompile(`(?i)set\s+.+`)
 var selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
+var dealloc = regexp.MustCompile(`(?i)deallocate\s+\"([^\"]+)\"`)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
@@ -39,14 +40,25 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 	if selectVersion.MatchString(statement) {
 		return &version{}
 	}
+
+	if dealloc.MatchString(statement) {
+		matches := dealloc.FindStringSubmatch(statement)
+		if len(matches) == 2 {
+			return &deallocate{plan: matches[1]}
+		}
+	}
 	return nil
 }
+
 func (s *session) tryToHandleInternally(command interface{}) error {
-	switch command.(type) {
+	switch cmd := command.(type) {
 	case *version:
 		if err := s.writeVersionInfo(); err != nil {
 			return err
 		}
+	case *deallocate:
+		delete(s.statements, cmd.plan)
+		return nil
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -54,3 +66,7 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 }
 
 type version struct{}
+
+type deallocate struct {
+	plan string
+}

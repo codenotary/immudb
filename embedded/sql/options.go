@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,20 +22,26 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-var defaultDistinctLimit = 1 << 20 // ~ 1mi rows
+const (
+	defaultDistinctLimit  = 1 << 20 // ~ 1mi rows
+	defaultSortBufferSize = 1024
+)
 
 type Options struct {
 	prefix                        []byte
+	sortBufferSize                int
 	distinctLimit                 int
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
+	parseTxMetadata               func([]byte) (map[string]interface{}, error)
 
 	multidbHandler MultiDBHandler
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		distinctLimit: defaultDistinctLimit,
+		sortBufferSize: defaultSortBufferSize,
+		distinctLimit:  defaultDistinctLimit,
 	}
 }
 
@@ -46,6 +52,10 @@ func (opts *Options) Validate() error {
 
 	if opts.distinctLimit <= 0 {
 		return fmt.Errorf("%w: invalid DistinctLimit value", store.ErrInvalidOptions)
+	}
+
+	if opts.sortBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid SortBufferSize value", store.ErrInvalidOptions)
 	}
 
 	return nil
@@ -73,5 +83,18 @@ func (opts *Options) WithLazyIndexConstraintValidation(lazyIndexConstraintValida
 
 func (opts *Options) WithMultiDBHandler(multidbHandler MultiDBHandler) *Options {
 	opts.multidbHandler = multidbHandler
+	return opts
+}
+
+// WithSortBufferSize specifies the size of the buffer used to sort rows in-memory
+// when executing queries containing an ORDER BY clause. The default value is 1024.
+// Increasing this value improves sorting speed at the expense of higher memory usage.
+func (opts *Options) WithSortBufferSize(size int) *Options {
+	opts.sortBufferSize = size
+	return opts
+}
+
+func (opts *Options) WithParseTxMetadataFunc(parseFunc func([]byte) (map[string]interface{}, error)) *Options {
+	opts.parseTxMetadata = parseFunc
 	return opts
 }

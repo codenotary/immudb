@@ -23,6 +23,8 @@ type DocumentServiceClient interface {
 	GetCollection(ctx context.Context, in *GetCollectionRequest, opts ...grpc.CallOption) (*GetCollectionResponse, error)
 	UpdateCollection(ctx context.Context, in *UpdateCollectionRequest, opts ...grpc.CallOption) (*UpdateCollectionResponse, error)
 	DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error)
+	AddField(ctx context.Context, in *AddFieldRequest, opts ...grpc.CallOption) (*AddFieldResponse, error)
+	RemoveField(ctx context.Context, in *RemoveFieldRequest, opts ...grpc.CallOption) (*RemoveFieldResponse, error)
 	CreateIndex(ctx context.Context, in *CreateIndexRequest, opts ...grpc.CallOption) (*CreateIndexResponse, error)
 	DeleteIndex(ctx context.Context, in *DeleteIndexRequest, opts ...grpc.CallOption) (*DeleteIndexResponse, error)
 	InsertDocuments(ctx context.Context, in *InsertDocumentsRequest, opts ...grpc.CallOption) (*InsertDocumentsResponse, error)
@@ -81,6 +83,24 @@ func (c *documentServiceClient) UpdateCollection(ctx context.Context, in *Update
 func (c *documentServiceClient) DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error) {
 	out := new(DeleteCollectionResponse)
 	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/DeleteCollection", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) AddField(ctx context.Context, in *AddFieldRequest, opts ...grpc.CallOption) (*AddFieldResponse, error) {
+	out := new(AddFieldResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/AddField", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) RemoveField(ctx context.Context, in *RemoveFieldRequest, opts ...grpc.CallOption) (*RemoveFieldResponse, error) {
+	out := new(RemoveFieldResponse)
+	err := c.cc.Invoke(ctx, "/immudb.model.DocumentService/RemoveField", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +197,8 @@ type DocumentServiceServer interface {
 	GetCollection(context.Context, *GetCollectionRequest) (*GetCollectionResponse, error)
 	UpdateCollection(context.Context, *UpdateCollectionRequest) (*UpdateCollectionResponse, error)
 	DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error)
+	AddField(context.Context, *AddFieldRequest) (*AddFieldResponse, error)
+	RemoveField(context.Context, *RemoveFieldRequest) (*RemoveFieldResponse, error)
 	CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error)
 	DeleteIndex(context.Context, *DeleteIndexRequest) (*DeleteIndexResponse, error)
 	InsertDocuments(context.Context, *InsertDocumentsRequest) (*InsertDocumentsResponse, error)
@@ -206,6 +228,12 @@ func (UnimplementedDocumentServiceServer) UpdateCollection(context.Context, *Upd
 }
 func (UnimplementedDocumentServiceServer) DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteCollection not implemented")
+}
+func (UnimplementedDocumentServiceServer) AddField(context.Context, *AddFieldRequest) (*AddFieldResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddField not implemented")
+}
+func (UnimplementedDocumentServiceServer) RemoveField(context.Context, *RemoveFieldRequest) (*RemoveFieldResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveField not implemented")
 }
 func (UnimplementedDocumentServiceServer) CreateIndex(context.Context, *CreateIndexRequest) (*CreateIndexResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateIndex not implemented")
@@ -332,6 +360,42 @@ func _DocumentService_DeleteCollection_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).DeleteCollection(ctx, req.(*DeleteCollectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_AddField_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddFieldRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).AddField(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/AddField",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).AddField(ctx, req.(*AddFieldRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_RemoveField_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveFieldRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).RemoveField(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.model.DocumentService/RemoveField",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).RemoveField(ctx, req.(*RemoveFieldRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -524,6 +588,14 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteCollection",
 			Handler:    _DocumentService_DeleteCollection_Handler,
+		},
+		{
+			MethodName: "AddField",
+			Handler:    _DocumentService_AddField_Handler,
+		},
+		{
+			MethodName: "RemoveField",
+			Handler:    _DocumentService_RemoveField_Handler,
 		},
 		{
 			MethodName: "CreateIndex",

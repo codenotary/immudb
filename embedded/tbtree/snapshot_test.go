@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,6 +52,9 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.True(t, dumpNBuf.Len() == 0)
 
 	_, _, _, err = snapshot.Get(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, _, _, err = snapshot.GetBetween(nil, 1, 2)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = snapshot.History(nil, 0, false, 1)
@@ -102,6 +105,9 @@ func TestSnapshotClosing(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, err = snapshot.Get([]byte{})
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	_, _, _, err = snapshot.GetBetween([]byte{}, 1, 1)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = snapshot.History([]byte{}, 0, false, 1)
@@ -167,6 +173,12 @@ func TestSnapshotIsolation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotZero(t, ts)
 
+		_, _, _, err = snap1.GetBetween([]byte("key1"), 1, snap1.Ts())
+		require.NoError(t, err)
+
+		_, _, _, err = snap2.GetBetween([]byte("key1"), 1, snap2.Ts())
+		require.NoError(t, err)
+
 		_, _, _, _, err = snap1.GetWithPrefix([]byte("key3"), nil)
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
@@ -211,6 +223,12 @@ func TestSnapshotIsolation(t *testing.T) {
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = snap2.Get([]byte("key1_snap1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, _, err = snap1.GetBetween([]byte("key1_snap2"), 1, snap1.Ts())
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, _, err = snap2.GetBetween([]byte("key1_snap1"), 1, snap2.Ts())
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = tbtree.Get([]byte("key1_snap1"))

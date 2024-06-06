@@ -1,11 +1,11 @@
 /*
-Copyright 2023 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,7 +36,7 @@ type DeleteCollectionsTestSuite struct {
 
 func (s *DeleteCollectionsTestSuite) SetupTest() {
 	s.expect, s.token = actions.OpenSession(s.T())
-	s.collection_name = uuid.New().String()
+	s.collection_name = "a" + uuid.New().String()
 }
 
 func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
@@ -46,7 +46,7 @@ func (s *DeleteCollectionsTestSuite) TestDeleteCollectionCreatedWithName() {
 		WithHeader("grpc-metadata-sessionid", s.token).
 		Expect().
 		Status(http.StatusOK).
-		JSON().Object().Empty()
+		JSON().Object().IsEmpty()
 
 	s.expect.GET(fmt.Sprintf("/collection/%s", s.collection_name)).
 		WithHeader("grpc-metadata-sessionid", s.token).

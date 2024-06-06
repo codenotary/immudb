@@ -8,24 +8,22 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 -->
 
-# immudb [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
+# immudb <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
+
 
 [![Documentation](https://img.shields.io/website?label=Docs&url=https%3A%2F%2Fdocs.immudb.io%2F)](https://docs.immudb.io/)
 [![Build Status](https://github.com/codenotary/immudb/actions/workflows/push.yml/badge.svg)](https://github.com/codenotary/immudb/actions/workflows/push.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
-[![Coverage](https://coveralls.io/repos/github/codenotary/immudb/badge.svg?branch=master&kill_cache=1)](https://coveralls.io/github/codenotary/immudb?branch=master&kill_cache=1)
+[![View SBOM](https://img.shields.io/badge/sbom.sh-viewSBOM-blue?link=https%3A%2F%2Fsbom.sh%2F37cbffcf-1bd3-4daf-86b7-77deb71575b7)](https://sbom.sh/37cbffcf-1bd3-4daf-86b7-77deb71575b7)
 [![Homebrew](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
-[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 [![Discord](https://img.shields.io/discord/831257098368319569)](https://discord.gg/EWeCbkjZVu)
-[![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://www.codenotary.com/join)
-[![Tweet about
-immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
+[![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://www.codenotary.com/job)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/codenotary)](https://artifacthub.io/packages/search?repo=codenotary)
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 20M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 23M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -35,7 +33,7 @@ Detailed documentation can be found at https://docs.immudb.io/
 
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the database. It can operate both as a key-value store, and/or as relational database (SQL).
+immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the database. It can operate as a key-value store, as a document model database, and/or as relational database (SQL).
 
 Traditional database transactions and logs are mutable, and therefore there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being tampered.
 
@@ -59,7 +57,7 @@ Click here to try out the immudb web console access in an [online demo environme
 
 | Topic                   | Description                                        |
 | ----------------------- | -------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (tx-key-value), SQL |
+| DB Model                | Key-Value with 3D access, Document Model, SQL      |
 | Data scheme             | schema-free                                        |
 | Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
 |                         | (sync/async) indexing with extended B-tree         |
@@ -82,11 +80,11 @@ Click here to try out the immudb web console access in an [online demo environme
 
 ### Getting immudb running: executable
 
-You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.5.0 for linux amd64:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.9DOM.1 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.5.0/immudb-v1.5.0-linux-amd64
-mv immudb-v1.5.0-linux-amd64 immudb
+wget https://github.com/codenotary/immudb/releases/download/v1.9DOM.1/immudb-v1.9DOM.1-linux-amd64
+mv immudb-v1.9DOM.1-linux-amd64 immudb
 chmod +x immudb
 
 # run immudb in the foreground to see all output
@@ -180,6 +178,29 @@ such as with AWS ECS Fargate, the identifier can be taken from S3. To enable tha
 export IMMUDB_S3_EXTERNAL_IDENTIFIER=true
 ```
 
+You can also use the role-based credentials for more flexible and secure configuration.
+This allows the service to be used with instance role configuration without a user entity.
+The following example shows how to run immudb with the S3 storage enabled using AWS Roles:
+
+```bash
+export IMMUDB_S3_STORAGE=true
+export IMMUDB_S3_ROLE_ENABLED=true
+export IMMUDB_S3_BUCKET_NAME=<BUCKET NAME>
+export IMMUDB_S3_LOCATION=<AWS S3 REGION>
+export IMMUDB_S3_PATH_PREFIX=testing-001
+export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCATION}.amazonaws.com"
+
+./immudb
+```
+
+Optionally, you can specify the exact role immudb should be using with:
+
+```bash
+export IMMUDB_S3_ROLE=<AWS S3 ACCESS ROLE NAME>
+```
+
+Remember, the `IMMUDB_S3_ROLE_ENABLED` parameter still should be on.
+
 You can also easily use immudb with compatible s3 alternatives
 such as the [minio](https://github.com/minio/minio) server:
 
@@ -249,11 +270,11 @@ We have SDKs available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
 2. Golang ([golang sdk](https://pkg.go.dev/github.com/codenotary/immudb/pkg/client), [Gorm adapter](https://github.com/codenotary/immugorm))
-3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+3. .net [immudb4net](https://github.com/codenotary/immudb4net)
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
-To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/jumpstart.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
+To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/immudb.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
 
 Our [immudb Playground](https://play.codenotary.com) provides a guided environment to learn the Python SDK.
 
@@ -295,10 +316,14 @@ The following topics are important to us and are planned or already being worked
 
 We welcome [contributors](CONTRIBUTING.md). Feel free to join the team!
 
+<a href="https://github.com/codenotary/immudb/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=codenotary/immudb" />
+</a>
+
 Learn how to [build](BUILD.md) immudb components in both binary and Docker image form.
 
 To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/immudb/issues).
 
-immudb is licensed under the [Apache v2.0 License](LICENSE).
+immudb is licensed under the [Business Source License 1.1](LICENSE).
 
 immudb re-distributes other open-source tools and libraries - [Acknowledgements](ACKNOWLEDGEMENTS.md).

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,10 +25,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAppendableLRUCache(t *testing.T) {
-	genericCache, err := cache.NewLRUCache(5)
+func TestAppendableCache(t *testing.T) {
+	genericCache, err := cache.NewCache(5)
 	require.NoError(t, err)
-	c := appendableLRUCache{cache: genericCache}
+	c := appendableCache{cache: genericCache}
 
 	m1 := &mocked.MockedAppendable{}
 	id, app, err := c.Put(1, m1)
@@ -57,7 +57,7 @@ func TestAppendableLRUCache(t *testing.T) {
 	m2 := &mocked.MockedAppendable{}
 	id, app, err = c.Put(7, m2)
 	require.NoError(t, err)
-	require.EqualValues(t, 1, id)
+	require.EqualValues(t, 2, id)
 	require.Equal(t, m1, app)
 
 	m3 := &mocked.MockedAppendable{}
@@ -82,5 +82,4 @@ func TestAppendableLRUCache(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-
 }

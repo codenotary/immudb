@@ -35,7 +35,7 @@ type ImmuServiceClient interface {
 	Commit(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CommittedSQLTx, error)
 	Rollback(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	TxSQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	TxSQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
+	TxSQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (ImmuService_TxSQLQueryClient, error)
 	// Deprecated: Do not use.
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	// Deprecated: Do not use.
@@ -107,7 +107,9 @@ type ImmuServiceClient interface {
 	ReplicateTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_ReplicateTxClient, error)
 	StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExportTxClient, error)
 	SQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*SQLExecResult, error)
-	SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
+	// For backward compatibility with the grpc-gateway API
+	UnarySQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
+	SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (ImmuService_SQLQueryClient, error)
 	ListTables(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	DescribeTable(ctx context.Context, in *Table, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	VerifiableSQLGet(ctx context.Context, in *VerifiableSQLGetRequest, opts ...grpc.CallOption) (*VerifiableSQLEntry, error)
@@ -250,13 +252,36 @@ func (c *immuServiceClient) TxSQLExec(ctx context.Context, in *SQLExecRequest, o
 	return out, nil
 }
 
-func (c *immuServiceClient) TxSQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error) {
-	out := new(SQLQueryResult)
-	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/TxSQLQuery", in, out, opts...)
+func (c *immuServiceClient) TxSQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (ImmuService_TxSQLQueryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[0], "/immudb.schema.ImmuService/TxSQLQuery", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &immuServiceTxSQLQueryClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_TxSQLQueryClient interface {
+	Recv() (*SQLQueryResult, error)
+	grpc.ClientStream
+}
+
+type immuServiceTxSQLQueryClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceTxSQLQueryClient) Recv() (*SQLQueryResult, error) {
+	m := new(SQLQueryResult)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Deprecated: Do not use.
@@ -627,7 +652,7 @@ func (c *immuServiceClient) CompactIndex(ctx context.Context, in *emptypb.Empty,
 }
 
 func (c *immuServiceClient) StreamGet(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (ImmuService_StreamGetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[0], "/immudb.schema.ImmuService/streamGet", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[1], "/immudb.schema.ImmuService/streamGet", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -659,7 +684,7 @@ func (x *immuServiceStreamGetClient) Recv() (*Chunk, error) {
 }
 
 func (c *immuServiceClient) StreamSet(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamSetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[1], "/immudb.schema.ImmuService/streamSet", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[2], "/immudb.schema.ImmuService/streamSet", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +718,7 @@ func (x *immuServiceStreamSetClient) CloseAndRecv() (*TxHeader, error) {
 }
 
 func (c *immuServiceClient) StreamVerifiableGet(ctx context.Context, in *VerifiableGetRequest, opts ...grpc.CallOption) (ImmuService_StreamVerifiableGetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[2], "/immudb.schema.ImmuService/streamVerifiableGet", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[3], "/immudb.schema.ImmuService/streamVerifiableGet", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -725,7 +750,7 @@ func (x *immuServiceStreamVerifiableGetClient) Recv() (*Chunk, error) {
 }
 
 func (c *immuServiceClient) StreamVerifiableSet(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamVerifiableSetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[3], "/immudb.schema.ImmuService/streamVerifiableSet", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[4], "/immudb.schema.ImmuService/streamVerifiableSet", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -759,7 +784,7 @@ func (x *immuServiceStreamVerifiableSetClient) CloseAndRecv() (*VerifiableTx, er
 }
 
 func (c *immuServiceClient) StreamScan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (ImmuService_StreamScanClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[4], "/immudb.schema.ImmuService/streamScan", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[5], "/immudb.schema.ImmuService/streamScan", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -791,7 +816,7 @@ func (x *immuServiceStreamScanClient) Recv() (*Chunk, error) {
 }
 
 func (c *immuServiceClient) StreamZScan(ctx context.Context, in *ZScanRequest, opts ...grpc.CallOption) (ImmuService_StreamZScanClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[5], "/immudb.schema.ImmuService/streamZScan", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[6], "/immudb.schema.ImmuService/streamZScan", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +848,7 @@ func (x *immuServiceStreamZScanClient) Recv() (*Chunk, error) {
 }
 
 func (c *immuServiceClient) StreamHistory(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (ImmuService_StreamHistoryClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[6], "/immudb.schema.ImmuService/streamHistory", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[7], "/immudb.schema.ImmuService/streamHistory", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -855,7 +880,7 @@ func (x *immuServiceStreamHistoryClient) Recv() (*Chunk, error) {
 }
 
 func (c *immuServiceClient) StreamExecAll(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExecAllClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[7], "/immudb.schema.ImmuService/streamExecAll", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[8], "/immudb.schema.ImmuService/streamExecAll", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -889,7 +914,7 @@ func (x *immuServiceStreamExecAllClient) CloseAndRecv() (*TxHeader, error) {
 }
 
 func (c *immuServiceClient) ExportTx(ctx context.Context, in *ExportTxRequest, opts ...grpc.CallOption) (ImmuService_ExportTxClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[8], "/immudb.schema.ImmuService/exportTx", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[9], "/immudb.schema.ImmuService/exportTx", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -921,7 +946,7 @@ func (x *immuServiceExportTxClient) Recv() (*Chunk, error) {
 }
 
 func (c *immuServiceClient) ReplicateTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_ReplicateTxClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[9], "/immudb.schema.ImmuService/replicateTx", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[10], "/immudb.schema.ImmuService/replicateTx", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -955,7 +980,7 @@ func (x *immuServiceReplicateTxClient) CloseAndRecv() (*TxHeader, error) {
 }
 
 func (c *immuServiceClient) StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExportTxClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[10], "/immudb.schema.ImmuService/streamExportTx", opts...)
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[11], "/immudb.schema.ImmuService/streamExportTx", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -994,13 +1019,45 @@ func (c *immuServiceClient) SQLExec(ctx context.Context, in *SQLExecRequest, opt
 	return out, nil
 }
 
-func (c *immuServiceClient) SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error) {
+func (c *immuServiceClient) UnarySQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error) {
 	out := new(SQLQueryResult)
-	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SQLQuery", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/UnarySQLQuery", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *immuServiceClient) SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (ImmuService_SQLQueryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[12], "/immudb.schema.ImmuService/SQLQuery", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceSQLQueryClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_SQLQueryClient interface {
+	Recv() (*SQLQueryResult, error)
+	grpc.ClientStream
+}
+
+type immuServiceSQLQueryClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceSQLQueryClient) Recv() (*SQLQueryResult, error) {
+	m := new(SQLQueryResult)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *immuServiceClient) ListTables(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error) {
@@ -1059,7 +1116,7 @@ type ImmuServiceServer interface {
 	Commit(context.Context, *emptypb.Empty) (*CommittedSQLTx, error)
 	Rollback(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	TxSQLExec(context.Context, *SQLExecRequest) (*emptypb.Empty, error)
-	TxSQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
+	TxSQLQuery(*SQLQueryRequest, ImmuService_TxSQLQueryServer) error
 	// Deprecated: Do not use.
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	// Deprecated: Do not use.
@@ -1131,7 +1188,9 @@ type ImmuServiceServer interface {
 	ReplicateTx(ImmuService_ReplicateTxServer) error
 	StreamExportTx(ImmuService_StreamExportTxServer) error
 	SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error)
-	SQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
+	// For backward compatibility with the grpc-gateway API
+	UnarySQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
+	SQLQuery(*SQLQueryRequest, ImmuService_SQLQueryServer) error
 	ListTables(context.Context, *emptypb.Empty) (*SQLQueryResult, error)
 	DescribeTable(context.Context, *Table) (*SQLQueryResult, error)
 	VerifiableSQLGet(context.Context, *VerifiableSQLGetRequest) (*VerifiableSQLEntry, error)
@@ -1184,8 +1243,8 @@ func (UnimplementedImmuServiceServer) Rollback(context.Context, *emptypb.Empty) 
 func (UnimplementedImmuServiceServer) TxSQLExec(context.Context, *SQLExecRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TxSQLExec not implemented")
 }
-func (UnimplementedImmuServiceServer) TxSQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TxSQLQuery not implemented")
+func (UnimplementedImmuServiceServer) TxSQLQuery(*SQLQueryRequest, ImmuService_TxSQLQueryServer) error {
+	return status.Errorf(codes.Unimplemented, "method TxSQLQuery not implemented")
 }
 func (UnimplementedImmuServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
@@ -1343,8 +1402,11 @@ func (UnimplementedImmuServiceServer) StreamExportTx(ImmuService_StreamExportTxS
 func (UnimplementedImmuServiceServer) SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SQLExec not implemented")
 }
-func (UnimplementedImmuServiceServer) SQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SQLQuery not implemented")
+func (UnimplementedImmuServiceServer) UnarySQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnarySQLQuery not implemented")
+}
+func (UnimplementedImmuServiceServer) SQLQuery(*SQLQueryRequest, ImmuService_SQLQueryServer) error {
+	return status.Errorf(codes.Unimplemented, "method SQLQuery not implemented")
 }
 func (UnimplementedImmuServiceServer) ListTables(context.Context, *emptypb.Empty) (*SQLQueryResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTables not implemented")
@@ -1622,22 +1684,25 @@ func _ImmuService_TxSQLExec_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_TxSQLQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SQLQueryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _ImmuService_TxSQLQuery_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SQLQueryRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(ImmuServiceServer).TxSQLQuery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/immudb.schema.ImmuService/TxSQLQuery",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).TxSQLQuery(ctx, req.(*SQLQueryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ImmuServiceServer).TxSQLQuery(m, &immuServiceTxSQLQueryServer{stream})
+}
+
+type ImmuService_TxSQLQueryServer interface {
+	Send(*SQLQueryResult) error
+	grpc.ServerStream
+}
+
+type immuServiceTxSQLQueryServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceTxSQLQueryServer) Send(m *SQLQueryResult) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _ImmuService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2634,22 +2699,43 @@ func _ImmuService_SQLExec_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_SQLQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ImmuService_UnarySQLQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SQLQueryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImmuServiceServer).SQLQuery(ctx, in)
+		return srv.(ImmuServiceServer).UnarySQLQuery(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/immudb.schema.ImmuService/SQLQuery",
+		FullMethod: "/immudb.schema.ImmuService/UnarySQLQuery",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).SQLQuery(ctx, req.(*SQLQueryRequest))
+		return srv.(ImmuServiceServer).UnarySQLQuery(ctx, req.(*SQLQueryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_SQLQuery_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SQLQueryRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ImmuServiceServer).SQLQuery(m, &immuServiceSQLQueryServer{stream})
+}
+
+type ImmuService_SQLQueryServer interface {
+	Send(*SQLQueryResult) error
+	grpc.ServerStream
+}
+
+type immuServiceSQLQueryServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceSQLQueryServer) Send(m *SQLQueryResult) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _ImmuService_ListTables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2786,10 +2872,6 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TxSQLExec",
 			Handler:    _ImmuService_TxSQLExec_Handler,
-		},
-		{
-			MethodName: "TxSQLQuery",
-			Handler:    _ImmuService_TxSQLQuery_Handler,
 		},
 		{
 			MethodName: "Login",
@@ -2956,8 +3038,8 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ImmuService_SQLExec_Handler,
 		},
 		{
-			MethodName: "SQLQuery",
-			Handler:    _ImmuService_SQLQuery_Handler,
+			MethodName: "UnarySQLQuery",
+			Handler:    _ImmuService_UnarySQLQuery_Handler,
 		},
 		{
 			MethodName: "ListTables",
@@ -2977,6 +3059,11 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "TxSQLQuery",
+			Handler:       _ImmuService_TxSQLQuery_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "streamGet",
 			Handler:       _ImmuService_StreamGet_Handler,
@@ -3032,6 +3119,11 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _ImmuService_StreamExportTx_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "SQLQuery",
+			Handler:       _ImmuService_SQLQuery_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "schema.proto",

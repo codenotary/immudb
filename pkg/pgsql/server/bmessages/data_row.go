@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/embedded/sql"
 )
 
 // DataRow if ResultColumnFormatCodes is nil default text format is used
-func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) []byte {
+func DataRow(rows []*sql.Row, colNumb int, ResultColumnFormatCodes []int16) []byte {
 	rowsB := make([]byte, 0)
 	for _, row := range rows {
 		rowB := make([]byte, 0)
@@ -37,7 +37,7 @@ func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) [
 		columnNumb := make([]byte, 2)
 		binary.BigEndian.PutUint16(columnNumb, uint16(colNumb))
 
-		for i, val := range row.Values {
+		for i, val := range row.ValuesByPosition {
 			if val == nil {
 				return nil
 			}
@@ -46,50 +46,56 @@ func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) [
 			value := make([]byte, 0)
 
 			BINformat := false
-			if ResultColumnFormatCodes != nil && len(ResultColumnFormatCodes) == 1 {
+			if len(ResultColumnFormatCodes) == 1 {
 				BINformat = ResultColumnFormatCodes[0] == 1
 			}
 			if ResultColumnFormatCodes != nil && len(ResultColumnFormatCodes) > i && ResultColumnFormatCodes[i] == 1 {
 				BINformat = true
 			}
 			if BINformat {
-				switch tv := val.Value.(type) {
-				case *schema.SQLValue_Null:
-					{
-						n := -1
-						binary.BigEndian.PutUint32(valueLength, uint32(n))
-					}
-				case *schema.SQLValue_N:
-					{
-						binary.BigEndian.PutUint32(valueLength, uint32(8))
-						value = make([]byte, 8)
-						binary.BigEndian.PutUint64(value, uint64(tv.N))
-					}
-				case *schema.SQLValue_S:
-					{
-						binary.BigEndian.PutUint32(valueLength, uint32(len(tv.S)))
-						value = make([]byte, len(tv.S))
-						value = []byte(tv.S)
-					}
-				case *schema.SQLValue_B:
-					{
-						binary.BigEndian.PutUint32(valueLength, uint32(1))
-						value = make([]byte, 1)
-						value = []byte{0}
-						if tv.B {
-							value = []byte{1}
+				if val.IsNull() {
+					n := -1
+					binary.BigEndian.PutUint32(valueLength, uint32(n))
+				} else {
+					rv := val.RawValue()
+					switch val.Type() {
+					case sql.IntegerType:
+						{
+							binary.BigEndian.PutUint32(valueLength, uint32(8))
+							value = make([]byte, 8)
+							binary.BigEndian.PutUint64(value, uint64(rv.(int64)))
 						}
-					}
-				case *schema.SQLValue_Bs:
-					{
-						binary.BigEndian.PutUint32(valueLength, uint32(len(tv.Bs)))
-						value = make([]byte, len(tv.Bs))
-						value = tv.Bs
+					case sql.JSONType:
+						{
+							jsonStr := val.String()
+							binary.BigEndian.PutUint32(valueLength, uint32(len(jsonStr)))
+							value = []byte(jsonStr)
+						}
+					case sql.VarcharType:
+						{
+							s := rv.(string)
+							binary.BigEndian.PutUint32(valueLength, uint32(len(s)))
+							value = []byte(s)
+						}
+					case sql.BooleanType:
+						{
+							binary.BigEndian.PutUint32(valueLength, uint32(1))
+							value = []byte{0}
+							if rv.(bool) {
+								value = []byte{1}
+							}
+						}
+					case sql.BLOBType:
+						{
+							blob := rv.([]byte)
+							binary.BigEndian.PutUint32(valueLength, uint32(len(blob)))
+							value = blob
+						}
 					}
 				}
 			} else {
 				// only text format is allowed in simple query
-				value = schema.RenderValueAsByte(val.Value)
+				value = renderValueAsByte(val)
 			}
 			binary.BigEndian.PutUint32(valueLength, uint32(len(value)))
 			//  As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
@@ -108,4 +114,11 @@ func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) [
 		rowsB = append(rowsB, bytes.Join([][]byte{messageType, selfMessageLength, columnNumb, rowB}, nil)...)
 	}
 	return rowsB
+}
+
+func renderValueAsByte(v sql.TypedValue) []byte {
+	if v.IsNull() {
+		return nil
+	}
+	return []byte(v.String())
 }

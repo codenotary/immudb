@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+// Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -47,6 +47,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     col *ColSelector
     sel Selector
     sels []Selector
+    jsonFields []string
     distinct bool
     ds DataSource
     tableRef *tableRef
@@ -67,14 +68,17 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     update *colUpdate
     updates []*colUpdate
     onConflict *OnConflictDo
+    permission Permission
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
+%token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
+%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST SCAST
+%token SHOW DATABASES TABLES USERS
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -90,6 +94,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 %token <dot> DOT
+%token <arrow> ARROW
 
 %left  ','
 %right AS
@@ -115,6 +120,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <value> val fnCall
 %type <sel> selector
 %type <sels> opt_selectors selectors
+%type <jsonFields> jsonFields
 %type <col> col
 %type <distinct> opt_distinct opt_all
 %type <ds> ds
@@ -139,6 +145,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <update> update
 %type <updates> updates
 %type <onConflict> opt_on_conflict
+%type <permission> permission
 
 %start sql
 
@@ -211,6 +218,11 @@ ddlstmt:
         $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
     }
 |
+    DROP TABLE IDENTIFIER
+    {
+        $$ = &DropTableStmt{table: $3}
+    }
+|
     CREATE INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
     {
         $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7}
@@ -221,14 +233,69 @@ ddlstmt:
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
     }
 |
+    DROP INDEX ON IDENTIFIER '(' ids ')'
+    {
+        $$ = &DropIndexStmt{table: $4, cols: $6}
+    }
+|
+    DROP INDEX IDENTIFIER DOT IDENTIFIER
+    {
+        $$ = &DropIndexStmt{table: $3, cols: []string{$5}}
+    }
+|
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
 |
+    ALTER TABLE IDENTIFIER RENAME TO IDENTIFIER
+    {
+        $$ = &RenameTableStmt{oldName: $3, newName: $6}
+    }
+|
     ALTER TABLE IDENTIFIER RENAME COLUMN IDENTIFIER TO IDENTIFIER
     {
         $$ = &RenameColumnStmt{table: $3, oldName: $6, newName: $8}
+    }
+|
+    ALTER TABLE IDENTIFIER DROP COLUMN IDENTIFIER
+    {
+        $$ = &DropColumnStmt{table: $3, colName: $6}
+    }
+|
+    CREATE USER IDENTIFIER WITH PASSWORD VARCHAR permission
+    {
+        $$ = &CreateUserStmt{username: $3, password: $6, permission: $7}
+    }
+|
+    ALTER USER IDENTIFIER WITH PASSWORD VARCHAR permission
+    {
+        $$ = &AlterUserStmt{username: $3, password: $6, permission: $7}
+    }
+|
+    DROP USER IDENTIFIER
+    {
+        $$ = &DropUserStmt{username: $3}
+    }
+
+permission:
+    {
+        $$ = PermissionReadWrite
+    }
+|
+    READ
+    {
+        $$ = PermissionReadOnly
+    }
+|
+    READWRITE
+    {
+        $$ = PermissionReadWrite
+    }
+|
+    ADMIN
+    {
+        $$ = PermissionAdmin
     }
 
 opt_if_not_exists:
@@ -453,6 +520,11 @@ opt_max_len:
     {
         $$ = $2
     }
+|
+    '(' INTEGER ')'
+    {
+        $$ = $2
+    }
 
 opt_auto_increment:
     {
@@ -491,6 +563,34 @@ dqlstmt:
             distinct: $3,
             left: $1.(DataSource),
             right: $4.(DataSource),
+        }
+    }
+|
+    SHOW DATABASES
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "databases"}},
+        }
+    }
+|
+    SHOW TABLES
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "tables"}},
+        }
+    }
+|
+    SHOW TABLE IDENTIFIER
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "table", params: []ValueExp{&Varchar{val: $3}}}},
+        }
+    }
+|
+    SHOW USERS
+    {
+        $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "users"}},
         }
     }
 
@@ -561,6 +661,11 @@ selector:
         $$ = $1
     }
 |
+    col jsonFields
+    {
+        $$ = &JSONSelector{ColSelector: $1, fields: $2}
+    }
+|
     AGGREGATE_FUNC '(' '*' ')'
     {
         $$ = &AggColSelector{aggFn: $1, col: "*"}
@@ -569,6 +674,17 @@ selector:
     AGGREGATE_FUNC '(' col ')'
     {
         $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col}
+    }
+
+jsonFields:
+    ARROW VARCHAR
+    {
+        $$ = []string{$2}
+    }
+|
+    jsonFields ARROW VARCHAR
+    {
+        $$ = append($$, $3)
     }
 
 col:
@@ -596,9 +712,34 @@ ds:
         $$ = $2.(DataSource)
     }
 |
+    DATABASES '(' ')' opt_as
+    {
+        $$ = &FnDataSourceStmt{fnCall: &FnCall{fn: "databases"}, as: $4}
+    }
+|
+    TABLES '(' ')' opt_as
+    {
+        $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "tables"}, as: $4}
+    }
+|
+    TABLE '(' IDENTIFIER ')'
+    {
+        $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "table", params: []ValueExp{&Varchar{val: $3}}}}
+    }
+|
+    USERS '(' ')' opt_as
+    {
+        $$ = &FnDataSourceStmt{fnCall:  &FnCall{fn: "users"}, as: $4}
+    }
+|
     fnCall opt_as
     {
         $$ = &FnDataSourceStmt{fnCall: $1.(*FnCall), as: $2}
+    }
+|
+    '(' HISTORY OF IDENTIFIER ')' opt_as
+    {
+        $$ = &tableRef{table: $4, history: true, as: $6}
     }
 
 tableRef:
@@ -762,12 +903,12 @@ opt_indexon:
     }
 
 ordcols:
-    col opt_ord
+    selector opt_ord
     {
         $$ = []*OrdCol{{sel: $1, descOrder: $2}}
     }
 |
-    ordcols ',' col opt_ord
+    ordcols ',' selector opt_ord
     {
         $$ = append($1, &OrdCol{sel: $3, descOrder: $4})
     }

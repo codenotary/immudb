@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -77,6 +77,10 @@ func TestStats_Status(t *testing.T) {
 	out, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
 	assert.Contains(t, string(out), "OK - server is reachable and responding to queries")
+	assert.Contains(t, string(out), "Version")
+	assert.Contains(t, string(out), "Up time")
+	assert.Contains(t, string(out), "Databases")
+	assert.Contains(t, string(out), "Transactions")
 }
 
 func TestStats_StatsText(t *testing.T) {

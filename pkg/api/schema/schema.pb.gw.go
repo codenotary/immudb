@@ -1642,7 +1642,7 @@ func local_request_ImmuService_SQLExec_0(ctx context.Context, marshaler runtime.
 
 }
 
-func request_ImmuService_SQLQuery_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ImmuService_UnarySQLQuery_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq SQLQueryRequest
 	var metadata runtime.ServerMetadata
 
@@ -1654,12 +1654,12 @@ func request_ImmuService_SQLQuery_0(ctx context.Context, marshaler runtime.Marsh
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.SQLQuery(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.UnarySQLQuery(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ImmuService_SQLQuery_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ImmuService_UnarySQLQuery_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq SQLQueryRequest
 	var metadata runtime.ServerMetadata
 
@@ -1671,8 +1671,33 @@ func local_request_ImmuService_SQLQuery_0(ctx context.Context, marshaler runtime
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.SQLQuery(ctx, &protoReq)
+	msg, err := server.UnarySQLQuery(ctx, &protoReq)
 	return msg, metadata, err
+
+}
+
+func request_ImmuService_SQLQuery_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (ImmuService_SQLQueryClient, runtime.ServerMetadata, error) {
+	var protoReq SQLQueryRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	stream, err := client.SQLQuery(ctx, &protoReq)
+	if err != nil {
+		return nil, metadata, err
+	}
+	header, err := stream.Header()
+	if err != nil {
+		return nil, metadata, err
+	}
+	metadata.HeaderMD = header
+	return stream, metadata, nil
 
 }
 
@@ -2860,7 +2885,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_SQLQuery_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuService_UnarySQLQuery_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -2871,7 +2896,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_SQLQuery_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuService_UnarySQLQuery_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -2879,8 +2904,15 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_SQLQuery_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuService_UnarySQLQuery_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
+	})
+
+	mux.Handle("POST", pattern_ImmuService_SQLQuery_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
+		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+		return
 	})
 
 	mux.Handle("GET", pattern_ImmuService_ListTables_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -3936,6 +3968,26 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
+	mux.Handle("POST", pattern_ImmuService_UnarySQLQuery_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_ImmuService_UnarySQLQuery_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ImmuService_UnarySQLQuery_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_ImmuService_SQLQuery_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -3952,7 +4004,7 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_SQLQuery_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuService_SQLQuery_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -4062,7 +4114,7 @@ var (
 
 	pattern_ImmuService_VerifiableGet_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"db", "verifiable", "get"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "delete"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "deletekey"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_GetAll_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "getall"}, "", runtime.AssumeColonVerbOpt(true)))
 
@@ -4131,6 +4183,8 @@ var (
 	pattern_ImmuService_CompactIndex_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "compactindex"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_SQLExec_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "sqlexec"}, "", runtime.AssumeColonVerbOpt(true)))
+
+	pattern_ImmuService_UnarySQLQuery_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "sqlquery"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_SQLQuery_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "sqlquery"}, "", runtime.AssumeColonVerbOpt(true)))
 
@@ -4236,7 +4290,9 @@ var (
 
 	forward_ImmuService_SQLExec_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_SQLQuery_0 = runtime.ForwardResponseMessage
+	forward_ImmuService_UnarySQLQuery_0 = runtime.ForwardResponseMessage
+
+	forward_ImmuService_SQLQuery_0 = runtime.ForwardResponseStream
 
 	forward_ImmuService_ListTables_0 = runtime.ForwardResponseMessage
 

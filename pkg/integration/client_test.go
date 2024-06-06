@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -69,6 +69,7 @@ func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuC
 		WithWebServer(true).
 		WithDir(filepath.Join(t.TempDir(), "data")).
 		WithAuth(true).
+		WithLogRequestMetadata(true).
 		WithSigningKey("./../../test/signer/ec1.key"),
 	)
 
@@ -1195,15 +1196,17 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 func TestImmuClient_Count(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.Count(ctx, []byte(`key1`))
-	require.ErrorContains(t, err, server.ErrNotSupported.Error())
+	res, err := client.Count(ctx, []byte(`key1`))
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.CountAll(ctx)
-	require.ErrorContains(t, err, server.ErrNotSupported.Error())
+	res, err := client.CountAll(ctx)
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 }
 
 /*
@@ -1647,4 +1650,35 @@ func (ts TokenServiceMock) WithHds(hds homedir.HomedirService) tokenservice.Toke
 
 func (ts TokenServiceMock) WithTokenFileName(tfn string) tokenservice.TokenService {
 	return ts
+}
+
+func TestServerLogRequestMetadata(t *testing.T) {
+	_, client, ctx := setupTestServerAndClient(t)
+
+	requireMetadataPresent := func(hdr *schema.TxHeader) {
+		txmd := schema.Metadata{}
+		err := txmd.Unmarshal(hdr.Metadata.Extra)
+		require.NoError(t, err)
+
+		require.Equal(t, schema.Metadata{schema.UserRequestMetadataKey: auth.SysAdminUsername, schema.IpRequestMetadataKey: "bufconn"}, txmd)
+	}
+
+	hdr, err := client.Set(ctx, []byte("test"), []byte("test"))
+	require.NoError(t, err)
+
+	requireMetadataPresent(hdr)
+
+	hdr1, err := client.VerifiedSet(ctx, []byte("test"), []byte("test"))
+	require.NoError(t, err)
+
+	requireMetadataPresent(hdr1)
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(ctx, "CREATE TABLE mytable (id INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	tx, err := client.TxByID(ctx, 3)
+	require.NoError(t, err)
+
+	requireMetadataPresent(tx.Header)
 }

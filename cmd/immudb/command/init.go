@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -72,13 +72,16 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Int("pgsql-server-port", 5432, "pgsql server port")
 	cmd.Flags().Bool("pprof", false, "add pprof profiling endpoint on the metrics server")
 	cmd.Flags().Bool("s3-storage", false, "enable or disable s3 storage")
+	cmd.Flags().Bool("s3-role-enabled", false, "enable role-based authentication for s3 storage")
 	cmd.Flags().String("s3-endpoint", "", "s3 endpoint")
+	cmd.Flags().String("s3-role", "", "role name for role-based authentication attempt for s3 storage")
 	cmd.Flags().String("s3-access-key-id", "", "s3 access key id")
 	cmd.Flags().String("s3-secret-key", "", "s3 secret access key")
 	cmd.Flags().String("s3-bucket-name", "", "s3 bucket name")
 	cmd.Flags().String("s3-location", "", "s3 location (region)")
 	cmd.Flags().String("s3-path-prefix", "", "s3 path prefix (multiple immudb instances can share the same bucket if they have different prefixes)")
 	cmd.Flags().Bool("s3-external-identifier", false, "use the remote identifier if there is no local identifier")
+	cmd.Flags().String("s3-instance-metadata-url", "http://169.254.169.254", "s3 instance metadata url")
 	cmd.Flags().Int("max-sessions", 100, "maximum number of simultaneously opened sessions")
 	cmd.Flags().Duration("max-session-inactivity-time", 3*time.Minute, "max session inactivity time is a duration after which an active session is declared inactive by the server. A session is kept active if server is still receiving requests from client (keep-alive or other methods)")
 	cmd.Flags().Duration("max-session-age-time", 0, "the current default value is infinity. max session age time is a duration after which session will be forcibly closed")
@@ -86,6 +89,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Minute, "sessions guard check interval")
 	cmd.Flags().MarkHidden("sessions-guard-check-interval")
 	cmd.Flags().Bool("grpc-reflection", options.GRPCReflectionServerEnabled, "GRPC reflection server enabled")
+	cmd.Flags().Bool("swaggerui", options.SwaggerUIEnabled, "Swagger UI enabled")
+	cmd.Flags().Bool("log-request-metadata", options.LogRequestMetadata, "log request information in transaction metadata")
 
 	flagNameMapping := map[string]string{
 		"replication-enabled":           "replication-is-replica",
@@ -134,12 +139,15 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("pprof", false)
 	viper.SetDefault("s3-storage", false)
 	viper.SetDefault("s3-endpoint", "")
+	viper.SetDefault("s3-role-enabled", false)
+	viper.SetDefault("s3-role", "")
 	viper.SetDefault("s3-access-key-id", "")
 	viper.SetDefault("s3-secret-key", "")
 	viper.SetDefault("s3-bucket-name", "")
 	viper.SetDefault("s3-location", "")
 	viper.SetDefault("s3-path-prefix", "")
 	viper.SetDefault("s3-external-identifier", false)
+	viper.SetDefault("s3-instance-metadata-url", "http://169.254.169.254")
 	viper.SetDefault("max-sessions", 100)
 	viper.SetDefault("max-session-inactivity-time", 3*time.Minute)
 	viper.SetDefault("max-session-age-time", 0)

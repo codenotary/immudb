@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,9 +30,12 @@ import (
 
 var reservedWords = map[string]int{
 	"CREATE":         CREATE,
+	"DROP":           DROP,
 	"USE":            USE,
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
+	"HISTORY":        HISTORY,
+	"OF":             OF,
 	"SINCE":          SINCE,
 	"AFTER":          AFTER,
 	"BEFORE":         BEFORE,
@@ -89,6 +92,16 @@ var reservedWords = map[string]int{
 	"IS":             IS,
 	"CAST":           CAST,
 	"::":             SCAST,
+	"SHOW":           SHOW,
+	"DATABASES":      DATABASES,
+	"TABLES":         TABLES,
+	"USERS":          USERS,
+	"USER":           USER,
+	"WITH":           WITH,
+	"PASSWORD":       PASSWORD,
+	"READ":           READ,
+	"READWRITE":      READWRITE,
+	"ADMIN":          ADMIN,
 }
 
 var joinTypes = map[string]JoinType{
@@ -101,9 +114,11 @@ var types = map[string]SQLValueType{
 	"INTEGER":   IntegerType,
 	"BOOLEAN":   BooleanType,
 	"VARCHAR":   VarcharType,
+	"UUID":      UUIDType,
 	"BLOB":      BLOBType,
 	"TIMESTAMP": TimestampType,
 	"FLOAT":     Float64Type,
+	"JSON":      JSONType,
 }
 
 var aggregateFns = map[string]AggregateFn{
@@ -260,6 +275,11 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 	if isSeparator(ch) {
 		return STMT_SEPARATOR
+	}
+
+	if ch == '-' && l.r.nextChar == '>' {
+		l.r.ReadByte()
+		return ARROW
 	}
 
 	if isBLOBPrefix(ch) && isQuote(l.r.nextChar) {

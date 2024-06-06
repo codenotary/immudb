@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,8 +40,10 @@ func ComparePasswords(hashedPassword []byte, plainPassword []byte) error {
 	return bcrypt.CompareHashAndPassword(hashedPassword, plainPassword)
 }
 
-const minPasswordLen = 8
-const maxPasswordLen = 32
+const (
+	minPasswordLen = 8
+	maxPasswordLen = 32
+)
 
 // PasswordRequirementsMsg message used to inform the user about password strength requirements
 var PasswordRequirementsMsg = fmt.Sprintf(

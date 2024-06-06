@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -94,7 +94,7 @@ func (d *DefaultMultiFileAppendableHooks) OpenAppendable(options *singleapp.Opti
 }
 
 type MultiFileAppendable struct {
-	appendables appendableLRUCache
+	appendables appendableCache
 
 	currAppID int64
 	currApp   appendable.Appendable
@@ -180,7 +180,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		return nil, err
 	}
 
-	cache, err := cache.NewLRUCache(opts.maxOpenedFiles)
+	cache, err := cache.NewCache(opts.maxOpenedFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
 
 	return &MultiFileAppendable{
-		appendables:    appendableLRUCache{cache: cache},
+		appendables:    appendableCache{cache: cache},
 		currAppID:      currAppID,
 		currApp:        currApp,
 		path:           path,

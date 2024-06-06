@@ -2,13 +2,13 @@
 // +build minio
 
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,11 +37,14 @@ func TestS3WithServer(t *testing.T) {
 
 	s, err := Open(
 		"http://localhost:9000",
+		false,
+		"",
 		"minioadmin",
 		"minioadmin",
 		"immudb",
 		"",
 		fmt.Sprintf("prefix_%x", randomBytes),
+		"",
 	)
 	require.NoError(t, err)
 
@@ -90,11 +93,24 @@ func TestS3WithServer(t *testing.T) {
 		require.Equal(t, []byte("ello "), data)
 	})
 
+	t.Run("delete file", func(t *testing.T) {
+		err := s.Remove(ctx, "test1")
+		require.NoError(t, err)
+
+		exists, err := s.Exists(ctx, "test1")
+		require.NoError(t, err)
+		require.False(t, exists)
+
+		_, err = s.Get(ctx, "test1", 0, -1)
+		require.Error(t, err)
+	})
+
+	const (
+		foldersCount = 3
+		entriesCount = 20
+	)
+
 	t.Run("create multiple file-s in multiple folders", func(t *testing.T) {
-
-		const foldersCount = 3
-		const entriesCount = 20
-
 		for i := 0; i < foldersCount; i++ {
 			for j := 0; j < entriesCount; j++ {
 				fl, err := ioutil.TempFile("", "")
@@ -123,5 +139,31 @@ func TestS3WithServer(t *testing.T) {
 		require.EqualValues(t, 15, entries[0].Size)
 		require.EqualValues(t, 15, entries[1].Size)
 		require.EqualValues(t, 16, entries[2].Size)
+	})
+
+	t.Run("delete folder with no subfolders", func(t *testing.T) {
+		err := s.RemoveAll(ctx, "test2/folder0/")
+		require.NoError(t, err)
+
+		entries, sub, err := s.ListEntries(ctx, "test2/folder0/")
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		require.Empty(t, sub)
+
+		entries, sub, err = s.ListEntries(ctx, "test2/")
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		require.Len(t, sub, foldersCount-1)
+		require.Equal(t, sub[0], "folder1")
+	})
+
+	t.Run("delete folder with subfolders", func(t *testing.T) {
+		err := s.RemoveAll(ctx, "test2/")
+		require.NoError(t, err)
+
+		entries, sub, err := s.ListEntries(ctx, "test2/")
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		require.Empty(t, sub)
 	})
 }

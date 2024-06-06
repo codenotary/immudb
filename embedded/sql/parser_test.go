@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,7 +49,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX at position 10"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER at position 10"),
 		},
 	}
 
@@ -206,6 +206,17 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "CREATE TABLE table1 (id UUID, PRIMARY KEY id)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table:       "table1",
+					ifNotExists: false,
+					colsSpec:    []*ColSpec{{colName: "id", colType: UUIDType}},
+					pkColNames:  []string{"id"},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
@@ -250,7 +261,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR[50], ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR(50), ts TIMESTAMP, active BOOLEAN, content BLOB, json_data JSON, PRIMARY KEY (id, name))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",
@@ -261,6 +272,7 @@ func TestCreateTableStmt(t *testing.T) {
 						{colName: "ts", colType: TimestampType},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
+						{colName: "json_data", colType: JSONType},
 					},
 					pkColNames: []string{"id", "name"},
 				}},
@@ -269,7 +281,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX at position 13"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER at position 13"),
 		},
 		{
 			input:          "CREATE TABLE table1",
@@ -280,6 +292,14 @@ func TestCreateTableStmt(t *testing.T) {
 			input:          "CREATE TABLE table1()",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
 			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
+		},
+		{
+			input: "DROP TABLE table1",
+			expectedOutput: []SQLStmt{
+				&DropTableStmt{
+					table: "table1",
+				}},
+			expectedError: nil,
 		},
 	}
 
@@ -329,6 +349,15 @@ func TestCreateIndexStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{&CreateIndexStmt{unique: true, table: "table1", cols: []string{"id", "title"}}},
 			expectedError:  nil,
 		},
+		{
+			input: "DROP INDEX ON table1(id, title)",
+			expectedOutput: []SQLStmt{
+				&DropIndexStmt{
+					table: "table1",
+					cols:  []string{"id", "title"},
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -368,7 +397,7 @@ func TestAlterTable(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD or RENAME at position 25"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting DROP or ADD or RENAME at position 25"),
 		},
 		{
 			input: "ALTER TABLE table1 RENAME COLUMN title TO newtitle",
@@ -1119,6 +1148,21 @@ func TestSelectStmt(t *testing.T) {
 							right: &Varchar{val: "20210211 00:00:00.000"},
 						},
 					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT json_data->'info'->'address'->'street' FROM table1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&JSONSelector{
+							ColSelector: &ColSelector{col: "json_data"},
+							fields:      []string{"info", "address", "street"},
+						},
+					},
+					ds: &tableRef{table: "table1"},
 				}},
 			expectedError: nil,
 		},

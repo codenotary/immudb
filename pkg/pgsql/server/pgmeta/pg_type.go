@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,25 +17,36 @@ limitations under the License.
 package pgmeta
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/codenotary/immudb/embedded/sql"
 )
 
-const PgTypeMapOid = 0
-const PgTypeMapLength = 1
+const (
+	PgTypeMapOid    = 0
+	PgTypeMapLength = 1
 
-const PgsqlProtocolVersion = "9.6"
+	PgsqlProtocolVersion           = "3.0"
+	PgsqlSSLRequestProtocolVersion = "1234.5679"
+	PgsqlServerVersion             = "9.6"
+)
 
-var PgsqlProtocolVersionMessage = fmt.Sprintf("pgsql wire protocol %s or greater version implemented by immudb", PgsqlProtocolVersion)
+var PgsqlServerVersionMessage = fmt.Sprintf("pgsql server %s or greater version implemented by immudb", PgsqlServerVersion)
+var ErrInvalidPgsqlProtocolVersion = errors.New("invalid pgsql protocol version")
 
 // PgTypeMap maps the immudb type descriptor with pgsql pgtype map.
 // First int is the oid value (retrieved with select * from pg_type;)
 // Second int is the length of the value. -1 for dynamic.
 var PgTypeMap = map[string][]int{
-	"BOOLEAN":   {16, 1},  //bool
-	"BLOB":      {17, -1}, //bytea
-	"TIMESTAMP": {20, 8},  //int8
-	"INTEGER":   {20, 8},  //int8
-	"VARCHAR":   {25, -1}, //text
+	sql.BooleanType:   {16, 1},    //bool
+	sql.BLOBType:      {17, -1},   //bytea
+	sql.TimestampType: {20, 8},    //int8
+	sql.IntegerType:   {20, 8},    //int8
+	sql.VarcharType:   {25, -1},   //text
+	sql.UUIDType:      {2950, 16}, //uuid
+	sql.Float64Type:   {701, 8},   //double-precision floating point number
+	sql.JSONType:      {114, -1},  //json
 }
 
 const PgSeverityError = "ERROR"

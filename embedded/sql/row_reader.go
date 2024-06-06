@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -41,9 +42,25 @@ type RowReader interface {
 }
 
 type ScanSpecs struct {
-	Index         *Index
-	rangesByColID map[uint32]*typedValueRange
-	DescOrder     bool
+	Index              *Index
+	rangesByColID      map[uint32]*typedValueRange
+	IncludeHistory     bool
+	IncludeTxMetadata  bool
+	DescOrder          bool
+	groupBySortColumns []*OrdCol
+	orderBySortCols    []*OrdCol
+}
+
+func (s *ScanSpecs) extraCols() int {
+	n := 0
+	if s.IncludeHistory {
+		n++
+	}
+
+	if s.IncludeTxMetadata {
+		n++
+	}
+	return n
 }
 
 type Row struct {
@@ -144,6 +161,25 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Table, d.Column)
 }
 
+type emptyKeyReader struct {
+}
+
+func (r emptyKeyReader) Read(ctx context.Context) (key []byte, val store.ValueRef, err error) {
+	return nil, nil, store.ErrNoMoreEntries
+}
+
+func (r emptyKeyReader) ReadBetween(ctx context.Context, initialTxID uint64, finalTxID uint64) (key []byte, val store.ValueRef, err error) {
+	return nil, nil, store.ErrNoMoreEntries
+}
+
+func (r emptyKeyReader) Reset() error {
+	return nil
+}
+
+func (r emptyKeyReader) Close() error {
+	return nil
+}
+
 func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, period period, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
 	if table == nil || scanSpecs == nil || scanSpecs.Index == nil {
 		return nil, ErrIllegalArguments
@@ -154,26 +190,59 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		return nil, err
 	}
 
-	r, err := tx.newKeyReader(*rSpec)
-	if err != nil {
-		return nil, err
+	var r store.KeyReader
+
+	if table.name == "pg_type" {
+		r = &emptyKeyReader{}
+	} else {
+		r, err = tx.newKeyReader(*rSpec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if tableAlias == "" {
 		tableAlias = table.name
 	}
 
-	colsByPos := make([]ColDescriptor, len(table.Cols()))
-	colsBySel := make(map[string]ColDescriptor, len(table.Cols()))
+	nCols := len(table.cols) + scanSpecs.extraCols()
 
-	for i, c := range table.Cols() {
+	colsByPos := make([]ColDescriptor, nCols)
+	colsBySel := make(map[string]ColDescriptor, nCols)
+
+	off := 0
+	if scanSpecs.IncludeHistory {
+		colDescriptor := ColDescriptor{
+			Table:  tableAlias,
+			Column: revCol,
+			Type:   IntegerType,
+		}
+
+		colsByPos[off] = colDescriptor
+		colsBySel[colDescriptor.Selector()] = colDescriptor
+		off++
+	}
+
+	if scanSpecs.IncludeTxMetadata {
+		colDescriptor := ColDescriptor{
+			Table:  tableAlias,
+			Column: txMetadataCol,
+			Type:   JSONType,
+		}
+
+		colsByPos[off] = colDescriptor
+		colsBySel[colDescriptor.Selector()] = colDescriptor
+		off++
+	}
+
+	for i, c := range table.cols {
 		colDescriptor := ColDescriptor{
 			Table:  tableAlias,
 			Column: c.colName,
 			Type:   c.colType,
 		}
 
-		colsByPos[i] = colDescriptor
+		colsByPos[off+i] = colDescriptor
 		colsBySel[colDescriptor.Selector()] = colDescriptor
 	}
 
@@ -191,7 +260,7 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 }
 
 func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
-	prefix := mapKey(sqlPrefix, scanSpecs.Index.prefix(), EncodeID(1), EncodeID(table.id), EncodeID(scanSpecs.Index.id))
+	prefix := MapKey(sqlPrefix, MappedPrefix, EncodeID(table.id), EncodeID(scanSpecs.Index.id))
 
 	var loKey []byte
 	var loKeyReady bool
@@ -250,13 +319,14 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 	}
 
 	return &store.KeyReaderSpec{
-		SeekKey:       seekKey,
-		InclusiveSeek: true,
-		EndKey:        endKey,
-		InclusiveEnd:  true,
-		Prefix:        prefix,
-		DescOrder:     scanSpecs.DescOrder,
-		Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		SeekKey:        seekKey,
+		InclusiveSeek:  true,
+		EndKey:         endKey,
+		InclusiveEnd:   true,
+		Prefix:         prefix,
+		DescOrder:      scanSpecs.DescOrder,
+		Filters:        []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		IncludeHistory: scanSpecs.IncludeHistory,
 	}, nil
 }
 
@@ -343,20 +413,14 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 
 	if r.period.start != nil {
 		txRange.initialTxID, err = r.period.start.instant.resolve(r.tx, r.params, true, r.period.start.inclusive)
-		if errors.Is(err, store.ErrTxNotFound) {
-			txRange.initialTxID = uint64(math.MaxUint64)
-		}
-		if err != nil && err != store.ErrTxNotFound {
+		if err != nil {
 			return err
 		}
 	}
 
 	if r.period.end != nil {
 		txRange.finalTxID, err = r.period.end.instant.resolve(r.tx, r.params, false, r.period.end.inclusive)
-		if errors.Is(err, store.ErrTxNotFound) {
-			txRange.finalTxID = uint64(0)
-		}
-		if err != nil && err != store.ErrTxNotFound {
+		if err != nil {
 			return err
 		}
 	}
@@ -366,85 +430,71 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 	return nil
 }
 
-func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
-	if ctx.Err() != nil {
+func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	var mkey []byte
+	//var mkey []byte
 	var vref store.ValueRef
 
 	// evaluation of txRange is postponed to allow parameters to be provided after rowReader initialization
-	err = r.reduceTxRange()
+	err := r.reduceTxRange()
+	if errors.Is(err, store.ErrTxNotFound) {
+		return nil, ErrNoMoreRows
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	if r.txRange == nil {
-		mkey, vref, err = r.reader.Read()
+		_, vref, err = r.reader.Read(ctx) //mkey
 	} else {
-		mkey, vref, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID)
+		_, vref, err = r.reader.ReadBetween(ctx, r.txRange.initialTxID, r.txRange.finalTxID) //mkey
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	var v []byte
+	v, err := vref.Resolve()
+	if err != nil {
+		return nil, err
+	}
 
-	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.scanSpecs.Index.IsPrimary() {
-		v, err = vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		var encPKVals []byte
+	valuesByPosition := make([]TypedValue, len(r.colsByPos))
+	valuesBySelector := make(map[string]TypedValue, len(r.colsBySel))
 
-		v, err = vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
+	for i, col := range r.colsByPos {
+		var val TypedValue
 
-		if r.scanSpecs.Index.IsUnique() {
-			encPKVals = v
-		} else {
-			encPKVals, err = unmapIndexEntry(r.scanSpecs.Index, r.tx.engine.prefix, mkey)
+		switch col.Column {
+		case revCol:
+			val = &Integer{val: int64(vref.HC())}
+		case txMetadataCol:
+			val, err = r.parseTxMetadata(vref.TxMetadata())
 			if err != nil {
 				return nil, err
 			}
+		default:
+			val = &NullValue{t: col.Type}
 		}
 
-		vref, err = r.tx.get(mapKey(r.tx.engine.prefix, PIndexPrefix, EncodeID(1), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
-		if err != nil {
-			return nil, err
-		}
-
-		v, err = vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	valuesByPosition := make([]TypedValue, len(r.table.Cols()))
-	valuesBySelector := make(map[string]TypedValue, len(r.table.Cols()))
-
-	for i, col := range r.table.Cols() {
-		v := &NullValue{t: col.colType}
-
-		valuesByPosition[i] = v
-		valuesBySelector[EncodeSelector("", r.tableAlias, col.colName)] = v
+		valuesByPosition[i] = val
+		valuesBySelector[col.Selector()] = val
 	}
 
 	if len(v) < EncLenLen {
 		return nil, ErrCorruptedData
 	}
 
+	extraCols := r.scanSpecs.extraCols()
+
 	voff := 0
 
 	cols := int(binary.BigEndian.Uint32(v[voff:]))
 	voff += EncLenLen
 
-	for i := 0; i < cols; i++ {
+	for i, pos := 0, 0; i < cols; i++ {
 		if len(v) < EncIDLen {
 			return nil, ErrCorruptedData
 		}
@@ -453,6 +503,16 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 		voff += EncIDLen
 
 		col, err := r.table.GetColumnByID(colID)
+		if errors.Is(err, ErrColumnDoesNotExist) && colID <= r.table.maxColID {
+			// Dropped column, skip it
+			vlen, n, err := DecodeValueLength(v[voff:])
+			if err != nil {
+				return nil, err
+			}
+			voff += n + vlen
+
+			continue
+		}
 		if err != nil {
 			return nil, ErrCorruptedData
 		}
@@ -464,7 +524,19 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 
 		voff += n
 
-		valuesByPosition[i] = val
+		// make sure value is inserted in the correct position
+		for pos < len(r.table.cols) && r.table.cols[pos].id < colID {
+			pos++
+		}
+
+		if pos == len(r.table.cols) || r.table.cols[pos].id != colID {
+			return nil, ErrCorruptedData
+		}
+
+		valuesByPosition[pos+extraCols] = val
+
+		pos++
+
 		valuesBySelector[EncodeSelector("", r.tableAlias, col.colName)] = val
 	}
 
@@ -475,10 +547,73 @@ func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 	return &Row{ValuesByPosition: valuesByPosition, ValuesBySelector: valuesBySelector}, nil
 }
 
+func (r *rawRowReader) parseTxMetadata(txmd *store.TxMetadata) (TypedValue, error) {
+	if txmd == nil {
+		return &NullValue{t: JSONType}, nil
+	}
+
+	if extra := txmd.Extra(); extra != nil {
+		if r.tx.engine.parseTxMetadata == nil {
+			return nil, fmt.Errorf("unable to parse tx metadata")
+		}
+
+		md, err := r.tx.engine.parseTxMetadata(extra)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrInvalidTxMetadata, err)
+		}
+		return &JSON{val: md}, nil
+	}
+	return &NullValue{t: JSONType}, nil
+}
+
 func (r *rawRowReader) Close() error {
 	if r.onCloseCallback != nil {
 		defer r.onCloseCallback()
 	}
 
 	return r.reader.Close()
+}
+
+func ReadAllRows(ctx context.Context, reader RowReader) ([]*Row, error) {
+	var rows []*Row
+	err := ReadRowsBatch(ctx, reader, 100, func(rowBatch []*Row) error {
+		if rows == nil {
+			rows = make([]*Row, 0, len(rowBatch))
+		}
+		rows = append(rows, rowBatch...)
+		return nil
+	})
+	return rows, err
+}
+
+func ReadRowsBatch(ctx context.Context, reader RowReader, batchSize int, onBatch func([]*Row) error) error {
+	rows := make([]*Row, batchSize)
+
+	hasMoreRows := true
+	for hasMoreRows {
+		n, err := readNRows(ctx, reader, batchSize, rows)
+
+		if n > 0 {
+			if err := onBatch(rows[:n]); err != nil {
+				return err
+			}
+		}
+
+		hasMoreRows = !errors.Is(err, ErrNoMoreRows)
+		if err != nil && hasMoreRows {
+			return err
+		}
+	}
+	return nil
+}
+
+func readNRows(ctx context.Context, reader RowReader, n int, outRows []*Row) (int, error) {
+	for i := 0; i < n; i++ {
+		r, err := reader.Read(ctx)
+		if err != nil {
+			return i, err
+		}
+		outRows[i] = r
+	}
+	return n, nil
 }

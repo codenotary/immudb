@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -79,6 +79,10 @@ func (db *closedDB) CurrentState() (*schema.ImmutableState, error) {
 }
 
 func (db *closedDB) Size() (uint64, error) {
+	return 0, store.ErrAlreadyClosed
+}
+
+func (db *closedDB) TxCount() (uint64, error) {
 	return 0, store.ErrAlreadyClosed
 }
 
@@ -166,15 +170,15 @@ func (db *closedDB) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, 
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQueryAll(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) ([]*sql.Row, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
+func (db *closedDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -247,7 +251,7 @@ func (db *closedDB) Truncate(ts time.Duration) error {
 }
 
 // CreateCollection creates a new collection
-func (d *closedDB) CreateCollection(ctx context.Context, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
+func (d *closedDB) CreateCollection(ctx context.Context, username string, req *protomodel.CreateCollectionRequest) (*protomodel.CreateCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -260,27 +264,35 @@ func (d *closedDB) GetCollections(ctx context.Context, req *protomodel.GetCollec
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) UpdateCollection(ctx context.Context, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
+func (d *closedDB) UpdateCollection(ctx context.Context, username string, req *protomodel.UpdateCollectionRequest) (*protomodel.UpdateCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteCollection(ctx context.Context, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
+func (d *closedDB) DeleteCollection(ctx context.Context, username string, req *protomodel.DeleteCollectionRequest) (*protomodel.DeleteCollectionResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) CreateIndex(ctx context.Context, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
+func (d *closedDB) AddField(ctx context.Context, username string, req *protomodel.AddFieldRequest) (*protomodel.AddFieldResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteIndex(ctx context.Context, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
+func (d *closedDB) RemoveField(ctx context.Context, username string, req *protomodel.RemoveFieldRequest) (*protomodel.RemoveFieldResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) InsertDocuments(ctx context.Context, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
+func (d *closedDB) CreateIndex(ctx context.Context, username string, req *protomodel.CreateIndexRequest) (*protomodel.CreateIndexResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) ReplaceDocuments(ctx context.Context, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
+func (d *closedDB) DeleteIndex(ctx context.Context, username string, req *protomodel.DeleteIndexRequest) (*protomodel.DeleteIndexResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) InsertDocuments(ctx context.Context, username string, req *protomodel.InsertDocumentsRequest) (*protomodel.InsertDocumentsResponse, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (d *closedDB) ReplaceDocuments(ctx context.Context, username string, req *protomodel.ReplaceDocumentsRequest) (*protomodel.ReplaceDocumentsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -300,6 +312,6 @@ func (d *closedDB) ProofDocument(ctx context.Context, req *protomodel.ProofDocum
 	return nil, store.ErrAlreadyClosed
 }
 
-func (d *closedDB) DeleteDocuments(ctx context.Context, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
+func (d *closedDB) DeleteDocuments(ctx context.Context, username string, req *protomodel.DeleteDocumentsRequest) (*protomodel.DeleteDocumentsResponse, error) {
 	return nil, store.ErrAlreadyClosed
 }

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
@@ -78,13 +77,13 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
-		sql.PIndexPrefix,
-		sql.EncodeID(1),
+		sql.MappedPrefix,
 		sql.EncodeID(table.ID()),
 		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes(),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, true)
+	e, err := d.sqlGetAt(ctx, pkKey, req.SqlGetRequest.AtTx, d.st, true)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +100,15 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		return nil, err
 	}
 
-	inclusionProof, err := tx.Proof(e.Key)
+	sourceKey := sql.MapKey(
+		[]byte{SQLPrefix},
+		sql.RowPrefix,
+		sql.EncodeID(1), // fixed database identifier
+		sql.EncodeID(table.ID()),
+		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes())
+
+	inclusionProof, err := tx.Proof(sourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -166,41 +173,31 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		ColIdsByName:   colIdsByName,
 		ColTypesById:   colTypesByID,
 		ColLenById:     colLenByID,
+		MaxColId:       table.GetMaxColID(),
 	}, nil
 }
 
-func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
-	var txID uint64
-	var md *store.KVMetadata
-	var val []byte
+func (d *db) sqlGetAt(ctx context.Context, key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
+	var valRef store.ValueRef
 
 	if atTx == 0 {
-		valRef, err := index.Get(key)
-		if err != nil {
-			return nil, err
-		}
-
-		txID = valRef.Tx()
-
-		md = valRef.KVMetadata()
-
-		val, err = valRef.Resolve()
-		if err != nil {
-			return nil, err
-		}
+		valRef, err = index.Get(ctx, key)
 	} else {
-		txID = atTx
+		valRef, err = index.GetBetween(ctx, key, atTx, atTx)
+	}
+	if err != nil {
+		return nil, err
+	}
 
-		md, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
-		if err != nil {
-			return nil, err
-		}
+	val, err := valRef.Resolve()
+	if err != nil {
+		return nil, err
 	}
 
 	return &schema.SQLEntry{
-		Tx:       txID,
+		Tx:       valRef.Tx(),
 		Key:      key,
-		Metadata: schema.KVMetadataToProto(md),
+		Metadata: schema.KVMetadataToProto(valRef.KVMetadata()),
 		Value:    val,
 	}, err
 }
@@ -262,7 +259,7 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 		}
 
 		var unique bool
-		for _, index := range table.IndexesByColID(c.ID()) {
+		for _, index := range table.GetIndexesByColID(c.ID()) {
 			if index.IsUnique() && len(index.Cols()) == 1 {
 				unique = true
 				break
@@ -272,7 +269,7 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 		var maxLen string
 
 		if c.MaxLen() > 0 && (c.Type() == sql.VarcharType || c.Type() == sql.BLOBType) {
-			maxLen = fmt.Sprintf("[%d]", c.MaxLen())
+			maxLen = fmt.Sprintf("(%d)", c.MaxLen())
 		}
 
 		res.Rows = append(res.Rows, &schema.Row{
@@ -307,6 +304,16 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	}()
 
 	go func() {
+		md := schema.MetadataFromContext(ctx)
+		if len(md) > 0 {
+			data, err := md.Marshal()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			opts = opts.WithExtra(data)
+		}
+
 		tx, err = d.sqlEngine.NewTx(txCtx, opts)
 		if err != nil {
 			errChan <- err
@@ -365,7 +372,7 @@ func (d *db) SQLExecPrepared(ctx context.Context, tx *sql.SQLTx, stmts []sql.SQL
 	return d.sqlEngine.ExecPreparedStmts(ctx, tx, stmts, params)
 }
 
-func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (sql.RowReader, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -379,82 +386,23 @@ func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRe
 	if !ok {
 		return nil, sql.ErrExpectingDQLStmt
 	}
-
-	return d.SQLQueryPrepared(ctx, tx, stmt, req.Params)
+	reader, err := d.SQLQueryPrepared(ctx, tx, stmt, schema.NamedParamsFromProto(req.Params))
+	if !req.AcceptStream {
+		reader = &limitRowReader{RowReader: reader, maxRows: d.maxResultSize}
+	}
+	return reader, err
 }
 
-func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
-	params := make(map[string]interface{})
-
-	for _, p := range namedParams {
-		params[p.Name] = schema.RawValue(p.Value)
-	}
-
-	r, err := d.SQLQueryRowReader(ctx, tx, stmt, params)
+func (d *db) SQLQueryAll(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) ([]*sql.Row, error) {
+	reader, err := d.SQLQuery(ctx, tx, req)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
-
-	colDescriptors, err := r.Columns(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	cols := make([]*schema.Column, len(colDescriptors))
-
-	for i, c := range colDescriptors {
-		des := &sql.ColDescriptor{
-			AggFn:  c.AggFn,
-			Table:  c.Table,
-			Column: c.Column,
-			Type:   c.Type,
-		}
-		cols[i] = &schema.Column{Name: des.Selector(), Type: des.Type}
-	}
-
-	res := &schema.SQLQueryResult{Columns: cols}
-
-	for l := 1; ; l++ {
-		row, err := r.Read(ctx)
-		if err == sql.ErrNoMoreRows {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		rrow := &schema.Row{
-			Columns: make([]string, len(res.Columns)),
-			Values:  make([]*schema.SQLValue, len(res.Columns)),
-		}
-
-		for i := range colDescriptors {
-			rrow.Columns[i] = cols[i].Name
-
-			v := row.ValuesByPosition[i]
-
-			_, isNull := v.(*sql.NullValue)
-			if isNull {
-				rrow.Values[i] = &schema.SQLValue{Value: &schema.SQLValue_Null{}}
-			} else {
-				rrow.Values[i] = typedValueToRowValue(v)
-			}
-		}
-
-		res.Rows = append(res.Rows, rrow)
-
-		if l == d.maxResultSize {
-			return res, fmt.Errorf("%w: found at least %d rows (the maximum limit). "+
-				"Query constraints can be applied using the LIMIT clause",
-				ErrResultSizeLimitReached, d.maxResultSize)
-		}
-	}
-
-	return res, nil
+	defer reader.Close()
+	return sql.ReadAllRows(ctx, reader)
 }
 
-func (d *db) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
+func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -479,32 +427,24 @@ func (d *db) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sq
 	return d.sqlEngine.InferParametersPreparedStmts(ctx, tx, []sql.SQLStmt{stmt})
 }
 
-func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
-	switch tv.Type() {
-	case sql.IntegerType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.RawValue().(int64)}}
-		}
-	case sql.VarcharType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
-		}
-	case sql.BooleanType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.RawValue().(bool)}}
-		}
-	case sql.BLOBType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.RawValue().([]byte)}}
-		}
-	case sql.TimestampType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.RawValue().(time.Time))}}
-		}
-	case sql.Float64Type:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_F{F: tv.RawValue().(float64)}}
-		}
+type limitRowReader struct {
+	sql.RowReader
+	nRead   int
+	maxRows int
+}
+
+func (r *limitRowReader) Read(ctx context.Context) (*sql.Row, error) {
+	row, err := r.RowReader.Read(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	if r.nRead == r.maxRows {
+		return nil, fmt.Errorf("%w: found more than %d rows (the maximum limit). "+
+			"Query constraints can be applied using the LIMIT clause",
+			ErrResultSizeLimitReached, r.maxRows)
+	}
+
+	r.nRead++
+	return row, nil
 }

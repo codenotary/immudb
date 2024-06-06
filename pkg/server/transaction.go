@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -132,18 +132,24 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 	return new(empty.Empty), res
 }
 
-func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	if request == nil {
-		return nil, ErrIllegalArguments
+func (s *ImmuServer) TxSQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_TxSQLQueryServer) error {
+	if req == nil {
+		return ErrIllegalArguments
 	}
 	if s.Options.GetMaintenance() {
-		return nil, ErrNotAllowedInMaintenanceMode
+		return ErrNotAllowedInMaintenanceMode
 	}
 
-	tx, err := s.SessManager.GetTransactionFromContext(ctx)
+	tx, err := s.SessManager.GetTransactionFromContext(srv.Context())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return tx.SQLQuery(ctx, request)
+	reader, err := tx.SQLQuery(srv.Context(), req)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	return s.streamRows(context.Background(), reader, tx.Database().MaxResultSize(), srv.Send)
 }

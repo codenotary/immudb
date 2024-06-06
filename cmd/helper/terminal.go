@@ -2,11 +2,12 @@ package helper
 
 import (
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type terminalReader struct {

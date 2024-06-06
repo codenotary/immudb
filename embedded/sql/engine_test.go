@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,9 +19,12 @@ package sql
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,9 +32,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
 var sqlPrefix = []byte{2}
@@ -45,7 +51,7 @@ func closeStore(t *testing.T, st *store.ImmuStore) {
 }
 
 func setupCommonTest(t *testing.T) *Engine {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -55,8 +61,17 @@ func setupCommonTest(t *testing.T) *Engine {
 	return engine
 }
 
+func TestCreateDatabaseWithoutMultiIndexingEnabled(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(false))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	_, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.ErrorIs(t, err, ErrMultiIndexingNotEnabled)
+}
+
 func TestCreateDatabaseWithoutMultiDBHandler(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -68,10 +83,19 @@ func TestCreateDatabaseWithoutMultiDBHandler(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE IF NOT EXISTS db1", nil)
 	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE USER user1 WITH PASSWORD 'user1Password!' READ", nil)
+	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	_, _, err = engine.Exec(context.Background(), nil, "ALTER USER user1 WITH PASSWORD 'user1Password!' ADMIN", nil)
+	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
+
+	_, _, err = engine.Exec(context.Background(), nil, "DROP USER user1", nil)
+	require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
 }
 
 func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -85,10 +109,17 @@ func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
 		_, err := engine.Query(context.Background(), nil, "SELECT * FROM DATABASES()", nil)
 		require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
 	})
+
+	r, err := engine.Query(context.Background(), nil, "SELECT ts FROM pg_type WHERE ts < 1 + NOW()", nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
 }
 
 func TestCreateTable(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -351,6 +382,160 @@ func TestTimestampCasts(t *testing.T) {
 
 		require.NoError(t, rowReader.Close())
 	})
+}
+
+func TestUUIDAsPK(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS uuid_table(id UUID, test INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	sel := EncodeSelector("", "uuid_table", "id")
+
+	t.Run("UUID as PK", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id) VALUES(RANDOM_UUID())", nil)
+		require.NoError(t, err)
+
+		_, err := engine.InferParameters(context.Background(), nil, "SELECT id FROM uuid_table WHERE id = NOW()")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+	})
+
+	t.Run("must accept RANDOM_UUID() as an UUID", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id) VALUES(RANDOM_UUID())", nil)
+		require.NoError(t, err)
+
+		_, err := engine.InferParameters(context.Background(), nil, "SELECT id FROM uuid_table WHERE id = NOW()")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+	})
+
+	t.Run("must accept uuid string as an UUID", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, test) VALUES(@uuid, 3)", map[string]interface{}{
+			"uuid": id.String(),
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table WHERE test = 3", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("must accept byte slice as an UUID", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x10, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, test) VALUES(@uuid, 4)", map[string]interface{}{
+			"uuid": id[:],
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT id FROM uuid_table WHERE test = 4", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
+}
+
+func TestUUIDNonPK(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE uuid_table(id INTEGER, u UUID, t VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	sel := EncodeSelector("", "uuid_table", "u")
+
+	t.Run("UUID as non PK", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, u, t) VALUES(1, RANDOM_UUID(), 't')", nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT u FROM uuid_table", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+	})
+
+	t.Run("UUID as non PK must accept uuid string", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, u, t) VALUES(2, @id, 't')", map[string]interface{}{
+			"id": id.String(),
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT u FROM uuid_table WHERE id = 2 LIMIT 1", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("UUID as non PK must accept byte slice", func(t *testing.T) {
+		id := uuid.UUID([16]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x40, 0x06, 0x80, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO uuid_table(id, u, t) VALUES(3, @id, 't')", map[string]interface{}{
+			"id": id[:],
+		})
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT u FROM uuid_table WHERE id = 3 LIMIT 1", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, UUIDType, row.ValuesBySelector[sel].Type())
+
+		require.Len(t, row.ValuesByPosition, 1)
+		require.Equal(t, row.ValuesByPosition[0], row.ValuesBySelector[sel])
+		require.Equal(t, id, row.ValuesByPosition[0].RawValue())
+	})
+
 }
 
 func TestFloatType(t *testing.T) {
@@ -898,24 +1083,26 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	for it := 0; it < 3; it++ {
 		time.Sleep(1 * time.Microsecond)
 
+		_, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION; ROLLBACK;", nil)
+		require.NoError(t, err)
+
 		tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
 		require.NoError(t, err)
 
 		require.True(t, tx.Timestamp().After(currentTs))
 
-		for i := 0; i < 5; i++ {
+		rowCount := 10
+
+		for i := 0; i < rowCount; i++ {
 			_, _, err = engine.Exec(context.Background(), tx, "INSERT INTO tx_timestamp(ts) VALUES (NOW()), (NOW())", nil)
 			require.NoError(t, err)
 		}
 
-		_, _, err = engine.Exec(context.Background(), tx, "COMMIT;", nil)
-		require.NoError(t, err)
-
-		r, err := engine.Query(context.Background(), nil, "SELECT * FROM tx_timestamp WHERE ts = @ts", map[string]interface{}{"ts": tx.Timestamp()})
+		r, err := engine.Query(context.Background(), tx, "SELECT * FROM tx_timestamp WHERE ts = @ts", map[string]interface{}{"ts": tx.Timestamp()})
 		require.NoError(t, err)
 		defer r.Close()
 
-		for i := 0; i < 10; i++ {
+		for i := 0; i < rowCount*2; i++ {
 			row, err := r.Read(context.Background())
 			require.NoError(t, err)
 			require.EqualValues(t, tx.Timestamp(), row.ValuesBySelector[EncodeSelector("", "tx_timestamp", "ts")].RawValue())
@@ -923,6 +1110,12 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 
 		_, err = r.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), tx, "COMMIT;", nil)
+		require.NoError(t, err)
 
 		currentTs = tx.Timestamp()
 	}
@@ -932,7 +1125,7 @@ func TestAddColumn(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -987,7 +1180,7 @@ func TestAddColumn(t *testing.T) {
 	})
 
 	t.Run("reopen-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -1012,28 +1205,34 @@ func TestAddColumn(t *testing.T) {
 	})
 }
 
-func TestRenameColumn(t *testing.T) {
+func TestRenaming(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], PRIMARY KEY id)", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table11", nil)
+		require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table11 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], PRIMARY KEY id)", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(name)", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table11(name)", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table11 RENAME TO table1", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(name) VALUES('John'), ('Sylvia'), ('Robocop') ", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME COLUMN name TO name", nil)
-		require.ErrorIs(t, err, ErrSameOldAndNewColumnName)
+		require.ErrorIs(t, err, ErrSameOldAndNewNames)
 
 		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME COLUMN name TO id", nil)
 		require.ErrorIs(t, err, ErrColumnAlreadyExists)
@@ -1076,14 +1275,20 @@ func TestRenameColumn(t *testing.T) {
 	})
 
 	t.Run("reopen-store", func(t *testing.T) {
-		st, err := store.Open(dir, store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions().WithMultiIndexing(true))
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
 
-		res, err := engine.Query(context.Background(), nil, "SELECT id, surname FROM table1 ORDER BY surname", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table1", nil)
+		require.ErrorIs(t, err, ErrSameOldAndNewNames)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table11", nil)
+		require.NoError(t, err)
+
+		res, err := engine.Query(context.Background(), nil, "SELECT id, surname FROM table11 ORDER BY surname", nil)
 		require.NoError(t, err)
 
 		row, err := res.Read(context.Background())
@@ -1103,6 +1308,240 @@ func TestRenameColumn(t *testing.T) {
 
 		require.EqualValues(t, 2, row.ValuesByPosition[0].RawValue())
 		require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].RawValue())
+
+		_, err = res.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = res.Close()
+		require.NoError(t, err)
+	})
+}
+
+func TestAlterTableDropColumn(t *testing.T) {
+	path := t.TempDir()
+
+	defer os.RemoveAll(path)
+
+	t.Run("create-store", func(t *testing.T) {
+		st, err := store.Open(path, store.DefaultOptions().WithMultiIndexing(true))
+		require.NoError(t, err)
+		defer func() { require.NoError(t, st.Close()) }()
+
+		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+		require.NoError(t, err)
+
+		t.Run("create initial table", func(t *testing.T) {
+			_, _, err = engine.Exec(
+				context.Background(),
+				nil,
+				`
+				CREATE TABLE table1 (
+					id INTEGER AUTO_INCREMENT,
+					active BOOLEAN,
+					name VARCHAR[50],
+					surname VARCHAR[50],
+					age INTEGER,
+					PRIMARY KEY (id)
+				)`, nil)
+			require.NoError(t, err)
+
+			_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(name)", nil)
+			require.NoError(t, err)
+
+			_, _, err = engine.Exec(context.Background(), nil, "CREATE UNIQUE INDEX ON table1(name, surname)", nil)
+			require.NoError(t, err)
+
+			_, _, err = engine.Exec(
+				context.Background(), nil,
+				`
+				INSERT INTO table1(name, surname, active, age)
+				VALUES
+					('John', 'Smith', true, 42),
+					('Sylvia', 'Smith', true, 27),
+					('Robo', 'Cop', false, 101)
+				`, nil)
+			require.NoError(t, err)
+		})
+
+		_, _, err = engine.Exec(context.Background(), nil, "DROP INDEX ON table1(id)", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		t.Run("fail to drop indexed from table that does not exist", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table2 DROP COLUMN active", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+		})
+
+		t.Run("fail to drop indexed columns", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN id", nil)
+			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN name", nil)
+			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN surname", nil)
+			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+		})
+
+		t.Run("fail to drop columns that does not exist", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN nonexistent", nil)
+			require.ErrorIs(t, err, ErrColumnDoesNotExist)
+		})
+
+		t.Run("drop column in the middle", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN active", nil)
+			require.NoError(t, err)
+
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 ADD COLUMN deprecated BOOLEAN", nil)
+			require.NoError(t, err)
+
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+			require.NoError(t, err)
+
+			catTable, err := tx.catalog.GetTableByName("table1")
+			require.NoError(t, err)
+
+			require.Len(t, catTable.cols, 5)
+			require.Len(t, catTable.colsByID, 5)
+			require.Len(t, catTable.colsByName, 5)
+			require.EqualValues(t, catTable.maxColID, 6)
+
+			err = tx.Cancel()
+			require.NoError(t, err)
+
+			res, err := engine.Query(context.Background(), nil, "SELECT id, name, surname, active, age FROM table1", nil)
+			require.NoError(t, err)
+
+			_, err = res.Read(context.Background())
+			require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+			err = res.Close()
+			require.NoError(t, err)
+
+			res, err = engine.Query(context.Background(), nil, "SELECT * FROM table1", nil)
+			require.NoError(t, err)
+
+			for i := 0; i < 3; i++ {
+				row, err := res.Read(context.Background())
+				require.NoError(t, err)
+				require.Len(t, row.ValuesByPosition, 5)
+				require.Len(t, row.ValuesBySelector, 5)
+			}
+
+			_, err = res.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = res.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("drop the last column", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "DROP TABLE table11", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table11 DROP COLUMN age", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+			_, _, err = engine.Exec(context.Background(), nil, "DROP INDEX ON table11(age)", nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN age", nil)
+			require.NoError(t, err)
+
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+			require.NoError(t, err)
+
+			catTable, err := tx.catalog.GetTableByName("table1")
+			require.NoError(t, err)
+
+			require.Len(t, catTable.cols, 4)
+			require.Len(t, catTable.colsByID, 4)
+			require.Len(t, catTable.colsByName, 4)
+			require.EqualValues(t, catTable.maxColID, 6)
+
+			err = tx.Cancel()
+			require.NoError(t, err)
+
+			res, err := engine.Query(context.Background(), nil, "SELECT id, name, surname, age FROM table1", nil)
+			require.NoError(t, err)
+
+			_, err = res.Read(context.Background())
+			require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+			res.Close()
+
+			res, err = engine.Query(context.Background(), nil, "SELECT * FROM table1", nil)
+			require.NoError(t, err)
+
+			for i := 0; i < 3; i++ {
+				row, err := res.Read(context.Background())
+				require.NoError(t, err)
+				require.Len(t, row.ValuesByPosition, 4)
+				require.Len(t, row.ValuesBySelector, 4)
+			}
+
+			_, err = res.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = res.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("adding new column must not reuse old column IDs", func(t *testing.T) {
+			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 ADD COLUMN active BOOLEAN", nil)
+			require.NoError(t, err)
+
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+			require.NoError(t, err)
+
+			catTable, err := tx.catalog.GetTableByName("table1")
+			require.NoError(t, err)
+
+			require.Len(t, catTable.cols, 5)
+			require.Len(t, catTable.colsByID, 5)
+			require.Len(t, catTable.colsByName, 5)
+			require.EqualValues(t, 7, catTable.colsByName["active"].id)
+			require.EqualValues(t, 7, catTable.maxColID)
+
+			err = tx.Cancel()
+			require.NoError(t, err)
+
+			res, err := engine.Query(context.Background(), nil, "SELECT id, name, surname, active FROM table1", nil)
+			require.NoError(t, err)
+
+			for i := 0; i < 3; i++ {
+				row, err := res.Read(context.Background())
+				require.NoError(t, err)
+				require.Len(t, row.ValuesByPosition, 4)
+				require.Len(t, row.ValuesBySelector, 4)
+				require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "active")].RawValue())
+			}
+
+			_, err = res.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = res.Close()
+			require.NoError(t, err)
+		})
+	})
+
+	t.Run("reopen-store", func(t *testing.T) {
+		st, err := store.Open(path, store.DefaultOptions().WithMultiIndexing(true))
+		require.NoError(t, err)
+		defer func() { require.NoError(t, st.Close()) }()
+
+		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+		require.NoError(t, err)
+
+		res, err := engine.Query(context.Background(), nil, "SELECT id, name, surname, active FROM table1", nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			row, err := res.Read(context.Background())
+			require.NoError(t, err)
+			require.Len(t, row.ValuesByPosition, 4)
+			require.Len(t, row.ValuesBySelector, 4)
+			require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "active")].RawValue())
+		}
 
 		_, err = res.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -1151,12 +1590,15 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(name, age) VALUES ('name2', 10)", nil)
 	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(active)", nil)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE UNIQUE INDEX ON table1(active)", nil)
 	require.ErrorIs(t, err, ErrLimitedIndexCreation)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(active)", nil)
+	require.NoError(t, err)
 }
 
 func TestUpsertInto(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1367,7 +1809,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	})
 
 	t.Run("insertion in table with varchar pk", func(t *testing.T) {
-		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE languages (code VARCHAR[255],name VARCHAR[255],PRIMARY KEY code)", nil)
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE languages (code VARCHAR[128],name VARCHAR[255],PRIMARY KEY code)", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO languages (code,name) VALUES ('code1', 'name1')", nil)
@@ -1461,7 +1903,7 @@ func TestAutoIncrementPK(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1570,7 +2012,7 @@ func TestErrorDuringDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1663,7 +2105,7 @@ func TestErrorDuringUpdate(t *testing.T) {
 	_, _, err := engine.Exec(
 		context.Background(), nil,
 		`
-		create table mytable(id varchar[256], value integer, primary key id);
+		create table mytable(id varchar[128], value integer, primary key id);
 		insert into mytable(id, value) values('aa',12), ('ab',13);
 	`, nil)
 	require.NoError(t, err)
@@ -1727,7 +2169,7 @@ func TestTransactions(t *testing.T) {
 }
 
 func TestTransactionsEdgeCases(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1960,7 +2402,7 @@ func TestEncodeValue(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -2022,7 +2464,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	t.Run("should resolve every row", func(t *testing.T) {
-		r, err = engine.Query(context.Background(), nil, "SELECT * FROM table1", nil)
+		r, err = engine.Query(context.Background(), nil, "SELECT * FROM table1 ORDER BY title", nil)
 		require.NoError(t, err)
 
 		colsBySel, err := r.colsBySelector(context.Background())
@@ -2144,8 +2586,29 @@ func TestQuery(t *testing.T) {
 	})
 
 	r, err = engine.Query(context.Background(), nil, "SELECT id, title, active, payload FROM table1 ORDER BY title", nil)
-	require.ErrorIs(t, err, ErrLimitedOrderBy)
-	require.Nil(t, r)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	allRows := make([]*Row, rowCount)
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+
+		allRows[i] = row
+	}
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, ErrNoMoreRows, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	isSorted := sort.SliceIsSorted(allRows, func(i, j int) bool {
+		r1 := allRows[i].ValuesByPosition[1]
+		r2 := allRows[j].ValuesByPosition[1]
+
+		return r1.RawValue().(string) < r2.RawValue().(string)
+	})
+	require.True(t, isSorted)
 
 	r, err = engine.Query(context.Background(), nil, "SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil)
 	require.NoError(t, err)
@@ -2324,8 +2787,352 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestJSON(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(), nil,
+		`
+		CREATE TABLE tbl_with_json (
+			id INTEGER AUTO_INCREMENT,
+			json_data JSON NOT NULL,
+
+			PRIMARY KEY(id)
+		)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`INSERT INTO tbl_with_json(json_data) VALUES ('invalid json value')`,
+		nil,
+	)
+	require.ErrorIs(t, err, ErrInvalidValue)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`INSERT INTO tbl_with_json(json_data) VALUES (10)`,
+		nil,
+	)
+	require.ErrorIs(t, err, ErrInvalidValue)
+
+	n := 100
+	for i := 0; i < n; i++ {
+		data := fmt.Sprintf(
+			`{"usr": {"name": "%s", "active": %t, "details": {"age": %d, "city": "%s"}, "perms": ["r", "w"]}}`,
+			fmt.Sprintf("name%d", i+1),
+			i%2 == 0,
+			i+1,
+			fmt.Sprintf("city%d", i+1),
+		)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			fmt.Sprintf(`INSERT INTO tbl_with_json(json_data) VALUES ('%s')`, data),
+			nil,
+		)
+		require.NoError(t, err)
+	}
+
+	t.Run("apply -> operator on non JSON column", func(t *testing.T) {
+		_, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT id->'name' FROM tbl_with_json",
+			nil,
+		)
+		require.ErrorContains(t, err, "-> operator cannot be applied on column of type INTEGER")
+	})
+
+	t.Run("filter json fields", func(t *testing.T) {
+		t.Run("filter boolean value", func(t *testing.T) {
+			rows, err := engine.queryAll(
+				context.Background(),
+				nil,
+				`
+					SELECT json_data->'usr'
+					FROM tbl_with_json
+					WHERE json_data->'usr'->'active' = TRUE
+				`,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, rows, n/2)
+
+			for i, row := range rows {
+				usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->usr")].RawValue().(map[string]interface{})
+
+				require.Equal(t, map[string]interface{}{
+					"name":   fmt.Sprintf("name%d", (2*i + 1)),
+					"active": true,
+					"details": map[string]interface{}{
+						"age":  float64((2*i + 1)),
+						"city": fmt.Sprintf("city%d", (2*i + 1)),
+					},
+					"perms": []interface{}{
+						"r", "w",
+					},
+				}, usr)
+			}
+		})
+
+		t.Run("filter numeric value", func(t *testing.T) {
+			rows, err := engine.queryAll(
+				context.Background(),
+				nil,
+				`
+					SELECT json_data->'usr'->'name'
+					FROM tbl_with_json
+					WHERE json_data->'usr'->'details'->'age' + 1 >= 52
+				`,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, rows, n/2)
+
+			for i, row := range rows {
+				name := row.ValuesByPosition[0].RawValue()
+				require.Equal(t, name, fmt.Sprintf("name%d", 51+i))
+			}
+		})
+
+		t.Run("filter varchar value", func(t *testing.T) {
+			rows, err := engine.queryAll(
+				context.Background(),
+				nil,
+				`
+					SELECT json_data->'usr'->'name'
+					FROM tbl_with_json
+					WHERE json_data->'usr'->'name' LIKE '^name.*' AND json_data->'usr'->'perms'->'0' = 'r'
+				`,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, rows, n)
+
+			for i, row := range rows {
+				name := row.ValuesByPosition[0].RawValue()
+				require.Equal(t, name, fmt.Sprintf("name%d", i+1))
+			}
+		})
+	})
+
+	t.Run("order by json field", func(t *testing.T) {
+		_, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`
+				SELECT json_data
+				FROM tbl_with_json
+				ORDER BY json_data
+			`,
+			nil,
+		)
+		require.ErrorIs(t, err, ErrNotComparableValues)
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`
+				SELECT json_data->'usr', json_data->'usr'->'details'->'age' as age, json_data->'usr'->'details'->'city' as city, json_data->'usr'->'name' as name
+				FROM tbl_with_json
+				ORDER BY json_data->'usr'->'details'->'age' DESC
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		for i, row := range rows {
+			usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->usr")].RawValue().(map[string]interface{})
+			name, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "name")].RawValue().(string)
+			age, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "age")].RawValue().(float64)
+			city, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "city")].RawValue().(string)
+
+			require.Equal(t, map[string]interface{}{
+				"name":   name,
+				"active": (n-1-i)%2 == 0,
+				"details": map[string]interface{}{
+					"age":  age,
+					"city": city,
+				},
+				"perms": []interface{}{"r", "w"},
+			}, usr)
+
+			require.Equal(t, fmt.Sprintf("name%d", n-i), name)
+			require.Equal(t, float64(n-i), age)
+			require.Equal(t, fmt.Sprintf("city%d", n-i), city)
+		}
+	})
+
+	t.Run("test join on json field", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER AUTO_INCREMENT, value VARCHAR, PRIMARY KEY(id))", nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 10; i++ {
+			_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(value) VALUES (@name)", map[string]interface{}{"name": fmt.Sprintf("name%d", i+1)})
+			require.NoError(t, err)
+		}
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT table1.value, json_data->'usr'->'name' FROM tbl_with_json JOIN table1 ON table1.value = tbl_with_json.json_data->'usr'->'name' ORDER BY table1.id",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 10)
+
+		for i, row := range rows {
+			require.Len(t, row.ValuesByPosition, 2)
+			require.Equal(t, fmt.Sprintf("name%d", i+1), row.ValuesByPosition[0].RawValue())
+			require.Equal(t, row.ValuesByPosition[0].RawValue(), row.ValuesByPosition[1].RawValue())
+		}
+	})
+
+	_, _, err = engine.Exec(context.Background(), nil, "DELETE FROM tbl_with_json", nil)
+	require.NoError(t, err)
+
+	randJson := func(src *rand.Rand) interface{} {
+		switch src.Intn(6) {
+		case 0:
+			return src.Float64()
+		case 1:
+			return fmt.Sprintf("string%d", src.Int63())
+		case 2:
+			return src.Int()%2 == 0
+		case 3:
+			return map[string]interface{}{
+				"test": "value",
+			}
+		case 4:
+			return []interface{}{"test", true, 10.5}
+		}
+		return nil
+	}
+
+	seed := time.Now().UnixNano()
+	src := rand.New(rand.NewSource(seed))
+	for i := 0; i < n; i++ {
+		data := randJson(src)
+
+		jsonData, err := json.Marshal(data)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO tbl_with_json(json_data) VALUES (@data)",
+			map[string]interface{}{"data": string(jsonData)},
+		)
+		require.NoError(t, err)
+	}
+
+	t.Run("lookup field", func(t *testing.T) {
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT json_data, json_data->'test' FROM tbl_with_json",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		for _, row := range rows {
+			data := row.ValuesByPosition[0].RawValue()
+			value := row.ValuesByPosition[1].RawValue()
+			if _, isObject := data.(map[string]interface{}); isObject {
+				require.Equal(t, "value", row.ValuesByPosition[1].RawValue())
+			} else {
+				require.Nil(t, value)
+			}
+		}
+	})
+
+	t.Run("query json with mixed types", func(t *testing.T) {
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT json_data FROM tbl_with_json",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		stringValues := 0
+
+		src := rand.New(rand.NewSource(seed))
+		for _, row := range rows {
+			s := row.ValuesByPosition[0].RawValue()
+			require.Equal(t, randJson(src), s)
+
+			if _, ok := s.(string); ok {
+				stringValues++
+			}
+		}
+
+		rows, err = engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT COUNT(*) FROM tbl_with_json WHERE json_typeof(json_data) = 'STRING'",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(stringValues))
+	})
+
+	t.Run("update json data", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			fmt.Sprintf(`UPDATE tbl_with_json SET json_data = '%d' WHERE json_typeof(json_data) = 'STRING'`, rand.Int63()),
+			nil,
+		)
+		require.NoError(t, err)
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT COUNT(*) FROM tbl_with_json WHERE json_typeof(json_data) = 'STRING'",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Zero(t, rows[0].ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("cannot index json column", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"CREATE INDEX ON tbl_with_json(json_data);", nil)
+		require.ErrorIs(t, err, ErrCannotIndexJson)
+
+		_, _, err = engine.Exec(
+			context.Background(), nil,
+			`
+			CREATE TABLE test (
+				json_data JSON NOT NULL,
+	
+				PRIMARY KEY(json_data)
+			)`, nil)
+		require.ErrorIs(t, err, ErrCannotIndexJson)
+	})
+}
+
 func TestQueryCornerCases(t *testing.T) {
-	opts := store.DefaultOptions()
+	opts := store.DefaultOptions().WithMultiIndexing(true)
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
 
 	st, err := store.Open(t.TempDir(), opts)
@@ -2351,7 +3158,6 @@ func TestQueryCornerCases(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("run out of snapshots", func(t *testing.T) {
-
 		// Get one tx that takes the snapshot
 		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 		require.NoError(t, err)
@@ -2380,7 +3186,7 @@ func TestQueryCornerCases(t *testing.T) {
 }
 
 func TestQueryDistinct(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -2600,6 +3406,152 @@ func TestQueryDistinct(t *testing.T) {
 	})
 }
 
+func TestIndexSelection(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, `CREATE TABLE table1 (
+		v0 INTEGER,
+		v1 INTEGER,
+		v2 INTEGER,
+		v3 INTEGER,
+		v4 INTEGER,
+		v5 INTEGER,
+
+		PRIMARY KEY (v0, v1)
+	)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX on table1(v1, v2, v3, v4)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX on table1(v3, v4)", nil)
+	require.NoError(t, err)
+
+	type test struct {
+		query                   string
+		expectedIndex           []string
+		expectedGroupBySortCols []string
+		expectedOrderBySortCols []string
+		desc                    bool
+	}
+
+	testCases := []test{
+		{
+			query:         "SELECT * FROM table1",
+			expectedIndex: []string{"v0", "v1"},
+		},
+		{
+			query:         "SELECT * FROM table1 ORDER BY v1",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+		},
+		{
+			query:         "SELECT * FROM table1 WHERE v0 = 0 ORDER BY v1",
+			expectedIndex: []string{"v0", "v1"},
+		},
+		{
+			query:                   "SELECT * FROM table1 ORDER BY v5 DESC",
+			expectedIndex:           []string{"v0", "v1"},
+			expectedOrderBySortCols: []string{EncodeSelector("", "table1", "v5")},
+		},
+		{
+			query:         "SELECT * FROM table1 ORDER BY v1, v2, v3",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+		},
+		{
+			query:         "SELECT * FROM table1 WHERE v1 = 0 AND v2 = 1 ORDER BY v3 DESC",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+			desc:          true,
+		},
+		{
+			query:         "SELECT * FROM table1 ORDER BY v3 DESC, v4 DESC",
+			expectedIndex: []string{"v3", "v4"},
+			desc:          true,
+		},
+		{
+			query:                   "SELECT * FROM table1 ORDER BY v3 DESC, v4 ASC",
+			expectedIndex:           []string{"v0", "v1"},
+			expectedOrderBySortCols: []string{EncodeSelector("", "table1", "v3"), EncodeSelector("", "table1", "v4")},
+		},
+		{
+			query:                   "SELECT * FROM table1 USE INDEX ON (v1, v2, v3, v4) ORDER BY v3 DESC, v4 DESC",
+			expectedIndex:           []string{"v1", "v2", "v3", "v4"},
+			expectedOrderBySortCols: []string{EncodeSelector("", "table1", "v3"), EncodeSelector("", "table1", "v4")},
+		},
+		{
+			query:         "SELECT COUNT(*) FROM table1 GROUP BY v1, v2",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+		},
+		{
+			query:                   "SELECT COUNT(*) FROM table1 GROUP BY v1, v3",
+			expectedIndex:           []string{"v0", "v1"},
+			expectedGroupBySortCols: []string{EncodeSelector("", "table1", "v1"), EncodeSelector("", "table1", "v3")},
+		},
+		{
+			query:                   "SELECT COUNT(*) FROM table1 GROUP BY v1, v2, v3 ORDER BY v1 DESC, v3 DESC",
+			expectedIndex:           []string{"v1", "v2", "v3", "v4"},
+			expectedOrderBySortCols: []string{EncodeSelector("", "table1", "v1"), EncodeSelector("", "table1", "v3")},
+		},
+		{
+			query:         "SELECT COUNT(*) FROM table1 WHERE v1 = 0 AND v2 = 1 GROUP BY v2, v3 ORDER BY v3 DESC",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+			desc:          true,
+		},
+		{
+			query:         "SELECT COUNT(*) FROM table1 GROUP BY v1, v2, v3 ORDER BY v1 DESC, v2 DESC",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+			desc:          true,
+		},
+		{
+			query:         "SELECT COUNT(*) FROM table1 GROUP BY v1, v2, v3 ORDER BY v1, v2, v3, COUNT(*)",
+			expectedIndex: []string{"v1", "v2", "v3", "v4"},
+			expectedOrderBySortCols: []string{
+				EncodeSelector("", "table1", "v1"),
+				EncodeSelector("", "table1", "v2"),
+				EncodeSelector("", "table1", "v3"),
+				EncodeSelector("COUNT", "table1", "*"),
+			},
+		},
+		{
+			query:                   "SELECT COUNT(*) FROM table1 GROUP BY v4, v3 ORDER BY v3 DESC, v4 DESC",
+			expectedIndex:           []string{"v0", "v1"},
+			expectedGroupBySortCols: []string{EncodeSelector("", "table1", "v4"), EncodeSelector("", "table1", "v3")},
+			expectedOrderBySortCols: []string{EncodeSelector("", "table1", "v3"), EncodeSelector("", "table1", "v4")},
+		},
+		{
+			query:                   "SELECT COUNT(*) FROM table1 USE INDEX ON(v3, v4) GROUP BY v1, v2 ORDER BY v1 DESC, v2 DESC",
+			expectedIndex:           []string{"v3", "v4"},
+			expectedGroupBySortCols: []string{EncodeSelector("", "table1", "v1"), EncodeSelector("", "table1", "v2")},
+		},
+	}
+
+	for i, testCase := range testCases {
+		t.Run(fmt.Sprintf("test index selection %d", i), func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, testCase.query, nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.Index.cols, len(testCase.expectedIndex))
+			require.Equal(t, specs.DescOrder, testCase.desc)
+			require.Len(t, specs.groupBySortColumns, len(testCase.expectedGroupBySortCols))
+			require.Len(t, specs.orderBySortCols, len(testCase.expectedOrderBySortCols))
+
+			for i, col := range testCase.expectedIndex {
+				require.Equal(t, col, specs.Index.cols[i].Name())
+			}
+
+			for i, col := range testCase.expectedGroupBySortCols {
+				require.Equal(t, col, EncodeSelector(specs.groupBySortColumns[i].sel.resolve("table1")))
+			}
+
+			for i, col := range testCase.expectedOrderBySortCols {
+				require.Equal(t, col, EncodeSelector(specs.orderBySortCols[i].sel.resolve("table1")))
+			}
+		})
+	}
+}
+
 func TestIndexing(t *testing.T) {
 	engine := setupCommonTest(t)
 
@@ -2629,11 +3581,6 @@ func TestIndexing(t *testing.T) {
 	t.Run("should fail due to unique index", func(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (ts, title, amount, active) VALUES (1, 'title1', 10, true), (2, 'title1', 10, false)", nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
-	})
-
-	t.Run("should fail due non-available index", func(t *testing.T) {
-		_, err = engine.Query(context.Background(), nil, "SELECT * FROM table1 ORDER BY amount DESC", nil)
-		require.ErrorIs(t, err, ErrNoAvailableIndex)
 	})
 
 	t.Run("should use primary index by default", func(t *testing.T) {
@@ -2878,9 +3825,17 @@ func TestIndexing(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("should fail using index on `ts` when ordering by `title`", func(t *testing.T) {
-		_, err := engine.Query(context.Background(), nil, "SELECT * FROM table1 USE INDEX ON (ts) ORDER BY title", nil)
-		require.ErrorIs(t, err, ErrNoAvailableIndex)
+	t.Run("should use specified index on `ts` when ordering by `title`", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT * FROM table1 USE INDEX ON (ts) ORDER BY title", nil)
+		require.NoError(t, err)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.Len(t, scanSpecs.Index.cols, 1)
+		require.Equal(t, scanSpecs.Index.cols[0].colName, "ts")
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("should use index on `title` with max value in desc order", func(t *testing.T) {
@@ -3123,7 +4078,7 @@ func TestIndexing(t *testing.T) {
 }
 
 func TestExecCornerCases(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -3177,24 +4132,28 @@ func TestQueryWithNullables(t *testing.T) {
 }
 
 func TestOrderBy(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithSortBufferSize(1024))
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`CREATE TABLE table1 (
+			id INTEGER,
+			title VARCHAR[100],
+			age INTEGER,
+			height FLOAT,
+			created_at TIMESTAMP,
+
+			PRIMARY KEY id
+		)`,
+		nil,
+	)
 	require.NoError(t, err)
-
-	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil)
-	require.ErrorIs(t, err, ErrLimitedOrderBy)
-
-	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM (SELECT id, title, age FROM table1) ORDER BY id", nil)
-	require.ErrorIs(t, err, ErrLimitedOrderBy)
-
-	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil)
-	require.ErrorIs(t, err, ErrLimitedOrderBy)
 
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table2 ORDER BY title", nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
@@ -3202,139 +4161,293 @@ func TestOrderBy(t *testing.T) {
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY amount", nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(title)", nil)
-	require.NoError(t, err)
+	rowCount := 100 + rand.Intn(engine.sortBufferSize-100) // [100, sortBufferSize]
 
-	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY age", nil)
-	require.ErrorIs(t, err, ErrLimitedOrderBy)
+	for id := 1; id <= rowCount; id++ {
+		rand.Seed(int64(id))
+
+		params := map[string]interface{}{
+			"id":      id,
+			"title":   fmt.Sprintf("title%d", rand.Intn(100)),
+			"age":     rand.Intn(100),
+			"height":  rand.Float64() * 200,
+			"created": time.Unix(rand.Int63n(100000), 0).UTC(),
+		}
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age, height, created_at) VALUES (@id, @title, @age, @height, @created)", params)
+		require.NoError(t, err)
+	}
+
+	checkDataItegrity := func(t *testing.T, rows []*Row, table string) {
+		require.Len(t, rows, rowCount)
+
+		ids := make(map[int64]struct{})
+		for _, row := range rows {
+			id := row.ValuesBySelector[EncodeSelector("", table, "id")].RawValue().(int64)
+			rand.Seed(int64(id))
+
+			title := row.ValuesBySelector[EncodeSelector("", table, "title")].RawValue().(string)
+			age := row.ValuesBySelector[EncodeSelector("", table, "age")].RawValue().(int64)
+			height := row.ValuesBySelector[EncodeSelector("", table, "height")].RawValue().(float64)
+			created := row.ValuesBySelector[EncodeSelector("", table, "created_at")].RawValue().(time.Time).UTC()
+
+			require.Equal(t, fmt.Sprintf("title%d", rand.Intn(100)), title)
+			require.Equal(t, int64(rand.Intn(100)), age)
+			require.Equal(t, rand.Float64()*200, height)
+			require.Equal(t, time.Unix(rand.Int63n(100000), 0).UTC(), created)
+
+			_, exists := ids[id]
+			require.False(t, exists)
+
+			ids[id] = struct{}{}
+		}
+
+		for id := 1; id <= rowCount; id++ {
+			_, exists := ids[int64(id)]
+			require.True(t, exists)
+		}
+	}
+
+	type test struct {
+		columns       []string
+		directions    []int
+		expectedIndex []string
+	}
+
+	testCases := []test{
+		{
+			columns:    []string{"age"},
+			directions: []int{1},
+		},
+		{
+			columns:    []string{"created_at"},
+			directions: []int{-1},
+		},
+		{
+			columns:    []string{"title", "age"},
+			directions: []int{-1, 1},
+		},
+		{
+			columns:    []string{"age", "title", "height"},
+			directions: []int{1, -1, 1},
+		},
+	}
+
+	runTest := func(t *testing.T, test *test, expectedTempFiles int) []*Row {
+		orderByCols := make([]string, len(test.columns))
+		for i, col := range test.columns {
+			orderByCols[i] = col + " " + directionToSql(test.directions[i])
+		}
+
+		reader, err := engine.Query(context.Background(), nil, fmt.Sprintf("SELECT * FROM table1 ORDER BY %s", strings.Join(orderByCols, ",")), nil)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		rows, err := ReadAllRows(context.Background(), reader)
+		require.NoError(t, err)
+		require.Len(t, rows, rowCount)
+
+		selectors := make([]string, len(test.columns))
+		for i, col := range test.columns {
+			selectors[i] = EncodeSelector("", "table1", col)
+		}
+
+		specs := reader.ScanSpecs()
+
+		if test.expectedIndex != nil {
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.Index.cols, len(test.expectedIndex))
+
+			for i, col := range test.expectedIndex {
+				require.Equal(t, col, specs.Index.cols[i].Name())
+			}
+		} else {
+			require.Len(t, specs.orderBySortCols, len(orderByCols))
+			for i, col := range specs.orderBySortCols {
+				require.Equal(t, selectors[i], EncodeSelector(col.sel.resolve("table1")))
+			}
+		}
+
+		checkRowsAreSorted(t, rows, selectors, test.directions)
+		checkDataItegrity(t, rows, "table1")
+
+		tx := reader.Tx()
+		require.Len(t, tx.tempFiles, expectedTempFiles)
+
+		return rows
+	}
+
+	for _, test := range testCases {
+		t.Run(fmt.Sprintf("order by on %s should be executed using in memory sort", strings.Join(test.columns, ",")), func(t *testing.T) {
+			runTest(t, &test, 0)
+		})
+	}
+
+	engine.sortBufferSize = 4 + rand.Intn(13) // [4, 16]
+
+	for _, test := range testCases {
+		t.Run(fmt.Sprintf("order by on %s should be executed using file sort", strings.Join(test.columns, ",")), func(t *testing.T) {
+			runTest(t, &test, 2)
+		})
+	}
+
+	t.Run("order by on top of subquery", func(t *testing.T) {
+		reader, err := engine.Query(context.Background(), nil, "SELECT age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		rows, err := ReadAllRows(context.Background(), reader)
+		require.NoError(t, err)
+		require.Len(t, rows, rowCount)
+
+		checkRowsAreSorted(t, rows, []string{EncodeSelector("", "t1", "age")}, []int{-1})
+	})
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(age)", nil)
 	require.NoError(t, err)
 
-	params := make(map[string]interface{}, 1)
-	params["age"] = nil
-	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age) VALUES (1, 'title', @age)", params)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(title, age)", nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title) VALUES (2, 'title')", nil)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(age, title, height)", nil)
 	require.NoError(t, err)
 
-	rowCount := 1
+	testCases = []test{
+		{
+			columns:       []string{"age"},
+			directions:    []int{1},
+			expectedIndex: []string{"age"},
+		},
+		{
+			columns:       []string{"title"},
+			directions:    []int{-1},
+			expectedIndex: []string{"title", "age"},
+		},
+		{
+			columns:       []string{"title", "age"},
+			directions:    []int{1, 1},
+			expectedIndex: []string{"title", "age"},
+		},
+		{
+			columns:       []string{"age", "title"},
+			directions:    []int{-1, -1, -1},
+			expectedIndex: []string{"age", "title", "height"},
+		},
+	}
 
-	for i := 0; i < rowCount; i++ {
-		params := make(map[string]interface{}, 3)
-		params["id"] = i + 3
-		params["title"] = fmt.Sprintf("title%d", i)
-		params["age"] = 40 + i
+	for _, test := range testCases {
+		t.Run(fmt.Sprintf("order by on %s should be executed using index", strings.Join(test.columns, ",")), func(t *testing.T) {
+			runTest(t, &test, 0)
+		})
+	}
 
-		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params)
+	t.Run("order by with preferred index", func(t *testing.T) {
+		t.Run("sorting required", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT * FROM table1 USE INDEX ON(title, age) ORDER BY title ASC, age DESC", nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			specs := reader.ScanSpecs()
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount)
+
+			require.Len(t, specs.orderBySortCols, 2)
+			require.Equal(t, EncodeSelector(specs.orderBySortCols[0].sel.resolve("table1")), EncodeSelector("", "table1", "title"))
+			require.Equal(t, EncodeSelector(specs.orderBySortCols[1].sel.resolve("table1")), EncodeSelector("", "table1", "age"))
+
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age")}, []int{1, -1})
+			checkDataItegrity(t, rows, "table1")
+		})
+
+		t.Run("sorting not required", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT * FROM table1 USE INDEX ON(title, age) ORDER BY title DESC, age DESC", nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			specs := reader.ScanSpecs()
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount)
+			require.Len(t, specs.orderBySortCols, 0)
+
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.Index.cols, 2)
+
+			require.Equal(t, "title", specs.Index.cols[0].Name())
+			require.Equal(t, "age", specs.Index.cols[1].Name())
+
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age")}, []int{-1, -1})
+			checkDataItegrity(t, rows, "table1")
+		})
+	})
+
+	nullValues := 1 + rand.Intn(10)
+	for i := 1; i <= nullValues; i++ {
+		params := map[string]interface{}{
+			"id":      rowCount + i,
+			"title":   nil,
+			"age":     nil,
+			"height":  nil,
+			"created": nil,
+		}
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age, height, created_at) VALUES (@id, @title, @age, @height, @created)", params)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY title", nil)
-	require.NoError(t, err)
-
-	orderBy := r.OrderBy()
-	require.NotNil(t, orderBy)
-	require.Len(t, orderBy, 1)
-	require.Equal(t, "title", orderBy[0].Column)
-	require.Equal(t, "table1", orderBy[0].Table)
-
-	row, err := r.Read(context.Background())
-	require.NoError(t, err)
-	require.Len(t, row.ValuesBySelector, 3)
-
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-
-	row, err = r.Read(context.Background())
-	require.NoError(t, err)
-	require.Len(t, row.ValuesBySelector, 3)
-
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-
-	for i := 0; i < rowCount; i++ {
-		row, err := r.Read(context.Background())
+	t.Run("order by with null values", func(t *testing.T) {
+		reader, err := engine.Query(context.Background(), nil, "SELECT id, title, age, height, created_at FROM table1 ORDER BY title, id", nil)
 		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.ValuesBySelector, 3)
+		defer reader.Close()
 
-		require.Equal(t, int64(i+3), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-		require.Equal(t, int64(40+i), row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-	}
-
-	err = r.Close()
-	require.NoError(t, err)
-
-	r, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY age", nil)
-	require.NoError(t, err)
-
-	row, err = r.Read(context.Background())
-	require.NoError(t, err)
-	require.Len(t, row.ValuesBySelector, 3)
-
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-
-	row, err = r.Read(context.Background())
-	require.NoError(t, err)
-	require.Len(t, row.ValuesBySelector, 3)
-
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-
-	for i := 0; i < rowCount; i++ {
-		row, err := r.Read(context.Background())
+		rows, err := ReadAllRows(context.Background(), reader)
 		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.ValuesBySelector, 3)
+		require.Len(t, rows, rowCount+nullValues)
 
-		require.Equal(t, int64(i+3), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-		require.Equal(t, int64(40+i), row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
+		for i := 1; i <= nullValues; i++ {
+			row := rows[i-1]
+			require.Equal(t, row.ValuesByPosition[0].RawValue(), int64(i+rowCount))
+
+			for _, v := range row.ValuesByPosition[1:] {
+				require.Nil(t, v.RawValue())
+			}
+		}
+
+		tx := reader.Tx()
+		require.Len(t, tx.tempFiles, 2)
+
+		checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "id")}, []int{1, 1})
+		checkDataItegrity(t, rows[nullValues:], "table1")
+	})
+}
+
+func directionToSql(direction int) string {
+	if direction == 1 {
+		return "ASC"
 	}
+	return "DESC"
+}
 
-	err = r.Close()
-	require.NoError(t, err)
+func checkRowsAreSorted(t *testing.T, rows []*Row, selectors []string, directions []int) {
+	k1 := make(Tuple, len(selectors))
+	k2 := make(Tuple, len(selectors))
 
-	r, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY age DESC", nil)
-	require.NoError(t, err)
+	isSorted := sort.SliceIsSorted(rows, func(i, j int) bool {
+		for idx, sel := range selectors {
+			k1[idx] = rows[i].ValuesBySelector[sel]
+			k2[idx] = rows[j].ValuesBySelector[sel]
+		}
 
-	for i := 0; i < rowCount; i++ {
-		row, err := r.Read(context.Background())
+		res, idx, err := Tuple(k1).Compare(k2)
 		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.ValuesBySelector, 3)
 
-		require.Equal(t, int64(rowCount-1-i+3), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-		require.Equal(t, int64(40-(rowCount-1-i)), row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-	}
-
-	row, err = r.Read(context.Background())
-	require.NoError(t, err)
-	require.Len(t, row.ValuesBySelector, 3)
-
-	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-
-	row, err = r.Read(context.Background())
-	require.NoError(t, err)
-	require.Len(t, row.ValuesBySelector, 3)
-
-	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "table1", "id")].RawValue())
-	require.Equal(t, "title", row.ValuesBySelector[EncodeSelector("", "table1", "title")].RawValue())
-	require.Nil(t, row.ValuesBySelector[EncodeSelector("", "table1", "age")].RawValue())
-
-	err = r.Close()
-	require.NoError(t, err)
+		if idx >= 0 {
+			return res*directions[idx] < 0
+		}
+		return false
+	})
+	require.True(t, isSorted)
 }
 
 func TestQueryWithRowFiltering(t *testing.T) {
@@ -3460,9 +4573,6 @@ func TestQueryWithInClause(t *testing.T) {
 	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(title)", nil)
-	require.NoError(t, err)
-
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
@@ -3476,7 +4586,7 @@ func TestQueryWithInClause(t *testing.T) {
 	require.False(t, inListExp.isConstant())
 
 	t.Run("infer parameters without parameters should return an empty list", func(t *testing.T) {
-		params, err := engine.InferParameters(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1')")
+		params, err := engine.InferParameters(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1') ORDER BY title")
 		require.NoError(t, err)
 		require.Empty(t, params)
 	})
@@ -3729,8 +4839,8 @@ func TestCount(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	_, err = engine.Query(context.Background(), nil, "SELECT COUNT(*) as c FROM t1 GROUP BY val1", nil)
-	require.ErrorIs(t, err, ErrLimitedGroupBy)
+	//_, err = engine.Query(context.Background(), nil, "SELECT COUNT(*) as c FROM t1 GROUP BY val1", nil)
+	//require.ErrorIs(t, err, ErrLimitedGroupBy)
 
 	r, err = engine.Query(context.Background(), nil, "SELECT COUNT(*) as c FROM t1 GROUP BY val1 ORDER BY val1", nil)
 	require.NoError(t, err)
@@ -3746,6 +4856,356 @@ func TestCount(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+}
+
+func TestGroupBy(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR[128], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(active)", nil)
+	require.NoError(t, err)
+
+	t.Run("selecting aggregations only with empty table should return zero values", func(t *testing.T) {
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT COUNT(*), SUM(age), AVG(age), MIN(title), MAX(title) FROM table1", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(0))
+		require.Equal(t, rows[0].ValuesByPosition[1].RawValue(), int64(0))
+		require.Equal(t, rows[0].ValuesByPosition[2].RawValue(), int64(0))
+		require.Equal(t, rows[0].ValuesByPosition[3].RawValue(), "")
+		require.Equal(t, rows[0].ValuesByPosition[4].RawValue(), "")
+	})
+
+	t.Run("query with empty table and group by should return no rows", func(t *testing.T) {
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT COUNT(*), SUM(age) FROM table1 GROUP BY title", nil)
+		require.NoError(t, err)
+		require.Empty(t, rows)
+	})
+
+	t.Run("columns should appear in group by or aggregations", func(t *testing.T) {
+		_, err = engine.queryAll(context.Background(), nil, "SELECT COUNT(*), age FROM table1", nil)
+		require.ErrorIs(t, err, ErrColumnMustAppearInGroupByOrAggregation)
+
+		_, err = engine.queryAll(context.Background(), nil, "SELECT COUNT(*), SUM(age), title FROM table1 GROUP BY active", nil)
+		require.ErrorIs(t, err, ErrColumnMustAppearInGroupByOrAggregation)
+
+		_, err = engine.queryAll(context.Background(), nil, "SELECT COUNT(*), SUM(age) FROM table1 GROUP BY active ORDER BY title", nil)
+		require.ErrorIs(t, err, ErrColumnMustAppearInGroupByOrAggregation)
+
+		_, err = engine.queryAll(context.Background(), nil, "SELECT COUNT(*), MIN(age) FROM table1 GROUP BY age ORDER BY MAX(age) DESC", nil)
+		require.ErrorIs(t, err, ErrColumnMustAppearInGroupByOrAggregation)
+	})
+
+	rowCount := 10
+
+	params := make(map[string]interface{}, 3)
+	for n := 0; n < rowCount; n++ {
+		m := n + 1
+		for i := 1; i <= m; i++ {
+			active := m%2 == 0
+			params["title"] = fmt.Sprintf("title%d", m)
+			params["age"] = i
+			params["active"] = active
+
+			_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (title, age, active) VALUES (@title, @age, @active)", params)
+			require.NoError(t, err)
+		}
+	}
+
+	t.Run("simple group by", func(t *testing.T) {
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT COUNT(*) FROM table1", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(rowCount*(rowCount+1)/2))
+
+		reader, err := engine.Query(context.Background(), nil, "SELECT title, COUNT(*), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 GROUP BY title", nil)
+		require.NoError(t, err)
+
+		specs := reader.ScanSpecs()
+		require.NotNil(t, specs.Index)
+		require.True(t, specs.Index.IsPrimary())
+		require.False(t, specs.DescOrder)
+
+		rows, err = ReadAllRows(context.Background(), reader)
+		require.NoError(t, err)
+		require.Len(t, rows, rowCount)
+		require.NoError(t, reader.Close())
+
+		isSorted := sort.SliceIsSorted(rows, func(i, j int) bool {
+			res, err := rows[i].ValuesByPosition[0].Compare(rows[j].ValuesByPosition[0])
+			require.NoError(t, err)
+			return res < 0
+		})
+		require.True(t, isSorted)
+
+		for _, row := range rows {
+			m, err := strconv.ParseInt(strings.TrimPrefix(row.ValuesByPosition[0].RawValue().(string), "title"), 10, 64)
+			require.NoError(t, err)
+			require.Equal(t, int64(m), row.ValuesByPosition[1].RawValue().(int64))
+			require.Equal(t, int64(m*(m+1)/2), row.ValuesByPosition[2].RawValue().(int64))
+			require.Equal(t, int64(1), row.ValuesByPosition[3].RawValue().(int64))
+			require.Equal(t, int64(m), row.ValuesByPosition[4].RawValue().(int64))
+			require.Equal(t, int64((m+1)/2), row.ValuesByPosition[5].RawValue().(int64))
+		}
+	})
+
+	t.Run("aggregated functions with no group by", func(t *testing.T) {
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT COUNT(*) FROM table1", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(rowCount*(rowCount+1)/2))
+	})
+
+	t.Run("group by with no aggregations should select distinct values", func(t *testing.T) {
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT age FROM table1 GROUP BY age", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, rowCount)
+
+		for i, row := range rows {
+			require.Equal(t, row.ValuesByPosition[0].RawValue(), int64(i+1))
+		}
+	})
+
+	t.Run("group by with order by", func(t *testing.T) {
+		t.Run("group by fields are covered by order by fields", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), title FROM table1 GROUP BY title ORDER BY title", nil)
+			require.NoError(t, err)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.True(t, specs.Index.IsPrimary())
+			require.False(t, specs.DescOrder)
+
+			orderBy := reader.OrderBy()
+			require.Equal(t, orderBy[0].Selector(), EncodeSelector("", "table1", "title"))
+			require.NoError(t, reader.Close())
+		})
+
+		t.Run("order by fields are covered by group by fields", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), age, title FROM table1 GROUP BY title, age ORDER BY title DESC", nil)
+			require.NoError(t, err)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.True(t, specs.Index.IsPrimary())
+			require.False(t, specs.DescOrder)
+
+			orderBy := reader.OrderBy()
+			require.Equal(t, orderBy[0].Selector(), EncodeSelector("", "table1", "title"))
+			require.Equal(t, orderBy[1].Selector(), EncodeSelector("", "table1", "age"))
+
+			require.NoError(t, reader.Close())
+		})
+
+		t.Run("order by fields dont't cover group by fields", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), age, title FROM table1 GROUP BY title, age ORDER BY age DESC, title DESC", nil)
+			require.NoError(t, err)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.True(t, specs.Index.IsPrimary())
+			require.False(t, specs.DescOrder)
+
+			orderBy := reader.OrderBy()
+			require.Equal(t, orderBy[0].Selector(), EncodeSelector("", "table1", "age"))
+			require.Equal(t, orderBy[1].Selector(), EncodeSelector("", "table1", "title"))
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount*(rowCount+1)/2)
+			require.NoError(t, reader.Close())
+
+			isSorted := sort.SliceIsSorted(rows, func(i, j int) bool {
+				res, err := rows[i].ValuesByPosition[1].Compare(rows[j].ValuesByPosition[1])
+				require.NoError(t, err)
+				return res > 0
+			})
+			require.True(t, isSorted)
+
+			for j, n := 0, 0; n < rowCount; n++ {
+				for i := 0; i <= n; i++ {
+					require.Equal(t, int64(rowCount-n), rows[j].ValuesByPosition[1].RawValue())
+					j++
+				}
+			}
+		})
+
+		t.Run("order by aggregated function", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), MAX(age) FROM table1 ORDER BY MAX(age)", nil)
+			require.NoError(t, err)
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(rowCount*(rowCount+1)/2))
+			require.Equal(t, rows[0].ValuesByPosition[1].RawValue(), int64(rowCount))
+			require.NoError(t, reader.Close())
+
+			reader, err = engine.Query(context.Background(), nil, "SELECT title, COUNT(*), SUM(age) FROM table1 GROUP BY title ORDER BY SUM(table1.age) DESC", nil)
+			require.NoError(t, err)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.True(t, specs.Index.IsPrimary())
+			require.False(t, specs.DescOrder)
+
+			orderBy := reader.OrderBy()
+			require.Equal(t, orderBy[0].Selector(), EncodeSelector("SUM", "table1", "age"))
+
+			rows, err = ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount)
+
+			require.NoError(t, reader.Close())
+
+			for i, row := range rows {
+				n := rowCount - i
+				require.Len(t, row.ValuesByPosition, 3)
+				require.Equal(t, row.ValuesByPosition[0].RawValue(), fmt.Sprintf("title%d", n))
+				require.Equal(t, row.ValuesByPosition[1].RawValue(), int64(n))
+				require.Equal(t, row.ValuesByPosition[2].RawValue(), int64(n*(n+1)/2))
+			}
+		})
+	})
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX on table1(age)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX on table1(title, age)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX on table1(title, age, id)", nil)
+	require.NoError(t, err)
+
+	t.Run("group by with indexes", func(t *testing.T) {
+		t.Run("group by covered by index", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT title, COUNT(*) FROM table1 GROUP BY title", nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.Index.cols, 2)
+
+			require.Equal(t, specs.Index.cols[0].Name(), "title")
+			require.Equal(t, specs.Index.cols[1].Name(), "age")
+
+			for _, row := range rows {
+				m, err := strconv.ParseInt(strings.TrimPrefix(row.ValuesByPosition[0].RawValue().(string), "title"), 10, 64)
+				require.NoError(t, err)
+				require.Equal(t, row.ValuesByPosition[1].RawValue().(int64), m)
+			}
+		})
+
+		t.Run("group by and order by covered by index", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), title, age, id FROM table1 GROUP BY title, age, id ORDER BY title DESC, id ASC, age ASC", nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount*(rowCount+1)/2)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.Index.cols, 3)
+
+			require.Equal(t, specs.Index.cols[0].Name(), "title")
+			require.Equal(t, specs.Index.cols[1].Name(), "age")
+			require.Equal(t, specs.Index.cols[2].Name(), "id")
+
+			for _, row := range rows {
+				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
+			}
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age"), EncodeSelector("", "table1", "id")}, []int{-1, 1, 1})
+		})
+
+		t.Run("index covers group by but not order by", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), title, age FROM table1 GROUP BY title, age ORDER BY age DESC", nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount*(rowCount+1)/2)
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.Index.cols, 2)
+
+			require.Equal(t, specs.Index.cols[0].Name(), "title")
+			require.Equal(t, specs.Index.cols[1].Name(), "age")
+
+			for _, row := range rows {
+				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
+			}
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "age")}, []int{-1})
+		})
+
+		t.Run("preferred index doesn't cover group by and order by", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, "SELECT COUNT(*), title, age FROM table1 USE INDEX ON(age) GROUP BY title, age ORDER BY age DESC", nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.groupBySortColumns, 2)
+			require.Len(t, specs.orderBySortCols, 1)
+			require.Len(t, specs.Index.cols, 1)
+			require.Equal(t, specs.Index.cols[0].Name(), "age")
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount*(rowCount+1)/2)
+
+			for _, row := range rows {
+				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
+			}
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "age")}, []int{-1})
+		})
+
+		t.Run("index covers group by and order by because of unitary filter", func(t *testing.T) {
+			reader, err := engine.Query(context.Background(), nil, fmt.Sprintf("SELECT COUNT(*), title, age FROM table1 WHERE title = 'title%d' GROUP BY title, age ORDER BY age DESC", rowCount), nil)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			specs := reader.ScanSpecs()
+			require.NotNil(t, specs.Index)
+			require.Len(t, specs.groupBySortColumns, 0)
+			require.Len(t, specs.orderBySortCols, 0)
+
+			require.Len(t, specs.Index.cols, 2)
+			require.Equal(t, specs.Index.cols[0].Name(), "title")
+			require.Equal(t, specs.Index.cols[1].Name(), "age")
+
+			rows, err := ReadAllRows(context.Background(), reader)
+			require.NoError(t, err)
+			require.Len(t, rows, rowCount)
+
+			expectedTitle := fmt.Sprintf("title%d", rowCount)
+			for i, row := range rows {
+				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
+				require.Equal(t, row.ValuesByPosition[1].RawValue().(string), expectedTitle)
+				require.Equal(t, row.ValuesByPosition[2].RawValue().(int64), int64(rowCount-i))
+			}
+		})
+	})
+
+	t.Run("group by with subquery", func(t *testing.T) {
+		reader, err := engine.Query(context.Background(), nil, fmt.Sprintf("SELECT COUNT(*), title FROM (SELECT * FROM table1 WHERE title = 'title%d') GROUP BY title", rowCount), nil)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		rows, err := ReadAllRows(context.Background(), reader)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(rowCount))
+	})
 }
 
 func TestGroupByHaving(t *testing.T) {
@@ -3775,30 +5235,23 @@ func TestGroupByHaving(t *testing.T) {
 	require.ErrorIs(t, err, ErrHavingClauseRequiresGroupClause)
 
 	r, err := engine.Query(context.Background(), nil, `
-		SELECT active, COUNT(*), SUM(age1)
-		FROM table1
-		WHERE active != null
-		GROUP BY active
-		HAVING AVG(age) >= MIN(age)
-		ORDER BY active`, nil)
-	require.NoError(t, err)
-
-	_, err = r.Read(context.Background())
+			SELECT active, COUNT(*), SUM(age1)
+			FROM table1
+			WHERE active != null
+			GROUP BY active
+			HAVING AVG(age) >= MIN(age)
+			ORDER BY active`, nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
-
-	err = r.Close()
-	require.NoError(t, err)
+	require.Nil(t, r)
 
 	r, err = engine.Query(context.Background(), nil, `
-		SELECT active, COUNT(*), SUM(age1)
-		FROM table1
-		WHERE AVG(age) >= MIN(age)
-		GROUP BY active
-		ORDER BY active`, nil)
-	require.NoError(t, err)
-
-	err = r.Close()
-	require.NoError(t, err)
+			SELECT active, COUNT(*), SUM(age1)
+			FROM table1
+			WHERE AVG(age) >= MIN(age)
+			GROUP BY active
+			ORDER BY active`, nil)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
+	require.Nil(t, r)
 
 	r, err = engine.Query(context.Background(), nil, "SELECT active, COUNT(id) FROM table1 GROUP BY active ORDER BY active", nil)
 	require.NoError(t, err)
@@ -3810,11 +5263,11 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query(context.Background(), nil, `
-		SELECT active, COUNT(*)
-		FROM table1
-		GROUP BY active
-		HAVING AVG(age) >= MIN(age1)
-		ORDER BY active`, nil)
+			SELECT active, COUNT(*)
+			FROM table1
+			GROUP BY active
+			HAVING AVG(age) >= MIN(age1)
+			ORDER BY active`, nil)
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
@@ -3827,14 +5280,13 @@ func TestGroupByHaving(t *testing.T) {
 		SELECT active, COUNT(*) as c, MIN(age), MAX(age), AVG(age), SUM(age)
 		FROM table1
 		GROUP BY active
-		HAVING COUNT(*) <= SUM(age)   AND
+		HAVING COUNT(*) <= SUM(age) AND
 				MIN(age) <= MAX(age) AND
 				AVG(age) <= MAX(age) AND
 				MAX(age) < SUM(age)  AND
 				AVG(age) >= MIN(age) AND
 				SUM(age) > 0
 		ORDER BY active DESC`, nil)
-
 	require.NoError(t, err)
 
 	_, err = r.Columns(context.Background())
@@ -3874,6 +5326,12 @@ func TestJoins(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table11 RENAME TO table3", nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+	_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 RENAME TO table3", nil)
+	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	rowCount := 10
 
@@ -4117,7 +5575,7 @@ func TestNestedJoins(t *testing.T) {
 }
 
 func TestReOpening(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -4202,7 +5660,7 @@ func TestSubQuery(t *testing.T) {
 }
 
 func TestJoinsWithSubquery(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -4282,7 +5740,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 }
 
 func TestInferParameters(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -4819,14 +6277,13 @@ func TestUnmapIndexEntry(t *testing.T) {
 	require.Nil(t, encPKVals)
 
 	encPKVals, err = unmapIndexEntry(&Index{id: PKIndexID, unique: true}, e.prefix, []byte(
-		"e-prefix.R.\x80a",
+		"e-prefix.M.\x80a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Nil(t, encPKVals)
 
 	fullValue := append(
-		[]byte("e-prefix.E."),
-		0x00, 0x00, 0x00, 0x01,
+		[]byte("e-prefix.M."),
 		0x11, 0x12, 0x13, 0x14,
 		0x00, 0x00, 0x00, 0x02,
 		0x80,
@@ -4920,6 +6377,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 		require.NoError(t, err)
 		return ret
 	}
+
 	query := func(t *testing.T, stmt string, expectedRows ...*Row) {
 		reader, err := engine.Query(context.Background(), nil, stmt, nil)
 		require.NoError(t, err)
@@ -5026,7 +6484,6 @@ func TestIndexingNullableColumns(t *testing.T) {
 	})
 
 	t.Run("succeed adding null columns as the second indexed column", func(t *testing.T) {
-
 		exec(t, "INSERT INTO table1(v1,v2) VALUES(1, null)")
 		query(t,
 			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
@@ -5252,6 +6709,65 @@ func TestTemporalQueries(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Equal(t, int64(rowCount), row.ValuesBySelector["(table1.c)"].RawValue())
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+}
+
+func TestHistoricalQueries(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, title VARCHAR[50], _rev INTEGER, PRIMARY KEY id)", nil)
+	require.ErrorIs(t, err, ErrReservedWord)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(title)", nil)
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	for i := 1; i <= rowCount; i++ {
+		_, txs, err := engine.Exec(context.Background(), nil, "UPSERT INTO table1(id, title) VALUES (1, @title)", map[string]interface{}{"title": fmt.Sprintf("title%d", i)})
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+	}
+
+	t.Run("querying historical data should return data from older to newer revisions", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT _rev, title FROM (HISTORY OF table1)", nil)
+		require.NoError(t, err)
+
+		for i := 1; i <= rowCount; i++ {
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Equal(t, int64(i), row.ValuesByPosition[0].RawValue())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesByPosition[1].RawValue())
+		}
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("querying historical data in desc order should return data from newer to older revisions", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT _rev, title FROM (HISTORY OF table1) order by id desc", nil)
+		require.NoError(t, err)
+
+		for i := rowCount; i > 0; i-- {
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Equal(t, int64(i), row.ValuesByPosition[0].RawValue())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesByPosition[1].RawValue())
+		}
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -5565,7 +7081,7 @@ func TestTemporalQueriesDeletedRows(t *testing.T) {
 }
 
 func TestMultiDBCatalogQueries(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -5586,6 +7102,27 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, `
 			BEGIN TRANSACTION;
 				CREATE DATABASE db1;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				CREATE USER user1 WITH PASSWORD 'user1Password!' READ;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				ALTER USER user1 WITH PASSWORD 'user1Password!' READ;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				DROP USER user1;
 			COMMIT;
 		`, nil)
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
@@ -5623,6 +7160,45 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 
 			err = r.Close()
 			require.NoError(t, err)
+		})
+
+		t.Run("show databases", func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, "SHOW DATABASES", nil)
+			require.NoError(t, err)
+
+			for _, db := range dbs {
+				row, err := r.Read(context.Background())
+				require.NoError(t, err)
+				require.NotNil(t, row)
+				require.NotNil(t, row)
+				require.Equal(t, db, row.ValuesBySelector["(databases.name)"].RawValue())
+			}
+
+			_, err = r.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("show users", func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, "SHOW USERS", nil)
+			require.NoError(t, err)
+
+			defer r.Close()
+
+			_, err = r.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
+		})
+
+		t.Run("list users", func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, "SELECT * FROM USERS()", nil)
+			require.NoError(t, err)
+
+			defer r.Close()
+
+			_, err = r.Read(context.Background())
+			require.ErrorIs(t, err, ErrNoMoreRows)
 		})
 
 		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
@@ -5663,6 +7239,22 @@ func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
 }
 
+func (h *multidbHandlerMock) ListUsers(ctx context.Context) ([]User, error) {
+	return nil, nil
+}
+
+func (h *multidbHandlerMock) CreateUser(ctx context.Context, username, password string, permission Permission) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandlerMock) AlterUser(ctx context.Context, username, password string, permission Permission) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandlerMock) DropUser(ctx context.Context, username string) error {
+	return ErrNoSupported
+}
+
 func (h *multidbHandlerMock) ExecPreparedStmts(
 	ctx context.Context,
 	opts *TxOptions,
@@ -5675,14 +7267,19 @@ func (h *multidbHandlerMock) ExecPreparedStmts(
 func TestSingleDBCatalogQueries(t *testing.T) {
 	engine := setupCommonTest(t)
 
+	_, _, err := engine.Exec(context.Background(), nil, `
+		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
+		
+		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
+	`, nil)
+	require.NoError(t, err)
+
 	tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), tx, `
-		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
 		CREATE INDEX ON mytable1(title);
 	
-		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
 		CREATE INDEX ON mytable2(name);
 		CREATE UNIQUE INDEX ON mytable2(name, active);
 	`, nil)
@@ -5739,6 +7336,24 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoMoreRows)
 	})
 
+	t.Run("show tables", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), tx, "SHOW TABLES", nil)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(tables.name)"].RawValue())
+
+		row, err = r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(tables.name)"].RawValue())
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
 	t.Run("unconditional index query should return all the indexes of mytable1", func(t *testing.T) {
 		params := map[string]interface{}{
 			"tableName": "mytable1",
@@ -5751,14 +7366,14 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, "mytable1", row.ValuesBySelector["(indexes.table)"].RawValue())
-		require.Equal(t, "mytable1[id]", row.ValuesBySelector["(indexes.name)"].RawValue())
+		require.Equal(t, "mytable1(id)", row.ValuesBySelector["(indexes.name)"].RawValue())
 		require.True(t, row.ValuesBySelector["(indexes.unique)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(indexes.primary)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, "mytable1", row.ValuesBySelector["(indexes.table)"].RawValue())
-		require.Equal(t, "mytable1[title]", row.ValuesBySelector["(indexes.name)"].RawValue())
+		require.Equal(t, "mytable1(title)", row.ValuesBySelector["(indexes.name)"].RawValue())
 		require.False(t, row.ValuesBySelector["(indexes.unique)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(indexes.primary)"].RawValue().(bool))
 
@@ -5775,21 +7390,21 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		row, err := r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, "mytable2", row.ValuesBySelector["(indexes.table)"].RawValue())
-		require.Equal(t, "mytable2[id]", row.ValuesBySelector["(indexes.name)"].RawValue())
+		require.Equal(t, "mytable2(id)", row.ValuesBySelector["(indexes.name)"].RawValue())
 		require.True(t, row.ValuesBySelector["(indexes.unique)"].RawValue().(bool))
 		require.True(t, row.ValuesBySelector["(indexes.primary)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, "mytable2", row.ValuesBySelector["(indexes.table)"].RawValue())
-		require.Equal(t, "mytable2[name]", row.ValuesBySelector["(indexes.name)"].RawValue())
+		require.Equal(t, "mytable2(name)", row.ValuesBySelector["(indexes.name)"].RawValue())
 		require.False(t, row.ValuesBySelector["(indexes.unique)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(indexes.primary)"].RawValue().(bool))
 
 		row, err = r.Read(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, "mytable2", row.ValuesBySelector["(indexes.table)"].RawValue())
-		require.Equal(t, "mytable2[name,active]", row.ValuesBySelector["(indexes.name)"].RawValue())
+		require.Equal(t, "mytable2(name,active)", row.ValuesBySelector["(indexes.name)"].RawValue())
 		require.True(t, row.ValuesBySelector["(indexes.unique)"].RawValue().(bool))
 		require.False(t, row.ValuesBySelector["(indexes.primary)"].RawValue().(bool))
 
@@ -5944,10 +7559,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), tx2, "COMMIT;", nil)
@@ -5964,10 +7579,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id > 0", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id > 0", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6027,10 +7642,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		_, _, err = engine.Exec(context.Background(), tx2, "DELETE FROM table1 WHERE id > 0", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx2, "DELETE FROM table1 WHERE id > 0", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec(context.Background(), tx2, "UPSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A2');", nil)
@@ -6073,10 +7688,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', true, x'0A10');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6107,10 +7722,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (11, 'title11', true, x'0A11');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6181,10 +7796,10 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), tx1, "UPSERT INTO table1 (id, title, active, payload) VALUES (12, 'title12', true, x'0A12');", nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
+		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 ORDER BY id DESC LIMIT 1 OFFSET 1", nil)
 		require.NoError(t, err)
 
-		rowReader, err := engine.Query(context.Background(), tx2, "SELECT * FROM table1 ORDER BY id DESC LIMIT 1 OFFSET 1", nil)
+		_, _, err = engine.Exec(context.Background(), tx1, "COMMIT;", nil)
 		require.NoError(t, err)
 
 		for {
@@ -6227,7 +7842,7 @@ func TestMVCC(t *testing.T) {
 }
 
 func TestMVCCWithExternalCommitAllowance(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithExternalCommitAllowance(true))
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true).WithExternalCommitAllowance(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -6274,7 +7889,7 @@ func TestMVCCWithExternalCommitAllowance(t *testing.T) {
 func TestConcurrentInsertions(t *testing.T) {
 	workers := 10
 
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMaxConcurrency(workers))
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true).WithMaxConcurrency(workers))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -6356,7 +7971,7 @@ func TestSQLTxWithClosedContext(t *testing.T) {
 }
 
 func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *store.ImmuStore) {
-	st, err := store.Open(t.TempDir(), sopts)
+	st, err := store.Open(t.TempDir(), sopts.WithMultiIndexing(true))
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
@@ -6541,10 +8156,6 @@ func TestCopyCatalogToTx(t *testing.T) {
 		_, _, err := engine.Exec(context.Background(), nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
-		// should fail due non-available index
-		_, err = engine.Query(context.Background(), nil, "SELECT * FROM table1 ORDER BY amount DESC", nil)
-		require.ErrorIs(t, err, ErrNoAvailableIndex)
-
 		// should use primary index by default
 		r, err := engine.Query(context.Background(), nil, "SELECT * FROM table1", nil)
 		require.NoError(t, err)
@@ -6572,6 +8183,7 @@ func BenchmarkInsertInto(b *testing.B) {
 	eCount := 100
 
 	opts := store.DefaultOptions().
+		WithMultiIndexing(true).
 		WithSynced(true).
 		WithMaxActiveTransactions(100).
 		WithMaxConcurrency(workerCount)
@@ -6588,17 +8200,10 @@ func BenchmarkInsertInto(b *testing.B) {
 		b.Fail()
 	}
 
-	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE db1;", nil)
-	if err != nil {
-		b.Fail()
-	}
-
-	_, _, err = engine.Exec(context.Background(), nil, "USE DATABASE db1;", nil)
-	if err != nil {
-		b.Fail()
-	}
-
-	_, ctxs, err := engine.Exec(context.Background(), nil, "CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);", nil)
+	_, ctxs, err := engine.Exec(context.Background(), nil, `
+			CREATE TABLE mytable1(id VARCHAR[30], title VARCHAR[50], PRIMARY KEY id);
+			CREATE INDEX ON mytable1(title);
+	`, nil)
 	if err != nil {
 		b.Fail()
 	}
@@ -6649,6 +8254,62 @@ func BenchmarkInsertInto(b *testing.B) {
 	}
 }
 
+func BenchmarkNotIndexedOrderBy(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().WithMultiIndexing(true).WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	if err != nil {
+		b.Fail()
+	}
+
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithSortBufferSize(1024))
+	if err != nil {
+		b.Fail()
+	}
+
+	_, _, err = engine.Exec(context.Background(), nil, `CREATE TABLE mytable(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id);`, nil)
+	if err != nil {
+		b.Fail()
+	}
+
+	for nBatch := 0; nBatch < 100; nBatch++ {
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+		if err != nil {
+			b.Fail()
+		}
+
+		nRows := 1000
+		for i := 0; i < nRows; i++ {
+			_, _, err := engine.Exec(context.Background(), tx, "INSERT INTO mytable(title) VALUES (@title)", map[string]interface{}{
+				"title": fmt.Sprintf("title%d", rand.Int()),
+			})
+			if err != nil {
+				b.Fail()
+			}
+		}
+
+		err = tx.Commit(context.Background())
+		if err != nil {
+			b.Fail()
+		}
+	}
+
+	b.ResetTimer()
+
+	start := time.Now()
+	reader, err := engine.Query(context.Background(), nil, "SELECT * FROM mytable ORDER BY title ASC LIMIT 1", nil)
+	if err != nil {
+		b.Fail()
+	}
+	defer reader.Close()
+
+	_, err = reader.Read(context.Background())
+	if err != nil {
+		b.Fail()
+	}
+	fmt.Println("Elapsed:", time.Since(start))
+}
+
 func TestLikeWithNullableColumns(t *testing.T) {
 	engine := setupCommonTest(t)
 
@@ -6671,4 +8332,266 @@ func TestLikeWithNullableColumns(t *testing.T) {
 
 	_, err = r.Read(context.Background())
 	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
+type BrokenCatalogTestSuite struct {
+	suite.Suite
+
+	path   string
+	st     *store.ImmuStore
+	engine *Engine
+}
+
+func TestBrokenCatalogTestSuite(t *testing.T) {
+	suite.Run(t, new(BrokenCatalogTestSuite))
+}
+
+func (t *BrokenCatalogTestSuite) SetupTest() {
+	t.path = t.T().TempDir()
+
+	st, err := store.Open(t.path, store.DefaultOptions().WithMultiIndexing(true))
+	t.Require().NoError(err)
+
+	t.st = st
+
+	t.engine, err = NewEngine(t.st, DefaultOptions().WithPrefix(sqlPrefix))
+	t.Require().NoError(err)
+
+	_, _, err = t.engine.Exec(
+		context.Background(),
+		nil,
+		`
+		CREATE TABLE test(
+			id INTEGER AUTO_INCREMENT,
+			var VARCHAR,
+			b BOOLEAN,
+			PRIMARY KEY(id)
+		)
+		`, nil)
+	t.Require().NoError(err)
+
+	// Tests in teh suite require specific IDs to be assigned
+	// we check below if those are as expected
+	tx, err := t.engine.NewTx(context.Background(), DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	tab, err := tx.catalog.GetTableByName("test")
+	t.Require().NoError(err)
+	t.Require().EqualValues(1, tab.id)
+
+	for id, name := range map[uint32]string{
+		1: "id",
+		2: "var",
+		3: "b",
+	} {
+		col, err := tab.GetColumnByName(name)
+		t.Require().NoError(err)
+		t.Require().EqualValues(id, col.id)
+	}
+}
+
+func (t *BrokenCatalogTestSuite) TearDownTest() {
+	defer os.RemoveAll(t.path)
+
+	if t.st != nil {
+		err := t.st.Close()
+		t.Require().NoError(err)
+	}
+}
+
+func (t *BrokenCatalogTestSuite) getColEntry(colID uint32) (k, v []byte, vref store.ValueRef) {
+	tx, err := t.st.NewTx(context.Background(), store.DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	reader, err := tx.NewKeyReader(store.KeyReaderSpec{
+		Prefix: MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(1), EncodeID(colID)),
+	})
+	t.Require().NoError(err)
+	defer reader.Close()
+
+	k, vref, err = reader.Read(context.Background())
+	t.Require().NoError(err)
+
+	v, err = vref.Resolve()
+	t.Require().NoError(err)
+
+	return k, v, vref
+}
+
+func (t *BrokenCatalogTestSuite) TestCanNotSetExpiredEntryInCatalog() {
+	k, v, _ := t.getColEntry(2)
+
+	md := store.NewKVMetadata()
+	err := md.ExpiresAt(time.Now().Add(time.Hour))
+	t.Require().NoError(err)
+
+	tx, err := t.st.NewTx(context.Background(), store.DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	tx.Set(k, md, v)
+
+	c := newCatalog(sqlPrefix)
+	err = c.load(context.Background(), tx)
+
+	t.Require().ErrorIs(err, ErrBrokenCatalogColSpecExpirable)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorWhenColSpecIsToShort() {
+	k, v, vref := t.getColEntry(2)
+
+	tx, err := t.st.NewTx(context.Background(), store.DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	err = tx.Delete(context.Background(), k)
+	t.Require().NoError(err)
+
+	err = tx.Set(k[:len(k)-1], vref.KVMetadata(), v)
+	t.Require().NoError(err)
+
+	c := newCatalog(sqlPrefix)
+	err = c.load(context.Background(), tx)
+
+	t.Require().ErrorIs(err, ErrCorruptedData)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorColSpecNotSequential() {
+	tx, err := t.engine.NewTx(context.Background(), DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	err = persistColumn(tx, &Column{
+		id:    100,
+		table: &Table{id: 1},
+	})
+	t.Require().NoError(err)
+
+	c := newCatalog(sqlPrefix)
+	err = c.load(context.Background(), tx.tx)
+
+	t.Require().ErrorIs(err, ErrCorruptedData)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorColSpecDuplicate() {
+	tx, err := t.engine.NewTx(context.Background(), DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	// the type is part of the key, write another column with same id as the primary key
+	err = persistColumn(tx, &Column{
+		id:      1,
+		colType: BLOBType,
+		table:   &Table{id: 1},
+	})
+	t.Require().NoError(err)
+
+	c := newCatalog(sqlPrefix)
+	err = c.load(context.Background(), tx.tx)
+
+	t.Require().ErrorIs(err, ErrCorruptedData)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorDroppedPrimaryIndexColumn() {
+	tx, err := t.engine.NewTx(context.Background(), DefaultTxOptions())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	// the type is part of the key, write another column with same id as the primary key
+	err = persistColumnDeletion(context.Background(), tx, &Column{
+		id:      1,
+		colType: IntegerType,
+		table:   &Table{id: 1},
+	})
+	t.Require().NoError(err)
+
+	c := newCatalog(sqlPrefix)
+
+	err = c.load(context.Background(), tx.tx)
+	t.Require().ErrorIs(err, ErrColumnDoesNotExist)
+}
+
+func TestQueryTxMetadata(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st,
+		DefaultOptions().WithPrefix(sqlPrefix).WithParseTxMetadataFunc(func(b []byte) (map[string]interface{}, error) {
+			var md map[string]interface{}
+			err := json.Unmarshal(b, &md)
+			return md, err
+		}),
+	)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(), nil,
+		`
+		CREATE TABLE mytbl (
+			id INTEGER AUTO_INCREMENT,
+
+			PRIMARY KEY(id)
+		)`, nil)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		extra, err := json.Marshal(map[string]interface{}{
+			"n": i + 1,
+		})
+		require.NoError(t, err)
+
+		txOpts := DefaultTxOptions().WithExtra(extra)
+		tx, err := engine.NewTx(context.Background(), txOpts)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			tx,
+			fmt.Sprintf("INSERT INTO mytbl(id) VALUES (%d)", i+1),
+			nil,
+		)
+		require.NoError(t, err)
+	}
+
+	rows, err := engine.queryAll(
+		context.Background(),
+		nil,
+		"SELECT _tx_metadata->'n' FROM mytbl",
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, rows, 10)
+
+	for i, row := range rows {
+		n := row.ValuesBySelector[EncodeSelector("", "mytbl", "_tx_metadata->n")].RawValue()
+		require.Equal(t, float64(i+1), n)
+	}
+
+	engine.parseTxMetadata = nil
+
+	_, err = engine.queryAll(
+		context.Background(),
+		nil,
+		"SELECT _tx_metadata->'n' FROM mytbl",
+		nil,
+	)
+	require.ErrorContains(t, err, "unable to parse tx metadata")
+
+	engine.parseTxMetadata = func(b []byte) (map[string]interface{}, error) {
+		return nil, fmt.Errorf("parse error")
+	}
+
+	_, err = engine.queryAll(
+		context.Background(),
+		nil,
+		"SELECT _tx_metadata->'n' FROM mytbl",
+		nil,
+	)
+	require.ErrorIs(t, err, ErrInvalidTxMetadata)
 }

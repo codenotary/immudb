@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -62,7 +62,6 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 		kmap := make(map[[sha256.Size]byte]bool)
 
 		for i, op := range req.Operations {
-
 			e := &store.EntrySpec{}
 
 			switch x := op.Operation.(type) {
@@ -99,14 +98,12 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 				_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
 				if req.NoWait && !exists {
-					return nil, nil, fmt.Errorf(
-						"%w: can not create a reference to a key that was not set in the same transaction",
-						ErrNoWaitOperationMustBeSelfContained)
+					return nil, nil, fmt.Errorf("%w: can not create a reference to a key that was not set in the same transaction", ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				if !req.NoWait {
 					// check key does not exists or it's already a reference
-					entry, err := d.getAtTx(EncodeKey(x.Ref.Key), 0, 0, index, 0, true)
+					entry, err := d.getAtTx(ctx, EncodeKey(x.Ref.Key), 0, 0, index, 0, true)
 					if err != nil && err != store.ErrKeyNotFound {
 						return nil, nil, err
 					}
@@ -116,7 +113,7 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 
 					if !exists || x.Ref.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAtTx(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, 0, true)
+						refEntry, err := d.getAtTx(ctx, EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, 0, true)
 						if err != nil {
 							return nil, nil, err
 						}
@@ -161,15 +158,13 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 				_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
 				if req.NoWait && !exists {
-					return nil, nil, fmt.Errorf(
-						"%w: can not create a reference into a set for a key that was not set in the same transaction",
-						ErrNoWaitOperationMustBeSelfContained)
+					return nil, nil, fmt.Errorf("%w: can not create a reference into a set for a key that was not set in the same transaction", ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				if !req.NoWait {
 					if !exists || x.ZAdd.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAtTx(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, 0, true)
+						refEntry, err := d.getAtTx(ctx, EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, 0, true)
 						if err != nil {
 							return nil, nil, err
 						}

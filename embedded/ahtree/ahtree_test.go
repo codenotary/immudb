@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -1002,7 +1002,7 @@ func BenchmarkAppend(b *testing.B) {
 	tree, err := Open(b.TempDir(), opts)
 	require.NoError(b, err)
 
-	var bs [32]byte
+	var bs [sha256.Size]byte
 
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 1_000_000; j++ {

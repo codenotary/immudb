@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,9 +38,8 @@ type Options struct {
 	syncReplication bool
 	syncAcks        int // only if !replica
 
-	corruptionChecker bool
-
 	readTxPoolSize int
+	maxResultSize  int
 
 	// TruncationFrequency determines how frequently to truncate data from the database.
 	TruncationFrequency time.Duration
@@ -54,6 +53,7 @@ func DefaultOption() *Options {
 	return &Options{
 		dbRootPath:          DefaultDbRootPath,
 		storeOpts:           store.DefaultOptions(),
+		maxResultSize:       MaxKeyScanLimit,
 		readTxPoolSize:      DefaultReadTxPoolSize,
 		TruncationFrequency: DefaultTruncationFrequency,
 	}
@@ -68,17 +68,6 @@ func (o *Options) WithDBRootPath(Path string) *Options {
 // GetDbRootPath returns the directory in which this database resides
 func (o *Options) GetDBRootPath() string {
 	return o.dbRootPath
-}
-
-// WithCorruptionChecker sets if corruption checker should start for this database instance
-func (o *Options) WithCorruptionChecker(cc bool) *Options {
-	o.corruptionChecker = cc
-	return o
-}
-
-// GetCorruptionChecker returns if corruption checker should start for this database instance
-func (o *Options) GetCorruptionChecker() bool {
-	return o.corruptionChecker
 }
 
 // WithStoreOptions sets backing store options
@@ -124,5 +113,10 @@ func (o *Options) WithTruncationFrequency(c time.Duration) *Options {
 
 func (o *Options) WithRetentionPeriod(c time.Duration) *Options {
 	o.RetentionPeriod = c
+	return o
+}
+
+func (o *Options) WithMaxResultSize(maxResultSize int) *Options {
+	o.maxResultSize = maxResultSize
 	return o
 }

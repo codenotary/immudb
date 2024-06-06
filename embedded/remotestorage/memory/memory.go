@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -117,6 +117,28 @@ func (r *Storage) Put(ctx context.Context, name string, fileName string) error {
 	return nil
 }
 
+func (r *Storage) Remove(ctx context.Context, name string) error {
+	if validPath(name) {
+		return ErrInvalidArguments
+	}
+
+	delete(r.objects, name)
+	return nil
+}
+
+func (r *Storage) RemoveAll(ctx context.Context, path string) error {
+	if !validPath(path) {
+		return ErrInvalidArguments
+	}
+
+	for key := range r.objects {
+		if strings.HasPrefix(key, path) {
+			delete(r.objects, key)
+		}
+	}
+	return nil
+}
+
 // Exists checks if a remove resource exists and can be read
 // Note that due to an asynchronous nature of cluod storage,
 // a resource stored with the Put method may not be immediately accessible
@@ -132,12 +154,8 @@ func (r *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if path != "" {
-		if !strings.HasSuffix(path, "/") ||
-			strings.Contains(path, "//") ||
-			path == "/" {
-			return nil, nil, ErrInvalidArguments
-		}
+	if !validPath(path) {
+		return nil, nil, ErrInvalidArguments
 	}
 
 	subPathSet := map[string]struct{}{}
@@ -176,6 +194,10 @@ func (r *Storage) SetRandomPutDelays(minMs, maxMs int) {
 
 	r.randomPutDelayMinMs = minMs
 	r.randomPutDelayMaxMs = maxMs
+}
+
+func validPath(path string) bool {
+	return path == "" || (strings.HasSuffix(path, "/") && !strings.Contains(path, "//") && path != "/")
 }
 
 var _ remotestorage.Storage = (*Storage)(nil)

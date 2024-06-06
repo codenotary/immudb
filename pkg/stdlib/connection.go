@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -81,7 +81,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	if !c.immuClient.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
-	queryResult := &schema.SQLQueryResult{}
 
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
@@ -89,19 +88,18 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	}
 
 	if c.tx != nil {
-		queryResult, err = c.tx.SQLQuery(ctx, query, vals)
+		reader, err := c.tx.SQLQueryReader(ctx, query, vals)
 		if err != nil {
 			return nil, err
 		}
-		return &Rows{rows: queryResult.Rows, columns: queryResult.Columns}, nil
+		return newRows(reader), nil
 	}
 
-	queryResult, err = c.immuClient.SQLQuery(ctx, query, vals, true)
+	reader, err := c.immuClient.SQLQueryReader(ctx, query, vals)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Rows{rows: queryResult.Rows, columns: queryResult.Columns}, nil
+	return newRows(reader), nil
 }
 
 func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {

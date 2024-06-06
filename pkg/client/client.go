@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -99,6 +99,8 @@ type ImmuClient interface {
 	// this call also allows the server to free up all resources allocated for a session
 	// (without explicit call, the server will only free resources after session inactivity timeout).
 	CloseSession(ctx context.Context) error
+
+	GetSessionID() string
 
 	// CreateUser creates new user with given credentials and permission.
 	//
@@ -342,6 +344,12 @@ type ImmuClient interface {
 	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
 
+	// VerifiableGet reads value for a given key, and returs internal data used to perform
+	// the verification.
+	//
+	// You can use this function if you want to have visibility on the verification data
+	VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error)
+
 	// History returns history for a single key.
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
@@ -484,8 +492,12 @@ type ImmuClient interface {
 
 	// SQLQuery performs a query (read-only) operation.
 	//
+	// Deprecated: use SQLQueryReader instead.
 	// The renewSnapshot parameter is deprecated and  is ignored by the server.
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
+
+	// SQLQueryReader submits an SQL query to the server and returns a reader object for efficient retrieval of all rows in the result set.
+	SQLQueryReader(ctx context.Context, sql string, params map[string]interface{}) (SQLQueryRowReader, error)
 
 	// ListTables returns a list of SQL tables.
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
@@ -701,7 +713,13 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
 			// todo here is possible to remove ClientUnaryInterceptor and use only tokenInterceptor
-			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
+			opts = append(opts, grpc.WithStreamInterceptor(
+				grpc_middleware.ChainStreamClient(
+					c.TokenStreamInterceptor,
+					auth.ClientStreamInterceptor(token),
+					c.SessionIDInjectorStreamInterceptor,
+				)),
+			)
 		}
 	}
 	uic = append(uic, c.SessionIDInjectorInterceptor)
@@ -2310,4 +2328,11 @@ func (c *immuClient) TruncateDatabase(ctx context.Context, db string, retentionP
 	c.Logger.Debugf("TruncateDatabase finished in %s", time.Since(start))
 
 	return err
+}
+
+// VerifiableGet
+func (c *immuClient) VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error) {
+	result, err := c.ServiceClient.VerifiableGet(ctx, in, opts...)
+
+	return result, err
 }

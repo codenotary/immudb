@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
-	"time"
+	"io"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -50,18 +50,55 @@ func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]
 
 // SQLQuery performs a query (read-only) operation.
 //
-// The renewSnapshot parameter is deprecated and  is ignored by the server.
+// Deprecated: Use method SQLQueryReader instead.
+//
+// The renewSnapshot parameter is deprecated and is ignored by the server.
 func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	stream, err := c.sqlQuery(ctx, sql, params, false)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := stream.Recv()
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	if _, err := stream.Recv(); err != io.EOF {
+		return res, errors.FromError(err)
+	}
+	return res, nil
+}
+
+// SQLQueryReader submits an SQL query to the server and returns a reader object for efficient retrieval of all rows in the result set.
+func (c *immuClient) SQLQueryReader(ctx context.Context, sql string, params map[string]interface{}) (SQLQueryRowReader, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	stream, err := c.sqlQuery(ctx, sql, params, true)
+	if err != nil {
+		return nil, err
+	}
+	return newSQLQueryRowReader(stream)
+}
+
+func (c *immuClient) sqlQuery(ctx context.Context, sql string, params map[string]interface{}, acceptStream bool) (schema.ImmuService_SQLQueryClient, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.FromError(err)
 	}
 
-	return c.ServiceClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: sql, Params: namedParams, ReuseSnapshot: !renewSnapshot})
+	stream, err := c.ServiceClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: sql, Params: namedParams, AcceptStream: acceptStream})
+	return stream, errors.FromError(err)
 }
 
 // ListTables returns a list of SQL tables.
@@ -170,13 +207,13 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
-		sql.PIndexPrefix,
+		sql.RowPrefix,
 		sql.EncodeID(dbID),
 		sql.EncodeID(tableID),
 		sql.EncodeID(sql.PKIndexID),
 		valbuf.Bytes())
 
-	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById)
+	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById, vEntry.MaxColId)
 	if err != nil {
 		return err
 	}
@@ -286,7 +323,7 @@ func verifyRowAgainst(row *schema.Row, decodedRow map[uint32]*schema.SQLValue, c
 	return nil
 }
 
-func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uint32]*schema.SQLValue, error) {
+func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType, maxColID uint32) (map[uint32]*schema.SQLValue, error) {
 	off := 0
 
 	if len(encodedRow) < off+sql.EncLenLen {
@@ -308,7 +345,19 @@ func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uin
 
 		colType, ok := colTypes[colID]
 		if !ok {
-			return nil, sql.ErrCorruptedData
+			// Support for dropped columns
+			if colID > maxColID {
+				return nil, sql.ErrCorruptedData
+			}
+
+			vlen, voff, err := sql.DecodeValueLength(encodedRow[off:])
+			if err != nil {
+				return nil, err
+			}
+
+			off += vlen
+			off += voff
+			continue
 		}
 
 		val, n, err := sql.DecodeValue(encodedRow[off:], colType)
@@ -316,39 +365,140 @@ func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uin
 			return nil, err
 		}
 
-		values[colID] = typedValueToRowValue(val)
+		values[colID] = schema.TypedValueToRowValue(val)
 		off += n
 	}
 
 	return values, nil
 }
 
-func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
-	switch tv.Type() {
-	case sql.IntegerType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.RawValue().(int64)}}
-		}
-	case sql.VarcharType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.RawValue().(string)}}
-		}
-	case sql.BooleanType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.RawValue().(bool)}}
-		}
-	case sql.BLOBType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.RawValue().([]byte)}}
-		}
-	case sql.TimestampType:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.RawValue().(time.Time))}}
-		}
-	case sql.Float64Type:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_F{F: tv.RawValue().(float64)}}
-		}
+type Row []interface{}
+
+type Column struct {
+	Type string
+	Name string
+}
+
+type SQLQueryRowReader interface {
+	// Columns returns the set of columns
+	Columns() []Column
+
+	// Next() prepares the subsequent row for retrieval, indicating availability with a returned value of true.
+	// Any encountered IO errors will be deferred until subsequent calls to Read() or Close(), prompting the function to return false.
+	Next() bool
+
+	// Read retrieves the current row as a slice of values.
+	//
+	// It's important to note that successive calls to Read() may recycle the same slice, necessitating copying to retain its contents.
+	Read() (Row, error)
+
+	// Close closes the reader. Subsequent calls to Next() or Read() will return an error.
+	Close() error
+}
+
+type rowReader struct {
+	stream schema.ImmuService_SQLQueryClient
+
+	cols []Column
+	rows []*schema.Row
+	row  Row
+
+	nextRow int
+	closed  bool
+	err     error
+}
+
+func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient) (*rowReader, error) {
+	res, err := stream.Recv()
+	if err != nil {
+		return nil, errors.FromError(err)
 	}
-	return nil
+
+	return &rowReader{
+		stream:  stream,
+		rows:    res.Rows,
+		row:     make(Row, len(res.Columns)),
+		nextRow: -1,
+		cols:    fromProtoCols(res.Columns),
+	}, nil
+}
+
+func fromProtoCols(columns []*schema.Column) []Column {
+	cols := make([]Column, len(columns))
+	for i, col := range columns {
+		cols[i] = Column{Type: col.Type, Name: col.Name}
+	}
+	return cols
+}
+
+func (it *rowReader) Columns() []Column {
+	return it.cols
+}
+
+func (it *rowReader) Next() bool {
+	if it.closed {
+		return false
+	}
+
+	if it.nextRow+1 < len(it.rows) {
+		it.nextRow++
+		return true
+	}
+
+	if err := it.fetchRows(); err != nil {
+		it.err = err
+		return false
+	}
+
+	it.nextRow = 0
+	return true
+}
+
+func (it *rowReader) Read() (Row, error) {
+	if it.closed {
+		return nil, sql.ErrAlreadyClosed
+	}
+
+	if it.err != nil {
+		return nil, it.err
+	}
+
+	if it.nextRow < 0 {
+		return nil, errors.New("Read called without calling Next")
+	}
+
+	protoRow := it.rows[it.nextRow]
+	for i, protoVal := range protoRow.Values {
+		val := schema.RawValue(protoVal)
+		it.row[i] = val
+	}
+	return it.row, nil
+}
+
+func (it *rowReader) fetchRows() error {
+	res, err := it.stream.Recv()
+	if err == io.EOF {
+		return sql.ErrNoMoreRows
+	}
+
+	if err == nil {
+		it.rows = res.Rows
+	}
+	return errors.FromError(err)
+}
+
+func (it *rowReader) Close() error {
+	if it.closed {
+		return sql.ErrAlreadyClosed
+	}
+
+	it.stream = nil
+	it.closed = true
+	it.rows = nil
+	it.nextRow = 0
+
+	if it.err == sql.ErrNoMoreRows {
+		return nil
+	}
+	return it.err
 }

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,21 +40,30 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByName("table1")
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("", nil)
+	_, err = db.newTable("", nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", nil)
+	_, err = db.newTable("table1", nil, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", []*ColSpec{})
+	_, err = db.newTable("table1", map[uint32]*ColSpec{}, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "id", colType: IntegerType}})
+	_, err = db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+		2: {colName: "id", colType: IntegerType},
+	}, 2)
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
+	table, err := db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+		2: {colName: "title", colType: IntegerType},
+	}, 2)
 	require.NoError(t, err)
 	require.Equal(t, "table1", table.Name())
+
+	_, err = table.newColumn(&ColSpec{colName: revCol, colType: IntegerType})
+	require.ErrorIs(t, err, ErrReservedWord)
 
 	_, err = table.newIndex(true, []uint32{1})
 	require.NoError(t, err)
@@ -73,7 +82,10 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.GetTableByID(2)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
+	_, err = db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+		2: {colName: "title", colType: IntegerType},
+	}, 2)
 	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	indexed, err := table.IsIndexed("id")
@@ -137,9 +149,7 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 }
 
 func TestCatalogTableLength(t *testing.T) {
-	// db := newCatalog(nil)
-
-	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -166,7 +176,7 @@ func TestCatalogTableLength(t *testing.T) {
 			require.NoError(t, err)
 			defer tx.Cancel()
 
-			require.Equal(t, totalTablesCount, tx.catalog.tableCount)
+			require.Equal(t, totalTablesCount, tx.catalog.maxTableID)
 		}
 	})
 
@@ -177,10 +187,12 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		for _, v := range []string{"table1", "table2", "table3"} {
-			_, err := catlog.newTable(v, []*ColSpec{{colName: "id", colType: IntegerType}})
+			_, err := catlog.newTable(v, map[uint32]*ColSpec{
+				1: {colName: "id", colType: IntegerType},
+			}, 1)
 			require.ErrorIs(t, err, ErrTableAlreadyExists)
 		}
-		require.Equal(t, totalTablesCount, catlog.tableCount)
+		require.Equal(t, totalTablesCount, catlog.maxTableID)
 	})
 
 	t.Run("table count should increase on using newTable function on catalog", func(t *testing.T) {
@@ -190,10 +202,13 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		for _, v := range []string{"table4", "table5", "table6"} {
-			_, err := catlog.newTable(v, []*ColSpec{{colName: "id", colType: IntegerType}})
+			_, err := catlog.newTable(v, map[uint32]*ColSpec{
+				1: {colName: "id", colType: IntegerType},
+			}, 1,
+			)
 			require.NoError(t, err)
 		}
-		require.Equal(t, totalTablesCount+3, catlog.tableCount)
+		require.Equal(t, totalTablesCount+3, catlog.maxTableID)
 	})
 
 	t.Run("table count should increase on adding new table", func(t *testing.T) {
@@ -231,7 +246,7 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		// ensure that catalog has been reloaded with deleted table count
-		require.Equal(t, totalTablesCount, catlog.tableCount)
+		require.Equal(t, totalTablesCount, catlog.maxTableID)
 
 		for _, v := range activeTables {
 			require.True(t, catlog.ExistTable(v))
@@ -267,6 +282,8 @@ func TestCatalogTableLength(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, totalTablesCount, tab.id)
 
+		_, err = tab.GetIndexByName("invalid_index")
+		require.ErrorIs(t, err, ErrIndexNotFound)
 	})
 
 	t.Run("cancelling a transaction should not increase table count", func(t *testing.T) {
@@ -289,7 +306,7 @@ func TestCatalogTableLength(t *testing.T) {
 		require.NoError(t, err)
 
 		// cancel the transaction instead of committing it
-		require.Equal(t, totalTablesCount+1, stx.catalog.tableCount)
+		require.Equal(t, totalTablesCount+1, stx.catalog.maxTableID)
 		require.NoError(t, stx.Cancel())
 
 		// reload a fresh catalog
@@ -299,7 +316,7 @@ func TestCatalogTableLength(t *testing.T) {
 		catlog := tx.catalog
 
 		// table count should not increase
-		require.Equal(t, totalTablesCount, catlog.tableCount)
+		require.Equal(t, totalTablesCount, catlog.maxTableID)
 	})
 
 }

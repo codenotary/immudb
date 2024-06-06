@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +34,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 
 	"github.com/stretchr/testify/require"
 )
@@ -354,6 +355,9 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				require.Equal(t, expectedTs, ts1)
 
 				require.Equal(t, uint64(i), hc)
+
+				_, _, _, err := tbtree.GetBetween(k, 1, ts1)
+				require.NoError(t, err)
 			}
 
 			if j == kCount-1 {
@@ -501,9 +505,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 			require.Equal(t, uint64(1), hc1)
 		}
 
-		tss, _, err := snapshot.History(k, 0, true, 1)
+		tvs, _, err := snapshot.History(k, 0, true, 1)
 		require.NoError(t, err)
-		require.Equal(t, ts, tss[0])
+		require.Equal(t, ts, tvs[0].Ts)
 
 		err = snapshot.Close()
 		require.NoError(t, err)
@@ -619,6 +623,8 @@ func TestSnapshotRecovery(t *testing.T) {
 	snapc, err = tree.SnapshotCount()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), snapc)
+
+	require.Equal(t, uint64(3), tree.Ts())
 
 	err = tree.Close()
 	require.NoError(t, err)
@@ -949,6 +955,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, _, err = tbtree.Get([]byte("key"))
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
+	_, _, _, err = tbtree.GetBetween([]byte("key"), 1, 2)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
 	_, _, _, _, err = tbtree.GetWithPrefix([]byte("key"), nil)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
@@ -1117,7 +1126,11 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 
 func TestTBTreeReOpen(t *testing.T) {
 	dir := t.TempDir()
-	tbtree, err := Open(dir, DefaultOptions())
+
+	opts := DefaultOptions().WithMaxKeySize(2).WithMaxValueSize(2)
+	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
+
+	tbtree, err := Open(dir, opts)
 	require.NoError(t, err)
 
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
@@ -1126,14 +1139,16 @@ func TestTBTreeReOpen(t *testing.T) {
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
-	err = tbtree.Insert([]byte("k1"), []byte("v1"))
-	require.NoError(t, err)
+	for i := 1; i < 10; i++ {
+		err = tbtree.Insert([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		require.NoError(t, err)
+	}
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 
 	t.Run("reopening btree after gracefully close should read all data", func(t *testing.T) {
-		tbtree, err := Open(dir, DefaultOptions())
+		tbtree, err := Open(dir, opts)
 		require.NoError(t, err)
 
 		_, _, _, err = tbtree.Get([]byte("k0"))
@@ -1141,6 +1156,45 @@ func TestTBTreeReOpen(t *testing.T) {
 
 		_, _, _, err = tbtree.Get([]byte("k1"))
 		require.NoError(t, err)
+
+		root, isInnerNode := tbtree.root.(*innerNode)
+		require.True(t, isInnerNode)
+
+		childNodeRef := root.nodes[0].(*nodeRef)
+
+		require.False(t, childNodeRef.mutated())
+		require.Positive(t, childNodeRef.minOffset())
+		require.Positive(t, childNodeRef.offset())
+
+		sz, err := childNodeRef.size()
+		require.NoError(t, err)
+		require.Positive(t, sz)
+
+		_, err = childNodeRef.setTs(root.ts())
+		require.NoError(t, err)
+
+		childNodeRef.off = -1
+
+		_, _, err = childNodeRef.insert(nil)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, _, err = childNodeRef.get(nil)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, _, err = childNodeRef.getBetween(nil, 1, 1)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, err = childNodeRef.history(nil, 0, true, 1)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, _, _, err = childNodeRef.findLeafNode(nil, nil, 0, nil, true)
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, err = childNodeRef.setTs(root.ts())
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
+
+		_, err = childNodeRef.size()
+		require.ErrorIs(t, err, singleapp.ErrNegativeOffset)
 
 		err = tbtree.Close()
 		require.NoError(t, err)
@@ -1155,6 +1209,9 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
 	require.NoError(t, err)
 
+	err = tbtree.Insert([]byte("k0"), []byte("v00"))
+	require.NoError(t, err)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
@@ -1163,7 +1220,7 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
-	_, _, _, err = tbtree.Get([]byte("k0"))
+	_, _, err = tbtree.History([]byte("k0"), 0, true, 2)
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	err = tbtree.Close()
@@ -1445,14 +1502,14 @@ func TestLastUpdateBetween(t *testing.T) {
 	require.NotNil(t, leaf)
 	require.GreaterOrEqual(t, len(leaf.values), off)
 
-	_, _, err = leaf.values[off].lastUpdateBetween(nil, 1, 0)
+	_, _, _, err = leaf.values[off].lastUpdateBetween(nil, 1, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	for i := 0; i < keyUpdatesCount; i++ {
 		for f := i; f < keyUpdatesCount; f++ {
-			tx, hc, err := leaf.values[off].lastUpdateBetween(nil, uint64(i+1), uint64(f+1))
+			_, tx, hc, err := leaf.values[off].lastUpdateBetween(nil, uint64(i+1), uint64(f+1))
 			require.NoError(t, err)
-			require.Equal(t, uint64(f), hc)
+			require.Equal(t, uint64(f+1), hc)
 			require.Equal(t, uint64(f+1), tx)
 		}
 	}
@@ -1543,6 +1600,23 @@ func TestMultiTimedBulkInsertion(t *testing.T) {
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		require.Equal(t, initialTs, tbtree.Ts())
+	})
+
+	t.Run("bulk-insertion of the same key timestamp equal to current timestamp of root should not be possible", func(t *testing.T) {
+		_, _, err = tbtree.Flush()
+		require.NoError(t, err)
+
+		err = tbtree.Insert([]byte("key3_1"), []byte("value3_1"))
+		require.NoError(t, err)
+
+		currTs := tbtree.Ts()
+
+		kvts := []*KVT{
+			{K: []byte("key3_2"), V: []byte("value3_2"), T: currTs},
+		}
+
+		err = tbtree.BulkInsert(kvts)
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
 	err = tbtree.Close()

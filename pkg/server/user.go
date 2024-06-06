@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -151,7 +151,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, fmt.Errorf("user already exists")
 	}
 
-	_, _, err = s.insertNewUser(ctx, r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
+	_, _, err = s.insertNewUser(ctx, r.User, r.Password, r.GetPermission(), r.Database, loggedInuser.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -519,19 +519,11 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // insertNewUser inserts a new user to the system database and returns username and plain text password
 // A new password is generated automatically if passed parameter is empty
 // If enforceStrongAuth is true it checks if username and password meet security criteria
-func (s *ImmuServer) insertNewUser(ctx context.Context, username []byte, plainPassword []byte, permission uint32, database string, enforceStrongAuth bool, createdBy string) ([]byte, []byte, error) {
-	if enforceStrongAuth {
-		if !auth.IsValidUsername(string(username)) {
-			return nil, nil, status.Errorf(
-				codes.InvalidArgument,
-				"username can only contain letters, digits and underscores")
-		}
-	}
-
-	if enforceStrongAuth {
-		if err := auth.IsStrongPassword(string(plainPassword)); err != nil {
-			return nil, nil, status.Errorf(codes.InvalidArgument, "%v", err)
-		}
+func (s *ImmuServer) insertNewUser(ctx context.Context, username []byte, plainPassword []byte, permission uint32, database string, createdBy string) ([]byte, []byte, error) {
+	if !auth.IsValidUsername(string(username)) {
+		return nil, nil, status.Errorf(
+			codes.InvalidArgument,
+			"username can only contain letters, digits and underscores")
 	}
 
 	userdata := new(auth.User)

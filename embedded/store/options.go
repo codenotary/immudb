@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -64,6 +64,8 @@ type AppFactoryFunc func(
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
 
+type AppRemoveFunc func(rootPath, subPath string) error
+
 type TimeFunc func() time.Time
 
 type Options struct {
@@ -84,6 +86,8 @@ type Options struct {
 
 	appFactory AppFactoryFunc
 
+	appRemove AppRemoveFunc
+
 	CompactionDisabled bool
 
 	// Maximum number of pre-committed transactions
@@ -98,13 +102,13 @@ type Options struct {
 	// Maximum number of simultaneous IO writes
 	MaxIOConcurrency int
 
-	// Size of the LRU cache for transaction logs
+	// Size of the cache for transaction logs
 	TxLogCacheSize int
 
 	// Maximum number of simultaneous value files opened
 	VLogMaxOpenedFiles int
 
-	// Size of the LRU cache for value logs
+	// Size of the cache for value logs
 	VLogCacheSize int
 
 	// Maximum number of simultaneous transaction log files opened
@@ -122,6 +126,8 @@ type Options struct {
 	TimeFunc TimeFunc
 
 	UseExternalCommitAllowance bool
+
+	MultiIndexing bool
 
 	// options below are only set during initialization and stored as metadata
 	MaxTxEntries      int
@@ -141,7 +147,7 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	// Size of the Btree node LRU cache
+	// Size of the Btree node cache
 	CacheSize int
 
 	// Number of new index entries between disk flushes
@@ -459,6 +465,11 @@ func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 	return opts
 }
 
+func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
+	opts.appRemove = appRemove
+	return opts
+}
+
 func (opts *Options) WithCompactionDisabled(disabled bool) *Options {
 	opts.CompactionDisabled = disabled
 	return opts
@@ -541,6 +552,11 @@ func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
 
 func (opts *Options) WithExternalCommitAllowance(useExternalCommitAllowance bool) *Options {
 	opts.UseExternalCommitAllowance = useExternalCommitAllowance
+	return opts
+}
+
+func (opts *Options) WithMultiIndexing(multiIndexing bool) *Options {
+	opts.MultiIndexing = multiIndexing
 	return opts
 }
 

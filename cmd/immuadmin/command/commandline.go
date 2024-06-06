@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,12 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -54,6 +56,7 @@ type commandline struct {
 	config         c.Config
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
+	terminalReader c.TerminalReader
 	context        context.Context
 	ts             tokenservice.TokenService
 	onError        func(msg interface{})
@@ -64,6 +67,7 @@ func NewCommandLine() *commandline {
 	cl := &commandline{}
 	cl.config.Name = "immuadmin"
 	cl.passwordReader = c.DefaultPasswordReader
+	cl.terminalReader = c.NewTerminalReader(os.Stdin)
 	cl.context = context.Background()
 	//
 	return cl
@@ -96,6 +100,8 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 }
 
 func (cl *commandline) quit(msg interface{}) {
+	msg = helper.UnwrapMessage(msg)
+
 	if cl.onError == nil {
 		c.QuitToStdErr(msg)
 	}
@@ -112,9 +118,8 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
 		cl.quit(err)
 	}
-	cl.immuClient.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))
+	cl.immuClient.WithTokenService(cl.ts)
 	return
-
 }
 
 func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {

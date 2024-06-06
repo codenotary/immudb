@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +17,14 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
@@ -49,8 +48,6 @@ func TestSession_QueriesMachine(t *testing.T) {
 				c2.Write([]byte("_"))
 				unsupported := make([]byte, 500)
 				c2.Read(unsupported)
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
-				c2.Read(ready4Query)
 				c2.Close()
 			},
 			out: nil,
@@ -83,8 +80,6 @@ func TestSession_QueriesMachine(t *testing.T) {
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("wrong_st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				errst := make([]byte, 500)
 				c2.Read(errst)
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
-				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				c2.Write(h.Msg('S', []byte{0}))
 				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
@@ -103,8 +98,6 @@ func TestSession_QueriesMachine(t *testing.T) {
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("wrong statement"), h.I16(1), h.I32(0)})))
 				errst := make([]byte, 500)
 				c2.Read(errst)
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
-				c2.Read(ready4Query)
 				// Terminate message
 				c2.Write(h.Msg('X', []byte{0}))
 
@@ -123,8 +116,6 @@ func TestSession_QueriesMachine(t *testing.T) {
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
 				errst := make([]byte, 500)
 				c2.Read(errst)
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
-				c2.Read(ready4Query)
 				// Terminate message
 				c2.Write(h.Msg('X', []byte{0}))
 
@@ -291,9 +282,9 @@ func TestSession_QueriesMachine(t *testing.T) {
 					Name:         "st",
 					SQLStatement: "test",
 					PreparedStmt: nil,
-					Params: []*schema.Column{{
-						Name: "test",
-						Type: "INTEGER",
+					Params: []sql.ColDescriptor{{
+						Column: "test",
+						Type:   "INTEGER",
 					}},
 					Results: nil,
 				},
@@ -323,7 +314,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 			},
 			out: nil,
 			portals: map[string]*portal{
-				"port": &portal{
+				"port": {
 					Statement: &statement{
 						SQLStatement: "test",
 					},
@@ -390,6 +381,26 @@ func TestSession_QueriesMachine(t *testing.T) {
 			},
 			out: nil,
 		},
+		{
+			name: "schema info",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S("select current_schema()")))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "table help",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S(tableHelpPrefix)))
+				c2.Close()
+			},
+			out: nil,
+		},
 	}
 
 	for i, tt := range tests {
@@ -404,7 +415,6 @@ func TestSession_QueriesMachine(t *testing.T) {
 			s := session{
 				log:        logger.NewSimpleLogger("test", os.Stdout),
 				mr:         mr,
-				Mutex:      sync.Mutex{},
 				statements: make(map[string]*statement),
 				portals:    make(map[string]*portal),
 			}
@@ -417,7 +427,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 			}
 			go tt.in(c2)
 
-			err := s.QueriesMachine(context.Background())
+			err := s.QueryMachine()
 
 			require.Equal(t, tt.out, err)
 		})

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -58,7 +58,7 @@ var kvs = []*schema.KeyValue{
 func makeDb(t *testing.T) *db {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2))
 
 	return makeDbWith(t, "db", options)
@@ -93,6 +93,22 @@ func (h *dummyMultidbHandler) UseDatabase(ctx context.Context, db string) error 
 	return sql.ErrNoSupported
 }
 
+func (h *dummyMultidbHandler) ListUsers(ctx context.Context) ([]sql.User, error) {
+	return nil, sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) CreateUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) AlterUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) DropUser(ctx context.Context, username string) error {
+	return sql.ErrNoSupported
+}
+
 func (h *dummyMultidbHandler) ExecPreparedStmts(
 	ctx context.Context,
 	opts *sql.TxOptions,
@@ -110,15 +126,16 @@ func TestDefaultDbCreation(t *testing.T) {
 
 	defer db.Close()
 
-	n, err := db.Size()
+	n, err := db.TxCount()
 	require.NoError(t, err)
 	require.Zero(t, n)
 
 	_, err = db.Count(context.Background(), nil)
-	require.ErrorContains(t, err, "Functionality not yet supported: Count")
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = db.CountAll(context.Background())
-	require.ErrorContains(t, err, "Functionality not yet supported: Count")
+	res, err := db.CountAll(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, res.Count)
 
 	dbPath := path.Join(options.GetDBRootPath(), db.GetName())
 	require.DirExists(t, dbPath)
@@ -338,7 +355,7 @@ func TestDelete(t *testing.T) {
 			},
 			SinceTx: hdr.Id + 1,
 		})
-		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.ErrorIs(t, err, store.ErrTxNotFound)
 	})
 
 	_, err = db.Get(context.Background(), &schema.KeyRequest{
@@ -897,7 +914,7 @@ func TestTxScan(t *testing.T) {
 				},
 			},
 		})
-		require.ErrorIs(t, err, ErrResultSizeLimitReached)
+		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -935,7 +952,7 @@ func TestTxScan(t *testing.T) {
 		txList, err := db.TxScan(context.Background(), &schema.TxScanRequest{
 			InitialTx: initialState.TxId + 1,
 		})
-		require.ErrorIs(t, err, ErrResultSizeLimitReached)
+		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -991,7 +1008,7 @@ func TestHistory(t *testing.T) {
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 
 	for i, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
@@ -1008,7 +1025,7 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Desc:    true,
 	})
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 
 	for i, val := range dec.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
@@ -1802,7 +1819,6 @@ func TestRevisionGetConsistency(t *testing.T) {
 			require.Len(t, scanResults.Entries, 1)
 			require.Equal(t, []byte("value_0"), scanResults.Entries[0].Value)
 
-			// Found references do not have revision value calculated
 			require.EqualValues(t, 0, entryFromGet.Revision)
 			require.EqualValues(t, 0, scanResults.Entries[0].Revision)
 

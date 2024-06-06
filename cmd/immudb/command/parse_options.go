@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -83,8 +83,12 @@ func parseOptions() (options *server.Options, err error) {
 	pprof := viper.GetBool("pprof")
 
 	grpcReflectionServerEnabled := viper.GetBool("grpc-reflection")
+	swaggerUIEnabled := viper.GetBool("swaggerui")
+	logRequestMetadata := viper.GetBool("log-request-metadata")
 
 	s3Storage := viper.GetBool("s3-storage")
+	s3RoleEnabled := viper.GetBool("s3-role-enabled")
+	s3Role := viper.GetString("s3-role")
 	s3Endpoint := viper.GetString("s3-endpoint")
 	s3AccessKeyID := viper.GetString("s3-access-key-id")
 	s3SecretKey := viper.GetString("s3-secret-key")
@@ -92,16 +96,20 @@ func parseOptions() (options *server.Options, err error) {
 	s3Location := viper.GetString("s3-location")
 	s3PathPrefix := viper.GetString("s3-path-prefix")
 	s3ExternalIdentifier := viper.GetBool("s3-external-identifier")
+	s3MetadataURL := viper.GetString("s3-instance-metadata-url")
 
 	remoteStorageOptions := server.DefaultRemoteStorageOptions().
 		WithS3Storage(s3Storage).
+		WithS3RoleEnabled(s3RoleEnabled).
+		WithS3Role(s3Role).
 		WithS3Endpoint(s3Endpoint).
 		WithS3AccessKeyID(s3AccessKeyID).
 		WithS3SecretKey(s3SecretKey).
 		WithS3BucketName(s3BucketName).
 		WithS3Location(s3Location).
 		WithS3PathPrefix(s3PathPrefix).
-		WithS3ExternalIdentifier(s3ExternalIdentifier)
+		WithS3ExternalIdentifier(s3ExternalIdentifier).
+		WithS3InstanceMetadataURL(s3MetadataURL)
 
 	sessionOptions := sessions.DefaultOptions().
 		WithMaxSessions(viper.GetInt("max-sessions")).
@@ -145,7 +153,9 @@ func parseOptions() (options *server.Options, err error) {
 		WithSessionOptions(sessionOptions).
 		WithPProf(pprof).
 		WithLogFormat(logFormat).
-		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled)
+		WithSwaggerUIEnabled(swaggerUIEnabled).
+		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled).
+		WithLogRequestMetadata(logRequestMetadata)
 
 	return options, nil
 }

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +19,10 @@ package sql
 import (
 	"context"
 	"errors"
+	"os"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/store"
 )
 
@@ -30,7 +32,8 @@ type SQLTx struct {
 
 	opts *TxOptions
 
-	tx *store.OngoingTx
+	tx        *store.OngoingTx
+	tempFiles []*os.File
 
 	catalog *Catalog // in-mem catalog
 
@@ -41,7 +44,11 @@ type SQLTx struct {
 	firstInsertedPKs map[string]int64 // first inserted PK by table name
 
 	txHeader *store.TxHeader // header is set once tx is committed
+
+	onCommittedCallbacks []onCommittedCallback
 }
+
+type onCommittedCallback = func(sqlTx *SQLTx) error
 
 func (sqlTx *SQLTx) Catalog() *Catalog {
 	return sqlTx.catalog
@@ -93,28 +100,31 @@ func (sqlTx *SQLTx) newKeyReader(rSpec store.KeyReaderSpec) (store.KeyReader, er
 	return sqlTx.tx.NewKeyReader(rSpec)
 }
 
-func (sqlTx *SQLTx) get(key []byte) (store.ValueRef, error) {
-	return sqlTx.tx.Get(key)
+func (sqlTx *SQLTx) get(ctx context.Context, key []byte) (store.ValueRef, error) {
+	return sqlTx.tx.Get(ctx, key)
 }
 
 func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) error {
 	return sqlTx.tx.Set(key, metadata, value)
 }
 
-func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
-	_, _, err := sqlTx.tx.GetWithPrefix(prefix, neq)
-	if errors.Is(err, store.ErrKeyNotFound) {
-		return false, nil
-	}
+func (sqlTx *SQLTx) setTransient(key []byte, metadata *store.KVMetadata, value []byte) error {
+	return sqlTx.tx.SetTransient(key, metadata, value)
+}
 
-	return err == nil, err
+func (sqlTx *SQLTx) getWithPrefix(ctx context.Context, prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {
+	return sqlTx.tx.GetWithPrefix(ctx, prefix, neq)
 }
 
 func (sqlTx *SQLTx) Cancel() error {
+	defer sqlTx.removeTempFiles()
+
 	return sqlTx.tx.Cancel()
 }
 
 func (sqlTx *SQLTx) Commit(ctx context.Context) error {
+	defer sqlTx.removeTempFiles()
+
 	err := sqlTx.tx.RequireMVCCOnFollowingTxs(sqlTx.mutatedCatalog)
 	if err != nil {
 		return err
@@ -126,17 +136,53 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 		return err
 	}
 
-	return nil
+	merr := multierr.NewMultiErr()
+
+	for _, onCommitCallback := range sqlTx.onCommittedCallbacks {
+		err := onCommitCallback(sqlTx)
+		merr.Append(err)
+	}
+
+	return merr.Reduce()
 }
 
 func (sqlTx *SQLTx) Closed() bool {
 	return sqlTx.tx.Closed()
 }
 
-func (sqlTx *SQLTx) Committed() bool {
-	return sqlTx.txHeader != nil
+func (sqlTx *SQLTx) delete(ctx context.Context, key []byte) error {
+	return sqlTx.tx.Delete(ctx, key)
 }
 
-func (sqlTx *SQLTx) delete(key []byte) error {
-	return sqlTx.tx.Delete(key)
+func (sqlTx *SQLTx) addOnCommittedCallback(callback onCommittedCallback) error {
+	if callback == nil {
+		return ErrIllegalArguments
+	}
+
+	sqlTx.onCommittedCallbacks = append(sqlTx.onCommittedCallbacks, callback)
+
+	return nil
+}
+
+func (sqlTx *SQLTx) createTempFile() (*os.File, error) {
+	tempFile, err := os.CreateTemp("", "immudb")
+	if err == nil {
+		sqlTx.tempFiles = append(sqlTx.tempFiles, tempFile)
+	}
+	return tempFile, err
+}
+
+func (sqlTx *SQLTx) removeTempFiles() error {
+	for _, file := range sqlTx.tempFiles {
+		err := file.Close()
+		if err != nil {
+			return err
+		}
+
+		err = os.Remove(file.Name())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

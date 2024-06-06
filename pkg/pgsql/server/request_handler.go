@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,24 +21,20 @@ import (
 	"net"
 )
 
-func (s *srv) handleRequest(conn net.Conn) (err error) {
-	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb, s.tlsConfig)
+func (s *pgsrv) handleRequest(ctx context.Context, conn net.Conn) (err error) {
+	ss := s.newSession(conn)
+	defer ss.Close()
 
-	// initialize session
 	err = ss.InitializeSession()
 	if err != nil {
 		return err
 	}
-	// authentication
-	err = ss.HandleStartup(s.dbList)
-	if err != nil {
-		return err
-	}
-	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
-	err = ss.QueriesMachine(context.Background())
+
+	err = ss.HandleStartup(ctx)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
+	return ss.QueryMachine()
 }

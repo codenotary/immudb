@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,8 +52,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			AsyncWrite: true,
 			Replica:    "async",
 		}),
-
-		writetxs.NewBenchmark(writetxs.Config{
+		writetxs.NewBenchmark(writetxs.Config{ // this one!
 			Name:       "Write KV/s async - one async replica",
 			Workers:    30,
 			BatchSize:  1000,
@@ -62,7 +61,6 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			AsyncWrite: true,
 			Replica:    "async",
 		}),
-
 		writetxs.NewBenchmark(writetxs.Config{
 			Name:       "Write TX/s async - one sync replica",
 			Workers:    30,

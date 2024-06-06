@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"io"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -41,7 +42,12 @@ type Tx interface {
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) error
 
 	// SQLQuery performs a query (read-only) operation.
+	//
+	// Deprecated: use SQLQueryReader instead.
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error)
+
+	// SQLQueryReader submits an SQL query to the server and returns a reader object for efficient retrieval of all rows in the result set.
+	SQLQueryReader(ctx context.Context, sql string, params map[string]interface{}) (SQLQueryRowReader, error)
 }
 
 type tx struct {
@@ -99,15 +105,40 @@ func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interfac
 }
 
 func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {
+	stream, err := c.sqlQuery(ctx, sql, params, false)
+	if err != nil {
+		return nil, err
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	if _, err := stream.Recv(); err != io.EOF {
+		return res, errors.FromError(err)
+	}
+	return res, nil
+}
+
+func (c *tx) SQLQueryReader(ctx context.Context, sql string, params map[string]interface{}) (SQLQueryRowReader, error) {
+	stream, err := c.sqlQuery(ctx, sql, params, true)
+	if err != nil {
+		return nil, err
+	}
+	return newSQLQueryRowReader(stream)
+}
+
+func (c *tx) sqlQuery(ctx context.Context, sql string, params map[string]interface{}, acceptStream bool) (schema.ImmuService_TxSQLQueryClient, error) {
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
-	res, err := c.ic.ServiceClient.TxSQLQuery(c.populateCtx(ctx), &schema.SQLQueryRequest{
-		Sql:    sql,
-		Params: namedParams,
+	stream, err := c.ic.ServiceClient.TxSQLQuery(c.populateCtx(ctx), &schema.SQLQueryRequest{
+		Sql:          sql,
+		Params:       namedParams,
+		AcceptStream: acceptStream,
 	})
-	return res, errors.FromError(err)
+	return stream, errors.FromError(err)
 }
 
 func (c *tx) GetTransactionID() string {

@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -89,12 +89,14 @@ func (bs *BufconnServer) setupGrpcServer() {
 			uuidContext.UUIDContextSetter,
 			auth.ServerUnaryInterceptor,
 			bs.immuServer.SessionAuthInterceptor,
+			bs.immuServer.InjectRequestMetadataUnaryInterceptor,
 		)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			server.ErrorMapperStream,
 			bs.immuServer.KeepALiveSessionStreamInterceptor,
 			uuidContext.UUIDStreamContextSetter,
 			auth.ServerStreamInterceptor,
+			bs.immuServer.InjectRequestMetadataStreamInterceptor,
 		)),
 	)
 }
@@ -142,8 +144,11 @@ func (bs *BufconnServer) Stop() error {
 	if err := bs.Server.Srv.CloseDatabases(); err != nil {
 		return err
 	}
-	if err := bs.Server.Srv.PgsqlSrv.Stop(); err != nil {
-		return err
+
+	if bs.Server.Srv.PgsqlSrv != nil {
+		if err := bs.Server.Srv.PgsqlSrv.Stop(); err != nil {
+			return err
+		}
 	}
 
 	if bs.GrpcServer != nil {
@@ -175,7 +180,6 @@ func (bs *BufconnServer) NewAuthenticatedClient(options *client.Options) (client
 		[]byte(bs.Server.Srv.Options.AdminPassword),
 		bs.Server.Srv.Options.GetDefaultDBName(),
 	)
-
 	if err != nil {
 		return nil, err
 	}

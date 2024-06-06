@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -68,6 +68,7 @@ type benchmark struct {
 	primaryServer *server.ImmuServer
 	replicaServer *server.ImmuServer
 	clients       []client.ImmuClient
+	tempDirs      []string
 }
 
 type Result struct {
@@ -110,13 +111,12 @@ func (b *benchmark) Name() string {
 	return b.cfg.Name
 }
 
-func (b *benchmark) Warmup() error {
-	primaryPath, err := os.MkdirTemp("", "tx-test-primary")
+func (b *benchmark) Warmup(tempDirBase string) error {
+	primaryPath, err := os.MkdirTemp(tempDirBase, "tx-test-primary")
 	if err != nil {
 		return err
 	}
-
-	defer os.RemoveAll(primaryPath)
+	b.tempDirs=append(b.tempDirs,primaryPath)
 
 	primaryServerOpts := server.
 		DefaultOptions().
@@ -154,12 +154,12 @@ func (b *benchmark) Warmup() error {
 	primaryPort := b.primaryServer.Listener.Addr().(*net.TCPAddr).Port
 
 	if b.cfg.Replica == "async" || b.cfg.Replica == "sync" {
-		replicaPath, err := os.MkdirTemp("", fmt.Sprintf("%s-tx-test-replica", b.cfg.Replica))
+		replicaPath, err := os.MkdirTemp(tempDirBase, fmt.Sprintf("%s-tx-test-replica", b.cfg.Replica))
 		if err != nil {
 			return err
 		}
 
-		defer os.RemoveAll(replicaPath)
+		b.tempDirs=append(b.tempDirs,replicaPath)
 
 		replicaServerOptions := server.
 			DefaultOptions().
@@ -207,7 +207,7 @@ func (b *benchmark) Warmup() error {
 
 	b.clients = []client.ImmuClient{}
 	for i := 0; i < b.cfg.Workers; i++ {
-		path, err := os.MkdirTemp("", "immudb_client")
+		path, err := os.MkdirTemp(tempDirBase, "immudb_client")
 		if err != nil {
 			return err
 		}
@@ -219,6 +219,7 @@ func (b *benchmark) Warmup() error {
 		}
 
 		b.clients = append(b.clients, c)
+		b.tempDirs = append(b.tempDirs, path)
 	}
 
 	return nil
@@ -234,11 +235,15 @@ func (b *benchmark) Cleanup() error {
 	}
 
 	b.primaryServer.Stop()
+	b.primaryServer = nil
 
 	if b.replicaServer != nil {
 		b.replicaServer.Stop()
+		b.replicaServer = nil
 	}
-
+	for _,tDir := range(b.tempDirs) {
+		os.RemoveAll(tDir)
+	}
 	return nil
 }
 

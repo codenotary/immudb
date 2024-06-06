@@ -1,11 +1,11 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import (
 
 var ErrNonExpirable = errors.New("non expirable")
 var ErrReadOnly = errors.New("read-only")
+var ErrNonIndexable = errors.New("non-indexable")
 
 const (
 	deletedAttrCode      attributeCode = 0
@@ -37,7 +38,9 @@ const deletedAttrSize = 0
 const expiresAtAttrSize = tsSize
 const nonIndexableAttrSize = 0
 
-const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expiresAtAttrSize) + (attrCodeSize + nonIndexableAttrSize)
+const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) +
+	(attrCodeSize + expiresAtAttrSize) +
+	(attrCodeSize + nonIndexableAttrSize)
 
 type KVMetadata struct {
 	attributes map[attributeCode]attribute

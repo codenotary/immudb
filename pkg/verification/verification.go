@@ -1,11 +1,11 @@
 /*
-Copyright 2023 Codenotary Inc. All rights reserved.
+Copyright 2024 Codenotary Inc. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,6 +33,8 @@ import (
 )
 
 var ErrIllegalArguments = store.ErrIllegalArguments
+
+const documentPrefix = 3 // database.DocumentPrefix
 
 func VerifyDocument(ctx context.Context,
 	proof *protomodel.ProofDocumentResponse,
@@ -230,11 +232,11 @@ func encodedKeyForDocument(collectionID uint32, documentID string) ([]byte, erro
 	pkEncVals := valbuf.Bytes()
 
 	return sql.MapKey(
-		[]byte{3}, // database.DocumentPrefix
-		sql.PIndexPrefix,
+		[]byte{documentPrefix},
+		sql.RowPrefix,
 		sql.EncodeID(1), // fixed database identifier
 		sql.EncodeID(collectionID),
-		sql.EncodeID(0), // pk index id
+		sql.EncodeID(sql.PKIndexID),
 		pkEncVals,
 	), nil
 }

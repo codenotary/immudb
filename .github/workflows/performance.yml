@@ -1,6 +1,7 @@
 name: Performance tests
 
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       go-version:
@@ -46,21 +47,23 @@ jobs:
       INFLUX_HOST: ${{ secrets.INFLUX_HOST }}
       INFLUX_TOKEN: ${{ secrets.INFLUX_TOKEN }}
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ inputs.go-version }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - name: Run performance tests
         id: performance
         run: |
           echo "version=$(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',])" >> $GITHUB_ENV
           SECONDS=0
-          ./perf-test-suite $ARG_DURATION -host $INFLUX_HOST -token $INFLUX_TOKEN -runner ${{ matrix.target.name }} -version $(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',]) > perf-test-results-with-summaries.txt
+          ./perf-test-suite $ARG_DURATION -workdir /var/tmp -host $INFLUX_HOST -token $INFLUX_TOKEN -runner ${{ matrix.target.name }} -version $(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',]) > perf-test-results-with-summaries.txt
           echo "duration=$SECONDS" >> $GITHUB_ENV
           sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json
+        env:
+          GOMEMLIMIT: 7680MiB
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
@@ -73,13 +76,14 @@ jobs:
           **Duration**: ${{ env.duration }}s | **immudb version**: ${{ env.version }}\n
           $(jq -r '.benchmarks[] | .name + "\n" + .summary' perf-test-results.json) \n
           **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
-          \"}" > mattermost.json
+          \"}" > mattermost.json && echo MM_PAYLOAD=$(cat mattermost.json) >> $GITHUB_ENV
       - name: Notify on immudb channel on Mattermost
         if: github.event.schedule == '0 0 * * *'
         uses: mattermost/action-mattermost-notify@master
-        env:
+        with:
           MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
           MATTERMOST_CHANNEL: 'immudb-tests'
+          PAYLOAD: ${{ env.MM_PAYLOAD }}
 
   performance-test-suite-upload-s3:
     if: github.event.schedule != '0 0 * * *'
@@ -93,11 +97,11 @@ jobs:
     env:
       PERF_TEST_AWS_REGION: ${{ secrets.PERF_TEST_AWS_REGION }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Download test results
         if: "${{ env.PERF_TEST_AWS_REGION }}"
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: Performance Test Results (${{ matrix.target.name }})
 

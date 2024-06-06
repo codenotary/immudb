@@ -18,10 +18,10 @@ jobs:
     name: Ensure immudb compiles with the oldest supported go version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.MIN_SUPPORTED_GO_VERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: make all
 
   gosec:
@@ -30,12 +30,12 @@ jobs:
       JOB_NAME: ${{ github.job }}
       JOB_ID: ${{ github.run_id }}
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.15.0
+        uses: securego/gosec@v2.17.0
         with:
           args: -fmt=json -out=results-$JOB_ID.json -no-fail ./...
 
@@ -51,21 +51,17 @@ jobs:
       outputs:
         matrix: ${{ steps.list-binaries.outputs.matrix }}
       steps:
-        - uses: actions/setup-go@v3
+        - uses: actions/setup-go@v5
           with:
             go-version: ${{ env.GO_VERSION }}
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
         - name: Build binaries
-          run: WEBCONSOLE=default make dist
-        - name: Notarize git repository
-          uses: docker://codenotary/cas
-          with:
-            args: n git://. --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+          run: WEBCONSOLE=default SWAGGER=true make dist
         - id: list-binaries
           run: |
             echo "matrix=$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')" >> $GITHUB_OUTPUT
         - name: Upload binary artifacts
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           with:
             name: immudb-binaries
             path: dist
@@ -97,7 +93,7 @@ jobs:
             qemu-binfmt: true
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: immudb-binaries
         path: dist
@@ -153,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download binary artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: immudb-binaries
         path: dist
@@ -161,10 +157,10 @@ jobs:
       run: chmod +x dist/*linux-amd64
     - name: Run immudb in the background
       run: dist/immudb-*-linux-amd64 -d
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Run KV stress test
       run: |
         go run ./tools/testing/stress_tool_test_kv/ \
@@ -194,7 +190,7 @@ jobs:
     uses: ./.github/workflows/performance.yml
     secrets: inherit
     with:
-      go-version: ${{ needs.go-version.outputs.go-version }}
+      go-version: "1.19" # we need a post 1.19, to limit memory usage
 
   notarize-binaries:
       name: Notarize binaries
@@ -210,14 +206,10 @@ jobs:
         JOB_ID: ${{ github.run_id }}
       steps:
         - name: Download binary artifacts
-          uses: actions/download-artifact@v3
+          uses: actions/download-artifact@v4
           with:
             name: immudb-binaries
             path: dist
-        - name: Notarize binaries
-          uses: docker://codenotary/cas
-          with:
-            args: n dist/${{ matrix.binary }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
 
   images:
       name: Build and notarize Docker Images
@@ -229,21 +221,21 @@ jobs:
       env:
         JOB_NAME: ${{ github.job }}
         JOB_ID: ${{ github.run_id }}
-        DOCKER_IMAGE_IMMUDB: "codenotary/immudb"
-        DOCKER_IMAGE_IMMUDB_FIPS: "codenotary/immudb-fips"
-        DOCKER_IMAGE_IMMUADMIN: "codenotary/immuadmin"
-        DOCKER_IMAGE_IMMUADMIN_FIPS: "codenotary/immuadmin-fips"
-        DOCKER_IMAGE_IMMUCLIENT: "codenotary/immuclient"
-        DOCKER_IMAGE_IMMUCLIENT_FIPS: "codenotary/immuclient-fips"
+        DOCKER_IMAGE_IMMUDB: "${{ vars.DOCKER_HUB_USER }}/immudb"
+        DOCKER_IMAGE_IMMUDB_FIPS: "${{ vars.DOCKER_HUB_USER }}/immudb-fips"
+        DOCKER_IMAGE_IMMUADMIN: "${{ vars.DOCKER_HUB_USER }}/immuadmin"
+        DOCKER_IMAGE_IMMUADMIN_FIPS: "${{ vars.DOCKER_HUB_USER }}/immuadmin-fips"
+        DOCKER_IMAGE_IMMUCLIENT: "${{ vars.DOCKER_HUB_USER }}/immuclient"
+        DOCKER_IMAGE_IMMUCLIENT_FIPS: "${{ vars.DOCKER_HUB_USER }}/immuclient-fips"
         DOCKER_BUILDKIT: "1"
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
       steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
         - name: Build docker images
           shell: bash
           run: |
-            if [[ "${GITHUB_REF}" =~ ^refs/tags/v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            if [[ "${GITHUB_REF}" =~ ^refs/tags/v([0-9]+)\.([A-Z0-9]+)\.([0-9]+)$ ]]; then
               VERSION_TAG="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
               VERSION_TAG_SHORT="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
             fi
@@ -299,45 +291,6 @@ jobs:
 
             docker logout
 
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }}
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }}
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-
-        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev
-          uses: docker://codenotary/cas:bom-docker
-          with:
-            args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
 
   coveralls:
     name: Publish coverage
@@ -346,10 +299,10 @@ jobs:
       - old-go
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           # Spawn minio docker container in the background
           docker run -d -t -p 9000:9000 --name minio \
@@ -365,12 +318,14 @@ jobs:
 
           export PATH=$PATH:$(go env GOPATH)/bin
           set -o pipefail
-          ./ext-tools/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools,webconsole,protomodel,httpclient  --tags minio || true
-          cat coverage.txt | grep -v "schema.pb" | grep -v "schema_grpc.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
-          ./ext-tools/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
+          ./ext-tools/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,fs,cmdtest,sservice,version,tools,webconsole,protomodel,schema,swagger  --tags minio || true
+          cat coverage.txt | grep -v "test" | grep -v "schema" | grep -v "protomodel" | grep -v "swagger" | grep -v "webserver.go" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "fs" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" | grep -v "webconsole" > coverage.out
+          ./ext-tools/goveralls -coverprofile=coverage.out -service=gh-ci
 
           # Stop minio
           docker rm -f minio
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         env:
