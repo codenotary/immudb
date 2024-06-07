@@ -42,38 +42,26 @@ Data stored in immudb is cryptographically coherent and verifiable. Unlike block
 
 immudb can be used as a key-value store or relational data structure and supports both transactions and blobs, so there are no limits to the use cases. Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
 
-### Online demo environment
+## Contents
 
-Click here to try out the immudb web console access in an [online demo environment](https://demo.immudb.io) (username: immudb; password: immudb)
-
-<div align="center">
-  <a href="https://demo.immudb.io">
-    <img alt="Your own temporary immudb web console access to start using immudb in an online demo environment" src="img/demoimmudb.png"/>
-  </a>
-</div>
-
-
-### Some immudb tech specs
-
-| Topic                   | Description                                        |
-| ----------------------- | -------------------------------------------------- |
-| DB Model                | Key-Value with 3D access, Document Model, SQL      |
-| Data scheme             | schema-free                                        |
-| Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
-|                         | (sync/async) indexing with extended B-tree         |
-| Implementation language | Go                                                 |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
-| Embeddable              | Yes, optionally                                    |
-| Server APIs             | gRPC                                               |
-| Partition methods       | Sharding                                           |
-| Consistency concepts    | Immediate Consistency                              |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                 |
-| Durability              | Yes                                                |
-| Snapshots               | Yes                                                |
-| High Read throughput    | Yes                                                |
-| High Write throughput   | Yes                                                |
-| Optimized for SSD       | Yes                                                |
-
+- [immudb](#immudb)
+  - [Contents](#contents)
+  - [Quickstart](#quickstart)
+    - [Getting immudb running: executable](#getting-immudb-running-executable)
+    - [Getting immudb running: docker](#getting-immudb-running-docker)
+    - [Getting immudb running: kubernetes](#getting-immudb-running-kubernetes)
+    - [Using subfolders](#using-subfolders)
+    - [Enabling Amazon S3 storage](#enabling-amazon-s3-storage)
+    - [Connecting with immuclient](#connecting-with-immuclient)
+    - [Using immudb](#using-immudb)
+      - [Real world examples](#real-world-examples)
+      - [How to integrate immudb in your application](#how-to-integrate-immudb-in-your-application)
+      - [Online demo environment](#online-demo-environment)
+  - [Tech specs](#tech-specs)
+  - [Performance figures](#performance-figures)
+  - [Roadmap](#roadmap)
+  - [Projects using immudb](#projects-using-immudb)
+  - [Contributing](#contributing)
 
 ## Quickstart
 
@@ -289,7 +277,38 @@ We've developed a "language-agnostic SDK" which exposes a REST API for easy cons
 [immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
-# Performance figures
+### Online demo environment
+
+Click here to try out the immudb web console access in an [online demo environment](https://demo.immudb.io) (username: immudb; password: immudb)
+
+<div align="center">
+  <a href="https://demo.immudb.io">
+    <img alt="Your own temporary immudb web console access to start using immudb in an online demo environment" src="img/demoimmudb.png"/>
+  </a>
+</div>
+
+## Tech specs
+
+| Topic                   | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| DB Model                | Key-Value with 3D access, Document Model, SQL      |
+| Data scheme             | schema-free                                        |
+| Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
+|                         | (sync/async) indexing with extended B-tree         |
+| Implementation language | Go                                                 |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
+| Embeddable              | Yes, optionally                                    |
+| Server APIs             | gRPC                                               |
+| Partition methods       | Sharding                                           |
+| Consistency concepts    | Immediate Consistency                              |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                 |
+| Durability              | Yes                                                |
+| Snapshots               | Yes                                                |
+| High Read throughput    | Yes                                                |
+| High Write throughput   | Yes                                                |
+| Optimized for SSD       | Yes                                                |
+
+## Performance figures
 
 immudb can handle millions of writes per second. The following table shows performance of the embedded store inserting 1M entries on a machine with 4-core E3-1275v6 CPU and SSD disk:
 
@@ -311,6 +330,22 @@ The following topics are important to us and are planned or already being worked
 * Easier API for developers
 * API compatibility with other, well-known embedded databases
 
+## Projects using immudb
+
+Below is a list of known projects that use immudb:
+
+- [alma-sbom](https://github.com/AlmaLinux/alma-sbom) - AlmaLinux OS SBOM data management utility.
+
+- [immudb-log-audit](https://github.com/codenotary/immudb-log-audit) - A service and cli tool to store json formatted log input
+and audit it later in immudb Vault.
+
+- [immudb-operator](https://github.com/unagex/immudb-operator) - Unagex Kubernetes Operator for immudb.
+
+- [immufluent](https://github.com/codenotary/immufluent) - Send fluentbit collected logs to immudb.
+
+- [immuvoting](https://github.com/padurean/immuvoting) - Publicly cryptographically verifiable electronic voting system powered by immudb.
+
+Are you using immudb in your project? Open a pull request to add it to the list.
 
 ## Contributing
 
