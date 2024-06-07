@@ -50,7 +50,7 @@ import (
 )
 
 var testDatabase = "lisbon"
-var testUsername = []byte("Sagrada")
+var testUsername = []byte("sagrada")
 var testPassword = []byte("Familia@2")
 var testKey = []byte("Antoni")
 var testValue = []byte("Gaudí")
@@ -1533,7 +1533,7 @@ func TestServerErrors(t *testing.T) {
 	cpr.Username = auth.SysAdminUsername
 	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
-	require.Equal(t, "changing sysadmin permisions is not allowed", errStatus.Message())
+	require.Equal(t, "changing sysadmin permissions is not allowed", errStatus.Message())
 
 	cpr.Username = username
 

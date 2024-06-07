@@ -69,10 +69,12 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     updates []*colUpdate
     onConflict *OnConflictDo
     permission Permission
+    sqlPrivilege SQLPrivilege
+    sqlPrivileges []SQLPrivilege
 }
 
 %token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
-%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
+%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY GRANT REVOKE GRANTS FOR PRIVILEGES
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
@@ -146,6 +148,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <updates> updates
 %type <onConflict> opt_on_conflict
 %type <permission> permission
+%type <sqlPrivilege> sqlPrivilege
+%type <sqlPrivileges> sqlPrivileges
 
 %start sql
 
@@ -276,6 +280,68 @@ ddlstmt:
     DROP USER IDENTIFIER
     {
         $$ = &DropUserStmt{username: $3}
+    }
+|
+    GRANT sqlPrivileges ON DATABASE IDENTIFIER TO USER IDENTIFIER
+    {
+        $$ = &AlterPrivilegesStmt{database: $5, user: $8, privileges: $2, isGrant: true}
+    }
+|
+    REVOKE sqlPrivileges ON DATABASE IDENTIFIER TO USER IDENTIFIER
+    {
+        $$ = &AlterPrivilegesStmt{database: $5, user: $8, privileges: $2}
+    }
+
+sqlPrivileges:
+    ALL PRIVILEGES
+    {
+        $$ = allPrivileges
+    }
+|
+    sqlPrivilege
+    {
+        $$ = []SQLPrivilege{$1}
+    }
+|
+    sqlPrivilege ',' sqlPrivileges
+    {
+        $$ = append($3, $1)
+    }
+
+sqlPrivilege:
+    SELECT
+    {
+        $$ = SQLPrivilegeSelect
+    }
+|
+    CREATE
+    {
+        $$ = SQLPrivilegeCreate
+    }
+|
+    INSERT
+    {
+        $$ = SQLPrivilegeInsert
+    }
+|
+    UPDATE
+    {
+        $$ = SQLPrivilegeUpdate
+    }
+|
+    DELETE
+    {
+        $$ = SQLPrivilegeDelete
+    }
+|
+    DROP
+    {
+        $$ = SQLPrivilegeDrop
+    }
+|
+    ALTER
+    {
+        $$ = SQLPrivilegeAlter
     }
 
 permission:
@@ -591,6 +657,20 @@ dqlstmt:
     {
         $$ = &SelectStmt{
             ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "users"}},
+        }
+    }
+|
+    SHOW GRANTS
+    {
+         $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "grants"}},
+        }
+    }
+|
+    SHOW GRANTS FOR IDENTIFIER
+    {
+         $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "grants", params: []ValueExp{&Varchar{val: $4}}}},
         }
     }
 
