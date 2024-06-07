@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -801,6 +802,9 @@ func TestInferParameterEdgeCases(t *testing.T) {
 	err = (&AlterUserStmt{}).inferParameters(context.Background(), nil, nil)
 	require.Nil(t, err)
 
+	err = (&AlterPrivilegesStmt{}).inferParameters(context.Background(), nil, nil)
+	require.Nil(t, err)
+
 	err = (&DropUserStmt{}).inferParameters(context.Background(), nil, nil)
 	require.Nil(t, err)
 
@@ -1355,4 +1359,137 @@ func TestTypedValueString(t *testing.T) {
 
 	jsVal := &JSON{val: map[string]interface{}{"name": "John Doe"}}
 	require.Equal(t, jsVal.String(), `{"name":"John Doe"}`)
+}
+
+func TestRequiredPrivileges(t *testing.T) {
+	type test struct {
+		stmt       SQLStmt
+		readOnly   bool
+		privileges []SQLPrivilege
+	}
+
+	tests := []test{
+		{
+			stmt:       &SelectStmt{},
+			readOnly:   true,
+			privileges: []SQLPrivilege{SQLPrivilegeSelect},
+		},
+		{
+			stmt:       &UnionStmt{},
+			readOnly:   true,
+			privileges: []SQLPrivilege{SQLPrivilegeSelect},
+		},
+		{
+			stmt:       &tableRef{},
+			readOnly:   true,
+			privileges: []SQLPrivilege{SQLPrivilegeSelect},
+		},
+		{
+			stmt:       &UpsertIntoStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeUpdate},
+		},
+		{
+			stmt:       &UpsertIntoStmt{isInsert: true},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeInsert},
+		},
+		{
+			stmt:       &DeleteFromStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeDelete},
+		},
+		{
+			stmt:       &CreateDatabaseStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeCreate},
+		},
+		{
+			stmt:       &CreateTableStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeCreate},
+		},
+		{
+			stmt:       &CreateIndexStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeCreate},
+		},
+		{
+			stmt:       &CreateIndexStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeCreate},
+		},
+		{
+			stmt:       &DropTableStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeDrop},
+		},
+		{
+			stmt:       &DropColumnStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeDrop},
+		},
+		{
+			stmt:       &DropIndexStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeDrop},
+		},
+		{
+			stmt:       &DropUserStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeDrop},
+		},
+		{
+			stmt:       &FnDataSourceStmt{},
+			readOnly:   true,
+			privileges: nil,
+		},
+		{
+			stmt:       &BeginTransactionStmt{},
+			readOnly:   true,
+			privileges: nil,
+		},
+		{
+			stmt:       &CommitStmt{},
+			readOnly:   true,
+			privileges: nil,
+		},
+		{
+			stmt:       &RollbackStmt{},
+			readOnly:   true,
+			privileges: nil,
+		},
+		{
+			stmt:       &UseDatabaseStmt{},
+			readOnly:   true,
+			privileges: nil,
+		},
+		{
+			stmt:       &UseSnapshotStmt{},
+			readOnly:   true,
+			privileges: nil,
+		},
+		{
+			stmt:       &AddColumnStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeAlter},
+		},
+		{
+			stmt:       &RenameColumnStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeAlter},
+		},
+		{
+			stmt:       &RenameColumnStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeAlter},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(reflect.TypeOf(tc.stmt).String(), func(t *testing.T) {
+			require.Equal(t, tc.stmt.readOnly(), tc.readOnly)
+			require.Equal(t, tc.stmt.requiredPrivileges(), tc.privileges)
+		})
+	}
 }

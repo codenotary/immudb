@@ -25,6 +25,14 @@ type dummyDataSource struct {
 	AliasFunc           func() string
 }
 
+func (d *dummyDataSource) readOnly() bool {
+	return true
+}
+
+func (d *dummyDataSource) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+
 func (d *dummyDataSource) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return tx, nil
 }

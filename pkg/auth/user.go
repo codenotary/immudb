@@ -24,19 +24,26 @@ import (
 
 // Permission per database
 type Permission struct {
-	Permission uint32 `json:"permission"` //permission of type auth.PermissionW
-	Database   string `json:"database"`   //databases the user has access to
+	Permission uint32 `json:"permission"` // permission of type auth.PermissionW
+	Database   string `json:"database"`   // databases the user has access to
+}
+
+type SQLPrivilege struct {
+	Privilege string `json:"privilege"` // sql privilege
+	Database  string `json:"database"`  // database to which the privilege applies
 }
 
 // User ...
 type User struct {
-	Username       string       `json:"username"`
-	HashedPassword []byte       `json:"hashedpassword"`
-	Permissions    []Permission `json:"permissions"`
-	Active         bool         `json:"active"`
-	IsSysAdmin     bool         `json:"-"`         //for the sysadmin we'll use this instead of adding all db and permissions to Permissions, to save some cpu cycles
-	CreatedBy      string       `json:"createdBy"` //user which created this user
-	CreatedAt      time.Time    `json:"createdat"` //time in which this user is created/updated
+	Username       string         `json:"username"`
+	HashedPassword []byte         `json:"hashedpassword"`
+	Permissions    []Permission   `json:"permissions"`
+	SQLPrivileges  []SQLPrivilege `json:"sqlPrivileges"`
+	HasPrivileges  bool           `json:"hasPrivileges"` // needed for backward compatibility
+	Active         bool           `json:"active"`
+	IsSysAdmin     bool           `json:"-"`         // for the sysadmin we'll use this instead of adding all db and permissions to Permissions, to save some cpu cycles
+	CreatedBy      string         `json:"createdBy"` // user which created this user
+	CreatedAt      time.Time      `json:"createdat"` // time in which this user is created/updated
 }
 
 var (
@@ -122,10 +129,44 @@ func (u *User) RevokePermission(database string) bool {
 
 // GrantPermission add permission to database
 func (u *User) GrantPermission(database string, permission uint32) bool {
-	//first remove any previous permission for this db
+	// first remove any previous permission for this db
 	u.RevokePermission(database)
 
 	perm := Permission{Permission: permission, Database: database}
 	u.Permissions = append(u.Permissions, perm)
+	return true
+}
+
+// GrantSQLPrivilege grants sql privilege on the specified database
+func (u *User) GrantSQLPrivileges(database string, privileges []string) bool {
+	for _, p := range privileges {
+		if !u.HasSQLPrivilege(database, p) {
+			u.SQLPrivileges = append(u.SQLPrivileges, SQLPrivilege{Database: database, Privilege: p})
+		}
+	}
+	return false
+}
+
+func (u *User) HasSQLPrivilege(database string, privilege string) bool {
+	return u.indexOfPrivilege(database, privilege) >= 0
+}
+
+func (u *User) indexOfPrivilege(database string, privilege string) int {
+	for i, p := range u.SQLPrivileges {
+		if p.Database == database && p.Privilege == privilege {
+			return i
+		}
+	}
+	return -1
+}
+
+// RevokePrivilege add permission to database
+func (u *User) RevokeSQLPrivileges(database string, privileges []string) bool {
+	for _, p := range privileges {
+		if idx := u.indexOfPrivilege(database, p); idx >= 0 {
+			u.SQLPrivileges[idx] = u.SQLPrivileges[0]
+			u.SQLPrivileges = u.SQLPrivileges[1:]
+		}
+	}
 	return true
 }

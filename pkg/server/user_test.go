@@ -18,8 +18,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -255,6 +257,123 @@ func TestServerUsermanagement(t *testing.T) {
 	testServerSetActiveUser(ctx, s, t)
 	testServerChangePassword(ctx, s, t)
 	testServerListUsers(ctx, s, t)
+}
+
+func TestServerCreateUser(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
+
+	ctx, err := loginAsUser(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	require.NoError(t, err)
+
+	newdb := &schema.DatabaseSettings{
+		DatabaseName: testDatabase,
+	}
+	_, err = s.CreateDatabaseWith(ctx, newdb)
+	require.NoError(t, err)
+
+	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
+		User:       testUsername,
+		Password:   testPassword,
+		Database:   testDatabase,
+		Permission: auth.PermissionR,
+	})
+	require.NoError(t, err)
+
+	_, err = s.ChangeSQLPrivileges(ctx, &schema.ChangeSQLPrivilegesRequest{
+		Action:     schema.PermissionAction_GRANT,
+		Username:   string(testUsername),
+		Database:   testDatabase,
+		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_UPDATE},
+	})
+	require.NoError(t, err)
+
+	users, err := s.ListUsers(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+	require.Len(t, users.Users, 2)
+
+	u := users.Users[1]
+	require.Equal(t, string(u.User), string(testUsername))
+	require.Equal(t, u.SqlPrivileges, []schema.SQLPrivilege{schema.SQLPrivilege_SELECT, schema.SQLPrivilege_UPDATE})
+
+	userCtx, err := loginAsUser(s, string(testUsername), string(testPassword))
+	require.NoError(t, err)
+
+	_, err = s.ChangeSQLPrivileges(userCtx, &schema.ChangeSQLPrivilegesRequest{
+		Action:     schema.PermissionAction_REVOKE,
+		Username:   string(testUsername),
+		Database:   testDatabase,
+		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_SELECT},
+	})
+	require.ErrorContains(t, err, "changing your own privileges is not allowed")
+
+	_, err = s.ChangeSQLPrivileges(userCtx, &schema.ChangeSQLPrivilegesRequest{
+		Action:     schema.PermissionAction_REVOKE,
+		Username:   auth.SysAdminUsername,
+		Database:   testDatabase,
+		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_SELECT},
+	})
+	require.ErrorContains(t, err, "changing sysadmin privileges is not allowed")
+
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: fmt.Sprintf("REVOKE ALL PRIVILEGES ON DATABASE %s TO USER %s", testDatabase, string(testUsername))})
+	require.NoError(t, err)
+
+	_, err = s.ChangeSQLPrivileges(ctx, &schema.ChangeSQLPrivilegesRequest{
+		Action:     schema.PermissionAction_REVOKE,
+		Username:   string(testUsername),
+		Database:   testDatabase,
+		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_SELECT, schema.SQLPrivilege_UPDATE},
+	})
+	require.NoError(t, err)
+
+	users, err = s.ListUsers(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+	require.Len(t, users.Users, 2)
+
+	u = users.Users[1]
+	require.Equal(t, string(u.User), string(testUsername))
+	require.Empty(t, u.SqlPrivileges)
+
+	userCtx, err = loginAsUser(s, string(testUsername), string(testPassword)) // should login again after chaing permissions
+	require.NoError(t, err)
+
+	reply, err := s.UseDatabase(userCtx, &schema.Database{DatabaseName: testDatabase})
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", reply.Token)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = s.UnarySQLQuery(userCtx, &schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
+	require.ErrorIs(t, err, sql.ErrAccessDenied)
+}
+
+func TestUnmarshalUserWithNoPrivileges(t *testing.T) {
+	u, err := unmarshalSchemaUser([]byte(`{"hasPrivileges": false, "permissions": [{"permission": 1, "database": "immudb"}]}`))
+	require.NoError(t, err)
+	require.Equal(t, u.SqlPrivileges, []schema.SQLPrivilege{schema.SQLPrivilege_SELECT})
+}
+
+func loginAsUser(s *ImmuServer, username, password string) (context.Context, error) {
+	r := &schema.LoginRequest{
+		User:     []byte(username),
+		Password: []byte(password),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	return metadata.NewIncomingContext(context.Background(), md), nil
 }
 
 func testServerCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {

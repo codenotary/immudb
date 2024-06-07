@@ -390,3 +390,7 @@ func (s *ServerMock) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 func (s *ServerMock) TruncateDatabase(ctx context.Context, req *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error) {
 	return s.Srv.TruncateDatabase(ctx, req)
 }
+
+func (s *ServerMock) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQLPrivilegesRequest) (*schema.ChangeSQLPrivilegesResponse, error) {
+	return nil, nil
+}
