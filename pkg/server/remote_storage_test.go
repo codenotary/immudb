@@ -175,7 +175,8 @@ func TestInitializeRemoteStorageEmptyRemoteStorage(t *testing.T) {
 func TestInitializeRemoteStorageEmptyRemoteStorageErrorOnExists(t *testing.T) {
 	dir := t.TempDir()
 
-	opts := DefaultOptions().WithDir(dir)
+	remoteStorageOpts := DefaultRemoteStorageOptions().WithS3ExternalIdentifier(true)
+	opts := DefaultOptions().WithDir(dir).WithRemoteStorageOptions(remoteStorageOpts)
 
 	s := DefaultServer()
 
@@ -190,7 +191,7 @@ func TestInitializeRemoteStorageEmptyRemoteStorageErrorOnExists(t *testing.T) {
 	}
 
 	err := s.initializeRemoteStorage(mem)
-	require.True(t, errors.Is(err, injectedErr))
+	require.ErrorIs(t, err, injectedErr)
 }
 
 func TestInitializeRemoteStorageEmptyRemoteStorageErrorOnListEntries(t *testing.T) {
@@ -217,7 +218,8 @@ func TestInitializeRemoteStorageEmptyRemoteStorageErrorOnListEntries(t *testing.
 func TestInitializeRemoteStorageDownloadIdentifier(t *testing.T) {
 	dir := t.TempDir()
 
-	opts := DefaultOptions().WithDir(dir)
+	remoteStorageOpts := DefaultRemoteStorageOptions().WithS3ExternalIdentifier(true)
+	opts := DefaultOptions().WithDir(dir).WithRemoteStorageOptions(remoteStorageOpts)
 
 	s := DefaultServer()
 
@@ -301,7 +303,8 @@ func TestInitializeRemoteStorageWithoutLocalIdentifier(t *testing.T) {
 func TestInitializeRemoteStorageDownloadIdentifierErrorOnGet(t *testing.T) {
 	dir := t.TempDir()
 
-	opts := DefaultOptions().WithDir(dir)
+	remoteStorageOpts := DefaultRemoteStorageOptions().WithS3ExternalIdentifier(true)
+	opts := DefaultOptions().WithDir(dir).WithRemoteStorageOptions(remoteStorageOpts)
 
 	s := DefaultServer()
 
@@ -324,7 +327,12 @@ func TestInitializeRemoteStorageDownloadIdentifierErrorOnGet(t *testing.T) {
 func TestInitializeRemoteStorageDownloadIdentifierErrorOnStore(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(t.TempDir(), "data_uuiderr", "immudb.identifier"), 0777))
 
+	remoteStorageOpts := DefaultRemoteStorageOptions().WithS3ExternalIdentifier(true)
+	opts := DefaultOptions().WithRemoteStorageOptions(remoteStorageOpts)
+
 	s := DefaultServer()
+	s.WithOptions(opts)
+
 	m := memory.Open()
 	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
 	err := s.initializeRemoteStorage(m)
@@ -342,7 +350,8 @@ func (e errReader) Read([]byte) (int, error) {
 func TestInitializeRemoteStorageDownloadIdentifierErrorOnRead(t *testing.T) {
 	dir := t.TempDir()
 
-	opts := DefaultOptions().WithDir(dir)
+	remoteStorageOpts := DefaultRemoteStorageOptions().WithS3ExternalIdentifier(true)
+	opts := DefaultOptions().WithDir(dir).WithRemoteStorageOptions(remoteStorageOpts)
 
 	s := DefaultServer()
 
@@ -365,7 +374,8 @@ func TestInitializeRemoteStorageDownloadIdentifierErrorOnRead(t *testing.T) {
 func TestInitializeRemoteStorageIdentifierMismatch(t *testing.T) {
 	dir := t.TempDir()
 
-	opts := DefaultOptions().WithDir(dir)
+	remoteStorageOpts := DefaultRemoteStorageOptions().WithS3ExternalIdentifier(true)
+	opts := DefaultOptions().WithDir(dir).WithRemoteStorageOptions(remoteStorageOpts)
 
 	s := DefaultServer()
 
