@@ -26,76 +26,84 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-var ErrNoSupported = errors.New("not supported")
-var ErrIllegalArguments = store.ErrIllegalArguments
-var ErrMultiIndexingNotEnabled = fmt.Errorf("%w: multi-indexing must be enabled", store.ErrIllegalState)
-var ErrParsingError = errors.New("parsing error")
-var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
-var ErrUnspecifiedMultiDBHandler = fmt.Errorf("%w: unspecified multidbHanlder", store.ErrIllegalState)
-var ErrDatabaseDoesNotExist = errors.New("database does not exist")
-var ErrDatabaseAlreadyExists = errors.New("database already exists")
-var ErrTableAlreadyExists = errors.New("table already exists")
-var ErrTableDoesNotExist = errors.New("table does not exist")
-var ErrColumnDoesNotExist = errors.New("column does not exist")
-var ErrColumnAlreadyExists = errors.New("column already exists")
-var ErrCantDropIndexedColumn = errors.New("can not drop indexed column")
-var ErrSameOldAndNewNames = errors.New("same old and new names")
-var ErrColumnNotIndexed = errors.New("column is not indexed")
-var ErrFunctionDoesNotExist = errors.New("function does not exist")
-var ErrLimitedKeyType = errors.New("indexed key of unsupported type or exceeded length")
-var ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
-var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max length")
-var ErrDuplicatedColumn = errors.New("duplicated column")
-var ErrInvalidColumn = errors.New("invalid column")
-var ErrReservedWord = errors.New("reserved word")
-var ErrPKCanNotBeNull = errors.New("primary key can not be null")
-var ErrPKCanNotBeUpdated = errors.New("primary key can not be updated")
-var ErrNotNullableColumnCannotBeNull = errors.New("not nullable column can not be null")
-var ErrNewColumnMustBeNullable = errors.New("new column must be nullable")
-var ErrIndexAlreadyExists = errors.New("index already exists")
-var ErrMaxNumberOfColumnsInIndexExceeded = errors.New("number of columns in multi-column index exceeded")
-var ErrIndexNotFound = errors.New("index not found")
-var ErrCannotIndexJson = errors.New("cannot index column of type json")
-var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
-var ErrInvalidValue = errors.New("invalid value provided")
-var ErrInferredMultipleTypes = errors.New("inferred multiple types")
-var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
-var ErrColumnMustAppearInGroupByOrAggregation = errors.New("must appear in the group by clause or be used in an aggregated function")
-var ErrIllegalMappedKey = errors.New("error illegal mapped key")
-var ErrCorruptedData = store.ErrCorruptedData
-var ErrBrokenCatalogColSpecExpirable = fmt.Errorf("%w: catalog column entry set as expirable", ErrCorruptedData)
-var ErrNoMoreRows = store.ErrNoMoreEntries
-var ErrInvalidTypes = errors.New("invalid types")
-var ErrUnsupportedJoinType = errors.New("unsupported join type")
-var ErrInvalidCondition = errors.New("invalid condition")
-var ErrHavingClauseRequiresGroupClause = errors.New("having clause requires group clause")
-var ErrNotComparableValues = errors.New("values are not comparable")
-var ErrNumericTypeExpected = errors.New("numeric type expected")
-var ErrUnexpected = errors.New("unexpected error")
-var ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
-var ErrMaxLengthExceeded = errors.New("max length exceeded")
-var ErrColumnIsNotAnAggregation = errors.New("column is not an aggregation")
-var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUNT(*)")
-var ErrTxDoesNotExist = errors.New("tx does not exist")
-var ErrNestedTxNotSupported = errors.New("nested tx are not supported")
-var ErrNoOngoingTx = errors.New("no ongoing transaction")
-var ErrNonTransactionalStmt = errors.New("non transactional statement")
-var ErrDivisionByZero = errors.New("division by zero")
-var ErrMissingParameter = errors.New("missing parameter")
-var ErrUnsupportedParameter = errors.New("unsupported parameter")
-var ErrDuplicatedParameters = errors.New("duplicated parameters")
-var ErrLimitedIndexCreation = errors.New("unique index creation is only supported on empty tables")
-var ErrTooManyRows = errors.New("too many rows")
-var ErrAlreadyClosed = store.ErrAlreadyClosed
-var ErrAmbiguousSelector = errors.New("ambiguous selector")
-var ErrUnsupportedCast = fmt.Errorf("%w: unsupported cast", ErrInvalidValue)
-var ErrColumnMismatchInUnionStmt = errors.New("column mismatch in union statement")
-var ErrInvalidTxMetadata = errors.New("invalid transaction metadata")
+var (
+	ErrNoSupported                            = errors.New("not supported")
+	ErrIllegalArguments                       = store.ErrIllegalArguments
+	ErrMultiIndexingNotEnabled                = fmt.Errorf("%w: multi-indexing must be enabled", store.ErrIllegalState)
+	ErrParsingError                           = errors.New("parsing error")
+	ErrDDLorDMLTxOnly                         = errors.New("transactions can NOT combine DDL and DML statements")
+	ErrUnspecifiedMultiDBHandler              = fmt.Errorf("%w: unspecified multidbHanlder", store.ErrIllegalState)
+	ErrDatabaseDoesNotExist                   = errors.New("database does not exist")
+	ErrDatabaseAlreadyExists                  = errors.New("database already exists")
+	ErrTableAlreadyExists                     = errors.New("table already exists")
+	ErrTableDoesNotExist                      = errors.New("table does not exist")
+	ErrColumnDoesNotExist                     = errors.New("column does not exist")
+	ErrColumnAlreadyExists                    = errors.New("column already exists")
+	ErrCannotDropColumn                       = errors.New("cannot drop column")
+	ErrSameOldAndNewNames                     = errors.New("same old and new names")
+	ErrColumnNotIndexed                       = errors.New("column is not indexed")
+	ErrFunctionDoesNotExist                   = errors.New("function does not exist")
+	ErrLimitedKeyType                         = errors.New("indexed key of unsupported type or exceeded length")
+	ErrLimitedAutoIncrement                   = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
+	ErrLimitedMaxLen                          = errors.New("only VARCHAR and BLOB types support max length")
+	ErrDuplicatedColumn                       = errors.New("duplicated column")
+	ErrInvalidColumn                          = errors.New("invalid column")
+	ErrInvalidCheckConstraint                 = errors.New("invalid check constraint")
+	ErrCheckConstraintViolation               = errors.New("check constraint violation")
+	ErrReservedWord                           = errors.New("reserved word")
+	ErrPKCanNotBeNull                         = errors.New("primary key can not be null")
+	ErrPKCanNotBeUpdated                      = errors.New("primary key can not be updated")
+	ErrNotNullableColumnCannotBeNull          = errors.New("not nullable column can not be null")
+	ErrNewColumnMustBeNullable                = errors.New("new column must be nullable")
+	ErrIndexAlreadyExists                     = errors.New("index already exists")
+	ErrMaxNumberOfColumnsInIndexExceeded      = errors.New("number of columns in multi-column index exceeded")
+	ErrIndexNotFound                          = errors.New("index not found")
+	ErrConstraintNotFound                     = errors.New("constraint not found")
+	ErrInvalidNumberOfValues                  = errors.New("invalid number of values provided")
+	ErrInvalidValue                           = errors.New("invalid value provided")
+	ErrInferredMultipleTypes                  = errors.New("inferred multiple types")
+	ErrExpectingDQLStmt                       = errors.New("illegal statement. DQL statement expected")
+	ErrColumnMustAppearInGroupByOrAggregation = errors.New("must appear in the group by clause or be used in an aggregated function")
+	ErrIllegalMappedKey                       = errors.New("error illegal mapped key")
+	ErrCorruptedData                          = store.ErrCorruptedData
+	ErrBrokenCatalogColSpecExpirable          = fmt.Errorf("%w: catalog column entry set as expirable", ErrCorruptedData)
+	ErrBrokenCatalogCheckConstraintExpirable  = fmt.Errorf("%w: catalog check constraint set as expirable", ErrCorruptedData)
+	ErrNoMoreRows                             = store.ErrNoMoreEntries
+	ErrInvalidTypes                           = errors.New("invalid types")
+	ErrUnsupportedJoinType                    = errors.New("unsupported join type")
+	ErrInvalidCondition                       = errors.New("invalid condition")
+	ErrHavingClauseRequiresGroupClause        = errors.New("having clause requires group clause")
+	ErrNotComparableValues                    = errors.New("values are not comparable")
+	ErrNumericTypeExpected                    = errors.New("numeric type expected")
+	ErrUnexpected                             = errors.New("unexpected error")
+	ErrMaxKeyLengthExceeded                   = errors.New("max key length exceeded")
+	ErrMaxLengthExceeded                      = errors.New("max length exceeded")
+	ErrColumnIsNotAnAggregation               = errors.New("column is not an aggregation")
+	ErrLimitedCount                           = errors.New("only unbounded counting is supported i.e. COUNT(*)")
+	ErrTxDoesNotExist                         = errors.New("tx does not exist")
+	ErrNestedTxNotSupported                   = errors.New("nested tx are not supported")
+	ErrNoOngoingTx                            = errors.New("no ongoing transaction")
+	ErrNonTransactionalStmt                   = errors.New("non transactional statement")
+	ErrDivisionByZero                         = errors.New("division by zero")
+	ErrMissingParameter                       = errors.New("missing parameter")
+	ErrUnsupportedParameter                   = errors.New("unsupported parameter")
+	ErrDuplicatedParameters                   = errors.New("duplicated parameters")
+	ErrLimitedIndexCreation                   = errors.New("unique index creation is only supported on empty tables")
+	ErrTooManyRows                            = errors.New("too many rows")
+	ErrAlreadyClosed                          = store.ErrAlreadyClosed
+	ErrAmbiguousSelector                      = errors.New("ambiguous selector")
+	ErrUnsupportedCast                        = fmt.Errorf("%w: unsupported cast", ErrInvalidValue)
+	ErrColumnMismatchInUnionStmt              = errors.New("column mismatch in union statement")
+	ErrCannotIndexJson                        = errors.New("cannot index column of type JSON")
+	ErrInvalidTxMetadata                      = errors.New("invalid transaction metadata")
+)
 
 var MaxKeyLen = 512
 
-const EncIDLen = 4
-const EncLenLen = 4
+const (
+	EncIDLen  = 4
+	EncLenLen = 4
+)
 
 const MaxNumberOfColumnsInIndex = 8
 
@@ -380,7 +388,7 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 }
 
 func (e *Engine) Exec(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
-	stmts, err := Parse(strings.NewReader(sql))
+	stmts, err := ParseSQL(strings.NewReader(sql))
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
@@ -520,7 +528,7 @@ func (e *Engine) queryAll(ctx context.Context, tx *SQLTx, sql string, params map
 }
 
 func (e *Engine) Query(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (RowReader, error) {
-	stmts, err := Parse(strings.NewReader(sql))
+	stmts, err := ParseSQL(strings.NewReader(sql))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
@@ -594,7 +602,7 @@ func (e *Engine) Catalog(ctx context.Context, tx *SQLTx) (catalog *Catalog, err 
 }
 
 func (e *Engine) InferParameters(ctx context.Context, tx *SQLTx, sql string) (params map[string]SQLValueType, err error) {
-	stmts, err := Parse(strings.NewReader(sql))
+	stmts, err := ParseSQL(strings.NewReader(sql))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
@@ -654,7 +662,7 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 
 	catalog := newCatalog(e.prefix)
 
-	err := catalog.addSchemaToTx(ctx, e.prefix, tx)
+	err := catalog.addSchemaToTx(ctx, tx)
 	if err != nil {
 		return err
 	}

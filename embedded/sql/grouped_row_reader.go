@@ -152,33 +152,21 @@ func allAggregations(selectors []Selector) bool {
 func zeroForType(t SQLValueType) TypedValue {
 	switch t {
 	case IntegerType:
-		{
-			return &Integer{}
-		}
+		return &Integer{}
 	case Float64Type:
-		{
-			return &Float64{}
-		}
+		return &Float64{}
 	case BooleanType:
-		{
-			return &Bool{}
-		}
+		return &Bool{}
 	case VarcharType:
-		{
-			return &Varchar{}
-		}
+		return &Varchar{}
+	case JSONType:
+		return &JSON{}
 	case UUIDType:
-		{
-			return &UUID{}
-		}
+		return &UUID{}
 	case BLOBType:
-		{
-			return &Blob{}
-		}
+		return &Blob{}
 	case TimestampType:
-		{
-			return &Timestamp{}
-		}
+		return &Timestamp{}
 	}
 	return nil
 }

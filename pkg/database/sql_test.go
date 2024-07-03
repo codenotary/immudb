@@ -105,7 +105,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
 
-	stmts, err := sql.ParseString(q)
+	stmts, err := sql.ParseSQLString(q)
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
