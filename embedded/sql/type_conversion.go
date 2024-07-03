@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -307,7 +308,9 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				return &JSON{val: tv.RawValue()}, nil
 			case VarcharType:
 				var x interface{}
-				err := json.Unmarshal([]byte(tv.String()), &x)
+				s := strings.TrimSuffix(strings.TrimPrefix(tv.String(), "'"), "'")
+
+				err := json.Unmarshal([]byte(s), &x)
 				return &JSON{val: x}, err
 			}
 

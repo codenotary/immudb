@@ -57,6 +57,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
+    checks []CheckConstraint
     exp ValueExp
     binExp ValueExp
     err error
@@ -72,7 +73,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 }
 
 %token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
-%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
+%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
@@ -132,6 +133,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
+%type <checks> opt_checks
 %type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
@@ -152,10 +154,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %%
 
 sql: sqlstmts
-{
-    $$ = $1
-    setResult(yylex, $1)
-}
+    {
+        $$ = $1
+        setResult(yylex, $1)
+    } 
 
 sqlstmts:
     sqlstmt opt_separator
@@ -213,9 +215,9 @@ ddlstmt:
         $$ = &UseSnapshotStmt{period: $3}
     }
 |
-    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY one_or_more_ids ')'
+    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' opt_checks PRIMARY KEY one_or_more_ids ')'
     {
-        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
+        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, checks: $8, pkColNames: $11}
     }
 |
     DROP TABLE IDENTIFIER
@@ -261,6 +263,11 @@ ddlstmt:
     ALTER TABLE IDENTIFIER DROP COLUMN IDENTIFIER
     {
         $$ = &DropColumnStmt{table: $3, colName: $6}
+    }
+|
+    ALTER TABLE IDENTIFIER DROP CONSTRAINT IDENTIFIER
+    {
+        $$ = &DropConstraintStmt{table: $3, constraintName: $6}
     }
 |
     CREATE USER IDENTIFIER WITH PASSWORD VARCHAR permission
@@ -941,6 +948,21 @@ opt_as:
     AS IDENTIFIER
     {
         $$ = $2
+    }
+
+opt_checks:
+    {
+        $$ = nil
+    }
+|
+    CHECK exp ',' opt_checks
+    {
+        $$ = append([]CheckConstraint{{exp: $2}}, $4...)
+    }
+|
+    CONSTRAINT IDENTIFIER CHECK exp ',' opt_checks
+    {
+        $$ = append([]CheckConstraint{{name: $2, exp: $4}}, $6...)
     }
 
 exp:

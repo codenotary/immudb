@@ -31,7 +31,7 @@ func init() {
 }
 
 func TestEmptyInput(t *testing.T) {
-	_, err := ParseString("")
+	_, err := ParseSQLString("")
 	require.Error(t, err)
 }
 
@@ -54,7 +54,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -82,7 +82,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -179,7 +179,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -294,6 +294,29 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
 		},
 		{
+			input: "CREATE TABLE table1(id INTEGER, balance FLOAT, CONSTRAINT non_negative_balance CHECK (balance >= 0), PRIMARY KEY id)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+						{colName: "balance", colType: Float64Type},
+					},
+					checks: []CheckConstraint{
+						{
+							name: "non_negative_balance",
+							exp: &CmpBoolExp{
+								op:    GE,
+								left:  &ColSelector{col: "balance"},
+								right: &Integer{val: 0},
+							},
+						},
+					},
+					pkColNames: []string{"id"},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "DROP TABLE table1",
 			expectedOutput: []SQLStmt{
 				&DropTableStmt{
@@ -304,7 +327,7 @@ func TestCreateTableStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -361,7 +384,7 @@ func TestCreateIndexStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -417,7 +440,7 @@ func TestAlterTable(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -613,7 +636,7 @@ func TestInsertIntoStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -700,7 +723,7 @@ func TestStmtSeparator(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -805,7 +828,7 @@ func TestTxStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -1169,7 +1192,7 @@ func TestSelectStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -1211,7 +1234,7 @@ func TestSelectUnionStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -1262,7 +1285,7 @@ func TestAggFnStmt(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -1562,7 +1585,7 @@ func TestExpressions(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -1659,7 +1682,7 @@ func TestMultiLineStmts(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		res, err := ParseString(tc.input)
+		res, err := ParseSQLString(tc.input)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
@@ -1683,7 +1706,7 @@ func TestFloatCornerCases(t *testing.T) {
 		{"123" + strings.Repeat("1", 10000) + ".123", true, nil},
 	} {
 		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
-			stmt, err := ParseString("INSERT INTO t1(v) VALUES(" + d.s + ")")
+			stmt, err := ParseSQLString("INSERT INTO t1(v) VALUES(" + d.s + ")")
 			if d.invalid {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "syntax error")
@@ -1704,5 +1727,25 @@ func TestFloatCornerCases(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestExprString(t *testing.T) {
+	exps := []string{
+		"(1 + 1) / (2 * 5 - 10)",
+		"@param LIKE 'pattern'",
+		"((col1 AND (col2 < 10)) OR (@param = 3 AND (col4 = TRUE))) AND NOT (col5 = 'value' OR (2 + 2 != 4))",
+		"CAST (func_call(1, 'two', 2.5) AS TIMESTAMP)",
+		"col IN (TRUE, 1, 'test', 1.5)",
+	}
+
+	for i, e := range exps {
+		t.Run(fmt.Sprintf("test_expression_%d", i+1), func(t *testing.T) {
+			exp, err := ParseExpFromString(e)
+			require.NoError(t, err)
+
+			parsedExp, err := ParseExpFromString(exp.String())
+			require.NoError(t, err)
+			require.Equal(t, exp, parsedExp)
+		})
+	}
 }

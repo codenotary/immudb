@@ -102,6 +102,8 @@ var reservedWords = map[string]int{
 	"READ":           READ,
 	"READWRITE":      READWRITE,
 	"ADMIN":          ADMIN,
+	"CHECK":          CHECK,
+	"CONSTRAINT":     CONSTRAINT,
 }
 
 var joinTypes = map[string]JoinType{
@@ -202,16 +204,28 @@ func (ar *aheadByteReader) NextByte() (byte, error) {
 	return ar.nextChar, ar.nextErr
 }
 
-func ParseString(sql string) ([]SQLStmt, error) {
-	return Parse(strings.NewReader(sql))
+func ParseSQLString(sql string) ([]SQLStmt, error) {
+	return ParseSQL(strings.NewReader(sql))
 }
 
-func Parse(r io.ByteReader) ([]SQLStmt, error) {
+func ParseSQL(r io.ByteReader) ([]SQLStmt, error) {
 	lexer := newLexer(r)
 
 	yyParse(lexer)
 
 	return lexer.result, lexer.err
+}
+
+func ParseExpFromString(exp string) (ValueExp, error) {
+	stmt := fmt.Sprintf("SELECT * FROM t WHERE %s", exp)
+
+	res, err := ParseSQLString(stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	s := res[0].(*SelectStmt)
+	return s.where, nil
 }
 
 func newLexer(r io.ByteReader) *lexer {

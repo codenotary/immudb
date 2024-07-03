@@ -20,6 +20,14 @@ type JSON struct {
 	val interface{}
 }
 
+func NewJsonFromString(s string) (*JSON, error) {
+	var val interface{}
+	if err := json.Unmarshal([]byte(s), &val); err != nil {
+		return nil, err
+	}
+	return &JSON{val: val}, nil
+}
+
 func NewJson(val interface{}) *JSON {
 	return &JSON{val: val}
 }
@@ -82,6 +90,10 @@ func (v *JSON) RawValue() interface{} {
 }
 
 func (v *JSON) Compare(val TypedValue) (int, error) {
+	if val.IsNull() {
+		return val.Compare(v)
+	}
+
 	tv, ok := v.castToTypedValue()
 	if !ok {
 		return -1, fmt.Errorf("%w: comparison not defined for JSON %s", ErrNotComparableValues, v.primitiveType())
@@ -175,16 +187,16 @@ func (v *JSONSelector) alias() string {
 	if v.ColSelector.as != "" {
 		return v.ColSelector.as
 	}
-	return v.string()
+	return v.String()
 }
 
 func (v *JSONSelector) resolve(implicitTable string) (string, string, string) {
 	aggFn, table, _ := v.ColSelector.resolve(implicitTable)
-	return aggFn, table, v.string()
+	return aggFn, table, v.String()
 }
 
-func (v *JSONSelector) string() string {
-	return fmt.Sprintf("%s->%s", v.ColSelector.col, strings.Join(v.fields, "->"))
+func (v *JSONSelector) String() string {
+	return fmt.Sprintf("%s->'%s'", v.ColSelector.col, strings.Join(v.fields, "->"))
 }
 
 func (sel *JSONSelector) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
