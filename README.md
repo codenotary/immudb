@@ -23,7 +23,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 23M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 27M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -40,7 +40,7 @@ Traditional database transactions and logs are mutable, and therefore there is n
 Data stored in immudb is cryptographically coherent and verifiable. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library. immudb runs everywhere, on an IoT device, your notebook, a server, on-premise or in the cloud.
 
 
-immudb can be used as a key-value store or relational data structure and supports both transactions and blobs, so there are no limits to the use cases. Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
+When used as a relational data database, it supports both transactions and blobs, so there are no limits to the use cases. Developers and organizations use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
 
 ## Contents
 
