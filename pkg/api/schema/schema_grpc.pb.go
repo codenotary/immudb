@@ -23,6 +23,7 @@ type ImmuServiceClient interface {
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ChangeSQLPrivileges(ctx context.Context, in *ChangeSQLPrivilegesRequest, opts ...grpc.CallOption) (*ChangeSQLPrivilegesResponse, error)
 	SetActiveUser(ctx context.Context, in *SetActiveUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Deprecated: Do not use.
 	UpdateAuthConfig(ctx context.Context, in *AuthConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -154,6 +155,15 @@ func (c *immuServiceClient) ChangePassword(ctx context.Context, in *ChangePasswo
 func (c *immuServiceClient) ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ChangePermission", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) ChangeSQLPrivileges(ctx context.Context, in *ChangeSQLPrivilegesRequest, opts ...grpc.CallOption) (*ChangeSQLPrivilegesResponse, error) {
+	out := new(ChangeSQLPrivilegesResponse)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ChangeSQLPrivileges", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1104,6 +1114,7 @@ type ImmuServiceServer interface {
 	CreateUser(context.Context, *CreateUserRequest) (*emptypb.Empty, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*emptypb.Empty, error)
 	ChangePermission(context.Context, *ChangePermissionRequest) (*emptypb.Empty, error)
+	ChangeSQLPrivileges(context.Context, *ChangeSQLPrivilegesRequest) (*ChangeSQLPrivilegesResponse, error)
 	SetActiveUser(context.Context, *SetActiveUserRequest) (*emptypb.Empty, error)
 	// Deprecated: Do not use.
 	UpdateAuthConfig(context.Context, *AuthConfig) (*emptypb.Empty, error)
@@ -1212,6 +1223,9 @@ func (UnimplementedImmuServiceServer) ChangePassword(context.Context, *ChangePas
 }
 func (UnimplementedImmuServiceServer) ChangePermission(context.Context, *ChangePermissionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChangePermission not implemented")
+}
+func (UnimplementedImmuServiceServer) ChangeSQLPrivileges(context.Context, *ChangeSQLPrivilegesRequest) (*ChangeSQLPrivilegesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ChangeSQLPrivileges not implemented")
 }
 func (UnimplementedImmuServiceServer) SetActiveUser(context.Context, *SetActiveUserRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetActiveUser not implemented")
@@ -1500,6 +1514,24 @@ func _ImmuService_ChangePermission_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).ChangePermission(ctx, req.(*ChangePermissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_ChangeSQLPrivileges_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangeSQLPrivilegesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).ChangeSQLPrivileges(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/ChangeSQLPrivileges",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).ChangeSQLPrivileges(ctx, req.(*ChangeSQLPrivilegesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2832,6 +2864,10 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangePermission",
 			Handler:    _ImmuService_ChangePermission_Handler,
+		},
+		{
+			MethodName: "ChangeSQLPrivileges",
+			Handler:    _ImmuService_ChangeSQLPrivileges_Handler,
 		},
 		{
 			MethodName: "SetActiveUser",

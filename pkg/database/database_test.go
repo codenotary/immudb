@@ -93,6 +93,24 @@ func (h *dummyMultidbHandler) UseDatabase(ctx context.Context, db string) error 
 	return sql.ErrNoSupported
 }
 
+type mockUser struct{}
+
+func (u *mockUser) Username() string {
+	return "default"
+}
+
+func (u *mockUser) Permission() sql.Permission {
+	return sql.PermissionAdmin
+}
+
+func (u *mockUser) SQLPrivileges() []sql.SQLPrivilege {
+	return sql.DefaultSQLPrivilegesForPermission(sql.PermissionAdmin)
+}
+
+func (h *dummyMultidbHandler) GetLoggedUser(ctx context.Context) (sql.User, error) {
+	return &mockUser{}, nil
+}
+
 func (h *dummyMultidbHandler) ListUsers(ctx context.Context) ([]sql.User, error) {
 	return nil, sql.ErrNoSupported
 }
@@ -102,6 +120,14 @@ func (h *dummyMultidbHandler) CreateUser(ctx context.Context, username, password
 }
 
 func (h *dummyMultidbHandler) AlterUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) GrantSQLPrivileges(ctx context.Context, database, username string, privileges []sql.SQLPrivilege) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) RevokeSQLPrivileges(ctx context.Context, database, username string, privileges []sql.SQLPrivilege) error {
 	return sql.ErrNoSupported
 }
 

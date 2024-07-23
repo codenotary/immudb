@@ -1729,6 +1729,69 @@ func TestFloatCornerCases(t *testing.T) {
 	}
 }
 
+func TestGrantRevokeStmt(t *testing.T) {
+	type test struct {
+		text         string
+		expectedStmt SQLStmt
+	}
+
+	cases := []test{
+		{
+			text: "GRANT SELECT, INSERT, UPDATE, DELETE ON DATABASE defaultdb TO USER immudb",
+			expectedStmt: &AlterPrivilegesStmt{
+				database: "defaultdb",
+				user:     "immudb",
+				privileges: []SQLPrivilege{
+					SQLPrivilegeDelete,
+					SQLPrivilegeUpdate,
+					SQLPrivilegeInsert,
+					SQLPrivilegeSelect,
+				},
+				isGrant: true,
+			},
+		},
+		{
+			text: "REVOKE SELECT, INSERT, UPDATE, DELETE ON DATABASE defaultdb TO USER immudb",
+			expectedStmt: &AlterPrivilegesStmt{
+				database: "defaultdb",
+				user:     "immudb",
+				privileges: []SQLPrivilege{
+					SQLPrivilegeDelete,
+					SQLPrivilegeUpdate,
+					SQLPrivilegeInsert,
+					SQLPrivilegeSelect,
+				},
+			},
+		},
+		{
+			text: "GRANT ALL PRIVILEGES ON DATABASE defaultdb TO USER immudb",
+			expectedStmt: &AlterPrivilegesStmt{
+				database:   "defaultdb",
+				user:       "immudb",
+				privileges: allPrivileges,
+				isGrant:    true,
+			},
+		},
+		{
+			text: "REVOKE ALL PRIVILEGES ON DATABASE defaultdb TO USER immudb",
+			expectedStmt: &AlterPrivilegesStmt{
+				database:   "defaultdb",
+				user:       "immudb",
+				privileges: allPrivileges,
+			},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("alter_privileges_%d", i), func(t *testing.T) {
+			stmts, err := ParseSQLString(tc.text)
+			require.NoError(t, err)
+			require.Len(t, stmts, 1)
+			require.Equal(t, tc.expectedStmt, stmts[0])
+		})
+	}
+}
+
 func TestExprString(t *testing.T) {
 	exps := []string{
 		"(1 + 1) / (2 * 5 - 10)",

@@ -7089,7 +7089,12 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	defer closeStore(t, st)
 
 	dbs := []string{"db1", "db2"}
-	handler := &multidbHandlerMock{}
+	handler := &multidbHandlerMock{
+		user: &mockUser{
+			username:      "user",
+			sqlPrivileges: allPrivileges,
+		},
+	}
 
 	opts := DefaultOptions().
 		WithPrefix(sqlPrefix).
@@ -7126,6 +7131,13 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, `
 			BEGIN TRANSACTION;
 				DROP USER user1;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				GRANT ALL PRIVILEGES ON DATABASE defaultdb TO USER myuser;
 			COMMIT;
 		`, nil)
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
@@ -7185,23 +7197,19 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		})
 
 		t.Run("show users", func(t *testing.T) {
-			r, err := engine.Query(context.Background(), nil, "SHOW USERS", nil)
+			rows, err := engine.queryAll(context.Background(), nil, "SHOW USERS", nil)
 			require.NoError(t, err)
+			require.Len(t, rows, 1)
 
-			defer r.Close()
-
-			_, err = r.Read(context.Background())
-			require.ErrorIs(t, err, ErrNoMoreRows)
+			require.Equal(t, "user", rows[0].ValuesByPosition[0].RawValue())
 		})
 
 		t.Run("list users", func(t *testing.T) {
-			r, err := engine.Query(context.Background(), nil, "SELECT * FROM USERS()", nil)
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT * FROM USERS()", nil)
 			require.NoError(t, err)
+			require.Len(t, rows, 1)
 
-			defer r.Close()
-
-			_, err = r.Read(context.Background())
-			require.ErrorIs(t, err, ErrNoMoreRows)
+			require.Equal(t, "user", rows[0].ValuesByPosition[0].RawValue())
 		})
 
 		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
@@ -7225,8 +7233,27 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	})
 }
 
+type mockUser struct {
+	username      string
+	permission    Permission
+	sqlPrivileges []SQLPrivilege
+}
+
+func (u *mockUser) Username() string {
+	return u.username
+}
+
+func (u *mockUser) Permission() Permission {
+	return u.permission
+}
+
+func (u *mockUser) SQLPrivileges() []SQLPrivilege {
+	return u.sqlPrivileges
+}
+
 type multidbHandlerMock struct {
 	dbs    []string
+	user   *mockUser
 	engine *Engine
 }
 
@@ -7238,12 +7265,27 @@ func (h *multidbHandlerMock) CreateDatabase(ctx context.Context, db string, ifNo
 	return ErrNoSupported
 }
 
+func (h *multidbHandlerMock) GrantSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandlerMock) RevokeSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error {
+	return ErrNoSupported
+}
+
 func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
 }
 
+func (h *multidbHandlerMock) GetLoggedUser(ctx context.Context) (User, error) {
+	if h.user == nil {
+		return nil, fmt.Errorf("no logged user")
+	}
+	return h.user, nil
+}
+
 func (h *multidbHandlerMock) ListUsers(ctx context.Context) ([]User, error) {
-	return nil, nil
+	return []User{h.user}, nil
 }
 
 func (h *multidbHandlerMock) CreateUser(ctx context.Context, username, password string, permission Permission) error {
@@ -8727,4 +8769,82 @@ func TestQueryTxMetadata(t *testing.T) {
 		nil,
 	)
 	require.ErrorIs(t, err, ErrInvalidTxMetadata)
+}
+
+func TestGrantSQLPrivileges(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	dbs := []string{"db1", "db2"}
+	handler := &multidbHandlerMock{
+		dbs: dbs,
+		user: &mockUser{
+			username:      "myuser",
+			permission:    PermissionReadOnly,
+			sqlPrivileges: []SQLPrivilege{SQLPrivilegeSelect},
+		},
+	}
+
+	opts := DefaultOptions().
+		WithPrefix(sqlPrefix).
+		WithMultiDBHandler(handler)
+
+	engine, err := NewEngine(st, opts)
+	require.NoError(t, err)
+
+	handler.dbs = dbs
+	handler.engine = engine
+
+	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		tx,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id);",
+		nil,
+	)
+	require.ErrorIs(t, err, ErrAccessDenied)
+
+	handler.user.sqlPrivileges =
+		append(handler.user.sqlPrivileges, SQLPrivilegeCreate)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		tx,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id);",
+		nil,
+	)
+	require.ErrorIs(t, err, ErrAccessDenied)
+
+	handler.user.permission = PermissionReadWrite
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		tx,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id);",
+		nil,
+	)
+	require.NoError(t, err)
+
+	checkGrants := func(sql string) {
+		rows, err := engine.queryAll(context.Background(), nil, sql, nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 2)
+
+		usr := rows[0].ValuesByPosition[0].RawValue().(string)
+		privilege := rows[0].ValuesByPosition[1].RawValue().(string)
+
+		require.Equal(t, usr, "myuser")
+		require.Equal(t, privilege, string(SQLPrivilegeSelect))
+
+		usr = rows[1].ValuesByPosition[0].RawValue().(string)
+		privilege = rows[1].ValuesByPosition[1].RawValue().(string)
+		require.Equal(t, usr, "myuser")
+		require.Equal(t, privilege, string(SQLPrivilegeCreate))
+	}
+
+	checkGrants("SHOW GRANTS")
+	checkGrants("SHOW GRANTS FOR myuser")
 }

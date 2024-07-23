@@ -102,6 +102,11 @@ var reservedWords = map[string]int{
 	"READ":           READ,
 	"READWRITE":      READWRITE,
 	"ADMIN":          ADMIN,
+	"GRANT":          GRANT,
+	"REVOKE":         REVOKE,
+	"GRANTS":         GRANTS,
+	"FOR":            FOR,
+	"PRIVILEGES":     PRIVILEGES,
 	"CHECK":          CHECK,
 	"CONSTRAINT":     CONSTRAINT,
 }
