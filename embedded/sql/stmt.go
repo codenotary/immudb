@@ -34,11 +34,12 @@ import (
 )
 
 const (
-	catalogPrefix       = "CTL."
-	catalogTablePrefix  = "CTL.TABLE."  // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
-	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
-	catalogCheckPrefix  = "CTL.CHECK."  // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
-	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
+	catalogPrefix          = "CTL."
+	catalogTablePrefix     = "CTL.TABLE."     // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
+	catalogColumnPrefix    = "CTL.COLUMN."    // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogIndexPrefix     = "CTL.INDEX."     // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
+	catalogCheckPrefix     = "CTL.CHECK."     // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
+	catalogPrivilegePrefix = "CTL.PRIVILEGE." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 
 	RowPrefix    = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
 	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
@@ -93,6 +94,7 @@ const (
 	PermissionReadOnly  Permission = "READ"
 	PermissionReadWrite Permission = "READWRITE"
 	PermissionAdmin     Permission = "ADMIN"
+	PermissionSysAdmin  Permission = "SYSADMIN"
 )
 
 type AggregateFn = string
@@ -188,15 +190,26 @@ const (
 	UsersFnCall      string = "USERS"
 	ColumnsFnCall    string = "COLUMNS"
 	IndexesFnCall    string = "INDEXES"
+	GrantsFnCall     string = "GRANTS"
 	JSONTypeOfFnCall string = "JSON_TYPEOF"
 )
 
 type SQLStmt interface {
+	readOnly() bool
+	requiredPrivileges() []SQLPrivilege
 	execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error)
 	inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error
 }
 
 type BeginTransactionStmt struct {
+}
+
+func (stmt *BeginTransactionStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *BeginTransactionStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *BeginTransactionStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -227,6 +240,14 @@ func (stmt *BeginTransactionStmt) execAt(ctx context.Context, tx *SQLTx, params 
 type CommitStmt struct {
 }
 
+func (stmt *CommitStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *CommitStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
 func (stmt *CommitStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -240,6 +261,14 @@ func (stmt *CommitStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 }
 
 type RollbackStmt struct {
+}
+
+func (stmt *RollbackStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *RollbackStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *RollbackStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -257,6 +286,14 @@ func (stmt *RollbackStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 type CreateDatabaseStmt struct {
 	DB          string
 	ifNotExists bool
+}
+
+func (stmt *CreateDatabaseStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateDatabaseStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
 }
 
 func (stmt *CreateDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -283,6 +320,14 @@ func (stmt *UseDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, par
 	return nil
 }
 
+func (stmt *UseDatabaseStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *UseDatabaseStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
 func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
@@ -297,6 +342,14 @@ func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 type UseSnapshotStmt struct {
 	period period
+}
+
+func (stmt *UseSnapshotStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *UseSnapshotStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *UseSnapshotStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -317,6 +370,14 @@ func (stmt *CreateUserStmt) inferParameters(ctx context.Context, tx *SQLTx, para
 	return nil
 }
 
+func (stmt *CreateUserStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateUserStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
+
 func (stmt *CreateUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: user creation can not be done within a transaction", ErrNonTransactionalStmt)
@@ -333,6 +394,14 @@ type AlterUserStmt struct {
 	username   string
 	password   string
 	permission Permission
+}
+
+func (stmt *AlterUserStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *AlterUserStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
 }
 
 func (stmt *AlterUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -353,6 +422,14 @@ func (stmt *AlterUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 
 type DropUserStmt struct {
 	username string
+}
+
+func (stmt *DropUserStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropUserStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
 }
 
 func (stmt *DropUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -381,6 +458,14 @@ type CreateTableStmt struct {
 
 func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkColNames []string) *CreateTableStmt {
 	return &CreateTableStmt{table: table, ifNotExists: ifNotExists, colsSpec: colsSpec, pkColNames: pkColNames}
+}
+
+func (stmt *CreateTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
 }
 
 func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -563,6 +648,14 @@ func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndex
 	return &CreateIndexStmt{unique: isUnique, table: table, cols: cols}
 }
 
+func (stmt *CreateIndexStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateIndexStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
+
 func (stmt *CreateIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -665,6 +758,14 @@ func NewAddColumnStmt(table string, colSpec *ColSpec) *AddColumnStmt {
 	return &AddColumnStmt{table: table, colSpec: colSpec}
 }
 
+func (stmt *AddColumnStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *AddColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
+}
+
 func (stmt *AddColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -693,6 +794,14 @@ func (stmt *AddColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 type RenameTableStmt struct {
 	oldName string
 	newName string
+}
+
+func (stmt *RenameTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *RenameTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
 }
 
 func (stmt *RenameTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -732,6 +841,14 @@ func NewRenameColumnStmt(table, oldName, newName string) *RenameColumnStmt {
 	return &RenameColumnStmt{table: table, oldName: oldName, newName: newName}
 }
 
+func (stmt *RenameColumnStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *RenameColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
+}
+
 func (stmt *RenameColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -764,6 +881,14 @@ type DropColumnStmt struct {
 
 func NewDropColumnStmt(table, colName string) *DropColumnStmt {
 	return &DropColumnStmt{table: table, colName: colName}
+}
+
+func (stmt *DropColumnStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
 }
 
 func (stmt *DropColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -841,6 +966,14 @@ type DropConstraintStmt struct {
 	constraintName string
 }
 
+func (stmt *DropConstraintStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropConstraintStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
+}
+
 func (stmt *DropConstraintStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	table, err := tx.catalog.GetTableByName(stmt.table)
 	if err != nil {
@@ -880,6 +1013,17 @@ type UpsertIntoStmt struct {
 	cols       []string
 	rows       []*RowSpec
 	onConflict *OnConflictDo
+}
+
+func (stmt *UpsertIntoStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *UpsertIntoStmt) requiredPrivileges() []SQLPrivilege {
+	if stmt.isInsert {
+		return []SQLPrivilege{SQLPrivilegeInsert}
+	}
+	return []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeUpdate}
 }
 
 func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, isInsert bool, onConflict *OnConflictDo) *UpsertIntoStmt {
@@ -1414,6 +1558,14 @@ type colUpdate struct {
 	val ValueExp
 }
 
+func (stmt *UpdateStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *UpdateStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeUpdate}
+}
+
 func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	selectStmt := &SelectStmt{
 		ds:    stmt.tableRef,
@@ -1589,6 +1741,14 @@ func NewDeleteFromStmt(table string, where ValueExp, orderBy []*OrdCol, limit Va
 		orderBy:  orderBy,
 		limit:    limit,
 	}
+}
+
+func (stmt *DeleteFromStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DeleteFromStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDelete}
 }
 
 func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -2778,6 +2938,14 @@ func NewSelectStmt(
 	}
 }
 
+func (stmt *SelectStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *SelectStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+
 func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	_, err := stmt.execAt(ctx, tx, nil)
 	if err != nil {
@@ -3165,6 +3333,14 @@ type UnionStmt struct {
 	left, right DataSource
 }
 
+func (stmt *UnionStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *UnionStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+
 func (stmt *UnionStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	err := stmt.left.inferParameters(ctx, tx, params)
 	if err != nil {
@@ -3249,6 +3425,14 @@ type tableRef struct {
 	history bool
 	period  period
 	as      string
+}
+
+func (ref *tableRef) readOnly() bool {
+	return true
+}
+
+func (ref *tableRef) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
 }
 
 type period struct {
@@ -4578,6 +4762,14 @@ type FnDataSourceStmt struct {
 	as     string
 }
 
+func (stmt *FnDataSourceStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *FnDataSourceStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
 func (stmt *FnDataSourceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return tx, nil
 }
@@ -4616,6 +4808,8 @@ func (stmt *FnDataSourceStmt) Alias() string {
 		{
 			return "indexes"
 		}
+	case GrantsFnCall:
+		return "grants"
 	}
 
 	// not reachable
@@ -4651,6 +4845,10 @@ func (stmt *FnDataSourceStmt) Resolve(ctx context.Context, tx *SQLTx, params map
 	case IndexesFnCall:
 		{
 			return stmt.resolveListIndexes(ctx, tx, params, scanSpecs)
+		}
+	case GrantsFnCall:
+		{
+			return stmt.resolveListGrants(ctx, tx, params, scanSpecs)
 		}
 	}
 
@@ -4793,14 +4991,15 @@ func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, p
 		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, UsersFnCall, len(stmt.fnCall.params))
 	}
 
-	cols := make([]ColDescriptor, 2)
-	cols[0] = ColDescriptor{
-		Column: "name",
-		Type:   VarcharType,
-	}
-	cols[1] = ColDescriptor{
-		Column: "permission",
-		Type:   VarcharType,
+	cols := []ColDescriptor{
+		{
+			Column: "name",
+			Type:   VarcharType,
+		},
+		{
+			Column: "permission",
+			Type:   VarcharType,
+		},
 	}
 
 	var users []User
@@ -4817,26 +5016,7 @@ func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, p
 	values := make([][]ValueExp, len(users))
 
 	for i, user := range users {
-		var perm string
-
-		switch user.Permission() {
-		case 1:
-			{
-				perm = "READ"
-			}
-		case 2:
-			{
-				perm = "READ/WRITE"
-			}
-		case 254:
-			{
-				perm = "ADMIN"
-			}
-		default:
-			{
-				perm = "SYSADMIN"
-			}
-		}
+		perm := user.Permission()
 
 		values[i] = []ValueExp{
 			&Varchar{val: user.Username()},
@@ -4999,6 +5179,68 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
 }
 
+func (stmt *FnDataSourceStmt) resolveListGrants(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+	if len(stmt.fnCall.params) > 1 {
+		return nil, fmt.Errorf("%w: function '%s' expect at most one parameter of type %s", ErrIllegalArguments, GrantsFnCall, VarcharType)
+	}
+
+	var username string
+	if len(stmt.fnCall.params) == 1 {
+		val, err := stmt.fnCall.params[0].substitute(params)
+		if err != nil {
+			return nil, err
+		}
+
+		userVal, err := val.reduce(tx, nil, "")
+		if err != nil {
+			return nil, err
+		}
+
+		if userVal.Type() != VarcharType {
+			return nil, fmt.Errorf("%w: expected '%s' for username but type '%s' given instead", ErrIllegalArguments, VarcharType, userVal.Type())
+		}
+		username, _ = userVal.RawValue().(string)
+	}
+
+	cols := []ColDescriptor{
+		{
+			Column: "user",
+			Type:   VarcharType,
+		},
+		{
+			Column: "privilege",
+			Type:   VarcharType,
+		},
+	}
+
+	var err error
+	var users []User
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	} else {
+		users, err = tx.engine.multidbHandler.ListUsers(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]ValueExp, 0, len(users))
+
+	for _, user := range users {
+		if username == "" || user.Username() == username {
+			for _, p := range user.SQLPrivileges() {
+				values = append(values, []ValueExp{
+					&Varchar{val: user.Username()},
+					&Varchar{val: string(p)},
+				})
+			}
+		}
+	}
+
+	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
+}
+
 // DropTableStmt represents a statement to delete a table.
 type DropTableStmt struct {
 	table string
@@ -5006,6 +5248,14 @@ type DropTableStmt struct {
 
 func NewDropTableStmt(table string) *DropTableStmt {
 	return &DropTableStmt{table: table}
+}
+
+func (stmt *DropTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
 }
 
 func (stmt *DropTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -5121,6 +5371,14 @@ func NewDropIndexStmt(table string, cols []string) *DropIndexStmt {
 	return &DropIndexStmt{table: table, cols: cols}
 }
 
+func (stmt *DropIndexStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropIndexStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
+}
+
 func (stmt *DropIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -5191,4 +5449,73 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	tx.mutatedCatalog = true
 
 	return tx, nil
+}
+
+type SQLPrivilege string
+
+const (
+	SQLPrivilegeSelect SQLPrivilege = "SELECT"
+	SQLPrivilegeCreate SQLPrivilege = "CREATE"
+	SQLPrivilegeInsert SQLPrivilege = "INSERT"
+	SQLPrivilegeUpdate SQLPrivilege = "UPDATE"
+	SQLPrivilegeDelete SQLPrivilege = "DELETE"
+	SQLPrivilegeDrop   SQLPrivilege = "DROP"
+	SQLPrivilegeAlter  SQLPrivilege = "ALTER"
+)
+
+var allPrivileges = []SQLPrivilege{
+	SQLPrivilegeSelect,
+	SQLPrivilegeCreate,
+	SQLPrivilegeInsert,
+	SQLPrivilegeUpdate,
+	SQLPrivilegeDelete,
+	SQLPrivilegeDrop,
+	SQLPrivilegeAlter,
+}
+
+func DefaultSQLPrivilegesForPermission(p Permission) []SQLPrivilege {
+	switch p {
+	case PermissionSysAdmin, PermissionAdmin, PermissionReadWrite: // should also contain GRANT/REVOKE
+		return allPrivileges
+	case PermissionReadOnly:
+		return []SQLPrivilege{SQLPrivilegeSelect}
+	}
+	return nil
+}
+
+type AlterPrivilegesStmt struct {
+	database   string
+	user       string
+	privileges []SQLPrivilege
+	isGrant    bool
+}
+
+func (stmt *AlterPrivilegesStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *AlterPrivilegesStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
+func (stmt *AlterPrivilegesStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.IsExplicitCloseRequired() {
+		return nil, fmt.Errorf("%w: user privileges modification can not be done within a transaction", ErrNonTransactionalStmt)
+	}
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	}
+
+	var err error
+	if stmt.isGrant {
+		err = tx.engine.multidbHandler.GrantSQLPrivileges(ctx, stmt.database, stmt.user, stmt.privileges)
+	} else {
+		err = tx.engine.multidbHandler.RevokeSQLPrivileges(ctx, stmt.database, stmt.user, stmt.privileges)
+	}
+	return nil, err
+}
+
+func (stmt *AlterPrivilegesStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
 }

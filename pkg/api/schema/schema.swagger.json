@@ -1674,6 +1674,38 @@
         ]
       }
     },
+    "/user/changesqlprivileges": {
+      "post": {
+        "operationId": "ImmuService_ChangeSQLPrivileges",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaChangeSQLPrivilegesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaChangeSQLPrivilegesRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/user/list": {
       "get": {
         "operationId": "ImmuService_ListUsers",
@@ -1923,6 +1955,33 @@
           "title": "Permission to grant / revoke: 1 - read only, 2 - read/write, 254 - admin"
         }
       }
+    },
+    "schemaChangeSQLPrivilegesRequest": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/schemaPermissionAction",
+          "title": "Action to perform"
+        },
+        "username": {
+          "type": "string",
+          "title": "Name of the user to update"
+        },
+        "database": {
+          "type": "string",
+          "title": "Name of the database"
+        },
+        "privileges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaSQLPrivilege"
+          },
+          "title": "SQL privileges to grant / revoke"
+        }
+      }
+    },
+    "schemaChangeSQLPrivilegesResponse": {
+      "type": "object"
     },
     "schemaChunk": {
       "type": "object",
@@ -3258,6 +3317,20 @@
         }
       }
     },
+    "schemaSQLPrivilege": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "SELECT",
+        "CREATE",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "DROP",
+        "ALTER"
+      ],
+      "default": "UNKNOWN"
+    },
     "schemaSQLQueryRequest": {
       "type": "object",
       "properties": {
@@ -3774,6 +3847,13 @@
         "active": {
           "type": "boolean",
           "title": "Flag indicating whether the user is active or not"
+        },
+        "sqlPrivileges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaSQLPrivilege"
+          },
+          "title": "List of SQL privileges"
         }
       }
     },
