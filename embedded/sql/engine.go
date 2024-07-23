@@ -96,6 +96,7 @@ var (
 	ErrColumnMismatchInUnionStmt              = errors.New("column mismatch in union statement")
 	ErrCannotIndexJson                        = errors.New("cannot index column of type JSON")
 	ErrInvalidTxMetadata                      = errors.New("invalid transaction metadata")
+	ErrAccessDenied                           = errors.New("access denied")
 )
 
 var MaxKeyLen = 512
@@ -123,16 +124,20 @@ type MultiDBHandler interface {
 	ListDatabases(ctx context.Context) ([]string, error)
 	CreateDatabase(ctx context.Context, db string, ifNotExists bool) error
 	UseDatabase(ctx context.Context, db string) error
+	GetLoggedUser(ctx context.Context) (User, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	CreateUser(ctx context.Context, username, password string, permission Permission) error
 	AlterUser(ctx context.Context, username, password string, permission Permission) error
+	GrantSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error
+	RevokeSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error
 	DropUser(ctx context.Context, username string) error
 	ExecPreparedStmts(ctx context.Context, opts *TxOptions, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
 }
 
 type User interface {
 	Username() string
-	Permission() uint32
+	Permission() Permission
+	SQLPrivileges() []SQLPrivilege
 }
 
 func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
@@ -475,6 +480,13 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 			}
 		}
 
+		if e.multidbHandler != nil {
+			if err := e.checkUserPermissions(ctx, stmt); err != nil {
+				currTx.Cancel()
+				return nil, committedTxs, stmts[execStmts:], err
+			}
+		}
+
 		ntx, err := stmt.execAt(ctx, currTx, nparams)
 		if err != nil {
 			currTx.Cancel()
@@ -515,6 +527,44 @@ func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 	}
 
 	return currTx, committedTxs, stmts[execStmts:], nil
+}
+
+func (e *Engine) checkUserPermissions(ctx context.Context, stmt SQLStmt) error {
+	user, err := e.multidbHandler.GetLoggedUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	if user.Permission() == PermissionAdmin {
+		return nil
+	}
+
+	if !stmt.readOnly() && user.Permission() == PermissionReadOnly {
+		return ErrAccessDenied
+	}
+
+	requiredPrivileges := stmt.requiredPrivileges()
+	if !hasAllPrivileges(user.SQLPrivileges(), requiredPrivileges) {
+		return fmt.Errorf("%w: statement requires %v privileges", ErrAccessDenied, requiredPrivileges)
+	}
+	return nil
+}
+
+func hasAllPrivileges(userPrivileges, privileges []SQLPrivilege) bool {
+	for _, p := range privileges {
+		has := false
+		for _, up := range userPrivileges {
+			if up == p {
+				has = true
+				break
+			}
+		}
+
+		if !has {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *Engine) queryAll(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) ([]*Row, error) {
@@ -566,6 +616,12 @@ func (e *Engine) QueryPreparedStmt(ctx context.Context, tx *SQLTx, stmt DataSour
 	nparams, err := normalizeParams(params)
 	if err != nil {
 		return nil, err
+	}
+
+	if e.multidbHandler != nil {
+		if err := e.checkUserPermissions(ctx, stmt); err != nil {
+			return nil, err
+		}
 	}
 
 	_, err = stmt.execAt(ctx, qtx, nparams)
