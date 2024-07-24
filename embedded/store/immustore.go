@@ -30,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/codenotary/immudb/embedded"
@@ -201,8 +202,7 @@ type ImmuStore struct {
 
 	txPool TxPool
 
-	waiteesMutex sync.Mutex
-	waiteesCount int // current number of go-routines waiting for a tx to be indexed or committed
+	waiteesCount int64 // current number of go-routines waiting for a tx to be indexed or committed
 
 	_txbs     []byte // pre-allocated buffer to support tx serialization
 	_valBs    []byte // pre-allocated buffer to support tx exportation
@@ -1215,22 +1215,12 @@ func (s *ImmuStore) syncBinaryLinking() error {
 }
 
 func (s *ImmuStore) WaitForTx(ctx context.Context, txID uint64, allowPrecommitted bool) error {
-	s.waiteesMutex.Lock()
+	waiteesCount := atomic.AddInt64(&s.waiteesCount, 1)
+	defer atomic.AddInt64(&s.waiteesCount, -1)
 
-	if s.waiteesCount == s.maxWaitees {
-		s.waiteesMutex.Unlock()
+	if waiteesCount > int64(s.maxWaitees) {
 		return watchers.ErrMaxWaitessLimitExceeded
 	}
-
-	s.waiteesCount++
-
-	s.waiteesMutex.Unlock()
-
-	defer func() {
-		s.waiteesMutex.Lock()
-		s.waiteesCount--
-		s.waiteesMutex.Unlock()
-	}()
 
 	var err error
 
@@ -1246,22 +1236,12 @@ func (s *ImmuStore) WaitForTx(ctx context.Context, txID uint64, allowPrecommitte
 }
 
 func (s *ImmuStore) WaitForIndexingUpto(ctx context.Context, txID uint64) error {
-	s.waiteesMutex.Lock()
+	waiteesCount := atomic.AddInt64(&s.waiteesCount, 1)
+	defer atomic.AddInt64(&s.waiteesCount, -1)
 
-	if s.waiteesCount == s.maxWaitees {
-		s.waiteesMutex.Unlock()
+	if waiteesCount > int64(s.maxWaitees) {
 		return watchers.ErrMaxWaitessLimitExceeded
 	}
-
-	s.waiteesCount++
-
-	s.waiteesMutex.Unlock()
-
-	defer func() {
-		s.waiteesMutex.Lock()
-		s.waiteesCount--
-		s.waiteesMutex.Unlock()
-	}()
 
 	for _, indexer := range s.indexers {
 		err := indexer.WaitForIndexingUpto(ctx, txID)
