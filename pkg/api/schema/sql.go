@@ -32,7 +32,7 @@ func EncodeParams(params map[string]interface{}) ([]*NamedParam, error) {
 
 	i := 0
 	for n, v := range params {
-		sqlVal, err := asSQLValue(v)
+		sqlVal, err := AsSQLValue(v)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +52,7 @@ func NamedParamsFromProto(protoParams []*NamedParam) map[string]interface{} {
 	return params
 }
 
-func asSQLValue(v interface{}) (*SQLValue, error) {
+func AsSQLValue(v interface{}) (*SQLValue, error) {
 	if v == nil {
 		return &SQLValue{Value: &SQLValue_Null{}}, nil
 	}
