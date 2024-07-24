@@ -19,7 +19,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,56 +75,20 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 		return nil
 	}
 
-	ctx := context.Background()
-
-	hasRemoteIdentifier, err := storage.Exists(ctx, IDENTIFIER_FNAME)
-	if err != nil {
-		return err
-	}
-
-	if !hasRemoteIdentifier && s.Options.RemoteStorageOptions.S3ExternalIdentifier {
-		return ErrNoRemoteIdentifier
-	}
-
-	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
-
-	if hasRemoteIdentifier {
-		remoteIDStream, err := storage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
-		if err != nil {
+	if s.Options.RemoteStorageOptions.S3ExternalIdentifier {
+		if err := s.loadRemoteIdentifier(context.Background(), storage); err != nil {
 			return err
 		}
-		remoteID, err := ioutil.ReadAll(remoteIDStream)
-		remoteIDStream.Close()
-		if err != nil {
-			return err
-		}
-
-		if !fileExists(localIdentifierFile) {
-			err := ioutil.WriteFile(localIdentifierFile, remoteID, os.ModePerm)
-			if err != nil {
-				return err
-			}
-			s.UUID, err = xid.FromBytes(remoteID)
-			if err != nil {
-				return err
-			}
-		} else {
-			localID, err := ioutil.ReadFile(localIdentifierFile)
-			if err != nil {
-				return err
-			}
-
-			if !bytes.Equal(remoteID, localID) {
-				return ErrRemoteStorageDoesNotMatch
-			}
-		}
 	}
+	return s.createRemoteSubFolders(storage)
+}
 
-	// Ensure all sub-folders are created, init code relies on this
+func (s *ImmuServer) createRemoteSubFolders(storage remotestorage.Storage) error {
 	_, subFolders, err := storage.ListEntries(context.Background(), "")
 	if err != nil {
 		return err
 	}
+
 	for _, subFolder := range subFolders {
 		err := os.MkdirAll(
 			filepath.Join(s.Options.Dir, subFolder),
@@ -134,8 +98,59 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 			return err
 		}
 	}
-
 	return nil
+}
+
+func (s *ImmuServer) loadRemoteIdentifier(ctx context.Context, storage remotestorage.Storage) error {
+	hasRemoteIdentifier, err := storage.Exists(ctx, IDENTIFIER_FNAME)
+	if err != nil {
+		return err
+	}
+
+	if !hasRemoteIdentifier {
+		return s.initRemoteIdentifier(ctx, storage)
+	}
+
+	remoteIDStream, err := storage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
+	if err != nil {
+		return err
+	}
+
+	remoteID, err := io.ReadAll(remoteIDStream)
+	remoteIDStream.Close()
+	if err != nil {
+		return err
+	}
+
+	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
+	if fileExists(localIdentifierFile) {
+		localID, err := os.ReadFile(localIdentifierFile)
+		if err != nil {
+			return err
+		}
+
+		if !bytes.Equal(remoteID, localID) {
+			return ErrRemoteStorageDoesNotMatch
+		}
+		return nil
+	}
+
+	if err := os.WriteFile(localIdentifierFile, remoteID, os.ModePerm); err != nil {
+		return err
+	}
+
+	s.UUID, err = xid.FromBytes(remoteID)
+	return err
+}
+
+func (s *ImmuServer) initRemoteIdentifier(ctx context.Context, storage remotestorage.Storage) error {
+	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
+
+	s.UUID = xid.New()
+	if err := os.WriteFile(localIdentifierFile, s.UUID.Bytes(), os.ModePerm); err != nil {
+		return err
+	}
+	return storage.Put(ctx, IDENTIFIER_FNAME, localIdentifierFile)
 }
 
 func (s *ImmuServer) updateRemoteUUID(remoteStorage remotestorage.Storage) error {
