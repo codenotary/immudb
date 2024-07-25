@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9.4"></a>
+## [v1.9.4] - 2024-07-24
+### Bug Fixes
+- set mattermost payload
+
+
 <a name="v1.9.3"></a>
 ## [v1.9.3] - 2024-05-23
 ### Changes
@@ -3879,7 +3885,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.3...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.4...HEAD
+[v1.9.4]: https://github.com/vchain-us/immudb/compare/v1.9.3...v1.9.4
 [v1.9.3]: https://github.com/vchain-us/immudb/compare/v1.9DOM.2...v1.9.3
 [v1.9DOM.2]: https://github.com/vchain-us/immudb/compare/v1.9DOM.2-RC1...v1.9DOM.2
 [v1.9DOM.2-RC1]: https://github.com/vchain-us/immudb/compare/v1.9DOM.1...v1.9DOM.2-RC1
