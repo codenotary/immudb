@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	"github.com/codenotary/immudb/embedded/sql"
 )
 
 // Permission per database
@@ -169,4 +171,23 @@ func (u *User) RevokeSQLPrivileges(database string, privileges []string) bool {
 		}
 	}
 	return true
+}
+
+// SetSQLPrivileges sets user default privileges. Required to guarantee backward compatibility.
+func (u *User) SetSQLPrivileges() {
+	if u.HasPrivileges {
+		return
+	}
+
+	for _, perm := range u.Permissions {
+		privileges := sql.DefaultSQLPrivilegesForPermission(sql.PermissionFromCode(perm.Permission))
+		for _, privilege := range privileges {
+			u.SQLPrivileges = append(u.SQLPrivileges,
+				SQLPrivilege{
+					Database:  perm.Database,
+					Privilege: string(privilege),
+				},
+			)
+		}
+	}
 }

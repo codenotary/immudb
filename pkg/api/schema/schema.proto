@@ -80,15 +80,12 @@ message User {
   repeated SQLPrivilege sqlPrivileges = 7;
 }
 
-enum SQLPrivilege {
-  UNKNOWN = 0;
-  SELECT = 1;
-  CREATE = 2;
-  INSERT = 3;
-  UPDATE = 4;
-  DELETE = 5;
-  DROP = 6;
-  ALTER = 7;
+message SQLPrivilege {
+  // Database name
+  string database = 1;
+
+  // Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER
+  string privilege = 2;
 }
 
 message UserList {
@@ -1367,8 +1364,8 @@ message ChangeSQLPrivilegesRequest {
   // Name of the database
   string database = 3;
 
-  // SQL privileges to grant / revoke
-  repeated SQLPrivilege privileges = 4;
+  // SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER
+  repeated string privileges = 4;
 }
 
 message ChangeSQLPrivilegesResponse {}

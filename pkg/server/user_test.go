@@ -274,10 +274,14 @@ func TestServerCreateUser(t *testing.T) {
 	ctx, err := loginAsUser(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	require.NoError(t, err)
 
-	newdb := &schema.DatabaseSettings{
+	_, err = s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
-	}
-	_, err = s.CreateDatabaseWith(ctx, newdb)
+	})
+	require.NoError(t, err)
+
+	_, err = s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{
+		DatabaseName: auth.SysAdminUsername,
+	})
 	require.NoError(t, err)
 
 	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
@@ -291,8 +295,16 @@ func TestServerCreateUser(t *testing.T) {
 	_, err = s.ChangeSQLPrivileges(ctx, &schema.ChangeSQLPrivilegesRequest{
 		Action:     schema.PermissionAction_GRANT,
 		Username:   string(testUsername),
+		Database:   auth.SysAdminUsername,
+		Privileges: []string{string(sql.SQLPrivilegeUpdate)},
+	})
+	require.ErrorContains(t, err, fmt.Sprintf("user %s doesn't have permission on database %s", testUsername, auth.SysAdminUsername))
+
+	_, err = s.ChangeSQLPrivileges(ctx, &schema.ChangeSQLPrivilegesRequest{
+		Action:     schema.PermissionAction_GRANT,
+		Username:   string(testUsername),
 		Database:   testDatabase,
-		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_UPDATE},
+		Privileges: []string{string(sql.SQLPrivilegeUpdate)},
 	})
 	require.NoError(t, err)
 
@@ -302,7 +314,7 @@ func TestServerCreateUser(t *testing.T) {
 
 	u := users.Users[1]
 	require.Equal(t, string(u.User), string(testUsername))
-	require.Equal(t, u.SqlPrivileges, []schema.SQLPrivilege{schema.SQLPrivilege_SELECT, schema.SQLPrivilege_UPDATE})
+	require.Equal(t, u.SqlPrivileges, []*schema.SQLPrivilege{{Database: testDatabase, Privilege: string(sql.SQLPrivilegeSelect)}, {Database: testDatabase, Privilege: string(sql.SQLPrivilegeUpdate)}})
 
 	userCtx, err := loginAsUser(s, string(testUsername), string(testPassword))
 	require.NoError(t, err)
@@ -311,7 +323,7 @@ func TestServerCreateUser(t *testing.T) {
 		Action:     schema.PermissionAction_REVOKE,
 		Username:   string(testUsername),
 		Database:   testDatabase,
-		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_SELECT},
+		Privileges: []string{string(sql.SQLPrivilegeSelect)},
 	})
 	require.ErrorContains(t, err, "changing your own privileges is not allowed")
 
@@ -319,7 +331,7 @@ func TestServerCreateUser(t *testing.T) {
 		Action:     schema.PermissionAction_REVOKE,
 		Username:   auth.SysAdminUsername,
 		Database:   testDatabase,
-		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_SELECT},
+		Privileges: []string{string(sql.SQLPrivilegeSelect)},
 	})
 	require.ErrorContains(t, err, "changing sysadmin privileges is not allowed")
 
@@ -330,7 +342,7 @@ func TestServerCreateUser(t *testing.T) {
 		Action:     schema.PermissionAction_REVOKE,
 		Username:   string(testUsername),
 		Database:   testDatabase,
-		Privileges: []schema.SQLPrivilege{schema.SQLPrivilege_SELECT, schema.SQLPrivilege_UPDATE},
+		Privileges: []string{string(sql.SQLPrivilegeSelect), string(sql.SQLPrivilegeUpdate)},
 	})
 	require.NoError(t, err)
 
@@ -358,7 +370,7 @@ func TestServerCreateUser(t *testing.T) {
 func TestUnmarshalUserWithNoPrivileges(t *testing.T) {
 	u, err := unmarshalSchemaUser([]byte(`{"hasPrivileges": false, "permissions": [{"permission": 1, "database": "immudb"}]}`))
 	require.NoError(t, err)
-	require.Equal(t, u.SqlPrivileges, []schema.SQLPrivilege{schema.SQLPrivilege_SELECT})
+	require.Equal(t, u.SqlPrivileges, []*schema.SQLPrivilege{{Database: "immudb", Privilege: string(sql.SQLPrivilegeSelect)}})
 }
 
 func loginAsUser(s *ImmuServer, username, password string) (context.Context, error) {

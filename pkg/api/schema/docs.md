@@ -91,6 +91,7 @@
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
     - [SQLExecResult](#immudb.schema.SQLExecResult)
     - [SQLGetRequest](#immudb.schema.SQLGetRequest)
+    - [SQLPrivilege](#immudb.schema.SQLPrivilege)
     - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
     - [SQLQueryResult](#immudb.schema.SQLQueryResult)
     - [SQLValue](#immudb.schema.SQLValue)
@@ -142,7 +143,6 @@
   
     - [EntryTypeAction](#immudb.schema.EntryTypeAction)
     - [PermissionAction](#immudb.schema.PermissionAction)
-    - [SQLPrivilege](#immudb.schema.SQLPrivilege)
     - [TxMode](#immudb.schema.TxMode)
   
     - [ImmuService](#immudb.schema.ImmuService)
@@ -235,7 +235,7 @@ DEPRECATED
 | action | [PermissionAction](#immudb.schema.PermissionAction) |  | Action to perform |
 | username | [string](#string) |  | Name of the user to update |
 | database | [string](#string) |  | Name of the database |
-| privileges | [SQLPrivilege](#immudb.schema.SQLPrivilege) | repeated | SQL privileges to grant / revoke |
+| privileges | [string](#string) | repeated | SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER |
 
 
 
@@ -1633,6 +1633,22 @@ Only succeed if given key was not modified after given transaction
 
 
 
+<a name="immudb.schema.SQLPrivilege"></a>
+
+### SQLPrivilege
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  | Database name |
+| privilege | [string](#string) |  | Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER |
+
+
+
+
+
+
 <a name="immudb.schema.SQLQueryRequest"></a>
 
 ### SQLQueryRequest
@@ -2485,24 +2501,6 @@ Reserved to reply with more advanced response later
 | ---- | ------ | ----------- |
 | GRANT | 0 | Grant permission |
 | REVOKE | 1 | Revoke permission |
-
-
-
-<a name="immudb.schema.SQLPrivilege"></a>
-
-### SQLPrivilege
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| UNKNOWN | 0 |  |
-| SELECT | 1 |  |
-| CREATE | 2 |  |
-| INSERT | 3 |  |
-| UPDATE | 4 |  |
-| DELETE | 5 |  |
-| DROP | 6 |  |
-| ALTER | 7 |  |
 
 
 
