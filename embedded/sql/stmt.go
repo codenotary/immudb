@@ -97,6 +97,24 @@ const (
 	PermissionSysAdmin  Permission = "SYSADMIN"
 )
 
+func PermissionFromCode(code uint32) Permission {
+	switch code {
+	case 1:
+		{
+			return PermissionReadOnly
+		}
+	case 2:
+		{
+			return PermissionReadWrite
+		}
+	case 254:
+		{
+			return PermissionAdmin
+		}
+	}
+	return PermissionSysAdmin
+}
+
 type AggregateFn = string
 
 const (
@@ -5475,7 +5493,7 @@ var allPrivileges = []SQLPrivilege{
 
 func DefaultSQLPrivilegesForPermission(p Permission) []SQLPrivilege {
 	switch p {
-	case PermissionSysAdmin, PermissionAdmin, PermissionReadWrite: // should also contain GRANT/REVOKE
+	case PermissionSysAdmin, PermissionAdmin, PermissionReadWrite:
 		return allPrivileges
 	case PermissionReadOnly:
 		return []SQLPrivilege{SQLPrivilegeSelect}

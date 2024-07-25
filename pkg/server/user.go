@@ -255,12 +255,12 @@ func unmarshalSchemaUser(data []byte) (*schema.User, error) {
 	if err := json.Unmarshal(data, &u); err != nil {
 		return nil, err
 	}
+	u.SetSQLPrivileges()
 	return toSchemaUser(&u)
 }
 
 func toSchemaUser(u *auth.User) (*schema.User, error) {
 	permissions := make([]*schema.Permission, len(u.Permissions))
-
 	for i, val := range u.Permissions {
 		permissions[i] = &schema.Permission{
 			Database:   val.Database,
@@ -268,29 +268,9 @@ func toSchemaUser(u *auth.User) (*schema.User, error) {
 		}
 	}
 
-	var privileges []schema.SQLPrivilege
-
-	if u.HasPrivileges {
-		privileges = make([]schema.SQLPrivilege, len(u.SQLPrivileges))
-		for i, p := range u.SQLPrivileges {
-			pp, err := schema.SQLPrivilegeToProto(sql.SQLPrivilege(p.Privilege))
-			if err != nil {
-				return nil, err
-			}
-			privileges[i] = pp
-		}
-	} else {
-		privileges = make([]schema.SQLPrivilege, 0)
-		for _, perm := range u.Permissions {
-			sqlPrivileges := sql.DefaultSQLPrivilegesForPermission(permissionFromCode(perm.Permission))
-			for _, sqlPrivilege := range sqlPrivileges {
-				schemaPrivilege, err := schema.SQLPrivilegeToProto(sqlPrivilege)
-				if err != nil {
-					return nil, err
-				}
-				privileges = append(privileges, schemaPrivilege)
-			}
-		}
+	privileges := make([]*schema.SQLPrivilege, len(u.SQLPrivileges))
+	for i, p := range u.SQLPrivileges {
+		privileges[i] = &schema.SQLPrivilege{Database: p.Database, Privilege: p.Privilege}
 	}
 
 	return &schema.User{
@@ -448,6 +428,8 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
+	targetUser.SQLPrivileges = defaultSQLPrivilegesForPermission(r.Database, r.Permission)
+	targetUser.HasPrivileges = true
 
 	if err := s.saveUser(ctx, targetUser); err != nil {
 		return nil, err
@@ -537,20 +519,11 @@ func (s *ImmuServer) insertNewUser(ctx context.Context, username []byte, plainPa
 		return nil, nil, err
 	}
 
-	sqlPrivileges := sql.DefaultSQLPrivilegesForPermission(permissionFromCode(permission)) // TODO: maybe move to auth package
-	privileges := make([]auth.SQLPrivilege, len(sqlPrivileges))
-	for i, p := range sqlPrivileges {
-		privileges[i] = auth.SQLPrivilege{
-			Database:  database,
-			Privilege: string(p),
-		}
-	}
-
 	userdata.Active = true
 	userdata.HasPrivileges = true
 	userdata.Username = string(username)
 	userdata.Permissions = append(userdata.Permissions, auth.Permission{Permission: permission, Database: database})
-	userdata.SQLPrivileges = privileges
+	userdata.SQLPrivileges = defaultSQLPrivilegesForPermission(database, permission)
 	userdata.CreatedBy = createdBy
 	userdata.CreatedAt = time.Now()
 
@@ -599,6 +572,7 @@ func (s *ImmuServer) getUser(ctx context.Context, username []byte) (*auth.User, 
 		return nil, err
 	}
 
+	usr.SetSQLPrivileges()
 	return &usr, nil
 }
 
@@ -690,9 +664,8 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 	}
 
 	privileges := make([]string, len(r.Privileges))
-	for i := range r.Privileges {
-		p := schema.SQLPrivilegeFromProto(r.Privileges[i])
-		if p == "" {
+	for i, p := range r.Privileges {
+		if !isValidPrivilege(p) {
 			return nil, status.Errorf(codes.InvalidArgument, "SQL privilege not recognized")
 		}
 		privileges[i] = string(p)
@@ -715,12 +688,17 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 	// check if user exists
 	targetUser, err := s.getUser(ctx, []byte(r.Username))
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "user %s not found", string(r.Username))
+		return nil, status.Errorf(codes.NotFound, "user %s not found", r.Username)
 	}
 
 	// target user should be active
 	if !targetUser.Active {
-		return nil, status.Errorf(codes.FailedPrecondition, "user %s is not active", string(r.Username))
+		return nil, status.Errorf(codes.FailedPrecondition, "user %s is not active", r.Username)
+	}
+
+	// target user should have permission on the requested database
+	if targetUser.WhichPermission(r.Database) == auth.PermissionNone {
+		return nil, status.Errorf(codes.FailedPrecondition, "user %s doesn't have permission on database %s", r.Username, r.Database)
 	}
 
 	// check if requesting user has permission on this database
@@ -738,6 +716,7 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
+	targetUser.HasPrivileges = true
 
 	if err := s.saveUser(ctx, targetUser); err != nil {
 		return nil, err
@@ -749,4 +728,30 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 	s.removeUserFromLoginList(targetUser.Username)
 
 	return &schema.ChangeSQLPrivilegesResponse{}, nil
+}
+
+func isValidPrivilege(p string) bool {
+	switch sql.SQLPrivilege(p) {
+	case sql.SQLPrivilegeSelect,
+		sql.SQLPrivilegeCreate,
+		sql.SQLPrivilegeInsert,
+		sql.SQLPrivilegeUpdate,
+		sql.SQLPrivilegeDelete,
+		sql.SQLPrivilegeDrop,
+		sql.SQLPrivilegeAlter:
+		return true
+	}
+	return false
+}
+
+func defaultSQLPrivilegesForPermission(database string, permission uint32) []auth.SQLPrivilege {
+	sqlPrivileges := sql.DefaultSQLPrivilegesForPermission(sql.PermissionFromCode(permission))
+	privileges := make([]auth.SQLPrivilege, len(sqlPrivileges))
+	for i, p := range sqlPrivileges {
+		privileges[i] = auth.SQLPrivilege{
+			Database:  database,
+			Privilege: string(p),
+		}
+	}
+	return privileges
 }

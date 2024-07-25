@@ -61,15 +61,19 @@ func (h *multidbHandler) GetLoggedUser(ctx context.Context) (sql.User, error) {
 		return nil, err
 	}
 
-	privileges := make([]sql.SQLPrivilege, len(user.SQLPrivileges))
-	for i, p := range user.SQLPrivileges {
-		privileges[i] = sql.SQLPrivilege(p.Privilege)
+	isSysAdmin := user.Username == auth.SysAdminUsername
+
+	privileges := make([]sql.SQLPrivilege, 0, len(user.SQLPrivileges))
+	for _, p := range user.SQLPrivileges {
+		if isSysAdmin || p.Database == db.GetName() {
+			privileges = append(privileges, sql.SQLPrivilege(p.Privilege))
+		}
 	}
 
 	permCode := user.WhichPermission(db.GetName())
 	return &User{
 		username:      user.Username,
-		perm:          permissionFromCode(permCode),
+		perm:          sql.PermissionFromCode(permCode),
 		sqlPrivileges: privileges,
 	}, nil
 }
@@ -106,42 +110,27 @@ func (h *multidbHandler) ListUsers(ctx context.Context) ([]sql.User, error) {
 		}
 
 		var perm *schema.Permission
+		isSysAdmin := string(user.User) == auth.SysAdminUsername
 
-		if string(user.User) == auth.SysAdminUsername {
+		if isSysAdmin {
 			perm = &schema.Permission{Database: db.GetName()}
 		} else {
 			perm = findPermission(user.Permissions, db.GetName())
 		}
 
-		privileges := make([]sql.SQLPrivilege, len(user.SqlPrivileges))
-		for i, p := range user.SqlPrivileges {
-			privileges[i] = schema.SQLPrivilegeFromProto(p)
+		privileges := make([]sql.SQLPrivilege, 0, len(user.SqlPrivileges))
+		for _, p := range user.SqlPrivileges {
+			if isSysAdmin || p.Database == db.GetName() {
+				privileges = append(privileges, sql.SQLPrivilege(p.Privilege))
+			}
 		}
 
 		if perm != nil {
-			users = append(users, &User{username: string(user.User), perm: permissionFromCode(perm.Permission), sqlPrivileges: privileges})
+			users = append(users, &User{username: string(user.User), perm: sql.PermissionFromCode(perm.Permission), sqlPrivileges: privileges})
 		}
 	}
 
 	return users, nil
-}
-
-func permissionFromCode(code uint32) sql.Permission {
-	switch code {
-	case 1:
-		{
-			return sql.PermissionReadOnly
-		}
-	case 2:
-		{
-			return sql.PermissionReadWrite
-		}
-	case 254:
-		{
-			return sql.PermissionAdmin
-		}
-	}
-	return sql.PermissionSysAdmin
 }
 
 func findPermission(permissions []*schema.Permission, database string) *schema.Permission {
@@ -251,13 +240,9 @@ func (h *multidbHandler) RevokeSQLPrivileges(ctx context.Context, database, user
 }
 
 func (h *multidbHandler) changeSQLPrivileges(ctx context.Context, database, username string, privileges []sql.SQLPrivilege, action schema.PermissionAction) error {
-	ps := make([]schema.SQLPrivilege, len(privileges))
+	ps := make([]string, len(privileges))
 	for i, p := range privileges {
-		pp, err := schema.SQLPrivilegeToProto(p)
-		if err != nil {
-			return err
-		}
-		ps[i] = pp
+		ps[i] = string(p)
 	}
 
 	_, err := h.s.ChangeSQLPrivileges(ctx, &schema.ChangeSQLPrivilegesRequest{

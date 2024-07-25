@@ -535,12 +535,8 @@ func (e *Engine) checkUserPermissions(ctx context.Context, stmt SQLStmt) error {
 		return err
 	}
 
-	if user.Permission() == PermissionAdmin {
-		return nil
-	}
-
 	if !stmt.readOnly() && user.Permission() == PermissionReadOnly {
-		return ErrAccessDenied
+		return fmt.Errorf("%w: statement requires %s permission", ErrAccessDenied, PermissionReadWrite)
 	}
 
 	requiredPrivileges := stmt.requiredPrivileges()

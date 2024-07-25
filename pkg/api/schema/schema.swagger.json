@@ -1974,9 +1974,9 @@
         "privileges": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaSQLPrivilege"
+            "type": "string"
           },
-          "title": "SQL privileges to grant / revoke"
+          "title": "SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER"
         }
       }
     },
@@ -3318,18 +3318,17 @@
       }
     },
     "schemaSQLPrivilege": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "SELECT",
-        "CREATE",
-        "INSERT",
-        "UPDATE",
-        "DELETE",
-        "DROP",
-        "ALTER"
-      ],
-      "default": "UNKNOWN"
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string",
+          "title": "Database name"
+        },
+        "privilege": {
+          "type": "string",
+          "title": "Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER"
+        }
+      }
     },
     "schemaSQLQueryRequest": {
       "type": "object",
