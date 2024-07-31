@@ -152,6 +152,9 @@ func TestCreateTable(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil)
 	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS balances (id INTEGER, balance FLOAT, CHECK (balance + id) >= 0, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
 }
 
 func TestTimestampType(t *testing.T) {
@@ -1373,13 +1376,13 @@ func TestAlterTableDropColumn(t *testing.T) {
 
 		t.Run("fail to drop indexed columns", func(t *testing.T) {
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN id", nil)
-			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+			require.ErrorIs(t, err, ErrCannotDropColumn)
 
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN name", nil)
-			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+			require.ErrorIs(t, err, ErrCannotDropColumn)
 
 			_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table1 DROP COLUMN surname", nil)
-			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+			require.ErrorIs(t, err, ErrCannotDropColumn)
 		})
 
 		t.Run("fail to drop columns that does not exist", func(t *testing.T) {
@@ -2870,7 +2873,7 @@ func TestJSON(t *testing.T) {
 			require.Len(t, rows, n/2)
 
 			for i, row := range rows {
-				usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->usr")].RawValue().(map[string]interface{})
+				usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->'usr'")].RawValue().(map[string]interface{})
 
 				require.Equal(t, map[string]interface{}{
 					"name":   fmt.Sprintf("name%d", (2*i + 1)),
@@ -2954,7 +2957,7 @@ func TestJSON(t *testing.T) {
 		require.Len(t, rows, n)
 
 		for i, row := range rows {
-			usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->usr")].RawValue().(map[string]interface{})
+			usr, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "json_data->'usr'")].RawValue().(map[string]interface{})
 			name, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "name")].RawValue().(string)
 			age, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "age")].RawValue().(float64)
 			city, _ := row.ValuesBySelector[EncodeSelector("", "tbl_with_json", "city")].RawValue().(string)
@@ -3124,7 +3127,7 @@ func TestJSON(t *testing.T) {
 			`
 			CREATE TABLE test (
 				json_data JSON NOT NULL,
-	
+
 				PRIMARY KEY(json_data)
 			)`, nil)
 		require.ErrorIs(t, err, ErrCannotIndexJson)
@@ -5796,7 +5799,7 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
-	pstmt, err := Parse(strings.NewReader(stmt))
+	pstmt, err := ParseSQL(strings.NewReader(stmt))
 	require.NoError(t, err)
 	require.Len(t, pstmt, 1)
 
@@ -5902,7 +5905,7 @@ func TestInferParameters(t *testing.T) {
 func TestInferParametersPrepared(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
+	stmts, err := ParseSQL(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
@@ -7086,7 +7089,12 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	defer closeStore(t, st)
 
 	dbs := []string{"db1", "db2"}
-	handler := &multidbHandlerMock{}
+	handler := &multidbHandlerMock{
+		user: &mockUser{
+			username:      "user",
+			sqlPrivileges: allPrivileges,
+		},
+	}
 
 	opts := DefaultOptions().
 		WithPrefix(sqlPrefix).
@@ -7123,6 +7131,13 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec(context.Background(), nil, `
 			BEGIN TRANSACTION;
 				DROP USER user1;
+			COMMIT;
+		`, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
+		_, _, err = engine.Exec(context.Background(), nil, `
+			BEGIN TRANSACTION;
+				GRANT ALL PRIVILEGES ON DATABASE defaultdb TO USER myuser;
 			COMMIT;
 		`, nil)
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
@@ -7182,23 +7197,19 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		})
 
 		t.Run("show users", func(t *testing.T) {
-			r, err := engine.Query(context.Background(), nil, "SHOW USERS", nil)
+			rows, err := engine.queryAll(context.Background(), nil, "SHOW USERS", nil)
 			require.NoError(t, err)
+			require.Len(t, rows, 1)
 
-			defer r.Close()
-
-			_, err = r.Read(context.Background())
-			require.ErrorIs(t, err, ErrNoMoreRows)
+			require.Equal(t, "user", rows[0].ValuesByPosition[0].RawValue())
 		})
 
 		t.Run("list users", func(t *testing.T) {
-			r, err := engine.Query(context.Background(), nil, "SELECT * FROM USERS()", nil)
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT * FROM USERS()", nil)
 			require.NoError(t, err)
+			require.Len(t, rows, 1)
 
-			defer r.Close()
-
-			_, err = r.Read(context.Background())
-			require.ErrorIs(t, err, ErrNoMoreRows)
+			require.Equal(t, "user", rows[0].ValuesByPosition[0].RawValue())
 		})
 
 		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
@@ -7222,8 +7233,27 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	})
 }
 
+type mockUser struct {
+	username      string
+	permission    Permission
+	sqlPrivileges []SQLPrivilege
+}
+
+func (u *mockUser) Username() string {
+	return u.username
+}
+
+func (u *mockUser) Permission() Permission {
+	return u.permission
+}
+
+func (u *mockUser) SQLPrivileges() []SQLPrivilege {
+	return u.sqlPrivileges
+}
+
 type multidbHandlerMock struct {
 	dbs    []string
+	user   *mockUser
 	engine *Engine
 }
 
@@ -7235,12 +7265,27 @@ func (h *multidbHandlerMock) CreateDatabase(ctx context.Context, db string, ifNo
 	return ErrNoSupported
 }
 
+func (h *multidbHandlerMock) GrantSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandlerMock) RevokeSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error {
+	return ErrNoSupported
+}
+
 func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
 }
 
+func (h *multidbHandlerMock) GetLoggedUser(ctx context.Context) (User, error) {
+	if h.user == nil {
+		return nil, fmt.Errorf("no logged user")
+	}
+	return h.user, nil
+}
+
 func (h *multidbHandlerMock) ListUsers(ctx context.Context) ([]User, error) {
-	return nil, nil
+	return []User{h.user}, nil
 }
 
 func (h *multidbHandlerMock) CreateUser(ctx context.Context, username, password string, permission Permission) error {
@@ -7269,7 +7314,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 	_, _, err := engine.Exec(context.Background(), nil, `
 		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
-		
+
 		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
 	`, nil)
 	require.NoError(t, err)
@@ -7279,7 +7324,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 	_, _, err = engine.Exec(context.Background(), tx, `
 		CREATE INDEX ON mytable1(title);
-	
+
 		CREATE INDEX ON mytable2(name);
 		CREATE UNIQUE INDEX ON mytable2(name, active);
 	`, nil)
@@ -8513,6 +8558,136 @@ func (t *BrokenCatalogTestSuite) TestErrorDroppedPrimaryIndexColumn() {
 	t.Require().ErrorIs(err, ErrColumnDoesNotExist)
 }
 
+func TestCheckConstraints(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions())
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`CREATE TABLE table_with_checks (
+			id INTEGER AUTO_INCREMENT,
+			account VARCHAR,
+			in_balance FLOAT,
+			out_balance FLOAT,
+			balance FLOAT,
+			metadata JSON,
+
+			CONSTRAINT metadata_check CHECK metadata->'usr' IS NOT NULL,
+			CHECK (account IS NULL) OR (account LIKE '^account_.*'),
+			CONSTRAINT in_out_balance_sum CHECK (in_balance + out_balance = balance),
+			CHECK (in_balance >= 0),
+			CHECK (out_balance <= 0),
+			CHECK (balance >= 0),
+
+			PRIMARY KEY id
+		)`, nil,
+	)
+	require.NoError(t, err)
+
+	t.Run("check constraint violation", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, `INSERT INTO table_with_checks(account, in_balance, out_balance, balance, metadata) VALUES ('account_one', 10, -1.5, 8.5, '{"usr": "user"}')`, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, `INSERT INTO table_with_checks(account, in_balance, out_balance, balance, metadata) VALUES ('account', 20, -1.0, 19.0, '{"usr": "user"}')`, nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, `INSERT INTO table_with_checks(account, in_balance, out_balance, balance, metadata) VALUES ('account_two', 10, 1.5, 11.5, '{"usr": "user"}')`, nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, `INSERT INTO table_with_checks(account, in_balance, out_balance, balance, metadata) VALUES ('account_two', -1, 2.5, 1.5, '{"usr": "user"}')`, nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, `INSERT INTO table_with_checks(account, in_balance, out_balance, balance, metadata) VALUES ('account_two', 10, -1.5, 9.0, '{"usr": "user"}')`, nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`UPDATE table_with_checks
+		SET
+			in_balance = in_balance - 1,
+			out_balance = out_balance + 1
+		WHERE id = 1`, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`UPDATE table_with_checks
+		SET
+			out_balance = out_balance - 1,
+			balance = balance - 1
+		WHERE id = 1`, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "UPDATE table_with_checks SET in_balance = in_balance + 1 WHERE id = 1", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "UPDATE table_with_checks SET in_balance = NULL", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+	})
+
+	t.Run("drop constraint", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT metadata_check", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT in_out_balance_sum", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT in_out_balance_sum", nil)
+		require.ErrorIs(t, err, ErrConstraintNotFound)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES (NULL, 10, -1.5, 9.0)", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_three', -1, -1.5, 9.0)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table_with_checks(account, in_balance, out_balance, balance) VALUES ('account_three', 10, 1.5, 9.0)", nil)
+		require.ErrorIs(t, err, ErrCheckConstraintViolation)
+	})
+
+	t.Run("drop column with constraint", func(t *testing.T) {
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP COLUMN account", nil)
+		require.ErrorIs(t, err, ErrCannotDropColumn)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP CONSTRAINT table_with_checks_check1", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil, "ALTER TABLE table_with_checks DROP COLUMN account", nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("unsupported check expressions", func(t *testing.T) {
+		_, _, err := engine.Exec(
+			context.Background(),
+			nil,
+			`CREATE TABLE table_with_invalid_checks (
+				id INTEGER AUTO_INCREMENT,
+
+				CHECK EXISTS (SELECT * FROM mytable),
+
+				PRIMARY KEY id
+			)`, nil,
+		)
+		require.ErrorIs(t, err, ErrNoSupported)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			`CREATE TABLE table_with_invalid_checks (
+				id INTEGER AUTO_INCREMENT,
+
+				CHECK id IN (SELECT * FROM mytable),
+
+				PRIMARY KEY id
+			)`, nil,
+		)
+		require.ErrorIs(t, err, ErrNoSupported)
+	})
+}
+
 func TestQueryTxMetadata(t *testing.T) {
 	opts := store.DefaultOptions().WithMultiIndexing(true)
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
@@ -8569,7 +8744,7 @@ func TestQueryTxMetadata(t *testing.T) {
 	require.Len(t, rows, 10)
 
 	for i, row := range rows {
-		n := row.ValuesBySelector[EncodeSelector("", "mytbl", "_tx_metadata->n")].RawValue()
+		n := row.ValuesBySelector[EncodeSelector("", "mytbl", "_tx_metadata->'n'")].RawValue()
 		require.Equal(t, float64(i+1), n)
 	}
 
@@ -8594,4 +8769,82 @@ func TestQueryTxMetadata(t *testing.T) {
 		nil,
 	)
 	require.ErrorIs(t, err, ErrInvalidTxMetadata)
+}
+
+func TestGrantSQLPrivileges(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	dbs := []string{"db1", "db2"}
+	handler := &multidbHandlerMock{
+		dbs: dbs,
+		user: &mockUser{
+			username:      "myuser",
+			permission:    PermissionReadOnly,
+			sqlPrivileges: []SQLPrivilege{SQLPrivilegeSelect},
+		},
+	}
+
+	opts := DefaultOptions().
+		WithPrefix(sqlPrefix).
+		WithMultiDBHandler(handler)
+
+	engine, err := NewEngine(st, opts)
+	require.NoError(t, err)
+
+	handler.dbs = dbs
+	handler.engine = engine
+
+	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		tx,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id);",
+		nil,
+	)
+	require.ErrorIs(t, err, ErrAccessDenied)
+
+	handler.user.sqlPrivileges =
+		append(handler.user.sqlPrivileges, SQLPrivilegeCreate)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		tx,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id);",
+		nil,
+	)
+	require.ErrorIs(t, err, ErrAccessDenied)
+
+	handler.user.permission = PermissionReadWrite
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		tx,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id);",
+		nil,
+	)
+	require.NoError(t, err)
+
+	checkGrants := func(sql string) {
+		rows, err := engine.queryAll(context.Background(), nil, sql, nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 2)
+
+		usr := rows[0].ValuesByPosition[0].RawValue().(string)
+		privilege := rows[0].ValuesByPosition[1].RawValue().(string)
+
+		require.Equal(t, usr, "myuser")
+		require.Equal(t, privilege, string(SQLPrivilegeSelect))
+
+		usr = rows[1].ValuesByPosition[0].RawValue().(string)
+		privilege = rows[1].ValuesByPosition[1].RawValue().(string)
+		require.Equal(t, usr, "myuser")
+		require.Equal(t, privilege, string(SQLPrivilegeCreate))
+	}
+
+	checkGrants("SHOW GRANTS")
+	checkGrants("SHOW GRANTS FOR myuser")
 }

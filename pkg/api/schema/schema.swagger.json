@@ -1674,6 +1674,38 @@
         ]
       }
     },
+    "/user/changesqlprivileges": {
+      "post": {
+        "operationId": "ImmuService_ChangeSQLPrivileges",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaChangeSQLPrivilegesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaChangeSQLPrivilegesRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/user/list": {
       "get": {
         "operationId": "ImmuService_ListUsers",
@@ -1924,6 +1956,33 @@
         }
       }
     },
+    "schemaChangeSQLPrivilegesRequest": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/schemaPermissionAction",
+          "title": "Action to perform"
+        },
+        "username": {
+          "type": "string",
+          "title": "Name of the user to update"
+        },
+        "database": {
+          "type": "string",
+          "title": "Name of the database"
+        },
+        "privileges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER"
+        }
+      }
+    },
+    "schemaChangeSQLPrivilegesResponse": {
+      "type": "object"
+    },
     "schemaChunk": {
       "type": "object",
       "properties": {
@@ -2087,6 +2146,15 @@
           "type": "string",
           "format": "uint64",
           "title": "total number of transactions"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "uint64",
+          "title": "the time when the db was created"
+        },
+        "created_by": {
+          "type": "string",
+          "title": "the user who created the database"
         }
       }
     },
@@ -3249,6 +3317,19 @@
         }
       }
     },
+    "schemaSQLPrivilege": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string",
+          "title": "Database name"
+        },
+        "privilege": {
+          "type": "string",
+          "title": "Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER"
+        }
+      }
+    },
     "schemaSQLQueryRequest": {
       "type": "object",
       "properties": {
@@ -3765,6 +3846,13 @@
         "active": {
           "type": "boolean",
           "title": "Flag indicating whether the user is active or not"
+        },
+        "sqlPrivileges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaSQLPrivilege"
+          },
+          "title": "List of SQL privileges"
         }
       }
     },

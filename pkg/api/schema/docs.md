@@ -8,6 +8,8 @@
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
+    - [ChangeSQLPrivilegesRequest](#immudb.schema.ChangeSQLPrivilegesRequest)
+    - [ChangeSQLPrivilegesResponse](#immudb.schema.ChangeSQLPrivilegesResponse)
     - [Chunk](#immudb.schema.Chunk)
     - [Chunk.MetadataEntry](#immudb.schema.Chunk.MetadataEntry)
     - [Column](#immudb.schema.Column)
@@ -89,6 +91,7 @@
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
     - [SQLExecResult](#immudb.schema.SQLExecResult)
     - [SQLGetRequest](#immudb.schema.SQLGetRequest)
+    - [SQLPrivilege](#immudb.schema.SQLPrivilege)
     - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
     - [SQLQueryResult](#immudb.schema.SQLQueryResult)
     - [SQLValue](#immudb.schema.SQLValue)
@@ -215,6 +218,34 @@ DEPRECATED
 | username | [string](#string) |  | Name of the user to update |
 | database | [string](#string) |  | Name of the database |
 | permission | [uint32](#uint32) |  | Permission to grant / revoke: 1 - read only, 2 - read/write, 254 - admin |
+
+
+
+
+
+
+<a name="immudb.schema.ChangeSQLPrivilegesRequest"></a>
+
+### ChangeSQLPrivilegesRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| action | [PermissionAction](#immudb.schema.PermissionAction) |  | Action to perform |
+| username | [string](#string) |  | Name of the user to update |
+| database | [string](#string) |  | Name of the database |
+| privileges | [string](#string) | repeated | SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER |
+
+
+
+
+
+
+<a name="immudb.schema.ChangeSQLPrivilegesResponse"></a>
+
+### ChangeSQLPrivilegesResponse
+
 
 
 
@@ -415,6 +446,8 @@ DEPRECATED
 | loaded | [bool](#bool) |  | If true, this database is currently loaded into memory |
 | diskSize | [uint64](#uint64) |  | database disk size |
 | numTransactions | [uint64](#uint64) |  | total number of transactions |
+| created_at | [uint64](#uint64) |  | the time when the db was created |
+| created_by | [string](#string) |  | the user who created the database |
 
 
 
@@ -1600,6 +1633,22 @@ Only succeed if given key was not modified after given transaction
 
 
 
+<a name="immudb.schema.SQLPrivilege"></a>
+
+### SQLPrivilege
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  | Database name |
+| privilege | [string](#string) |  | Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER |
+
+
+
+
+
+
 <a name="immudb.schema.SQLQueryRequest"></a>
 
 ### SQLQueryRequest
@@ -2070,6 +2119,7 @@ Reserved to reply with more advanced response later
 | createdby | [string](#string) |  | Name of the creator user |
 | createdat | [string](#string) |  | Time when the user was created |
 | active | [bool](#bool) |  | Flag indicating whether the user is active or not |
+| sqlPrivileges | [SQLPrivilege](#immudb.schema.SQLPrivilege) | repeated | List of SQL privileges |
 
 
 
@@ -2482,6 +2532,7 @@ immudb gRPC &amp; REST service
 | CreateUser | [CreateUserRequest](#immudb.schema.CreateUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| ChangeSQLPrivileges | [ChangeSQLPrivilegesRequest](#immudb.schema.ChangeSQLPrivilegesRequest) | [ChangeSQLPrivilegesResponse](#immudb.schema.ChangeSQLPrivilegesResponse) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

@@ -262,9 +262,15 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 
 	kid := sha256.Sum256(key)
 	keyRef, isKeyUpdate := tx.entriesByKey[kid]
-
 	if !isKeyUpdate && len(tx.entries) > tx.st.maxTxEntries {
 		return ErrMaxTxEntriesLimitExceeded
+	}
+
+	_, wasTransient := tx.transientEntries[keyRef]
+	if isKeyUpdate {
+		if wasTransient != isTransient {
+			return ErrCannotUpdateKeyTransiency
+		}
 	}
 
 	e := &EntrySpec{
@@ -343,7 +349,6 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 			tx.entries[keyRef] = e
 		}
 	} else {
-
 		if isTransient {
 			tx.transientEntries[len(tx.entriesByKey)] = e
 			tx.entriesByKey[kid] = len(tx.entriesByKey)

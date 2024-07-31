@@ -19,6 +19,7 @@ package bmessages
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
 )
@@ -67,7 +68,7 @@ func DataRow(rows []*sql.Row, colNumb int, ResultColumnFormatCodes []int16) []by
 						}
 					case sql.JSONType:
 						{
-							jsonStr := val.String()
+							jsonStr := trimQuotes(val.String())
 							binary.BigEndian.PutUint32(valueLength, uint32(len(jsonStr)))
 							value = []byte(jsonStr)
 						}
@@ -120,5 +121,19 @@ func renderValueAsByte(v sql.TypedValue) []byte {
 	if v.IsNull() {
 		return nil
 	}
-	return []byte(v.String())
+
+	var s string
+	switch v.Type() {
+	case sql.VarcharType:
+		s, _ = v.RawValue().(string)
+	case sql.JSONType:
+		s = trimQuotes(v.String())
+	default:
+		s = v.String()
+	}
+	return []byte(s)
+}
+
+func trimQuotes(s string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(s, "'"), "'")
 }

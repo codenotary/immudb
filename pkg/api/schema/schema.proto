@@ -75,6 +75,17 @@ message User {
 
   // Flag indicating whether the user is active or not
   bool active = 6;
+
+  // List of SQL privileges
+  repeated SQLPrivilege sqlPrivileges = 7;
+}
+
+message SQLPrivilege {
+  // Database name
+  string database = 1;
+
+  // Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER
+  string privilege = 2;
 }
 
 message UserList {
@@ -1343,6 +1354,22 @@ message ChangePermissionRequest {
   uint32 permission = 4;
 }
 
+message ChangeSQLPrivilegesRequest {
+  // Action to perform
+  PermissionAction action = 1;
+
+  // Name of the user to update
+  string username = 2;
+
+  // Name of the database
+  string database = 3;
+
+  // SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER
+  repeated string privileges = 4;
+}
+
+message ChangeSQLPrivilegesResponse {}
+
 message SetActiveUserRequest {
   // If true, the user is active
   bool active = 1;
@@ -1378,6 +1405,12 @@ message DatabaseInfo {
 
   // total number of transactions
   uint64 numTransactions = 5;
+
+  // the time when the db was created
+  uint64 created_at = 6;
+
+  // the user who created the database
+  string created_by = 7;
 }
 
 message Chunk {
@@ -1565,6 +1598,13 @@ service ImmuService {
   rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/user/changepermission"
+      body: "*"
+    };
+  }
+
+  rpc ChangeSQLPrivileges(ChangeSQLPrivilegesRequest) returns (ChangeSQLPrivilegesResponse) {
+    option (google.api.http) = {
+      post: "/user/changesqlprivileges"
       body: "*"
     };
   }
