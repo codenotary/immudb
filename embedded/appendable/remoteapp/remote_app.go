@@ -87,7 +87,7 @@ func Open(path string, remotePath string, storage remotestorage.Storage, opts *O
 		return nil, ErrIllegalArguments
 	}
 
-	log.Printf("Opening remote storage at %s%s", storage, remotePath)
+	log.Printf("Opening remote storage at %s", remotePath)
 
 	mainContext, mainCancelFunc := context.WithCancel(context.Background())
 
