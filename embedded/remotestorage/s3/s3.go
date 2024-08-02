@@ -53,6 +53,7 @@ type Storage struct {
 	location      string
 	httpClient    *http.Client
 	sessionToken  string
+
 	
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
@@ -732,15 +733,15 @@ func (s *Storage) getRoleCredentials() error {
 	s3CredentialsRefreshTicker := time.NewTicker(s.awsCredsRefreshPeriod)
 	go func() {
 		for {
-				select {
-				case _ = <-s3CredentialsRefreshTicker.C:
-						accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
-						if err != nil {
-								log.Printf("S3 role credentials lookup failed with an error: %v", err)
-								continue
-						}
-						s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
-				}
+			select {
+			case _ = <-s3CredentialsRefreshTicker.C:
+					accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
+					if err != nil {
+						log.Printf("S3 role credentials lookup failed with an error: %v", err)
+						continue
+					}
+					s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
+			}
 		}
 	}()
 
@@ -753,7 +754,7 @@ func (s *Storage) requestCredentials() (string, string, string, error) {
 		"/latest/api/token",
 	), nil)
 	if err != nil {
-			return "", "", "", errors.New("cannot form metadata token request")
+		return "", "", "", errors.New("cannot form metadata token request")
 	}
 
 	tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
@@ -772,8 +773,8 @@ func (s *Storage) requestCredentials() (string, string, string, error) {
 	role := s.s3Role
 	if s.s3Role == "" {
 		roleReq, err := http.NewRequest("GET", fmt.Sprintf("%s%s",
-				s.awsInstanceMetadataURL,
-				"/latest/meta-data/iam/info",
+			s.awsInstanceMetadataURL,
+			"/latest/meta-data/iam/info",
 		), nil)
 		if err != nil {
 			return "", "", "", errors.New("cannot form role name request")
