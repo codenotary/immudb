@@ -139,7 +139,7 @@ func (s *ImmuServer) Initialize() error {
 
 	defaultDB, _ := s.dbList.GetByIndex(defaultDbIndex)
 
-	dbSize, _ := defaultDB.Size()
+	dbSize, _ := defaultDB.TxCount()
 	if dbSize <= 1 {
 		s.Logger.Infof("started with an empty default database")
 	}
@@ -225,6 +225,7 @@ func (s *ImmuServer) Initialize() error {
 		grpc_prometheus.UnaryServerInterceptor,
 		auth.ServerUnaryInterceptor,
 		s.SessionAuthInterceptor,
+		s.InjectRequestMetadataUnaryInterceptor,
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
@@ -232,7 +233,9 @@ func (s *ImmuServer) Initialize() error {
 		uuidContext.UUIDStreamContextSetter,
 		grpc_prometheus.StreamServerInterceptor,
 		auth.ServerStreamInterceptor,
+		s.InjectRequestMetadataStreamInterceptor,
 	}
+
 	grpcSrvOpts = append(
 		grpcSrvOpts,
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
@@ -258,6 +261,7 @@ func (s *ImmuServer) Initialize() error {
 			pgsqlsrv.TLSConfig(s.Options.TLSConfig),
 			pgsqlsrv.Logger(s.Logger),
 			pgsqlsrv.DatabaseList(s.dbList),
+			pgsqlsrv.LogRequestMetadata(s.Options.LogRequestMetadata),
 		)
 
 		if err = s.PgsqlSrv.Initialize(); err != nil {
@@ -313,7 +317,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	if s.Options.WebServer {
 		if err := s.setUpWebServer(context.Background()); err != nil {
-			log.Fatal(fmt.Sprintf("failed to setup web API/console server: %v", err))
+			log.Fatalf("failed to setup web API/console server: %v", err)
 		}
 		defer func() {
 			if err := s.webServer.Close(); err != nil {
@@ -491,7 +495,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	if !s.sysDB.IsReplica() {
 		s.sysDB.SetSyncReplication(false)
 
-		adminUsername, _, err := s.insertNewUser(context.Background(), []byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
+		adminUsername, _, err := s.insertNewUser(context.Background(), []byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", "")
 		if err != nil {
 			return logErr(s.Logger, "%v", err)
 		}
@@ -802,7 +806,69 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 
 // ServerInfo returns information about the server instance.
 func (s *ImmuServer) ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error) {
-	return &schema.ServerInfoResponse{Version: version.Version}, nil
+	dbSize, err := s.totalDBSize()
+	if err != nil {
+		return nil, err
+	}
+
+	numTransactions, err := s.numTransactions()
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.ServerInfoResponse{
+		Version:           version.Version,
+		StartedAt:         startedAt.Unix(),
+		NumTransactions:   int64(numTransactions),
+		NumDatabases:      int32(s.dbList.Length()),
+		DatabasesDiskSize: dbSize,
+	}, err
+}
+
+func (s *ImmuServer) numTransactions() (uint64, error) {
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
+	var count uint64
+	for i := 0; i < s.dbList.Length(); i++ {
+		db, err := s.dbList.GetByIndex(i)
+		if err == database.ErrDatabaseNotExists {
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+
+		dbTxCount, err := db.TxCount()
+		if err != nil {
+			return 0, err
+		}
+		count += dbTxCount
+	}
+	return count, nil
+}
+
+func (s *ImmuServer) totalDBSize() (int64, error) {
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
+	var size int64
+	for i := 0; i < s.dbList.Length(); i++ {
+		db, err := s.dbList.GetByIndex(i)
+		if err == database.ErrDatabaseNotExists {
+			continue
+		}
+		if err != nil {
+			return -1, err
+		}
+
+		dbSize, err := db.Size()
+		if err != nil {
+			return -1, err
+		}
+		size += int64(dbSize)
+	}
+	return size, nil
 }
 
 // Health ...
@@ -865,7 +931,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully created", req.Name)
+			s.Logger.Infof("database '%s' successfully created", req.Name)
 		} else {
 			s.Logger.Infof("database '%s' could not be created. Reason: %v", req.Name, err)
 		}
@@ -900,7 +966,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	s.dbListMutex.Lock()
 	defer s.dbListMutex.Unlock()
 
-	//check if database exists
+	// check if database exists
 	if s.dbList.GetId(req.Name) >= 0 {
 		if !req.IfNotExists {
 			return nil, database.ErrDatabaseAlreadyExists
@@ -918,7 +984,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		}, nil
 	}
 
-	dbOpts := s.defaultDBOptions(req.Name)
+	dbOpts := s.defaultDBOptions(req.Name, user.Username)
 
 	if req.Settings != nil {
 		err = s.overwriteWith(dbOpts, req.Settings, false)
@@ -967,7 +1033,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully loaded", req.Database)
+			s.Logger.Infof("database '%s' successfully loaded", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be loaded. Reason: %v", req.Database, err)
 		}
@@ -1045,7 +1111,7 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully unloaded", req.Database)
+			s.Logger.Infof("database '%s' successfully unloaded", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be unloaded. Reason: %v", req.Database, err)
 		}
@@ -1120,7 +1186,7 @@ func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatab
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully deleted", req.Database)
+			s.Logger.Infof("database '%s' successfully deleted", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be deleted. Reason: %v", req.Database, err)
 		}
@@ -1195,7 +1261,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully updated", req.Database)
+			s.Logger.Infof("database '%s' successfully updated", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be updated. Reason: %v", req.Database, err)
 		}
@@ -1381,13 +1447,50 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 
+	resp := &schema.DatabaseListResponseV2{}
+
+	databases, err := s.listLoggedInUserDatabases(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, db := range databases {
+		dbOpts, err := s.loadDBOptions(db.GetName(), false)
+		if err != nil {
+			return nil, err
+		}
+
+		size, err := db.Size()
+		if err != nil {
+			return nil, err
+		}
+
+		txCount, err := db.TxCount()
+		if err != nil {
+			return nil, err
+		}
+
+		info := &schema.DatabaseInfo{
+			Name:            db.GetName(),
+			Settings:        dbOpts.databaseNullableSettings(),
+			Loaded:          !db.IsClosed(),
+			DiskSize:        size,
+			NumTransactions: txCount,
+			CreatedAt:       uint64(dbOpts.CreatedAt.Unix()),
+			CreatedBy:       dbOpts.CreatedBy,
+		}
+		resp.Databases = append(resp.Databases, info)
+	}
+	return resp, nil
+}
+
+func (s *ImmuServer) listLoggedInUserDatabases(ctx context.Context) ([]database.DB, error) {
 	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login")
 	}
 
-	resp := &schema.DatabaseListResponseV2{}
-
+	databases := make([]database.DB, 0, s.dbList.Length())
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
 			db, err := s.dbList.GetByIndex(i)
@@ -1397,19 +1500,7 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			if err != nil {
 				return nil, err
 			}
-
-			dbOpts, err := s.loadDBOptions(db.GetName(), false)
-			if err != nil {
-				return nil, err
-			}
-
-			dbWithSettings := &schema.DatabaseWithSettings{
-				Name:     db.GetName(),
-				Settings: dbOpts.databaseNullableSettings(),
-				Loaded:   !db.IsClosed(),
-			}
-
-			resp.Databases = append(resp.Databases, dbWithSettings)
+			databases = append(databases, db)
 		}
 	} else {
 		for _, perm := range loggedInuser.Permissions {
@@ -1420,23 +1511,10 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			if err != nil {
 				return nil, err
 			}
-
-			dbOpts, err := s.loadDBOptions(perm.Database, false)
-			if err != nil {
-				return nil, err
-			}
-
-			dbWithSettings := &schema.DatabaseWithSettings{
-				Name:     perm.Database,
-				Settings: dbOpts.databaseNullableSettings(),
-				Loaded:   !db.IsClosed(),
-			}
-
-			resp.Databases = append(resp.Databases, dbWithSettings)
+			databases = append(databases, db)
 		}
 	}
-
-	return resp, nil
+	return databases, nil
 }
 
 // UseDatabase ...
@@ -1643,7 +1721,7 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 
 	defer func() {
 		if err == nil {
-			s.Logger.Infof("database '%s' succesfully truncated", req.Database)
+			s.Logger.Infof("database '%s' successfully truncated", req.Database)
 		} else {
 			s.Logger.Infof("database '%s' could not be truncated. Reason: %v", req.Database, err)
 		}

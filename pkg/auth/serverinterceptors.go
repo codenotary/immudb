@@ -73,9 +73,9 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 }
 
 var localAddress = map[string]struct{}{
-	"127.0.0.1": struct{}{},
-	"localhost": struct{}{},
-	"bufconn":   struct{}{},
+	"127.0.0.1": {},
+	"localhost": {},
+	"bufconn":   {},
 }
 
 func isLocalClient(ctx context.Context) bool {

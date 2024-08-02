@@ -18,6 +18,7 @@ package tbtree
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -26,32 +27,36 @@ import (
 	"github.com/codenotary/immudb/embedded/logger"
 )
 
-const DefaultMaxNodeSize = 4096
-const DefaultFlushThld = 100_000
-const DefaultSyncThld = 1_000_000
-const DefaultFlushBufferSize = 4096
-const DefaultCleanUpPercentage float32 = 0
-const DefaultMaxActiveSnapshots = 100
-const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
-const DefaultCacheSize = 100_000
-const DefaultFileMode = os.FileMode(0755)
-const DefaultFileSize = 1 << 26 // 64Mb
-const DefaultMaxKeySize = 1024
-const DefaultMaxValueSize = 512
-const DefaultCompactionThld = 2
-const DefaultDelayDuringCompaction = time.Duration(10) * time.Millisecond
+const (
+	DefaultMaxNodeSize                   = 4096
+	DefaultFlushThld                     = 100_000
+	DefaultSyncThld                      = 1_000_000
+	DefaultFlushBufferSize               = 4096
+	DefaultCleanUpPercentage     float32 = 0
+	DefaultMaxActiveSnapshots            = 100
+	DefaultRenewSnapRootAfter            = time.Duration(1000) * time.Millisecond
+	DefaultCacheSize                     = 1 << 27 // 128Mb
+	DefaultFileMode                      = os.FileMode(0755)
+	DefaultFileSize                      = 1 << 26 // 64Mb
+	DefaultMaxKeySize                    = 1024
+	DefaultMaxValueSize                  = 512
+	DefaultCompactionThld                = 2
+	DefaultDelayDuringCompaction         = time.Duration(10) * time.Millisecond
 
-const DefaultNodesLogMaxOpenedFiles = 10
-const DefaultHistoryLogMaxOpenedFiles = 1
-const DefaultCommitLogMaxOpenedFiles = 1
+	DefaultNodesLogMaxOpenedFiles   = 10
+	DefaultHistoryLogMaxOpenedFiles = 1
+	DefaultCommitLogMaxOpenedFiles  = 1
 
-const MinCacheSize = 1
+	MinCacheSize = 1
+)
 
 type AppFactoryFunc func(
 	rootPath string,
 	subPath string,
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
+
+type AppRemoveFunc func(rootPath, subPath string) error
 
 type Options struct {
 	logger logger.Logger
@@ -80,6 +85,7 @@ type Options struct {
 	fileSize     int
 
 	appFactory AppFactoryFunc
+	appRemove  AppRemoveFunc
 }
 
 func DefaultOptions() *Options {
@@ -118,11 +124,11 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
 	}
 
-	if opts.maxKeySize <= 0 {
+	if opts.maxKeySize <= 0 || opts.maxKeySize > math.MaxUint16 {
 		return fmt.Errorf("%w: invalid MaxKeySize", ErrInvalidOptions)
 	}
 
-	if opts.maxValueSize <= 0 {
+	if opts.maxValueSize <= 0 || opts.maxValueSize > math.MaxUint16 {
 		return fmt.Errorf("%w: invalid MaxValueSize", ErrInvalidOptions)
 	}
 
@@ -192,6 +198,11 @@ func (opts *Options) WithLogger(logger logger.Logger) *Options {
 
 func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 	opts.appFactory = appFactory
+	return opts
+}
+
+func (opts *Options) WithAppRemoveFunc(AppRemove AppRemoveFunc) *Options {
+	opts.appRemove = AppRemove
 	return opts
 }
 

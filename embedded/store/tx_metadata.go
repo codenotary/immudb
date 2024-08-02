@@ -131,6 +131,10 @@ func (md *TxMetadata) IsEmpty() bool {
 	return md == nil || len(md.attributes) == 0
 }
 
+func (md *TxMetadata) HasExtraOnly() bool {
+	return len(md.attributes) == 1 && md.Extra() != nil
+}
+
 func (md *TxMetadata) Equal(amd *TxMetadata) bool {
 	if amd == nil || md == nil {
 		return false

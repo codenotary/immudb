@@ -48,3 +48,12 @@ func QuitWithUserError(err error) {
 func OverrideQuitter(quitter func(int)) {
 	osexit = quitter
 }
+
+func UnwrapMessage(msg interface{}) interface{} {
+	if err, ok := msg.(error); ok {
+		if statusErr, isStatusErr := status.FromError(err); isStatusErr {
+			return statusErr.Message()
+		}
+	}
+	return msg
+}

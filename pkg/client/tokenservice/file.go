@@ -32,7 +32,7 @@ type file struct {
 	hds           homedir.HomedirService
 }
 
-//NewFileTokenService ...
+// NewFileTokenService ...
 func NewFileTokenService() *file {
 	return &file{
 		tokenFileName: "token",
@@ -50,7 +50,7 @@ func (ts *file) GetToken() (string, error) {
 	return token, nil
 }
 
-//SetToken ...
+// SetToken ...
 func (ts *file) SetToken(database string, token string) error {
 	ts.Lock()
 	defer ts.Unlock()
@@ -78,7 +78,7 @@ func (ts *file) DeleteToken() error {
 	return ts.hds.DeleteFileFromUserHomeDir(ts.tokenFileName)
 }
 
-//IsTokenPresent ...
+// IsTokenPresent ...
 func (ts *file) IsTokenPresent() (bool, error) {
 	ts.Lock()
 	defer ts.Unlock()

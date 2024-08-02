@@ -109,7 +109,6 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 	}
 
 	limit := int(req.Limit)
-
 	if req.Limit == 0 {
 		limit = d.maxResultSize
 	}
@@ -185,7 +184,6 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 	defer kvsnap.Close()
 
 	entries := &schema.ZEntries{}
-
 	for l := 1; l <= limit; l++ {
 		zKey, _, err := r.Read(ctx)
 		if errors.Is(err, store.ErrNoMoreEntries) {
@@ -231,12 +229,6 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 		}
 
 		entries.Entries = append(entries.Entries, zentry)
-
-		if l == d.maxResultSize {
-			return entries, fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
-				"Pagination over large results can be achieved by using the limit, seekKey, seekScore and seekAtTx arguments",
-				ErrResultSizeLimitReached, d.maxResultSize)
-		}
 	}
 
 	return entries, nil

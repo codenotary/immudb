@@ -19,11 +19,13 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"strings"
 
 	"net"
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
@@ -32,18 +34,21 @@ import (
 )
 
 type session struct {
-	immudbHost string
-	immudbPort int
-	tlsConfig  *tls.Config
-	log        logger.Logger
+	immudbHost         string
+	immudbPort         int
+	tlsConfig          *tls.Config
+	log                logger.Logger
+	logRequestMetadata bool
 
 	dbList database.DatabaseList
 
 	client client.ImmuClient
 
-	ctx context.Context
-	db  database.DB
-	tx  *sql.SQLTx
+	ctx    context.Context
+	user   string
+	ipAddr string
+	db     database.DB
+	tx     *sql.SQLTx
 
 	mr MessageReader
 
@@ -62,18 +67,32 @@ type Session interface {
 	Close() error
 }
 
-func newSession(c net.Conn, immudbHost string, immudbPort int,
-	log logger.Logger, tlsConfig *tls.Config, dbList database.DatabaseList) *session {
+func newSession(
+	c net.Conn,
+	immudbHost string,
+	immudbPort int,
+	log logger.Logger,
+	tlsConfig *tls.Config,
+	logRequestMetadata bool,
+	dbList database.DatabaseList,
+) *session {
+	addr := c.RemoteAddr().String()
+	i := strings.Index(addr, ":")
+	if i >= 0 {
+		addr = addr[:i]
+	}
 
 	return &session{
-		immudbHost: immudbHost,
-		immudbPort: immudbPort,
-		tlsConfig:  tlsConfig,
-		log:        log,
-		dbList:     dbList,
-		mr:         NewMessageReader(c),
-		statements: make(map[string]*statement),
-		portals:    make(map[string]*portal),
+		immudbHost:         immudbHost,
+		immudbPort:         immudbPort,
+		tlsConfig:          tlsConfig,
+		log:                log,
+		logRequestMetadata: logRequestMetadata,
+		dbList:             dbList,
+		ipAddr:             addr,
+		mr:                 NewMessageReader(c),
+		statements:         make(map[string]*statement),
+		portals:            make(map[string]*portal),
 	}
 }
 
@@ -139,4 +158,19 @@ func (s *session) writeMessage(msg []byte) (int, error) {
 	}
 
 	return s.mr.Write(msg)
+}
+
+func (s *session) sqlTx() (*sql.SQLTx, error) {
+	if s.tx != nil || !s.logRequestMetadata {
+		return s.tx, nil
+	}
+
+	md := schema.Metadata{
+		schema.UserRequestMetadataKey: s.user,
+		schema.IpRequestMetadataKey:   s.ipAddr,
+	}
+
+	// create transaction explicitly to inject request metadata
+	ctx := schema.ContextWithMetadata(s.ctx, md)
+	return s.db.NewSQLTx(ctx, sql.DefaultTxOptions())
 }

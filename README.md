@@ -8,25 +8,22 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 -->
 
-# immudb [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
+# immudb <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
+
 
 [![Documentation](https://img.shields.io/website?label=Docs&url=https%3A%2F%2Fdocs.immudb.io%2F)](https://docs.immudb.io/)
 [![Build Status](https://github.com/codenotary/immudb/actions/workflows/push.yml/badge.svg)](https://github.com/codenotary/immudb/actions/workflows/push.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
-[![Coverage](https://coveralls.io/repos/github/codenotary/immudb/badge.svg?branch=master&kill_cache=1)](https://coveralls.io/github/codenotary/immudb?branch=master&kill_cache=1)
 [![View SBOM](https://img.shields.io/badge/sbom.sh-viewSBOM-blue?link=https%3A%2F%2Fsbom.sh%2F37cbffcf-1bd3-4daf-86b7-77deb71575b7)](https://sbom.sh/37cbffcf-1bd3-4daf-86b7-77deb71575b7)
 [![Homebrew](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
-[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 [![Discord](https://img.shields.io/discord/831257098368319569)](https://discord.gg/EWeCbkjZVu)
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://www.codenotary.com/job)
-[![Tweet about
-immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/codenotary)](https://artifacthub.io/packages/search?repo=codenotary)
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 20M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 27M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -36,47 +33,35 @@ Detailed documentation can be found at https://docs.immudb.io/
 
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the database. It can operate both as a key-value store, and/or as relational database (SQL).
+immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the database. It can operate as a key-value store, as a document model database, and/or as relational database (SQL).
 
 Traditional database transactions and logs are mutable, and therefore there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being tampered.
 
 Data stored in immudb is cryptographically coherent and verifiable. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library. immudb runs everywhere, on an IoT device, your notebook, a server, on-premise or in the cloud.
 
 
-immudb can be used as a key-value store or relational data structure and supports both transactions and blobs, so there are no limits to the use cases. Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
+When used as a relational data database, it supports both transactions and blobs, so there are no limits to the use cases. Developers and organizations use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
 
-### Online demo environment
+## Contents
 
-Click here to try out the immudb web console access in an [online demo environment](https://demo.immudb.io) (username: immudb; password: immudb)
-
-<div align="center">
-  <a href="https://demo.immudb.io">
-    <img alt="Your own temporary immudb web console access to start using immudb in an online demo environment" src="img/demoimmudb.png"/>
-  </a>
-</div>
-
-
-### Some immudb tech specs
-
-| Topic                   | Description                                        |
-| ----------------------- | -------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (tx-key-value), SQL |
-| Data scheme             | schema-free                                        |
-| Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
-|                         | (sync/async) indexing with extended B-tree         |
-| Implementation language | Go                                                 |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
-| Embeddable              | Yes, optionally                                    |
-| Server APIs             | gRPC                                               |
-| Partition methods       | Sharding                                           |
-| Consistency concepts    | Immediate Consistency                              |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                 |
-| Durability              | Yes                                                |
-| Snapshots               | Yes                                                |
-| High Read throughput    | Yes                                                |
-| High Write throughput   | Yes                                                |
-| Optimized for SSD       | Yes                                                |
-
+- [immudb](#immudb)
+  - [Contents](#contents)
+  - [Quickstart](#quickstart)
+    - [Getting immudb running: executable](#getting-immudb-running-executable)
+    - [Getting immudb running: docker](#getting-immudb-running-docker)
+    - [Getting immudb running: kubernetes](#getting-immudb-running-kubernetes)
+    - [Using subfolders](#using-subfolders)
+    - [Enabling Amazon S3 storage](#enabling-amazon-s3-storage)
+    - [Connecting with immuclient](#connecting-with-immuclient)
+    - [Using immudb](#using-immudb)
+      - [Real world examples](#real-world-examples)
+      - [How to integrate immudb in your application](#how-to-integrate-immudb-in-your-application)
+      - [Online demo environment](#online-demo-environment)
+  - [Tech specs](#tech-specs)
+  - [Performance figures](#performance-figures)
+  - [Roadmap](#roadmap)
+  - [Projects using immudb](#projects-using-immudb)
+  - [Contributing](#contributing)
 
 ## Quickstart
 
@@ -292,7 +277,38 @@ We've developed a "language-agnostic SDK" which exposes a REST API for easy cons
 [immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
-# Performance figures
+### Online demo environment
+
+Click here to try out the immudb web console access in an [online demo environment](https://demo.immudb.io) (username: immudb; password: immudb)
+
+<div align="center">
+  <a href="https://demo.immudb.io">
+    <img alt="Your own temporary immudb web console access to start using immudb in an online demo environment" src="img/demoimmudb.png"/>
+  </a>
+</div>
+
+## Tech specs
+
+| Topic                   | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| DB Model                | Key-Value with 3D access, Document Model, SQL      |
+| Data scheme             | schema-free                                        |
+| Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
+|                         | (sync/async) indexing with extended B-tree         |
+| Implementation language | Go                                                 |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
+| Embeddable              | Yes, optionally                                    |
+| Server APIs             | gRPC                                               |
+| Partition methods       | Sharding                                           |
+| Consistency concepts    | Immediate Consistency                              |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                 |
+| Durability              | Yes                                                |
+| Snapshots               | Yes                                                |
+| High Read throughput    | Yes                                                |
+| High Write throughput   | Yes                                                |
+| Optimized for SSD       | Yes                                                |
+
+## Performance figures
 
 immudb can handle millions of writes per second. The following table shows performance of the embedded store inserting 1M entries on a machine with 4-core E3-1275v6 CPU and SSD disk:
 
@@ -314,15 +330,35 @@ The following topics are important to us and are planned or already being worked
 * Easier API for developers
 * API compatibility with other, well-known embedded databases
 
+## Projects using immudb
+
+Below is a list of known projects that use immudb:
+
+- [alma-sbom](https://github.com/AlmaLinux/alma-sbom) - AlmaLinux OS SBOM data management utility.
+
+- [immudb-log-audit](https://github.com/codenotary/immudb-log-audit) - A service and cli tool to store json formatted log input
+and audit it later in immudb Vault.
+
+- [immudb-operator](https://github.com/unagex/immudb-operator) - Unagex Kubernetes Operator for immudb.
+
+- [immufluent](https://github.com/codenotary/immufluent) - Send fluentbit collected logs to immudb.
+
+- [immuvoting](https://github.com/padurean/immuvoting) - Publicly cryptographically verifiable electronic voting system powered by immudb.
+
+Are you using immudb in your project? Open a pull request to add it to the list.
 
 ## Contributing
 
 We welcome [contributors](CONTRIBUTING.md). Feel free to join the team!
 
+<a href="https://github.com/codenotary/immudb/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=codenotary/immudb" />
+</a>
+
 Learn how to [build](BUILD.md) immudb components in both binary and Docker image form.
 
 To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/immudb/issues).
 
-immudb is licensed under the [Apache v2.0 License](LICENSE).
+immudb is licensed under the [Business Source License 1.1](LICENSE).
 
 immudb re-distributes other open-source tools and libraries - [Acknowledgements](ACKNOWLEDGEMENTS.md).

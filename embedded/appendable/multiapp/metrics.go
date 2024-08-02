@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	// ---- LRU Cache ---------------------------------------
+	// ---- Cache ---------------------------------------
 
 	metricsCacheEvents = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "immudb_multiapp_cache_events",

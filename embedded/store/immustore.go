@@ -21,12 +21,12 @@ import (
 	"container/list"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -39,11 +39,11 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/htree"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
-
-	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/pkg/helpers/slices"
 )
 
 var ErrIllegalArguments = embedded.ErrIllegalArguments
@@ -61,6 +61,7 @@ var ErrMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrMaxValueLenExceeded = errors.New("max value length exceeded")
 var ErrPreconditionFailed = errors.New("precondition failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
+var ErrCannotUpdateKeyTransiency = errors.New("cannot change a non-transient key to transient or vice versa")
 var ErrMaxActiveTransactionsLimitExceeded = errors.New("max active transactions limit exceeded")
 var ErrMVCCReadSetLimitExceeded = errors.New("MVCC read-set limit exceeded")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
@@ -97,7 +98,7 @@ var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID",
 
 var ErrSourceTxNewerThanTargetTx = fmt.Errorf("%w: source tx is newer than target tx", ErrIllegalArguments)
 
-var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
+var ErrCompactionDisabled = errors.New("compaction is disabled")
 
 var ErrMetadataUnsupported = errors.New(
 	"metadata is unsupported when in 1.1 compatibility mode, " +
@@ -154,10 +155,10 @@ type ImmuStore struct {
 	vLogUnlockedList *list.List
 	vLogsCond        *sync.Cond
 
-	vLogCache *cache.LRUCache
+	vLogCache *cache.Cache
 
 	txLog      appendable.Appendable
-	txLogCache *cache.LRUCache
+	txLogCache *cache.Cache
 
 	cLog          appendable.Appendable
 	cLogEntrySize int
@@ -571,10 +572,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	var vLogCache *cache.LRUCache
+	var vLogCache *cache.Cache
 
 	if opts.VLogCacheSize > 0 {
-		vLogCache, err = cache.NewLRUCache(opts.VLogCacheSize)
+		vLogCache, err = cache.NewCache(opts.VLogCacheSize)
 		if err != nil {
 			return nil, err
 		}
@@ -602,7 +603,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
-	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
+	txLogCache, err := cache.NewCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
 	if err != nil {
 		return nil, err
 	}
@@ -1274,7 +1275,7 @@ func (s *ImmuStore) WaitForIndexingUpto(ctx context.Context, txID uint64) error 
 
 func (s *ImmuStore) CompactIndexes() error {
 	if s.compactionDisabled {
-		return ErrCompactionUnsupported
+		return ErrCompactionDisabled
 	}
 
 	s.indexersMux.RLock()
@@ -1363,6 +1364,26 @@ func (s *ImmuStore) MaxKeyLen() int {
 
 func (s *ImmuStore) MaxValueLen() int {
 	return s.maxValueLen
+}
+
+func (s *ImmuStore) Size() (uint64, error) {
+	var size uint64
+
+	err := filepath.WalkDir(s.path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			size += uint64(info.Size())
+		}
+		return nil
+	})
+	return size, err
 }
 
 func (s *ImmuStore) TxCount() uint64 {
@@ -1529,7 +1550,8 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		return nil, fmt.Errorf("%w: transaction does not validate against header", err)
 	}
 
-	if len(otx.entries) == 0 && otx.metadata.IsEmpty() {
+	// extra metadata are specified by the client and thus they are only allowed when entries is non empty
+	if len(otx.entries) == 0 && (otx.metadata.IsEmpty() || otx.metadata.HasExtraOnly()) {
 		return nil, ErrNoEntriesProvided
 	}
 
@@ -3212,11 +3234,11 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 			return ErrMaxValueLenExceeded
 		}
 
-		b64k := base64.StdEncoding.EncodeToString(kv.Key)
-		if _, ok := m[b64k]; ok {
+		ks := slices.BytesToString(kv.Key)
+		if _, ok := m[ks]; ok {
 			return ErrDuplicatedKey
 		}
-		m[b64k] = struct{}{}
+		m[ks] = struct{}{}
 	}
 
 	return nil

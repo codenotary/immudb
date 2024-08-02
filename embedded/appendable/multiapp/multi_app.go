@@ -94,7 +94,7 @@ func (d *DefaultMultiFileAppendableHooks) OpenAppendable(options *singleapp.Opti
 }
 
 type MultiFileAppendable struct {
-	appendables appendableLRUCache
+	appendables appendableCache
 
 	currAppID int64
 	currApp   appendable.Appendable
@@ -180,7 +180,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		return nil, err
 	}
 
-	cache, err := cache.NewLRUCache(opts.maxOpenedFiles)
+	cache, err := cache.NewCache(opts.maxOpenedFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
 
 	return &MultiFileAppendable{
-		appendables:    appendableLRUCache{cache: cache},
+		appendables:    appendableCache{cache: cache},
 		currAppID:      currAppID,
 		currApp:        currApp,
 		path:           path,

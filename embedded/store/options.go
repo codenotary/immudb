@@ -64,6 +64,8 @@ type AppFactoryFunc func(
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
 
+type AppRemoveFunc func(rootPath, subPath string) error
+
 type TimeFunc func() time.Time
 
 type Options struct {
@@ -84,6 +86,8 @@ type Options struct {
 
 	appFactory AppFactoryFunc
 
+	appRemove AppRemoveFunc
+
 	CompactionDisabled bool
 
 	// Maximum number of pre-committed transactions
@@ -98,13 +102,13 @@ type Options struct {
 	// Maximum number of simultaneous IO writes
 	MaxIOConcurrency int
 
-	// Size of the LRU cache for transaction logs
+	// Size of the cache for transaction logs
 	TxLogCacheSize int
 
 	// Maximum number of simultaneous value files opened
 	VLogMaxOpenedFiles int
 
-	// Size of the LRU cache for value logs
+	// Size of the cache for value logs
 	VLogCacheSize int
 
 	// Maximum number of simultaneous transaction log files opened
@@ -143,7 +147,7 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	// Size of the Btree node LRU cache
+	// Size of the Btree node cache
 	CacheSize int
 
 	// Number of new index entries between disk flushes
@@ -458,6 +462,11 @@ func (opts *Options) WithLogger(logger logger.Logger) *Options {
 
 func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 	opts.appFactory = appFactory
+	return opts
+}
+
+func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
+	opts.appRemove = appRemove
 	return opts
 }
 

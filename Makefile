@@ -16,7 +16,7 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=1.9DOM.2
+VERSION=1.9.4
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
@@ -170,10 +170,10 @@ build/codegen:
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  --go_out=paths=source_relative:pkg/api/schema \
-	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/schema
-      --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema
-	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md
-	  --swagger_out=logtostderr=true:pkg/api/schema
+	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/schema \
+      --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
+	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
+	  --swagger_out=logtostderr=true:pkg/api/schema \
 
 .PHONY: build/codegenv2
 build/codegenv2:
