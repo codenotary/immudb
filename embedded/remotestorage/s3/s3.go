@@ -53,7 +53,6 @@ type Storage struct {
 	location      string
 	httpClient    *http.Client
 	sessionToken  string
-
 	
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
@@ -735,12 +734,12 @@ func (s *Storage) getRoleCredentials() error {
 		for {
 			select {
 			case _ = <-s3CredentialsRefreshTicker.C:
-					accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
-					if err != nil {
-						log.Printf("S3 role credentials lookup failed with an error: %v", err)
-						continue
-					}
-					s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
+				accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
+				if err != nil {
+					log.Printf("S3 role credentials lookup failed with an error: %v", err)
+					continue
+				}
+				s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
 			}
 		}
 	}()
