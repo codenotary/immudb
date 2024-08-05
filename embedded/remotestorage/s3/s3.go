@@ -233,7 +233,11 @@ func (s *Storage) s3SignedRequestV4(
 
 	req.Header.Set("X-Amz-Date", timeISO8601)
 	req.Header.Set("X-Amz-Content-Sha256", contentSha256)
-	req.Header.Set("X-Amz-Security-Token", s.sessionToken)
+
+	if s.S3RoleEnabled {
+		req.Header.Set("X-Amz-Security-Token", s.sessionToken)
+	}
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
