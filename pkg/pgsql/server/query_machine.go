@@ -312,6 +312,7 @@ func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, res
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
 
 	cols, err := reader.Columns(s.ctx)
 	if err != nil {
@@ -372,10 +373,13 @@ func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]sql.ColDescriptor
 		if err != nil {
 			return nil, nil, err
 		}
+
 		resCols, err = rr.Columns(s.ctx)
 		if err != nil {
 			return nil, nil, err
 		}
+
+		rr.Close()
 	}
 
 	r, err := s.db.InferParametersPrepared(s.ctx, s.tx, stmt)
