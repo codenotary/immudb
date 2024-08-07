@@ -52,7 +52,8 @@ type Storage struct {
 	prefix        string
 	location      string
 	httpClient    *http.Client
-
+	sessionToken  string
+	
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
 }
@@ -232,6 +233,11 @@ func (s *Storage) s3SignedRequestV4(
 
 	req.Header.Set("X-Amz-Date", timeISO8601)
 	req.Header.Set("X-Amz-Content-Sha256", contentSha256)
+
+	if s.S3RoleEnabled {
+		req.Header.Set("X-Amz-Security-Token", s.sessionToken)
+	}
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -777,7 +783,7 @@ func (s *Storage) getRoleCredentials() error {
 	}
 
 	var err error
-	s.accessKeyID, s.secretKey, err = s.requestCredentials()
+	s.accessKeyID, s.secretKey, s.sessionToken, err = s.requestCredentials()
 	if err != nil {
 		return err
 	}
@@ -787,12 +793,12 @@ func (s *Storage) getRoleCredentials() error {
 		for {
 			select {
 			case _ = <-s3CredentialsRefreshTicker.C:
-				accessKeyID, secretKey, err := s.requestCredentials()
+				accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
 				if err != nil {
 					log.Printf("S3 role credentials lookup failed with an error: %v", err)
 					continue
 				}
-				s.accessKeyID, s.secretKey = accessKeyID, secretKey
+				s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
 			}
 		}
 	}()
@@ -800,26 +806,26 @@ func (s *Storage) getRoleCredentials() error {
 	return nil
 }
 
-func (s *Storage) requestCredentials() (string, string, error) {
+func (s *Storage) requestCredentials() (string, string, string, error) {
 	tokenReq, err := http.NewRequest("PUT", fmt.Sprintf("%s%s",
 		s.awsInstanceMetadataURL,
 		"/latest/api/token",
 	), nil)
 	if err != nil {
-		return "", "", errors.New("cannot form metadata token request")
+		return "", "", "", errors.New("cannot form metadata token request")
 	}
 
 	tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
 
 	tokenResp, err := http.DefaultClient.Do(tokenReq)
 	if err != nil {
-		return "", "", errors.New("cannot get metadata token")
+		return "", "", "",  errors.New("cannot get metadata token")
 	}
 	defer tokenResp.Body.Close()
 
 	token, err := ioutil.ReadAll(tokenResp.Body)
 	if err != nil {
-		return "", "", errors.New("cannot read metadata token")
+		return "", "", "", errors.New("cannot read metadata token")
 	}
 
 	role := s.s3Role
@@ -829,31 +835,31 @@ func (s *Storage) requestCredentials() (string, string, error) {
 			"/latest/meta-data/iam/info",
 		), nil)
 		if err != nil {
-			return "", "", errors.New("cannot form role name request")
+			return "", "", "", errors.New("cannot form role name request")
 		}
 
 		roleReq.Header.Set("X-aws-ec2-metadata-token", string(token))
 		roleResp, err := http.DefaultClient.Do(roleReq)
 		if err != nil {
-			return "", "", errors.New("cannot get role name")
+			return "", "", "", errors.New("cannot get role name")
 		}
 		defer roleResp.Body.Close()
 
 		creds, err := ioutil.ReadAll(roleResp.Body)
 		if err != nil {
-			return "", "", errors.New("cannot read role name")
+			return "", "", "", errors.New("cannot read role name")
 		}
 
 		var metadata struct {
 			InstanceProfileArn string `json:"InstanceProfileArn"`
 		}
 		if err := json.Unmarshal(creds, &metadata); err != nil {
-			return "", "", errors.New("cannot parse role name")
+			return "", "", "", errors.New("cannot parse role name")
 		}
 
 		match := arnRoleRegex.FindStringSubmatch(metadata.InstanceProfileArn)
 		if len(match) < 2 {
-			return "", "", ErrCredentialsCannotBeFound
+			return "", "", "", ErrCredentialsCannotBeFound
 		}
 
 		role = match[1]
@@ -865,30 +871,31 @@ func (s *Storage) requestCredentials() (string, string, error) {
 		role,
 	), nil)
 	if err != nil {
-		return "", "", errors.New("cannot form role credentials request")
+		return "", "", "", errors.New("cannot form role credentials request")
 	}
 
 	credsReq.Header.Set("X-aws-ec2-metadata-token", string(token))
 	credsResp, err := http.DefaultClient.Do(credsReq)
 	if err != nil {
-		return "", "", errors.New("cannot get role credentials")
+		return "", "", "", errors.New("cannot get role credentials")
 	}
 	defer credsResp.Body.Close()
 
-	creds, err := ioutil.ReadAll(credsReq.Body)
+	creds, err := ioutil.ReadAll(credsResp.Body)
 	if err != nil {
-		return "", "", errors.New("cannot read role credentials")
+		return "", "", "", errors.New("cannot read role credentials")
 	}
 
 	var credentials struct {
-		AccessKeyID     string `json:"AccessKeyId"`
-		SecretAccessKey string `json:"SecretAccessKey"`
+			AccessKeyID     string `json:"AccessKeyId"`
+			SecretAccessKey string `json:"SecretAccessKey"`
+			SessionToken    string `json:"Token"`
 	}
 	if err := json.Unmarshal(creds, &credentials); err != nil {
-		return "", "", errors.New("cannot parse role credentials")
+		return "", "", "", errors.New("cannot parse role credentials")
 	}
 
-	return credentials.AccessKeyID, credentials.SecretAccessKey, nil
+	return credentials.AccessKeyID, credentials.SecretAccessKey, credentials.SessionToken, nil
 }
 
 var _ remotestorage.Storage = (*Storage)(nil)
