@@ -87,7 +87,7 @@ func Open(path string, remotePath string, storage remotestorage.Storage, opts *O
 		return nil, ErrIllegalArguments
 	}
 
-	log.Printf("Opening remote storage at %s%s", storage, remotePath)
+	log.Printf("Opening remote storage at %s", remotePath)
 
 	mainContext, mainCancelFunc := context.WithCancel(context.Background())
 
@@ -147,7 +147,7 @@ func (r *RemoteStorageAppendable) uploadFinished(chunkID int64, state chunkState
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	log.Printf("Uploadnig of chunk %d finished in state: %v", chunkID, state)
+	log.Printf("Uploading of chunk %d finished in state: %v", chunkID, state)
 
 	r.chunkInfos[chunkID].state = state
 	r.chunkInfos[chunkID].cancelUpload = nil

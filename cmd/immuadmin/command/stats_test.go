@@ -77,6 +77,10 @@ func TestStats_Status(t *testing.T) {
 	out, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
 	assert.Contains(t, string(out), "OK - server is reachable and responding to queries")
+	assert.Contains(t, string(out), "Version")
+	assert.Contains(t, string(out), "Up time")
+	assert.Contains(t, string(out), "Databases")
+	assert.Contains(t, string(out), "Transactions")
 }
 
 func TestStats_StatsText(t *testing.T) {

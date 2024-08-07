@@ -93,6 +93,24 @@ func (h *dummyMultidbHandler) UseDatabase(ctx context.Context, db string) error 
 	return sql.ErrNoSupported
 }
 
+type mockUser struct{}
+
+func (u *mockUser) Username() string {
+	return "default"
+}
+
+func (u *mockUser) Permission() sql.Permission {
+	return sql.PermissionAdmin
+}
+
+func (u *mockUser) SQLPrivileges() []sql.SQLPrivilege {
+	return sql.DefaultSQLPrivilegesForPermission(sql.PermissionAdmin)
+}
+
+func (h *dummyMultidbHandler) GetLoggedUser(ctx context.Context) (sql.User, error) {
+	return &mockUser{}, nil
+}
+
 func (h *dummyMultidbHandler) ListUsers(ctx context.Context) ([]sql.User, error) {
 	return nil, sql.ErrNoSupported
 }
@@ -102,6 +120,14 @@ func (h *dummyMultidbHandler) CreateUser(ctx context.Context, username, password
 }
 
 func (h *dummyMultidbHandler) AlterUser(ctx context.Context, username, password string, permission sql.Permission) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) GrantSQLPrivileges(ctx context.Context, database, username string, privileges []sql.SQLPrivilege) error {
+	return sql.ErrNoSupported
+}
+
+func (h *dummyMultidbHandler) RevokeSQLPrivileges(ctx context.Context, database, username string, privileges []sql.SQLPrivilege) error {
 	return sql.ErrNoSupported
 }
 
@@ -126,7 +152,7 @@ func TestDefaultDbCreation(t *testing.T) {
 
 	defer db.Close()
 
-	n, err := db.Size()
+	n, err := db.TxCount()
 	require.NoError(t, err)
 	require.Zero(t, n)
 
@@ -914,7 +940,7 @@ func TestTxScan(t *testing.T) {
 				},
 			},
 		})
-		require.ErrorIs(t, err, ErrResultSizeLimitReached)
+		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -952,7 +978,7 @@ func TestTxScan(t *testing.T) {
 		txList, err := db.TxScan(context.Background(), &schema.TxScanRequest{
 			InitialTx: initialState.TxId + 1,
 		})
-		require.ErrorIs(t, err, ErrResultSizeLimitReached)
+		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -1008,7 +1034,7 @@ func TestHistory(t *testing.T) {
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 
 	for i, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
@@ -1025,7 +1051,7 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Desc:    true,
 	})
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 
 	for i, val := range dec.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)

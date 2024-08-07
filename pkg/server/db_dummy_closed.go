@@ -82,6 +82,10 @@ func (db *closedDB) Size() (uint64, error) {
 	return 0, store.ErrAlreadyClosed
 }
 
+func (db *closedDB) TxCount() (uint64, error) {
+	return 0, store.ErrAlreadyClosed
+}
+
 func (db *closedDB) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
@@ -166,15 +170,15 @@ func (db *closedDB) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, 
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQueryAll(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) ([]*sql.Row, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
+func (db *closedDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

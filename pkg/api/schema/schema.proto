@@ -75,6 +75,17 @@ message User {
 
   // Flag indicating whether the user is active or not
   bool active = 6;
+
+  // List of SQL privileges
+  repeated SQLPrivilege sqlPrivileges = 7;
+}
+
+message SQLPrivilege {
+  // Database name
+  string database = 1;
+
+  // Privilege: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER
+  string privilege = 2;
 }
 
 message UserList {
@@ -605,6 +616,18 @@ message ServerInfoRequest {}
 message ServerInfoResponse {
   // The version of the server instance.
   string version = 1;
+
+  // Unix timestamp (seconds) indicating when the server process has been started.
+  int64 startedAt = 2;
+
+  // Total number of transactions across all databases.
+  int64 numTransactions = 3;
+
+  // Total number of databases present.
+  int32 numDatabases = 4;
+
+  // Total disk size used by all databases.
+  int64 databasesDiskSize = 5;
 }
 
 message HealthResponse {
@@ -1024,7 +1047,7 @@ message DatabaseNullableSettings {
   // Maximum number of simultaneous IO writes
   NullableUint32 maxIOConcurrency = 14;
 
-  // Size of the LRU cache for transaction logs
+  // Size of the cache for transaction logs
   NullableUint32 txLogCacheSize = 15;
 
   // Maximum number of simultaneous value files opened
@@ -1063,7 +1086,7 @@ message DatabaseNullableSettings {
   // Limit the number of read entries per transaction
   NullableUint32 mvccReadSetLimit = 27;
 
-  // Size of the LRU cache for value logs
+  // Size of the cache for value logs
   NullableUint32 vLogCacheSize = 28;
 
   // Truncation settings
@@ -1132,7 +1155,7 @@ message IndexNullableSettings {
   // Number of new index entries between disk flushes with file sync
   NullableUint32 syncThreshold = 2;
 
-  // Size of the Btree node LRU cache
+  // Size of the Btree node cache in bytes
   NullableUint32 cacheSize = 3;
 
   // Max size of a single Btree node in bytes
@@ -1331,6 +1354,22 @@ message ChangePermissionRequest {
   uint32 permission = 4;
 }
 
+message ChangeSQLPrivilegesRequest {
+  // Action to perform
+  PermissionAction action = 1;
+
+  // Name of the user to update
+  string username = 2;
+
+  // Name of the database
+  string database = 3;
+
+  // SQL privileges: SELECT, CREATE, INSERT, UPDATE, DELETE, DROP, ALTER
+  repeated string privileges = 4;
+}
+
+message ChangeSQLPrivilegesResponse {}
+
 message SetActiveUserRequest {
   // If true, the user is active
   bool active = 1;
@@ -1348,10 +1387,10 @@ message DatabaseListRequestV2 {}
 
 message DatabaseListResponseV2 {
   // Database list with current database settings
-  repeated DatabaseWithSettings databases = 1;
+  repeated DatabaseInfo databases = 1;
 }
 
-message DatabaseWithSettings {
+message DatabaseInfo {
   // Database name
   string name = 1;
 
@@ -1360,6 +1399,18 @@ message DatabaseWithSettings {
 
   // If true, this database is currently loaded into memory
   bool loaded = 3;
+
+  // database disk size
+  uint64 diskSize = 4;
+
+  // total number of transactions
+  uint64 numTransactions = 5;
+
+  // the time when the db was created
+  uint64 created_at = 6;
+
+  // the user who created the database
+  string created_by = 7;
 }
 
 message Chunk {
@@ -1391,7 +1442,10 @@ message SQLQueryRequest {
   repeated NamedParam params = 2;
 
   // If true, reuse previously opened snapshot
-  bool reuseSnapshot = 3;
+  bool reuseSnapshot = 3 [deprecated = true];
+
+  // Wheter the client accepts a streaming response
+  bool acceptStream = 4;
 }
 
 message NamedParam {
@@ -1548,6 +1602,13 @@ service ImmuService {
     };
   }
 
+  rpc ChangeSQLPrivileges(ChangeSQLPrivilegesRequest) returns (ChangeSQLPrivilegesResponse) {
+    option (google.api.http) = {
+      post: "/user/changesqlprivileges"
+      body: "*"
+    };
+  }
+
   rpc SetActiveUser(SetActiveUserRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/user/setactiveUser"
@@ -1577,7 +1638,7 @@ service ImmuService {
 
   rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {}
 
-  rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {}
+  rpc TxSQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {}
 
   rpc Login(LoginRequest) returns (LoginResponse) {
     option deprecated = true;
@@ -1627,7 +1688,7 @@ service ImmuService {
 
   rpc Delete(DeleteKeysRequest) returns (TxHeader) {
     option (google.api.http) = {
-      post: "/db/delete"
+      post: "/db/deletekey"
       body: "*"
     };
   }
@@ -1910,7 +1971,15 @@ service ImmuService {
     };
   }
 
-  rpc SQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+  // For backward compatibility with the grpc-gateway API
+  rpc UnarySQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+    option (google.api.http) = {
+      post: "/db/sqlquery"
+      body: "*"
+    };
+  }
+
+  rpc SQLQuery(SQLQueryRequest) returns (stream SQLQueryResult) {
     option (google.api.http) = {
       post: "/db/sqlquery"
       body: "*"

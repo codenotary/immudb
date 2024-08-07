@@ -71,8 +71,8 @@ type AHtree struct {
 	cLogBuf      []byte
 	cLogBufCount int
 
-	pCache *cache.LRUCache
-	dCache *cache.LRUCache
+	pCache *cache.Cache
+	dCache *cache.Cache
 
 	syncThld int
 	readOnly bool
@@ -171,12 +171,12 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 
 	latestSyncedNode := uint64(cLogSize / cLogEntrySize)
 
-	pCache, err := cache.NewLRUCache(opts.dataCacheSlots)
+	pCache, err := cache.NewCache(opts.dataCacheSlots)
 	if err != nil {
 		return nil, err
 	}
 
-	dCache, err := cache.NewLRUCache(opts.digestsCacheSlots)
+	dCache, err := cache.NewCache(opts.digestsCacheSlots)
 	if err != nil {
 		return nil, err
 	}

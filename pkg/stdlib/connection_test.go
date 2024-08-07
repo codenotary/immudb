@@ -159,7 +159,7 @@ func TestConn_QueryContext(t *testing.T) {
 	require.NoError(t, err)
 	defer rows.Close()
 
-	dst := make([]driver.Value, 6, 6)
+	dst := make([]driver.Value, 6)
 	rows.Next(dst)
 
 	require.Equal(t, int64(1), dst[0])

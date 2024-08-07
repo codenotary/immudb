@@ -95,7 +95,7 @@ func TestMultiApp(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMultiApOffsetAndLRUCacheEviction(t *testing.T) {
+func TestMultiApOffsetAndCacheEviction(t *testing.T) {
 	a, err := Open(t.TempDir(), DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
 	require.NoError(t, err)
 

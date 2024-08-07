@@ -1,4 +1,5 @@
 FROM golang:1.18 as build
+ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download

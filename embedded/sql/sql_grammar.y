@@ -47,6 +47,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     col *ColSelector
     sel Selector
     sels []Selector
+    jsonFields []string
     distinct bool
     ds DataSource
     tableRef *tableRef
@@ -56,6 +57,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
+    checks []CheckConstraint
     exp ValueExp
     binExp ValueExp
     err error
@@ -68,10 +70,12 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     updates []*colUpdate
     onConflict *OnConflictDo
     permission Permission
+    sqlPrivilege SQLPrivilege
+    sqlPrivileges []SQLPrivilege
 }
 
 %token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
-%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
+%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
@@ -93,6 +97,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 %token <dot> DOT
+%token <arrow> ARROW
 
 %left  ','
 %right AS
@@ -118,6 +123,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <value> val fnCall
 %type <sel> selector
 %type <sels> opt_selectors selectors
+%type <jsonFields> jsonFields
 %type <col> col
 %type <distinct> opt_distinct opt_all
 %type <ds> ds
@@ -129,6 +135,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
+%type <checks> opt_checks
 %type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
@@ -143,16 +150,18 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <updates> updates
 %type <onConflict> opt_on_conflict
 %type <permission> permission
+%type <sqlPrivilege> sqlPrivilege
+%type <sqlPrivileges> sqlPrivileges
 
 %start sql
 
 %%
 
 sql: sqlstmts
-{
-    $$ = $1
-    setResult(yylex, $1)
-}
+    {
+        $$ = $1
+        setResult(yylex, $1)
+    }
 
 sqlstmts:
     sqlstmt opt_separator
@@ -210,9 +219,9 @@ ddlstmt:
         $$ = &UseSnapshotStmt{period: $3}
     }
 |
-    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY one_or_more_ids ')'
+    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' opt_checks PRIMARY KEY one_or_more_ids ')'
     {
-        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
+        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, checks: $8, pkColNames: $11}
     }
 |
     DROP TABLE IDENTIFIER
@@ -260,6 +269,11 @@ ddlstmt:
         $$ = &DropColumnStmt{table: $3, colName: $6}
     }
 |
+    ALTER TABLE IDENTIFIER DROP CONSTRAINT IDENTIFIER
+    {
+        $$ = &DropConstraintStmt{table: $3, constraintName: $6}
+    }
+|
     CREATE USER IDENTIFIER WITH PASSWORD VARCHAR permission
     {
         $$ = &CreateUserStmt{username: $3, password: $6, permission: $7}
@@ -273,6 +287,68 @@ ddlstmt:
     DROP USER IDENTIFIER
     {
         $$ = &DropUserStmt{username: $3}
+    }
+|
+    GRANT sqlPrivileges ON DATABASE IDENTIFIER TO USER IDENTIFIER
+    {
+        $$ = &AlterPrivilegesStmt{database: $5, user: $8, privileges: $2, isGrant: true}
+    }
+|
+    REVOKE sqlPrivileges ON DATABASE IDENTIFIER TO USER IDENTIFIER
+    {
+        $$ = &AlterPrivilegesStmt{database: $5, user: $8, privileges: $2}
+    }
+
+sqlPrivileges:
+    ALL PRIVILEGES
+    {
+        $$ = allPrivileges
+    }
+|
+    sqlPrivilege
+    {
+        $$ = []SQLPrivilege{$1}
+    }
+|
+    sqlPrivilege ',' sqlPrivileges
+    {
+        $$ = append($3, $1)
+    }
+
+sqlPrivilege:
+    SELECT
+    {
+        $$ = SQLPrivilegeSelect
+    }
+|
+    CREATE
+    {
+        $$ = SQLPrivilegeCreate
+    }
+|
+    INSERT
+    {
+        $$ = SQLPrivilegeInsert
+    }
+|
+    UPDATE
+    {
+        $$ = SQLPrivilegeUpdate
+    }
+|
+    DELETE
+    {
+        $$ = SQLPrivilegeDelete
+    }
+|
+    DROP
+    {
+        $$ = SQLPrivilegeDrop
+    }
+|
+    ALTER
+    {
+        $$ = SQLPrivilegeAlter
     }
 
 permission:
@@ -590,6 +666,20 @@ dqlstmt:
             ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "users"}},
         }
     }
+|
+    SHOW GRANTS
+    {
+         $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "grants"}},
+        }
+    }
+|
+    SHOW GRANTS FOR IDENTIFIER
+    {
+         $$ = &SelectStmt{
+            ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "grants", params: []ValueExp{&Varchar{val: $4}}}},
+        }
+    }
 
 select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset
     {
@@ -658,6 +748,11 @@ selector:
         $$ = $1
     }
 |
+    col jsonFields
+    {
+        $$ = &JSONSelector{ColSelector: $1, fields: $2}
+    }
+|
     AGGREGATE_FUNC '(' '*' ')'
     {
         $$ = &AggColSelector{aggFn: $1, col: "*"}
@@ -666,6 +761,17 @@ selector:
     AGGREGATE_FUNC '(' col ')'
     {
         $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col}
+    }
+
+jsonFields:
+    ARROW VARCHAR
+    {
+        $$ = []string{$2}
+    }
+|
+    jsonFields ARROW VARCHAR
+    {
+        $$ = append($$, $3)
     }
 
 col:
@@ -884,12 +990,12 @@ opt_indexon:
     }
 
 ordcols:
-    col opt_ord
+    selector opt_ord
     {
         $$ = []*OrdCol{{sel: $1, descOrder: $2}}
     }
 |
-    ordcols ',' col opt_ord
+    ordcols ',' selector opt_ord
     {
         $$ = append($1, &OrdCol{sel: $3, descOrder: $4})
     }
@@ -922,6 +1028,21 @@ opt_as:
     AS IDENTIFIER
     {
         $$ = $2
+    }
+
+opt_checks:
+    {
+        $$ = nil
+    }
+|
+    CHECK exp ',' opt_checks
+    {
+        $$ = append([]CheckConstraint{{exp: $2}}, $4...)
+    }
+|
+    CONSTRAINT IDENTIFIER CHECK exp ',' opt_checks
+    {
+        $$ = append([]CheckConstraint{{name: $2, exp: $4}}, $6...)
     }
 
 exp:

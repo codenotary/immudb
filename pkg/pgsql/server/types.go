@@ -22,57 +22,60 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func buildNamedParams(paramsType []*schema.Column, paramsVal []interface{}) ([]*schema.NamedParam, error) {
+func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) ([]*schema.NamedParam, error) {
 	pMap := make(map[string]interface{})
 	for index, param := range paramsType {
+		name := param.Column
+
 		val := paramsVal[index]
 		// text param
 		if p, ok := val.(string); ok {
 			switch param.Type {
-			case "INTEGER":
+
+			case sql.IntegerType:
 				int, err := strconv.Atoi(p)
 				if err != nil {
 					return nil, err
 				}
-				pMap[param.Name] = int64(int)
-			case "VARCHAR":
-				pMap[param.Name] = p
-			case "BOOLEAN":
-				pMap[param.Name] = p == "true"
-			case "BLOB":
+				pMap[name] = int64(int)
+			case sql.VarcharType:
+				pMap[name] = p
+			case sql.BooleanType:
+				pMap[name] = p == "true"
+			case sql.BLOBType:
 				d, err := hex.DecodeString(p)
 				if err != nil {
 					return nil, err
 				}
-				pMap[param.Name] = d
+				pMap[name] = d
 			}
 		}
 		// binary param
 		if p, ok := val.([]byte); ok {
 			switch param.Type {
-			case "INTEGER":
+			case sql.IntegerType:
 				i, err := getInt64(p)
 				if err != nil {
 					return nil, err
 				}
-				pMap[param.Name] = i
-			case "VARCHAR":
-				pMap[param.Name] = string(p)
-			case "BOOLEAN":
+				pMap[name] = i
+			case sql.VarcharType:
+				pMap[name] = string(p)
+			case sql.BooleanType:
 				v := false
 				if p[0] == byte(1) {
 					v = true
 				}
-				pMap[param.Name] = v
-			case "BLOB":
-				pMap[param.Name] = p
+				pMap[name] = v
+			case sql.BLOBType:
+				pMap[name] = p
 			}
 		}
 	}
-
 	return schema.EncodeParams(pMap)
 }
 

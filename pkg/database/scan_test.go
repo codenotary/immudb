@@ -31,8 +31,11 @@ func TestStoreScan(t *testing.T) {
 
 	db.maxResultSize = 3
 
-	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
-	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
+	_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
+	require.NoError(t, err)
+
+	_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
+	require.NoError(t, err)
 
 	scanOptions := schema.ScanRequest{
 		Prefix: []byte(`z`),
@@ -50,6 +53,9 @@ func TestStoreScan(t *testing.T) {
 
 	_, err = db.Scan(context.Background(), nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
+
+	_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`acb`), Value: []byte(`item4`)}}})
+	require.NoError(t, err)
 
 	scanOptions = schema.ScanRequest{
 		SeekKey: []byte(`b`),
@@ -70,11 +76,13 @@ func TestStoreScan(t *testing.T) {
 
 	list, err = db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
-	require.Exactly(t, 2, len(list.Entries))
-	require.Equal(t, list.Entries[0].Key, []byte(`abc`))
-	require.Equal(t, list.Entries[0].Value, []byte(`item3`))
-	require.Equal(t, list.Entries[1].Key, []byte(`aaa`))
-	require.Equal(t, list.Entries[1].Value, []byte(`item1`))
+	require.Exactly(t, 3, len(list.Entries))
+	require.Equal(t, list.Entries[0].Key, []byte(`acb`))
+	require.Equal(t, list.Entries[0].Value, []byte(`item4`))
+	require.Equal(t, list.Entries[1].Key, []byte(`abc`))
+	require.Equal(t, list.Entries[1].Value, []byte(`item3`))
+	require.Equal(t, list.Entries[2].Key, []byte(`aaa`))
+	require.Equal(t, list.Entries[2].Value, []byte(`item1`))
 
 	scanOptions1 := schema.ScanRequest{
 		SeekKey: []byte(`a`),
@@ -84,14 +92,14 @@ func TestStoreScan(t *testing.T) {
 	}
 
 	list1, err := db.Scan(context.Background(), &scanOptions1)
-	require.ErrorIs(t, err, ErrResultSizeLimitReached)
+	require.NoError(t, err)
 	require.Exactly(t, 3, len(list1.Entries))
 	require.Equal(t, list1.Entries[0].Key, []byte(`aaa`))
 	require.Equal(t, list1.Entries[0].Value, []byte(`item1`))
 	require.Equal(t, list1.Entries[1].Key, []byte(`abc`))
 	require.Equal(t, list1.Entries[1].Value, []byte(`item3`))
-	require.Equal(t, list1.Entries[2].Key, []byte(`bbb`))
-	require.Equal(t, list1.Entries[2].Value, []byte(`item2`))
+	require.Equal(t, list1.Entries[2].Key, []byte(`acb`))
+	require.Equal(t, list1.Entries[2].Value, []byte(`item4`))
 }
 
 func TestStoreScanPrefix(t *testing.T) {

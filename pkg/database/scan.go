@@ -43,7 +43,6 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 	}
 
 	limit := int(req.Limit)
-
 	if req.Limit == 0 {
 		limit = d.maxResultSize
 	}
@@ -100,13 +99,6 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 		}
 
 		entries.Entries = append(entries.Entries, e)
-
-		if l == d.maxResultSize {
-			return entries,
-				fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
-					"Pagination over large results can be achieved by using the limit and initialTx arguments",
-					ErrResultSizeLimitReached, d.maxResultSize)
-		}
 	}
 
 	return entries, nil

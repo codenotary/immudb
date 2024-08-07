@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"strings"
 	"time"
@@ -42,19 +42,26 @@ type Catalog struct {
 	maxTableID uint32 // The maxTableID variable is used to assign unique ids to new tables as they are created.
 }
 
+type CheckConstraint struct {
+	id   uint32
+	name string
+	exp  ValueExp
+}
+
 type Table struct {
-	catalog         *Catalog
-	id              uint32
-	name            string
-	cols            []*Column
-	colsByID        map[uint32]*Column
-	colsByName      map[string]*Column
-	indexes         []*Index
-	indexesByName   map[string]*Index
-	indexesByColID  map[uint32][]*Index
-	primaryIndex    *Index
-	autoIncrementPK bool
-	maxPK           int64
+	catalog          *Catalog
+	id               uint32
+	name             string
+	cols             []*Column
+	colsByID         map[uint32]*Column
+	colsByName       map[string]*Column
+	indexes          []*Index
+	indexesByName    map[string]*Index
+	indexesByColID   map[uint32][]*Index
+	checkConstraints map[string]CheckConstraint
+	primaryIndex     *Index
+	autoIncrementPK  bool
+	maxPK            int64
 
 	maxColID   uint32
 	maxIndexID uint32
@@ -195,7 +202,6 @@ func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
 	if err != nil {
 		return false, err
 	}
-
 	return len(t.indexesByColID[col.id]) > 0, nil
 }
 
@@ -260,11 +266,61 @@ func (i *Index) enginePrefix() []byte {
 	return i.table.catalog.enginePrefix
 }
 
-func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValueRange) bool {
+func (i *Index) coversOrdCols(ordCols []*OrdCol, rangesByColID map[uint32]*typedValueRange) bool {
+	if !ordColumnsHaveSameDirection(ordCols) {
+		return false
+	}
+	return i.hasPrefix(i.cols, ordCols) || i.sortableUsing(ordCols, rangesByColID)
+}
+
+func ordColumnsHaveSameDirection(cols []*OrdCol) bool {
+	if len(cols) == 0 {
+		return true
+	}
+
+	desc := cols[0].descOrder
+	for _, ordCol := range cols[1:] {
+		if ordCol.descOrder != desc {
+			return false
+		}
+	}
+	return true
+}
+
+func (i *Index) hasPrefix(columns []*Column, ordCols []*OrdCol) bool {
+	if len(ordCols) > len(columns) {
+		return false
+	}
+
+	for j, ordCol := range ordCols {
+		aggFn, _, colName := ordCol.sel.resolve(i.table.Name())
+		if len(aggFn) > 0 {
+			return false
+		}
+
+		col, err := i.table.GetColumnByName(colName)
+		if err != nil || col.id != columns[j].id {
+			return false
+		}
+	}
+	return true
+}
+
+func (i *Index) sortableUsing(columns []*OrdCol, rangesByColID map[uint32]*typedValueRange) bool {
 	// all columns before colID must be fixedValues otherwise the index can not be used
-	for _, col := range i.cols {
-		if col.id == colID {
-			return true
+	aggFn, _, colName := columns[0].sel.resolve(i.table.Name())
+	if len(aggFn) > 0 {
+		return false
+	}
+
+	firstCol, err := i.table.GetColumnByName(colName)
+	if err != nil {
+		return false
+	}
+
+	for j, col := range i.cols {
+		if col.id == firstCol.id {
+			return i.hasPrefix(i.cols[j:], columns)
 		}
 
 		colRange, ok := rangesByColID[col.id]
@@ -313,7 +369,7 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
-func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, maxColID uint32) (table *Table, err error) {
+func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, checkConstraints map[string]CheckConstraint, maxColID uint32) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -341,15 +397,16 @@ func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, maxCol
 	}
 
 	table = &Table{
-		id:             id,
-		catalog:        catlg,
-		name:           name,
-		cols:           make([]*Column, 0, len(colsSpec)),
-		colsByID:       make(map[uint32]*Column),
-		colsByName:     make(map[string]*Column),
-		indexesByName:  make(map[string]*Index),
-		indexesByColID: make(map[uint32][]*Index),
-		maxColID:       maxColID,
+		id:               id,
+		catalog:          catlg,
+		name:             name,
+		cols:             make([]*Column, 0, len(colsSpec)),
+		colsByID:         make(map[uint32]*Column),
+		colsByName:       make(map[string]*Column),
+		indexesByName:    make(map[string]*Index),
+		indexesByColID:   make(map[uint32][]*Index),
+		checkConstraints: checkConstraints,
+		maxColID:         maxColID,
 	}
 
 	for id := uint32(1); id <= maxColID; id++ {
@@ -359,8 +416,8 @@ func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, maxCol
 			continue
 		}
 
-		if cs.colName == revCol {
-			return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+		if isReservedCol(cs.colName) {
+			return nil, fmt.Errorf("%w(%s)", ErrReservedWord, cs.colName)
 		}
 
 		_, colExists := table.colsByName[cs.colName]
@@ -483,8 +540,8 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 }
 
 func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
-	if spec.colName == revCol {
-		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+	if isReservedCol(spec.colName) {
+		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, spec.colName)
 	}
 
 	if spec.autoIncrement {
@@ -547,8 +604,8 @@ func (ctlg *Catalog) renameTable(oldName, newName string) (*Table, error) {
 }
 
 func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
-	if newName == revCol {
-		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, revCol)
+	if isReservedCol(newName) {
+		return nil, fmt.Errorf("%w(%s)", ErrReservedWord, newName)
 	}
 
 	if oldName == newName {
@@ -580,7 +637,7 @@ func (t *Table) deleteColumn(col *Column) error {
 	}
 
 	if isIndexed {
-		return fmt.Errorf("%w (%s)", ErrCantDropIndexedColumn, col.colName)
+		return fmt.Errorf("%w %s because one or more indexes require it", ErrCannotDropColumn, col.colName)
 	}
 
 	newCols := make([]*Column, 0, len(t.cols)-1)
@@ -596,6 +653,16 @@ func (t *Table) deleteColumn(col *Column) error {
 	delete(t.colsByID, col.id)
 
 	return nil
+}
+
+func (t *Table) deleteCheck(name string) (uint32, error) {
+	c, exists := t.checkConstraints[name]
+	if !exists {
+		return 0, fmt.Errorf("%s.%s: %w", t.name, name, ErrConstraintNotFound)
+	}
+
+	delete(t.checkConstraints, name)
+	return c.id, nil
 }
 
 func (t *Table) deleteIndex(index *Index) error {
@@ -673,55 +740,38 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 }
 
 func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix: MapKey(catlg.enginePrefix, catalogTablePrefix, EncodeID(1)),
-	}
+	return catlg.loadCatalog(ctx, tx, false)
+}
 
-	tableReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer tableReader.Close()
+func (catlg *Catalog) loadCatalog(ctx context.Context, tx *store.OngoingTx, copyToTx bool) error {
+	prefix := MapKey(catlg.enginePrefix, catalogTablePrefix, EncodeID(1))
 
-	for {
-		mkey, vref, err := tableReader.Read(ctx)
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
+	return iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		dbID, tableID, err := unmapTableID(catlg.enginePrefix, key)
 		if err != nil {
 			return err
 		}
 
-		dbID, tableID, err := unmapTableID(catlg.enginePrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		if dbID != 1 {
+		if dbID != DatabaseID {
 			return ErrCorruptedData
 		}
 
-		// Retrieve the key-value metadata (KVMetadata) of the current version reference (vref).
-		// If the metadata is not nil and the "Deleted" flag of the metadata is set to true,
-		// increment the catalog's table count by 1 and continue to the next iteration.
-		// This implies this is a deleted table and we should not load it.
-		md := vref.KVMetadata()
-		if md != nil && md.Deleted() {
+		if deleted {
 			catlg.maxTableID++
-			continue
+			return nil
 		}
 
-		colSpecs, maxColID, err := loadColSpecs(ctx, dbID, tableID, tx, catlg.enginePrefix)
+		colSpecs, maxColID, err := loadColSpecs(ctx, tableID, tx, catlg.enginePrefix, copyToTx)
 		if err != nil {
 			return err
 		}
 
-		v, err := vref.Resolve()
+		checks, err := loadCheckConstraints(ctx, dbID, tableID, tx, catlg.enginePrefix, copyToTx)
 		if err != nil {
 			return err
 		}
 
-		table, err := catlg.newTable(string(v), colSpecs, maxColID)
+		table, err := catlg.newTable(string(value), colSpecs, checks, maxColID)
 		if err != nil {
 			return err
 		}
@@ -730,13 +780,13 @@ func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		err = table.loadIndexes(ctx, catlg.enginePrefix, tx)
-		if err != nil {
-			return err
+		if copyToTx {
+			if err := tx.Set(key, nil, value); err != nil {
+				return err
+			}
 		}
-	}
-
-	return nil
+		return table.loadIndexes(ctx, catlg.enginePrefix, tx, copyToTx)
+	})
 }
 
 func loadMaxPK(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
@@ -759,108 +809,86 @@ func loadMaxPK(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx, table
 	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
-func loadColSpecs(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs map[uint32]*ColSpec, maxColID uint32, err error) {
-	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+func loadColSpecs(ctx context.Context, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte, copyToTx bool) (map[uint32]*ColSpec, uint32, error) {
+	prefix := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
 
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix: initialKey,
-	}
+	var maxColID uint32
+	specs := make(map[uint32]*ColSpec)
 
-	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer colSpecReader.Close()
-
-	specs = make(map[uint32]*ColSpec, 0)
-
-	for {
-		mkey, vref, err := colSpecReader.Read(ctx)
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
-		if err != nil {
-			return nil, 0, err
+	err := iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		if deleted {
+			maxColID++
+			return nil
 		}
 
-		md := vref.KVMetadata()
-		if md != nil && md.IsExpirable() {
-			return nil, 0, ErrBrokenCatalogColSpecExpirable
-		}
-
-		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		if dbID != mdbID || tableID != mtableID {
-			return nil, 0, ErrCorruptedData
-		}
-
-		if colID != maxColID+1 {
-			return nil, 0, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
-		}
-
-		maxColID = colID
-
-		if md != nil && md.Deleted() {
-			continue
-		}
-
-		v, err := vref.Resolve()
-		if err != nil {
-			return nil, 0, err
-		}
-
-		if len(v) < 6 {
-			return nil, 0, fmt.Errorf("%w: mismatch on database or table ids", ErrCorruptedData)
-		}
-
-		specs[colID] = &ColSpec{
-			colName:       string(v[5:]),
-			colType:       colType,
-			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
-			autoIncrement: v[0]&autoIncrementFlag != 0,
-			notNull:       v[0]&nullableFlag != 0,
-		}
-	}
-
-	return specs, maxColID, nil
-}
-
-func (table *Table) loadIndexes(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
-
-	idxReaderSpec := store.KeyReaderSpec{
-		Prefix: initialKey,
-	}
-
-	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer idxSpecReader.Close()
-
-	for {
-		mkey, vref, err := idxSpecReader.Read(ctx)
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
+		colSpec, colID, err := loadColSpec(sqlPrefix, key, value, tableID)
 		if err != nil {
 			return err
 		}
 
-		// Retrieve the key-value metadata (KVMetadata) of the current version reference (vref).
-		// If the metadata is not nil and the "Deleted" flag of the metadata is set to true,
-		// increment the catalog's index count by 1 and continue to the next iteration.
-		// This implies this is a deleted index and we should not load it.
-		md := vref.KVMetadata()
-		if md != nil && md.Deleted() {
-			table.maxIndexID++
-			continue
+		maxColID++
+
+		specs[colID] = colSpec
+
+		if copyToTx {
+			return tx.Set(key, nil, value)
+		}
+		return nil
+	})
+	return specs, maxColID, err
+}
+
+func loadColSpec(sqlPrefix, key, value []byte, tableID uint32) (*ColSpec, uint32, error) {
+	if len(value) < 6 {
+		return nil, 0, ErrCorruptedData
+	}
+
+	mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, key)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if mdbID != 1 || tableID != mtableID {
+		return nil, 0, ErrCorruptedData
+	}
+
+	return &ColSpec{
+		colName:       string(value[5:]),
+		colType:       colType,
+		maxLen:        int(binary.BigEndian.Uint32(value[1:])),
+		autoIncrement: value[0]&autoIncrementFlag != 0,
+		notNull:       value[0]&nullableFlag != 0,
+	}, colID, nil
+}
+
+func loadCheckConstraints(ctx context.Context, dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte, copyToTx bool) (map[string]CheckConstraint, error) {
+	prefix := MapKey(sqlPrefix, catalogCheckPrefix, EncodeID(dbID), EncodeID(tableID))
+	checks := make(map[string]CheckConstraint)
+
+	err := iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		if deleted {
+			return nil
 		}
 
-		dbID, tableID, indexID, err := unmapIndex(sqlPrefix, mkey)
+		check, err := parseCheckConstraint(sqlPrefix, key, value)
+		if err != nil {
+			return err
+		}
+		checks[check.name] = *check
+
+		if copyToTx {
+			return tx.Set(key, nil, value)
+		}
+		return nil
+	})
+	return checks, err
+}
+
+func (table *Table) loadIndexes(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx, copyToTx bool) error {
+	prefix := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(table.id))
+
+	return iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		dbID, tableID, indexID, err := unmapIndex(sqlPrefix, key)
 		if err != nil {
 			return err
 		}
@@ -869,42 +897,44 @@ func (table *Table) loadIndexes(ctx context.Context, sqlPrefix []byte, tx *store
 			return ErrCorruptedData
 		}
 
-		v, err := vref.Resolve()
-		if err != nil {
-			return err
+		if deleted {
+			table.maxIndexID++
+			return nil
 		}
 
-		// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
-		colSpecLen := EncIDLen + 1
-
-		if len(v) < 1+colSpecLen || len(v)%colSpecLen != 1 {
-			return ErrCorruptedData
-		}
-
-		var colIDs []uint32
-
-		for i := 1; i < len(v); i += colSpecLen {
-			colID := binary.BigEndian.Uint32(v[i:])
-
-			// TODO: currently only ASC order is supported
-			if v[i+EncIDLen] != 0 {
+		if copyToTx {
+			if err := tx.Set(key, nil, value); err != nil {
+				return err
+			}
+		} else {
+			// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
+			colSpecLen := EncIDLen + 1
+			if len(value) < 1+colSpecLen || len(value)%colSpecLen != 1 {
 				return ErrCorruptedData
 			}
 
-			colIDs = append(colIDs, colID)
-		}
+			var colIDs []uint32
+			for i := 1; i < len(value); i += colSpecLen {
+				colID := binary.BigEndian.Uint32(value[i:])
 
-		index, err := table.newIndex(v[0] > 0, colIDs)
-		if err != nil {
-			return err
-		}
+				// TODO: currently only ASC order is supported
+				if value[i+EncIDLen] != 0 {
+					return ErrCorruptedData
+				}
+				colIDs = append(colIDs, colID)
+			}
 
-		if indexID != index.id {
-			return ErrCorruptedData
-		}
-	}
+			index, err := table.newIndex(value[0] > 0, colIDs)
+			if err != nil {
+				return err
+			}
 
-	return nil
+			if indexID != index.id {
+				return ErrCorruptedData
+			}
+		}
+		return nil
+	})
 }
 
 func trimPrefix(prefix, mkey []byte, mappingPrefix []byte) ([]byte, error) {
@@ -933,6 +963,39 @@ func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
 	return
 }
 
+func unmapCheckID(prefix, mkey []byte) (uint32, error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(catalogCheckPrefix))
+	if err != nil {
+		return 0, err
+	}
+
+	if len(encID) < 3*EncIDLen {
+		return 0, ErrCorruptedData
+	}
+	return binary.BigEndian.Uint32(encID[2*EncIDLen:]), nil
+}
+
+func parseCheckConstraint(prefix, key, value []byte) (*CheckConstraint, error) {
+	id, err := unmapCheckID(prefix, key)
+	if err != nil {
+		return nil, err
+	}
+
+	nameLen := value[0] + 1
+	name := string(value[1 : 1+nameLen])
+
+	exp, err := ParseExpFromString(string(value[1+nameLen:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return &CheckConstraint{
+		id:   id,
+		name: name,
+		exp:  exp,
+	}, nil
+}
+
 func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQLValueType, err error) {
 	encID, err := trimPrefix(prefix, mkey, []byte(catalogColumnPrefix))
 	if err != nil {
@@ -956,16 +1019,17 @@ func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQL
 }
 
 func asType(t string) (SQLValueType, error) {
-	if t == IntegerType ||
-		t == Float64Type ||
-		t == BooleanType ||
-		t == VarcharType ||
-		t == UUIDType ||
-		t == BLOBType ||
-		t == TimestampType {
+	switch t {
+	case IntegerType,
+		Float64Type,
+		BooleanType,
+		VarcharType,
+		UUIDType,
+		BLOBType,
+		TimestampType,
+		JSONType:
 		return t, nil
 	}
-
 	return t, ErrCorruptedData
 }
 
@@ -1254,19 +1318,54 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 	return nil, 0, ErrInvalidValue
 }
 
+func getEncodeRawValue(val TypedValue, colType SQLValueType) (interface{}, error) {
+	if colType != JSONType || val.Type() == JSONType {
+		return val.RawValue(), nil
+	}
+
+	if val.Type() != VarcharType {
+		return nil, fmt.Errorf("%w: invalid json value", ErrInvalidValue)
+	}
+	s, _ := val.RawValue().(string)
+
+	raw := json.RawMessage(s)
+	if !json.Valid(raw) {
+		return nil, fmt.Errorf("%w: invalid json value", ErrInvalidValue)
+	}
+	return raw, nil
+}
+
 func EncodeValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
-	return EncodeRawValue(val.RawValue(), colType, maxLen)
+	v, err := getEncodeRawValue(val, colType)
+	if err != nil {
+		return nil, err
+	}
+	return EncodeRawValue(v, colType, maxLen, false)
+}
+
+func EncodeNullableValue(val TypedValue, colType SQLValueType, maxLen int) ([]byte, error) {
+	v, err := getEncodeRawValue(val, colType)
+	if err != nil {
+		return nil, err
+	}
+	return EncodeRawValue(v, colType, maxLen, true)
 }
 
 // EncodeRawValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
-func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int, nullable bool) ([]byte, error) {
 	convVal, err := mayApplyImplicitConversion(val, colType)
 	if err != nil {
 		return nil, err
 	}
 
-	if convVal == nil {
+	if convVal == nil && !nullable {
 		return nil, ErrInvalidValue
+	}
+
+	if convVal == nil {
+		encv := make([]byte, EncLenLen)
+		binary.BigEndian.PutUint32(encv[:], uint32(0))
+		return encv, nil
 	}
 
 	switch colType {
@@ -1342,6 +1441,22 @@ func EncodeRawValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, 
 
 			return encv[:], nil
 		}
+	case JSONType:
+		rawJson, ok := val.(json.RawMessage)
+		if !ok {
+			data, err := json.Marshal(val)
+			if err != nil {
+				return nil, err
+			}
+			rawJson = data
+		}
+
+		// len(v) + v
+		encv := make([]byte, EncLenLen+len(rawJson))
+		binary.BigEndian.PutUint32(encv[:], uint32(len(rawJson)))
+		copy(encv[EncLenLen:], rawJson)
+
+		return encv[:], nil
 	case UUIDType:
 		{
 			uuidVal, ok := convVal.(uuid.UUID)
@@ -1405,9 +1520,21 @@ func DecodeValueLength(b []byte) (int, int, error) {
 }
 
 func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+	return decodeValue(b, colType, false)
+}
+
+func DecodeNullableValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+	return decodeValue(b, colType, true)
+}
+
+func decodeValue(b []byte, colType SQLValueType, nullable bool) (TypedValue, int, error) {
 	vlen, voff, err := DecodeValueLength(b)
 	if err != nil {
 		return nil, 0, err
+	}
+
+	if vlen == 0 && nullable {
+		return &NullValue{t: colType}, voff, nil
 	}
 
 	switch colType {
@@ -1446,6 +1573,16 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			voff += vlen
 
 			return &Blob{val: v}, voff, nil
+		}
+	case JSONType:
+		{
+			v := b[voff : voff+vlen]
+			voff += vlen
+
+			var val interface{}
+			err = json.Unmarshal(v, &val)
+
+			return &JSON{val: val}, voff, err
 		}
 	case UUIDType:
 		{
@@ -1487,139 +1624,21 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	return nil, 0, ErrCorruptedData
 }
 
-// addSchemaToTx adds the schema to the ongoing transaction.
-func (t *Table) addIndexesToTx(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
-	initialKey := MapKey(sqlPrefix, catalogIndexPrefix, EncodeID(1), EncodeID(t.id))
-
-	idxReaderSpec := store.KeyReaderSpec{
-		Prefix: initialKey,
-	}
-
-	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer idxSpecReader.Close()
-
-	for {
-		mkey, vref, err := idxSpecReader.Read(ctx)
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		if t.id != tableID || dbID != 1 {
-			return ErrCorruptedData
-		}
-
-		v, err := vref.Resolve()
-		if err == io.EOF {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // addSchemaToTx adds the schema of the catalog to the given transaction.
-func (catlg *Catalog) addSchemaToTx(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := store.KeyReaderSpec{
-		Prefix: MapKey(sqlPrefix, catalogTablePrefix, EncodeID(1)),
-	}
-
-	tableReader, err := tx.NewKeyReader(dbReaderSpec)
-	if err != nil {
-		return err
-	}
-	defer tableReader.Close()
-
-	for {
-		mkey, vref, err := tableReader.Read(ctx)
-		if errors.Is(err, store.ErrNoMoreEntries) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
-		if err != nil {
-			return err
-		}
-
-		if dbID != 1 {
-			return ErrCorruptedData
-		}
-
-		// read col specs into tx
-		colSpecs, maxColID, err := addColSpecsToTx(ctx, tx, sqlPrefix, tableID)
-		if err != nil {
-			return err
-		}
-
-		v, err := vref.Resolve()
-		if err == io.EOF {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return err
-		}
-
-		table, err := catlg.newTable(string(v), colSpecs, maxColID)
-		if err != nil {
-			return err
-		}
-
-		if tableID != table.id {
-			return ErrCorruptedData
-		}
-
-		// read index specs into tx
-		err = table.addIndexesToTx(ctx, sqlPrefix, tx)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
+func (catlg *Catalog) addSchemaToTx(ctx context.Context, tx *store.OngoingTx) error {
+	return catlg.loadCatalog(ctx, tx, true)
 }
 
-// addColSpecsToTx adds the column specs of the given table to the given transaction.
-func addColSpecsToTx(ctx context.Context, tx *store.OngoingTx, sqlPrefix []byte, tableID uint32) (specs map[uint32]*ColSpec, maxColID uint32, err error) {
-	initialKey := MapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(tableID))
-
+func iteratePrefix(ctx context.Context, tx *store.OngoingTx, prefix []byte, onSpec func(key, value []byte, deleted bool) error) error {
 	dbReaderSpec := store.KeyReaderSpec{
-		Prefix: initialKey,
+		Prefix: prefix,
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
-		return nil, 0, err
+		return err
 	}
 	defer colSpecReader.Close()
-
-	specs = make(map[uint32]*ColSpec, 0)
 
 	for {
 		mkey, vref, err := colSpecReader.Read(ctx)
@@ -1627,54 +1646,27 @@ func addColSpecsToTx(ctx context.Context, tx *store.OngoingTx, sqlPrefix []byte,
 			break
 		}
 		if err != nil {
-			return nil, 0, err
+			return err
 		}
 
 		md := vref.KVMetadata()
 		if md != nil && md.IsExpirable() {
-			return nil, 0, ErrBrokenCatalogColSpecExpirable
+			return ErrBrokenCatalogColSpecExpirable
 		}
 
-		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
+		deleted := md != nil && md.Deleted()
+		var v []byte
+		if !deleted {
+			v, err = vref.Resolve()
+			if err != nil {
+				return err
+			}
+		}
+
+		err = onSpec(mkey, v, deleted)
 		if err != nil {
-			return nil, 0, err
-		}
-
-		if mdbID != 1 || tableID != mtableID {
-			return nil, 0, ErrCorruptedData
-		}
-
-		if colID != maxColID+1 {
-			return nil, 0, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
-		}
-
-		maxColID = colID
-
-		if md != nil && md.Deleted() {
-			continue
-		}
-
-		v, err := vref.Resolve()
-		if err != nil {
-			return nil, 0, err
-		}
-		if len(v) < 6 {
-			return nil, 0, ErrCorruptedData
-		}
-
-		err = tx.Set(mkey, nil, v)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		specs[colID] = &ColSpec{
-			colName:       string(v[5:]),
-			colType:       colType,
-			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
-			autoIncrement: v[0]&autoIncrementFlag != 0,
-			notNull:       v[0]&nullableFlag != 0,
+			return err
 		}
 	}
-
-	return specs, maxColID, nil
+	return nil
 }

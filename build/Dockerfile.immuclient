@@ -1,7 +1,8 @@
 FROM golang:1.18 as build
+ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY . .
-RUN GOOS=linux GOARCH=amd64 make immuclient-static
+RUN GOOS=linux GOARCH=${BUILD_ARCH} make immuclient-static
 
 FROM debian:11.7-slim as bullseye
 LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"

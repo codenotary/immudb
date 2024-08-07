@@ -223,3 +223,46 @@ func TestRemoteStorageListEntriesInvalidArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoteStorageRemove(t *testing.T) {
+	storage := Open()
+
+	storeData(t, storage, "path/file1", "")
+	storeData(t, storage, "path/file2", "abc")
+	storeData(t, storage, "path/subPath/file1", "defg")
+	storeData(t, storage, "path/subPath/file2", "jklmnop")
+	storeData(t, storage, "path/subPath/file3", "jklmnop")
+	storeData(t, storage, "path/subPath/subPath1/file", "jklmnop")
+
+	t.Run("test remove single object", func(t *testing.T) {
+		err := storage.Remove(context.Background(), "path/subPath/file2/")
+		require.ErrorIs(t, err, ErrInvalidArguments)
+
+		err = storage.Remove(context.Background(), "path/subPath/file2")
+		require.NoError(t, err)
+
+		entries, _, err := storage.ListEntries(context.Background(), "path/subPath/")
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+		require.Equal(t, "file1", entries[0].Name)
+		require.Equal(t, "file3", entries[1].Name)
+	})
+
+	t.Run("test remove folder", func(t *testing.T) {
+		err := storage.RemoveAll(context.Background(), "path/subPath")
+		require.ErrorIs(t, err, ErrInvalidArguments)
+
+		err = storage.RemoveAll(context.Background(), "path/subPath/")
+		require.NoError(t, err)
+
+		entries, sub, err := storage.ListEntries(context.Background(), "path/")
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+		require.Empty(t, sub)
+
+		require.Equal(t, entries, []remotestorage.EntryInfo{
+			{Name: "file1", Size: 0},
+			{Name: "file2", Size: 3},
+		})
+	})
+}

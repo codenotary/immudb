@@ -29,7 +29,7 @@ func TestDefaultOptions(t *testing.T) {
 	s, closer := testServer(DefaultOptions().WithDir(dir))
 	defer closer()
 
-	opts := s.defaultDBOptions("db1")
+	opts := s.defaultDBOptions("db1", "user")
 
 	require.NoError(t, opts.Validate())
 
@@ -43,7 +43,7 @@ func TestReplicaOptions(t *testing.T) {
 	s, closer := testServer(DefaultOptions().WithDir(dir))
 	defer closer()
 
-	opts := s.defaultDBOptions("db1")
+	opts := s.defaultDBOptions("db1", "user")
 
 	opts.Replica = true
 
@@ -69,7 +69,7 @@ func TestPrimaryOptions(t *testing.T) {
 	s, closer := testServer(DefaultOptions().WithDir(dir))
 	defer closer()
 
-	opts := s.defaultDBOptions("db1")
+	opts := s.defaultDBOptions("db1", "user")
 
 	opts.Replica = false
 

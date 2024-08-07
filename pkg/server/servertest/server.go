@@ -89,12 +89,14 @@ func (bs *BufconnServer) setupGrpcServer() {
 			uuidContext.UUIDContextSetter,
 			auth.ServerUnaryInterceptor,
 			bs.immuServer.SessionAuthInterceptor,
+			bs.immuServer.InjectRequestMetadataUnaryInterceptor,
 		)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			server.ErrorMapperStream,
 			bs.immuServer.KeepALiveSessionStreamInterceptor,
 			uuidContext.UUIDStreamContextSetter,
 			auth.ServerStreamInterceptor,
+			bs.immuServer.InjectRequestMetadataStreamInterceptor,
 		)),
 	)
 }

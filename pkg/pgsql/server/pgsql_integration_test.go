@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -727,7 +728,7 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 	var version string
 	err = db.QueryRow("SELECT version()").Scan(&version)
 	require.NoError(t, err)
-	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
+	require.Equal(t, pgmeta.PgsqlServerVersionMessage, version)
 
 	_, err = db.Exec("DEALLOCATE \"_PLAN0x7fb2c0822800\"")
 	require.NoError(t, err)
@@ -1179,4 +1180,34 @@ func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedMultiInsertError(t *testi
 	blobContent := hex.EncodeToString(binaryContent)
 	_, err = db.Exec(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?); INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table, table), 1, 1000, 6000, "title 1", blobContent, true, 2, 2000, 12000, "title 2", blobContent2, true)
 	require.ErrorContains(t, err, errors.ErrMaxStmtNumberExceeded.Error())
+}
+
+func TestPgsqlServer_InvalidTraffic(t *testing.T) {
+	td := t.TempDir()
+
+	options := server.DefaultOptions().
+		WithDir(td).
+		WithPort(0).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(0).
+		WithMetricsServer(false).
+		WithWebServer(false)
+
+	srv := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+
+	err := srv.Initialize()
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		srv.Start()
+	}()
+
+	defer func() {
+		srv.Stop()
+	}()
+
+	_, err = http.Get(fmt.Sprintf("http://localhost:%d", srv.PgsqlSrv.GetPort()))
+	require.Error(t, err)
 }

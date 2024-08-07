@@ -48,8 +48,8 @@ func (s *ServerMock) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 	return s.Srv.TxSQLExec(ctx, request)
 }
 
-func (s *ServerMock) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	return s.Srv.TxSQLQuery(ctx, request)
+func (s *ServerMock) TxSQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_TxSQLQueryServer) error {
+	return s.Srv.TxSQLQuery(req, srv)
 }
 
 func (s *ServerMock) NewTx(ctx context.Context, request *schema.NewTxRequest) (*schema.NewTxResponse, error) {
@@ -367,8 +367,12 @@ func (s *ServerMock) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 	return s.Srv.SQLExec(ctx, req)
 }
 
-func (s *ServerMock) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	return s.Srv.SQLQuery(ctx, req)
+func (s *ServerMock) UnarySQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	return s.Srv.UnarySQLQuery(ctx, req)
+}
+
+func (s *ServerMock) SQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuService_SQLQueryServer) error {
+	return s.Srv.SQLQuery(req, srv)
 }
 
 func (s *ServerMock) ListTables(ctx context.Context, req *empty.Empty) (*schema.SQLQueryResult, error) {
@@ -385,4 +389,8 @@ func (s *ServerMock) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 
 func (s *ServerMock) TruncateDatabase(ctx context.Context, req *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error) {
 	return s.Srv.TruncateDatabase(ctx, req)
+}
+
+func (s *ServerMock) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQLPrivilegesRequest) (*schema.ChangeSQLPrivilegesResponse, error) {
+	return nil, nil
 }

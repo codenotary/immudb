@@ -20,10 +20,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,25 +34,41 @@ import (
 )
 
 const (
-	catalogPrefix       = "CTL."
-	catalogTablePrefix  = "CTL.TABLE."  // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
-	catalogColumnPrefix = "CTL.COLUMN." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
-	catalogIndexPrefix  = "CTL.INDEX."  // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
+	catalogPrefix          = "CTL."
+	catalogTablePrefix     = "CTL.TABLE."     // (key=CTL.TABLE.{1}{tableID}, value={tableNAME})
+	catalogColumnPrefix    = "CTL.COLUMN."    // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogIndexPrefix     = "CTL.INDEX."     // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
+	catalogCheckPrefix     = "CTL.CHECK."     // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
+	catalogPrivilegePrefix = "CTL.PRIVILEGE." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 
-	RowPrefix = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
-
+	RowPrefix    = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
 	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
 )
 
-const DatabaseID = uint32(1) // deprecated but left to maintain backwards compatibility
-const PKIndexID = uint32(0)
+const (
+	DatabaseID = uint32(1) // deprecated but left to maintain backwards compatibility
+	PKIndexID  = uint32(0)
+)
 
 const (
 	nullableFlag      byte = 1 << iota
 	autoIncrementFlag byte = 1 << iota
 )
 
-const revCol = "_rev"
+const (
+	revCol        = "_rev"
+	txMetadataCol = "_tx_metadata"
+)
+
+var reservedColumns = map[string]struct{}{
+	revCol:        {},
+	txMetadataCol: {},
+}
+
+func isReservedCol(col string) bool {
+	_, ok := reservedColumns[col]
+	return ok
+}
 
 type SQLValueType = string
 
@@ -63,6 +81,7 @@ const (
 	Float64Type   SQLValueType = "FLOAT"
 	TimestampType SQLValueType = "TIMESTAMP"
 	AnyType       SQLValueType = "ANY"
+	JSONType      SQLValueType = "JSON"
 )
 
 func IsNumericType(t SQLValueType) bool {
@@ -75,7 +94,26 @@ const (
 	PermissionReadOnly  Permission = "READ"
 	PermissionReadWrite Permission = "READWRITE"
 	PermissionAdmin     Permission = "ADMIN"
+	PermissionSysAdmin  Permission = "SYSADMIN"
 )
+
+func PermissionFromCode(code uint32) Permission {
+	switch code {
+	case 1:
+		{
+			return PermissionReadOnly
+		}
+	case 2:
+		{
+			return PermissionReadWrite
+		}
+	case 254:
+		{
+			return PermissionAdmin
+		}
+	}
+	return PermissionSysAdmin
+}
 
 type AggregateFn = string
 
@@ -98,12 +136,37 @@ const (
 	GE
 )
 
+func CmpOperatorToString(op CmpOperator) string {
+	switch op {
+	case EQ:
+		return "="
+	case NE:
+		return "!="
+	case LT:
+		return "<"
+	case LE:
+		return "<="
+	case GT:
+		return ">"
+	case GE:
+		return ">="
+	}
+	return ""
+}
+
 type LogicOperator = int
 
 const (
 	AND LogicOperator = iota
 	OR
 )
+
+func LogicOperatorToString(op LogicOperator) string {
+	if op == AND {
+		return "AND"
+	}
+	return "OR"
+}
 
 type NumOperator = int
 
@@ -114,6 +177,20 @@ const (
 	MULTOP
 )
 
+func NumOperatorString(op NumOperator) string {
+	switch op {
+	case ADDOP:
+		return "+"
+	case SUBSOP:
+		return "-"
+	case DIVOP:
+		return "/"
+	case MULTOP:
+		return "*"
+	}
+	return ""
+}
+
 type JoinType = int
 
 const (
@@ -123,22 +200,34 @@ const (
 )
 
 const (
-	NowFnCall       string = "NOW"
-	UUIDFnCall      string = "RANDOM_UUID"
-	DatabasesFnCall string = "DATABASES"
-	TablesFnCall    string = "TABLES"
-	TableFnCall     string = "TABLE"
-	UsersFnCall     string = "USERS"
-	ColumnsFnCall   string = "COLUMNS"
-	IndexesFnCall   string = "INDEXES"
+	NowFnCall        string = "NOW"
+	UUIDFnCall       string = "RANDOM_UUID"
+	DatabasesFnCall  string = "DATABASES"
+	TablesFnCall     string = "TABLES"
+	TableFnCall      string = "TABLE"
+	UsersFnCall      string = "USERS"
+	ColumnsFnCall    string = "COLUMNS"
+	IndexesFnCall    string = "INDEXES"
+	GrantsFnCall     string = "GRANTS"
+	JSONTypeOfFnCall string = "JSON_TYPEOF"
 )
 
 type SQLStmt interface {
+	readOnly() bool
+	requiredPrivileges() []SQLPrivilege
 	execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error)
 	inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error
 }
 
 type BeginTransactionStmt struct {
+}
+
+func (stmt *BeginTransactionStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *BeginTransactionStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *BeginTransactionStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -169,6 +258,14 @@ func (stmt *BeginTransactionStmt) execAt(ctx context.Context, tx *SQLTx, params 
 type CommitStmt struct {
 }
 
+func (stmt *CommitStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *CommitStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
 func (stmt *CommitStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -182,6 +279,14 @@ func (stmt *CommitStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 }
 
 type RollbackStmt struct {
+}
+
+func (stmt *RollbackStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *RollbackStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *RollbackStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -199,6 +304,14 @@ func (stmt *RollbackStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 type CreateDatabaseStmt struct {
 	DB          string
 	ifNotExists bool
+}
+
+func (stmt *CreateDatabaseStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateDatabaseStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
 }
 
 func (stmt *CreateDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -225,6 +338,14 @@ func (stmt *UseDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, par
 	return nil
 }
 
+func (stmt *UseDatabaseStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *UseDatabaseStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
 func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
@@ -239,6 +360,14 @@ func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 type UseSnapshotStmt struct {
 	period period
+}
+
+func (stmt *UseSnapshotStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *UseSnapshotStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *UseSnapshotStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -259,6 +388,14 @@ func (stmt *CreateUserStmt) inferParameters(ctx context.Context, tx *SQLTx, para
 	return nil
 }
 
+func (stmt *CreateUserStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateUserStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
+
 func (stmt *CreateUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.IsExplicitCloseRequired() {
 		return nil, fmt.Errorf("%w: user creation can not be done within a transaction", ErrNonTransactionalStmt)
@@ -275,6 +412,14 @@ type AlterUserStmt struct {
 	username   string
 	password   string
 	permission Permission
+}
+
+func (stmt *AlterUserStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *AlterUserStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
 }
 
 func (stmt *AlterUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -297,6 +442,14 @@ type DropUserStmt struct {
 	username string
 }
 
+func (stmt *DropUserStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropUserStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
+}
+
 func (stmt *DropUserStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -317,6 +470,7 @@ type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
 	colsSpec    []*ColSpec
+	checks      []CheckConstraint
 	pkColNames  []string
 }
 
@@ -324,8 +478,31 @@ func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkC
 	return &CreateTableStmt{table: table, ifNotExists: ifNotExists, colsSpec: colsSpec, pkColNames: pkColNames}
 }
 
+func (stmt *CreateTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
+
 func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
+}
+
+func zeroRow(tableName string, cols []*ColSpec) *Row {
+	r := Row{
+		ValuesByPosition: make([]TypedValue, len(cols)),
+		ValuesBySelector: make(map[string]TypedValue, len(cols)),
+	}
+
+	for i, col := range cols {
+		v := zeroForType(col.colType)
+
+		r.ValuesByPosition[i] = v
+		r.ValuesBySelector[EncodeSelector("", tableName, col.colName)] = v
+	}
+	return &r
 }
 
 func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -338,7 +515,33 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		colSpecs[uint32(i)+1] = cs
 	}
 
-	table, err := tx.catalog.newTable(stmt.table, colSpecs, uint32(len(colSpecs)))
+	row := zeroRow(stmt.table, stmt.colsSpec)
+	for _, check := range stmt.checks {
+		value, err := check.exp.reduce(tx, row, stmt.table)
+		if err != nil {
+			return nil, err
+		}
+
+		if value.Type() != BooleanType {
+			return nil, ErrInvalidCheckConstraint
+		}
+	}
+
+	nextUnnamedCheck := 0
+	checks := make(map[string]CheckConstraint)
+	for id, check := range stmt.checks {
+		name := fmt.Sprintf("%s_check%d", stmt.table, nextUnnamedCheck+1)
+		if check.name != "" {
+			name = check.name
+		} else {
+			nextUnnamedCheck++
+		}
+		check.id = uint32(id)
+		check.name = name
+		checks[name] = check
+	}
+
+	table, err := tx.catalog.newTable(stmt.table, colSpecs, checks, uint32(len(colSpecs)))
 	if err != nil {
 		return nil, err
 	}
@@ -358,6 +561,12 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 
 		err := persistColumn(tx, col)
 		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, check := range checks {
+		if err := persistCheck(tx, table, &check); err != nil {
 			return nil, err
 		}
 	}
@@ -402,6 +611,32 @@ func persistColumn(tx *SQLTx, col *Column) error {
 	return tx.set(mappedKey, nil, v)
 }
 
+func persistCheck(tx *SQLTx, table *Table, check *CheckConstraint) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogCheckPrefix,
+		EncodeID(DatabaseID),
+		EncodeID(table.id),
+		EncodeID(check.id),
+	)
+
+	name := check.name
+	expText := check.exp.String()
+
+	val := make([]byte, 2+len(name)+len(expText))
+
+	if len(name) > 256 {
+		return fmt.Errorf("constraint name len: %w", ErrMaxLengthExceeded)
+	}
+
+	val[0] = byte(len(name)) - 1
+
+	copy(val[1:], []byte(name))
+	copy(val[1+len(name):], []byte(expText))
+
+	return tx.set(mappedKey, nil, val)
+}
+
 type ColSpec struct {
 	colName       string
 	colType       SQLValueType
@@ -431,6 +666,14 @@ func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndex
 	return &CreateIndexStmt{unique: isUnique, table: table, cols: cols}
 }
 
+func (stmt *CreateIndexStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *CreateIndexStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
+
 func (stmt *CreateIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -457,6 +700,10 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		col, err := table.GetColumnByName(colName)
 		if err != nil {
 			return nil, err
+		}
+
+		if col.Type() == JSONType {
+			return nil, ErrCannotIndexJson
 		}
 
 		if variableSizedType(col.colType) && !tx.engine.lazyIndexConstraintValidation && (col.MaxLen() == 0 || col.MaxLen() > MaxKeyLen) {
@@ -529,6 +776,14 @@ func NewAddColumnStmt(table string, colSpec *ColSpec) *AddColumnStmt {
 	return &AddColumnStmt{table: table, colSpec: colSpec}
 }
 
+func (stmt *AddColumnStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *AddColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
+}
+
 func (stmt *AddColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -557,6 +812,14 @@ func (stmt *AddColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 type RenameTableStmt struct {
 	oldName string
 	newName string
+}
+
+func (stmt *RenameTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *RenameTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
 }
 
 func (stmt *RenameTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -596,6 +859,14 @@ func NewRenameColumnStmt(table, oldName, newName string) *RenameColumnStmt {
 	return &RenameColumnStmt{table: table, oldName: oldName, newName: newName}
 }
 
+func (stmt *RenameColumnStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *RenameColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeAlter}
+}
+
 func (stmt *RenameColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -630,6 +901,14 @@ func NewDropColumnStmt(table, colName string) *DropColumnStmt {
 	return &DropColumnStmt{table: table, colName: colName}
 }
 
+func (stmt *DropColumnStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
+}
+
 func (stmt *DropColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
@@ -641,6 +920,11 @@ func (stmt *DropColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	}
 
 	col, err := table.GetColumnByName(stmt.colName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = canDropColumn(tx, table, col)
 	if err != nil {
 		return nil, err
 	}
@@ -660,6 +944,28 @@ func (stmt *DropColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	return tx, nil
 }
 
+func canDropColumn(tx *SQLTx, table *Table, col *Column) error {
+	colSpecs := make([]*ColSpec, 0, len(table.Cols())-1)
+	for _, c := range table.cols {
+		if c.id != col.id {
+			colSpecs = append(colSpecs, &ColSpec{colName: c.Name(), colType: c.Type()})
+		}
+	}
+
+	row := zeroRow(table.Name(), colSpecs)
+	for name, check := range table.checkConstraints {
+		_, err := check.exp.reduce(tx, row, table.name)
+		if errors.Is(err, ErrColumnDoesNotExist) {
+			return fmt.Errorf("%w %s because %s constraint requires it", ErrCannotDropColumn, col.Name(), name)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
@@ -673,12 +979,69 @@ func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	return tx.delete(ctx, mappedKey)
 }
 
+type DropConstraintStmt struct {
+	table          string
+	constraintName string
+}
+
+func (stmt *DropConstraintStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropConstraintStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
+}
+
+func (stmt *DropConstraintStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := table.deleteCheck(stmt.constraintName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = persistCheckDeletion(ctx, tx, table.id, id)
+
+	tx.mutatedCatalog = true
+
+	return tx, err
+}
+
+func persistCheckDeletion(ctx context.Context, tx *SQLTx, tableID uint32, checkId uint32) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogCheckPrefix,
+		EncodeID(DatabaseID),
+		EncodeID(tableID),
+		EncodeID(checkId),
+	)
+	return tx.delete(ctx, mappedKey)
+}
+
+func (stmt *DropConstraintStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
 type UpsertIntoStmt struct {
 	isInsert   bool
 	tableRef   *tableRef
 	cols       []string
 	rows       []*RowSpec
 	onConflict *OnConflictDo
+}
+
+func (stmt *UpsertIntoStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *UpsertIntoStmt) requiredPrivileges() []SQLPrivilege {
+	if stmt.isInsert {
+		return []SQLPrivilege{SQLPrivilegeInsert}
+	}
+	return []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeUpdate}
 }
 
 func NewUpserIntoStmt(table string, cols []string, rows []*RowSpec, isInsert bool, onConflict *OnConflictDo) *UpsertIntoStmt {
@@ -701,10 +1064,11 @@ func NewRowSpec(values []ValueExp) *RowSpec {
 	}
 }
 
-type OnConflictDo struct {
-}
+type OnConflictDo struct{}
 
 func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	emptyDescriptors := make(map[string]ColDescriptor)
+
 	for _, row := range stmt.rows {
 		if len(stmt.cols) != len(row.Values) {
 			return ErrInvalidNumberOfValues
@@ -721,13 +1085,12 @@ func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, para
 				return err
 			}
 
-			err = val.requiresType(col.colType, make(map[string]ColDescriptor), params, table.name)
+			err = val.requiresType(col.colType, emptyDescriptors, params, table.name)
 			if err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -760,6 +1123,11 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	selPosByColID, err := stmt.validate(table)
 	if err != nil {
 		return nil, err
+	}
+
+	r := &Row{
+		ValuesByPosition: make([]TypedValue, len(table.cols)),
+		ValuesBySelector: make(map[string]TypedValue),
 	}
 
 	for _, row := range stmt.rows {
@@ -835,6 +1203,28 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			valuesByColID[colID] = rval
 		}
 
+		for i, col := range table.cols {
+			v := valuesByColID[col.id]
+
+			if v == nil {
+				v = NewNull(AnyType)
+			} else if len(table.checkConstraints) > 0 && col.Type() == JSONType {
+				s, _ := v.RawValue().(string)
+				jsonVal, err := NewJsonFromString(s)
+				if err != nil {
+					return nil, err
+				}
+				v = jsonVal
+			}
+
+			r.ValuesByPosition[i] = v
+			r.ValuesBySelector[EncodeSelector("", table.name, col.colName)] = v
+		}
+
+		if err := checkConstraints(tx, table.checkConstraints, r, table.name); err != nil {
+			return nil, err
+		}
+
 		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
@@ -842,6 +1232,9 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 		// pk entry
 		mappedPKey := MapKey(tx.sqlPrefix(), MappedPrefix, EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals, pkEncVals)
+		if len(mappedPKey) > MaxKeyLen {
+			return nil, ErrMaxKeyLengthExceeded
+		}
 
 		_, err = tx.get(ctx, mappedPKey)
 		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
@@ -870,6 +1263,24 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 	}
 
 	return tx, nil
+}
+
+func checkConstraints(tx *SQLTx, checks map[string]CheckConstraint, row *Row, table string) error {
+	for _, check := range checks {
+		val, err := check.exp.reduce(tx, row, table)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, err)
+		}
+
+		if val.Type() != BooleanType {
+			return ErrInvalidCheckConstraint
+		}
+
+		if !val.RawValue().(bool) {
+			return fmt.Errorf("%w: %s", ErrCheckConstraintViolation, check.exp.String())
+		}
+	}
+	return nil
 }
 
 func (tx *SQLTx) encodeRowValue(valuesByColID map[uint32]TypedValue, table *Table) ([]byte, error) {
@@ -1165,6 +1576,14 @@ type colUpdate struct {
 	val ValueExp
 }
 
+func (stmt *UpdateStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *UpdateStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeUpdate}
+}
+
 func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	selectStmt := &SelectStmt{
 		ds:    stmt.tableRef,
@@ -1290,6 +1709,17 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			valuesByColID[col.id] = rval
 		}
 
+		for i, col := range table.cols {
+			v := valuesByColID[col.id]
+
+			row.ValuesByPosition[i] = v
+			row.ValuesBySelector[EncodeSelector("", table.name, col.colName)] = v
+		}
+
+		if err := checkConstraints(tx, table.checkConstraints, row, table.name); err != nil {
+			return nil, err
+		}
+
 		pkEncVals, err := encodedKey(table.primaryIndex, valuesByColID)
 		if err != nil {
 			return nil, err
@@ -1329,6 +1759,14 @@ func NewDeleteFromStmt(table string, where ValueExp, orderBy []*OrdCol, limit Va
 		orderBy:  orderBy,
 		limit:    limit,
 	}
+}
+
+func (stmt *DeleteFromStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DeleteFromStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDelete}
 }
 
 func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -1438,6 +1876,7 @@ type ValueExp interface {
 	reduceSelectors(row *Row, implicitTable string) ValueExp
 	isConstant() bool
 	selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error
+	String() string
 }
 
 type typedValueRange struct {
@@ -1550,6 +1989,22 @@ type TypedValue interface {
 	IsNull() bool
 }
 
+type Tuple []TypedValue
+
+func (t Tuple) Compare(other Tuple) (int, int, error) {
+	if len(t) != len(other) {
+		return -1, -1, ErrNotComparableValues
+	}
+
+	for i := range t {
+		res, err := t[i].Compare(other[i])
+		if err != nil || res != 0 {
+			return res, i, err
+		}
+	}
+	return 0, -1, nil
+}
+
 func NewNull(t SQLValueType) *NullValue {
 	return &NullValue{t: t}
 }
@@ -1570,6 +2025,10 @@ func (n *NullValue) IsNull() bool {
 	return true
 }
 
+func (n *NullValue) String() string {
+	return "NULL"
+}
+
 func (n *NullValue) Compare(val TypedValue) (int, error) {
 	if n.t != AnyType && val.Type() != AnyType && n.t != val.Type() {
 		return 0, ErrNotComparableValues
@@ -1578,7 +2037,6 @@ func (n *NullValue) Compare(val TypedValue) (int, error) {
 	if val.RawValue() == nil {
 		return 0, nil
 	}
-
 	return -1, nil
 }
 
@@ -1636,12 +2094,16 @@ func (v *Integer) IsNull() bool {
 	return false
 }
 
+func (v *Integer) String() string {
+	return strconv.FormatInt(v.val, 10)
+}
+
 func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return IntegerType, nil
 }
 
 func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != IntegerType {
+	if t != IntegerType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
@@ -1677,6 +2139,11 @@ func (v *Integer) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
+	}
+
 	if val.Type() == Float64Type {
 		r, err := val.Compare(v)
 		return r * -1, err
@@ -1709,6 +2176,10 @@ func (v *Timestamp) Type() SQLValueType {
 
 func (v *Timestamp) IsNull() bool {
 	return false
+}
+
+func (v *Timestamp) String() string {
+	return v.val.Format("2006-01-02 15:04:05.999999")
 }
 
 func (v *Timestamp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -1785,15 +2256,18 @@ func (v *Varchar) IsNull() bool {
 	return false
 }
 
+func (v *Varchar) String() string {
+	return fmt.Sprintf("'%s'", v.val)
+}
+
 func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return VarcharType, nil
 }
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != VarcharType {
+	if t != VarcharType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
 	}
-
 	return nil
 }
 
@@ -1826,6 +2300,11 @@ func (v *Varchar) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
+	}
+
 	if val.Type() != VarcharType {
 		return 0, ErrNotComparableValues
 	}
@@ -1849,6 +2328,10 @@ func (v *UUID) Type() SQLValueType {
 
 func (v *UUID) IsNull() bool {
 	return false
+}
+
+func (v *UUID) String() string {
+	return v.val.String()
 }
 
 func (v *UUID) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -1917,15 +2400,18 @@ func (v *Bool) IsNull() bool {
 	return false
 }
 
+func (v *Bool) String() string {
+	return strconv.FormatBool(v.val)
+}
+
 func (v *Bool) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return BooleanType, nil
 }
 
 func (v *Bool) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != BooleanType {
+	if t != BooleanType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
 	}
-
 	return nil
 }
 
@@ -1956,6 +2442,11 @@ func (v *Bool) RawValue() interface{} {
 func (v *Bool) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
+	}
+
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
 	}
 
 	if val.Type() != BooleanType {
@@ -1989,6 +2480,10 @@ func (v *Blob) Type() SQLValueType {
 
 func (v *Blob) IsNull() bool {
 	return false
+}
+
+func (v *Blob) String() string {
+	return hex.EncodeToString(v.val)
 }
 
 func (v *Blob) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -2057,15 +2552,18 @@ func (v *Float64) IsNull() bool {
 	return false
 }
 
+func (v *Float64) String() string {
+	return strconv.FormatFloat(float64(v.val), 'f', -1, 64)
+}
+
 func (v *Float64) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	return Float64Type, nil
 }
 
 func (v *Float64) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != Float64Type {
+	if t != Float64Type && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, Float64Type, t)
 	}
-
 	return nil
 }
 
@@ -2094,6 +2592,11 @@ func (v *Float64) RawValue() interface{} {
 }
 
 func (v *Float64) Compare(val TypedValue) (int, error) {
+	if val.Type() == JSONType {
+		res, err := val.Compare(v)
+		return -res, err
+	}
+
 	convVal, err := mayApplyImplicitConversion(val.RawValue(), Float64Type)
 	if err != nil {
 		return 0, err
@@ -2133,6 +2636,10 @@ func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLV
 		return UUIDType, nil
 	}
 
+	if strings.ToUpper(v.fn) == JSONTypeOfFnCall {
+		return VarcharType, nil
+	}
+
 	return AnyType, fmt.Errorf("%w: unknown function %s", ErrIllegalArguments, v.fn)
 }
 
@@ -2150,6 +2657,13 @@ func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, par
 			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, UUIDType, t)
 		}
 
+		return nil
+	}
+
+	if strings.ToUpper(v.fn) == JSONTypeOfFnCall {
+		if t != VarcharType {
+			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+		}
 		return nil
 	}
 
@@ -2187,6 +2701,26 @@ func (v *FnCall) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, 
 		return &UUID{val: uuid.New()}, nil
 	}
 
+	if strings.ToUpper(v.fn) == JSONTypeOfFnCall {
+		if len(v.params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, JSONTypeOfFnCall, 1, len(v.params))
+		}
+
+		v, err := v.params[0].reduce(tx, row, implicitTable)
+		if err != nil {
+			return nil, err
+		}
+
+		if v.IsNull() {
+			return NewNull(AnyType), nil
+		}
+
+		jsonVal, ok := v.(*JSON)
+		if !ok {
+			return nil, fmt.Errorf("%w: '%s' function expects an argument of type JSON", ErrIllegalArguments, JSONTypeOfFnCall)
+		}
+		return NewVarchar(jsonVal.primitiveType()), nil
+	}
 	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
@@ -2200,6 +2734,14 @@ func (v *FnCall) isConstant() bool {
 
 func (v *FnCall) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (v *FnCall) String() string {
+	params := make([]string, len(v.params))
+	for i, p := range v.params {
+		params[i] = p.String()
+	}
+	return v.fn + "(" + strings.Join(params, ",") + ")"
 }
 
 type Cast struct {
@@ -2262,6 +2804,10 @@ func (c *Cast) isConstant() bool {
 
 func (c *Cast) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (c *Cast) String() string {
+	return fmt.Sprintf("CAST (%s AS %s)", c.val.String(), c.t)
 }
 
 type Param struct {
@@ -2338,7 +2884,6 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 			return &Float64{val: v}, nil
 		}
 	}
-
 	return nil, ErrUnsupportedParameter
 }
 
@@ -2356,6 +2901,10 @@ func (p *Param) isConstant() bool {
 
 func (v *Param) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (v *Param) String() string {
+	return "@" + v.id
 }
 
 type Comparison int
@@ -2407,6 +2956,14 @@ func NewSelectStmt(
 	}
 }
 
+func (stmt *SelectStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *SelectStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+
 func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	_, err := stmt.execAt(ctx, tx, nil)
 	if err != nil {
@@ -2428,38 +2985,47 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		return nil, ErrHavingClauseRequiresGroupClause
 	}
 
-	if len(stmt.groupBy) > 1 {
-		return nil, ErrLimitedGroupBy
-	}
-
-	if len(stmt.orderBy) > 1 {
-		return nil, ErrLimitedOrderBy
+	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
+		for _, sel := range stmt.selectors {
+			_, isAgg := sel.(*AggColSelector)
+			if !isAgg && !stmt.groupByContains(sel) {
+				return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+			}
+		}
 	}
 
 	if len(stmt.orderBy) > 0 {
-		tableRef, ok := stmt.ds.(*tableRef)
-		if !ok {
-			return nil, ErrLimitedOrderBy
-		}
-
-		table, err := tableRef.referencedTable(tx)
-		if err != nil {
-			return nil, err
-		}
-
-		colName := stmt.orderBy[0].sel.col
-
-		indexed, err := table.IsIndexed(colName)
-		if err != nil {
-			return nil, err
-		}
-
-		if !indexed {
-			return nil, ErrLimitedOrderBy
+		for _, col := range stmt.orderBy {
+			sel := col.sel
+			_, isAgg := sel.(*AggColSelector)
+			if (isAgg && !stmt.containsSelector(sel)) || (!isAgg && len(stmt.groupBy) > 0 && !stmt.groupByContains(sel)) {
+				return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+			}
 		}
 	}
-
 	return tx, nil
+}
+
+func (stmt *SelectStmt) containsSelector(s Selector) bool {
+	encSel := EncodeSelector(s.resolve(stmt.Alias()))
+
+	for _, sel := range stmt.selectors {
+		if EncodeSelector(sel.resolve(stmt.Alias())) == encSel {
+			return true
+		}
+	}
+	return false
+}
+
+func (stmt *SelectStmt) groupByContains(sel Selector) bool {
+	encSel := EncodeSelector(sel.resolve(stmt.Alias()))
+
+	for _, colSel := range stmt.groupBy {
+		if EncodeSelector(colSel.resolve(stmt.Alias())) == encSel {
+			return true
+		}
+	}
+	return false
 }
 
 func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
@@ -2479,7 +3045,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}()
 
 	if stmt.joins != nil {
-		jointRowReader, err := newJointRowReader(rowReader, stmt.joins)
+		var jointRowReader *jointRowReader
+		jointRowReader, err = newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
@@ -2490,21 +3057,18 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		rowReader = newConditionalRowReader(rowReader, stmt.where)
 	}
 
-	containsAggregations := false
-	for _, sel := range stmt.selectors {
-		_, containsAggregations = sel.(*AggColSelector)
-		if containsAggregations {
-			break
-		}
-	}
-
-	if containsAggregations {
-		var groupBy []*ColSelector
-		if stmt.groupBy != nil {
-			groupBy = stmt.groupBy
+	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
+		if len(scanSpecs.groupBySortColumns) > 0 {
+			var sortRowReader *sortRowReader
+			sortRowReader, err = newSortRowReader(rowReader, scanSpecs.groupBySortColumns)
+			if err != nil {
+				return nil, err
+			}
+			rowReader = sortRowReader
 		}
 
-		groupedRowReader, err := newGroupedRowReader(rowReader, stmt.selectors, groupBy)
+		var groupedRowReader *groupedRowReader
+		groupedRowReader, err = newGroupedRowReader(rowReader, stmt.selectors, stmt.groupBy)
 		if err != nil {
 			return nil, err
 		}
@@ -2515,6 +3079,15 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}
 
+	if len(scanSpecs.orderBySortCols) > 0 {
+		var sortRowReader *sortRowReader
+		sortRowReader, err = newSortRowReader(rowReader, stmt.orderBy)
+		if err != nil {
+			return nil, err
+		}
+		rowReader = sortRowReader
+	}
+
 	projectedRowReader, err := newProjectedRowReader(ctx, rowReader, stmt.as, stmt.selectors)
 	if err != nil {
 		return nil, err
@@ -2522,7 +3095,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	rowReader = projectedRowReader
 
 	if stmt.distinct {
-		distinctRowReader, err := newDistinctRowReader(ctx, rowReader)
+		var distinctRowReader *distinctRowReader
+		distinctRowReader, err = newDistinctRowReader(ctx, rowReader)
 		if err != nil {
 			return nil, err
 		}
@@ -2530,7 +3104,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	if stmt.offset != nil {
-		offset, err := evalExpAsInt(tx, stmt.offset, params)
+		var offset int
+		offset, err = evalExpAsInt(tx, stmt.offset, params)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid offset", err)
 		}
@@ -2539,7 +3114,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	if stmt.limit != nil {
-		limit, err := evalExpAsInt(tx, stmt.limit, params)
+		var limit int
+		limit, err = evalExpAsInt(tx, stmt.limit, params)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid limit", err)
 		}
@@ -2554,6 +3130,64 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	return rowReader, nil
+}
+
+func (stmt *SelectStmt) rearrangeOrdColumns(groupByCols, orderByCols []*OrdCol) ([]*OrdCol, []*OrdCol) {
+	if len(groupByCols) > 0 && len(orderByCols) > 0 && !ordColumnsHaveAggregations(orderByCols) {
+		if ordColsHasPrefix(orderByCols, groupByCols, stmt.Alias()) {
+			return orderByCols, nil
+		}
+
+		if ordColsHasPrefix(groupByCols, orderByCols, stmt.Alias()) {
+			for i := range orderByCols {
+				groupByCols[i].descOrder = orderByCols[i].descOrder
+			}
+			return groupByCols, nil
+		}
+	}
+	return groupByCols, orderByCols
+}
+
+func ordColsHasPrefix(cols, prefix []*OrdCol, table string) bool {
+	if len(prefix) > len(cols) {
+		return false
+	}
+
+	for i := range prefix {
+		if EncodeSelector(prefix[i].sel.resolve(table)) != EncodeSelector(cols[i].sel.resolve(table)) {
+			return false
+		}
+	}
+	return true
+}
+
+func (stmt *SelectStmt) groupByOrdColumns() []*OrdCol {
+	groupByCols := stmt.groupBy
+
+	ordCols := make([]*OrdCol, 0, len(groupByCols))
+	for _, col := range groupByCols {
+		ordCols = append(ordCols, &OrdCol{sel: col})
+	}
+	return ordCols
+}
+
+func ordColumnsHaveAggregations(cols []*OrdCol) bool {
+	for _, ordCol := range cols {
+		if _, isAgg := ordCol.sel.(*AggColSelector); isAgg {
+			return true
+		}
+	}
+	return false
+}
+
+func (stmt *SelectStmt) containsAggregations() bool {
+	for _, sel := range stmt.selectors {
+		_, isAgg := sel.(*AggColSelector)
+		if isAgg {
+			return true
+		}
+	}
+	return false
 }
 
 func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, error) {
@@ -2592,10 +3226,33 @@ func (stmt *SelectStmt) Alias() string {
 	return stmt.as
 }
 
+func (stmt *SelectStmt) hasTxMetadata() bool {
+	for _, sel := range stmt.selectors {
+		switch s := sel.(type) {
+		case *ColSelector:
+			if s.col == txMetadataCol {
+				return true
+			}
+		case *JSONSelector:
+			if s.ColSelector.col == txMetadataCol {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (*ScanSpecs, error) {
+	groupByCols, orderByCols := stmt.groupByOrdColumns(), stmt.orderBy
+
 	tableRef, isTableRef := stmt.ds.(*tableRef)
 	if !isTableRef {
-		return nil, nil
+		groupByCols, orderByCols = stmt.rearrangeOrdColumns(groupByCols, orderByCols)
+
+		return &ScanSpecs{
+			groupBySortColumns: groupByCols,
+			orderBySortCols:    orderByCols,
+		}, nil
 	}
 
 	table, err := tableRef.referencedTable(tx)
@@ -2611,71 +3268,82 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		}
 	}
 
-	var preferredIndex *Index
-
-	if len(stmt.indexOn) > 0 {
-		cols := make([]*Column, len(stmt.indexOn))
-
-		for i, colName := range stmt.indexOn {
-			col, err := table.GetColumnByName(colName)
-			if err != nil {
-				return nil, err
-			}
-
-			cols[i] = col
-		}
-
-		index, err := table.GetIndexByName(indexName(table.name, cols))
-		if err != nil {
-			return nil, err
-		}
-
-		preferredIndex = index
+	preferredIndex, err := stmt.getPreferredIndex(table)
+	if err != nil {
+		return nil, err
 	}
 
 	var sortingIndex *Index
-	var descOrder bool
-
-	if stmt.orderBy == nil {
-		if preferredIndex == nil {
-			sortingIndex = table.primaryIndex
-		} else {
-			sortingIndex = preferredIndex
-		}
-	}
-
-	if len(stmt.orderBy) > 0 {
-		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, idx := range table.indexesByColID[col.id] {
-			if idx.sortableUsing(col.id, rangesByColID) {
-				if preferredIndex == nil || idx.id == preferredIndex.id {
-					sortingIndex = idx
-					break
-				}
-			}
-		}
-
-		descOrder = stmt.orderBy[0].descOrder
+	if preferredIndex == nil {
+		sortingIndex = stmt.selectSortingIndex(groupByCols, orderByCols, table, rangesByColID)
+	} else {
+		sortingIndex = preferredIndex
 	}
 
 	if sortingIndex == nil {
-		return nil, ErrNoAvailableIndex
+		sortingIndex = table.primaryIndex
 	}
 
 	if tableRef.history && !sortingIndex.IsPrimary() {
 		return nil, fmt.Errorf("%w: historical queries are supported over primary index", ErrIllegalArguments)
 	}
 
+	var descOrder bool
+	if len(groupByCols) > 0 && sortingIndex.coversOrdCols(groupByCols, rangesByColID) {
+		groupByCols = nil
+	}
+
+	if len(groupByCols) == 0 && len(orderByCols) > 0 && sortingIndex.coversOrdCols(orderByCols, rangesByColID) {
+		descOrder = orderByCols[0].descOrder
+		orderByCols = nil
+	}
+
+	groupByCols, orderByCols = stmt.rearrangeOrdColumns(groupByCols, orderByCols)
+
 	return &ScanSpecs{
-		Index:          sortingIndex,
-		rangesByColID:  rangesByColID,
-		IncludeHistory: tableRef.history,
-		DescOrder:      descOrder,
+		Index:              sortingIndex,
+		rangesByColID:      rangesByColID,
+		IncludeHistory:     tableRef.history,
+		IncludeTxMetadata:  stmt.hasTxMetadata(),
+		DescOrder:          descOrder,
+		groupBySortColumns: groupByCols,
+		orderBySortCols:    orderByCols,
 	}, nil
+}
+
+func (stmt *SelectStmt) selectSortingIndex(groupByCols, orderByCols []*OrdCol, table *Table, rangesByColId map[uint32]*typedValueRange) *Index {
+	sortCols := groupByCols
+	if len(sortCols) == 0 {
+		sortCols = orderByCols
+	}
+
+	if len(sortCols) == 0 {
+		return nil
+	}
+
+	for _, idx := range table.indexes {
+		if idx.coversOrdCols(sortCols, rangesByColId) {
+			return idx
+		}
+	}
+	return nil
+}
+
+func (stmt *SelectStmt) getPreferredIndex(table *Table) (*Index, error) {
+	if len(stmt.indexOn) == 0 {
+		return nil, nil
+	}
+
+	cols := make([]*Column, len(stmt.indexOn))
+	for i, colName := range stmt.indexOn {
+		col, err := table.GetColumnByName(colName)
+		if err != nil {
+			return nil, err
+		}
+
+		cols[i] = col
+	}
+	return table.GetIndexByName(indexName(table.name, cols))
 }
 
 type UnionStmt struct {
@@ -2683,12 +3351,19 @@ type UnionStmt struct {
 	left, right DataSource
 }
 
+func (stmt *UnionStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *UnionStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+
 func (stmt *UnionStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	err := stmt.left.inferParameters(ctx, tx, params)
 	if err != nil {
 		return err
 	}
-
 	return stmt.right.inferParameters(ctx, tx, params)
 }
 
@@ -2768,6 +3443,14 @@ type tableRef struct {
 	history bool
 	period  period
 	as      string
+}
+
+func (ref *tableRef) readOnly() bool {
+	return true
+}
+
+func (ref *tableRef) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
 }
 
 type period struct {
@@ -2919,7 +3602,7 @@ type JoinSpec struct {
 }
 
 type OrdCol struct {
-	sel       *ColSelector
+	sel       Selector
 	descOrder bool
 }
 
@@ -2955,7 +3638,6 @@ func (sel *ColSelector) resolve(implicitTable string) (aggFn, table, col string)
 	if sel.table != "" {
 		table = sel.table
 	}
-
 	return "", table, sel.col
 }
 
@@ -3035,6 +3717,10 @@ func (sel *ColSelector) isConstant() bool {
 
 func (sel *ColSelector) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (sel *ColSelector) String() string {
+	return sel.col
 }
 
 type AggColSelector struct {
@@ -3142,6 +3828,10 @@ func (sel *AggColSelector) isConstant() bool {
 
 func (sel *AggColSelector) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (sel *AggColSelector) String() string {
+	return sel.aggFn + "(" + sel.col + ")"
 }
 
 type NumExp struct {
@@ -3262,7 +3952,19 @@ func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValu
 		return nil, err
 	}
 
+	vl = unwrapJSON(vl)
+	vr = unwrapJSON(vr)
+
 	return applyNumOperator(bexp.op, vl, vr)
+}
+
+func unwrapJSON(v TypedValue) TypedValue {
+	if jsonVal, ok := v.(*JSON); ok {
+		if sv, isSimple := jsonVal.castToTypedValue(); isSimple {
+			return sv
+		}
+	}
+	return v
 }
 
 func (bexp *NumExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -3279,6 +3981,10 @@ func (bexp *NumExp) isConstant() bool {
 
 func (bexp *NumExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *NumExp) String() string {
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), NumOperatorString(bexp.op), bexp.right.String())
 }
 
 type NotBoolExp struct {
@@ -3339,6 +4045,10 @@ func (bexp *NotBoolExp) isConstant() bool {
 
 func (bexp *NotBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *NotBoolExp) String() string {
+	return "NOT " + bexp.exp.String()
 }
 
 type LikeBoolExp struct {
@@ -3417,12 +4127,13 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
-	if rval.Type() != VarcharType {
-		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
-	}
-
 	if rval.IsNull() {
 		return &Bool{val: false}, nil
+	}
+
+	rvalStr, ok := rval.RawValue().(string)
+	if !ok {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
 	}
 
 	rpattern, err := bexp.pattern.reduce(tx, row, implicitTable)
@@ -3434,7 +4145,7 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
 	}
 
-	matched, err := regexp.MatchString(rpattern.RawValue().(string), rval.RawValue().(string))
+	matched, err := regexp.MatchString(rpattern.RawValue().(string), rvalStr)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
@@ -3452,6 +4163,10 @@ func (bexp *LikeBoolExp) isConstant() bool {
 
 func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *LikeBoolExp) String() string {
+	return fmt.Sprintf("(%s LIKE %s)", bexp.val.String(), bexp.pattern.String())
 }
 
 type CmpBoolExp struct {
@@ -3620,6 +4335,11 @@ func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[
 	return updateRangeFor(column.id, rval, bexp.op, rangesByColID)
 }
 
+func (bexp *CmpBoolExp) String() string {
+	opStr := CmpOperatorToString(bexp.op)
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), opStr, bexp.right.String())
+}
+
 func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID map[uint32]*typedValueRange) error {
 	currRange, ranged := rangesByColID[colID]
 	var newRange *typedValueRange
@@ -3687,16 +4407,16 @@ func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID
 }
 
 func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
-	switch cmp {
-	case 0:
+	switch {
+	case cmp == 0:
 		{
 			return op == EQ || op == LE || op == GE
 		}
-	case -1:
+	case cmp < 0:
 		{
 			return op == NE || op == LT || op == LE
 		}
-	case 1:
+	case cmp > 0:
 		{
 			return op == NE || op == GT || op == GE
 		}
@@ -3775,14 +4495,19 @@ func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(tx, row, implicitTable)
-	if err != nil {
-		return nil, err
-	}
-
 	bl, isBool := vl.(*Bool)
 	if !isBool {
 		return nil, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
+	}
+
+	// short-circuit evaluation
+	if (bl.val && bexp.op == OR) || (!bl.val && bexp.op == AND) {
+		return &Bool{val: bl.val}, nil
+	}
+
+	vr, err := bexp.right.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, err
 	}
 
 	br, isBool := vr.(*Bool)
@@ -3856,16 +4581,20 @@ func (bexp *BinBoolExp) selectorRanges(table *Table, asTable string, params map[
 	return nil
 }
 
+func (bexp *BinBoolExp) String() string {
+	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), LogicOperatorToString(bexp.op), bexp.right.String())
+}
+
 type ExistsBoolExp struct {
 	q DataSource
 }
 
 func (bexp *ExistsBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
-	return AnyType, errors.New("not yet supported")
+	return AnyType, fmt.Errorf("error inferring type in 'EXISTS' clause: %w", ErrNoSupported)
 }
 
 func (bexp *ExistsBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	return errors.New("not yet supported")
+	return fmt.Errorf("error inferring type in 'EXISTS' clause: %w", ErrNoSupported)
 }
 
 func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -3873,7 +4602,7 @@ func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (bexp *ExistsBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
-	return nil, errors.New("not yet supported")
+	return nil, fmt.Errorf("'EXISTS' clause: %w", ErrNoSupported)
 }
 
 func (bexp *ExistsBoolExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -3886,6 +4615,10 @@ func (bexp *ExistsBoolExp) isConstant() bool {
 
 func (bexp *ExistsBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *ExistsBoolExp) String() string {
+	return ""
 }
 
 type InSubQueryExp struct {
@@ -3920,6 +4653,10 @@ func (bexp *InSubQueryExp) isConstant() bool {
 
 func (bexp *InSubQueryExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
+}
+
+func (bexp *InSubQueryExp) String() string {
+	return ""
 }
 
 // TODO: once InSubQueryExp is supported, this struct may become obsolete by creating a ListDataSource struct
@@ -4030,9 +4767,25 @@ func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[s
 	return nil
 }
 
+func (bexp *InListExp) String() string {
+	values := make([]string, len(bexp.values))
+	for i, exp := range bexp.values {
+		values[i] = exp.String()
+	}
+	return fmt.Sprintf("%s IN (%s)", bexp.val.String(), strings.Join(values, ","))
+}
+
 type FnDataSourceStmt struct {
 	fnCall *FnCall
 	as     string
+}
+
+func (stmt *FnDataSourceStmt) readOnly() bool {
+	return true
+}
+
+func (stmt *FnDataSourceStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
 }
 
 func (stmt *FnDataSourceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -4073,6 +4826,8 @@ func (stmt *FnDataSourceStmt) Alias() string {
 		{
 			return "indexes"
 		}
+	case GrantsFnCall:
+		return "grants"
 	}
 
 	// not reachable
@@ -4108,6 +4863,10 @@ func (stmt *FnDataSourceStmt) Resolve(ctx context.Context, tx *SQLTx, params map
 	case IndexesFnCall:
 		{
 			return stmt.resolveListIndexes(ctx, tx, params, scanSpecs)
+		}
+	case GrantsFnCall:
+		{
+			return stmt.resolveListGrants(ctx, tx, params, scanSpecs)
 		}
 	}
 
@@ -4250,14 +5009,15 @@ func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, p
 		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, UsersFnCall, len(stmt.fnCall.params))
 	}
 
-	cols := make([]ColDescriptor, 2)
-	cols[0] = ColDescriptor{
-		Column: "name",
-		Type:   VarcharType,
-	}
-	cols[1] = ColDescriptor{
-		Column: "permission",
-		Type:   VarcharType,
+	cols := []ColDescriptor{
+		{
+			Column: "name",
+			Type:   VarcharType,
+		},
+		{
+			Column: "permission",
+			Type:   VarcharType,
+		},
 	}
 
 	var users []User
@@ -4274,26 +5034,7 @@ func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, p
 	values := make([][]ValueExp, len(users))
 
 	for i, user := range users {
-		var perm string
-
-		switch user.Permission() {
-		case 1:
-			{
-				perm = "READ"
-			}
-		case 2:
-			{
-				perm = "READ/WRITE"
-			}
-		case 254:
-			{
-				perm = "ADMIN"
-			}
-		default:
-			{
-				perm = "SYSADMIN"
-			}
-		}
+		perm := user.Permission()
 
 		values[i] = []ValueExp{
 			&Varchar{val: user.Username()},
@@ -4456,6 +5197,68 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
 }
 
+func (stmt *FnDataSourceStmt) resolveListGrants(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+	if len(stmt.fnCall.params) > 1 {
+		return nil, fmt.Errorf("%w: function '%s' expect at most one parameter of type %s", ErrIllegalArguments, GrantsFnCall, VarcharType)
+	}
+
+	var username string
+	if len(stmt.fnCall.params) == 1 {
+		val, err := stmt.fnCall.params[0].substitute(params)
+		if err != nil {
+			return nil, err
+		}
+
+		userVal, err := val.reduce(tx, nil, "")
+		if err != nil {
+			return nil, err
+		}
+
+		if userVal.Type() != VarcharType {
+			return nil, fmt.Errorf("%w: expected '%s' for username but type '%s' given instead", ErrIllegalArguments, VarcharType, userVal.Type())
+		}
+		username, _ = userVal.RawValue().(string)
+	}
+
+	cols := []ColDescriptor{
+		{
+			Column: "user",
+			Type:   VarcharType,
+		},
+		{
+			Column: "privilege",
+			Type:   VarcharType,
+		},
+	}
+
+	var err error
+	var users []User
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	} else {
+		users, err = tx.engine.multidbHandler.ListUsers(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]ValueExp, 0, len(users))
+
+	for _, user := range users {
+		if username == "" || user.Username() == username {
+			for _, p := range user.SQLPrivileges() {
+				values = append(values, []ValueExp{
+					&Varchar{val: user.Username()},
+					&Varchar{val: string(p)},
+				})
+			}
+		}
+	}
+
+	return newValuesRowReader(tx, params, cols, stmt.Alias(), values)
+}
+
 // DropTableStmt represents a statement to delete a table.
 type DropTableStmt struct {
 	table string
@@ -4463,6 +5266,14 @@ type DropTableStmt struct {
 
 func NewDropTableStmt(table string) *DropTableStmt {
 	return &DropTableStmt{table: table}
+}
+
+func (stmt *DropTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
 }
 
 func (stmt *DropTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -4515,6 +5326,21 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 		}
 	}
 
+	// delete checks
+	for name := range table.checkConstraints {
+		key := MapKey(
+			tx.sqlPrefix(),
+			catalogCheckPrefix,
+			EncodeID(DatabaseID),
+			EncodeID(table.id),
+			[]byte(name),
+		)
+
+		if err := tx.delete(ctx, key); err != nil {
+			return nil, err
+		}
+	}
+
 	// delete indexes
 	for _, index := range table.indexes {
 		mappedKey := MapKey(
@@ -4561,6 +5387,14 @@ type DropIndexStmt struct {
 
 func NewDropIndexStmt(table string, cols []string) *DropIndexStmt {
 	return &DropIndexStmt{table: table, cols: cols}
+}
+
+func (stmt *DropIndexStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *DropIndexStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
 }
 
 func (stmt *DropIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -4633,4 +5467,73 @@ func (stmt *DropIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	tx.mutatedCatalog = true
 
 	return tx, nil
+}
+
+type SQLPrivilege string
+
+const (
+	SQLPrivilegeSelect SQLPrivilege = "SELECT"
+	SQLPrivilegeCreate SQLPrivilege = "CREATE"
+	SQLPrivilegeInsert SQLPrivilege = "INSERT"
+	SQLPrivilegeUpdate SQLPrivilege = "UPDATE"
+	SQLPrivilegeDelete SQLPrivilege = "DELETE"
+	SQLPrivilegeDrop   SQLPrivilege = "DROP"
+	SQLPrivilegeAlter  SQLPrivilege = "ALTER"
+)
+
+var allPrivileges = []SQLPrivilege{
+	SQLPrivilegeSelect,
+	SQLPrivilegeCreate,
+	SQLPrivilegeInsert,
+	SQLPrivilegeUpdate,
+	SQLPrivilegeDelete,
+	SQLPrivilegeDrop,
+	SQLPrivilegeAlter,
+}
+
+func DefaultSQLPrivilegesForPermission(p Permission) []SQLPrivilege {
+	switch p {
+	case PermissionSysAdmin, PermissionAdmin, PermissionReadWrite:
+		return allPrivileges
+	case PermissionReadOnly:
+		return []SQLPrivilege{SQLPrivilegeSelect}
+	}
+	return nil
+}
+
+type AlterPrivilegesStmt struct {
+	database   string
+	user       string
+	privileges []SQLPrivilege
+	isGrant    bool
+}
+
+func (stmt *AlterPrivilegesStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *AlterPrivilegesStmt) requiredPrivileges() []SQLPrivilege {
+	return nil
+}
+
+func (stmt *AlterPrivilegesStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.IsExplicitCloseRequired() {
+		return nil, fmt.Errorf("%w: user privileges modification can not be done within a transaction", ErrNonTransactionalStmt)
+	}
+
+	if tx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	}
+
+	var err error
+	if stmt.isGrant {
+		err = tx.engine.multidbHandler.GrantSQLPrivileges(ctx, stmt.database, stmt.user, stmt.privileges)
+	} else {
+		err = tx.engine.multidbHandler.RevokeSQLPrivileges(ctx, stmt.database, stmt.user, stmt.privileges)
+	}
+	return nil, err
+}
+
+func (stmt *AlterPrivilegesStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
 }

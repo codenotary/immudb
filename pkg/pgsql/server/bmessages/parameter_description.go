@@ -20,25 +20,25 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
 // Byte1('t')
-//Identifies the message as a parameter description.
+// Identifies the message as a parameter description.
 //
-//Int32
-//Length of message contents in bytes, including self.
+// Int32
+// Length of message contents in bytes, including self.
 //
-//Int16
-//The number of parameters used by the statement (can be zero).
+// Int16
+// The number of parameters used by the statement (can be zero).
 //
-//Then, for each parameter, there is the following:
+// Then, for each parameter, there is the following:
 //
-//Int32
-//Specifies the object ID of the parameter data type.
+// Int32
+// Specifies the object ID of the parameter data type.
 // ParameterDescription send a parameter description message. Cols need to be lexicographically ordered by selector
-func ParameterDescription(cols []*schema.Column) []byte {
+func ParameterDescription(cols []sql.ColDescriptor) []byte {
 	// Identifies the message as a run-time parameter status report.
 	messageType := []byte(`t`)
 	selfMessageLength := make([]byte, 4)

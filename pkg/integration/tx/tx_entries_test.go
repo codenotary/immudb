@@ -26,7 +26,7 @@ import (
 )
 
 func Test_GetTransactionEntries(t *testing.T) {
-	_, client := setupTest(t)
+	_, client := setupTest(t, -1)
 
 	hdr, err := client.ExecAll(context.Background(), &schema.ExecAllRequest{
 		Operations: []*schema.Op{

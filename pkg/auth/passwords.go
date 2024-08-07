@@ -40,8 +40,10 @@ func ComparePasswords(hashedPassword []byte, plainPassword []byte) error {
 	return bcrypt.CompareHashAndPassword(hashedPassword, plainPassword)
 }
 
-const minPasswordLen = 8
-const maxPasswordLen = 32
+const (
+	minPasswordLen = 8
+	maxPasswordLen = 32
+)
 
 // PasswordRequirementsMsg message used to inform the user about password strength requirements
 var PasswordRequirementsMsg = fmt.Sprintf(

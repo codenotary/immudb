@@ -69,6 +69,7 @@ func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuC
 		WithWebServer(true).
 		WithDir(filepath.Join(t.TempDir(), "data")).
 		WithAuth(true).
+		WithLogRequestMetadata(true).
 		WithSigningKey("./../../test/signer/ec1.key"),
 	)
 
@@ -1649,4 +1650,35 @@ func (ts TokenServiceMock) WithHds(hds homedir.HomedirService) tokenservice.Toke
 
 func (ts TokenServiceMock) WithTokenFileName(tfn string) tokenservice.TokenService {
 	return ts
+}
+
+func TestServerLogRequestMetadata(t *testing.T) {
+	_, client, ctx := setupTestServerAndClient(t)
+
+	requireMetadataPresent := func(hdr *schema.TxHeader) {
+		txmd := schema.Metadata{}
+		err := txmd.Unmarshal(hdr.Metadata.Extra)
+		require.NoError(t, err)
+
+		require.Equal(t, schema.Metadata{schema.UserRequestMetadataKey: auth.SysAdminUsername, schema.IpRequestMetadataKey: "bufconn"}, txmd)
+	}
+
+	hdr, err := client.Set(ctx, []byte("test"), []byte("test"))
+	require.NoError(t, err)
+
+	requireMetadataPresent(hdr)
+
+	hdr1, err := client.VerifiedSet(ctx, []byte("test"), []byte("test"))
+	require.NoError(t, err)
+
+	requireMetadataPresent(hdr1)
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(ctx, "CREATE TABLE mytable (id INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	tx, err := client.TxByID(ctx, 3)
+	require.NoError(t, err)
+
+	requireMetadataPresent(tx.Header)
 }

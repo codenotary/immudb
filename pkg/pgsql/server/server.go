@@ -31,16 +31,17 @@ import (
 )
 
 type pgsrv struct {
-	m              sync.RWMutex
-	running        bool
-	maxConnections int
-	tlsConfig      *tls.Config
-	logger         logger.Logger
-	host           string
-	port           int
-	immudbPort     int
-	dbList         database.DatabaseList
-	listener       net.Listener
+	m                  sync.RWMutex
+	running            bool
+	maxConnections     int
+	tlsConfig          *tls.Config
+	logger             logger.Logger
+	logRequestMetadata bool
+	host               string
+	port               int
+	immudbPort         int
+	dbList             database.DatabaseList
+	listener           net.Listener
 }
 
 type PGSQLServer interface {
@@ -104,7 +105,7 @@ func (s *pgsrv) Serve() (err error) {
 }
 
 func (s *pgsrv) newSession(conn net.Conn) Session {
-	return newSession(conn, s.host, s.immudbPort, s.logger, s.tlsConfig, s.dbList)
+	return newSession(conn, s.host, s.immudbPort, s.logger, s.tlsConfig, s.logRequestMetadata, s.dbList)
 }
 
 func (s *pgsrv) Stop() (err error) {

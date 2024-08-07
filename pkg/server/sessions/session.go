@@ -57,13 +57,13 @@ type Session struct {
 	creationTime     time.Time
 	lastActivityTime time.Time
 	transactions     map[string]transactions.Transaction
-	documentReaders  *cache.LRUCache // track searchID to document.DocumentReader
+	documentReaders  *cache.Cache // track searchID to document.DocumentReader
 	log              logger.Logger
 }
 
 func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
 	now := time.Now()
-	lruCache, _ := cache.NewLRUCache(DefaultMaxDocumentReadersCacheSize)
+	lruCache, _ := cache.NewCache(DefaultMaxDocumentReadersCacheSize)
 
 	return &Session{
 		id:               sessionID,

@@ -39,7 +39,7 @@ var ErrMaxParamsNumberExceeded = errors.New("number of parameters exceeded the m
 var ErrParametersValueSizeTooLarge = errors.New("provided parameters exceeded the maximum allowed size limit")
 var ErrNegativeParameterValueLen = errors.New("negative parameter length detected")
 var ErrMalformedMessage = errors.New("malformed message detected")
-var ErrMessageTooLarge = errors.New("payload message hit  allowed memory boundaries")
+var ErrMessageTooLarge = errors.New("payload message hit allowed memory boundaries")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {

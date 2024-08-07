@@ -40,8 +40,9 @@ type Transaction interface {
 	Rollback() error
 	Commit(ctx context.Context) ([]*sql.SQLTx, error)
 	GetSessionID() string
+	Database() database.DB
 	SQLExec(ctx context.Context, request *schema.SQLExecRequest) error
-	SQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	SQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (sql.RowReader, error)
 }
 
 func NewTransaction(ctx context.Context, opts *sql.TxOptions, db database.DB, sessionID string) (*transaction, error) {
@@ -125,7 +126,7 @@ func (tx *transaction) SQLExec(ctx context.Context, request *schema.SQLExecReque
 	return err
 }
 
-func (tx *transaction) SQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (res *schema.SQLQueryResult, err error) {
+func (tx *transaction) SQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (sql.RowReader, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
@@ -134,4 +135,8 @@ func (tx *transaction) SQLQuery(ctx context.Context, request *schema.SQLQueryReq
 	}
 
 	return tx.db.SQLQuery(ctx, tx.sqlTx, request)
+}
+
+func (tx *transaction) Database() database.DB {
+	return tx.db
 }

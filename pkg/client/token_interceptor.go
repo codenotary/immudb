@@ -26,19 +26,35 @@ import (
 
 // TokenInterceptor injects authentication token header to outgoing GRPC requests if it has not been set already
 func (c *immuClient) TokenInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	ctx, err := c.appendTokenToOutgoingContext(ctx)
+	if err != nil {
+		return err
+	}
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+// TokenInterceptor injects authentication token header to outgoing GRPC requests if it has not been set already
+func (c *immuClient) TokenStreamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	ctx, err := c.appendTokenToOutgoingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return streamer(ctx, desc, cc, method, opts...)
+}
+
+func (c *immuClient) appendTokenToOutgoingContext(ctx context.Context) (context.Context, error) {
 	if md, ok := metadata.FromOutgoingContext(ctx); !ok || len(md.Get("authorization")) == 0 {
 		present, err := c.Tkns.IsTokenPresent()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if present {
 			token, err := c.Tkns.GetToken()
 			if err != nil {
-				return err
+				return nil, err
 			}
-			ctx = metadata.AppendToOutgoingContext(ctx, "authorization", token)
+			return metadata.AppendToOutgoingContext(ctx, "authorization", token), nil
 		}
 	}
-	ris := invoker(ctx, method, req, reply, cc, opts...)
-	return ris
+	return ctx, nil
 }

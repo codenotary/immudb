@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -41,26 +40,28 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var ErrIllegalArguments = fmt.Errorf("tbtree: %w", embedded.ErrIllegalArguments)
-var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
-var ErrorPathIsNotADirectory = errors.New("tbtree: path is not a directory")
-var ErrReadingFileContent = errors.New("tbtree: error reading required file content")
-var ErrKeyNotFound = fmt.Errorf("tbtree: %w", embedded.ErrKeyNotFound)
-var ErrorMaxKeySizeExceeded = errors.New("tbtree: max key size exceeded")
-var ErrorMaxValueSizeExceeded = errors.New("tbtree: max value size exceeded")
-var ErrOffsetOutOfRange = fmt.Errorf("tbtree: %w", embedded.ErrOffsetOutOfRange)
-var ErrIllegalState = embedded.ErrIllegalState // TODO: grpc error mapping hardly relies on the actual message, see IllegalStateHandlerInterceptor
-var ErrAlreadyClosed = errors.New("tbtree: index already closed")
-var ErrSnapshotsNotClosed = errors.New("tbtree: snapshots not closed")
-var ErrorToManyActiveSnapshots = errors.New("tbtree: max active snapshots limit reached")
-var ErrCorruptedFile = errors.New("tbtree: file is corrupted")
-var ErrCorruptedCLog = errors.New("tbtree: commit log is corrupted")
-var ErrCompactAlreadyInProgress = errors.New("tbtree: compact already in progress")
-var ErrCompactionThresholdNotReached = errors.New("tbtree: compaction threshold not yet reached")
-var ErrIncompatibleDataFormat = errors.New("tbtree: incompatible data format")
-var ErrTargetPathAlreadyExists = errors.New("tbtree: target folder already exists")
-var ErrNoMoreEntries = fmt.Errorf("tbtree: %w", embedded.ErrNoMoreEntries)
-var ErrReadersNotClosed = errors.New("tbtree: readers not closed")
+var (
+	ErrIllegalArguments              = fmt.Errorf("tbtree: %w", embedded.ErrIllegalArguments)
+	ErrInvalidOptions                = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
+	ErrorPathIsNotADirectory         = errors.New("tbtree: path is not a directory")
+	ErrReadingFileContent            = errors.New("tbtree: error reading required file content")
+	ErrKeyNotFound                   = fmt.Errorf("tbtree: %w", embedded.ErrKeyNotFound)
+	ErrorMaxKeySizeExceeded          = errors.New("tbtree: max key size exceeded")
+	ErrorMaxValueSizeExceeded        = errors.New("tbtree: max value size exceeded")
+	ErrOffsetOutOfRange              = fmt.Errorf("tbtree: %w", embedded.ErrOffsetOutOfRange)
+	ErrIllegalState                  = embedded.ErrIllegalState // TODO: grpc error mapping hardly relies on the actual message, see IllegalStateHandlerInterceptor
+	ErrAlreadyClosed                 = errors.New("tbtree: index already closed")
+	ErrSnapshotsNotClosed            = errors.New("tbtree: snapshots not closed")
+	ErrorToManyActiveSnapshots       = errors.New("tbtree: max active snapshots limit reached")
+	ErrCorruptedFile                 = errors.New("tbtree: file is corrupted")
+	ErrCorruptedCLog                 = errors.New("tbtree: commit log is corrupted")
+	ErrCompactAlreadyInProgress      = errors.New("tbtree: compact already in progress")
+	ErrCompactionThresholdNotReached = errors.New("tbtree: compaction threshold not yet reached")
+	ErrIncompatibleDataFormat        = errors.New("tbtree: incompatible data format")
+	ErrTargetPathAlreadyExists       = errors.New("tbtree: target folder already exists")
+	ErrNoMoreEntries                 = fmt.Errorf("tbtree: %w", embedded.ErrNoMoreEntries)
+	ErrReadersNotClosed              = errors.New("tbtree: readers not closed")
+)
 
 const Version = 3
 
@@ -165,11 +166,12 @@ func (e *cLogEntry) deserialize(b []byte) {
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	path   string
+	path string
+
 	logger logger.Logger
 
 	nLog   appendable.Appendable
-	cache  *cache.LRUCache
+	cache  *cache.Cache
 	nmutex sync.Mutex // mutex for cache and file reading
 
 	hLog appendable.Appendable
@@ -199,6 +201,8 @@ type TBtree struct {
 	nodesLogMaxOpenedFiles     int
 	historyLogMaxOpenedFiles   int
 	commitLogMaxOpenedFiles    int
+	appFactory                 AppFactoryFunc
+	appRemove                  AppRemoveFunc
 
 	snapshots      map[uint64]*Snapshot
 	maxSnapshotID  uint64
@@ -329,6 +333,14 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		}
 	}
 
+	appRemove := opts.appRemove
+	if appRemove == nil {
+		appRemove = func(rootPath, subPath string) error {
+			path := filepath.Join(rootPath, subPath)
+			return os.RemoveAll(path)
+		}
+	}
+
 	appendableOpts.WithFileExt("hx")
 	appendableOpts.WithMaxOpenedFiles(opts.historyLogMaxOpenedFiles)
 	hLog, err := appFactory(path, historyFolder, appendableOpts)
@@ -391,7 +403,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 			nLog.Close()
 			cLog.Close()
 
-			err = discardSnapshots(path, snapIDs[i-1:i], opts.logger)
+			err = discardSnapshots(path, snapIDs[i-1:i], appRemove, opts.logger)
 			if err != nil {
 				opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 			}
@@ -402,7 +414,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		opts.logger.Infof("successfully read snapshots at '%s'", snapPath)
 
 		// Discard older snapshots upon successful validation
-		err = discardSnapshots(path, snapIDs[:i-1], opts.logger)
+		err = discardSnapshots(path, snapIDs[:i-1], appRemove, opts.logger)
 		if err != nil {
 			opts.logger.Warningf("discarding snapshots at '%s' returned: %v", path, err)
 		}
@@ -443,7 +455,7 @@ func snapFolder(folder string, snapID uint64) string {
 }
 
 func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []uint64, err error) {
-	fis, err := ioutil.ReadDir(path)
+	fis, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -468,27 +480,24 @@ func recoverFullSnapshots(path, prefix string, logger logger.Logger) (snapIDs []
 	return snapIDs, nil
 }
 
-func discardSnapshots(path string, snapIDs []uint64, logger logger.Logger) error {
+func discardSnapshots(path string, snapIDs []uint64, appRemove AppRemoveFunc, logger logger.Logger) error {
 	for _, snapID := range snapIDs {
 		nFolder := snapFolder(nodesFolderPrefix, snapID)
 		cFolder := snapFolder(commitFolderPrefix, snapID)
 
-		nPath := filepath.Join(path, nFolder)
-		cPath := filepath.Join(path, cFolder)
+		logger.Infof("discarding snapshot with id=%d at '%s'..., %d", snapID, path)
 
-		logger.Infof("discarding snapshots at '%s'...", cPath)
-
-		err := os.RemoveAll(nPath) // TODO: nLog.Remove()
+		err := appRemove(path, nFolder)
 		if err != nil {
 			return err
 		}
 
-		err = os.RemoveAll(cPath) // TODO: cLog.Remove()
+		err = appRemove(path, cFolder)
 		if err != nil {
 			return err
 		}
 
-		logger.Infof("snapshots at '%s' has been discarded", cPath)
+		logger.Infof("snapshot with id=%d at '%s' has been discarded, %d", snapID, path)
 	}
 
 	return nil
@@ -547,7 +556,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 	}
 
-	cache, err := cache.NewLRUCache(opts.cacheSize)
+	cache, err := cache.NewCache(opts.cacheSize)
 	if err != nil {
 		return nil, err
 	}
@@ -577,6 +586,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		historyLogMaxOpenedFiles: opts.historyLogMaxOpenedFiles,
 		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
 		readOnly:                 opts.readOnly,
+		appFactory:               opts.appFactory,
+		appRemove:                opts.appRemove,
 		snapshots:                make(map[uint64]*Snapshot),
 	}
 
@@ -718,14 +729,17 @@ func (t *TBtree) GetOptions() *Options {
 		WithDelayDuringCompaction(t.delayDuringCompaction).
 		WithNodesLogMaxOpenedFiles(t.nodesLogMaxOpenedFiles).
 		WithHistoryLogMaxOpenedFiles(t.historyLogMaxOpenedFiles).
-		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles)
+		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles).
+		WithAppFactory(t.appFactory).
+		WithAppRemoveFunc(t.appRemove)
 }
 
 func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
-	r, _, _ := t.cache.Put(n.offset(), n)
+	size, _ := n.size()
+	r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
 	if r != nil {
 		metricsCacheEvict.WithLabelValues(t.path).Inc()
 	}
@@ -753,7 +767,8 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 		}
 
 		if updateCache {
-			r, _, _ := t.cache.Put(n.offset(), n)
+			size, _ := n.size()
+			r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
 			if r != nil {
 				metricsCacheEvict.WithLabelValues(t.path).Inc()
 			}
@@ -1356,9 +1371,6 @@ func (t *TBtree) Compact() (uint64, error) {
 	}
 
 	snap := t.newSnapshot(0, t.root)
-	if err != nil {
-		return 0, err
-	}
 
 	t.compacting = true
 	defer func() {

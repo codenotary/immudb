@@ -102,6 +102,13 @@ var reservedWords = map[string]int{
 	"READ":           READ,
 	"READWRITE":      READWRITE,
 	"ADMIN":          ADMIN,
+	"GRANT":          GRANT,
+	"REVOKE":         REVOKE,
+	"GRANTS":         GRANTS,
+	"FOR":            FOR,
+	"PRIVILEGES":     PRIVILEGES,
+	"CHECK":          CHECK,
+	"CONSTRAINT":     CONSTRAINT,
 }
 
 var joinTypes = map[string]JoinType{
@@ -118,6 +125,7 @@ var types = map[string]SQLValueType{
 	"BLOB":      BLOBType,
 	"TIMESTAMP": TimestampType,
 	"FLOAT":     Float64Type,
+	"JSON":      JSONType,
 }
 
 var aggregateFns = map[string]AggregateFn{
@@ -201,16 +209,28 @@ func (ar *aheadByteReader) NextByte() (byte, error) {
 	return ar.nextChar, ar.nextErr
 }
 
-func ParseString(sql string) ([]SQLStmt, error) {
-	return Parse(strings.NewReader(sql))
+func ParseSQLString(sql string) ([]SQLStmt, error) {
+	return ParseSQL(strings.NewReader(sql))
 }
 
-func Parse(r io.ByteReader) ([]SQLStmt, error) {
+func ParseSQL(r io.ByteReader) ([]SQLStmt, error) {
 	lexer := newLexer(r)
 
 	yyParse(lexer)
 
 	return lexer.result, lexer.err
+}
+
+func ParseExpFromString(exp string) (ValueExp, error) {
+	stmt := fmt.Sprintf("SELECT * FROM t WHERE %s", exp)
+
+	res, err := ParseSQLString(stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	s := res[0].(*SelectStmt)
+	return s.where, nil
 }
 
 func newLexer(r io.ByteReader) *lexer {
@@ -274,6 +294,11 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 	if isSeparator(ch) {
 		return STMT_SEPARATOR
+	}
+
+	if ch == '-' && l.r.nextChar == '>' {
+		l.r.ReadByte()
+		return ARROW
 	}
 
 	if isBLOBPrefix(ch) && isQuote(l.r.nextChar) {

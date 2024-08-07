@@ -131,10 +131,12 @@ type ahtOptions struct {
 	WriteBufferSize int `json:"writeBufferSize"`
 }
 
-const DefaultMaxValueLen = 1 << 25   //32Mb
-const DefaultStoreFileSize = 1 << 29 //512Mb
+const (
+	DefaultMaxValueLen   = 1 << 25 //32Mb
+	DefaultStoreFileSize = 1 << 29 //512Mb
+)
 
-func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
+func (s *ImmuServer) defaultDBOptions(dbName, userName string) *dbOptions {
 	dbOpts := &dbOptions{
 		Database: dbName,
 
@@ -170,6 +172,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		Autoload: unspecifiedState,
 
 		CreatedAt:           time.Now(),
+		CreatedBy:           userName,
 		TruncationFrequency: Milliseconds(database.DefaultTruncationFrequency.Milliseconds()),
 	}
 
@@ -234,7 +237,8 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithSyncAcks(opts.SyncAcks).
 		WithReadTxPoolSize(opts.ReadTxPoolSize).
 		WithRetentionPeriod(time.Millisecond * time.Duration(opts.RetentionPeriod)).
-		WithTruncationFrequency(time.Millisecond * time.Duration(opts.TruncationFrequency))
+		WithTruncationFrequency(time.Millisecond * time.Duration(opts.TruncationFrequency)).
+		WithMaxResultSize(s.Options.MaxResultSize)
 }
 
 func (opts *dbOptions) storeOptions() *store.Options {
@@ -861,14 +865,14 @@ func (s *ImmuServer) deleteDBOptionsFor(db string) error {
 
 func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*dbOptions, error) {
 	if database == s.Options.systemAdminDBName || database == s.Options.defaultDBName {
-		return s.defaultDBOptions(database), nil
+		return s.defaultDBOptions(database, s.Options.systemAdminDBName), nil
 	}
 
 	optionsKey := make([]byte, 1+len(database))
 	optionsKey[0] = KeyPrefixDBSettings
 	copy(optionsKey[1:], []byte(database))
 
-	options := s.defaultDBOptions(database)
+	options := s.defaultDBOptions(database, "")
 
 	e, err := s.sysDB.Get(context.Background(), &schema.KeyRequest{Key: optionsKey})
 	if errors.Is(err, store.ErrKeyNotFound) && createIfNotExists {

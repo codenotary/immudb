@@ -1812,7 +1812,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
+func TestImmudbStoreCompapactionDisabled(t *testing.T) {
 	opts := DefaultOptions().WithCompactionDisabled(true)
 	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -1820,7 +1820,7 @@ func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 	defer immustoreClose(t, immuStore)
 
 	err = immuStore.CompactIndexes()
-	require.ErrorIs(t, err, ErrCompactionUnsupported)
+	require.ErrorIs(t, err, ErrCompactionDisabled)
 }
 
 func TestImmudbStoreInclusionProof(t *testing.T) {

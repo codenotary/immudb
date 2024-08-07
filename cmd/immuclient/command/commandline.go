@@ -1,6 +1,7 @@
 package immuclient
 
 import (
+	"github.com/codenotary/immudb/cmd/helper"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/client"
@@ -99,6 +100,8 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 }
 
 func (cl *commandline) quit(msg interface{}) {
+	msg = helper.UnwrapMessage(msg)
+
 	if cl.onError == nil {
 		c.QuitToStdErr(msg)
 	}

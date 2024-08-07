@@ -36,18 +36,22 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-const MaxKeyResolutionLimit = 1
-const MaxKeyScanLimit = 2500
+const (
+	MaxKeyResolutionLimit = 1
+	MaxKeyScanLimit       = 2500
+)
 
-var ErrKeyResolutionLimitReached = errors.New("key resolution limit reached. It may be due to cyclic references")
-var ErrResultSizeLimitExceeded = errors.New("result size limit exceeded")
-var ErrResultSizeLimitReached = errors.New("result size limit reached")
-var ErrIllegalArguments = store.ErrIllegalArguments
-var ErrIllegalState = store.ErrIllegalState
-var ErrIsReplica = errors.New("database is read-only because it's a replica")
-var ErrNotReplica = errors.New("database is NOT a replica")
-var ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
-var ErrInvalidRevision = errors.New("invalid key revision number")
+var (
+	ErrKeyResolutionLimitReached  = errors.New("key resolution limit reached. It may be due to cyclic references")
+	ErrResultSizeLimitExceeded    = errors.New("result size limit exceeded")
+	ErrResultSizeLimitReached     = errors.New("result size limit reached")
+	ErrIllegalArguments           = store.ErrIllegalArguments
+	ErrIllegalState               = store.ErrIllegalState
+	ErrIsReplica                  = errors.New("database is read-only because it's a replica")
+	ErrNotReplica                 = errors.New("database is NOT a replica")
+	ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
+	ErrInvalidRevision            = errors.New("invalid key revision number")
+)
 
 type DB interface {
 	GetName() string
@@ -70,6 +74,8 @@ type DB interface {
 	CurrentState() (*schema.ImmutableState, error)
 
 	Size() (uint64, error)
+
+	TxCount() (uint64, error)
 
 	// Key-Value
 	Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error)
@@ -106,9 +112,9 @@ type DB interface {
 	InferParameters(ctx context.Context, tx *sql.SQLTx, sql string) (map[string]sql.SQLValueType, error)
 	InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.SQLStmt) (map[string]sql.SQLValueType, error)
 
-	SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
-	SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error)
-	SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error)
+	SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (sql.RowReader, error)
+	SQLQueryAll(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) ([]*sql.Row, error)
+	SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error)
 
 	VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 
@@ -167,25 +173,25 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log logger.Logger) (DB, error) {
+func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	log.Infof("opening database '%s' {replica = %v}...", dbName, op.replica)
+	log.Infof("opening database '%s' {replica = %v}...", dbName, opts.replica)
 
 	var replicaStates map[string]*replicaState
 	// replica states are only managed in primary with synchronous replication
-	if !op.replica && op.syncAcks > 0 {
-		replicaStates = make(map[string]*replicaState, op.syncAcks)
+	if !opts.replica && opts.syncAcks > 0 {
+		replicaStates = make(map[string]*replicaState, opts.syncAcks)
 	}
 
 	dbi := &db{
 		Logger:        log,
-		options:       op,
+		options:       opts,
 		name:          dbName,
 		replicaStates: replicaStates,
-		maxResultSize: MaxKeyScanLimit,
+		maxResultSize: opts.maxResultSize,
 		mutex:         &instrumentedRWMutex{},
 	}
 
@@ -195,10 +201,10 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
-	stOpts := op.GetStoreOptions().
+	stOpts := opts.GetStoreOptions().
 		WithLogger(log).
 		WithMultiIndexing(true).
-		WithExternalCommitAllowance(op.syncReplication)
+		WithExternalCommitAllowance(opts.syncReplication)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
@@ -216,39 +222,53 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		}
 	}
 
-	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, op.replica)
+	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
-		WithMultiDBHandler(multidbHandler)
+		WithMultiDBHandler(multidbHandler).
+		WithParseTxMetadataFunc(parseTxMetadata)
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
-		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
-	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
 		return nil, err
 	}
-	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
-	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
+	txPool, err := dbi.st.NewTxHolderPool(opts.readTxPoolSize, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "unable to create tx pool: %s", err)
 	}
 	dbi.txPool = txPool
 
-	if op.replica {
-		dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, op.replica)
+	if opts.replica {
+		dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, opts.replica)
 		return dbi, nil
 	}
 
-	dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, op.replica)
+	dbi.Logger.Infof("database '%s' {replica = %v} successfully opened", dbName, opts.replica)
 
 	return dbi, nil
+}
+
+func parseTxMetadata(data []byte) (map[string]interface{}, error) {
+	md := schema.Metadata{}
+	if err := md.Unmarshal(data); err != nil {
+		return nil, err
+	}
+
+	meta := make(map[string]interface{}, len(md))
+	for k, v := range md {
+		meta[k] = v
+	}
+	return meta, nil
 }
 
 func (d *db) Path() string {
@@ -268,29 +288,29 @@ func (d *db) releaseTx(tx *store.Tx) {
 }
 
 // NewDB Creates a new Database along with it's directories and files
-func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log logger.Logger) (DB, error) {
+func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	log.Infof("creating database '%s' {replica = %v}...", dbName, op.replica)
+	log.Infof("creating database '%s' {replica = %v}...", dbName, opts.replica)
 
 	var replicaStates map[string]*replicaState
 	// replica states are only managed in primary with synchronous replication
-	if !op.replica && op.syncAcks > 0 {
-		replicaStates = make(map[string]*replicaState, op.syncAcks)
+	if !opts.replica && opts.syncAcks > 0 {
+		replicaStates = make(map[string]*replicaState, opts.syncAcks)
 	}
 
 	dbi := &db{
 		Logger:        log,
-		options:       op,
+		options:       opts,
 		name:          dbName,
 		replicaStates: replicaStates,
-		maxResultSize: MaxKeyScanLimit,
+		maxResultSize: opts.maxResultSize,
 		mutex:         &instrumentedRWMutex{},
 	}
 
-	dbDir := filepath.Join(op.GetDBRootPath(), dbName)
+	dbDir := filepath.Join(opts.GetDBRootPath(), dbName)
 
 	_, err := os.Stat(dbDir)
 	if err == nil {
@@ -301,8 +321,8 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "unable to create data folder: %s", err)
 	}
 
-	stOpts := op.GetStoreOptions().
-		WithExternalCommitAllowance(op.syncReplication).
+	stOpts := opts.GetStoreOptions().
+		WithExternalCommitAllowance(opts.syncReplication).
 		WithMultiIndexing(true).
 		WithLogger(log)
 
@@ -322,7 +342,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		}
 	}
 
-	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
+	txPool, err := dbi.st.NewTxHolderPool(opts.readTxPoolSize, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "unable to create tx pool: %s", err)
 	}
@@ -330,24 +350,25 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
-		WithMultiDBHandler(multidbHandler)
+		WithMultiDBHandler(multidbHandler).
+		WithParseTxMetadataFunc(parseTxMetadata)
 
-	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, op.replica)
+	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
-		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
+		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
-	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
-	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
-	dbi.Logger.Infof("database '%s' successfully created {replica = %v}", dbName, op.replica)
+	dbi.Logger.Infof("database '%s' successfully created {replica = %v}", dbName, opts.replica)
 
 	return dbi, nil
 }
@@ -386,7 +407,7 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 		return nil, ErrIllegalArguments
 	}
 
-	tx, err := d.st.NewWriteOnlyTx(ctx)
+	tx, err := d.newWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +440,6 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	}
 
 	for i := range req.Preconditions {
-
 		c, err := PreconditionFromProto(req.Preconditions[i])
 		if err != nil {
 			return nil, err
@@ -443,6 +463,40 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	}
 
 	return schema.TxHeaderToProto(hdr), nil
+}
+
+func (d *db) newWriteOnlyTx(ctx context.Context) (*store.OngoingTx, error) {
+	tx, err := d.st.NewWriteOnlyTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return d.txWithMetadata(ctx, tx)
+}
+
+func (d *db) newTx(ctx context.Context, opts *store.TxOptions) (*store.OngoingTx, error) {
+	tx, err := d.st.NewTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return d.txWithMetadata(ctx, tx)
+}
+
+func (d *db) txWithMetadata(ctx context.Context, tx *store.OngoingTx) (*store.OngoingTx, error) {
+	meta := schema.MetadataFromContext(ctx)
+	if len(meta) > 0 {
+		txmd := store.NewTxMetadata()
+
+		data, err := meta.Marshal()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := txmd.WithExtra(data); err != nil {
+			return nil, err
+		}
+		return tx.WithMetadata(txmd), nil
+	}
+	return tx, nil
 }
 
 func checkKeyRequest(req *schema.KeyRequest) error {
@@ -851,7 +905,7 @@ func (d *db) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema
 		})
 	}
 
-	tx, err := d.st.NewTx(ctx, opts)
+	tx, err := d.newTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -911,8 +965,12 @@ func (d *db) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.En
 	return list, nil
 }
 
-// Size ...
 func (d *db) Size() (uint64, error) {
+	return d.st.Size()
+}
+
+// TxCount ...
+func (d *db) TxCount() (uint64, error) {
 	return d.st.TxCount(), nil
 }
 
@@ -1473,7 +1531,6 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 	defer d.releaseTx(tx)
 
 	limit := int(req.Limit)
-
 	if req.Limit == 0 {
 		limit = d.maxResultSize
 	}
@@ -1506,13 +1563,6 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 		}
 
 		txList.Txs = append(txList.Txs, sTx)
-
-		if l == d.maxResultSize {
-			return txList,
-				fmt.Errorf("%w: found at least %d entries (maximum limit). "+
-					"Pagination over large results can be achieved by using the limit and initialTx arguments",
-					ErrResultSizeLimitReached, d.maxResultSize)
-		}
 	}
 
 	return txList, nil
@@ -1546,14 +1596,13 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 	}
 
 	limit := int(req.Limit)
-
-	if req.Limit == 0 {
+	if limit == 0 {
 		limit = d.maxResultSize
 	}
 
 	key := EncodeKey(req.Key)
 
-	valRefs, hCount, err := d.st.History(key, req.Offset, req.Desc, limit)
+	valRefs, _, err := d.st.History(key, req.Offset, req.Desc, limit)
 	if err != nil && err != store.ErrOffsetOutOfRange {
 		return nil, err
 	}
@@ -1580,14 +1629,6 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 			Revision: valRef.HC(),
 		}
 	}
-
-	if limit == d.maxResultSize && hCount >= uint64(d.maxResultSize) {
-		return list,
-			fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
-				"Pagination over large results can be achieved by using the limit and initialTx arguments",
-				ErrResultSizeLimitReached, d.maxResultSize)
-	}
-
 	return list, nil
 }
 
@@ -1607,7 +1648,7 @@ func (d *db) Close() (err error) {
 
 	defer func() {
 		if err == nil {
-			d.Logger.Infof("database '%s' succesfully closed", d.name)
+			d.Logger.Infof("database '%s' successfully closed", d.name)
 		} else {
 			d.Logger.Infof("%v: while closing database '%s'", err, d.name)
 		}

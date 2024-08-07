@@ -30,6 +30,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const unsecurePasswordMsg = "A strong password (containing upper and lower case letters, digits and symbols) would be advisable"
+
 func (cl *commandline) user(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "user command",
@@ -60,11 +62,11 @@ func (cl *commandline) user(cmd *cobra.Command) {
 immuadmin user create user1 readwrite mydb
 immuadmin user create user1 admin mydb`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.userCreate(args)
+			resp, err := cl.userCreate(cmd, args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Fprint(cmd.OutOrStdout(), resp)
+			fmt.Fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.RangeArgs(2, 3),
@@ -83,8 +85,8 @@ immuadmin user create user1 admin mydb`,
 					return fmt.Errorf("Error Reading Password")
 				}
 			}
-			if resp, _, err = cl.changeUserPassword(username, oldpass); err == nil {
-				fmt.Fprint(cmd.OutOrStdout(), resp)
+			if resp, _, err = cl.changeUserPassword(cmd, username, oldpass); err == nil {
+				fmt.Fprintln(cmd.OutOrStdout(), resp)
 			}
 			return err
 		},
@@ -135,14 +137,16 @@ immuadmin user create user1 admin mydb`,
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (string, []byte, error) {
+func (cl *commandline) changeUserPassword(cmd *cobra.Command, username string, oldpassword []byte) (string, []byte, error) {
 	newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
 		return "", nil, errors.New("Error Reading Password")
 	}
-	if err = auth.IsStrongPassword(string(newpass)); err != nil {
-		return "", nil, errors.New("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
+
+	if err := cl.checkPassword(cmd, string(newpass)); err != nil {
+		return "", nil, err
 	}
+
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
 		return "", nil, errors.New("Error Reading Password")
@@ -154,6 +158,24 @@ func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (
 		return "", nil, err
 	}
 	return fmt.Sprintf("%s's password has been changed", username), newpass, nil
+}
+
+func (cl *commandline) checkPassword(cmd *cobra.Command, newpass string) error {
+	if err := auth.IsStrongPassword(string(newpass)); err == nil {
+		return nil
+	}
+
+	c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "%s.\nDo you want to continue with your password instead? [Y/n]\n", unsecurePasswordMsg)
+
+	selected, err := cl.terminalReader.ReadFromTerminalYN("n")
+	if err != nil {
+		return err
+	}
+
+	if selected != "y" {
+		return errors.New("unable to change password")
+	}
+	return nil
 }
 
 func (cl *commandline) userList(args []string) (string, error) {
@@ -231,7 +253,7 @@ func permissionToString(permission uint32) string {
 	}
 }
 
-func (cl *commandline) userCreate(args []string) (string, error) {
+func (cl *commandline) userCreate(cmd *cobra.Command, args []string) (string, error) {
 	username := args[0]
 	permissionStr := args[1]
 	var databasename string
@@ -265,8 +287,9 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Error Reading Password")
 	}
-	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
+
+	if err := cl.checkPassword(cmd, string(pass)); err != nil {
+		return "", err
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {

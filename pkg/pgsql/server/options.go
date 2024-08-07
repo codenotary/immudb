@@ -55,6 +55,12 @@ func TLSConfig(tlsConfig *tls.Config) Option {
 	}
 }
 
+func LogRequestMetadata(enabled bool) Option {
+	return func(args *pgsrv) {
+		args.logRequestMetadata = enabled
+	}
+}
+
 func DatabaseList(dbList database.DatabaseList) Option {
 	return func(args *pgsrv) {
 		args.dbList = dbList

@@ -22,7 +22,6 @@ func applyNumOperator(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
 	if vl.Type() == Float64Type || vr.Type() == Float64Type {
 		return applyNumOperatorFloat64(op, vl, vr)
 	}
-
 	return applyNumOperatorInteger(op, vl, vr)
 }
 

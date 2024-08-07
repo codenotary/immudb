@@ -210,7 +210,7 @@ func TestWritePastFirstChunk(t *testing.T) {
 
 	assert.True(t, waitForObject(mem, "00000005.aof"))
 
-	// LRU cache shuld contain chunks: 3, 4, 5 now, 6th is the active one
+	// Cache shuld contain chunks: 3, 4, 5 now, 6th is the active one
 	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000000.aof", path)))
 	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000001.aof", path)))
 	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000002.aof", path)))
@@ -420,6 +420,14 @@ func (r *remoteStorageMockingWrapper) Put(ctx context.Context, name string, file
 		})
 	}
 	return r.wrapped.Put(ctx, name, fileName)
+}
+
+func (r *remoteStorageMockingWrapper) Remove(ctx context.Context, name string) error {
+	panic("unimplemented")
+}
+
+func (r *remoteStorageMockingWrapper) RemoveAll(ctx context.Context, path string) error {
+	panic("unimplemented")
 }
 
 func (r *remoteStorageMockingWrapper) Exists(ctx context.Context, name string) (bool, error) {

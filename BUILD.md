@@ -26,6 +26,7 @@ GOOS=linux GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```
 
 ## MacOS (by component)
+For Apple Silicon (M1) use `GOARCH=arm64` instead of `GOARCH=amd64`
 
 ```bash
 GOOS=darwin GOARCH=amd64 make immuclient-static immuadmin-static immudb-static

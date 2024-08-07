@@ -106,7 +106,7 @@ func TestAsSQLValue(t *testing.T) {
 		},
 	} {
 		t.Run(d.n, func(t *testing.T) {
-			sqlVal, err := asSQLValue(d.val)
+			sqlVal, err := AsSQLValue(d.val)
 			require.EqualValues(t, d.sqlVal, sqlVal)
 			if d.isErr {
 				require.ErrorIs(t, err, sql.ErrInvalidValue)

@@ -42,5 +42,11 @@ func TestOptions(t *testing.T) {
 	opts.WithAutocommit(true)
 	require.True(t, opts.autocommit)
 
+	opts.WithSortBufferSize(0)
+	require.Error(t, opts.Validate())
+
+	opts.WithSortBufferSize(defaultSortBufferSize)
+	require.Equal(t, opts.sortBufferSize, defaultSortBufferSize)
+
 	require.NoError(t, opts.Validate())
 }

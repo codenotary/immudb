@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
-func RowDescription(cols []*schema.Column, formatCodes []int16) []byte {
+func RowDescription(cols []sql.ColDescriptor, formatCodes []int16) []byte {
 	////##-> dataRowDescription
 	//Byte1('T')
 	messageType := []byte(`T`)
@@ -38,7 +38,7 @@ func RowDescription(cols []*schema.Column, formatCodes []int16) []byte {
 	for n, col := range cols {
 		// The field name.
 		// String
-		fieldName := []byte(col.Name)
+		fieldName := []byte(col.Selector())
 		fieldName = bytes.Join([][]byte{fieldName, {0}}, nil)
 		// If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
 		// Int32

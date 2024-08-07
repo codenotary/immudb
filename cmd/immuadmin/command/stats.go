@@ -18,11 +18,13 @@ package immuadmin
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats"
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (cl *commandline) status(cmd *cobra.Command) {
@@ -34,10 +36,25 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
-			if err := cl.immuClient.HealthCheck(ctx); err != nil {
+
+			info, err := cl.immuClient.ServerInfo(ctx, &schema.ServerInfoRequest{})
+			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "OK - server is reachable and responding to queries\n")
+
+			startedAt := time.Unix(info.StartedAt, 0)
+			uptime := time.Now().Truncate(time.Second).Sub(startedAt)
+
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				"Status:\t\tOK - server is reachable and responding to queries\nVersion:\t%s\nUp time:\t%s (up %s)\nDatabases:\t%d (%s)\nTransactions:\t%d\n",
+				info.Version,
+				startedAt.Format(time.RFC822),
+				uptime,
+				info.NumDatabases,
+				c.FormatByteSize(uint64(info.DatabasesDiskSize)),
+				info.NumTransactions,
+			)
 			return nil
 		},
 		Args: cobra.NoArgs,
