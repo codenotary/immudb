@@ -18,6 +18,7 @@ package sql
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -46,6 +47,11 @@ func TestNumOperator(t *testing.T) {
 			{DIVOP, &Integer{val: 10}, &Float64{val: 3}, float64(10.0 / 3.0)},
 			{DIVOP, &Float64{val: 10}, &Integer{val: 3}, float64(10.0 / 3.0)},
 			{DIVOP, &Float64{val: 10}, &Float64{val: 3}, float64(10.0 / 3.0)},
+
+			{MODOP, &Integer{val: 10}, &Integer{val: 3}, int64(1)},
+			{MODOP, &Integer{val: 10}, &Float64{val: 3}, float64(1)},
+			{MODOP, &Float64{val: 10}, &Integer{val: 3}, float64(1)},
+			{MODOP, &Float64{val: 10.5}, &Float64{val: 3.2}, math.Mod(10.5, 3.2)},
 
 			{MULTOP, &Integer{val: 10}, &Integer{val: 3}, int64(30)},
 			{MULTOP, &Float64{val: 10}, &Integer{val: 3}, float64(30)},

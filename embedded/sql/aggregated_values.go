@@ -102,6 +102,10 @@ func (v *CountValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedVal
 	return nil, ErrUnexpected
 }
 
+func (v *CountValue) selectors() []Selector {
+	return nil
+}
+
 func (v *CountValue) reduceSelectors(row *Row, implicitTable string) ValueExp {
 	return nil
 }
@@ -196,6 +200,10 @@ func (v *SumValue) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *SumValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
+}
+
+func (v *SumValue) selectors() []Selector {
+	return nil
 }
 
 func (v *SumValue) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -301,6 +309,10 @@ func (v *MinValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue
 	return nil, ErrUnexpected
 }
 
+func (v *MinValue) selectors() []Selector {
+	return nil
+}
+
 func (v *MinValue) reduceSelectors(row *Row, implicitTable string) ValueExp {
 	return nil
 }
@@ -402,6 +414,10 @@ func (v *MaxValue) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *MaxValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
+}
+
+func (v *MaxValue) selectors() []Selector {
+	return nil
 }
 
 func (v *MaxValue) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -514,6 +530,10 @@ func (v *AVGValue) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *AVGValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
+}
+
+func (v *AVGValue) selectors() []Selector {
+	return nil
 }
 
 func (v *AVGValue) reduceSelectors(row *Row, implicitTable string) ValueExp {

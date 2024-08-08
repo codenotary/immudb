@@ -31,7 +31,7 @@ func TestGroupedRowReader(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = newGroupedRowReader(nil, nil, nil)
+	_, err = newGroupedRowReader(nil, false, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
@@ -50,7 +50,7 @@ func TestGroupedRowReader(t *testing.T) {
 	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
-	gr, err := newGroupedRowReader(r, []Selector{&ColSelector{col: "id"}}, []*ColSelector{{col: "id"}})
+	gr, err := newGroupedRowReader(r, false, []*AggColSelector{{aggFn: "COUNT", col: "id"}}, []*ColSelector{{col: "id"}})
 	require.NoError(t, err)
 
 	orderBy := gr.OrderBy()
@@ -61,7 +61,7 @@ func TestGroupedRowReader(t *testing.T) {
 
 	cols, err := gr.Columns(context.Background())
 	require.NoError(t, err)
-	require.Len(t, cols, 1)
+	require.Len(t, cols, 2)
 
 	scanSpecs := gr.ScanSpecs()
 	require.NotNil(t, scanSpecs)
