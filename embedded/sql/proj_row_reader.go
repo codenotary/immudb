@@ -156,7 +156,22 @@ func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]Co
 }
 
 func (pr *projectedRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
-	return pr.rowReader.InferParameters(ctx, params)
+	if err := pr.rowReader.InferParameters(ctx, params); err != nil {
+		return err
+	}
+
+	cols, err := pr.rowReader.colsBySelector(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, ex := range pr.targets {
+		_, err = ex.Exp.inferType(cols, params, pr.TableAlias())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (pr *projectedRowReader) Parameters() map[string]interface{} {

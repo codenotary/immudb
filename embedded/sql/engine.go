@@ -658,7 +658,6 @@ func (e *Engine) InferParameters(ctx context.Context, tx *SQLTx, sql string) (pa
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
-
 	return e.InferParametersPreparedStmts(ctx, tx, stmts)
 }
 

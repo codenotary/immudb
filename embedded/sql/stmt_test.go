@@ -548,7 +548,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 		expectedError error
 	}{
 		{
-			exp:           &FnCall{fn: "NOW"},
+			exp:           &FnCall{fn: NowFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -556,7 +556,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "NOW"},
+			exp:           &FnCall{fn: NowFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -564,7 +564,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &FnCall{fn: "LENGTH"},
+			exp:           &FnCall{fn: LengthFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -572,7 +572,15 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "SUBSTRING"},
+			exp:           &FnCall{fn: LengthFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: SubstringFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -580,15 +588,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "CONCAT"},
-			cols:          cols,
-			params:        params,
-			implicitTable: "mytable",
-			requiredType:  VarcharType,
-			expectedError: nil,
-		},
-		{
-			exp:           &FnCall{fn: "CONCAT"},
+			exp:           &FnCall{fn: SubstringFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -596,7 +596,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &FnCall{fn: "TRIM"},
+			exp:           &FnCall{fn: ConcatFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -604,7 +604,15 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "UPPER"},
+			exp:           &FnCall{fn: ConcatFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: TrimFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -612,7 +620,15 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "LOWER"},
+			exp:           &FnCall{fn: TrimFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: UpperFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -620,11 +636,43 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "LOWER"},
+			exp:           &FnCall{fn: LowerFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: LowerFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
 			requiredType:  Float64Type,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: JSONTypeOfFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: UUIDFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  UUIDType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: UUIDFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
 			expectedError: ErrInvalidTypes,
 		},
 	}

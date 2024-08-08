@@ -2788,10 +2788,28 @@ func TestQuery(t *testing.T) {
 
 		err = r.Close()
 		require.NoError(t, err)
+
+		r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id % 0", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrDivisionByZero)
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("Query with floating-point division by zero", func(t *testing.T) {
 		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id / (1.0-1.0)", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrDivisionByZero)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id % (1.0-1.0)", nil)
 		require.NoError(t, err)
 
 		_, err = r.Read(context.Background())
@@ -8958,7 +8976,7 @@ func TestGrantSQLPrivileges(t *testing.T) {
 	checkGrants("SHOW GRANTS FOR myuser")
 }
 
-func TestStringFunctions(t *testing.T) {
+func TestFunctions(t *testing.T) {
 	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 	defer closeStore(t, st)
@@ -8982,104 +9000,137 @@ func TestStringFunctions(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	t.Run("length", func(t *testing.T) {
-		_, err := engine.queryAll(context.Background(), nil, "SELECT LENGTH(NULL, 1) FROM mytable", nil)
+	t.Run("timestamp functions", func(t *testing.T) {
+		_, err := engine.queryAll(context.Background(), nil, "SELECT NOW(1) FROM mytable", nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		rows, err := engine.queryAll(context.Background(), nil, "SELECT LENGTH(NULL) FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
-		require.True(t, rows[0].ValuesByPosition[0].IsNull())
-		require.Equal(t, IntegerType, rows[0].ValuesByPosition[0].Type())
-
-		rows, err = engine.queryAll(context.Background(), nil, "SELECT LENGTH('immudb'), LENGTH('') FROM mytable", nil)
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT NOW() FROM mytable", nil)
 		require.NoError(t, err)
 		require.Len(t, rows, 1)
 
-		require.Equal(t, int64(6), rows[0].ValuesByPosition[0].RawValue().(int64))
-		require.Equal(t, int64(0), rows[0].ValuesByPosition[1].RawValue().(int64))
+		require.IsType(t, time.Time{}, rows[0].ValuesByPosition[0].RawValue())
 	})
 
-	t.Run("substring", func(t *testing.T) {
-		_, err := engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 0, 6, true) FROM mytable", nil)
+	t.Run("uuid functions", func(t *testing.T) {
+		_, err := engine.queryAll(context.Background(), nil, "SELECT RANDOM_UUID(1) FROM mytable", nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		_, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 0, 6) FROM mytable", nil)
-		require.ErrorContains(t, err, "parameter 'position' must be greater than zero")
-
-		_, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 1, -1) FROM mytable", nil)
-		require.ErrorContains(t, err, "parameter 'length' cannot be negative")
-
-		rows, err := engine.queryAll(context.Background(), nil, "SELECT SUBSTRING(NULL, 8, 0) FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
-		require.True(t, rows[0].ValuesByPosition[0].IsNull())
-		require.Equal(t, VarcharType, rows[0].ValuesByPosition[0].Type())
-
-		rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 0) FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
-		require.Equal(t, "", rows[0].ValuesByPosition[0].RawValue().(string))
-
-		rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 6) FROM mytable", nil)
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT RANDOM_UUID() FROM mytable", nil)
 		require.NoError(t, err)
 		require.Len(t, rows, 1)
 
-		require.Equal(t, "immudb", rows[0].ValuesByPosition[0].RawValue().(string))
-
-		rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 100) FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
-
-		require.Equal(t, "immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		require.IsType(t, uuid.UUID{}, rows[0].ValuesByPosition[0].RawValue())
 	})
 
-	t.Run("trim", func(t *testing.T) {
-		_, err := engine.queryAll(context.Background(), nil, "SELECT TRIM(NULL, 1) FROM mytable", nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
+	t.Run("string functions", func(t *testing.T) {
+		t.Run("length", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT LENGTH(NULL, 1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
 
-		rows, err := engine.queryAll(context.Background(), nil, "SELECT TRIM(NULL) FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
-		require.True(t, rows[0].ValuesByPosition[0].IsNull())
-		require.Equal(t, VarcharType, rows[0].ValuesByPosition[0].Type())
+			_, err = engine.queryAll(context.Background(), nil, "SELECT LENGTH(10) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
 
-		rows, err = engine.queryAll(context.Background(), nil, "SELECT TRIM('      \t\n\r        Hello, immudb!  ') FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT LENGTH(NULL) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.Equal(t, IntegerType, rows[0].ValuesByPosition[0].Type())
 
-		require.Equal(t, "Hello, immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
-	})
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT LENGTH('immudb'), LENGTH('') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
 
-	t.Run("concat", func(t *testing.T) {
-		_, err := engine.queryAll(context.Background(), nil, "SELECT CONCAT() FROM mytable", nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
+			require.Equal(t, int64(6), rows[0].ValuesByPosition[0].RawValue().(int64))
+			require.Equal(t, int64(0), rows[0].ValuesByPosition[1].RawValue().(int64))
+		})
 
-		_, err = engine.queryAll(context.Background(), nil, "SELECT CONCAT('ciao', NULL, true) FROM mytable", nil)
-		require.ErrorContains(t, err, "'CONCAT' function doesn't accept arguments of type BOOL")
+		t.Run("substring", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 0, 6, true) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
 
-		rows, err := engine.queryAll(context.Background(), nil, "SELECT CONCAT('Hello', ', ', NULL, 'immudb', NULL, '!') FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
+			_, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 0, 6) FROM mytable", nil)
+			require.ErrorContains(t, err, "parameter 'position' must be greater than zero")
 
-		require.Equal(t, "Hello, immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
-	})
+			_, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 1, -1) FROM mytable", nil)
+			require.ErrorContains(t, err, "parameter 'length' cannot be negative")
 
-	t.Run("upper/lower", func(t *testing.T) {
-		_, err := engine.queryAll(context.Background(), nil, "SELECT UPPER(NULL, 1), LOWER(NULL, 1) FROM mytable", nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT SUBSTRING(NULL, 8, 0) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.Equal(t, VarcharType, rows[0].ValuesByPosition[0].Type())
 
-		rows, err := engine.queryAll(context.Background(), nil, "SELECT UPPER(NULL), LOWER(NULL) FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
-		require.True(t, rows[0].ValuesByPosition[0].IsNull())
-		require.True(t, rows[0].ValuesByPosition[1].IsNull())
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 0) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.Equal(t, "", rows[0].ValuesByPosition[0].RawValue().(string))
 
-		rows, err = engine.queryAll(context.Background(), nil, "SELECT UPPER('immudb'), LOWER('IMMUDB') FROM mytable", nil)
-		require.NoError(t, err)
-		require.Len(t, rows, 1)
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 6) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
 
-		require.Equal(t, "IMMUDB", rows[0].ValuesByPosition[0].RawValue().(string))
-		require.Equal(t, "immudb", rows[0].ValuesByPosition[1].RawValue().(string))
+			require.Equal(t, "immudb", rows[0].ValuesByPosition[0].RawValue().(string))
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 100) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		})
+
+		t.Run("trim", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT TRIM(1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT TRIM(NULL, 1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT TRIM(NULL) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.Equal(t, VarcharType, rows[0].ValuesByPosition[0].Type())
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT TRIM('      \t\n\r        Hello, immudb!  ') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "Hello, immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		})
+
+		t.Run("concat", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT CONCAT() FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT CONCAT('ciao', NULL, true) FROM mytable", nil)
+			require.ErrorContains(t, err, "'CONCAT' function doesn't accept arguments of type BOOL")
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT CONCAT('Hello', ', ', NULL, 'immudb', NULL, '!') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "Hello, immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		})
+
+		t.Run("upper/lower", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT UPPER(1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT LOWER(NULL, 1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT UPPER(NULL), LOWER(NULL) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.True(t, rows[0].ValuesByPosition[1].IsNull())
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT UPPER('immudb'), LOWER('IMMUDB') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "IMMUDB", rows[0].ValuesByPosition[0].RawValue().(string))
+			require.Equal(t, "immudb", rows[0].ValuesByPosition[1].RawValue().(string))
+		})
 	})
 }

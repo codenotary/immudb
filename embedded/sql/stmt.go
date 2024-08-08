@@ -3010,7 +3010,7 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 		return err
 	}
 
-	// TODO (jeroiraz) may be optimized so to resolve the query statement just once
+	// TODO: (jeroiraz) may be optimized so to resolve the query statement just once
 	rowReader, err := stmt.Resolve(ctx, tx, nil, nil)
 	if err != nil {
 		return err
