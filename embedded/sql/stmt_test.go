@@ -548,7 +548,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 		expectedError error
 	}{
 		{
-			exp:           &FnCall{fn: "NOW"},
+			exp:           &FnCall{fn: NowFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -556,7 +556,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &FnCall{fn: "NOW"},
+			exp:           &FnCall{fn: NowFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -564,20 +564,124 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &FnCall{fn: "LOWER"},
+			exp:           &FnCall{fn: LengthFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: LengthFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
 			requiredType:  VarcharType,
-			expectedError: ErrIllegalArguments,
+			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &FnCall{fn: "LOWER"},
+			exp:           &FnCall{fn: SubstringFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: SubstringFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: ConcatFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: ConcatFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: TrimFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: TrimFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: UpperFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: LowerFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: LowerFnCall},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
 			requiredType:  Float64Type,
-			expectedError: ErrIllegalArguments,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: JSONTypeOfFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: JSONTypeOfFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &FnCall{fn: UUIDFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  UUIDType,
+			expectedError: nil,
+		},
+		{
+			exp:           &FnCall{fn: UUIDFnCall},
+			cols:          cols,
+			params:        params,
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: ErrInvalidTypes,
 		},
 	}
 
@@ -1395,6 +1499,16 @@ func TestRequiredPrivileges(t *testing.T) {
 			privileges: []SQLPrivilege{SQLPrivilegeInsert},
 		},
 		{
+			stmt:       &UpsertIntoStmt{ds: &SelectStmt{}},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeUpdate, SQLPrivilegeSelect},
+		},
+		{
+			stmt:       &UpsertIntoStmt{ds: &SelectStmt{}, isInsert: true},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeSelect},
+		},
+		{
 			stmt:       &DeleteFromStmt{},
 			readOnly:   false,
 			privileges: []SQLPrivilege{SQLPrivilegeDelete},
@@ -1475,6 +1589,11 @@ func TestRequiredPrivileges(t *testing.T) {
 			privileges: []SQLPrivilege{SQLPrivilegeAlter},
 		},
 		{
+			stmt:       &RenameTableStmt{},
+			readOnly:   false,
+			privileges: []SQLPrivilege{SQLPrivilegeAlter},
+		},
+		{
 			stmt:       &RenameColumnStmt{},
 			readOnly:   false,
 			privileges: []SQLPrivilege{SQLPrivilegeAlter},
@@ -1490,6 +1609,117 @@ func TestRequiredPrivileges(t *testing.T) {
 		t.Run(reflect.TypeOf(tc.stmt).String(), func(t *testing.T) {
 			require.Equal(t, tc.stmt.readOnly(), tc.readOnly)
 			require.Equal(t, tc.stmt.requiredPrivileges(), tc.privileges)
+		})
+	}
+}
+
+func TestExprSelectors(t *testing.T) {
+	type testCase struct {
+		Expr      ValueExp
+		selectors []Selector
+	}
+
+	tests := []testCase{
+		{
+			Expr: &Integer{},
+		},
+		{
+			Expr: &Bool{},
+		},
+		{
+			Expr: &Float64{},
+		},
+		{
+			Expr: &NullValue{},
+		},
+		{
+			Expr: &Blob{},
+		},
+		{
+			Expr: &UUID{},
+		},
+		{
+			Expr: &JSON{},
+		},
+		{
+			Expr: &Timestamp{},
+		},
+		{
+			Expr: &Varchar{},
+		},
+		{
+			Expr: &Param{},
+		},
+		{
+			Expr: &ColSelector{col: "col"},
+			selectors: []Selector{
+				&ColSelector{col: "col"},
+			},
+		},
+		{
+			Expr: &JSONSelector{ColSelector: &ColSelector{col: "col"}},
+			selectors: []Selector{
+				&JSONSelector{ColSelector: &ColSelector{col: "col"}},
+			},
+		},
+		{
+			Expr: &BinBoolExp{
+				left:  &ColSelector{col: "col"},
+				right: &ColSelector{col: "col1"},
+			},
+			selectors: []Selector{
+				&ColSelector{col: "col"},
+				&ColSelector{col: "col1"},
+			},
+		},
+		{
+			Expr: &NumExp{
+				left:  &ColSelector{col: "col"},
+				right: &ColSelector{col: "col1"},
+			},
+			selectors: []Selector{
+				&ColSelector{col: "col"},
+				&ColSelector{col: "col1"},
+			},
+		},
+		{
+			Expr: &LikeBoolExp{
+				val: &ColSelector{col: "col"},
+			},
+			selectors: []Selector{
+				&ColSelector{col: "col"},
+			},
+		},
+		{
+			Expr: &ExistsBoolExp{},
+		},
+		{
+			Expr: &InSubQueryExp{val: &ColSelector{col: "col"}},
+			selectors: []Selector{
+				&ColSelector{col: "col"},
+			},
+		},
+		{
+			Expr: &InListExp{
+				val: &ColSelector{col: "col"},
+				values: []ValueExp{
+					&ColSelector{col: "col1"},
+					&ColSelector{col: "col2"},
+					&ColSelector{col: "col3"},
+				},
+			},
+			selectors: []Selector{
+				&ColSelector{col: "col"},
+				&ColSelector{col: "col1"},
+				&ColSelector{col: "col2"},
+				&ColSelector{col: "col3"},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(reflect.TypeOf(tc.Expr).Elem().Name(), func(t *testing.T) {
+			require.Equal(t, tc.selectors, tc.Expr.selectors())
 		})
 	}
 }

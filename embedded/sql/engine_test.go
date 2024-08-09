@@ -1743,6 +1743,89 @@ func TestUpsertInto(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestUpsertIntoSelect(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil, `CREATE TABLE table1 (
+				id INTEGER AUTO_INCREMENT,
+				meta JSON,
+
+				PRIMARY KEY id
+			)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil, `CREATE TABLE table2 (
+				id INTEGER AUTO_INCREMENT,
+				name VARCHAR,
+				age INTEGER,
+				active BOOLEAN,
+				created_at TIMESTAMP,
+
+				PRIMARY KEY id
+			)`, nil)
+	require.NoError(t, err)
+
+	n := 100
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("name%d", i)
+		age := 10 + rand.Intn(50)
+		active := rand.Intn(2) == 1
+
+		upsert := fmt.Sprintf(
+			`INSERT INTO table1 (meta) VALUES ('{"name": "%s", "age": %d, "active": %t, "createdAt": "%s"}')`,
+			name,
+			age,
+			active,
+			time.Now().Format("2006-01-02 15:04:05.999999"),
+		)
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			upsert,
+			nil,
+		)
+		require.NoError(t, err)
+	}
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		`INSERT INTO table2(name, age, active, created_at)
+			SELECT meta->'name', meta->'age', meta->'active', meta->'createdAt'::TIMESTAMP
+			FROM table1
+		`,
+		nil,
+	)
+	require.NoError(t, err)
+
+	rows, err := engine.queryAll(
+		context.Background(),
+		nil,
+		`SELECT t1.meta->'name' = t2.name, t1.meta->'age' = t2.age, t1.meta->'active' = t2.active, t1.meta->'createdAt'::TIMESTAMP = t2.created_at
+		FROM table1 AS t1 JOIN table2 AS t2 on t1.id = t2.id`,
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, rows, 100)
+
+	for _, row := range rows {
+		require.Len(t, row.ValuesByPosition, 4)
+
+		for _, v := range row.ValuesByPosition {
+			require.True(t, v.RawValue().(bool))
+		}
+	}
+}
+
 func TestInsertIntoEdgeCases(t *testing.T) {
 	engine := setupCommonTest(t)
 
@@ -2705,10 +2788,28 @@ func TestQuery(t *testing.T) {
 
 		err = r.Close()
 		require.NoError(t, err)
+
+		r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id % 0", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrDivisionByZero)
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("Query with floating-point division by zero", func(t *testing.T) {
 		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id / (1.0-1.0)", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrDivisionByZero)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id % (1.0-1.0)", nil)
 		require.NoError(t, err)
 
 		_, err = r.Read(context.Background())
@@ -2760,34 +2861,60 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	r, err = engine.Query(context.Background(), nil, "INVALID QUERY", nil)
-	require.ErrorIs(t, err, ErrParsingError)
-	require.EqualError(t, err, "parsing error: syntax error: unexpected IDENTIFIER at position 7")
-	require.Nil(t, r)
+	t.Run("query expressions", func(t *testing.T) {
+		reader, err := engine.Query(context.Background(), nil, "SELECT 1, (id + 1) * 2.0, id % 2 = 0 FROM table1", nil)
+		require.NoError(t, err)
 
-	r, err = engine.Query(context.Background(), nil, "UPSERT INTO table1 (id) VALUES(1)", nil)
-	require.ErrorIs(t, err, ErrExpectingDQLStmt)
-	require.Nil(t, r)
+		cols, err := reader.Columns(context.Background())
+		require.NoError(t, err)
+		require.Len(t, cols, 3)
 
-	r, err = engine.Query(context.Background(), nil, "UPSERT INTO table1 (id) VALUES(1); UPSERT INTO table1 (id) VALUES(1)", nil)
-	require.ErrorIs(t, err, ErrExpectingDQLStmt)
-	require.Nil(t, r)
+		require.Equal(t, ColDescriptor{Table: "table1", Column: "col0", Type: IntegerType}, cols[0])
+		require.Equal(t, ColDescriptor{Table: "table1", Column: "col1", Type: Float64Type}, cols[1])
+		require.Equal(t, ColDescriptor{Table: "table1", Column: "col2", Type: BooleanType}, cols[2])
 
-	r, err = engine.QueryPreparedStmt(context.Background(), nil, nil, nil)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-	require.Nil(t, r)
+		rows, err := ReadAllRows(context.Background(), reader)
+		require.NoError(t, err)
+		require.Len(t, rows, 10)
+		require.NoError(t, reader.Close())
 
-	params = make(map[string]interface{})
-	params["null_param"] = nil
+		for i, row := range rows {
+			require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "table1", "col0")].RawValue())
+			require.Equal(t, float64((i+1)*2), row.ValuesBySelector[EncodeSelector("", "table1", "col1")].RawValue())
+			require.Equal(t, i%2 == 0, row.ValuesBySelector[EncodeSelector("", "table1", "col2")].RawValue())
+		}
+	})
 
-	r, err = engine.Query(context.Background(), nil, "SELECT id FROM table1 WHERE active = @null_param", params)
-	require.NoError(t, err)
+	t.Run("invalid queries", func(t *testing.T) {
+		r, err = engine.Query(context.Background(), nil, "INVALID QUERY", nil)
+		require.ErrorIs(t, err, ErrParsingError)
+		require.EqualError(t, err, "parsing error: syntax error: unexpected IDENTIFIER at position 7")
+		require.Nil(t, r)
 
-	_, err = r.Read(context.Background())
-	require.ErrorIs(t, err, ErrNoMoreRows)
+		r, err = engine.Query(context.Background(), nil, "UPSERT INTO table1 (id) VALUES(1)", nil)
+		require.ErrorIs(t, err, ErrExpectingDQLStmt)
+		require.Nil(t, r)
 
-	err = r.Close()
-	require.NoError(t, err)
+		r, err = engine.Query(context.Background(), nil, "UPSERT INTO table1 (id) VALUES(1); UPSERT INTO table1 (id) VALUES(1)", nil)
+		require.ErrorIs(t, err, ErrExpectingDQLStmt)
+		require.Nil(t, r)
+
+		r, err = engine.QueryPreparedStmt(context.Background(), nil, nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Nil(t, r)
+
+		params = make(map[string]interface{})
+		params["null_param"] = nil
+
+		r, err = engine.Query(context.Background(), nil, "SELECT id FROM table1 WHERE active = @null_param", params)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 }
 
 func TestJSON(t *testing.T) {
@@ -8847,4 +8974,181 @@ func TestGrantSQLPrivileges(t *testing.T) {
 
 	checkGrants("SHOW GRANTS")
 	checkGrants("SHOW GRANTS FOR myuser")
+}
+
+func TestFunctions(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE TABLE mytable(id INTEGER, PRIMARY KEY id)",
+		nil,
+	)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		"INSERT INTO mytable(id) VALUES (1)",
+		nil,
+	)
+	require.NoError(t, err)
+
+	t.Run("timestamp functions", func(t *testing.T) {
+		_, err := engine.queryAll(context.Background(), nil, "SELECT NOW(1) FROM mytable", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT NOW() FROM mytable", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+
+		require.IsType(t, time.Time{}, rows[0].ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("uuid functions", func(t *testing.T) {
+		_, err := engine.queryAll(context.Background(), nil, "SELECT RANDOM_UUID(1) FROM mytable", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT RANDOM_UUID() FROM mytable", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+
+		require.IsType(t, uuid.UUID{}, rows[0].ValuesByPosition[0].RawValue())
+	})
+
+	t.Run("string functions", func(t *testing.T) {
+		t.Run("length", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT LENGTH(NULL, 1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT LENGTH(10) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT LENGTH(NULL) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.Equal(t, IntegerType, rows[0].ValuesByPosition[0].Type())
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT LENGTH('immudb'), LENGTH('') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, int64(6), rows[0].ValuesByPosition[0].RawValue().(int64))
+			require.Equal(t, int64(0), rows[0].ValuesByPosition[1].RawValue().(int64))
+		})
+
+		t.Run("substring", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 0, 6, true) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 0, 6) FROM mytable", nil)
+			require.ErrorContains(t, err, "parameter 'position' must be greater than zero")
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 1, -1) FROM mytable", nil)
+			require.ErrorContains(t, err, "parameter 'length' cannot be negative")
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT SUBSTRING(NULL, 8, 0) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.Equal(t, VarcharType, rows[0].ValuesByPosition[0].Type())
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 0) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.Equal(t, "", rows[0].ValuesByPosition[0].RawValue().(string))
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 6) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "immudb", rows[0].ValuesByPosition[0].RawValue().(string))
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT SUBSTRING('Hello, immudb!', 8, 100) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		})
+
+		t.Run("trim", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT TRIM(1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT TRIM(NULL, 1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT TRIM(NULL) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.Equal(t, VarcharType, rows[0].ValuesByPosition[0].Type())
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT TRIM('      \t\n\r        Hello, immudb!  ') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "Hello, immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		})
+
+		t.Run("concat", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT CONCAT() FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT CONCAT('ciao', NULL, true) FROM mytable", nil)
+			require.ErrorContains(t, err, "'CONCAT' function doesn't accept arguments of type BOOL")
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT CONCAT('Hello', ', ', NULL, 'immudb', NULL, '!') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "Hello, immudb!", rows[0].ValuesByPosition[0].RawValue().(string))
+		})
+
+		t.Run("upper/lower", func(t *testing.T) {
+			_, err := engine.queryAll(context.Background(), nil, "SELECT UPPER(1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			_, err = engine.queryAll(context.Background(), nil, "SELECT LOWER(NULL, 1) FROM mytable", nil)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+
+			rows, err := engine.queryAll(context.Background(), nil, "SELECT UPPER(NULL), LOWER(NULL) FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.True(t, rows[0].ValuesByPosition[0].IsNull())
+			require.True(t, rows[0].ValuesByPosition[1].IsNull())
+
+			rows, err = engine.queryAll(context.Background(), nil, "SELECT UPPER('immudb'), LOWER('IMMUDB') FROM mytable", nil)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+
+			require.Equal(t, "IMMUDB", rows[0].ValuesByPosition[0].RawValue().(string))
+			require.Equal(t, "immudb", rows[0].ValuesByPosition[1].RawValue().(string))
+		})
+	})
+
+	t.Run("json functions", func(t *testing.T) {
+		_, err := engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF(true) FROM mytable", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, err = engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF('{}'::JSON, 1) FROM mytable", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF(NULL) FROM mytable", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Nil(t, rows[0].ValuesByPosition[0].RawValue())
+
+		rows, err = engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF('{}'::JSON) FROM mytable", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, "OBJECT", rows[0].ValuesByPosition[0].RawValue().(string))
+	})
 }

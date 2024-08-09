@@ -25,30 +25,31 @@ type projectedRowReader struct {
 	rowReader  RowReader
 	tableAlias string
 
-	selectors []Selector
+	targets []TargetEntry
 }
 
-func newProjectedRowReader(ctx context.Context, rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
+func newProjectedRowReader(ctx context.Context, rowReader RowReader, tableAlias string, targets []TargetEntry) (*projectedRowReader, error) {
 	// case: SELECT *
-	if len(selectors) == 0 {
+	if len(targets) == 0 {
 		cols, err := rowReader.Columns(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, col := range cols {
-			sel := &ColSelector{
-				table: col.Table,
-				col:   col.Column,
-			}
-			selectors = append(selectors, sel)
+			targets = append(targets, TargetEntry{
+				Exp: &ColSelector{
+					table: col.Table,
+					col:   col.Column,
+				},
+			})
 		}
 	}
 
 	return &projectedRowReader{
 		rowReader:  rowReader,
 		tableAlias: tableAlias,
-		selectors:  selectors,
+		targets:    targets,
 	}, nil
 }
 
@@ -82,38 +83,33 @@ func (pr *projectedRowReader) Columns(ctx context.Context) ([]ColDescriptor, err
 		return nil, err
 	}
 
-	colsByPos := make([]ColDescriptor, len(pr.selectors))
+	colsByPos := make([]ColDescriptor, len(pr.targets))
 
-	for i, sel := range pr.selectors {
-		aggFn, table, col := sel.resolve(pr.rowReader.TableAlias())
+	for i, t := range pr.targets {
+		var aggFn, table, col string = "", pr.rowReader.TableAlias(), ""
+		if s, ok := t.Exp.(Selector); ok {
+			aggFn, table, col = s.resolve(pr.rowReader.TableAlias())
+		}
 
 		if pr.tableAlias != "" {
 			table = pr.tableAlias
 		}
 
-		if aggFn == "" && sel.alias() != "" {
-			col = sel.alias()
+		if t.As != "" {
+			col = t.As
+		} else if aggFn != "" || col == "" {
+			col = fmt.Sprintf("col%d", i)
 		}
-
-		if aggFn != "" {
-			aggFn = ""
-			col = sel.alias()
-			if col == "" {
-				col = fmt.Sprintf("col%d", i)
-			}
-		}
+		aggFn = ""
 
 		colsByPos[i] = ColDescriptor{
 			AggFn:  aggFn,
 			Table:  table,
 			Column: col,
 		}
-
 		encSel := colsByPos[i].Selector()
-
 		colsByPos[i].Type = colsBySel[encSel].Type
 	}
-
 	return colsByPos, nil
 }
 
@@ -123,13 +119,16 @@ func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]Co
 		return nil, err
 	}
 
-	colDescriptors := make(map[string]ColDescriptor, len(pr.selectors))
+	colDescriptors := make(map[string]ColDescriptor, len(pr.targets))
 	emptyParams := make(map[string]string)
 
-	for i, sel := range pr.selectors {
-		aggFn, table, col := sel.resolve(pr.rowReader.TableAlias())
+	for i, t := range pr.targets {
+		var aggFn, table, col string = "", pr.rowReader.TableAlias(), ""
+		if s, ok := t.Exp.(Selector); ok {
+			aggFn, table, col = s.resolve(pr.rowReader.TableAlias())
+		}
 
-		sqlType, err := sel.inferType(dsColDescriptors, emptyParams, pr.rowReader.TableAlias())
+		sqlType, err := t.Exp.inferType(dsColDescriptors, emptyParams, pr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
@@ -138,17 +137,12 @@ func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]Co
 			table = pr.tableAlias
 		}
 
-		if aggFn == "" && sel.alias() != "" {
-			col = sel.alias()
+		if t.As != "" {
+			col = t.As
+		} else if aggFn != "" || col == "" {
+			col = fmt.Sprintf("col%d", i)
 		}
-
-		if aggFn != "" {
-			aggFn = ""
-			col = sel.alias()
-			if col == "" {
-				col = fmt.Sprintf("col%d", i)
-			}
-		}
+		aggFn = ""
 
 		des := ColDescriptor{
 			AggFn:  aggFn,
@@ -156,15 +150,28 @@ func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]Co
 			Column: col,
 			Type:   sqlType,
 		}
-
 		colDescriptors[des.Selector()] = des
 	}
-
 	return colDescriptors, nil
 }
 
 func (pr *projectedRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
-	return pr.rowReader.InferParameters(ctx, params)
+	if err := pr.rowReader.InferParameters(ctx, params); err != nil {
+		return err
+	}
+
+	cols, err := pr.rowReader.colsBySelector(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, ex := range pr.targets {
+		_, err = ex.Exp.inferType(cols, params, pr.TableAlias())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (pr *projectedRowReader) Parameters() map[string]interface{} {
@@ -178,35 +185,33 @@ func (pr *projectedRowReader) Read(ctx context.Context) (*Row, error) {
 	}
 
 	prow := &Row{
-		ValuesByPosition: make([]TypedValue, len(pr.selectors)),
-		ValuesBySelector: make(map[string]TypedValue, len(pr.selectors)),
+		ValuesByPosition: make([]TypedValue, len(pr.targets)),
+		ValuesBySelector: make(map[string]TypedValue, len(pr.targets)),
 	}
 
-	for i, sel := range pr.selectors {
-		v, err := sel.reduce(pr.Tx(), row, pr.rowReader.TableAlias())
+	for i, t := range pr.targets {
+		v, err := t.Exp.reduce(pr.Tx(), row, pr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
 
-		aggFn, table, col := sel.resolve(pr.rowReader.TableAlias())
+		var aggFn, table, col string = "", pr.rowReader.TableAlias(), ""
+		if s, ok := t.Exp.(Selector); ok {
+			aggFn, table, col = s.resolve(pr.rowReader.TableAlias())
+		}
+
 		if pr.tableAlias != "" {
 			table = pr.tableAlias
 		}
 
-		if aggFn == "" && sel.alias() != "" {
-			col = sel.alias()
-		}
-
-		if aggFn != "" {
-			aggFn = ""
-			col = sel.alias()
-			if col == "" {
-				col = fmt.Sprintf("col%d", i)
-			}
+		if t.As != "" {
+			col = t.As
+		} else if aggFn != "" || col == "" {
+			col = fmt.Sprintf("col%d", i)
 		}
 
 		prow.ValuesByPosition[i] = v
-		prow.ValuesBySelector[EncodeSelector(aggFn, table, col)] = v
+		prow.ValuesBySelector[EncodeSelector("", table, col)] = v
 	}
 	return prow, nil
 }

@@ -1,3 +1,19 @@
+/*
+Copyright 2024 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://mariadb.com/bsl11/
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package sql
 
 import (
@@ -71,6 +87,10 @@ func (v *JSON) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *JSON) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
 	return v, nil
+}
+
+func (sel *JSON) selectors() []Selector {
+	return nil
 }
 
 func (v *JSON) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -183,13 +203,6 @@ func (sel *JSONSelector) substitute(params map[string]interface{}) (ValueExp, er
 	return sel, nil
 }
 
-func (v *JSONSelector) alias() string {
-	if v.ColSelector.as != "" {
-		return v.ColSelector.as
-	}
-	return v.String()
-}
-
 func (v *JSONSelector) resolve(implicitTable string) (string, string, string) {
 	aggFn, table, _ := v.ColSelector.resolve(implicitTable)
 	return aggFn, table, v.String()
@@ -210,6 +223,10 @@ func (sel *JSONSelector) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return val, fmt.Errorf("-> operator cannot be applied on column of type %s", val.Type())
 	}
 	return jsonVal.lookup(sel.fields), nil
+}
+
+func (sel *JSONSelector) selectors() []Selector {
+	return []Selector{sel}
 }
 
 func (sel *JSONSelector) reduceSelectors(row *Row, implicitTable string) ValueExp {

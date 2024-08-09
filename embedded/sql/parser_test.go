@@ -464,16 +464,17 @@ func TestInsertIntoStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{
-							&Integer{val: 2},
-							&FnCall{fn: "now"},
-							&Varchar{val: "un'titled row"},
-							&Bool{val: true},
-							&Bool{val: false},
-							&Blob{val: decodedBLOB},
-							&Param{id: "param1"},
-						},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{{
+							Values: []ValueExp{
+								&Integer{val: 2},
+								&FnCall{fn: "now"},
+								&Varchar{val: "un'titled row"},
+								&Bool{val: true},
+								&Bool{val: false},
+								&Blob{val: decodedBLOB},
+								&Param{id: "param1"},
+							}},
 						},
 					},
 				},
@@ -486,16 +487,17 @@ func TestInsertIntoStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{
-							&Integer{val: 2},
-							&FnCall{fn: "now"},
-							&Varchar{val: ""},
-							&Bool{val: true},
-							&Bool{val: false},
-							&Blob{val: decodedBLOB},
-							&Param{id: "param1"},
-						},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{
+								&Integer{val: 2},
+								&FnCall{fn: "now"},
+								&Varchar{val: ""},
+								&Bool{val: true},
+								&Bool{val: false},
+								&Blob{val: decodedBLOB},
+								&Param{id: "param1"},
+							}},
 						},
 					},
 				},
@@ -508,17 +510,17 @@ func TestInsertIntoStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{
-							&Integer{val: 2},
-							&FnCall{fn: "now"},
-							&Varchar{val: "'"},
-							&Bool{val: true},
-							&Bool{val: false},
-							&Blob{val: decodedBLOB},
-							&Param{id: "param1"},
-						},
-						},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{
+								&Integer{val: 2},
+								&FnCall{fn: "now"},
+								&Varchar{val: "'"},
+								&Bool{val: true},
+								&Bool{val: false},
+								&Blob{val: decodedBLOB},
+								&Param{id: "param1"},
+							}}},
 					},
 				},
 			},
@@ -530,16 +532,17 @@ func TestInsertIntoStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{
-							&Integer{val: 2},
-							&FnCall{fn: "now"},
-							&Varchar{val: "untitled row"},
-							&Bool{val: true},
-							&Param{id: "param1", pos: 1},
-							&Blob{val: decodedBLOB},
-							&Param{id: "param2", pos: 2},
-						},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{
+								&Integer{val: 2},
+								&FnCall{fn: "now"},
+								&Varchar{val: "untitled row"},
+								&Bool{val: true},
+								&Param{id: "param1", pos: 1},
+								&Blob{val: decodedBLOB},
+								&Param{id: "param2", pos: 2},
+							}},
 						},
 					},
 				},
@@ -552,16 +555,18 @@ func TestInsertIntoStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{
-							&Integer{val: 2},
-							&FnCall{fn: "now"},
-							&Param{id: "param1", pos: 1},
-							&Bool{val: true},
-							&Param{id: "param2", pos: 2},
-							&Blob{val: decodedBLOB},
-							&Param{id: "param1", pos: 1},
-						},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{
+								&Integer{val: 2},
+								&FnCall{fn: "now"},
+								&Param{id: "param1", pos: 1},
+								&Bool{val: true},
+								&Param{id: "param2", pos: 2},
+								&Blob{val: decodedBLOB},
+								&Param{id: "param1", pos: 1},
+							},
+							},
 						},
 					},
 				},
@@ -614,10 +619,50 @@ func TestInsertIntoStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "active"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 1}, &Bool{val: false}}},
-						{Values: []ValueExp{&Integer{val: 2}, &Bool{val: true}}},
-						{Values: []ValueExp{&Integer{val: 3}, &Bool{val: true}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 1}, &Bool{val: false}}},
+							{Values: []ValueExp{&Integer{val: 2}, &Bool{val: true}}},
+							{Values: []ValueExp{&Integer{val: 3}, &Bool{val: true}}},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "INSERT INTO table1(id, active) SELECT * FROM my_table",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					isInsert: true,
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "active"},
+					ds: &SelectStmt{
+						ds: &tableRef{
+							table: "my_table",
+						},
+						targets: nil,
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "UPSERT INTO table1(id, active) SELECT * FROM my_table WHERE balance >= 0 AND deleted_at IS NULL",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "active"},
+					ds: &SelectStmt{
+						ds: &tableRef{
+							table: "my_table",
+						},
+						targets: nil,
+						where: &BinBoolExp{
+							op:    AND,
+							left:  &CmpBoolExp{op: GE, left: &ColSelector{col: "balance"}, right: &Integer{val: 0}},
+							right: &CmpBoolExp{op: EQ, left: &ColSelector{col: "deleted_at"}, right: &NullValue{t: AnyType}},
+						},
 					},
 				},
 			},
@@ -745,15 +790,19 @@ func TestTxStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+						},
 					},
 				},
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table2"},
 					cols:     []string{"id"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 10}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 10}}},
+						},
 					},
 				},
 				&RollbackStmt{},
@@ -775,8 +824,10 @@ func TestTxStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+						},
 					},
 				},
 				&CommitStmt{},
@@ -817,8 +868,10 @@ func TestTxStmt(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+						},
 					},
 				},
 				&CommitStmt{},
@@ -850,9 +903,9 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &tableRef{table: "table1"},
 				}},
@@ -863,9 +916,9 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &tableRef{table: "table1", as: "t1"},
 				}},
@@ -876,9 +929,9 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{table: "t1", col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{table: "t1", col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &tableRef{table: "table1", as: "t1"},
 				}},
@@ -889,9 +942,9 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{table: "table1", col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{table: "table1", col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &tableRef{table: "table1", as: "t1"},
 					where: &CmpBoolExp{
@@ -909,9 +962,9 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{table: "table1", col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{table: "table1", col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &tableRef{table: "table1", as: "t1"},
 					where: &CmpBoolExp{
@@ -929,9 +982,9 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{table: "table1", col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{table: "table1", col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &tableRef{table: "table1", as: "t1"},
 					where: &CmpBoolExp{
@@ -949,10 +1002,10 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: true,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "time"},
-						&ColSelector{col: "name"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "time"}},
+						{Exp: &ColSelector{col: "name"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -990,10 +1043,10 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "title"},
-						&ColSelector{col: "year"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
+						{Exp: &ColSelector{col: "year"}},
 					},
 					ds: &tableRef{table: "table1"},
 					orderBy: []*OrdCol{
@@ -1008,10 +1061,10 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "name"},
-						&ColSelector{table: "table2", col: "status"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "name"}},
+						{Exp: &ColSelector{table: "table2", col: "status"}},
 					},
 					ds: &tableRef{table: "table1"},
 					joins: []*JoinSpec{
@@ -1047,10 +1100,10 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "name"},
-						&ColSelector{table: "table2", col: "status"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "name"}},
+						{Exp: &ColSelector{table: "table2", col: "status"}},
 					},
 					ds: &tableRef{table: "table1"},
 					joins: []*JoinSpec{
@@ -1086,10 +1139,10 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "name"},
-						&ColSelector{table: "table2", col: "status"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "name"}},
+						{Exp: &ColSelector{table: "table2", col: "status"}},
 					},
 					ds: &tableRef{table: "table1"},
 					joins: []*JoinSpec{
@@ -1125,15 +1178,15 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "title"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "title"}},
 					},
 					ds: &SelectStmt{
 						distinct: false,
-						selectors: []Selector{
-							&ColSelector{col: "col1", as: "id"},
-							&ColSelector{col: "col2", as: "title"},
+						targets: []TargetEntry{
+							{Exp: &ColSelector{col: "col1"}, As: "id"},
+							{Exp: &ColSelector{col: "col2"}, As: "title"},
 						},
 						ds:     &tableRef{table: "table2"},
 						limit:  &Integer{val: 100},
@@ -1148,10 +1201,10 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "name"},
-						&ColSelector{col: "time"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "name"}},
+						{Exp: &ColSelector{col: "time"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -1179,10 +1232,49 @@ func TestSelectStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&JSONSelector{
-							ColSelector: &ColSelector{col: "json_data"},
-							fields:      []string{"info", "address", "street"},
+					targets: []TargetEntry{
+						{
+							Exp: &JSONSelector{
+								ColSelector: &ColSelector{col: "json_data"},
+								fields:      []string{"info", "address", "street"},
+							},
+						},
+					},
+					ds: &tableRef{table: "table1"},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT 1, (balance * balance) + 1, amount % 2, data::JSON FROM table1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					targets: []TargetEntry{
+						{
+							Exp: &Integer{
+								val: int64(1),
+							},
+						},
+						{
+							Exp: &NumExp{
+								op: ADDOP,
+								left: &NumExp{
+									op:    MULTOP,
+									left:  &ColSelector{col: "balance"},
+									right: &ColSelector{col: "balance"},
+								},
+								right: &Integer{val: int64(1)},
+							},
+						},
+						{
+							Exp: &NumExp{
+								op:    MODOP,
+								left:  &ColSelector{col: "amount"},
+								right: &Integer{val: int64(2)},
+							},
+						},
+						{
+							Exp: &Cast{val: &ColSelector{col: "data"}, t: JSONType},
 						},
 					},
 					ds: &tableRef{table: "table1"},
@@ -1214,17 +1306,17 @@ func TestSelectUnionStmt(t *testing.T) {
 					distinct: true,
 					left: &SelectStmt{
 						distinct: false,
-						selectors: []Selector{
-							&ColSelector{col: "id"},
-							&ColSelector{col: "title"},
+						targets: []TargetEntry{
+							{Exp: &ColSelector{col: "id"}},
+							{Exp: &ColSelector{col: "title"}},
 						},
 						ds: &tableRef{table: "table1"},
 					},
 					right: &SelectStmt{
 						distinct: false,
-						selectors: []Selector{
-							&ColSelector{col: "id"},
-							&ColSelector{col: "title"},
+						targets: []TargetEntry{
+							{Exp: &ColSelector{col: "id"}},
+							{Exp: &ColSelector{col: "title"}},
 						},
 						ds: &tableRef{table: "table1"},
 					}},
@@ -1254,8 +1346,8 @@ func TestAggFnStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&AggColSelector{aggFn: COUNT, col: "*"},
+					targets: []TargetEntry{
+						{Exp: &AggColSelector{aggFn: COUNT, col: "*"}},
 					},
 					ds: &tableRef{table: "table1"},
 				}},
@@ -1266,9 +1358,9 @@ func TestAggFnStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "country"},
-						&AggColSelector{aggFn: SUM, col: "amount"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "country"}},
+						{Exp: &AggColSelector{aggFn: SUM, col: "amount"}},
 					},
 					ds: &tableRef{table: "table1"},
 					groupBy: []*ColSelector{
@@ -1305,8 +1397,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &CmpBoolExp{
@@ -1324,8 +1416,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -1355,8 +1447,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &NotBoolExp{
@@ -1386,8 +1478,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -1405,8 +1497,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -1437,8 +1529,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &LikeBoolExp{
@@ -1456,8 +1548,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &LikeBoolExp{
@@ -1475,8 +1567,8 @@ func TestExpressions(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -1516,14 +1608,14 @@ func TestExpressions(t *testing.T) {
 			input: "SELECT id FROM clients WHERE EXISTS (SELECT id FROM orders WHERE clients.id = orders.id_client)",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "clients"},
 					where: &ExistsBoolExp{
 						q: &SelectStmt{
-							selectors: []Selector{
-								&ColSelector{col: "id"},
+							targets: []TargetEntry{
+								{Exp: &ColSelector{col: "id"}},
 							},
 							ds: &tableRef{table: "orders"},
 							where: &CmpBoolExp{
@@ -1546,8 +1638,8 @@ func TestExpressions(t *testing.T) {
 			input: "SELECT id FROM clients WHERE deleted_at IS NULL",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "clients"},
 					where: &CmpBoolExp{
@@ -1566,8 +1658,8 @@ func TestExpressions(t *testing.T) {
 			input: "SELECT id FROM clients WHERE deleted_at IS NOT NULL",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
-					selectors: []Selector{
-						&ColSelector{col: "id"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
 					},
 					ds: &tableRef{table: "clients"},
 					where: &CmpBoolExp{
@@ -1638,24 +1730,28 @@ func TestMultiLineStmts(t *testing.T) {
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
+						},
 					},
 				},
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table2"},
 					cols:     []string{"id"},
-					rows: []*RowSpec{
-						{Values: []ValueExp{&Integer{val: 10}}},
+					ds: &valuesDataSource{
+						rows: []*RowSpec{
+							{Values: []ValueExp{&Integer{val: 10}}},
+						},
 					},
 				},
 				&CommitStmt{},
 				&SelectStmt{
 					distinct: false,
-					selectors: []Selector{
-						&ColSelector{col: "id"},
-						&ColSelector{col: "name"},
-						&ColSelector{col: "time"},
+					targets: []TargetEntry{
+						{Exp: &ColSelector{col: "id"}},
+						{Exp: &ColSelector{col: "name"}},
+						{Exp: &ColSelector{col: "time"}},
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
@@ -1719,9 +1815,11 @@ func TestFloatCornerCases(t *testing.T) {
 							table: "t1",
 						},
 						cols: []string{"v"},
-						rows: []*RowSpec{{
-							Values: []ValueExp{d.v},
-						}},
+						ds: &valuesDataSource{
+							rows: []*RowSpec{{
+								Values: []ValueExp{d.v},
+							}},
+						},
 					},
 				}, stmt)
 			}
@@ -1794,7 +1892,7 @@ func TestGrantRevokeStmt(t *testing.T) {
 
 func TestExprString(t *testing.T) {
 	exps := []string{
-		"(1 + 1) / (2 * 5 - 10)",
+		"(1 + 1) / (2 * 5 - 10) % 2",
 		"@param LIKE 'pattern'",
 		"((col1 AND (col2 < 10)) OR (@param = 3 AND (col4 = TRUE))) AND NOT (col5 = 'value' OR (2 + 2 != 4))",
 		"CAST (func_call(1, 'two', 2.5) AS TIMESTAMP)",
