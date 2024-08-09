@@ -9133,4 +9133,22 @@ func TestFunctions(t *testing.T) {
 			require.Equal(t, "immudb", rows[0].ValuesByPosition[1].RawValue().(string))
 		})
 	})
+
+	t.Run("json functions", func(t *testing.T) {
+		_, err := engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF(true) FROM mytable", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, err = engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF('{}'::JSON, 1) FROM mytable", nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF(NULL) FROM mytable", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Nil(t, rows[0].ValuesByPosition[0].RawValue())
+
+		rows, err = engine.queryAll(context.Background(), nil, "SELECT JSON_TYPEOF('{}'::JSON) FROM mytable", nil)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Equal(t, "OBJECT", rows[0].ValuesByPosition[0].RawValue().(string))
+	})
 }

@@ -226,7 +226,7 @@ func (sel *JSONSelector) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 }
 
 func (sel *JSONSelector) selectors() []Selector {
-	return sel.ColSelector.selectors()
+	return []Selector{sel}
 }
 
 func (sel *JSONSelector) reduceSelectors(row *Row, implicitTable string) ValueExp {

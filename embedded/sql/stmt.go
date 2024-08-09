@@ -4881,7 +4881,7 @@ func (bexp *InListExp) selectors() []Selector {
 	for _, v := range bexp.values {
 		selectors = append(selectors, v.selectors()...)
 	}
-	return append(selectors, bexp.val.selectors()...)
+	return append(bexp.val.selectors(), selectors...)
 }
 
 func (bexp *InListExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
