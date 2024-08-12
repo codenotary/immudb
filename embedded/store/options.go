@@ -240,10 +240,8 @@ func DefaultOptions() *Options {
 		CompressionLevel:  DefaultCompressionLevel,
 		EmbeddedValues:    DefaultEmbeddedValues,
 		PreallocFiles:     DefaultPreallocFiles,
-
-		IndexOpts: DefaultIndexOptions(),
-
-		AHTOpts: DefaultAHTOptions(),
+		IndexOpts:         DefaultIndexOptions(),
+		AHTOpts:           DefaultAHTOptions(),
 	}
 }
 

@@ -55,6 +55,7 @@ var reservedWords = map[string]int{
 	"CONFLICT":       CONFLICT,
 	"DO":             DO,
 	"NOTHING":        NOTHING,
+	"RETURNING":      RETURNING,
 	"UPSERT":         UPSERT,
 	"INTO":           INTO,
 	"VALUES":         VALUES,

@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 func applyNumOperator(op NumOperator, vl, vr TypedValue) (TypedValue, error) {
 	if vl.Type() == Float64Type || vr.Type() == Float64Type {
@@ -62,6 +65,14 @@ func applyNumOperatorInteger(op NumOperator, vl, vr TypedValue) (TypedValue, err
 			}
 
 			return &Integer{val: nl / nr}, nil
+		}
+	case MODOP:
+		{
+			if nr == 0 {
+				return nil, ErrDivisionByZero
+			}
+
+			return &Integer{val: nl % nr}, nil
 		}
 	case MULTOP:
 		{
@@ -109,6 +120,14 @@ func applyNumOperatorFloat64(op NumOperator, vl, vr TypedValue) (TypedValue, err
 			}
 
 			return &Float64{val: nl / nr}, nil
+		}
+	case MODOP:
+		{
+			if nr == 0 {
+				return nil, ErrDivisionByZero
+			}
+
+			return &Float64{val: math.Mod(nl, nr)}, nil
 		}
 	case MULTOP:
 		{

@@ -46,7 +46,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     ids []string
     col *ColSelector
     sel Selector
-    sels []Selector
+    targets []TargetEntry
     jsonFields []string
     distinct bool
     ds DataSource
@@ -77,7 +77,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
 %token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
 %token BEGIN TRANSACTION COMMIT ROLLBACK
-%token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
+%token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST SCAST
@@ -106,7 +106,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %right NOT
 %left  CMPOP
 %left '+' '-'
-%left '*' '/'
+%left '*' '/' '%'
 %left  '.'
 %right STMT_SEPARATOR
 %left IS
@@ -122,11 +122,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <values> values opt_values
 %type <value> val fnCall
 %type <sel> selector
-%type <sels> opt_selectors selectors
 %type <jsonFields> jsonFields
 %type <col> col
 %type <distinct> opt_distinct opt_all
-%type <ds> ds
+%type <ds> ds values_or_query
 %type <tableRef> tableRef
 %type <period> opt_period
 %type <openPeriod> opt_period_start
@@ -140,6 +139,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <binExp> binExp
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset
+%type <targets> opt_targets targets
 %type <integer> opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
@@ -393,14 +393,14 @@ one_or_more_ids:
     }
 
 dmlstmt:
-    INSERT INTO tableRef '(' opt_ids ')' VALUES rows opt_on_conflict
+    INSERT INTO tableRef '(' opt_ids ')' values_or_query opt_on_conflict
     {
-        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $5, rows: $8, onConflict: $9}
+        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $5, ds: $7, onConflict: $8}
     }
 |
-    UPSERT INTO tableRef '(' ids ')' VALUES rows
+    UPSERT INTO tableRef '(' ids ')' values_or_query
     {
-        $$ = &UpsertIntoStmt{tableRef: $3, cols: $5, rows: $8}
+        $$ = &UpsertIntoStmt{tableRef: $3, cols: $5, ds: $7}
     }
 |
     DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset
@@ -412,6 +412,18 @@ dmlstmt:
     {
         $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: $7, offset: $8}
     }
+
+values_or_query:
+	VALUES rows
+	{
+		$$ = &valuesDataSource{rows: $2}
+	}
+|
+	dqlstmt
+	{
+		$$ = $1.(DataSource)
+	}
+
 
 opt_on_conflict:
     {
@@ -681,11 +693,11 @@ dqlstmt:
         }
     }
 
-select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset
+select_stmt: SELECT opt_distinct opt_targets FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset
     {
         $$ = &SelectStmt{
                 distinct: $2,
-                selectors: $3,
+                targets: $3,
                 ds: $5,
                 indexOn: $6,
                 joins: $7,
@@ -718,28 +730,26 @@ opt_distinct:
         $$ = true
     }
 
-opt_selectors:
+opt_targets:
     '*'
     {
         $$ = nil
     }
 |
-    selectors
+    targets
     {
         $$ = $1
     }
 
-selectors:
-    selector opt_as
+targets:
+    exp opt_as
     {
-        $1.setAlias($2)
-        $$ = []Selector{$1}
+        $$ = []TargetEntry{{Exp: $1, As: $2}}
     }
 |
-    selectors ',' selector opt_as
+    targets ',' exp opt_as
     {
-        $3.setAlias($4)
-        $$ = append($1, $3)
+        $$ = append($1, TargetEntry{Exp: $3, As: $4})
     }
 
 selector:
@@ -1137,6 +1147,11 @@ binExp:
     {
         $$ = &NumExp{left: $1, op: MULTOP, right: $3}
     }
+|
+	exp '%' exp
+	{
+		$$ = &NumExp{left: $1, op: MODOP, right: $3}
+	}
 |
     exp LOP exp
     {

@@ -31,17 +31,13 @@ type valuesRowReader struct {
 	values [][]ValueExp
 	read   int
 
-	params map[string]interface{}
-
+	params          map[string]interface{}
+	checkTypes      bool
 	onCloseCallback func()
 	closed          bool
 }
 
-func newValuesRowReader(tx *SQLTx, params map[string]interface{}, cols []ColDescriptor, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
-	if len(cols) == 0 {
-		return nil, fmt.Errorf("%w: empty column list", ErrIllegalArguments)
-	}
-
+func newValuesRowReader(tx *SQLTx, params map[string]interface{}, cols []ColDescriptor, checkTypes bool, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
 	if tableAlias == "" {
 		return nil, fmt.Errorf("%w: table alias is mandatory", ErrIllegalArguments)
 	}
@@ -77,6 +73,7 @@ func newValuesRowReader(tx *SQLTx, params map[string]interface{}, cols []ColDesc
 		colsBySel:  colsBySel,
 		tableAlias: tableAlias,
 		values:     values,
+		checkTypes: checkTypes,
 	}, nil
 }
 
@@ -115,7 +112,10 @@ func (vr *valuesRowReader) colsBySelector(ctx context.Context) (map[string]ColDe
 func (vr *valuesRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
 	for _, vs := range vr.values {
 		for _, v := range vs {
-			v.inferType(vr.colsBySel, params, vr.tableAlias)
+			_, err := v.inferType(vr.colsBySel, params, vr.tableAlias)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -142,9 +142,11 @@ func (vr *valuesRowReader) Read(ctx context.Context) (*Row, error) {
 			return nil, err
 		}
 
-		err = rv.requiresType(vr.colsByPos[i].Type, vr.colsBySel, nil, vr.tableAlias)
-		if err != nil {
-			return nil, err
+		if vr.checkTypes {
+			err = rv.requiresType(vr.colsByPos[i].Type, vr.colsBySel, nil, vr.tableAlias)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		valuesByPosition[i] = rv

@@ -27,24 +27,26 @@ import (
 type groupedRowReader struct {
 	rowReader RowReader
 
-	selectors   []Selector
-	groupByCols []*ColSelector
-	cols        []ColDescriptor
+	selectors       []*AggColSelector
+	groupByCols     []*ColSelector
+	cols            []ColDescriptor
+	allAggregations bool
 
 	currRow *Row
 	empty   bool
 }
 
-func newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
-	if rowReader == nil || len(selectors) == 0 {
+func newGroupedRowReader(rowReader RowReader, allAggregations bool, selectors []*AggColSelector, groupBy []*ColSelector) (*groupedRowReader, error) {
+	if rowReader == nil {
 		return nil, ErrIllegalArguments
 	}
 
 	gr := &groupedRowReader{
-		rowReader:   rowReader,
-		selectors:   selectors,
-		groupByCols: groupBy,
-		empty:       true,
+		rowReader:       rowReader,
+		selectors:       selectors,
+		groupByCols:     groupBy,
+		empty:           true,
+		allAggregations: allAggregations,
 	}
 
 	cols, err := gr.columns()
@@ -139,9 +141,9 @@ func (gr *groupedRowReader) colsBySelector(ctx context.Context) (map[string]ColD
 	return colDescriptors, nil
 }
 
-func allAggregations(selectors []Selector) bool {
-	for _, sel := range selectors {
-		_, isAggregation := sel.(*AggColSelector)
+func allAggregations(targets []TargetEntry) bool {
+	for _, t := range targets {
+		_, isAggregation := t.Exp.(*AggColSelector)
 		if !isAggregation {
 			return false
 		}
@@ -254,7 +256,7 @@ func updateRow(currRow, newRow *Row) error {
 }
 
 func (gr *groupedRowReader) emitCurrentRow(ctx context.Context) (*Row, error) {
-	if gr.empty && allAggregations(gr.selectors) && len(gr.groupByCols) == 0 {
+	if gr.empty && gr.allAggregations && len(gr.groupByCols) == 0 {
 		zr, err := gr.zeroRow(ctx)
 		if err != nil {
 			return nil, err
