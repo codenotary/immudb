@@ -748,10 +748,10 @@ func (e *Engine) upsertDocuments(ctx context.Context, sqlTx *sql.SQLTx, collecti
 		ctx,
 		sqlTx,
 		[]sql.SQLStmt{
-			sql.NewUpserIntoStmt(
+			sql.NewUpsertIntoStmt(
 				collectionName,
 				colNames,
-				rows,
+				sql.NewValuesDataSource(rows),
 				isInsert,
 				nil,
 			),
@@ -879,7 +879,7 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, username string, query *p
 	}
 
 	queryStmt := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.CollectionName, documentIdFieldName)},
+		[]sql.TargetEntry{{Exp: sql.NewColSelector(query.CollectionName, documentIdFieldName)}},
 		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
@@ -982,7 +982,7 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 	}
 
 	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
+		[]sql.TargetEntry{{Exp: sql.NewColSelector(query.CollectionName, DocumentBLOBField)}},
 		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
@@ -1023,7 +1023,7 @@ func (e *Engine) CountDocuments(ctx context.Context, query *protomodel.Query, of
 	}
 
 	ds := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewColSelector(query.CollectionName, table.Cols()[0].Name())},
+		[]sql.TargetEntry{{Exp: sql.NewColSelector(query.CollectionName, table.Cols()[0].Name())}},
 		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),
@@ -1032,7 +1032,7 @@ func (e *Engine) CountDocuments(ctx context.Context, query *protomodel.Query, of
 	)
 
 	op := sql.NewSelectStmt(
-		[]sql.Selector{sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")},
+		[]sql.TargetEntry{{Exp: sql.NewAggColSelector(sql.COUNT, query.CollectionName, "*")}},
 		ds,
 		nil,
 		nil,

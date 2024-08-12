@@ -98,6 +98,27 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			}, nil
 		}
 
+		if src == JSONType {
+			jsonToStr, err := getConverter(src, VarcharType)
+			if err != nil {
+				return nil, err
+			}
+
+			strToTimestamp, err := getConverter(VarcharType, TimestampType)
+			if err != nil {
+				return nil, err
+			}
+
+			return func(tv TypedValue) (TypedValue, error) {
+				v, err := jsonToStr(tv)
+				if err != nil {
+					return nil, err
+				}
+				s, _ := v.RawValue().(string)
+				return strToTimestamp(NewVarchar(strings.Trim(s, `"`)))
+			}, nil
+		}
+
 		return nil, fmt.Errorf(
 			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
 			ErrUnsupportedCast,
@@ -267,11 +288,18 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			}, nil
 		}
 
-		return nil, fmt.Errorf(
-			"%w: only UUID and VARCHAR types can be cast as BLOB",
-			ErrUnsupportedCast,
-		)
+		if src == JSONType {
+			return func(val TypedValue) (TypedValue, error) {
+				jsonStr := val.String()
+				return &Blob{val: []byte(jsonStr)}, nil
+			}, nil
+		}
 
+		return nil, fmt.Errorf(
+			"%w: cannot cast type %s to BLOB",
+			ErrUnsupportedCast,
+			src,
+		)
 	}
 
 	if dst == VarcharType {
@@ -312,6 +340,12 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 
 				err := json.Unmarshal([]byte(s), &x)
 				return &JSON{val: x}, err
+			case BLOBType:
+				rawJson, ok := tv.RawValue().([]byte)
+				if !ok {
+					return nil, fmt.Errorf("invalid %s value", JSONType)
+				}
+				return NewJsonFromString(string(rawJson))
 			}
 
 			return nil, fmt.Errorf(
