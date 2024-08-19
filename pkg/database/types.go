@@ -41,7 +41,7 @@ type dbRef struct {
 	deleted bool
 }
 
-//NewDatabaseList constructs a new database list
+// NewDatabaseList constructs a new database list
 func NewDatabaseList() DatabaseList {
 	return &databaseList{
 		databases:      make([]DB, 0),

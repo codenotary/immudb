@@ -220,3 +220,75 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 }
+
+func TestIndexFlushShouldReleaseMemory(t *testing.T) {
+	d := t.TempDir()
+	store, err := Open(d, DefaultOptions())
+	require.NoError(t, err)
+	defer store.Close()
+
+	key := make([]byte, 100)
+	value := make([]byte, 100)
+
+	n := 100
+	for i := 0; i < n; i++ {
+		tx, err := store.NewWriteOnlyTx(context.Background())
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+		_, err = tx.Commit(context.Background())
+		require.NoError(t, err)
+	}
+
+	idx, err := store.getIndexerFor([]byte{})
+	require.NoError(t, err)
+	require.NotNil(t, idx)
+
+	require.Greater(t, store.memSemaphore.Value(), uint64(0))
+
+	_, _, err = idx.index.Flush()
+	require.NoError(t, err)
+	require.Zero(t, store.memSemaphore.Value())
+}
+
+func TestIndexerWriteStalling(t *testing.T) {
+	d := t.TempDir()
+	store, err := Open(d, DefaultOptions().WithMultiIndexing(true).WithIndexOptions(DefaultIndexOptions().WithMaxBufferedDataSize(1024).WithMaxGlobalBufferedDataSize(1024)))
+	require.NoError(t, err)
+	defer store.Close()
+
+	nIndexes := 30
+
+	for i := 0; i < nIndexes; i++ {
+		err = store.InitIndexing(&IndexSpec{
+			TargetPrefix: []byte{byte(i)},
+			TargetEntryMapper: func(x int) func(key []byte, value []byte) ([]byte, error) {
+				return func(key, value []byte) ([]byte, error) {
+					return append([]byte{byte(x)}, key...), nil
+				}
+			}(i),
+		})
+		require.NoError(t, err)
+	}
+
+	key := make([]byte, 100)
+	value := make([]byte, 100)
+
+	n := 100
+	for i := 0; i < n; i++ {
+		tx, err := store.NewWriteOnlyTx(context.Background())
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+		_, err = tx.Commit(context.Background())
+		require.NoError(t, err)
+	}
+
+	for i := 0; i < nIndexes; i++ {
+		idx, err := store.getIndexerFor([]byte{byte(i)})
+		require.NoError(t, err)
+		require.Equal(t, idx.Ts(), uint64(n))
+	}
+}

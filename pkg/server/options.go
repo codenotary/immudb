@@ -77,6 +77,7 @@ type Options struct {
 	GRPCReflectionServerEnabled bool
 	SwaggerUIEnabled            bool
 	LogRequestMetadata          bool
+	SharedIndexCacheSize        int
 }
 
 type RemoteStorageOptions struct {
@@ -147,6 +148,7 @@ func DefaultOptions() *Options {
 		GRPCReflectionServerEnabled: true,
 		SwaggerUIEnabled:            true,
 		LogRequestMetadata:          false,
+		SharedIndexCacheSize:        1 << 27, // 128MB
 	}
 }
 

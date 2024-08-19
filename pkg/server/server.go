@@ -1029,7 +1029,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 		return nil, ErrIllegalArguments
 	}
 
-	s.Logger.Infof("loadinig database '%s'...", req.Database)
+	s.Logger.Infof("loading database '%s'...", req.Database)
 
 	defer func() {
 		if err == nil {

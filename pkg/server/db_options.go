@@ -231,7 +231,7 @@ func (s *ImmuServer) defaultAHTOptions() *ahtOptions {
 func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 	return database.DefaultOption().
 		WithDBRootPath(s.Options.Dir).
-		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
+		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions(s))).
 		AsReplica(opts.Replica).
 		WithSyncReplication(opts.SyncReplication).
 		WithSyncAcks(opts.SyncAcks).
@@ -241,7 +241,7 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithMaxResultSize(s.Options.MaxResultSize)
 }
 
-func (opts *dbOptions) storeOptions() *store.Options {
+func (opts *dbOptions) storeOptions(s *ImmuServer) *store.Options {
 	indexOpts := store.DefaultIndexOptions()
 
 	if opts.IndexOptions != nil {
@@ -261,6 +261,10 @@ func (opts *dbOptions) storeOptions() *store.Options {
 			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles).
 			WithMaxBulkSize(opts.IndexOptions.MaxBulkSize).
 			WithBulkPreparationTimeout(time.Millisecond * time.Duration(opts.IndexOptions.BulkPreparationTimeout))
+	}
+
+	if s != nil {
+		indexOpts.WithCacheFactoryFunc(s.indexCacheFactoryFunc())
 	}
 
 	ahtOpts := store.DefaultAHTOptions()
@@ -386,7 +390,6 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 // Only those fields that were present up to the 1.2.2 release are supported.
 // Changing any other fields requires new API calls.
 func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.DatabaseNullableSettings {
-
 	nullableUInt32 := func(v uint32) *schema.NullableUint32 {
 		if v > 0 {
 			return &schema.NullableUint32{
@@ -820,7 +823,7 @@ func (opts *dbOptions) Validate() error {
 			ErrIllegalArguments, opts.Database, store.MinimumTruncationFrequency.Hours())
 	}
 
-	return opts.storeOptions().Validate()
+	return opts.storeOptions(nil).Validate()
 }
 
 func (opts *dbOptions) isReplicatorRequired() bool {

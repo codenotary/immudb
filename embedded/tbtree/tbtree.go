@@ -167,6 +167,7 @@ func (e *cLogEntry) deserialize(b []byte) {
 // TBTree implements a timed-btree
 type TBtree struct {
 	path string
+	id   uint16
 
 	logger logger.Logger
 
@@ -185,6 +186,7 @@ type TBtree struct {
 	insertionCountSinceSync    int
 	insertionCountSinceCleanup int
 	flushThld                  int
+	maxBufferedDataSize        int
 	syncThld                   int
 	flushBufferSize            int
 	cleanupPercentage          float32
@@ -204,10 +206,12 @@ type TBtree struct {
 	appFactory                 AppFactoryFunc
 	appRemove                  AppRemoveFunc
 
-	snapshots      map[uint64]*Snapshot
-	maxSnapshotID  uint64
-	lastSnapRoot   node
-	lastSnapRootAt time.Time
+	bufferedDataSize int
+	onFlush          OnFlushFunc
+	snapshots        map[uint64]*Snapshot
+	maxSnapshotID    uint64
+	lastSnapRoot     node
+	lastSnapRootAt   time.Time
 
 	committedLogSize  int64
 	committedNLogSize int64
@@ -556,24 +560,30 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 	}
 
-	cache, err := cache.NewCache(opts.cacheSize)
-	if err != nil {
-		return nil, err
+	nodeCache := opts.cache
+	if nodeCache == nil {
+		nodeCache, err = cache.NewCache(opts.cacheSize)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	t := &TBtree{
 		path:                     path,
+		id:                       opts.ID,
 		logger:                   opts.logger,
 		nLog:                     nLog,
 		hLog:                     hLog,
 		cLog:                     cLog,
-		cache:                    cache,
+		cache:                    nodeCache,
 		maxNodeSize:              maxNodeSize,
 		maxKeySize:               maxKeySize,
 		maxValueSize:             maxValueSize,
 		flushThld:                opts.flushThld,
+		maxBufferedDataSize:      opts.maxBufferedDataSize,
 		syncThld:                 opts.syncThld,
 		flushBufferSize:          opts.flushBufferSize,
+		onFlush:                  opts.onFlush,
 		cleanupPercentage:        opts.cleanupPercentage,
 		renewSnapRootAfter:       opts.renewSnapRootAfter,
 		maxActiveSnapshots:       opts.maxActiveSnapshots,
@@ -739,10 +749,14 @@ func (t *TBtree) cachePut(n node) {
 	defer t.nmutex.Unlock()
 
 	size, _ := n.size()
-	r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
+	r, _, _ := t.cache.PutWeighted(encodeOffset(t.id, n.offset()), n, size)
 	if r != nil {
 		metricsCacheEvict.WithLabelValues(t.path).Inc()
 	}
+}
+
+func encodeOffset(id uint16, offset int64) int64 {
+	return int64(id)<<48 | offset
 }
 
 func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
@@ -752,7 +766,9 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 	size := t.cache.EntriesCount()
 	metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(size))
 
-	v, err := t.cache.Get(offset)
+	encOffset := encodeOffset(t.id, offset)
+
+	v, err := t.cache.Get(encOffset)
 	if err == nil {
 		metricsCacheHit.WithLabelValues(t.path).Inc()
 		return v.(node), nil
@@ -768,7 +784,7 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 
 		if updateCache {
 			size, _ := n.size()
-			r, _, _ := t.cache.PutWeighted(n.offset(), n, size)
+			r, _, _ := t.cache.PutWeighted(encOffset, n, size)
 			if r != nil {
 				metricsCacheEvict.WithLabelValues(t.path).Inc()
 			}
@@ -1204,6 +1220,11 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	}
 
 	t.insertionCountSinceFlush = 0
+	if t.onFlush != nil {
+		t.onFlush(t.bufferedDataSize)
+	}
+	t.bufferedDataSize = 0
+
 	if cleanupPercentage != 0 {
 		t.insertionCountSinceCleanup = 0
 	}
@@ -1629,6 +1650,14 @@ func (t *TBtree) BulkInsert(kvts []*KVT) error {
 	return t.bulkInsert(kvts)
 }
 
+func estimateSize(kvts []*KVT) int {
+	size := 0
+	for _, kv := range kvts {
+		size += len(kv.K) + len(kv.V) + 8
+	}
+	return size
+}
+
 func (t *TBtree) bulkInsert(kvts []*KVT) error {
 	if t.closed {
 		return ErrAlreadyClosed
@@ -1637,6 +1666,15 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 	if len(kvts) == 0 {
 		return ErrIllegalArguments
 	}
+
+	entriesSize := estimateSize(kvts)
+	if t.bufferedDataSize > 0 && t.bufferedDataSize+entriesSize > t.maxBufferedDataSize {
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "bulkInsert")
+		if err != nil {
+			return err
+		}
+	}
+	t.bufferedDataSize += entriesSize
 
 	currTs := t.root.ts()
 

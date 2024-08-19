@@ -23,14 +23,24 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
+	"math/rand"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var ErrWriteStalling = errors.New("write stalling")
+
+const (
+	writeStallingSleepDurationMin = 10 * time.Millisecond
+	writeStallingSleepDurationMax = 50 * time.Millisecond
 )
 
 type indexer struct {
@@ -45,8 +55,8 @@ type indexer struct {
 	maxBulkSize            int
 	bulkPreparationTimeout time.Duration
 
-	_kvs []*tbtree.KVT //pre-allocated for multi-tx bulk indexing
-	_val []byte        //pre-allocated buffer to read entry values while mapping
+	_kvs []*tbtree.KVT            //pre-allocated for multi-tx bulk indexing
+	_val [DefaultMaxValueLen]byte //pre-allocated buffer to read entry values while mapping
 
 	index *tbtree.TBtree
 
@@ -96,12 +106,19 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		return nil, fmt.Errorf("%w: nil store", ErrIllegalArguments)
 	}
 
+	id := atomic.AddUint32(&store.nextIndexerID, 1)
+	if id-1 > math.MaxUint16 {
+		return nil, ErrMaxIndexersLimitExceeded
+	}
+
 	indexOpts := tbtree.DefaultOptions().
+		WithIdentifier(uint16(id - 1)).
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
 		WithLogger(opts.logger).
 		WithFileSize(opts.FileSize).
 		WithCacheSize(opts.IndexOpts.CacheSize).
+		WithCache(store.indexCache).
 		WithFlushThld(opts.IndexOpts.FlushThld).
 		WithSyncThld(opts.IndexOpts.SyncThld).
 		WithFlushBufferSize(opts.IndexOpts.FlushBufferSize).
@@ -115,7 +132,11 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
-		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction).
+		WithMaxBufferedDataSize(opts.IndexOpts.MaxBufferedDataSize).
+		WithOnFlushFunc(func(releasedDataSize int) {
+			store.memSemaphore.Release(uint64(releasedDataSize))
+		})
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(tbtree.AppFactoryFunc(opts.appFactory))
@@ -150,7 +171,6 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
 		bulkPreparationTimeout: opts.IndexOpts.BulkPreparationTimeout,
 		_kvs:                   kvs,
-		_val:                   make([]byte, store.maxValueLen),
 		path:                   path,
 		index:                  index,
 		wHub:                   wHub,
@@ -457,11 +477,31 @@ func (idx *indexer) doIndexing() {
 		if errors.Is(err, ErrAlreadyClosed) || errors.Is(err, tbtree.ErrAlreadyClosed) {
 			return
 		}
-		if err != nil {
+
+		if err != nil && !errors.Is(err, ErrWriteStalling) {
+			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
+			time.Sleep(60 * time.Second)
+		}
+
+		if err := idx.handleWriteStalling(err); err != nil {
 			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 	}
+}
+
+func (idx *indexer) handleWriteStalling(err error) error {
+	if !errors.Is(err, ErrWriteStalling) {
+		return nil
+	}
+
+	if err := idx.store.FlushIndexes(0, false); err != nil {
+		return err
+	}
+
+	sleepTime := writeStallingSleepDurationMin + time.Duration(rand.Intn(int(writeStallingSleepDurationMax-writeStallingSleepDurationMin+1)))
+	time.Sleep(sleepTime)
+	return nil
 }
 
 func serializeIndexableEntry(b []byte, txmd []byte, e *TxEntry, kvmd []byte) int {
@@ -500,18 +540,27 @@ func (idx *indexer) mapKey(key []byte, vLen int, vOff int64, hVal [sha256.Size]b
 		return key, nil
 	}
 
-	_, err = idx.store.readValueAt(idx._val[:vLen], vOff, hVal, false)
+	buf := idx.valBuffer(vLen)
+	_, err = idx.store.readValueAt(buf, vOff, hVal, false)
 	if err != nil {
 		return nil, err
 	}
 
-	return mapper(key, idx._val[:vLen])
+	return mapper(key, buf)
+}
+
+func (idx *indexer) valBuffer(vLen int) []byte {
+	if vLen > len(idx._val) {
+		return make([]byte, vLen)
+	}
+	return idx._val[:vLen]
 }
 
 func (idx *indexer) indexSince(txID uint64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), idx.bulkPreparationTimeout)
 	defer cancel()
 
+	acquiredMem := 0
 	bulkSize := 0
 	indexableEntries := 0
 
@@ -521,6 +570,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 			return err
 		}
 
+		txIndexedEntries := 0
 		txEntries := idx.tx.Entries()
 
 		var txmd []byte
@@ -568,6 +618,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 			idx._kvs[indexableEntries].T = txID + uint64(i)
 
 			indexableEntries++
+			txIndexedEntries++
 
 			if idx.spec.InjectiveMapping && txID > 1 {
 				// wait for source indexer to be up to date
@@ -587,11 +638,6 @@ func (idx *indexer) indexSince(txID uint64) error {
 				_, prevTxID, _, err := sourceIndexer.index.GetBetween(sourceKey, 1, txID-1)
 				if err == nil {
 					prevEntry, prevTxHdr, err := idx.store.ReadTxEntry(prevTxID, e.key(), false)
-					if err != nil {
-						return err
-					}
-
-					_, err = idx.store.readValueAt(idx._val[:prevEntry.vLen], prevEntry.vOff, prevEntry.hVal, false)
 					if err != nil {
 						return err
 					}
@@ -637,10 +683,22 @@ func (idx *indexer) indexSince(txID uint64) error {
 					idx._kvs[indexableEntries].T = txID + uint64(i)
 
 					indexableEntries++
+					txIndexedEntries++
 				} else if !errors.Is(err, ErrKeyNotFound) {
 					return err
 				}
 			}
+		}
+
+		if indexableEntries > 0 && txIndexedEntries > 0 {
+			size := estimateEntriesSize(idx._kvs[indexableEntries-txIndexedEntries : indexableEntries])
+			if !idx.store.memSemaphore.Acquire(uint64(size)) {
+				if acquiredMem == 0 {
+					return ErrWriteStalling
+				}
+				break
+			}
+			acquiredMem += size
 		}
 
 		bulkSize++
@@ -674,4 +732,12 @@ func (idx *indexer) indexSince(txID uint64) error {
 	idx.metricsLastIndexedTrx.Set(float64(txID + uint64(bulkSize-1)))
 
 	return nil
+}
+
+func estimateEntriesSize(kvs []*tbtree.KVT) int {
+	size := 0
+	for _, kv := range kvs {
+		size += len(kv.K) + len(kv.V) + 8
+	}
+	return size
 }

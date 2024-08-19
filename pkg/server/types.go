@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/codenotary/immudb/pkg/truncator"
 
+	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 	"github.com/codenotary/immudb/pkg/replication"
@@ -83,9 +84,9 @@ type ImmuServer struct {
 	StreamServiceFactory stream.ServiceFactory
 	PgsqlSrv             pgsqlsrv.PGSQLServer
 
-	remoteStorage remotestorage.Storage
-
-	SessManager sessions.Manager
+	remoteStorage  remotestorage.Storage
+	indexCacheFunc func() *cache.Cache
+	SessManager    sessions.Manager
 }
 
 // DefaultServer ...

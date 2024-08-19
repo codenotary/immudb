@@ -85,6 +85,9 @@ func TestInvalidIndexOptions(t *testing.T) {
 		{"NodesLogMaxOpenedFiles", DefaultIndexOptions().WithNodesLogMaxOpenedFiles(0)},
 		{"HistoryLogMaxOpenedFiles", DefaultIndexOptions().WithHistoryLogMaxOpenedFiles(0)},
 		{"CommitLogMaxOpenedFiles", DefaultIndexOptions().WithCommitLogMaxOpenedFiles(0)},
+		{"MaxGlobalBufferedDataSize", DefaultIndexOptions().WithMaxGlobalBufferedDataSize(0)},
+		{"MaxGlobalBufferedDataSize", DefaultIndexOptions().WithMaxGlobalBufferedDataSize(DefaultIndexOptions().MaxBufferedDataSize - 1)},
+		{"MaxBufferedDataSize", DefaultIndexOptions().WithMaxBufferedDataSize(0)},
 	} {
 		t.Run(d.n, func(t *testing.T) {
 			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
@@ -195,6 +198,8 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 1*time.Millisecond, indexOpts.WithDelayDuringCompaction(1*time.Millisecond).DelayDuringCompaction)
 	require.Equal(t, 4096*2, indexOpts.WithFlushBufferSize(4096*2).FlushBufferSize)
 	require.Equal(t, float32(10), indexOpts.WithCleanupPercentage(10).CleanupPercentage)
+	require.Equal(t, int(10), indexOpts.WithMaxBufferedDataSize(10).MaxBufferedDataSize)
+	require.Equal(t, int(10), indexOpts.WithMaxGlobalBufferedDataSize(10).MaxGlobalBufferedDataSize)
 
 	require.Nil(t, opts.WithAHTOptions(nil).AHTOpts)
 	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
