@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/logger"
 )
 
@@ -32,6 +33,7 @@ const (
 	DefaultFlushThld                     = 100_000
 	DefaultSyncThld                      = 1_000_000
 	DefaultFlushBufferSize               = 4096
+	DefaultMaxBufferedDataSize           = 1 << 22 // 4MB
 	DefaultCleanUpPercentage     float32 = 0
 	DefaultMaxActiveSnapshots            = 100
 	DefaultRenewSnapRootAfter            = time.Duration(1000) * time.Millisecond
@@ -58,18 +60,23 @@ type AppFactoryFunc func(
 
 type AppRemoveFunc func(rootPath, subPath string) error
 
+type OnFlushFunc func(releasedDataSize int)
+
 type Options struct {
 	logger logger.Logger
 
-	flushThld          int
-	syncThld           int
-	flushBufferSize    int
-	cleanupPercentage  float32
-	maxActiveSnapshots int
-	renewSnapRootAfter time.Duration
-	cacheSize          int
-	readOnly           bool
-	fileMode           os.FileMode
+	ID                  uint16
+	flushThld           int
+	syncThld            int
+	maxBufferedDataSize int // maximum amount of KV data that can be buffered before triggering flushing
+	flushBufferSize     int
+	cleanupPercentage   float32
+	maxActiveSnapshots  int
+	renewSnapRootAfter  time.Duration
+	cacheSize           int
+	cache               *cache.Cache
+	readOnly            bool
+	fileMode            os.FileMode
 
 	nodesLogMaxOpenedFiles   int
 	historyLogMaxOpenedFiles int
@@ -86,11 +93,14 @@ type Options struct {
 
 	appFactory AppFactoryFunc
 	appRemove  AppRemoveFunc
+	onFlush    OnFlushFunc
 }
 
 func DefaultOptions() *Options {
 	return &Options{
 		logger:                logger.NewSimpleLogger("immudb ", os.Stderr),
+		ID:                    0,
+		maxBufferedDataSize:   DefaultMaxBufferedDataSize,
 		flushThld:             DefaultFlushThld,
 		syncThld:              DefaultSyncThld,
 		flushBufferSize:       DefaultFlushBufferSize,
@@ -176,7 +186,7 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid RenewSnapRootAfter", ErrInvalidOptions)
 	}
 
-	if opts.cacheSize < MinCacheSize {
+	if opts.cacheSize < MinCacheSize || (opts.cacheSize == 0 && opts.cache == nil) {
 		return fmt.Errorf("%w: invalid CacheSize", ErrInvalidOptions)
 	}
 
@@ -241,6 +251,11 @@ func (opts *Options) WithCacheSize(cacheSize int) *Options {
 	return opts
 }
 
+func (opts *Options) WithCache(cache *cache.Cache) *Options {
+	opts.cache = cache
+	return opts
+}
+
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
 	return opts
@@ -293,5 +308,20 @@ func (opts *Options) WithCompactionThld(compactionThld int) *Options {
 
 func (opts *Options) WithDelayDuringCompaction(delay time.Duration) *Options {
 	opts.delayDuringCompaction = delay
+	return opts
+}
+
+func (opts *Options) WithIdentifier(id uint16) *Options {
+	opts.ID = id
+	return opts
+}
+
+func (opts *Options) WithMaxBufferedDataSize(size int) *Options {
+	opts.maxBufferedDataSize = size
+	return opts
+}
+
+func (opts *Options) WithOnFlushFunc(onFlush OnFlushFunc) *Options {
+	opts.onFlush = onFlush
 	return opts
 }

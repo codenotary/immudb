@@ -24,8 +24,10 @@ import (
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/codenotary/immudb/pkg/helpers/semaphore"
 )
 
 const DefaultMaxActiveTransactions = 1000
@@ -51,6 +53,7 @@ const DefaultCommitLogMaxOpenedFiles = 10
 const DefaultWriteTxHeaderVersion = MaxTxHeaderVersion
 const DefaultWriteBufferSize = 1 << 22 //4Mb
 const DefaultIndexingMaxBulkSize = 1
+const DefaultIndexingGlobalMaxBufferedDataSize = 1 << 30
 const DefaultBulkPreparationTimeout = DefaultSyncFrequency
 const DefaultTruncationFrequency = 24 * time.Hour
 const MinimumRetentionPeriod = 24 * time.Hour
@@ -66,7 +69,13 @@ type AppFactoryFunc func(
 
 type AppRemoveFunc func(rootPath, subPath string) error
 
+type IndexCacheFactoryFunc func() *cache.Cache
+
+type IndexMemSemaphoreFactoryFunc func() *semaphore.Semaphore
+
 type TimeFunc func() time.Time
+
+type FlushFunc func() error
 
 type Options struct {
 	ReadOnly bool
@@ -147,7 +156,13 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	// Size of the Btree node cache
+	// Global limit for amount of data that can be buffered from all indexes
+	MaxGlobalBufferedDataSize int
+
+	// MaxBufferedDataSize
+	MaxBufferedDataSize int
+
+	// Size (in bytes) of the Btree node cache
 	CacheSize int
 
 	// Number of new index entries between disk flushes
@@ -191,6 +206,9 @@ type IndexOptions struct {
 
 	// Maximum time waiting for more transactions to be committed and included into the same bulk
 	BulkPreparationTimeout time.Duration
+
+	// CacheFactory function
+	CacheFactory IndexCacheFactoryFunc
 }
 
 type AHTOptions struct {
@@ -240,26 +258,29 @@ func DefaultOptions() *Options {
 		CompressionLevel:  DefaultCompressionLevel,
 		EmbeddedValues:    DefaultEmbeddedValues,
 		PreallocFiles:     DefaultPreallocFiles,
-		IndexOpts:         DefaultIndexOptions(),
-		AHTOpts:           DefaultAHTOptions(),
+
+		IndexOpts: DefaultIndexOptions(),
+		AHTOpts:   DefaultAHTOptions(),
 	}
 }
 
 func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
-		CacheSize:                tbtree.DefaultCacheSize,
-		FlushThld:                tbtree.DefaultFlushThld,
-		SyncThld:                 tbtree.DefaultSyncThld,
-		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
-		CleanupPercentage:        tbtree.DefaultCleanUpPercentage,
-		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
-		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
-		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter,
-		CompactionThld:           tbtree.DefaultCompactionThld,
-		DelayDuringCompaction:    0,
-		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
-		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
-		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
+		MaxGlobalBufferedDataSize: DefaultIndexingGlobalMaxBufferedDataSize,
+		MaxBufferedDataSize:       tbtree.DefaultMaxBufferedDataSize,
+		CacheSize:                 tbtree.DefaultCacheSize,
+		FlushThld:                 tbtree.DefaultFlushThld,
+		SyncThld:                  tbtree.DefaultSyncThld,
+		FlushBufferSize:           tbtree.DefaultFlushBufferSize,
+		CleanupPercentage:         tbtree.DefaultCleanUpPercentage,
+		MaxActiveSnapshots:        tbtree.DefaultMaxActiveSnapshots,
+		MaxNodeSize:               tbtree.DefaultMaxNodeSize,
+		RenewSnapRootAfter:        tbtree.DefaultRenewSnapRootAfter,
+		CompactionThld:            tbtree.DefaultCompactionThld,
+		DelayDuringCompaction:     0,
+		NodesLogMaxOpenedFiles:    tbtree.DefaultNodesLogMaxOpenedFiles,
+		HistoryLogMaxOpenedFiles:  tbtree.DefaultHistoryLogMaxOpenedFiles,
+		CommitLogMaxOpenedFiles:   tbtree.DefaultCommitLogMaxOpenedFiles,
 
 		MaxBulkSize:            DefaultIndexingMaxBulkSize,
 		BulkPreparationTimeout: DefaultBulkPreparationTimeout,
@@ -364,6 +385,15 @@ func (opts *Options) Validate() error {
 func (opts *IndexOptions) Validate() error {
 	if opts == nil {
 		return fmt.Errorf("%w: nil index options ", ErrInvalidOptions)
+	}
+	if opts.MaxBufferedDataSize <= 0 {
+		return fmt.Errorf("%w: invalid index option MaxBufferedDataSize", ErrInvalidOptions)
+	}
+	if opts.MaxGlobalBufferedDataSize <= 0 {
+		return fmt.Errorf("%w: invalid index option MaxGlobalBufferedDataSize", ErrInvalidOptions)
+	}
+	if opts.MaxBufferedDataSize > opts.MaxGlobalBufferedDataSize {
+		return fmt.Errorf("%w: invalid index option MaxBufferedDataSize > MaxGlobalBufferedDataSize", ErrInvalidOptions)
 	}
 	if opts.CacheSize <= 0 {
 		return fmt.Errorf("%w: invalid index option CacheSize", ErrInvalidOptions)
@@ -667,6 +697,21 @@ func (opts *IndexOptions) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles 
 
 func (opts *IndexOptions) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *IndexOptions {
 	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *IndexOptions) WithMaxBufferedDataSize(size int) *IndexOptions {
+	opts.MaxBufferedDataSize = size
+	return opts
+}
+
+func (opts *IndexOptions) WithMaxGlobalBufferedDataSize(size int) *IndexOptions {
+	opts.MaxGlobalBufferedDataSize = size
+	return opts
+}
+
+func (opts *IndexOptions) WithCacheFactoryFunc(indexCacheFactory IndexCacheFactoryFunc) *IndexOptions {
+	opts.CacheFactory = indexCacheFactory
 	return opts
 }
 

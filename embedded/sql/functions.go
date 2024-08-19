@@ -144,7 +144,7 @@ func (f *SubstringFn) requiresType(t SQLValueType, cols map[string]ColDescriptor
 
 func (f *SubstringFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	if len(params) != 3 {
-		return nil, fmt.Errorf("%w: '%s' function does expects one argument but %d were provided", ErrIllegalArguments, SubstringFnCall, len(params))
+		return nil, fmt.Errorf("%w: '%s' function does expects three argument but %d were provided", ErrIllegalArguments, SubstringFnCall, len(params))
 	}
 
 	v1, v2, v3 := params[0], params[1], params[2]
@@ -163,6 +163,10 @@ func (f *SubstringFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) 
 
 	if length < 0 {
 		return nil, fmt.Errorf("%w: parameter 'length' cannot be negative", ErrIllegalArguments)
+	}
+
+	if pos-1 >= int64(len(s)) {
+		return &Varchar{val: ""}, nil
 	}
 
 	end := pos - 1 + length

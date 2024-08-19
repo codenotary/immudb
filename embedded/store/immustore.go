@@ -43,6 +43,7 @@ import (
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
+	"github.com/codenotary/immudb/pkg/helpers/semaphore"
 	"github.com/codenotary/immudb/pkg/helpers/slices"
 )
 
@@ -65,6 +66,7 @@ var ErrCannotUpdateKeyTransiency = errors.New("cannot change a non-transient key
 var ErrMaxActiveTransactionsLimitExceeded = errors.New("max active transactions limit exceeded")
 var ErrMVCCReadSetLimitExceeded = errors.New("MVCC read-set limit exceeded")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
+var ErrMaxIndexersLimitExceeded = errors.New("max indexers limit exceeded")
 var ErrPathIsNotADirectory = errors.New("path is not a directory")
 var ErrCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedTxDataMaxTxEntriesExceeded = fmt.Errorf("%w: maximum number of TX entries exceeded", ErrCorruptedTxData)
@@ -204,8 +206,8 @@ type ImmuStore struct {
 	waiteesMutex sync.Mutex
 	waiteesCount int // current number of go-routines waiting for a tx to be indexed or committed
 
-	_txbs     []byte // pre-allocated buffer to support tx serialization
-	_valBs    []byte // pre-allocated buffer to support tx exportation
+	_txbs     []byte                   // pre-allocated buffer to support tx serialization
+	_valBs    [DefaultMaxValueLen]byte // pre-allocated buffer to support tx exportation
 	_valBsMux sync.Mutex
 
 	aht                  *ahtree.AHtree
@@ -213,8 +215,12 @@ type ImmuStore struct {
 	durablePrecommitWHub *watchers.WatchersHub
 	commitWHub           *watchers.WatchersHub
 
-	indexers    map[[sha256.Size]byte]*indexer
-	indexersMux sync.RWMutex
+	indexers      map[[sha256.Size]byte]*indexer
+	nextIndexerID uint32
+	indexCache    *cache.Cache
+
+	memSemaphore *semaphore.Semaphore // used by indexers to control amount acquired of memory
+	indexersMux  sync.RWMutex
 
 	opts *Options
 
@@ -648,10 +654,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		writeTxHeaderVersion: opts.WriteTxHeaderVersion,
 
-		timeFunc:      opts.TimeFunc,
-		multiIndexing: opts.MultiIndexing,
-		indexers:      make(map[[sha256.Size]byte]*indexer),
-
+		timeFunc:                   opts.TimeFunc,
+		multiIndexing:              opts.MultiIndexing,
+		indexers:                   make(map[[sha256.Size]byte]*indexer),
+		memSemaphore:               semaphore.New(uint64(opts.IndexOpts.MaxGlobalBufferedDataSize)),
 		useExternalCommitAllowance: opts.UseExternalCommitAllowance,
 		commitAllowedUpToTxID:      committedTxID,
 
@@ -663,7 +669,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		txPool: txPool,
 		_txbs:  txbs,
-		_valBs: make([]byte, maxValueLen),
 
 		opts: opts,
 
@@ -849,6 +854,18 @@ func (s *ImmuStore) InitIndexing(spec *IndexSpec) error {
 		indexPath = filepath.Join(s.path, fmt.Sprintf("%s_%s", indexDirname, encPrefix))
 	}
 
+	if s.indexCache == nil {
+		if indexFactoryFunc := s.opts.IndexOpts.CacheFactory; indexFactoryFunc != nil {
+			s.indexCache = indexFactoryFunc()
+		} else {
+			c, err := cache.NewCache(s.opts.IndexOpts.CacheSize)
+			if err != nil {
+				return err
+			}
+			s.indexCache = c
+		}
+	}
+
 	indexer, err := newIndexer(indexPath, s, s.opts)
 	if err != nil {
 		return fmt.Errorf("%w: could not open indexer", err)
@@ -862,7 +879,6 @@ func (s *ImmuStore) InitIndexing(spec *IndexSpec) error {
 	}
 
 	s.indexers[indexPrefix] = indexer
-
 	indexer.init(spec)
 
 	return nil
@@ -2666,7 +2682,15 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 		// val
 		// TODO: improve value reading implementation, get rid of _valBs
 		s._valBsMux.Lock()
-		_, err = s.readValueAt(s._valBs[:e.vLen], e.vOff, e.hVal, skipIntegrityCheck)
+
+		var valBuf []byte
+		if e.vLen > len(s._valBs) {
+			valBuf = make([]byte, e.vLen)
+		} else {
+			valBuf = s._valBs[:e.vLen]
+		}
+
+		_, err = s.readValueAt(valBuf, e.vOff, e.hVal, skipIntegrityCheck)
 		if err != nil && !errors.Is(err, io.EOF) {
 			s._valBsMux.Unlock()
 			return nil, err
@@ -2687,7 +2711,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 			}
 
 			// val
-			_, err = buf.Write(s._valBs[:e.vLen])
+			_, err = buf.Write(valBuf)
 			if err != nil {
 				s._valBsMux.Unlock()
 				return nil, err
@@ -3006,7 +3030,6 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64, allowPrecommitted bool) (
 	} else {
 		txr = &slicedReaderAt{bs: txbs.([]byte), off: txOff}
 	}
-
 	return appendable.NewReaderFrom(txr, txOff, txSize), nil
 }
 
