@@ -141,7 +141,7 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	defer c.StateService.CacheUnlock()
 
 	start := time.Now()
-	defer c.Logger.Debugf("StreamVerifiedSet finished in %s", time.Since(start))
+	defer c.debugElapsedTime("_streamVerifiedSet", start)
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {

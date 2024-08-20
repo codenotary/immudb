@@ -637,6 +637,10 @@ func NewImmuClient(options *Options) (*immuClient, error) {
 	return c, nil
 }
 
+func (c *immuClient) debugElapsedTime(method string, start time.Time) {
+	c.Logger.Debugf("method immuclient.%s took %s", method, time.Since(start))
+}
+
 func (c *immuClient) getServerIdentity() string {
 	// TODO: Allow customizing this value
 	return c.Options.Bind()
@@ -994,7 +998,7 @@ func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, 
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("Current state finished in %s", time.Since(start))
+	defer c.debugElapsedTime("CurrentState", start)
 
 	return c.ServiceClient.CurrentState(ctx, &empty.Empty{})
 }
@@ -1006,7 +1010,7 @@ func (c *immuClient) Get(ctx context.Context, key []byte, opts ...GetOption) (*s
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("get finished in %s", time.Since(start))
+	defer c.debugElapsedTime("Get", start)
 
 	req := &schema.KeyRequest{Key: key}
 	for _, opt := range opts {
@@ -1040,7 +1044,7 @@ func (c *immuClient) GetAtRevision(ctx context.Context, key []byte, rev int64) (
 // Gets reads a single value for given key with additional server-provided proof validation.
 func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...GetOption) (vi *schema.Entry, err error) {
 	start := time.Now()
-	defer c.Logger.Debugf("VerifiedGet finished in %s", time.Since(start))
+	defer c.debugElapsedTime("VerifiedGet", start)
 
 	req := &schema.KeyRequest{Key: key}
 	for _, opt := range opts {
@@ -1307,7 +1311,7 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("VerifiedSet finished in %s", time.Since(start))
+	defer c.debugElapsedTime("VerifiedSet", start)
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
@@ -1467,7 +1471,7 @@ func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("get-batch finished in %s", time.Since(start))
+	defer c.debugElapsedTime("GetAll", start)
 
 	keyList := &schema.KeyListRequest{}
 
@@ -1495,12 +1499,11 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("by-index finished in %s", time.Since(start))
+	defer c.debugElapsedTime("TxByID", start)
 
 	t, err := c.ServiceClient.TxById(ctx, &schema.TxRequest{
 		Tx: tx,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -1533,7 +1536,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("VerifiedTxByID finished in %s", time.Since(start))
+	defer c.debugElapsedTime("VerifiedTxByID", start)
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
@@ -1619,7 +1622,7 @@ func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (s
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("history finished in %s", time.Since(start))
+	defer c.debugElapsedTime("History", start)
 
 	return c.ServiceClient.History(ctx, req)
 }
@@ -1640,7 +1643,7 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedK
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("SetReference finished in %s", time.Since(start))
+	defer c.debugElapsedTime("SetReferenceAt", start)
 
 	txhdr, err := c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
 		Key:           key,
@@ -1683,7 +1686,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("safereference finished in %s", time.Since(start))
+	defer c.debugElapsedTime("VerifiedSetReferenceAt", start)
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
@@ -1798,7 +1801,7 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("zadd finished in %s", time.Since(start))
+	defer c.debugElapsedTime("ZAddAt", start)
 
 	hdr, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
 		Set:      set,
@@ -1848,7 +1851,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("safezadd finished in %s", time.Since(start))
+	defer c.debugElapsedTime("VerifiedZAddAt", start)
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
