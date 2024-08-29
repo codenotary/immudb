@@ -61,6 +61,29 @@ func TestStartWebServerHTTPS(t *testing.T) {
 
 	options := DefaultOptions().WithDir(dir)
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
+
+	tlsConfig := tlsConfigTest(t)
+	webServer, err := startWebServer(
+		context.Background(),
+		options.Bind(),
+		options.WebBind(),
+		tlsConfig,
+		server,
+		&mockLogger{})
+	require.NoError(t, err)
+	defer webServer.Close()
+
+	require.IsType(t, &http.Server{}, webServer)
+
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	client := &http.Client{Transport: tr}
+	require.Eventually(t, func() bool {
+		_, err = client.Get("https://" + options.WebBind())
+		return err == nil
+	}, 10*time.Second, 30*time.Millisecond)
+}
+
+func tlsConfigTest(t *testing.T) *tls.Config {
 	certPem := []byte(`-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
 DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
@@ -80,24 +103,5 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 
 	cert, err := tls.X509KeyPair(certPem, keyPem)
 	require.NoError(t, err)
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
-
-	webServer, err := startWebServer(
-		context.Background(),
-		options.Bind(),
-		options.WebBind(),
-		tlsConfig,
-		server,
-		&mockLogger{})
-	require.NoError(t, err)
-	defer webServer.Close()
-
-	require.IsType(t, &http.Server{}, webServer)
-
-	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-	client := &http.Client{Transport: tr}
-	require.Eventually(t, func() bool {
-		_, err = client.Get("https://" + options.WebBind())
-		return err == nil
-	}, 10*time.Second, 30*time.Millisecond)
+	return &tls.Config{Certificates: []tls.Certificate{cert}}
 }
