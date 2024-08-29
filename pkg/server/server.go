@@ -281,7 +281,7 @@ func (s *ImmuServer) Start() (err error) {
 	startedAt = time.Now()
 
 	if s.Options.MetricsServer {
-		s.metricsServer = StartMetrics(1*time.Minute, s.Options.MetricsBind(), s.Logger, s.metricFuncServerUptimeCounter,
+		s.metricsServer = StartMetrics(1*time.Minute, s.Options.MetricsBind(), s.Options.TLSConfig, s.Logger, s.metricFuncServerUptimeCounter,
 			s.metricFuncComputeDBSizes, s.metricFuncComputeDBEntries, s.metricFuncComputeLoadedDBSize, s.metricFuncComputeSessionCount,
 			s.Options.PProf)
 		defer func() {

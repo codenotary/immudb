@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"expvar"
 	"net/http"
@@ -61,16 +62,20 @@ type MetricsCollection struct {
 	RemoteStorageKind *prometheus.GaugeVec
 
 	computeLoadedDBSize func() float64
-	LoadedDatabases prometheus.Gauge
+	LoadedDatabases     prometheus.Gauge
 
 	computeSessionCount func() float64
-	ActiveSessions  prometheus.Gauge
+	ActiveSessions      prometheus.Gauge
 }
 
 var metricsNamespace = "immudb"
 
 // WithUptimeCounter ...
 func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
+	if mc.UptimeCounter != nil {
+		return
+	}
+
 	mc.UptimeCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
@@ -196,6 +201,7 @@ var Metrics = MetricsCollection{
 func StartMetrics(
 	updateInterval time.Duration,
 	addr string,
+	tlsConfig *tls.Config,
 	l logger.Logger,
 	uptimeCounter func() float64,
 	computeDBSizes func() map[string]float64,
@@ -204,7 +210,6 @@ func StartMetrics(
 	computeSessionCount func() float64,
 	addPProf bool,
 ) *http.Server {
-
 	Metrics.WithUptimeCounter(uptimeCounter)
 	Metrics.WithComputeDBSizes(computeDBSizes)
 	Metrics.WithComputeDBEntries(computeDBEntries)
@@ -232,19 +237,26 @@ func StartMetrics(
 	mux.HandleFunc("/readyz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
 	mux.HandleFunc("/livez", corsHandlerFunc(ImmudbHealthHandlerFunc()))
 	mux.HandleFunc("/version", corsHandlerFunc(ImmudbVersionHandlerFunc))
+
 	server := &http.Server{Addr: addr, Handler: mux}
+	server.TLSConfig = tlsConfig
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			if err == http.ErrServerClosed {
-				l.Debugf("Metrics http server closed")
-			} else {
-				l.Errorf("Metrics error: %s", err)
-			}
+		var err error
+		if tlsConfig != nil && len(tlsConfig.Certificates) > 0 {
+			l.Infof("metrics server enabled on %s (https)", addr)
+			err = server.ListenAndServeTLS("", "")
+		} else {
+			l.Infof("metrics server enabled on %s (http)", addr)
+			err = server.ListenAndServe()
+		}
 
+		if err == http.ErrServerClosed {
+			l.Debugf("Metrics http server closed")
+		} else {
+			l.Errorf("Metrics error: %s", err)
 		}
 	}()
-
 	return server
 }
 

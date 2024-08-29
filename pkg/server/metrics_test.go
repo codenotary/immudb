@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -31,10 +32,16 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-func TestStartMetrics(t *testing.T) {
+func TestStartMetricsHTTP(t *testing.T) {
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+	}
+
 	server := StartMetrics(
 		100*time.Millisecond,
 		"0.0.0.0:9999",
+		tlsConfig,
 		&mockLogger{},
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
@@ -49,6 +56,34 @@ func TestStartMetrics(t *testing.T) {
 	require.IsType(t, &http.Server{}, server)
 }
 
+func TestStartMetricsHTTPS(t *testing.T) {
+	tlsConfig := tlsConfigTest(t)
+
+	server := StartMetrics(
+		100*time.Millisecond,
+		"0.0.0.0:9999",
+		tlsConfig,
+		&mockLogger{},
+		func() float64 { return 0 },
+		func() map[string]float64 { return make(map[string]float64) },
+		func() map[string]float64 { return make(map[string]float64) },
+		func() float64 { return 1.0 },
+		func() float64 { return 2.0 },
+		false,
+	)
+	time.Sleep(200 * time.Millisecond)
+	defer server.Close()
+
+	require.IsType(t, &http.Server{}, server)
+
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	client := &http.Client{Transport: tr}
+	require.Eventually(t, func() bool {
+		_, err := client.Get("https://0.0.0.0:9999")
+		return err == nil
+	}, 10*time.Second, 30*time.Millisecond)
+}
+
 func TestStartMetricsFail(t *testing.T) {
 	save_metricsNamespace := metricsNamespace
 	metricsNamespace = "failimmudb"
@@ -57,6 +92,7 @@ func TestStartMetricsFail(t *testing.T) {
 	server := StartMetrics(
 		100*time.Millisecond,
 		"999.999.999.999:9999",
+		nil,
 		&mockLogger{},
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
