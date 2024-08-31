@@ -19,6 +19,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/cmd/version"
+	"github.com/codenotary/immudb/pkg/cert"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/stream"
 	"golang.org/x/crypto/bcrypt"
@@ -2120,4 +2122,55 @@ func TestServerDatabaseTruncate(t *testing.T) {
 
 	_, err = s.CloseSession(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
+}
+
+func TestUserIsAlertedToExpiredCerts(t *testing.T) {
+	dir := t.TempDir()
+
+	certsPath := filepath.Join(dir, "certs")
+
+	expCert := makeCert(t, certsPath, "expired", 0)
+	nearExpCert := makeCert(t, certsPath, "nearly-expired", 15*24*time.Hour)
+	validCert := makeCert(t, certsPath, "valid", 36*24*time.Hour)
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{
+			expCert,
+			nearExpCert,
+			validCert,
+			{},
+			{Certificate: [][]byte{{1, 2, 3}}},
+		},
+	}
+
+	opts := DefaultOptions().
+		WithDir(dir).
+		WithTLS(tlsConfig)
+
+	s, stop := testServer(opts)
+	defer stop()
+
+	mockLogger := &mockLogger{}
+	s.WithLogger(mockLogger)
+
+	s.checkTLSCerts()
+
+	require.GreaterOrEqual(t, len(mockLogger.lines), 4)
+	require.Contains(t, mockLogger.lines[0], "is expired")
+	require.Contains(t, mockLogger.lines[1], "is about to expire")
+	require.Contains(t, mockLogger.lines[2], "tls config contains an invalid certificate")
+	require.Contains(t, mockLogger.lines[3], "could not parse certificate")
+}
+
+func makeCert(t *testing.T, dir, suffix string, expiration time.Duration) tls.Certificate {
+	certFile := filepath.Join(dir, fmt.Sprintf("immudb-%s.cert", suffix))
+	keyFile := filepath.Join(dir, fmt.Sprintf("immudb-%s.key", suffix))
+
+	err := cert.GenerateSelfSignedCert(certFile, keyFile, "immudb", expiration)
+	require.NoError(t, err)
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+
+	return cert
 }

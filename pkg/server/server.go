@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -92,6 +93,9 @@ func (s *ImmuServer) Initialize() error {
 	} else if s.Options.IsFileLogger() {
 		s.Logger.Infof("\n%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
 	}
+
+	// Alert the user to certificates that are either expired or approaching expiration
+	s.checkTLSCerts()
 
 	if s.Options.GetMaintenance() && s.Options.GetAuth() {
 		return ErrAuthMustBeDisabled
@@ -270,6 +274,32 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	return err
+}
+
+func (s *ImmuServer) checkTLSCerts() {
+	if s.Options.TLSConfig == nil {
+		return
+	}
+
+	now := time.Now()
+	for _, cert := range s.Options.TLSConfig.Certificates {
+		if len(cert.Certificate) == 0 {
+			s.Logger.Errorf("tls config contains an invalid certificate")
+			continue
+		}
+
+		x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			s.Logger.Errorf("could not parse certificate: %s", err)
+			continue
+		}
+
+		if now.Before(x509Cert.NotBefore) || now.After(x509Cert.NotAfter) {
+			s.Logger.Warningf("certificate with serial number %s is expired", x509Cert.SerialNumber.String())
+		} else if !now.Before(x509Cert.NotAfter.Add(-30 * 24 * time.Hour)) {
+			s.Logger.Warningf("certificate with serial number %s is about to expire: %s left", x509Cert.SerialNumber.String(), x509Cert.NotAfter.Sub(now).String())
+		}
+	}
 }
 
 // Start starts the immudb server

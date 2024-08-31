@@ -16,6 +16,8 @@ limitations under the License.
 
 package server
 
+import "fmt"
+
 /*
 import (
 	"testing"
@@ -377,17 +379,32 @@ func makeDB(dir string) *badger.DB {
 
 */
 
-type mockLogger struct{}
+type mockLogger struct {
+	lines []string
+}
 
-func (l *mockLogger) Errorf(f string, v ...interface{}) {}
+func (l *mockLogger) Errorf(f string, v ...interface{}) {
+	l.log("ERROR", f, v...)
+}
 
-func (l *mockLogger) Warningf(f string, v ...interface{}) {}
+func (l *mockLogger) Warningf(f string, v ...interface{}) {
+	l.log("WARN", f, v...)
+}
 
-func (l *mockLogger) Infof(f string, v ...interface{}) {}
+func (l *mockLogger) Infof(f string, v ...interface{}) {
+	l.log("INFO", f, v...)
+}
 
-func (l *mockLogger) Debugf(f string, v ...interface{}) {}
+func (l *mockLogger) Debugf(f string, v ...interface{}) {
+	l.log("DEBUG", f, v...)
+}
 
 func (l *mockLogger) Close() error { return nil }
+
+func (l *mockLogger) log(level, f string, v ...interface{}) {
+	line := level + ": " + fmt.Sprintf(f, v...)
+	l.lines = append(l.lines, line)
+}
 
 /*
 func TestCryptoRandSource_Seed(t *testing.T) {
