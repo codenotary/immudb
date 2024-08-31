@@ -59,6 +59,7 @@ func parseOptions() (options *server.Options, err error) {
 	maxRecvMsgSize := viper.GetInt("max-recv-msg-size")
 	noHistograms := viper.GetBool("no-histograms")
 	detached := viper.GetBool("detached")
+	autoCert := viper.GetBool("auto-cert")
 	certificate := viper.GetString("certificate")
 	pkey := viper.GetString("pkey")
 	clientcas := viper.GetString("clientcas")
@@ -118,7 +119,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithMaxSessionAgeTime(viper.GetDuration("max-session-age-time")).
 		WithTimeout(viper.GetDuration("session-timeout"))
 
-	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
+	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls, autoCert)
 	if err != nil {
 		return options, err
 	}

@@ -29,12 +29,13 @@ import (
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
 )
 
 func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsConfig *tls.Config, s *ImmuServer, l logger.Logger) (*http.Server, error) {
-	grpcClient, err := grpcClient(ctx, grpcAddr)
+	grpcClient, err := grpcClient(ctx, grpcAddr, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +106,15 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 	return httpServer, nil
 }
 
-func grpcClient(ctx context.Context, grpcAddr string) (conn *grpc.ClientConn, err error) {
-	conn, err = grpc.Dial(grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func grpcClient(ctx context.Context, grpcAddr string, tlsConfig *tls.Config) (conn *grpc.ClientConn, err error) {
+	var creds credentials.TransportCredentials
+	if tlsConfig != nil {
+		creds = credentials.NewTLS(&tls.Config{RootCAs: tlsConfig.RootCAs})
+	} else {
+		creds = insecure.NewCredentials()
+	}
+
+	conn, err = grpc.Dial(grpcAddr, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return conn, err
 	}
@@ -124,6 +132,5 @@ func grpcClient(ctx context.Context, grpcAddr string) (conn *grpc.ClientConn, er
 			}
 		}()
 	}()
-
 	return conn, nil
 }

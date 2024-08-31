@@ -45,6 +45,7 @@ type Options struct {
 	Config                      string
 	Pidfile                     string
 	Logfile                     string
+	AutoCert                    bool
 	TLSConfig                   *tls.Config
 	auth                        bool
 	MaxRecvMsgSize              int
@@ -119,6 +120,7 @@ func DefaultOptions() *Options {
 		Config:                      "configs/immudb.toml",
 		Pidfile:                     "",
 		Logfile:                     "",
+		AutoCert:                    false,
 		TLSConfig:                   nil,
 		auth:                        true,
 		MaxRecvMsgSize:              1024 * 1024 * 32, // 32Mb

@@ -19,6 +19,7 @@ package immudb
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -54,23 +55,66 @@ d/ax/lUR3RCVV6A+hzTgOhYKvoV1U6iX21hUarcm6MB6qaeORCHfQzQpn62nRe6X
 `
 
 func TestSetUpTLS(t *testing.T) {
-	_, err := setUpTLS("banana", "banana", "banana", false)
+	_, err := setUpTLS("banana", "", "banana", false, false)
 	require.Error(t, err)
-	_, err = setUpTLS("", "", "", true)
+	_, err = setUpTLS("banana", "banana", "banana", false, false)
 	require.Error(t, err)
-	_, err = setUpTLS("banana", "", "", true)
+	_, err = setUpTLS("", "", "", true, false)
+	require.Error(t, err)
+	_, err = setUpTLS("banana", "", "", true, false)
 	require.Error(t, err)
 
 	defer os.Remove("xxkey.pem")
 	f, _ := os.Create("xxkey.pem")
-	fmt.Fprintf(f, key)
+	fmt.Fprint(f, key)
 	f.Close()
 
 	defer os.Remove("xxcert.pem")
 	f, _ = os.Create("xxcert.pem")
-	fmt.Fprintf(f, cert)
+	fmt.Fprint(f, cert)
 	f.Close()
 
-	_, err = setUpTLS("xxkey.pem", "xxcert.pem", "banana", true)
+	_, err = setUpTLS("xxkey.pem", "xxcert.pem", "banana", true, false)
 	require.Error(t, err)
+}
+
+func TestSetUpTLSWithAutoHTTPS(t *testing.T) {
+	t.Run("use specified paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		certFile := filepath.Join(tempDir, "immudb.cert")
+		keyFile := filepath.Join(tempDir, "immudb.key")
+
+		tlsConfig, err := setUpTLS(certFile, keyFile, "", false, false)
+		require.Error(t, err)
+		require.Nil(t, tlsConfig)
+
+		tlsConfig, err = setUpTLS(certFile, keyFile, "", false, true)
+		require.NoError(t, err)
+		require.NotNil(t, tlsConfig)
+
+		require.FileExists(t, certFile)
+		require.FileExists(t, keyFile)
+
+		tlsConfig, err = setUpTLS(certFile, keyFile, "", false, false)
+		require.NoError(t, err)
+		require.NotNil(t, tlsConfig)
+	})
+
+	t.Run("use default paths", func(t *testing.T) {
+		certPath, keyPath, err := getCertAndKeyPath("", "", true)
+		require.NoError(t, err)
+
+		defer func() {
+			os.RemoveAll(certPath)
+			os.Remove(keyPath)
+		}()
+
+		tlsConfig, err := setUpTLS("", "", "", false, true)
+		require.NoError(t, err)
+		require.NotNil(t, tlsConfig)
+
+		require.FileExists(t, certPath)
+		require.FileExists(t, keyPath)
+	})
 }
