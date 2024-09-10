@@ -49,8 +49,10 @@ type usernameToUserdataMap struct {
 }
 
 // defaultDbIndex systemdb should always be in index 0
-const defaultDbIndex = 0
-const sysDBIndex = math.MaxInt32
+const (
+	defaultDbIndex = 0
+	sysDBIndex     = math.MaxInt32
+)
 
 // ImmuServer ...
 type ImmuServer struct {
@@ -89,7 +91,7 @@ type ImmuServer struct {
 	SessManager    sessions.Manager
 }
 
-// DefaultServer ...
+// DefaultServer returns a new ImmuServer instance with all configuration options set to their default values.
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
 		OS:                   immuos.NewStandardOS(),

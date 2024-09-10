@@ -35,6 +35,11 @@ var (
 	}
 )
 
+const (
+	LogFileFormat     = time.RFC3339
+	logRotationAgeMin = time.Minute
+)
+
 // LogLevel ...
 type LogLevel int8
 
@@ -93,22 +98,46 @@ type (
 		// The format in which logs will be formatted. (eg: text/json)
 		LogFormat string
 
+		// The directory logs will be stored to.
+		LogDir string
+
 		// The file to write to.
 		LogFile string
+
+		// The time format of different log segments.
+		LogFileTimeFormat string
+
+		// The maximum size a log segment can reach before being rotated.
+		LogRotationSize int
+
+		// The maximum duration (age) of a log segment before it is rotated.
+		LogRotationAge time.Duration
 	}
 )
 
 // NewLogger is a factory for selecting a logger based on options
 func NewLogger(opts *Options) (logger Logger, err error) {
+	out := opts.Output
+	if out == nil {
+		out = os.Stderr
+	}
+
+	if opts.LogFile != "" {
+		w, err := createLogFileWriter(opts)
+		if err != nil {
+			return nil, err
+		}
+		out = w
+	}
+
 	switch opts.LogFormat {
 	case LogFormatJSON:
-		return NewJSONLogger(opts)
+		optsCopy := *opts
+		optsCopy.Output = out
+
+		return NewJSONLogger(&optsCopy)
 	case LogFormatText:
-		if opts.LogFile != "" {
-			logger, _, err = NewFileLogger(opts.Name, opts.LogFile)
-			return logger, err
-		}
-		return NewSimpleLogger(opts.Name, defaultOutput), nil
+		return NewSimpleLogger(opts.Name, out), nil
 	default:
 		return nil, ErrInvalidLoggerType
 	}

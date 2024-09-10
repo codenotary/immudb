@@ -18,7 +18,6 @@ package immudb
 
 import (
 	"bytes"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -228,7 +227,8 @@ func TestImmudbLogFile(t *testing.T) {
 	cmd.Flags().StringVar(&config, "config", "", "test")
 	setupDefaults(server.DefaultOptions())
 
-	viper.Set("logfile", filepath.Join(t.TempDir(), "override"))
+	viper.Set("dir", t.TempDir())
+	viper.Set("logfile", "override")
 
 	cl := Commandline{}
 

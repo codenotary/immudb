@@ -51,7 +51,12 @@ func parseOptions() (options *server.Options, err error) {
 	}
 
 	pidfile := viper.GetString("pidfile")
+
+	logdir := viper.GetString("logdir")
 	logfile := viper.GetString("logfile")
+	logRotationSize := viper.GetInt("log-rotation-size")
+	logRotationAge := viper.GetDuration("log-rotation-age")
+	logAccess := viper.GetBool("log-access")
 	logFormat := viper.GetString("logformat")
 
 	mtls := viper.GetBool("mtls")
@@ -131,7 +136,11 @@ func parseOptions() (options *server.Options, err error) {
 		WithAddress(address).
 		WithReplicationOptions(replicationOptions).
 		WithPidfile(pidfile).
+		WithLogDir(logdir).
 		WithLogfile(logfile).
+		WithLogRotationSize(logRotationSize).
+		WithLogRotationAge(logRotationAge).
+		WithLogAccess(logAccess).
 		WithTLS(tlsConfig).
 		WithAuth(auth).
 		WithMaxRecvMsgSize(maxRecvMsgSize).

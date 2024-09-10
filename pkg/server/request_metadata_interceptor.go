@@ -71,7 +71,7 @@ func ipAddrFromContext(ctx context.Context) string {
 		return ""
 	}
 
-	addr := p.Addr.Network()
+	addr := p.Addr.String()
 	i := strings.Index(addr, ":")
 	if i < 0 {
 		return addr

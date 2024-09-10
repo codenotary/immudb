@@ -224,6 +224,7 @@ func (s *ImmuServer) Initialize() error {
 
 	uis := []grpc.UnaryServerInterceptor{
 		ErrorMapper, // converts errors in gRPC ones. Need to be the first
+		s.AccessLogInterceptor,
 		s.KeepAliveSessionInterceptor,
 		uuidContext.UUIDContextSetter,
 		grpc_prometheus.UnaryServerInterceptor,
@@ -233,6 +234,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
+		s.AccessLogStreamInterceptor,
 		s.KeepALiveSessionStreamInterceptor,
 		uuidContext.UUIDStreamContextSetter,
 		grpc_prometheus.StreamServerInterceptor,
@@ -613,7 +615,8 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 	for _, f := range files {
 		if !f.IsDir() ||
 			f.Name() == s.Options.GetSystemAdminDBName() ||
-			f.Name() == s.Options.GetDefaultDBName() {
+			f.Name() == s.Options.GetDefaultDBName() ||
+			f.Name() == s.Options.LogDir {
 			continue
 		}
 

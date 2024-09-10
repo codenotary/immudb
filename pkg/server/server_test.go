@@ -2150,16 +2150,16 @@ func TestUserIsAlertedToExpiredCerts(t *testing.T) {
 	s, stop := testServer(opts)
 	defer stop()
 
-	mockLogger := &mockLogger{}
+	mockLogger := &mockLogger{captureLogs: true}
 	s.WithLogger(mockLogger)
 
 	s.checkTLSCerts()
 
-	require.GreaterOrEqual(t, len(mockLogger.lines), 4)
-	require.Contains(t, mockLogger.lines[0], "is expired")
-	require.Contains(t, mockLogger.lines[1], "is about to expire")
-	require.Contains(t, mockLogger.lines[2], "tls config contains an invalid certificate")
-	require.Contains(t, mockLogger.lines[3], "could not parse certificate")
+	require.GreaterOrEqual(t, len(mockLogger.logs), 4)
+	require.Contains(t, mockLogger.logs[0], "is expired")
+	require.Contains(t, mockLogger.logs[1], "is about to expire")
+	require.Contains(t, mockLogger.logs[2], "tls config contains an invalid certificate")
+	require.Contains(t, mockLogger.logs[3], "could not parse certificate")
 }
 
 func makeCert(t *testing.T, dir, suffix string, expiration time.Duration) tls.Certificate {

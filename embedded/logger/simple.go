@@ -23,6 +23,7 @@ import (
 
 // SimpleLogger ...
 type SimpleLogger struct {
+	Out      io.Writer
 	Logger   *log.Logger
 	LogLevel LogLevel
 }
@@ -30,6 +31,7 @@ type SimpleLogger struct {
 // NewSimpleLogger ...
 func NewSimpleLogger(name string, out io.Writer) Logger {
 	return &SimpleLogger{
+		Out:      out,
 		Logger:   log.New(out, name+" ", log.LstdFlags),
 		LogLevel: LogLevelFromEnvironment(),
 	}
@@ -73,5 +75,8 @@ func (l *SimpleLogger) Debugf(f string, v ...interface{}) {
 
 // Close the logger ...
 func (l *SimpleLogger) Close() error {
+	if wc, ok := l.Out.(io.Closer); ok {
+		return wc.Close()
+	}
 	return nil
 }
