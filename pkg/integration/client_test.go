@@ -70,8 +70,7 @@ func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuC
 		WithDir(filepath.Join(t.TempDir(), "data")).
 		WithAuth(true).
 		WithLogRequestMetadata(true).
-		WithSigningKey("./../../test/signer/ec1.key"),
-	)
+		WithSigningKey("./../../test/signer/ec1.key"))
 
 	bs.Start()
 	t.Cleanup(func() { bs.Stop() })

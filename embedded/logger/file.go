@@ -23,14 +23,14 @@ import (
 	"path/filepath"
 )
 
-// FileLogger ...
+// Deprecated: FileLogger is deprecated and will be removed in a future release.
 type FileLogger struct {
 	Logger   *log.Logger
 	LogLevel LogLevel
 	out      *os.File
 }
 
-// NewFileLogger ...
+// Deprecated: use method NewLogger instead.
 func NewFileLogger(name string, file string) (logger Logger, out *os.File, err error) {
 	out, err = setup(file)
 	if err != nil {
@@ -60,12 +60,12 @@ func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Lo
 func setup(file string) (out *os.File, err error) {
 	if _, err = os.Stat(filepath.Dir(file)); os.IsNotExist(err) {
 		if err = os.Mkdir(filepath.Dir(file), os.FileMode(0755)); err != nil {
-			return nil, errors.New("Unable to create log folder")
+			return nil, errors.New("unable to create log folder")
 		}
 	}
 	out, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		return out, errors.New("Unable to create log file")
+		return out, errors.New("unable to create log file")
 	}
 	return out, err
 }

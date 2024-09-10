@@ -72,44 +72,37 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestNewLoggerWithFile(t *testing.T) {
-	type args struct {
-		opts *Options
-	}
 	tests := []struct {
 		name           string
-		args           args
+		opts           *Options
 		wantLoggerType Logger
 		wantErr        bool
 	}{
 		{
 			name: "with json logger",
-			args: args{
-				opts: &Options{
-					Name:      "foo",
-					LogFormat: "json",
-					LogFile:   filepath.Join(t.TempDir(), "log_json.log"),
-				},
+			opts: &Options{
+				Name:      "foo",
+				LogFormat: "json",
+				LogFile:   filepath.Join(t.TempDir(), "log_json.log"),
 			},
 			wantLoggerType: &JsonLogger{},
 			wantErr:        false,
 		},
 		{
 			name: "with text logger",
-			args: args{
-				opts: &Options{
-					Name:      "foo",
-					LogFormat: LogFormatText,
-					LogFile:   filepath.Join(t.TempDir(), "log_text.log"),
-				},
+			opts: &Options{
+				Name:      "foo",
+				LogFormat: LogFormatText,
+				LogFile:   filepath.Join(t.TempDir(), "log_text.log"),
 			},
-			wantLoggerType: &FileLogger{},
+			wantLoggerType: &SimpleLogger{},
 			wantErr:        false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLogger, err := NewLogger(tt.args.opts)
-			defer os.RemoveAll(tt.args.opts.LogFile)
+			gotLogger, err := NewLogger(tt.opts)
+			defer os.RemoveAll(tt.opts.LogFile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewLogger() error = %v, wantErr %v", err, tt.wantErr)
 				return

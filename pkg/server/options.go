@@ -22,6 +22,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
@@ -44,7 +45,11 @@ type Options struct {
 	Port                        int
 	Config                      string
 	Pidfile                     string
+	LogDir                      string
 	Logfile                     string
+	LogAccess                   bool
+	LogRotationSize             int
+	LogRotationAge              time.Duration
 	AutoCert                    bool
 	TLSConfig                   *tls.Config
 	auth                        bool
@@ -150,6 +155,8 @@ func DefaultOptions() *Options {
 		GRPCReflectionServerEnabled: true,
 		SwaggerUIEnabled:            true,
 		LogRequestMetadata:          false,
+		LogDir:                      "immulog",
+		LogAccess:                   false,
 		SharedIndexCacheSize:        1 << 27, // 128MB
 	}
 }
@@ -205,9 +212,33 @@ func (o *Options) WithPidfile(pidfile string) *Options {
 	return o
 }
 
+// WithLogDir sets LogDir
+func (o *Options) WithLogDir(dir string) *Options {
+	o.LogDir = dir
+	return o
+}
+
 // WithLogfile sets logfile
 func (o *Options) WithLogfile(logfile string) *Options {
 	o.Logfile = logfile
+	return o
+}
+
+// WithLogRotationSize sets the log rotation size
+func (o *Options) WithLogRotationSize(size int) *Options {
+	o.LogRotationSize = size
+	return o
+}
+
+// WithLogRotationAge sets the log rotation age
+func (o *Options) WithLogRotationAge(age time.Duration) *Options {
+	o.LogRotationAge = age
+	return o
+}
+
+// WithLogAccess sets the log rotation age
+func (o *Options) WithLogAccess(enabled bool) *Options {
+	o.LogAccess = enabled
 	return o
 }
 
@@ -493,7 +524,6 @@ func (o *Options) WithPProf(pprof bool) *Options {
 
 func (o *Options) WithGRPCReflectionServerEnabled(enabled bool) *Options {
 	o.GRPCReflectionServerEnabled = enabled
-
 	return o
 }
 

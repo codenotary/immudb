@@ -17,6 +17,8 @@ limitations under the License.
 package immudb
 
 import (
+	"path/filepath"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/server"
@@ -68,10 +70,14 @@ func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Comm
 
 		// initialize logger for immudb
 		ilogger, err := logger.NewLogger(&logger.Options{
-			Name:      "immudb",
-			LogFormat: options.LogFormat,
-			LogFile:   options.Logfile,
-			Level:     logger.LogLevelFromEnvironment(),
+			Name:              "immudb",
+			LogFormat:         options.LogFormat,
+			LogDir:            filepath.Join(options.Dir, options.LogDir),
+			LogFile:           options.Logfile,
+			LogRotationSize:   options.LogRotationSize,
+			LogRotationAge:    options.LogRotationAge,
+			LogFileTimeFormat: logger.LogFileFormat,
+			Level:             logger.LogLevelFromEnvironment(),
 		})
 		if err != nil {
 			c.QuitToStdErr(err)

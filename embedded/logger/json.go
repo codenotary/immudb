@@ -17,7 +17,6 @@ limitations under the License.
 package logger
 
 import (
-	"bytes"
 	"encoding"
 	"encoding/json"
 	"fmt"
@@ -61,7 +60,7 @@ type JsonLogger struct {
 	timeFnc TimeFunc
 
 	mutex  sync.Mutex
-	writer *writer
+	writer io.Writer
 
 	level int32
 }
@@ -77,19 +76,11 @@ func NewJSONLogger(opts *Options) (*JsonLogger, error) {
 		output = defaultOutput
 	}
 
-	if opts.LogFile != "" {
-		out, err := setup(opts.LogFile)
-		if err != nil {
-			return nil, err
-		}
-		output = out
-	}
-
 	l := &JsonLogger{
 		name:       opts.Name,
 		timeFormat: DefaultTimeFormat,
 		timeFnc:    time.Now,
-		writer:     newWriter(output),
+		writer:     output,
 	}
 
 	if opts.TimeFnc != nil {
@@ -121,14 +112,12 @@ func (l *JsonLogger) log(name string, level LogLevel, msg string, args ...interf
 	t := l.timeFnc()
 
 	l.logJSON(t, name, level, msg, args...)
-
-	l.writer.Flush()
 }
 
 func (l *JsonLogger) logJSON(t time.Time, name string, level LogLevel, msg string, args ...interface{}) {
 	vals := l.getVals(t, name, level, msg)
 
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		for i := 0; i < len(args); i = i + 2 {
 			val := args[i+1]
 			switch sv := val.(type) {
@@ -243,38 +232,8 @@ func (i *JsonLogger) Name() string {
 
 // Close the logger
 func (i *JsonLogger) Close() error {
-	return i.writer.Close()
-}
-
-type writer struct {
-	b   bytes.Buffer
-	out io.Writer
-}
-
-func newWriter(w io.Writer) *writer {
-	return &writer{out: w}
-}
-
-func (w *writer) Flush() (err error) {
-	var unwritten = w.b.Bytes()
-	_, err = w.out.Write(unwritten)
-	w.b.Reset()
-	return err
-}
-
-func (w *writer) Write(p []byte) (int, error) {
-	return w.b.Write(p)
-}
-
-func (w *writer) Close() error {
-	switch t := w.out.(type) {
-	case *os.File:
-		err := w.Flush()
-		if err != nil {
-			return err
-		}
-		return t.Close()
-	default:
-		return w.Flush()
+	if wc, ok := i.writer.(io.Closer); ok {
+		return wc.Close()
 	}
+	return nil
 }

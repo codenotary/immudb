@@ -380,7 +380,8 @@ func makeDB(dir string) *badger.DB {
 */
 
 type mockLogger struct {
-	lines []string
+	captureLogs bool
+	logs        []string
 }
 
 func (l *mockLogger) Errorf(f string, v ...interface{}) {
@@ -402,8 +403,9 @@ func (l *mockLogger) Debugf(f string, v ...interface{}) {
 func (l *mockLogger) Close() error { return nil }
 
 func (l *mockLogger) log(level, f string, v ...interface{}) {
-	line := level + ": " + fmt.Sprintf(f, v...)
-	l.lines = append(l.lines, line)
+	if l.captureLogs {
+		l.logs = append(l.logs, level+": "+fmt.Sprintf(f, v...))
+	}
 }
 
 /*
