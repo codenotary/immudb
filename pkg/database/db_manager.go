@@ -266,10 +266,15 @@ func (m *DBManager) Has(name string) bool {
 }
 
 func (m *DBManager) HasIndex(idx int) bool {
-	m.dbMutex.RLock()
-	defer m.dbMutex.RUnlock()
+	db, exists := m.getDB(idx)
+	if !exists {
+		return false
+	}
 
-	return idx >= 0 && idx < len(m.databases)
+	db.mtx.Lock()
+	defer db.mtx.Unlock()
+
+	return !db.deleted
 }
 
 func (m *DBManager) GetIndexByName(name string) int {
