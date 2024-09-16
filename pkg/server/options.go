@@ -83,7 +83,7 @@ type Options struct {
 	GRPCReflectionServerEnabled bool
 	SwaggerUIEnabled            bool
 	LogRequestMetadata          bool
-	SharedIndexCacheSize        int
+	MaxActiveDatabases          int
 }
 
 type RemoteStorageOptions struct {
@@ -157,7 +157,7 @@ func DefaultOptions() *Options {
 		LogRequestMetadata:          false,
 		LogDir:                      "immulog",
 		LogAccess:                   false,
-		SharedIndexCacheSize:        1 << 27, // 128MB
+		MaxActiveDatabases:          100,
 	}
 }
 
@@ -534,6 +534,11 @@ func (o *Options) WithSwaggerUIEnabled(enabled bool) *Options {
 
 func (o *Options) WithLogRequestMetadata(enabled bool) *Options {
 	o.LogRequestMetadata = enabled
+	return o
+}
+
+func (o *Options) WithMaxActiveDatabases(n int) *Options {
+	o.MaxActiveDatabases = n
 	return o
 }
 

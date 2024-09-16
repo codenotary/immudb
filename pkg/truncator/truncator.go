@@ -60,7 +60,7 @@ func NewTruncator(
 	return &Truncator{
 		db:                  db,
 		logger:              logger,
-		truncators:          []database.Truncator{database.NewVlogTruncator(db)},
+		truncators:          []database.Truncator{database.NewVlogTruncator(db, logger)},
 		donech:              make(chan struct{}),
 		stopch:              make(chan struct{}),
 		retentionPeriod:     retentionPeriod,
@@ -169,7 +169,7 @@ func (t *Truncator) Truncate(ctx context.Context, retentionPeriod time.Duration)
 
 		// Truncate discards the appendable log upto the offset
 		// specified in the transaction hdr
-		err = c.TruncateUptoTx(ctx, hdr.ID)
+		err = c.TruncateUptoTx(ctx, hdr.Id)
 		if err != nil {
 			return err
 		}

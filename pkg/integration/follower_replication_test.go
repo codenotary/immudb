@@ -350,9 +350,9 @@ func TestAsyncReplication(t *testing.T) {
 	err = primaryClient.CloseSession(context.Background())
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
-	//keys should exist in replicadb@replica"
+	// keys should exist in replicadb@replica"
 	for i := 0; i < keyCount; i++ {
 		ei := keyCount + i
 
@@ -511,7 +511,7 @@ func TestReplicationTxDiscarding(t *testing.T) {
 	_, err = primaryClient.Set(context.Background(), []byte("key11"), []byte("value11"))
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	t.Run("key1 should exist in replicadb@replica", func(t *testing.T) {
 		_, err = replicaClient.Get(context.Background(), []byte("key11"))
@@ -624,7 +624,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	_, err = primaryClient.Set(context.Background(), []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	t.Run("key1 should exist in replicateddb@replica", func(t *testing.T) {
 		_, err = replicaClient.Get(context.Background(), []byte("key1"))

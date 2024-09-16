@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -133,7 +134,9 @@ func TestServerLoadDatabaseWithRetention(t *testing.T) {
 	err = s.CloseDatabases()
 	require.NoError(t, err)
 
-	s.dbList = database.NewDatabaseList()
+	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
+		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
+	}, 10, logger.NewMemoryLogger()))
 	s.sysDB = nil
 
 	t.Run("attempt to load database should pass", func(t *testing.T) {

@@ -58,7 +58,7 @@ var kvs = []*schema.KeyValue{
 func makeDb(t *testing.T) *db {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2))
 
 	return makeDbWith(t, "db", options)
@@ -144,7 +144,7 @@ func (h *dummyMultidbHandler) ExecPreparedStmts(
 }
 
 func TestDefaultDbCreation(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(t.TempDir())
+	options := DefaultOptions().WithDBRootPath(t.TempDir())
 	db, err := NewDB("mydb", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
@@ -168,7 +168,7 @@ func TestDefaultDbCreation(t *testing.T) {
 }
 
 func TestDbCreationInAlreadyExistentDirectories(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
+	options := DefaultOptions().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
 
 	err := os.MkdirAll(filepath.Join(options.GetDBRootPath(), "EdithPiaf"), os.ModePerm)
 	require.NoError(t, err)
@@ -178,14 +178,14 @@ func TestDbCreationInAlreadyExistentDirectories(t *testing.T) {
 }
 
 func TestDbCreationInInvalidDirectory(t *testing.T) {
-	options := DefaultOption().WithDBRootPath("/?")
+	options := DefaultOptions().WithDBRootPath("/?")
 
 	_, err := NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestDbCreation(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
+	options := DefaultOptions().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
 	db, err := NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
@@ -196,19 +196,19 @@ func TestDbCreation(t *testing.T) {
 }
 
 func TestOpenWithMissingDBDirectories(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
+	options := DefaultOptions().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
 	_, err := OpenDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.ErrorContains(t, err, "missing database directories")
 }
 
 func TestOpenWithIllegalDBName(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
+	options := DefaultOptions().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
 	_, err := OpenDB("", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
 func TestOpenDB(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
+	options := DefaultOptions().WithDBRootPath(filepath.Join(t.TempDir(), "Paris"))
 	db, err := NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
@@ -227,11 +227,11 @@ func TestOpenV1_0_1_DB(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "db")
 	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", dir))
 
-	sysOpts := DefaultOption().WithDBRootPath(dir)
+	sysOpts := DefaultOptions().WithDBRootPath(dir)
 	sysDB, err := OpenDB("systemdb", nil, sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	dbOpts := DefaultOption().WithDBRootPath(dir)
+	dbOpts := DefaultOptions().WithDBRootPath(dir)
 	db, err := OpenDB("defaultdb", nil, dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
@@ -2210,7 +2210,7 @@ db := makeDb(t)
 */
 
 func Test_database_truncate(t *testing.T) {
-	options := DefaultOption().WithDBRootPath(t.TempDir())
+	options := DefaultOptions().WithDBRootPath(t.TempDir())
 	options.storeOpts.
 		WithEmbeddedValues(false).
 		WithPreallocFiles(false).
@@ -2235,16 +2235,16 @@ func Test_database_truncate(t *testing.T) {
 		}
 	}
 
-	c := NewVlogTruncator(db)
+	c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 	hdr, err := c.Plan(context.Background(), queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-	err = c.TruncateUptoTx(context.Background(), hdr.ID)
+	err = c.TruncateUptoTx(context.Background(), hdr.Id)
 	require.NoError(t, err)
 
-	for i := hdr.ID; i <= 20; i++ {
+	for i := hdr.Id; i <= 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
 
 		err = db.st.ReadTx(i, false, tx)

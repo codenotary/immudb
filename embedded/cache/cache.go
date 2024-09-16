@@ -28,7 +28,11 @@ var (
 	ErrIllegalArguments = errors.New("illegal arguments")
 	ErrKeyNotFound      = errors.New("key not found")
 	ErrIllegalState     = errors.New("illegal state")
+	ErrCannotEvictItem  = errors.New("cannot find an item to evict")
 )
+
+type EvictFilterFunc func(key interface{}, value interface{}) bool
+type EvictCallbackFunc func(key, value interface{})
 
 // Cache implements the SIEVE cache replacement policy.
 type Cache struct {
@@ -40,6 +44,9 @@ type Cache struct {
 	maxWeight int
 
 	mutex sync.RWMutex
+
+	canEvict EvictFilterFunc
+	onEvict  EvictCallbackFunc
 }
 
 type entry struct {
@@ -59,7 +66,23 @@ func NewCache(maxWeight int) (*Cache, error) {
 		list:      list.New(),
 		weight:    0,
 		maxWeight: maxWeight,
+		onEvict:   nil,
+		canEvict:  nil,
 	}, nil
+}
+
+func (c *Cache) SetCanEvict(canEvict EvictFilterFunc) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.canEvict = canEvict
+}
+
+func (c *Cache) SetOnEvict(onEvict EvictCallbackFunc) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.onEvict = onEvict
 }
 
 func (c *Cache) Resize(newWeight int) {
@@ -67,7 +90,10 @@ func (c *Cache) Resize(newWeight int) {
 	defer c.mutex.Unlock()
 
 	for c.weight > newWeight {
-		_, entry, _ := c.evict()
+		key, entry, _ := c.evict()
+		if c.onEvict != nil {
+			c.onEvict(key, entry.value)
+		}
 		c.weight -= entry.weight
 	}
 
@@ -133,6 +159,9 @@ func (c *Cache) evictWhileFull(weight int) (interface{}, interface{}, error) {
 		rkey = evictedKey
 		rvalue = entry.value
 
+		if c.onEvict != nil {
+			c.onEvict(rkey, rvalue)
+		}
 		c.weight -= entry.weight
 	}
 	return rkey, rvalue, nil
@@ -144,7 +173,7 @@ func (c *Cache) evict() (rkey interface{}, e *entry, err error) {
 	}
 
 	curr := c.hand
-	for {
+	for i := 0; i < 2*c.list.Len(); i++ {
 		if curr == nil {
 			curr = c.list.Back()
 		}
@@ -152,7 +181,7 @@ func (c *Cache) evict() (rkey interface{}, e *entry, err error) {
 		key := curr.Value
 
 		e := c.data[key]
-		if e.visited == 0 {
+		if e.visited == 0 && c.shouldEvict(key, e.value) {
 			c.hand = curr.Prev()
 
 			c.list.Remove(curr)
@@ -164,6 +193,11 @@ func (c *Cache) evict() (rkey interface{}, e *entry, err error) {
 		e.visited = 0
 		curr = curr.Prev()
 	}
+	return nil, nil, ErrCannotEvictItem
+}
+
+func (c *Cache) shouldEvict(key, value interface{}) bool {
+	return c.canEvict == nil || c.canEvict(key, value)
 }
 
 func (c *Cache) Get(key interface{}) (interface{}, error) {

@@ -48,8 +48,8 @@ type Options struct {
 	RetentionPeriod time.Duration
 }
 
-// DefaultOption Initialise Db Optionts to default values
-func DefaultOption() *Options {
+// DefaultOptions Initialise Db Optionts to default values
+func DefaultOptions() *Options {
 	return &Options{
 		dbRootPath:          DefaultDbRootPath,
 		storeOpts:           store.DefaultOptions(),

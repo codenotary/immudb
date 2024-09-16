@@ -27,7 +27,7 @@ import (
 )
 
 func TestDummyClosedDatabase(t *testing.T) {
-	cdb := &closedDB{name: "closeddb1", opts: database.DefaultOption()}
+	cdb := &closedDB{name: "closeddb1", opts: database.DefaultOptions()}
 
 	require.Equal(t, "data/closeddb1", cdb.Path())
 

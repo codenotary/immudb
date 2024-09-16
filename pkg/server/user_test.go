@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -136,7 +137,9 @@ func TestServerListUsersAdmin(t *testing.T) {
 	err = s.CloseDatabases()
 	require.NoError(t, err)
 
-	s.dbList = database.NewDatabaseList()
+	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
+		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
+	}, 10, logger.NewMemoryLogger()))
 	s.sysDB = nil
 
 	err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword, false)

@@ -55,7 +55,7 @@ func TestImmuServerMock(t *testing.T) {
 	mock.WithStreamServiceFactory(ssf)
 	require.Same(t, ssf, mock.Ssf)
 
-	list := database.NewDatabaseList()
+	list := database.NewDatabaseList(nil)
 	mock.WithDbList(list)
 	require.Same(t, list, mock.DbList)
 

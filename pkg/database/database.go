@@ -118,6 +118,8 @@ type DB interface {
 
 	VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 
+	CopySQLCatalog(ctx context.Context, txID uint64) (uint64, error)
+
 	ListTables(ctx context.Context, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
 	DescribeTable(ctx context.Context, tx *sql.SQLTx, table string) (*schema.SQLQueryResult, error)
 
@@ -133,6 +135,10 @@ type DB interface {
 
 	VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error)
+
+	// Truncation
+	FindTruncationPoint(ctx context.Context, until time.Time) (*schema.TxHeader, error)
+	TruncateUptoTx(ctx context.Context, txID uint64) error
 
 	// Maintenance
 	FlushIndex(req *schema.FlushIndexRequest) error
@@ -381,7 +387,6 @@ func (d *db) FlushIndex(req *schema.FlushIndexRequest) error {
 	if req == nil {
 		return store.ErrIllegalArguments
 	}
-
 	return d.st.FlushIndexes(req.CleanupPercentage, req.Synced)
 }
 
@@ -1740,4 +1745,32 @@ func (d *db) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
 	}
 
 	return nil
+}
+
+func (d *db) FindTruncationPoint(ctx context.Context, until time.Time) (*schema.TxHeader, error) {
+	hdr, err := d.st.LastTxUntil(until)
+	if errors.Is(err, store.ErrTxNotFound) {
+		return nil, ErrRetentionPeriodNotReached
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// look for the newst transaction with entries
+	for err == nil {
+		if hdr.NEntries > 0 {
+			break
+		}
+
+		if ctx.Err() != nil {
+			return nil, err
+		}
+
+		hdr, err = d.st.ReadTxHeader(hdr.ID-1, false, false)
+	}
+	return schema.TxHeaderToProto(hdr), nil
+}
+
+func (d *db) TruncateUptoTx(_ context.Context, txID uint64) error {
+	return d.st.TruncateUptoTx(txID)
 }

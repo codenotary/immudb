@@ -46,7 +46,7 @@ func makeDbWith(t *testing.T, dbName string, opts *database.Options) database.DB
 }
 
 func TestDatabase_truncate_with_duration(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir())
+	options := database.DefaultOptions().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions()
 
@@ -75,7 +75,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 			}
 		}
 
-		c := database.NewVlogTruncator(db)
+		c := database.NewVlogTruncator(db, logger.NewMemoryLogger())
 
 		_, err := c.Plan(ctx, getTruncationTime(queryTime, time.Duration(1*time.Hour)))
 		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
@@ -84,7 +84,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 		require.NoError(t, err)
 		require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-		err = c.TruncateUptoTx(ctx, hdr.ID)
+		err = c.TruncateUptoTx(ctx, hdr.Id)
 		require.NoError(t, err)
 
 		// TODO: hard to determine the actual transaction up to which the database was truncated.
@@ -98,7 +98,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 			require.Error(t, err)
 		}
 
-		for i := hdr.ID; i <= 20; i++ {
+		for i := hdr.Id; i <= 20; i++ {
 			kv := &schema.KeyValue{
 				Key:   []byte(fmt.Sprintf("key_%d", i)),
 				Value: []byte(fmt.Sprintf("val_%d", i)),
@@ -113,7 +113,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 }
 
 func TestTruncator(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir())
+	options := database.DefaultOptions().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
@@ -139,7 +139,7 @@ func TestTruncator(t *testing.T) {
 }
 
 func TestTruncator_with_truncation_frequency(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir())
+	options := database.DefaultOptions().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
@@ -202,7 +202,7 @@ func Test_getTruncationTime(t *testing.T) {
 }
 
 func TestTruncator_with_retention_period(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir())
+	options := database.DefaultOptions().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
@@ -229,7 +229,7 @@ type mockTruncator struct {
 	err error
 }
 
-func (m *mockTruncator) Plan(context.Context, time.Time) (*store.TxHeader, error) {
+func (m *mockTruncator) Plan(context.Context, time.Time) (*schema.TxHeader, error) {
 	return nil, m.err
 }
 
@@ -240,7 +240,7 @@ func (m *mockTruncator) TruncateUptoTx(context.Context, uint64) error {
 }
 
 func TestTruncator_with_nothing_to_truncate(t *testing.T) {
-	options := database.DefaultOption().WithDBRootPath(t.TempDir())
+	options := database.DefaultOptions().WithDBRootPath(t.TempDir())
 
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)

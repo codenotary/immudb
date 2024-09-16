@@ -43,7 +43,7 @@ func TestReplication(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOption().AsReplica(true).WithDBRootPath(path), logger)
+	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
 	require.NoError(t, err)
 
 	txReplicator, err := NewTxReplicator(xid.New(), db, rOpts, logger)
@@ -80,7 +80,7 @@ func TestReplicationIsAbortedOnServerVersionMismatch(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOption().AsReplica(true).WithDBRootPath(path), logger)
+	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
 	require.NoError(t, err)
 
 	txReplicator, err := NewTxReplicator(xid.New(), db, rOpts, logger)

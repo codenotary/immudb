@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
@@ -279,7 +280,7 @@ func TestStoreScanWithTruncation(t *testing.T) {
 
 	fileSize := 8
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -304,7 +305,7 @@ func TestStoreScanWithTruncation(t *testing.T) {
 	deletePointTx := uint64(5)
 
 	t.Run("ensure data is truncated until the deletion point", func(t *testing.T) {
-		c := NewVlogTruncator(db)
+		c := NewVlogTruncator(db, logger.NewMemoryLogger())
 		require.NoError(t, c.TruncateUptoTx(context.Background(), deletePointTx))
 
 		for i := deletePointTx; i < 10; i++ {

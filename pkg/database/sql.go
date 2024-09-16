@@ -427,6 +427,33 @@ func (d *db) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sq
 	return d.sqlEngine.InferParametersPreparedStmts(ctx, tx, []sql.SQLStmt{stmt})
 }
 
+func (d *db) CopySQLCatalog(ctx context.Context, txID uint64) (uint64, error) {
+	// copy sql catalogue
+	tx, err := d.st.NewTx(ctx, store.DefaultTxOptions())
+	if err != nil {
+		return 0, err
+	}
+
+	err = d.CopyCatalogToTx(ctx, tx)
+	if err != nil {
+		d.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_copy}", d.name, err, txID)
+		return 0, err
+	}
+	defer tx.Cancel()
+
+	// setting the metadata to record the transaction upto which the log was truncated
+	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(txID))
+
+	tx.RequireMVCCOnFollowingTxs(true)
+
+	// commit catalogue as a new transaction
+	hdr, err := tx.Commit(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return hdr.ID, nil
+}
+
 type limitRowReader struct {
 	sql.RowReader
 	nRead   int

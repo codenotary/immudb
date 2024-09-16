@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/embedded/remotestorage/memory"
 	"github.com/codenotary/immudb/embedded/remotestorage/s3"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/rs/xid"
@@ -578,6 +579,17 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 
 	_, err = s.CreateDatabaseWith(ctx, newdb)
 	require.NoError(t, err)
+
+	// force db loading
+	repl, err := s.UseDatabase(ctx, &schema.Database{DatabaseName: "newdb"})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", repl.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = s.Get(ctx, &schema.KeyRequest{Key: []byte("test-key")})
+	require.ErrorIs(t, err, tbtree.ErrKeyNotFound)
+
 	err = s.CloseDatabases()
 	require.NoError(t, err)
 

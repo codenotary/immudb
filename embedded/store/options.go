@@ -206,9 +206,6 @@ type IndexOptions struct {
 
 	// Maximum time waiting for more transactions to be committed and included into the same bulk
 	BulkPreparationTimeout time.Duration
-
-	// CacheFactory function
-	CacheFactory IndexCacheFactoryFunc
 }
 
 type AHTOptions struct {
@@ -707,11 +704,6 @@ func (opts *IndexOptions) WithMaxBufferedDataSize(size int) *IndexOptions {
 
 func (opts *IndexOptions) WithMaxGlobalBufferedDataSize(size int) *IndexOptions {
 	opts.MaxGlobalBufferedDataSize = size
-	return opts
-}
-
-func (opts *IndexOptions) WithCacheFactoryFunc(indexCacheFactory IndexCacheFactoryFunc) *IndexOptions {
-	opts.CacheFactory = indexCacheFactory
 	return opts
 }
 

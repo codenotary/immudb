@@ -216,7 +216,7 @@ type ImmuStore struct {
 	commitWHub           *watchers.WatchersHub
 
 	indexers      map[[sha256.Size]byte]*indexer
-	nextIndexerID uint32
+	nextIndexerID uint64
 	indexCache    *cache.Cache
 
 	memSemaphore *semaphore.Semaphore // used by indexers to control amount acquired of memory
@@ -720,47 +720,52 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if store.synced {
-		go func() {
-			for {
-				committedTxID := store.LastCommittedTxID()
-
-				// passive wait for one new transaction at least
-				store.inmemPrecommitWHub.WaitFor(context.Background(), committedTxID+1)
-
-				// TODO: waiting on earlier stages of transaction processing may also be possible
-				prevLatestPrecommitedTx := committedTxID + 1
-
-				// TODO: parametrize concurrency evaluation
-				for i := 0; i < 4; i++ {
-					// give some time for more transactions to be precommitted
-					time.Sleep(store.syncFrequency / 4)
-
-					latestPrecommitedTx := store.LastPrecommittedTxID()
-
-					if prevLatestPrecommitedTx == latestPrecommitedTx {
-						// avoid waiting if there are no new transactions
-						break
-					}
-
-					prevLatestPrecommitedTx = latestPrecommitedTx
-				}
-
-				// ensure durability
-				err := store.sync()
-				if errors.Is(err, ErrAlreadyClosed) ||
-					errors.Is(err, multiapp.ErrAlreadyClosed) ||
-					errors.Is(err, singleapp.ErrAlreadyClosed) ||
-					errors.Is(err, watchers.ErrAlreadyClosed) {
-					return
-				}
-				if err != nil {
-					store.notify(Error, true, "%s: while syncing transactions", err)
-				}
-			}
-		}()
+		go store.syncer()
 	}
 
 	return store, nil
+}
+
+func (s *ImmuStore) syncer() {
+	for {
+		committedTxID := s.LastCommittedTxID()
+
+		// passive wait for one new transaction at least
+		err := s.inmemPrecommitWHub.WaitFor(context.Background(), committedTxID+1)
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
+			return
+		}
+
+		// TODO: waiting on earlier stages of transaction processing may also be possible
+		prevLatestPrecommitedTx := committedTxID + 1
+
+		// TODO: parametrize concurrency evaluation
+		for i := 0; i < 4; i++ {
+			// give some time for more transactions to be precommitted
+			time.Sleep(s.syncFrequency / 4)
+
+			latestPrecommitedTx := s.LastPrecommittedTxID()
+
+			if prevLatestPrecommitedTx == latestPrecommitedTx {
+				// avoid waiting if there are no new transactions
+				break
+			}
+
+			prevLatestPrecommitedTx = latestPrecommitedTx
+		}
+
+		// ensure durability
+		err = s.sync()
+		if errors.Is(err, ErrAlreadyClosed) ||
+			errors.Is(err, multiapp.ErrAlreadyClosed) ||
+			errors.Is(err, singleapp.ErrAlreadyClosed) ||
+			errors.Is(err, watchers.ErrAlreadyClosed) {
+			return
+		}
+		if err != nil {
+			s.notify(Error, true, "%s: while syncing transactions", err)
+		}
+	}
 }
 
 type NotificationType = int
@@ -855,15 +860,11 @@ func (s *ImmuStore) InitIndexing(spec *IndexSpec) error {
 	}
 
 	if s.indexCache == nil {
-		if indexFactoryFunc := s.opts.IndexOpts.CacheFactory; indexFactoryFunc != nil {
-			s.indexCache = indexFactoryFunc()
-		} else {
-			c, err := cache.NewCache(s.opts.IndexOpts.CacheSize)
-			if err != nil {
-				return err
-			}
-			s.indexCache = c
+		c, err := cache.NewCache(s.opts.IndexOpts.CacheSize)
+		if err != nil {
+			return err
 		}
+		s.indexCache = c
 	}
 
 	indexer, err := newIndexer(indexPath, s, s.opts)
@@ -3292,7 +3293,6 @@ func (s *ImmuStore) Sync() error {
 	if s.closed {
 		return ErrAlreadyClosed
 	}
-
 	return s.sync()
 }
 
