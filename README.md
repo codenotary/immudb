@@ -68,11 +68,11 @@ When used as a relational data database, it supports both transactions and blobs
 
 ### Getting immudb running: executable
 
-You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.9DOM.1 for linux amd64:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.9.5 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.9DOM.1/immudb-v1.9DOM.1-linux-amd64
-mv immudb-v1.9DOM.1-linux-amd64 immudb
+wget https://github.com/codenotary/immudb/releases/download/v1.9.5/immudb-v1.9.5-linux-amd64
+mv immudb-v1.9.5-linux-amd64 immudb
 chmod +x immudb
 
 # run immudb in the foreground to see all output
@@ -101,6 +101,7 @@ helm repo add immudb https://packages.codenotary.org/helm
 helm repo update
 helm install immudb/immudb --generate-name
 ```
+
 ### Using subfolders
 
 Immudb helm chart creates a persistent volume for storing immudb database.
@@ -114,6 +115,7 @@ This is different from what we did on older (<=1.3.1) helm charts, so if you hav
 value volumeSubPath to false (i.e.: `--set volumeSubPath.enabled=false`) when upgrading so that the old way is used.
 
 You can alternatively migrate the data in a `/immudb` directory. You can use this pod as a reference for the job:
+
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -131,12 +133,13 @@ spec:
         - mountPath: "/data"
           name: "vol0"
       command:
-      - sh
-      - -c
-      - |
-        mkdir -p /data/immudb
-        ls /data | grep -v -E 'immudb|lost\+found'|while read i; do mv /data/$i /data/immudb/$i; done
+        - sh
+        - -c
+        - |
+          mkdir -p /data/immudb
+          ls /data | grep -v -E 'immudb|lost\+found'|while read i; do mv /data/$i /data/immudb/$i; done
 ```
+
 As said before, you can totally disable the use of subPath by setting `volumeSubPath.enabled=false`.
 You can also tune the subfolder path using `volumeSubPath.path` value, if you prefer your data on a
 different directory than the default `immudb`.
@@ -235,7 +238,6 @@ Or just use Docker to run immuclient in a ready-to-use container. Nice and simpl
 docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 ```
 
-
 ## Using immudb
 
 Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
@@ -272,7 +274,6 @@ Our [immudb Playground](https://play.codenotary.com) provides a guided environme
   </a>
 </div>
 
-
 We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
 [immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
@@ -289,34 +290,34 @@ Click here to try out the immudb web console access in an [online demo environme
 
 ## Tech specs
 
-| Topic                   | Description                                        |
-| ----------------------- | -------------------------------------------------- |
-| DB Model                | Key-Value with 3D access, Document Model, SQL      |
-| Data scheme             | schema-free                                        |
-| Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
-|                         | (sync/async) indexing with extended B-tree         |
-| Implementation language | Go                                                 |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
-| Embeddable              | Yes, optionally                                    |
-| Server APIs             | gRPC                                               |
-| Partition methods       | Sharding                                           |
-| Consistency concepts    | Immediate Consistency                              |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                 |
-| Durability              | Yes                                                |
-| Snapshots               | Yes                                                |
-| High Read throughput    | Yes                                                |
-| High Write throughput   | Yes                                                |
-| Optimized for SSD       | Yes                                                |
+| Topic                   | Description                                         |
+| ----------------------- | --------------------------------------------------- |
+| DB Model                | Key-Value with 3D access, Document Model, SQL       |
+| Data scheme             | schema-free                                         |
+| Implementation design   | Cryptographic commit log with parallel Merkle Tree, |
+|                         | (sync/async) indexing with extended B-tree          |
+| Implementation language | Go                                                  |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS        |
+| Embeddable              | Yes, optionally                                     |
+| Server APIs             | gRPC                                                |
+| Partition methods       | Sharding                                            |
+| Consistency concepts    | Immediate Consistency                               |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                  |
+| Durability              | Yes                                                 |
+| Snapshots               | Yes                                                 |
+| High Read throughput    | Yes                                                 |
+| High Write throughput   | Yes                                                 |
+| Optimized for SSD       | Yes                                                 |
 
 ## Performance figures
 
 immudb can handle millions of writes per second. The following table shows performance of the embedded store inserting 1M entries on a machine with 4-core E3-1275v6 CPU and SSD disk:
 
 | Entries | Workers | Batch | Batches | time (s) | Entries/s |
-| ------ | ------ | ------ | ------ | ------ | ------ |
-| 1M | 20 | 1000 | 50 | 1.061 | 	1.2M /s |
-| 1M	| 50	| 1000 |	20 | 0.543	| 1.8M /s |
-| 1M |	100 |	1000 |	10 | 0.615 |	1.6M /s |
+| ------- | ------- | ----- | ------- | -------- | --------- |
+| 1M      | 20      | 1000  | 50      | 1.061    | 1.2M /s   |
+| 1M      | 50      | 1000  | 20      | 0.543    | 1.8M /s   |
+| 1M      | 100     | 1000  | 10      | 0.615    | 1.6M /s   |
 
 You can generate your own benchmarks using the `stress_tool` under `embedded/tools`.
 
@@ -337,7 +338,7 @@ Below is a list of known projects that use immudb:
 - [alma-sbom](https://github.com/AlmaLinux/alma-sbom) - AlmaLinux OS SBOM data management utility.
 
 - [immudb-log-audit](https://github.com/codenotary/immudb-log-audit) - A service and cli tool to store json formatted log input
-and audit it later in immudb Vault.
+  and audit it later in immudb Vault.
 
 - [immudb-operator](https://github.com/unagex/immudb-operator) - Unagex Kubernetes Operator for immudb.
 

@@ -4,8 +4,24 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9.5"></a>
+## [v1.9.5] - 2024-09-16
+### Bug Fixes
+- time.Since should not be used in defer statement
+- **pkg/dabase:** return error when attempting to access deleted database
+- **pkg/pgsql/server:** close row readers to release resources
+- **pkg/server:** run metrics server under HTTPS
+
+### Changes
+- **embedded/logging:** improve file base logging.
+- **embedded/sql:** improvements on SQL layer.
+- **embedded/store:** improve index flush logic
+- **pkg/database:** implement database manager
+- **pkg/server:** implement automatic generation of self-signed HTTPS certificate
+
+
 <a name="v1.9.4"></a>
-## [v1.9.4] - 2024-07-24
+## [v1.9.4] - 2024-07-25
 ### Bug Fixes
 - set mattermost payload
 
@@ -3885,7 +3901,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.4...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.5...HEAD
+[v1.9.5]: https://github.com/vchain-us/immudb/compare/v1.9.4...v1.9.5
 [v1.9.4]: https://github.com/vchain-us/immudb/compare/v1.9.3...v1.9.4
 [v1.9.3]: https://github.com/vchain-us/immudb/compare/v1.9DOM.2...v1.9.3
 [v1.9DOM.2]: https://github.com/vchain-us/immudb/compare/v1.9DOM.2-RC1...v1.9DOM.2
