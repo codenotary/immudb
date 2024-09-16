@@ -394,5 +394,61 @@ func TestPutWeighted(t *testing.T) {
 		require.Equal(t, 4, cache.Weight())
 		require.Equal(t, 1, cache.EntriesCount())
 	})
+}
 
+func TestOnEvict(t *testing.T) {
+	cache, err := NewCache(5)
+	require.NoError(t, err)
+
+	var onEvictCalled int
+	cache.SetOnEvict(func(_, value interface{}) {
+		onEvictCalled++
+	})
+
+	for i := 0; i < 5; i++ {
+		cache.Put(i, i)
+	}
+	require.Zero(t, onEvictCalled)
+
+	_, _, err = cache.PutWeighted(6, 6, 3)
+	require.NoError(t, err)
+
+	require.Equal(t, onEvictCalled, 3)
+
+	_, _, err = cache.PutWeighted(7, 7, 2)
+	require.NoError(t, err)
+	require.Equal(t, onEvictCalled, 5)
+
+	cache.Resize(0)
+	require.Equal(t, onEvictCalled, 7)
+}
+
+func TestCanEvict(t *testing.T) {
+	cache, err := NewCache(5)
+	require.NoError(t, err)
+
+	for i := 0; i < 5; i++ {
+		_, _, err := cache.Put(i, i)
+		require.NoError(t, err)
+	}
+
+	t.Run("cannot evict any item", func(t *testing.T) {
+		cache.SetCanEvict(func(_, _ interface{}) bool {
+			return false
+		})
+
+		_, _, err := cache.Put(6, 6)
+		require.ErrorIs(t, err, ErrCannotEvictItem)
+	})
+
+	t.Run("cannot evict any item", func(t *testing.T) {
+		keyToEvict := rand.Intn(5)
+		cache.SetCanEvict(func(key, _ interface{}) bool {
+			return key == keyToEvict
+		})
+
+		evictedKey, _, err := cache.Put(6, 6)
+		require.NoError(t, err)
+		require.Equal(t, evictedKey, keyToEvict)
+	})
 }

@@ -98,7 +98,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 	s, closer := testServer(opts)
 	defer closer()
 
-	options := database.DefaultOption().WithDBRootPath(dir)
+	options := database.DefaultOptions().WithDBRootPath(dir)
 	dbRootpath := options.GetDBRootPath()
 
 	err := s.loadDefaultDatabase(dbRootpath, nil)
@@ -108,7 +108,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 
 func TestServerReOpen(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir(t.TempDir())
-	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
+	options := database.DefaultOptions().WithDBRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDBRootPath()
 
 	s, closer := testServer(serverOptions)
@@ -136,7 +136,7 @@ func TestServerReOpen(t *testing.T) {
 
 func TestServerSystemDatabaseLoad(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir(t.TempDir())
-	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
+	options := database.DefaultOptions().WithDBRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDBRootPath()
 
 	s, closer := testServer(serverOptions)
@@ -153,7 +153,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 
 func TestServerResetAdminPassword(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir(t.TempDir())
-	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
+	options := database.DefaultOptions().WithDBRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDBRootPath()
 
 	var txID uint64
@@ -1342,7 +1342,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	// Config already having the specified item
 	ioutil.WriteFile(configFile, []byte("key = value"), 0644)
 	err = s.updateConfigItem("key", "key = value", func(string) bool { return true })
-	require.ErrorContains(t, err, "Server config already has 'key = value'")
+	require.ErrorContains(t, err, "server config already has 'key = value'")
 
 	// Add new config item
 	err = s.updateConfigItem("key2", "key2 = value2", func(string) bool { return false })

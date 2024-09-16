@@ -27,7 +27,6 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/appendable/remoteapp"
-	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/remotestorage/s3"
 	"github.com/codenotary/immudb/embedded/store"
@@ -157,16 +156,6 @@ func (s *ImmuServer) initRemoteIdentifier(ctx context.Context, storage remotesto
 func (s *ImmuServer) updateRemoteUUID(remoteStorage remotestorage.Storage) error {
 	ctx := context.Background()
 	return remoteStorage.Put(ctx, IDENTIFIER_FNAME, filepath.Join(s.Options.Dir, IDENTIFIER_FNAME))
-}
-
-func (s *ImmuServer) indexCacheFactoryFunc() store.IndexCacheFactoryFunc {
-	if s.indexCacheFunc == nil {
-		c, _ := cache.NewCache(s.Options.SharedIndexCacheSize)
-		s.indexCacheFunc = func() *cache.Cache {
-			return c
-		}
-	}
-	return s.indexCacheFunc
 }
 
 func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.Storage, stOpts *store.Options) *store.Options {

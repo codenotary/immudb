@@ -458,7 +458,6 @@ func (txr *TxReplicator) fetchNextTx() error {
 		}
 		txr.lastTx++
 	}
-
 	return nil
 }
 

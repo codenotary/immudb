@@ -92,6 +92,8 @@ func parseOptions() (options *server.Options, err error) {
 	swaggerUIEnabled := viper.GetBool("swaggerui")
 	logRequestMetadata := viper.GetBool("log-request-metadata")
 
+	maxActiveDatabases := viper.GetInt("max-active-databases")
+
 	s3Storage := viper.GetBool("s3-storage")
 	s3RoleEnabled := viper.GetBool("s3-role-enabled")
 	s3Role := viper.GetString("s3-role")
@@ -165,7 +167,8 @@ func parseOptions() (options *server.Options, err error) {
 		WithLogFormat(logFormat).
 		WithSwaggerUIEnabled(swaggerUIEnabled).
 		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled).
-		WithLogRequestMetadata(logRequestMetadata)
+		WithLogRequestMetadata(logRequestMetadata).
+		WithMaxActiveDatabases(maxActiveDatabases)
 
 	return options, nil
 }

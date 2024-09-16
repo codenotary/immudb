@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -76,7 +77,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
@@ -99,7 +100,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
-	c := NewVlogTruncator(db)
+	c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -122,7 +123,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -145,7 +146,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
-	c := NewVlogTruncator(db)
+	c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -181,7 +182,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
@@ -216,7 +217,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
-	c := NewVlogTruncator(db)
+	c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -276,7 +277,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
@@ -296,7 +297,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 		}
 	}
 
-	c := NewVlogTruncator(db)
+	c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 	hdr, err := c.Plan(context.Background(), queryTime)
 	require.NoError(t, err)
@@ -306,7 +307,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 func setupCommonTest(t *testing.T) *db {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(1024)
 	options.storeOpts.VLogCacheSize = 0
 	options.storeOpts.EmbeddedValues = false
@@ -361,7 +362,7 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
+		c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -428,7 +429,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
@@ -443,7 +444,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
-	c := NewVlogTruncator(db)
+	c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -505,7 +506,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
+		c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -537,7 +538,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
+		c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -562,7 +563,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 	fileSize := 1024
 
-	options := DefaultOption().WithDBRootPath(rootPath)
+	options := DefaultOptions().WithDBRootPath(rootPath)
 	options.storeOpts.WithFileSize(fileSize)
 	options.storeOpts.VLogCacheSize = 0
 
@@ -605,7 +606,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
 		require.NoError(t, err)
 
-		c := NewVlogTruncator(db)
+		c := NewVlogTruncator(db, logger.NewMemoryLogger())
 
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
@@ -669,7 +670,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		err = NewVlogTruncator(db).TruncateUptoTx(context.Background(), hdr.ID)
+		err = NewVlogTruncator(db, logger.NewMemoryLogger()).TruncateUptoTx(context.Background(), hdr.ID)
 		require.NoError(t, err)
 
 		// should add two extra transaction with catalogue
@@ -724,7 +725,7 @@ func Test_vlogCompactor_with_document_store(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
-		err = NewVlogTruncator(db).TruncateUptoTx(context.Background(), hdr.ID)
+		err = NewVlogTruncator(db, logger.NewMemoryLogger()).TruncateUptoTx(context.Background(), hdr.ID)
 		require.NoError(t, err)
 
 		// should add an extra transaction with catalogue

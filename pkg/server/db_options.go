@@ -229,9 +229,9 @@ func (s *ImmuServer) defaultAHTOptions() *ahtOptions {
 }
 
 func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
-	return database.DefaultOption().
+	return database.DefaultOptions().
 		WithDBRootPath(s.Options.Dir).
-		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions(s))).
+		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
 		AsReplica(opts.Replica).
 		WithSyncReplication(opts.SyncReplication).
 		WithSyncAcks(opts.SyncAcks).
@@ -241,7 +241,7 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithMaxResultSize(s.Options.MaxResultSize)
 }
 
-func (opts *dbOptions) storeOptions(s *ImmuServer) *store.Options {
+func (opts *dbOptions) storeOptions() *store.Options {
 	indexOpts := store.DefaultIndexOptions()
 
 	if opts.IndexOptions != nil {
@@ -261,10 +261,6 @@ func (opts *dbOptions) storeOptions(s *ImmuServer) *store.Options {
 			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles).
 			WithMaxBulkSize(opts.IndexOptions.MaxBulkSize).
 			WithBulkPreparationTimeout(time.Millisecond * time.Duration(opts.IndexOptions.BulkPreparationTimeout))
-	}
-
-	if s != nil {
-		indexOpts.WithCacheFactoryFunc(s.indexCacheFactoryFunc())
 	}
 
 	ahtOpts := store.DefaultAHTOptions()
@@ -823,7 +819,7 @@ func (opts *dbOptions) Validate() error {
 			ErrIllegalArguments, opts.Database, store.MinimumTruncationFrequency.Hours())
 	}
 
-	return opts.storeOptions(nil).Validate()
+	return opts.storeOptions().Validate()
 }
 
 func (opts *dbOptions) isReplicatorRequired() bool {

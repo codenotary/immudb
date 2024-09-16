@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -132,6 +133,9 @@ func (s *ImmuServer) Initialize() error {
 	if err != nil {
 		return logErr(s.Logger, "unable to initialize remote storage: %v", err)
 	}
+
+	// NOTE: MaxActiveDatabases might have changed since the server instance was created
+	s.dbList.Resize(s.Options.MaxActiveDatabases)
 
 	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword, s.Options.ForceAdminPassword); err != nil {
 		return logErr(s.Logger, "unable to load system database: %v", err)
@@ -564,11 +568,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 	_, err = s.OS.Stat(defaultDbRootDir)
 	if err == nil {
-		db, err := database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
-		if err != nil {
-			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+"Use replication to recover from external source or start without data folder.", dbOpts.Database)
-			return err
-		}
+		db := s.dbList.Put(dbOpts.Database, s.databaseOptionsFrom(dbOpts))
 
 		if dbOpts.isReplicatorRequired() {
 			err = s.startReplicationFor(db, dbOpts)
@@ -577,8 +577,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 			}
 		}
 
-		s.dbList.Put(db)
-
 		return nil
 	}
 
@@ -586,10 +584,10 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		return err
 	}
 
-	db, err := database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
-	if err != nil {
-		return err
-	}
+	opts := s.databaseOptionsFrom(dbOpts)
+	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), os.ModePerm)
+
+	db := s.dbList.Put(dbOpts.Database, opts)
 
 	if dbOpts.isReplicatorRequired() {
 		err = s.startReplicationFor(db, dbOpts)
@@ -597,8 +595,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 			s.Logger.Errorf("error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 		}
 	}
-
-	s.dbList.Put(db)
 
 	return nil
 }
@@ -623,7 +619,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		dirs = append(dirs, f.Name())
 	}
 
-	//load databases that are inside each directory
+	// load databases that are inside each directory
 	for _, val := range dirs {
 		//dbname is the directory name where it is stored
 		//path iteration above stores the directories as data/db_name
@@ -635,18 +631,14 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return err
 		}
 
-		if !dbOpts.Autoload.isEnabled() {
-			s.Logger.Infof("database '%s' is closed (autoload is disabled)", dbname)
-			s.dbList.Put(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
-			continue
-		}
-
 		s.logDBOptions(dbname, dbOpts)
 
-		db, err := database.OpenDB(dbname, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
-		if err != nil {
-			s.Logger.Errorf("database '%s' could not be loaded. Reason: %v", dbname, err)
-			s.dbList.Put(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
+		var db database.DB
+		if dbOpts.Autoload.isEnabled() {
+			db = s.dbList.Put(dbname, s.databaseOptionsFrom(dbOpts))
+		} else {
+			s.Logger.Infof("database '%s' is closed (autoload is disabled)", dbname)
+			s.dbList.PutClosed(dbname, s.databaseOptionsFrom(dbOpts))
 			continue
 		}
 
@@ -663,8 +655,6 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 				s.Logger.Errorf("error starting truncation for database '%s'. Reason: %v", db.GetName(), err)
 			}
 		}
-
-		s.dbList.Put(db)
 	}
 
 	return nil
@@ -774,17 +764,16 @@ func (s *ImmuServer) Stop() error {
 
 // CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
-	for i := 0; i < s.dbList.Length(); i++ {
-		val, err := s.dbList.GetByIndex(i)
-		if err == nil {
-			val.Close()
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	if err := s.dbList.CloseAll(ctx); err != nil {
+		return err
 	}
 
 	if s.sysDB != nil {
 		s.sysDB.Close()
 	}
-
 	return nil
 }
 
@@ -808,7 +797,7 @@ func (s *ImmuServer) updateConfigItem(key string, newOrUpdatedLine string, uncha
 		if strings.HasPrefix(l, key+"=") || strings.HasPrefix(l, key+" =") {
 			kv := strings.Split(l, "=")
 			if unchanged(kv[1]) {
-				return fmt.Errorf("Server config already has '%s'", newOrUpdatedLine)
+				return fmt.Errorf("server config already has '%s'", newOrUpdatedLine)
 			}
 			configLines[i] = newOrUpdatedLine
 			write = true
@@ -872,11 +861,11 @@ func (s *ImmuServer) numTransactions() (uint64, error) {
 			return 0, err
 		}
 
-		dbTxCount, err := db.TxCount()
+		state, err := db.CurrentState()
 		if err != nil {
 			return 0, err
 		}
-		count += dbTxCount
+		count += state.TxId
 	}
 	return count, nil
 }
@@ -895,7 +884,8 @@ func (s *ImmuServer) totalDBSize() (int64, error) {
 			return -1, err
 		}
 
-		dbSize, err := db.Size()
+		dbName := db.GetName()
+		dbSize, err := dirSize(filepath.Join(s.Options.Dir, dbName))
 		if err != nil {
 			return -1, err
 		}
@@ -1031,12 +1021,10 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		return nil, err
 	}
 
-	db, err := database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
-	if err != nil {
-		return nil, err
-	}
+	opts := s.databaseOptionsFrom(dbOpts)
+	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), os.ModePerm)
+	db := s.dbList.Put(dbOpts.Database, s.databaseOptionsFrom(dbOpts))
 
-	s.dbList.Put(db)
 	s.multidbmode = true
 
 	s.logDBOptions(db.GetName(), dbOpts)
@@ -1111,12 +1099,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 		return nil, fmt.Errorf("%w: while loading database settings", err)
 	}
 
-	db, err = database.OpenDB(req.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
-	if err != nil {
-		return nil, fmt.Errorf("%w: while opening database", err)
-	}
-
-	s.dbList.Put(db)
+	s.dbList.Put(req.Database, s.databaseOptionsFrom(dbOpts))
 
 	if dbOpts.isReplicatorRequired() {
 		err = s.startReplicationFor(db, dbOpts)
@@ -1466,11 +1449,13 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.
 	}
 
 	resp := &schema.DatabaseListResponse{}
-
-	for _, db := range dbsWithSettings.Databases {
-		resp.Databases = append(resp.Databases, &schema.Database{DatabaseName: db.Name})
+	if len(dbsWithSettings.Databases) > 0 {
+		resp.Databases = make([]*schema.Database, len(dbsWithSettings.Databases))
 	}
 
+	for i, db := range dbsWithSettings.Databases {
+		resp.Databases[i] = &schema.Database{DatabaseName: db.Name}
+	}
 	return resp, nil
 }
 
@@ -1488,17 +1473,19 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 	}
 
 	for _, db := range databases {
-		dbOpts, err := s.loadDBOptions(db.GetName(), false)
+		dbName := db.GetName()
+
+		dbOpts, err := s.loadDBOptions(dbName, false)
 		if err != nil {
 			return nil, err
 		}
 
-		size, err := db.Size()
+		size, err := dirSize(filepath.Join(s.Options.Dir, dbName))
 		if err != nil {
 			return nil, err
 		}
 
-		txCount, err := db.TxCount()
+		state, err := db.CurrentState()
 		if err != nil {
 			return nil, err
 		}
@@ -1507,8 +1494,8 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			Name:            db.GetName(),
 			Settings:        dbOpts.databaseNullableSettings(),
 			Loaded:          !db.IsClosed(),
-			DiskSize:        size,
-			NumTransactions: txCount,
+			DiskSize:        uint64(size),
+			NumTransactions: state.TxId,
 			CreatedAt:       uint64(dbOpts.CreatedAt.Unix()),
 			CreatedBy:       dbOpts.CreatedBy,
 		}

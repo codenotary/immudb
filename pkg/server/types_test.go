@@ -53,7 +53,7 @@ func TestWithStreamServiceFactory(t *testing.T) {
 func TestWithDbList(t *testing.T) {
 	dir := t.TempDir()
 
-	dbList := database.NewDatabaseList()
+	dbList := database.NewDatabaseList(nil)
 
 	s := DefaultServer()
 	s.WithOptions(DefaultOptions().WithDir(dir))

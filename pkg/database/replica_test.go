@@ -31,7 +31,7 @@ import (
 func TestReadOnlyReplica(t *testing.T) {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath).AsReplica(true)
+	options := DefaultOptions().WithDBRootPath(rootPath).AsReplica(true)
 
 	replica, err := NewDB("db", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestReadOnlyReplica(t *testing.T) {
 func TestSwitchToReplica(t *testing.T) {
 	rootPath := t.TempDir()
 
-	options := DefaultOption().WithDBRootPath(rootPath).AsReplica(false)
+	options := DefaultOptions().WithDBRootPath(rootPath).AsReplica(false)
 
 	replica := makeDbWith(t, "db", options)
 

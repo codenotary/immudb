@@ -25,16 +25,16 @@ import (
 )
 
 func TestDefaultOptions(t *testing.T) {
-	op := DefaultOption().AsReplica(true)
+	op := DefaultOptions().AsReplica(true)
 
-	require.Equal(t, op.GetDBRootPath(), DefaultOption().dbRootPath)
-	require.Equal(t, op.GetTxPoolSize(), DefaultOption().readTxPoolSize)
+	require.Equal(t, op.GetDBRootPath(), DefaultOptions().dbRootPath)
+	require.Equal(t, op.GetTxPoolSize(), DefaultOptions().readTxPoolSize)
 	require.False(t, op.syncReplication)
 
 	rootpath := "rootpath"
 	storeOpts := store.DefaultOptions()
 
-	op = DefaultOption().
+	op = DefaultOptions().
 		WithDBRootPath(rootpath).
 		WithStoreOptions(storeOpts).
 		WithReadTxPoolSize(789).

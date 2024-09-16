@@ -26,7 +26,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/codenotary/immudb/pkg/truncator"
 
-	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 	"github.com/codenotary/immudb/pkg/replication"
@@ -58,8 +57,8 @@ const (
 type ImmuServer struct {
 	OS immuos.OS
 
+	dbListMutex sync.Mutex
 	dbList      database.DatabaseList
-	dbListMutex sync.Mutex // TODO: convert dbList into a dbManager capable of opening/closing/deleting dbs
 
 	replicators      map[string]*replication.TxReplicator
 	replicationMutex sync.Mutex
@@ -86,16 +85,14 @@ type ImmuServer struct {
 	StreamServiceFactory stream.ServiceFactory
 	PgsqlSrv             pgsqlsrv.PGSQLServer
 
-	remoteStorage  remotestorage.Storage
-	indexCacheFunc func() *cache.Cache
-	SessManager    sessions.Manager
+	remoteStorage remotestorage.Storage
+	SessManager   sessions.Manager
 }
 
 // DefaultServer returns a new ImmuServer instance with all configuration options set to their default values.
 func DefaultServer() *ImmuServer {
-	return &ImmuServer{
+	s := &ImmuServer{
 		OS:                   immuos.NewStandardOS(),
-		dbList:               database.NewDatabaseList(),
 		replicators:          make(map[string]*replication.TxReplicator),
 		truncators:           make(map[string]*truncator.Truncator),
 		Logger:               logger.NewSimpleLogger("immudb ", os.Stderr),
@@ -105,6 +102,11 @@ func DefaultServer() *ImmuServer {
 		GrpcServer:           grpc.NewServer(),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
+
+	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
+		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
+	}, s.Options.MaxActiveDatabases, s.Logger))
+	return s
 }
 
 type ImmuServerIf interface {

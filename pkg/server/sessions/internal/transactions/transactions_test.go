@@ -30,7 +30,7 @@ import (
 func TestNewTx(t *testing.T) {
 	path := t.TempDir()
 
-	db, err := database.NewDB("db1", nil, database.DefaultOption().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
+	db, err := database.NewDB("db1", nil, database.DefaultOptions().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
 	require.NoError(t, err)
 
 	_, err = NewTransaction(context.Background(), nil, db, "session1")

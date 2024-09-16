@@ -16,118 +16,87 @@ limitations under the License.
 
 package database
 
-import (
-	"sync"
-)
+import "context"
 
 // DatabaseList interface
 type DatabaseList interface {
-	Put(database DB)
+	Put(name string, opts *Options) DB
+	PutClosed(name string, opts *Options) DB
 	Delete(string) (DB, error)
 	GetByIndex(index int) (DB, error)
 	GetByName(string) (DB, error)
 	GetId(dbname string) int
 	Length() int
+	Resize(n int)
+	CloseAll(ctx context.Context) error
 }
 
 type databaseList struct {
-	databases      []DB
-	databaseByName map[string]*dbRef
-	sync.RWMutex
-}
-
-type dbRef struct {
-	index   int
-	deleted bool
+	m *DBManager
 }
 
 // NewDatabaseList constructs a new database list
-func NewDatabaseList() DatabaseList {
+func NewDatabaseList(m *DBManager) DatabaseList {
 	return &databaseList{
-		databases:      make([]DB, 0),
-		databaseByName: make(map[string]*dbRef),
+		m: m,
 	}
 }
 
-func (d *databaseList) Put(database DB) {
-	d.Lock()
-	defer d.Unlock()
+func (d *databaseList) Put(dbName string, opts *Options) DB {
+	return d.put(dbName, opts, false)
+}
 
-	ref, exists := d.databaseByName[database.GetName()]
-	if exists {
-		d.databases[ref.index] = database
-		ref.deleted = false
-		return
+func (d *databaseList) PutClosed(dbName string, opts *Options) DB {
+	return d.put(dbName, opts, true)
+}
+
+func (d *databaseList) put(dbName string, opts *Options, closed bool) DB {
+	var newOpts Options = *opts
+
+	idx := d.m.Put(dbName, &newOpts, closed)
+
+	return &lazyDB{
+		m:   d.m,
+		idx: idx,
 	}
-
-	d.databases = append(d.databases, database)
-	d.databaseByName[database.GetName()] = &dbRef{index: len(d.databases) - 1}
 }
 
 func (d *databaseList) Delete(dbname string) (DB, error) {
-	d.Lock()
-	defer d.Unlock()
-
-	dbRef, exists := d.databaseByName[dbname]
-	if !exists || dbRef.deleted {
-		return nil, ErrDatabaseNotExists
+	if err := d.m.Delete(dbname); err != nil {
+		return nil, err
 	}
-
-	db := d.databases[dbRef.index]
-
-	if !db.IsClosed() {
-		return nil, ErrCannotDeleteAnOpenDatabase
-	}
-
-	dbRef.deleted = true
-
-	return db, nil
+	idx := d.m.GetIndexByName(dbname)
+	return &lazyDB{m: d.m, idx: idx}, nil
 }
 
 func (d *databaseList) GetByIndex(index int) (DB, error) {
-	d.RLock()
-	defer d.RUnlock()
-
-	if index < 0 || index >= len(d.databases) {
+	if !d.m.HasIndex(index) {
 		return nil, ErrDatabaseNotExists
 	}
-
-	db := d.databases[index]
-
-	dbRef := d.databaseByName[db.GetName()]
-	if dbRef.deleted {
-		return nil, ErrDatabaseNotExists
-	}
-
-	return db, nil
+	return &lazyDB{m: d.m, idx: index}, nil
 }
 
 func (d *databaseList) GetByName(dbname string) (DB, error) {
-	d.RLock()
-	defer d.RUnlock()
-
-	if dbRef, ok := d.databaseByName[dbname]; !ok || dbRef.deleted {
+	idx := d.m.GetIndexByName(dbname)
+	if idx < 0 {
 		return nil, ErrDatabaseNotExists
 	}
-
-	return d.databases[d.databaseByName[dbname].index], nil
+	return &lazyDB{m: d.m, idx: idx}, nil
 }
 
 func (d *databaseList) Length() int {
-	d.RLock()
-	defer d.RUnlock()
-
-	return len(d.databases)
+	return d.m.Length()
 }
 
 // GetById returns the database id number. -1 if database is not present
 func (d *databaseList) GetId(dbname string) int {
-	d.RLock()
-	defer d.RUnlock()
+	return d.m.GetIndexByName(dbname)
+}
 
-	if dbRef, ok := d.databaseByName[dbname]; ok && !dbRef.deleted {
-		return dbRef.index
-	}
+func (d *databaseList) CloseAll(ctx context.Context) error {
+	return d.m.CloseAll(ctx)
+}
 
-	return -1
+func (d *databaseList) Resize(n int) {
+	d.m.Resize(n)
 }

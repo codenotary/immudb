@@ -106,7 +106,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		return nil, fmt.Errorf("%w: nil store", ErrIllegalArguments)
 	}
 
-	id := atomic.AddUint32(&store.nextIndexerID, 1)
+	id := atomic.AddUint64(&store.nextIndexerID, 1)
 	if id-1 > math.MaxUint16 {
 		return nil, ErrMaxIndexersLimitExceeded
 	}
