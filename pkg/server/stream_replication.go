@@ -62,23 +62,24 @@ func (s *ImmuServer) exportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		return err
 	}
 
-	var streamMetadata map[string][]byte
+	var bCommittedTxID [8]byte
+	state, err := db.CurrentState()
+	if err == nil {
+		binary.BigEndian.PutUint64(bCommittedTxID[:], state.TxId)
+	}
+
+	// In asynchronous replication, the last committed transaction value is sent to the replica
+	// to enable updating its replication lag.
+	streamMetadata := map[string][]byte{
+		"committed-txid-bin": bCommittedTxID[:],
+	}
 
 	if req.ReplicaState != nil {
 		var bMayCommitUpToTxID [8]byte
 		binary.BigEndian.PutUint64(bMayCommitUpToTxID[:], mayCommitUpToTxID)
 
-		var bCommittedTxID [8]byte
-		state, err := db.CurrentState()
-		if err == nil {
-			binary.BigEndian.PutUint64(bCommittedTxID[:], state.TxId)
-		}
-
-		streamMetadata = map[string][]byte{
-			"may-commit-up-to-txid-bin": bMayCommitUpToTxID[:],
-			"may-commit-up-to-alh-bin":  mayCommitUpToAlh[:],
-			"committed-txid-bin":        bCommittedTxID[:],
-		}
+		streamMetadata["may-commit-up-to-txid-bin"] = bMayCommitUpToTxID[:]
+		streamMetadata["may-commit-up-to-alh-bin"] = mayCommitUpToAlh[:]
 
 		if setTrailer {
 			// trailer metadata is kept for backward compatibility

@@ -65,6 +65,11 @@ var (
 		Name: "immudb_replication_allow_commit_up_to_tx_id",
 		Help: "most recently received confirmation up to which commit id the replica is allowed to durably commit",
 	}, []string{"db"})
+
+	_metricsReplicationLag = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "immudb_replication_lag",
+		Help: "The difference between the last transaction committed by the primary and replicated by the replica",
+	}, []string{"db"})
 )
 
 type metrics struct {
@@ -76,6 +81,7 @@ type metrics struct {
 	replicatorsInRetryDelay  prometheus.Gauge
 	primaryCommittedTxID     prometheus.Gauge
 	allowCommitUpToTxID      prometheus.Gauge
+	replicationLag           prometheus.Gauge
 }
 
 // metricsForDb returns metrics object for particular database name
@@ -89,6 +95,7 @@ func metricsForDb(dbName string) metrics {
 		replicatorsInRetryDelay:  _metricsReplicatorsInRetryDelay.WithLabelValues(dbName),
 		primaryCommittedTxID:     _metricsReplicationPrimaryCommittedTxID.WithLabelValues(dbName),
 		allowCommitUpToTxID:      _metricsAllowCommitUpToTxID.WithLabelValues(dbName),
+		replicationLag:           _metricsReplicationLag.WithLabelValues(dbName),
 	}
 }
 
@@ -99,6 +106,7 @@ func (m *metrics) reset() {
 	m.replicatorsInRetryDelay.Set(0)
 	m.primaryCommittedTxID.Set(0)
 	m.allowCommitUpToTxID.Set(0)
+	m.replicationLag.Set(0)
 }
 
 // replicationTimeHistogramTimer returns prometheus timer for replicationTimeHistogram
