@@ -19,7 +19,7 @@ package database
 import (
 	"context"
 	"crypto/sha256"
-	"io"
+	"errors"
 	"path/filepath"
 	"time"
 
@@ -28,6 +28,8 @@ import (
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
+
+var ErrNoNewTransactions = errors.New("no new transactions")
 
 type lazyDB struct {
 	m *DBManager
@@ -440,7 +442,7 @@ func (db *lazyDB) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest)
 
 	if !req.AllowPreCommitted {
 		if req.Tx > state.TxId {
-			return nil, 0, [sha256.Size]byte{}, io.EOF
+			return nil, 0, [sha256.Size]byte{}, ErrNoNewTransactions
 		}
 	}
 

@@ -377,7 +377,14 @@ func (txr *TxReplicator) fetchNextTx() error {
 		defer txr.disconnect()
 	}
 
+	txr.maybeUpdateReplicationLag(commitState.TxId, emd)
+
 	if err != nil && !errors.Is(err, io.EOF) {
+		if strings.Contains(err.Error(), database.ErrNoNewTransactions.Error()) {
+			txr.metrics.replicationLag.Set(0)
+			return err
+		}
+
 		if strings.Contains(err.Error(), "replica commit state diverged from primary") {
 			txr.logger.Errorf("replica commit state at '%s' diverged from primary's", txr.db.GetName())
 			return ErrReplicaDivergedFromPrimary
@@ -496,4 +503,14 @@ func (txr *TxReplicator) Error() error {
 	defer txr.mutex.Unlock()
 
 	return txr.err
+}
+
+func (txr *TxReplicator) maybeUpdateReplicationLag(lastCommittedTxID uint64, metadata map[string][]byte) {
+	primaryLastCommittedTxIDBin, ok := metadata["committed-txid-bin"]
+	if !ok {
+		return
+	}
+
+	lag := binary.BigEndian.Uint64(primaryLastCommittedTxIDBin) - lastCommittedTxID
+	txr.metrics.replicationLag.Set(float64(lag))
 }
