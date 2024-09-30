@@ -18,6 +18,7 @@ package database
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,7 +26,7 @@ type instrumentedRWMutex struct {
 	rwmutex sync.RWMutex
 
 	trwmutex      sync.RWMutex
-	waitingCount  int
+	waitingCount  int64
 	lastReleaseAt time.Time
 }
 
@@ -33,19 +34,13 @@ func (imux *instrumentedRWMutex) State() (waitingCount int, lastReleaseAt time.T
 	imux.trwmutex.RLock()
 	defer imux.trwmutex.RUnlock()
 
-	return imux.waitingCount, imux.lastReleaseAt
+	return int(atomic.LoadInt64(&imux.waitingCount)), imux.lastReleaseAt
 }
 
 func (imux *instrumentedRWMutex) Lock() {
-	imux.trwmutex.Lock()
-	imux.waitingCount++
-	imux.trwmutex.Unlock()
-
+	atomic.AddInt64(&imux.waitingCount, 1)
 	imux.rwmutex.Lock()
-
-	imux.trwmutex.Lock()
-	imux.waitingCount--
-	imux.trwmutex.Unlock()
+	atomic.AddInt64(&imux.waitingCount, -1)
 }
 
 func (imux *instrumentedRWMutex) Unlock() {
@@ -58,15 +53,9 @@ func (imux *instrumentedRWMutex) Unlock() {
 }
 
 func (imux *instrumentedRWMutex) RLock() {
-	imux.trwmutex.Lock()
-	imux.waitingCount++
-	imux.trwmutex.Unlock()
-
+	atomic.AddInt64(&imux.waitingCount, 1)
 	imux.rwmutex.RLock()
-
-	imux.trwmutex.Lock()
-	imux.waitingCount--
-	imux.trwmutex.Unlock()
+	atomic.AddInt64(&imux.waitingCount, -1)
 }
 
 func (imux *instrumentedRWMutex) RUnlock() {
