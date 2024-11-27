@@ -1839,7 +1839,6 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 
 		tx.updatedRows++
 	}
-
 	return tx, nil
 }
 
@@ -2939,6 +2938,178 @@ func (v *Param) selectorRanges(table *Table, asTable string, params map[string]i
 
 func (v *Param) String() string {
 	return "@" + v.id
+}
+
+type whenThenClause struct {
+	when, then ValueExp
+}
+
+type CaseWhenExp struct {
+	whenThen []whenThenClause
+	elseExp  ValueExp
+}
+
+func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	checkType := func(e ValueExp, expectedType SQLValueType) (string, error) {
+		t, err := e.inferType(cols, params, implicitTable)
+		if err != nil {
+			return "", err
+		}
+
+		if expectedType == AnyType {
+			return t, nil
+		}
+
+		if t != expectedType {
+			if (t == Float64Type && expectedType == IntegerType) ||
+				(t == IntegerType && expectedType == Float64Type) {
+				return Float64Type, nil
+			}
+			return "", fmt.Errorf("%w: CASE types %s and %s cannot be matched", ErrInferredMultipleTypes, expectedType, t)
+		}
+		return t, nil
+	}
+
+	inferredType := AnyType
+	for _, e := range ce.whenThen {
+		whenType, err := e.when.inferType(cols, params, implicitTable)
+		if err != nil {
+			return "", err
+		}
+
+		if whenType != BooleanType {
+			return "", fmt.Errorf("%w: argument of CASE/WHEN must be type %s, not type %s", ErrInvalidTypes, BooleanType, whenType)
+		}
+
+		t, err := checkType(e.then, inferredType)
+		if err != nil {
+			return "", err
+		}
+		inferredType = t
+	}
+	return checkType(ce.elseExp, inferredType)
+}
+
+func (ce *CaseWhenExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	inferredType, err := ce.inferType(cols, params, implicitTable)
+	if err != nil {
+		return err
+	}
+
+	if inferredType != t {
+		return fmt.Errorf("%w: expected type %s but %s found instead", ErrInvalidTypes, t, inferredType)
+	}
+	return nil
+}
+
+func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	whenThen := make([]whenThenClause, len(ce.whenThen))
+	for i, wt := range ce.whenThen {
+		whenValue, err := wt.when.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+		whenThen[i].when = whenValue
+
+		thenValue, err := wt.then.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+		whenThen[i].then = thenValue
+	}
+
+	if ce.elseExp == nil {
+		return &CaseWhenExp{
+			whenThen: whenThen,
+		}, nil
+	}
+
+	elseValue, err := ce.elseExp.substitute(params)
+	if err != nil {
+		return nil, err
+	}
+	return &CaseWhenExp{
+		whenThen: whenThen,
+		elseExp:  elseValue,
+	}, nil
+}
+
+func (ce *CaseWhenExp) selectors() []Selector {
+	selectors := make([]Selector, 0)
+
+	for _, wh := range ce.whenThen {
+		selectors = append(selectors, wh.when.selectors()...)
+		selectors = append(selectors, wh.then.selectors()...)
+	}
+
+	if ce.elseExp == nil {
+		return selectors
+	}
+	return append(selectors, ce.elseExp.selectors()...)
+}
+
+func (ce *CaseWhenExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	for _, wt := range ce.whenThen {
+		v, err := wt.when.reduce(tx, row, implicitTable)
+		if err != nil {
+			return nil, err
+		}
+
+		if v.Type() != BooleanType {
+			return nil, fmt.Errorf("%w: argument of CASE/WHEN must be type %s, not type %s", ErrInvalidTypes, BooleanType, v.Type())
+		}
+
+		if v.RawValue() == true {
+			return wt.then.reduce(tx, row, implicitTable)
+		}
+	}
+
+	if ce.elseExp == nil {
+		return NewNull(AnyType), nil
+	}
+	return ce.elseExp.reduce(tx, row, implicitTable)
+}
+
+func (ce *CaseWhenExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	whenThen := make([]whenThenClause, len(ce.whenThen))
+	for i, wt := range ce.whenThen {
+		whenValue := wt.when.reduceSelectors(row, implicitTable)
+		whenThen[i].when = whenValue
+
+		thenValue := wt.then.reduceSelectors(row, implicitTable)
+		whenThen[i].then = thenValue
+	}
+
+	if ce.elseExp == nil {
+		return &CaseWhenExp{
+			whenThen: whenThen,
+		}
+	}
+
+	return &CaseWhenExp{
+		whenThen: whenThen,
+		elseExp:  ce.elseExp.reduceSelectors(row, implicitTable),
+	}
+}
+
+func (ce *CaseWhenExp) isConstant() bool {
+	return false
+}
+
+func (ce *CaseWhenExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (ce *CaseWhenExp) String() string {
+	var sb strings.Builder
+	for _, wh := range ce.whenThen {
+		sb.WriteString(fmt.Sprintf("WHEN %s THEN %s ", wh.when.String(), wh.then.String()))
+	}
+
+	if ce.elseExp != nil {
+		sb.WriteString("ELSE " + ce.elseExp.String() + " ")
+	}
+	return "CASE " + sb.String() + "END"
 }
 
 type Comparison int
@@ -4326,7 +4497,8 @@ func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[stri
 		return BooleanType, nil
 	}
 
-	if tleft != AnyType && tright != AnyType {
+	_, ok := coerceTypes(tleft, tright)
+	if !ok {
 		return AnyType, fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, tleft, tright)
 	}
 
@@ -4343,8 +4515,22 @@ func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[stri
 			return AnyType, err
 		}
 	}
-
 	return BooleanType, nil
+}
+
+func coerceTypes(t1, t2 SQLValueType) (SQLValueType, bool) {
+	switch {
+	case t1 == t2:
+		return t1, true
+	case t1 == AnyType:
+		return t2, true
+	case t2 == AnyType:
+		return t1, true
+	case (t1 == IntegerType && t2 == Float64Type) ||
+		(t1 == Float64Type && t2 == IntegerType):
+		return Float64Type, true
+	}
+	return "", false
 }
 
 func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -4410,7 +4596,7 @@ func (bexp *CmpBoolExp) isConstant() bool {
 }
 
 func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
-	matchingFunc := func(left, right ValueExp) (*ColSelector, ValueExp, bool) {
+	matchingFunc := func(_, right ValueExp) (*ColSelector, ValueExp, bool) {
 		s, isSel := bexp.left.(*ColSelector)
 		if isSel && s.col != revCol && bexp.right.isConstant() {
 			return s, right, true

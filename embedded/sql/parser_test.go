@@ -1386,7 +1386,7 @@ func TestAggFnStmt(t *testing.T) {
 	}
 }
 
-func TestExpressions(t *testing.T) {
+func TestParseExp(t *testing.T) {
 	testCases := []struct {
 		input          string
 		expectedOutput []SQLStmt
@@ -1674,6 +1674,98 @@ func TestExpressions(t *testing.T) {
 				}},
 			expectedError: nil,
 		},
+		{
+			input: "SELECT CASE WHEN is_deleted OR is_expired THEN 1 END AS is_deleted_or_expired FROM my_table",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					ds: &tableRef{table: "my_table"},
+					targets: []TargetEntry{
+						{
+							Exp: &CaseWhenExp{
+								whenThen: []whenThenClause{
+									{
+										when: &BinBoolExp{
+											op:    OR,
+											left:  &ColSelector{col: "is_deleted"},
+											right: &ColSelector{col: "is_expired"},
+										},
+										then: &Integer{1},
+									},
+								},
+							},
+							As: "is_deleted_or_expired",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: "SELECT CASE WHEN is_active THEN 1 ELSE 2 END FROM my_table",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					ds: &tableRef{table: "my_table"},
+					targets: []TargetEntry{
+						{
+							Exp: &CaseWhenExp{
+								whenThen: []whenThenClause{
+									{
+										when: &ColSelector{col: "is_active"},
+										then: &Integer{1},
+									},
+								},
+								elseExp: &Integer{2},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `
+				SELECT product_name,
+					CASE
+						WHEN stock < 10 THEN 'Low stock'
+						WHEN stock >= 10 AND stock <= 50 THEN 'Medium stock'
+						WHEN stock > 50 THEN 'High stock'
+						ELSE 'Out of stock'
+					END AS stock_status
+				FROM products
+			`,
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					ds: &tableRef{table: "products"},
+					targets: []TargetEntry{
+						{
+							Exp: &ColSelector{col: "product_name"},
+						},
+						{
+							Exp: &CaseWhenExp{
+								whenThen: []whenThenClause{
+									{
+										when: &CmpBoolExp{op: LT, left: &ColSelector{col: "stock"}, right: &Integer{10}},
+										then: &Varchar{"Low stock"},
+									},
+									{
+										when: &BinBoolExp{
+											op:    AND,
+											left:  &CmpBoolExp{op: GE, left: &ColSelector{col: "stock"}, right: &Integer{10}},
+											right: &CmpBoolExp{op: LE, left: &ColSelector{col: "stock"}, right: &Integer{50}},
+										},
+										then: &Varchar{"Medium stock"},
+									},
+									{
+										when: &CmpBoolExp{op: GT, left: &ColSelector{col: "stock"}, right: &Integer{50}},
+										then: &Varchar{"High stock"},
+									},
+								},
+								elseExp: &Varchar{"Out of stock"},
+							},
+							As: "stock_status",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, tc := range testCases {
@@ -1897,6 +1989,9 @@ func TestExprString(t *testing.T) {
 		"((col1 AND (col2 < 10)) OR (@param = 3 AND (col4 = TRUE))) AND NOT (col5 = 'value' OR (2 + 2 != 4))",
 		"CAST (func_call(1, 'two', 2.5) AS TIMESTAMP)",
 		"col IN (TRUE, 1, 'test', 1.5)",
+		"CASE WHEN in_stock THEN 'In Stock' END",
+		"CASE WHEN 1 > 0 THEN 1 ELSE 0 END",
+		"CASE WHEN is_active THEN 'active' WHEN is_expired THEN 'expired' ELSE 'active' END",
 	}
 
 	for i, e := range exps {

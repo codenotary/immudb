@@ -72,13 +72,14 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     permission Permission
     sqlPrivilege SQLPrivilege
     sqlPrivileges []SQLPrivilege
+    whenThenClauses []whenThenClause
 }
 
 %token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
 %token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
-%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST SCAST
 %token SHOW DATABASES TABLES USERS
@@ -135,10 +136,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <join> join
 %type <joinType> opt_join_type
 %type <checks> opt_checks
-%type <exp> exp opt_where opt_having boundexp
+%type <exp> exp opt_where opt_having boundexp opt_else when_then_else
 %type <binExp> binExp
 %type <cols> opt_groupby
-%type <exp> opt_limit opt_offset
+%type <exp> opt_limit opt_offset case_when_exp
 %type <targets> opt_targets targets
 %type <integer> opt_max_len
 %type <id> opt_as
@@ -152,6 +153,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <permission> permission
 %type <sqlPrivilege> sqlPrivilege
 %type <sqlPrivileges> sqlPrivileges
+%type <whenThenClauses> when_then_clauses
 
 %start sql
 
@@ -1095,6 +1097,51 @@ exp:
     {
         $$ = &InListExp{val: $1, notIn: $2, values: $5}
     }
+|
+    case_when_exp
+    {
+        $$ = $1
+    }
+
+case_when_exp:
+    CASE when_then_else END
+    {
+        $$ = $2
+    }
+;
+
+when_then_else:
+    when_then_clauses opt_else
+    {
+        $$ = &CaseWhenExp{
+            whenThen: $1,
+            elseExp: $2, 
+        }
+    }
+;
+
+when_then_clauses:
+    WHEN exp THEN exp
+    {
+        $$ = []whenThenClause{{when: $2, then: $4}}
+    }
+|
+    when_then_clauses WHEN exp THEN exp
+    {
+        $$ = append($1, whenThenClause{when: $3, then: $5})
+    }
+;
+
+opt_else:
+    {
+        $$ = nil
+    }
+|
+    ELSE exp
+    {
+        $$ = $2
+    }
+;
 
 boundexp:
     selector
