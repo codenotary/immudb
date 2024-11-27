@@ -841,91 +841,151 @@ func TestYetUnsupportedInSubQueryExp(t *testing.T) {
 }
 
 func TestCaseWhenExp(t *testing.T) {
-	e, err := ParseExpFromString(
-		"CASE WHEN salary > 100000 THEN @p0 ELSE @p1 END",
-	)
-	require.NoError(t, err)
+	t.Run("simple case", func(t *testing.T) {
+		e, err := ParseExpFromString(
+			"CASE job_title WHEN 1 THEN true ELSE false END",
+		)
+		require.NoError(t, err)
 
-	e, err = e.substitute(map[string]interface{}{"p0": int64(0), "p1": int64(1)})
-	require.NoError(t, err)
+		err = e.requiresType(BooleanType, map[string]ColDescriptor{
+			EncodeSelector("", "", "job_title"): {Type: VarcharType},
+		}, nil, "")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+		require.ErrorContains(t, err, "argument of CASE/WHEN must be of type VARCHAR, not type INTEGER")
 
-	err = e.requiresType(IntegerType, map[string]ColDescriptor{
-		EncodeSelector("", "", "salary"): {Type: IntegerType},
-	}, nil, "")
-	require.NoError(t, err)
+		e, err = ParseExpFromString(
+			"CASE concat(@prefix, job_title) WHEN 'job_engineer' THEN true ELSE false END",
+		)
+		require.NoError(t, err)
 
-	require.False(t, e.isConstant())
-	require.Nil(t, e.selectorRanges(nil, "", nil, nil))
+		e, err = e.substitute(map[string]interface{}{"prefix": "job_"})
+		require.NoError(t, err)
 
-	row := &Row{ValuesBySelector: map[string]TypedValue{EncodeSelector("", "", "salary"): &Integer{50000}}}
-	require.Equal(t,
-		&CaseWhenExp{
-			whenThen: []whenThenClause{
-				{
-					when: NewCmpBoolExp(GT, &Integer{50000}, &Integer{100000}), then: &Integer{0},
-				},
+		v, err := e.reduce(nil, &Row{
+			ValuesBySelector: map[string]TypedValue{
+				EncodeSelector("", "", "job_title"): &Varchar{"engineer"},
 			},
-			elseExp: &Integer{1},
-		}, e.reduceSelectors(row, ""))
+		}, "")
+		require.NoError(t, err)
+		require.Equal(t, v, &Bool{true})
+	})
 
-	v, err := e.reduce(nil, row, "")
-	require.NoError(t, err)
-	require.Equal(t, int64(1), v.RawValue())
+	t.Run("searched case", func(t *testing.T) {
+		e, err := ParseExpFromString(
+			"CASE WHEN salary > 100000 THEN @p0 ELSE @p1 END",
+		)
+		require.NoError(t, err)
+
+		e, err = e.substitute(map[string]interface{}{"p0": int64(0), "p1": int64(1)})
+		require.NoError(t, err)
+
+		err = e.requiresType(IntegerType, map[string]ColDescriptor{
+			EncodeSelector("", "", "salary"): {Type: IntegerType},
+		}, nil, "")
+		require.NoError(t, err)
+
+		require.False(t, e.isConstant())
+		require.Nil(t, e.selectorRanges(nil, "", nil, nil))
+
+		row := &Row{ValuesBySelector: map[string]TypedValue{EncodeSelector("", "", "salary"): &Integer{50000}}}
+		require.Equal(t,
+			&CaseWhenExp{
+				whenThen: []whenThenClause{
+					{
+						when: NewCmpBoolExp(GT, &Integer{50000}, &Integer{100000}), then: &Integer{0},
+					},
+				},
+				elseExp: &Integer{1},
+			}, e.reduceSelectors(row, ""))
+
+		v, err := e.reduce(nil, row, "")
+		require.NoError(t, err)
+		require.Equal(t, int64(1), v.RawValue())
+	})
 }
 
 func TestInferTypeCaseWhenExp(t *testing.T) {
-	e, err := ParseExpFromString(
-		"CASE WHEN salary THEN 10 ELSE '0' END",
-	)
-	require.NoError(t, err)
+	t.Run("simple case", func(t *testing.T) {
+		e, err := ParseExpFromString(
+			"CASE department WHEN 'engineering' THEN 0 ELSE 1 END",
+		)
+		require.NoError(t, err)
 
-	_, err = e.inferType(
-		map[string]ColDescriptor{
-			EncodeSelector("", "", "salary"): {Type: IntegerType},
-		},
-		nil,
-		"",
-	)
-	require.ErrorIs(t, err, ErrInvalidTypes)
+		_, err = e.inferType(
+			map[string]ColDescriptor{
+				EncodeSelector("", "", "department"): {Type: IntegerType},
+			},
+			nil,
+			"",
+		)
+		require.ErrorIs(t, err, ErrInvalidTypes)
+		require.ErrorContains(t, err, "argument of CASE/WHEN must be of type INTEGER, not type VARCHAR")
 
-	e, err = ParseExpFromString(
-		"CASE WHEN salary > 0 THEN 10 ELSE '0' END",
-	)
-	require.NoError(t, err)
+		it, err := e.inferType(
+			map[string]ColDescriptor{
+				EncodeSelector("", "", "department"): {Type: VarcharType},
+			},
+			nil,
+			"",
+		)
+		require.NoError(t, err)
+		require.Equal(t, IntegerType, it)
+	})
 
-	_, err = e.inferType(
-		map[string]ColDescriptor{
-			EncodeSelector("", "", "salary"): {Type: IntegerType},
-		},
-		nil,
-		"",
-	)
-	require.ErrorIs(t, err, ErrInferredMultipleTypes)
+	t.Run("searched case", func(t *testing.T) {
+		e, err := ParseExpFromString(
+			"CASE WHEN salary THEN 10 ELSE '0' END",
+		)
+		require.NoError(t, err)
 
-	e, err = ParseExpFromString(
-		"CASE WHEN salary > 0 THEN 10 ELSE 0 END",
-	)
-	require.NoError(t, err)
+		_, err = e.inferType(
+			map[string]ColDescriptor{
+				EncodeSelector("", "", "salary"): {Type: IntegerType},
+			},
+			nil,
+			"",
+		)
+		require.ErrorIs(t, err, ErrInvalidTypes)
 
-	it, err := e.inferType(
-		map[string]ColDescriptor{
-			EncodeSelector("", "", "salary"): {Type: IntegerType},
-		},
-		nil,
-		"",
-	)
-	require.NoError(t, err)
-	require.Equal(t, IntegerType, it)
+		e, err = ParseExpFromString(
+			"CASE WHEN salary > 0 THEN 10 ELSE '0' END",
+		)
+		require.NoError(t, err)
 
-	it, err = e.inferType(
-		map[string]ColDescriptor{
-			EncodeSelector("", "", "salary"): {Type: Float64Type},
-		},
-		nil,
-		"",
-	)
-	require.NoError(t, err)
-	require.Equal(t, IntegerType, it)
+		_, err = e.inferType(
+			map[string]ColDescriptor{
+				EncodeSelector("", "", "salary"): {Type: IntegerType},
+			},
+			nil,
+			"",
+		)
+		require.ErrorIs(t, err, ErrInferredMultipleTypes)
+
+		e, err = ParseExpFromString(
+			"CASE WHEN salary > 0 THEN 10 ELSE 0 END",
+		)
+		require.NoError(t, err)
+
+		it, err := e.inferType(
+			map[string]ColDescriptor{
+				EncodeSelector("", "", "salary"): {Type: IntegerType},
+			},
+			nil,
+			"",
+		)
+		require.NoError(t, err)
+		require.Equal(t, IntegerType, it)
+
+		it, err = e.inferType(
+			map[string]ColDescriptor{
+				EncodeSelector("", "", "salary"): {Type: Float64Type},
+			},
+			nil,
+			"",
+		)
+		require.NoError(t, err)
+		require.Equal(t, IntegerType, it)
+	})
 }
 
 func TestLikeBoolExpEdgeCases(t *testing.T) {

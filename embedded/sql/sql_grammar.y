@@ -136,7 +136,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <join> join
 %type <joinType> opt_join_type
 %type <checks> opt_checks
-%type <exp> exp opt_where opt_having boundexp opt_else when_then_else
+%type <exp> exp opt_exp opt_where opt_having boundexp opt_else
 %type <binExp> binExp
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset case_when_exp
@@ -1057,6 +1057,17 @@ opt_checks:
         $$ = append([]CheckConstraint{{name: $2, exp: $4}}, $6...)
     }
 
+opt_exp:
+    {
+        $$ = nil
+    }
+|
+    exp
+    {
+        $$ = $1
+    }
+;
+
 exp:
     boundexp
     {
@@ -1104,18 +1115,12 @@ exp:
     }
 
 case_when_exp:
-    CASE when_then_else END
-    {
-        $$ = $2
-    }
-;
-
-when_then_else:
-    when_then_clauses opt_else
+    CASE opt_exp when_then_clauses opt_else END
     {
         $$ = &CaseWhenExp{
-            whenThen: $1,
-            elseExp: $2, 
+            exp: $2,
+            whenThen: $3,
+            elseExp: $4,
         }
     }
 ;
