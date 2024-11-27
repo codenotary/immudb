@@ -2885,6 +2885,164 @@ func TestQuery(t *testing.T) {
 		}
 	})
 
+	t.Run("query with case when then", func(t *testing.T) {
+		_, _, err := engine.Exec(
+			context.Background(),
+			nil,
+			`CREATE TABLE employees (
+				employee_id INTEGER AUTO_INCREMENT,
+				first_name VARCHAR[50],
+				last_name VARCHAR[50],
+				department VARCHAR[50],
+				salary INTEGER,
+				hire_date TIMESTAMP,
+				job_title VARCHAR[50],
+
+				PRIMARY KEY employee_id
+			);`,
+			nil,
+		)
+		require.NoError(t, err)
+
+		n := 100
+		for i := 0; i < n; i++ {
+			_, _, err := engine.Exec(
+				context.Background(),
+				nil,
+				`INSERT INTO employees(first_name, last_name, department, salary, job_title)
+				VALUES (@first_name, @last_name, @department, @salary, @job_title)
+				`,
+				map[string]interface{}{
+					"first_name": fmt.Sprintf("name%d", i),
+					"last_name":  fmt.Sprintf("surname%d", i),
+					"department": []string{"sales", "manager", "engineering"}[rand.Intn(3)],
+					"salary":     []int64{20, 40, 50, 80, 100}[rand.Intn(5)] * 1000,
+					"job_title":  []string{"manager", "senior engineer", "executive"}[rand.Intn(3)],
+				},
+			)
+			require.NoError(t, err)
+		}
+
+		_, err = engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT CASE WHEN salary THEN 0 END FROM employees",
+			nil,
+		)
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`SELECT
+				employee_id,
+				first_name,
+				last_name,
+				salary,
+				CASE
+					WHEN salary < 50000 THEN @low
+					WHEN salary >= 50000 AND salary <= 100000 THEN @medium
+					ELSE @high
+				END AS salary_category
+			FROM employees;`,
+			map[string]interface{}{
+				"low":    "Low",
+				"medium": "Medium",
+				"high":   "High",
+			},
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		for _, row := range rows {
+			salary := row.ValuesByPosition[3].RawValue().(int64)
+			category, _ := row.ValuesByPosition[4].RawValue().(string)
+
+			expectedCategory := "High"
+			if salary < 50000 {
+				expectedCategory = "Low"
+			} else if salary >= 50000 && salary <= 100000 {
+				expectedCategory = "Medium"
+			}
+			require.Equal(t, expectedCategory, category)
+		}
+
+		rows, err = engine.queryAll(
+			context.Background(),
+			nil,
+			`SELECT
+				department,
+				job_title,
+				CASE
+					WHEN department = 'sales' THEN
+						CASE
+							WHEN job_title = 'manager' THEN '20% Bonus'
+							ELSE '10% Bonus'
+						END
+					WHEN department = 'engineering' THEN
+						CASE
+							WHEN job_title = 'senior engineer' THEN '15% Bonus'
+							ELSE '5% Bonus'
+						END
+					ELSE
+						CASE
+							WHEN job_title = 'executive' THEN '12% Bonus'
+							ELSE 'No Bonus'
+						END
+				END AS bonus
+			FROM employees;`,
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, n)
+
+		for _, row := range rows {
+			department := row.ValuesByPosition[0].RawValue().(string)
+			job, _ := row.ValuesByPosition[1].RawValue().(string)
+			bonus, _ := row.ValuesByPosition[2].RawValue().(string)
+
+			var expectedBonus string
+			switch department {
+			case "sales":
+				if job == "manager" {
+					expectedBonus = "20% Bonus"
+				} else {
+					expectedBonus = "10% Bonus"
+				}
+			case "engineering":
+				if job == "senior engineer" {
+					expectedBonus = "15% Bonus"
+				} else {
+					expectedBonus = "5% Bonus"
+				}
+			default:
+				if job == "executive" {
+					expectedBonus = "12% Bonus"
+				} else {
+					expectedBonus = "No Bonus"
+				}
+			}
+			require.Equal(t, expectedBonus, bonus)
+		}
+
+		rows, err = engine.queryAll(
+			context.Background(),
+			nil,
+			`SELECT
+				CASE
+					WHEN department = 'sales' THEN 'Sales Team'
+				END AS department
+			FROM employees
+			WHERE department != 'sales'
+			LIMIT 1
+			;`,
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.Nil(t, rows[0].ValuesByPosition[0].RawValue())
+	})
+
 	t.Run("invalid queries", func(t *testing.T) {
 		r, err = engine.Query(context.Background(), nil, "INVALID QUERY", nil)
 		require.ErrorIs(t, err, ErrParsingError)

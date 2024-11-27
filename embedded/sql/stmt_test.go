@@ -840,6 +840,94 @@ func TestYetUnsupportedInSubQueryExp(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 }
 
+func TestCaseWhenExp(t *testing.T) {
+	e, err := ParseExpFromString(
+		"CASE WHEN salary > 100000 THEN @p0 ELSE @p1 END",
+	)
+	require.NoError(t, err)
+
+	e, err = e.substitute(map[string]interface{}{"p0": int64(0), "p1": int64(1)})
+	require.NoError(t, err)
+
+	err = e.requiresType(IntegerType, map[string]ColDescriptor{
+		EncodeSelector("", "", "salary"): {Type: IntegerType},
+	}, nil, "")
+	require.NoError(t, err)
+
+	require.False(t, e.isConstant())
+	require.Nil(t, e.selectorRanges(nil, "", nil, nil))
+
+	row := &Row{ValuesBySelector: map[string]TypedValue{EncodeSelector("", "", "salary"): &Integer{50000}}}
+	require.Equal(t,
+		&CaseWhenExp{
+			whenThen: []whenThenClause{
+				{
+					when: NewCmpBoolExp(GT, &Integer{50000}, &Integer{100000}), then: &Integer{0},
+				},
+			},
+			elseExp: &Integer{1},
+		}, e.reduceSelectors(row, ""))
+
+	v, err := e.reduce(nil, row, "")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), v.RawValue())
+}
+
+func TestInferTypeCaseWhenExp(t *testing.T) {
+	e, err := ParseExpFromString(
+		"CASE WHEN salary THEN 10 ELSE '0' END",
+	)
+	require.NoError(t, err)
+
+	_, err = e.inferType(
+		map[string]ColDescriptor{
+			EncodeSelector("", "", "salary"): {Type: IntegerType},
+		},
+		nil,
+		"",
+	)
+	require.ErrorIs(t, err, ErrInvalidTypes)
+
+	e, err = ParseExpFromString(
+		"CASE WHEN salary > 0 THEN 10 ELSE '0' END",
+	)
+	require.NoError(t, err)
+
+	_, err = e.inferType(
+		map[string]ColDescriptor{
+			EncodeSelector("", "", "salary"): {Type: IntegerType},
+		},
+		nil,
+		"",
+	)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
+
+	e, err = ParseExpFromString(
+		"CASE WHEN salary > 0 THEN 10 ELSE 0 END",
+	)
+	require.NoError(t, err)
+
+	it, err := e.inferType(
+		map[string]ColDescriptor{
+			EncodeSelector("", "", "salary"): {Type: IntegerType},
+		},
+		nil,
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, it)
+
+	it, err = e.inferType(
+		map[string]ColDescriptor{
+			EncodeSelector("", "", "salary"): {Type: Float64Type},
+		},
+		nil,
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, it)
+}
+
 func TestLikeBoolExpEdgeCases(t *testing.T) {
 	exp := &LikeBoolExp{}
 

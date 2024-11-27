@@ -110,6 +110,11 @@ var reservedWords = map[string]int{
 	"PRIVILEGES":     PRIVILEGES,
 	"CHECK":          CHECK,
 	"CONSTRAINT":     CONSTRAINT,
+	"CASE":           CASE,
+	"WHEN":           WHEN,
+	"THEN":           THEN,
+	"ELSE":           ELSE,
+	"END":            END,
 }
 
 var joinTypes = map[string]JoinType{

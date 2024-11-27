@@ -190,7 +190,12 @@ func (pr *projectedRowReader) Read(ctx context.Context) (*Row, error) {
 	}
 
 	for i, t := range pr.targets {
-		v, err := t.Exp.reduce(pr.Tx(), row, pr.rowReader.TableAlias())
+		e, err := t.Exp.substitute(pr.Parameters())
+		if err != nil {
+			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
+		}
+
+		v, err := e.reduce(pr.Tx(), row, pr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
