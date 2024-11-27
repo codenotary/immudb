@@ -2973,13 +2973,13 @@ func TestQuery(t *testing.T) {
 			`SELECT
 				department,
 				job_title,
-				CASE
-					WHEN department = 'sales' THEN
+				CASE department
+					WHEN 'sales' THEN
 						CASE
 							WHEN job_title = 'manager' THEN '20% Bonus'
 							ELSE '10% Bonus'
 						END
-					WHEN department = 'engineering' THEN
+					WHEN 'engineering' THEN
 						CASE
 							WHEN job_title = 'senior engineer' THEN '15% Bonus'
 							ELSE '5% Bonus'

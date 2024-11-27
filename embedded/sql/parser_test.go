@@ -1675,6 +1675,57 @@ func TestParseExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "SELECT CASE 1 + 1 WHEN 2 THEN 1 ELSE 0 END FROM my_table",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					ds: &tableRef{table: "my_table"},
+					targets: []TargetEntry{
+						{
+							Exp: &CaseWhenExp{
+								exp: &NumExp{
+									op:    ADDOP,
+									left:  &Integer{1},
+									right: &Integer{1},
+								},
+								whenThen: []whenThenClause{
+									{
+										when: &Integer{2},
+										then: &Integer{1},
+									},
+								},
+								elseExp: &Integer{0},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			input: "SELECT CASE WHEN is_deleted OR is_expired THEN 1 END AS is_deleted_or_expired FROM my_table",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					ds: &tableRef{table: "my_table"},
+					targets: []TargetEntry{
+						{
+							Exp: &CaseWhenExp{
+								whenThen: []whenThenClause{
+									{
+										when: &BinBoolExp{
+											op:    OR,
+											left:  &ColSelector{col: "is_deleted"},
+											right: &ColSelector{col: "is_expired"},
+										},
+										then: &Integer{1},
+									},
+								},
+							},
+							As: "is_deleted_or_expired",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: "SELECT CASE WHEN is_deleted OR is_expired THEN 1 END AS is_deleted_or_expired FROM my_table",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{

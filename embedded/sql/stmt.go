@@ -2945,6 +2945,7 @@ type whenThenClause struct {
 }
 
 type CaseWhenExp struct {
+	exp      ValueExp
 	whenThen []whenThenClause
 	elseExp  ValueExp
 }
@@ -2970,24 +2971,33 @@ func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[strin
 		return t, nil
 	}
 
-	inferredType := AnyType
+	searchType := BooleanType
+	inferredResType := AnyType
+	if ce.exp != nil {
+		t, err := ce.exp.inferType(cols, params, implicitTable)
+		if err != nil {
+			return "", err
+		}
+		searchType = t
+	}
+
 	for _, e := range ce.whenThen {
 		whenType, err := e.when.inferType(cols, params, implicitTable)
 		if err != nil {
 			return "", err
 		}
 
-		if whenType != BooleanType {
-			return "", fmt.Errorf("%w: argument of CASE/WHEN must be type %s, not type %s", ErrInvalidTypes, BooleanType, whenType)
+		if whenType != searchType {
+			return "", fmt.Errorf("%w: argument of CASE/WHEN must be of type %s, not type %s", ErrInvalidTypes, searchType, whenType)
 		}
 
-		t, err := checkType(e.then, inferredType)
+		t, err := checkType(e.then, inferredResType)
 		if err != nil {
 			return "", err
 		}
-		inferredType = t
+		inferredResType = t
 	}
-	return checkType(ce.elseExp, inferredType)
+	return checkType(ce.elseExp, inferredResType)
 }
 
 func (ce *CaseWhenExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -3003,6 +3013,15 @@ func (ce *CaseWhenExp) requiresType(t SQLValueType, cols map[string]ColDescripto
 }
 
 func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	var exp ValueExp
+	if ce.exp != nil {
+		e, err := ce.exp.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+		exp = e
+	}
+
 	whenThen := make([]whenThenClause, len(ce.whenThen))
 	for i, wt := range ce.whenThen {
 		whenValue, err := wt.when.substitute(params)
@@ -3020,6 +3039,7 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 
 	if ce.elseExp == nil {
 		return &CaseWhenExp{
+			exp:      exp,
 			whenThen: whenThen,
 		}, nil
 	}
@@ -3029,6 +3049,7 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 		return nil, err
 	}
 	return &CaseWhenExp{
+		exp:      exp,
 		whenThen: whenThen,
 		elseExp:  elseValue,
 	}, nil
@@ -3036,6 +3057,9 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 
 func (ce *CaseWhenExp) selectors() []Selector {
 	selectors := make([]Selector, 0)
+	if ce.exp != nil {
+		selectors = append(selectors, ce.exp.selectors()...)
+	}
 
 	for _, wh := range ce.whenThen {
 		selectors = append(selectors, wh.when.selectors()...)
@@ -3049,17 +3073,32 @@ func (ce *CaseWhenExp) selectors() []Selector {
 }
 
 func (ce *CaseWhenExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	var searchValue TypedValue
+	if ce.exp != nil {
+		v, err := ce.exp.reduce(tx, row, implicitTable)
+		if err != nil {
+			return nil, err
+		}
+		searchValue = v
+	} else {
+		searchValue = &Bool{val: true}
+	}
+
 	for _, wt := range ce.whenThen {
 		v, err := wt.when.reduce(tx, row, implicitTable)
 		if err != nil {
 			return nil, err
 		}
 
-		if v.Type() != BooleanType {
-			return nil, fmt.Errorf("%w: argument of CASE/WHEN must be type %s, not type %s", ErrInvalidTypes, BooleanType, v.Type())
+		if v.Type() != searchValue.Type() {
+			return nil, fmt.Errorf("%w: argument of CASE/WHEN must be type %s, not type %s", ErrInvalidTypes, v.Type(), searchValue.Type())
 		}
 
-		if v.RawValue() == true {
+		res, err := v.Compare(searchValue)
+		if err != nil {
+			return nil, err
+		}
+		if res == 0 {
 			return wt.then.reduce(tx, row, implicitTable)
 		}
 	}
