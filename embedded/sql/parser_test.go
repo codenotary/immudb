@@ -1049,9 +1049,9 @@ func TestSelectStmt(t *testing.T) {
 						{Exp: &ColSelector{col: "year"}},
 					},
 					ds: &tableRef{table: "table1"},
-					orderBy: []*OrdCol{
-						{sel: &ColSelector{col: "title"}},
-						{sel: &ColSelector{col: "year"}, descOrder: true},
+					orderBy: []*OrdExp{
+						{exp: &ColSelector{col: "title"}},
+						{exp: &ColSelector{col: "year"}, descOrder: true},
 					},
 				}},
 			expectedError: nil,
@@ -1089,8 +1089,8 @@ func TestSelectStmt(t *testing.T) {
 						left:  &ColSelector{col: "name"},
 						right: &Varchar{val: "John"},
 					},
-					orderBy: []*OrdCol{
-						{sel: &ColSelector{col: "name"}, descOrder: true},
+					orderBy: []*OrdExp{
+						{exp: &ColSelector{col: "name"}, descOrder: true},
 					},
 				}},
 			expectedError: nil,
@@ -1128,8 +1128,8 @@ func TestSelectStmt(t *testing.T) {
 						left:  &ColSelector{col: "name"},
 						right: &Varchar{val: "John"},
 					},
-					orderBy: []*OrdCol{
-						{sel: &ColSelector{col: "name"}, descOrder: true},
+					orderBy: []*OrdExp{
+						{exp: &ColSelector{col: "name"}, descOrder: true},
 					},
 				}},
 			expectedError: nil,
@@ -1167,8 +1167,8 @@ func TestSelectStmt(t *testing.T) {
 						left:  &ColSelector{col: "name"},
 						right: &Varchar{val: "John"},
 					},
-					orderBy: []*OrdCol{
-						{sel: &ColSelector{col: "name"}, descOrder: true},
+					orderBy: []*OrdExp{
+						{exp: &ColSelector{col: "name"}, descOrder: true},
 					},
 				}},
 			expectedError: nil,

@@ -50,7 +50,7 @@ func TestSortRowReader(t *testing.T) {
 	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
-	sr, err := newSortRowReader(r, []*OrdCol{{sel: &ColSelector{col: "number"}}})
+	sr, err := newSortRowReader(r, []*OrdExp{{exp: &ColSelector{col: "number"}}})
 	require.NoError(t, err)
 
 	orderBy := sr.OrderBy()

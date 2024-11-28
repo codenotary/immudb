@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"fmt"
 )
 
 type sortDirection int8
@@ -29,21 +30,28 @@ const (
 
 type sortRowReader struct {
 	rowReader          RowReader
-	ordCols            []*OrdCol
+	ordExps            []*OrdExp
 	orderByDescriptors []ColDescriptor
 	sorter             fileSorter
 
 	resultReader resultReader
 }
 
-func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, error) {
-	if rowReader == nil || len(ordCols) == 0 {
+func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, error) {
+	if rowReader == nil || len(ordExps) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
 	descriptors, err := rowReader.Columns(context.Background())
 	if err != nil {
 		return nil, err
+	}
+
+	for _, col := range ordExps {
+		colPos, isColRef := col.exp.(*Integer)
+		if isColRef && (colPos.val <= 0 || colPos.val > int64(len(descriptors))) {
+			return nil, fmt.Errorf("position %d is not in select list", colPos.val)
+		}
 	}
 
 	colPosBySelector, err := getColPositionsBySelector(descriptors)
@@ -56,7 +64,7 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 		return nil, err
 	}
 
-	orderByDescriptors, err := getOrderByDescriptors(ordCols, rowReader)
+	orderByDescriptors, err := getOrderByDescriptors(ordExps, rowReader)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +72,7 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 	tx := rowReader.Tx()
 	sr := &sortRowReader{
 		rowReader:          rowReader,
-		ordCols:            ordCols,
+		ordExps:            ordExps,
 		orderByDescriptors: orderByDescriptors,
 		sorter: fileSorter{
 			colPosBySelector: colPosBySelector,
@@ -75,23 +83,23 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 		},
 	}
 
-	directions := make([]sortDirection, len(ordCols))
-	for i, col := range ordCols {
+	directions := make([]sortDirection, len(ordExps))
+	for i, col := range ordExps {
 		directions[i] = sortDirectionAsc
 		if col.descOrder {
 			directions[i] = sortDirectionDesc
 		}
 	}
 
-	t1 := make(Tuple, len(ordCols))
-	t2 := make(Tuple, len(ordCols))
+	t1 := make(Tuple, len(ordExps))
+	t2 := make(Tuple, len(ordExps))
 
 	sr.sorter.cmp = func(r1, r2 *Row) (int, error) {
-		if err := sr.evalSortSelectors(r1, t1); err != nil {
+		if err := sr.evalSortExps(r1, t1); err != nil {
 			return 0, err
 		}
 
-		if err := sr.evalSortSelectors(r2, t2); err != nil {
+		if err := sr.evalSortExps(r2, t2); err != nil {
 			return 0, err
 		}
 
@@ -108,37 +116,52 @@ func newSortRowReader(rowReader RowReader, ordCols []*OrdCol) (*sortRowReader, e
 	return sr, nil
 }
 
-func (s *sortRowReader) evalSortSelectors(inRow *Row, out Tuple) error {
-	for i, col := range s.ordCols {
-		val, err := col.sel.reduce(s.Tx(), inRow, s.TableAlias())
-		if err != nil {
-			return err
+func (s *sortRowReader) evalSortExps(inRow *Row, out Tuple) error {
+	for i, col := range s.ordExps {
+		colPos, isColRef := col.exp.(*Integer)
+		if isColRef {
+			if colPos.val < 1 || colPos.val > int64(len(inRow.ValuesByPosition)) {
+				return fmt.Errorf("position %d is not in select list", colPos.val)
+			}
+			out[i] = inRow.ValuesByPosition[colPos.val-1]
+		} else {
+			val, err := col.exp.reduce(s.Tx(), inRow, s.TableAlias())
+			if err != nil {
+				return err
+			}
+			out[i] = val
 		}
-		out[i] = val
 	}
 	return nil
 }
 
-func getOrderByDescriptors(ordCols []*OrdCol, rowReader RowReader) ([]ColDescriptor, error) {
+func getOrderByDescriptors(ordExps []*OrdExp, rowReader RowReader) ([]ColDescriptor, error) {
 	colsBySel, err := rowReader.colsBySelector(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	params := make(map[string]string)
-	orderByDescriptors := make([]ColDescriptor, len(ordCols))
-	for i, col := range ordCols {
-		sqlType, err := col.sel.inferType(colsBySel, params, rowReader.TableAlias())
+	orderByDescriptors := make([]ColDescriptor, len(ordExps))
+	for i, col := range ordExps {
+		sqlType, err := col.exp.inferType(colsBySel, params, rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
 
-		aggFn, table, col := col.sel.resolve(rowReader.TableAlias())
-		orderByDescriptors[i] = ColDescriptor{
-			AggFn:  aggFn,
-			Table:  table,
-			Column: col,
-			Type:   sqlType,
+		if sel := col.AsSelector(); sel != nil {
+			aggFn, table, col := sel.resolve(rowReader.TableAlias())
+			orderByDescriptors[i] = ColDescriptor{
+				AggFn:  aggFn,
+				Table:  table,
+				Column: col,
+				Type:   sqlType,
+			}
+		} else {
+			orderByDescriptors[i] = ColDescriptor{
+				Column: col.exp.String(),
+				Type:   sqlType,
+			}
 		}
 	}
 	return orderByDescriptors, nil

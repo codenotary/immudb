@@ -266,34 +266,39 @@ func (i *Index) enginePrefix() []byte {
 	return i.table.catalog.enginePrefix
 }
 
-func (i *Index) coversOrdCols(ordCols []*OrdCol, rangesByColID map[uint32]*typedValueRange) bool {
-	if !ordColumnsHaveSameDirection(ordCols) {
+func (i *Index) coversOrdCols(ordExps []*OrdExp, rangesByColID map[uint32]*typedValueRange) bool {
+	if !ordExpsHaveSameDirection(ordExps) {
 		return false
 	}
-	return i.hasPrefix(i.cols, ordCols) || i.sortableUsing(ordCols, rangesByColID)
+	return i.hasPrefix(i.cols, ordExps) || i.sortableUsing(ordExps, rangesByColID)
 }
 
-func ordColumnsHaveSameDirection(cols []*OrdCol) bool {
-	if len(cols) == 0 {
+func ordExpsHaveSameDirection(exps []*OrdExp) bool {
+	if len(exps) == 0 {
 		return true
 	}
 
-	desc := cols[0].descOrder
-	for _, ordCol := range cols[1:] {
-		if ordCol.descOrder != desc {
+	desc := exps[0].descOrder
+	for _, e := range exps[1:] {
+		if e.descOrder != desc {
 			return false
 		}
 	}
 	return true
 }
 
-func (i *Index) hasPrefix(columns []*Column, ordCols []*OrdCol) bool {
-	if len(ordCols) > len(columns) {
+func (i *Index) hasPrefix(columns []*Column, ordExps []*OrdExp) bool {
+	if len(ordExps) > len(columns) {
 		return false
 	}
 
-	for j, ordCol := range ordCols {
-		aggFn, _, colName := ordCol.sel.resolve(i.table.Name())
+	for j, ordCol := range ordExps {
+		sel := ordCol.AsSelector()
+		if sel == nil {
+			return false
+		}
+
+		aggFn, _, colName := sel.resolve(i.table.Name())
 		if len(aggFn) > 0 {
 			return false
 		}
@@ -306,9 +311,14 @@ func (i *Index) hasPrefix(columns []*Column, ordCols []*OrdCol) bool {
 	return true
 }
 
-func (i *Index) sortableUsing(columns []*OrdCol, rangesByColID map[uint32]*typedValueRange) bool {
+func (i *Index) sortableUsing(columns []*OrdExp, rangesByColID map[uint32]*typedValueRange) bool {
 	// all columns before colID must be fixedValues otherwise the index can not be used
-	aggFn, _, colName := columns[0].sel.resolve(i.table.Name())
+	sel := columns[0].AsSelector()
+	if sel == nil {
+		return false
+	}
+
+	aggFn, _, colName := sel.resolve(i.table.Name())
 	if len(aggFn) > 0 {
 		return false
 	}
@@ -327,7 +337,6 @@ func (i *Index) sortableUsing(columns []*OrdCol, rangesByColID map[uint32]*typed
 		if ok && colRange.unitary() {
 			continue
 		}
-
 		return false
 	}
 	return false

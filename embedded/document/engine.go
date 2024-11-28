@@ -1408,9 +1408,9 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	return e.sqlEngine.CopyCatalogToTx(ctx, tx)
 }
 
-func generateSQLOrderByClauses(table *sql.Table, orderBy []*protomodel.OrderByClause) (ordCols []*sql.OrdCol) {
+func generateSQLOrderByClauses(table *sql.Table, orderBy []*protomodel.OrderByClause) (ordExps []*sql.OrdExp) {
 	for _, col := range orderBy {
-		ordCols = append(ordCols, sql.NewOrdCol(table.Name(), col.Field, col.Desc))
+		ordExps = append(ordExps, sql.NewOrdCol(table.Name(), col.Field, col.Desc))
 	}
-	return ordCols
+	return ordExps
 }

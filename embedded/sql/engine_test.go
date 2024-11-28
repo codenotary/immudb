@@ -3822,19 +3822,19 @@ func TestIndexSelection(t *testing.T) {
 			require.NotNil(t, specs.Index)
 			require.Len(t, specs.Index.cols, len(testCase.expectedIndex))
 			require.Equal(t, specs.DescOrder, testCase.desc)
-			require.Len(t, specs.groupBySortColumns, len(testCase.expectedGroupBySortCols))
-			require.Len(t, specs.orderBySortCols, len(testCase.expectedOrderBySortCols))
+			require.Len(t, specs.groupBySortExps, len(testCase.expectedGroupBySortCols))
+			require.Len(t, specs.orderBySortExps, len(testCase.expectedOrderBySortCols))
 
 			for i, col := range testCase.expectedIndex {
 				require.Equal(t, col, specs.Index.cols[i].Name())
 			}
 
 			for i, col := range testCase.expectedGroupBySortCols {
-				require.Equal(t, col, EncodeSelector(specs.groupBySortColumns[i].sel.resolve("table1")))
+				require.Equal(t, col, EncodeSelector(specs.groupBySortExps[i].AsSelector().resolve("table1")))
 			}
 
 			for i, col := range testCase.expectedOrderBySortCols {
-				require.Equal(t, col, EncodeSelector(specs.orderBySortCols[i].sel.resolve("table1")))
+				require.Equal(t, col, EncodeSelector(specs.orderBySortExps[i].AsSelector().resolve("table1")))
 			}
 		})
 	}
@@ -4435,6 +4435,7 @@ func TestOrderBy(t *testing.T) {
 			title VARCHAR[100],
 			age INTEGER,
 			height FLOAT,
+			weight FLOAT,
 			created_at TIMESTAMP,
 
 			PRIMARY KEY id
@@ -4458,14 +4459,15 @@ func TestOrderBy(t *testing.T) {
 			"id":      id,
 			"title":   fmt.Sprintf("title%d", rand.Intn(100)),
 			"age":     rand.Intn(100),
+			"weight":  50 + rand.Float64()*50,
 			"height":  rand.Float64() * 200,
 			"created": time.Unix(rand.Int63n(100000), 0).UTC(),
 		}
-		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age, height, created_at) VALUES (@id, @title, @age, @height, @created)", params)
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age, height, weight, created_at) VALUES (@id, @title, @age, @height, @weight, @created)", params)
 		require.NoError(t, err)
 	}
 
-	checkDataItegrity := func(t *testing.T, rows []*Row, table string) {
+	checkDataIntegrity := func(t *testing.T, rows []*Row, table string) {
 		require.Len(t, rows, rowCount)
 
 		ids := make(map[int64]struct{})
@@ -4476,10 +4478,12 @@ func TestOrderBy(t *testing.T) {
 			title := row.ValuesBySelector[EncodeSelector("", table, "title")].RawValue().(string)
 			age := row.ValuesBySelector[EncodeSelector("", table, "age")].RawValue().(int64)
 			height := row.ValuesBySelector[EncodeSelector("", table, "height")].RawValue().(float64)
+			weight := row.ValuesBySelector[EncodeSelector("", table, "weight")].RawValue().(float64)
 			created := row.ValuesBySelector[EncodeSelector("", table, "created_at")].RawValue().(time.Time).UTC()
 
 			require.Equal(t, fmt.Sprintf("title%d", rand.Intn(100)), title)
 			require.Equal(t, int64(rand.Intn(100)), age)
+			require.Equal(t, 50+rand.Float64()*50, weight)
 			require.Equal(t, rand.Float64()*200, height)
 			require.Equal(t, time.Unix(rand.Int63n(100000), 0).UTC(), created)
 
@@ -4496,33 +4500,47 @@ func TestOrderBy(t *testing.T) {
 	}
 
 	type test struct {
-		columns       []string
-		directions    []int
-		expectedIndex []string
+		exps           []string
+		directions     []int
+		expectedIndex  []string
+		positionalRefs []int
 	}
 
 	testCases := []test{
 		{
-			columns:    []string{"age"},
+			exps:           []string{"age"},
+			directions:     []int{1},
+			positionalRefs: []int{3},
+		},
+		{
+			exps:           []string{"created_at"},
+			directions:     []int{-1},
+			positionalRefs: []int{6},
+		},
+		{
+			exps:           []string{"title", "age"},
+			directions:     []int{-1, 1},
+			positionalRefs: []int{2, 3},
+		},
+		{
+			exps:           []string{"age", "title", "height"},
+			directions:     []int{1, -1, 1},
+			positionalRefs: []int{3, 2, 4},
+		},
+		{
+			exps:       []string{"weight/(height*height)"},
 			directions: []int{1},
 		},
 		{
-			columns:    []string{"created_at"},
-			directions: []int{-1},
-		},
-		{
-			columns:    []string{"title", "age"},
-			directions: []int{-1, 1},
-		},
-		{
-			columns:    []string{"age", "title", "height"},
-			directions: []int{1, -1, 1},
+			exps:           []string{"height", "weight"},
+			directions:     []int{1, -1},
+			positionalRefs: []int{4, 5},
 		},
 	}
 
 	runTest := func(t *testing.T, test *test, expectedTempFiles int) []*Row {
-		orderByCols := make([]string, len(test.columns))
-		for i, col := range test.columns {
+		orderByCols := make([]string, len(test.exps))
+		for i, col := range test.exps {
 			orderByCols[i] = col + " " + directionToSql(test.directions[i])
 		}
 
@@ -4534,11 +4552,6 @@ func TestOrderBy(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, rows, rowCount)
 
-		selectors := make([]string, len(test.columns))
-		for i, col := range test.columns {
-			selectors[i] = EncodeSelector("", "table1", col)
-		}
-
 		specs := reader.ScanSpecs()
 
 		if test.expectedIndex != nil {
@@ -4549,14 +4562,32 @@ func TestOrderBy(t *testing.T) {
 				require.Equal(t, col, specs.Index.cols[i].Name())
 			}
 		} else {
-			require.Len(t, specs.orderBySortCols, len(orderByCols))
-			for i, col := range specs.orderBySortCols {
-				require.Equal(t, selectors[i], EncodeSelector(col.sel.resolve("table1")))
+			require.Len(t, specs.orderBySortExps, len(orderByCols))
+			for i, col := range specs.orderBySortExps {
+				e, err := ParseExpFromString(test.exps[i])
+				require.NoError(t, err)
+				require.Equal(t, e, col.exp)
 			}
 		}
 
-		checkRowsAreSorted(t, rows, selectors, test.directions)
-		checkDataItegrity(t, rows, "table1")
+		checkRowsAreSorted(t, rows, test.exps, test.directions, "table1")
+		checkDataIntegrity(t, rows, "table1")
+
+		if test.positionalRefs != nil {
+			orderByColPositions := make([]string, len(test.exps))
+			for i, ref := range test.positionalRefs {
+				orderByColPositions[i] = strconv.Itoa(ref) + " " + directionToSql(test.directions[i])
+			}
+
+			rows1, err := engine.queryAll(
+				context.Background(),
+				nil,
+				fmt.Sprintf("SELECT * FROM table1 ORDER BY %s", strings.Join(orderByColPositions, ",")),
+				nil,
+			)
+			require.NoError(t, err)
+			require.Equal(t, rows, rows1)
+		}
 
 		tx := reader.Tx()
 		require.Len(t, tx.tempFiles, expectedTempFiles)
@@ -4565,7 +4596,7 @@ func TestOrderBy(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		t.Run(fmt.Sprintf("order by on %s should be executed using in memory sort", strings.Join(test.columns, ",")), func(t *testing.T) {
+		t.Run(fmt.Sprintf("order by on %s should be executed using in memory sort", strings.Join(test.exps, ",")), func(t *testing.T) {
 			runTest(t, &test, 0)
 		})
 	}
@@ -4573,7 +4604,7 @@ func TestOrderBy(t *testing.T) {
 	engine.sortBufferSize = 4 + rand.Intn(13) // [4, 16]
 
 	for _, test := range testCases {
-		t.Run(fmt.Sprintf("order by on %s should be executed using file sort", strings.Join(test.columns, ",")), func(t *testing.T) {
+		t.Run(fmt.Sprintf("order by on %s should be executed using file sort", strings.Join(test.exps, ",")), func(t *testing.T) {
 			runTest(t, &test, 2)
 		})
 	}
@@ -4587,7 +4618,7 @@ func TestOrderBy(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, rows, rowCount)
 
-		checkRowsAreSorted(t, rows, []string{EncodeSelector("", "t1", "age")}, []int{-1})
+		checkRowsAreSorted(t, rows, []string{EncodeSelector("", "t1", "age")}, []int{-1}, "t1")
 	})
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(age)", nil)
@@ -4601,29 +4632,29 @@ func TestOrderBy(t *testing.T) {
 
 	testCases = []test{
 		{
-			columns:       []string{"age"},
+			exps:          []string{"age"},
 			directions:    []int{1},
 			expectedIndex: []string{"age"},
 		},
 		{
-			columns:       []string{"title"},
+			exps:          []string{"title"},
 			directions:    []int{-1},
 			expectedIndex: []string{"title", "age"},
 		},
 		{
-			columns:       []string{"title", "age"},
+			exps:          []string{"title", "age"},
 			directions:    []int{1, 1},
 			expectedIndex: []string{"title", "age"},
 		},
 		{
-			columns:       []string{"age", "title"},
+			exps:          []string{"age", "title"},
 			directions:    []int{-1, -1, -1},
 			expectedIndex: []string{"age", "title", "height"},
 		},
 	}
 
 	for _, test := range testCases {
-		t.Run(fmt.Sprintf("order by on %s should be executed using index", strings.Join(test.columns, ",")), func(t *testing.T) {
+		t.Run(fmt.Sprintf("order by on %s should be executed using index", strings.Join(test.exps, ",")), func(t *testing.T) {
 			runTest(t, &test, 0)
 		})
 	}
@@ -4640,12 +4671,12 @@ func TestOrderBy(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, rows, rowCount)
 
-			require.Len(t, specs.orderBySortCols, 2)
-			require.Equal(t, EncodeSelector(specs.orderBySortCols[0].sel.resolve("table1")), EncodeSelector("", "table1", "title"))
-			require.Equal(t, EncodeSelector(specs.orderBySortCols[1].sel.resolve("table1")), EncodeSelector("", "table1", "age"))
+			require.Len(t, specs.orderBySortExps, 2)
+			require.Equal(t, EncodeSelector(specs.orderBySortExps[0].AsSelector().resolve("table1")), EncodeSelector("", "table1", "title"))
+			require.Equal(t, EncodeSelector(specs.orderBySortExps[1].AsSelector().resolve("table1")), EncodeSelector("", "table1", "age"))
 
-			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age")}, []int{1, -1})
-			checkDataItegrity(t, rows, "table1")
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age")}, []int{1, -1}, "table1")
+			checkDataIntegrity(t, rows, "table1")
 		})
 
 		t.Run("sorting not required", func(t *testing.T) {
@@ -4658,7 +4689,7 @@ func TestOrderBy(t *testing.T) {
 			rows, err := ReadAllRows(context.Background(), reader)
 			require.NoError(t, err)
 			require.Len(t, rows, rowCount)
-			require.Len(t, specs.orderBySortCols, 0)
+			require.Len(t, specs.orderBySortExps, 0)
 
 			require.NotNil(t, specs.Index)
 			require.Len(t, specs.Index.cols, 2)
@@ -4666,8 +4697,8 @@ func TestOrderBy(t *testing.T) {
 			require.Equal(t, "title", specs.Index.cols[0].Name())
 			require.Equal(t, "age", specs.Index.cols[1].Name())
 
-			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age")}, []int{-1, -1})
-			checkDataItegrity(t, rows, "table1")
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age")}, []int{-1, -1}, "table1")
+			checkDataIntegrity(t, rows, "table1")
 		})
 	})
 
@@ -4685,7 +4716,7 @@ func TestOrderBy(t *testing.T) {
 	}
 
 	t.Run("order by with null values", func(t *testing.T) {
-		reader, err := engine.Query(context.Background(), nil, "SELECT id, title, age, height, created_at FROM table1 ORDER BY title, id", nil)
+		reader, err := engine.Query(context.Background(), nil, "SELECT id, title, age, height, weight, created_at FROM table1 ORDER BY title, id", nil)
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -4705,8 +4736,8 @@ func TestOrderBy(t *testing.T) {
 		tx := reader.Tx()
 		require.Len(t, tx.tempFiles, 2)
 
-		checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "id")}, []int{1, 1})
-		checkDataItegrity(t, rows[nullValues:], "table1")
+		checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "id")}, []int{1, 1}, "table1")
+		checkDataIntegrity(t, rows[nullValues:], "table1")
 	})
 }
 
@@ -4717,14 +4748,27 @@ func directionToSql(direction int) string {
 	return "DESC"
 }
 
-func checkRowsAreSorted(t *testing.T, rows []*Row, selectors []string, directions []int) {
-	k1 := make(Tuple, len(selectors))
-	k2 := make(Tuple, len(selectors))
+func checkRowsAreSorted(t *testing.T, rows []*Row, expStrings []string, directions []int, table string) {
+	exps := make([]ValueExp, len(expStrings))
+	for i, s := range expStrings {
+		e, err := ParseExpFromString(s)
+		require.NoError(t, err)
+		exps[i] = e
+	}
+
+	k1 := make(Tuple, len(exps))
+	k2 := make(Tuple, len(exps))
 
 	isSorted := sort.SliceIsSorted(rows, func(i, j int) bool {
-		for idx, sel := range selectors {
-			k1[idx] = rows[i].ValuesBySelector[sel]
-			k2[idx] = rows[j].ValuesBySelector[sel]
+		for idx, e := range exps {
+			v1, err := e.reduce(nil, rows[i], table)
+			require.NoError(t, err)
+
+			v2, err := e.reduce(nil, rows[j], table)
+			require.NoError(t, err)
+
+			k1[idx] = v1
+			k2[idx] = v2
 		}
 
 		res, idx, err := Tuple(k1).Compare(k2)
@@ -5410,7 +5454,7 @@ func TestGroupBy(t *testing.T) {
 			for _, row := range rows {
 				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
 			}
-			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age"), EncodeSelector("", "table1", "id")}, []int{-1, 1, 1})
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "title"), EncodeSelector("", "table1", "age"), EncodeSelector("", "table1", "id")}, []int{-1, 1, 1}, "table1")
 		})
 
 		t.Run("index covers group by but not order by", func(t *testing.T) {
@@ -5432,7 +5476,7 @@ func TestGroupBy(t *testing.T) {
 			for _, row := range rows {
 				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
 			}
-			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "age")}, []int{-1})
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "age")}, []int{-1}, "table1")
 		})
 
 		t.Run("preferred index doesn't cover group by and order by", func(t *testing.T) {
@@ -5442,8 +5486,8 @@ func TestGroupBy(t *testing.T) {
 
 			specs := reader.ScanSpecs()
 			require.NotNil(t, specs.Index)
-			require.Len(t, specs.groupBySortColumns, 2)
-			require.Len(t, specs.orderBySortCols, 1)
+			require.Len(t, specs.groupBySortExps, 2)
+			require.Len(t, specs.orderBySortExps, 1)
 			require.Len(t, specs.Index.cols, 1)
 			require.Equal(t, specs.Index.cols[0].Name(), "age")
 
@@ -5454,7 +5498,7 @@ func TestGroupBy(t *testing.T) {
 			for _, row := range rows {
 				require.Equal(t, row.ValuesByPosition[0].RawValue().(int64), int64(1))
 			}
-			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "age")}, []int{-1})
+			checkRowsAreSorted(t, rows, []string{EncodeSelector("", "table1", "age")}, []int{-1}, "table1")
 		})
 
 		t.Run("index covers group by and order by because of unitary filter", func(t *testing.T) {
@@ -5464,8 +5508,8 @@ func TestGroupBy(t *testing.T) {
 
 			specs := reader.ScanSpecs()
 			require.NotNil(t, specs.Index)
-			require.Len(t, specs.groupBySortColumns, 0)
-			require.Len(t, specs.orderBySortCols, 0)
+			require.Len(t, specs.groupBySortExps, 0)
+			require.Len(t, specs.orderBySortExps, 0)
 
 			require.Len(t, specs.Index.cols, 2)
 			require.Equal(t, specs.Index.cols[0].Name(), "title")
