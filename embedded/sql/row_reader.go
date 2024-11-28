@@ -42,13 +42,13 @@ type RowReader interface {
 }
 
 type ScanSpecs struct {
-	Index              *Index
-	rangesByColID      map[uint32]*typedValueRange
-	IncludeHistory     bool
-	IncludeTxMetadata  bool
-	DescOrder          bool
-	groupBySortColumns []*OrdCol
-	orderBySortCols    []*OrdCol
+	Index             *Index
+	rangesByColID     map[uint32]*typedValueRange
+	IncludeHistory    bool
+	IncludeTxMetadata bool
+	DescOrder         bool
+	groupBySortExps   []*OrdExp
+	orderBySortExps   []*OrdExp
 }
 
 func (s *ScanSpecs) extraCols() int {

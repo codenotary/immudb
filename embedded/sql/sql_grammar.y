@@ -61,7 +61,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     exp ValueExp
     binExp ValueExp
     err error
-    ordcols []*OrdCol
+    ordexps []*OrdExp
     opt_ord bool
     logicOp LogicOperator
     cmpOp CmpOperator
@@ -143,7 +143,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <targets> opt_targets targets
 %type <integer> opt_max_len
 %type <id> opt_as
-%type <ordcols> ordcols opt_orderby
+%type <ordexps> ordexps opt_orderby
 %type <opt_ord> opt_ord
 %type <ids> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not
@@ -986,7 +986,7 @@ opt_orderby:
         $$ = nil
     }
 |
-    ORDER BY ordcols
+    ORDER BY ordexps
     {
         $$ = $3
     }
@@ -1001,15 +1001,15 @@ opt_indexon:
         $$ = $4
     }
 
-ordcols:
-    selector opt_ord
+ordexps:
+    exp opt_ord
     {
-        $$ = []*OrdCol{{sel: $1, descOrder: $2}}
+        $$ = []*OrdExp{{exp: $1, descOrder: $2}}
     }
 |
-    ordcols ',' selector opt_ord
+    ordexps ',' exp opt_ord
     {
-        $$ = append($1, &OrdCol{sel: $3, descOrder: $4})
+        $$ = append($1, &OrdExp{exp: $3, descOrder: $4})
     }
 
 opt_ord:
@@ -1086,7 +1086,13 @@ exp:
 |
     '-' exp
     {
-        $$ = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: $2}
+        i, isInt := $2.(*Integer)
+        if isInt {
+            i.val = -i.val
+            $$ = i
+        } else {
+            $$ = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: $2}
+        }
     }
 |
     boundexp opt_not LIKE exp
