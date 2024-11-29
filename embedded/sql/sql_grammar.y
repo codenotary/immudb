@@ -86,7 +86,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
-%token <logicOp> LOP
+%token <logicOp> AND OR
 %token <cmpOp> CMPOP
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
@@ -102,10 +102,14 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %left  ','
 %right AS
-%left  LOP
+
+%left OR
+%left AND
+
 %right LIKE
 %right NOT
-%left  CMPOP
+
+%left CMPOP
 %left '+' '-'
 %left '*' '/' '%'
 %left  '.'
@@ -1216,9 +1220,14 @@ binExp:
 		$$ = &NumExp{left: $1, op: MODOP, right: $3}
 	}
 |
-    exp LOP exp
+    exp AND exp
     {
-        $$ = &BinBoolExp{left: $1, op: $2, right: $3}
+        $$ = &BinBoolExp{left: $1, op: And, right: $3}
+    }
+|
+    exp OR exp
+    {
+        $$ = &BinBoolExp{left: $1, op: Or, right: $3}
     }
 |
     exp CMPOP exp

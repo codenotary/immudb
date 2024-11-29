@@ -659,7 +659,7 @@ func TestInsertIntoStmt(t *testing.T) {
 						},
 						targets: nil,
 						where: &BinBoolExp{
-							op:    AND,
+							op:    And,
 							left:  &CmpBoolExp{op: GE, left: &ColSelector{col: "balance"}, right: &Integer{val: 0}},
 							right: &CmpBoolExp{op: EQ, left: &ColSelector{col: "deleted_at"}, right: &NullValue{t: AnyType}},
 						},
@@ -1009,9 +1009,9 @@ func TestSelectStmt(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: AND,
+						op: And,
 						left: &BinBoolExp{
-							op: AND,
+							op: And,
 							left: &CmpBoolExp{
 								op: EQ,
 								left: &ColSelector{
@@ -1208,7 +1208,7 @@ func TestSelectStmt(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: AND,
+						op: And,
 						left: &CmpBoolExp{
 							op: GE,
 							left: &ColSelector{
@@ -1421,7 +1421,7 @@ func TestParseExp(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: AND,
+						op: And,
 						left: &NotBoolExp{
 							exp: &CmpBoolExp{
 								op: GT,
@@ -1453,7 +1453,7 @@ func TestParseExp(t *testing.T) {
 					ds: &tableRef{table: "table1"},
 					where: &NotBoolExp{
 						exp: &BinBoolExp{
-							op: AND,
+							op: And,
 							left: &CmpBoolExp{
 								op: GT,
 								left: &ColSelector{
@@ -1483,7 +1483,7 @@ func TestParseExp(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: OR,
+						op: Or,
 						left: &NotBoolExp{
 							exp: &ColSelector{col: "active"},
 						},
@@ -1502,7 +1502,7 @@ func TestParseExp(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: AND,
+						op: And,
 						left: &CmpBoolExp{
 							op: GT,
 							left: &ColSelector{
@@ -1572,9 +1572,9 @@ func TestParseExp(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: OR,
+						op: Or,
 						left: &BinBoolExp{
-							op: AND,
+							op: And,
 							left: &CmpBoolExp{
 								op: GT,
 								left: &ColSelector{
@@ -1711,7 +1711,7 @@ func TestParseExp(t *testing.T) {
 								whenThen: []whenThenClause{
 									{
 										when: &BinBoolExp{
-											op:    OR,
+											op:    Or,
 											left:  &ColSelector{col: "is_deleted"},
 											right: &ColSelector{col: "is_expired"},
 										},
@@ -1736,7 +1736,7 @@ func TestParseExp(t *testing.T) {
 								whenThen: []whenThenClause{
 									{
 										when: &BinBoolExp{
-											op:    OR,
+											op:    Or,
 											left:  &ColSelector{col: "is_deleted"},
 											right: &ColSelector{col: "is_expired"},
 										},
@@ -1798,7 +1798,7 @@ func TestParseExp(t *testing.T) {
 									},
 									{
 										when: &BinBoolExp{
-											op:    AND,
+											op:    And,
 											left:  &CmpBoolExp{op: GE, left: &ColSelector{col: "stock"}, right: &Integer{10}},
 											right: &CmpBoolExp{op: LE, left: &ColSelector{col: "stock"}, right: &Integer{50}},
 										},
@@ -1898,7 +1898,7 @@ func TestMultiLineStmts(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &BinBoolExp{
-						op: AND,
+						op: And,
 						left: &CmpBoolExp{
 							op: GE,
 							left: &ColSelector{
@@ -2033,7 +2033,7 @@ func TestGrantRevokeStmt(t *testing.T) {
 	}
 }
 
-func TestExprString(t *testing.T) {
+func TestExpString(t *testing.T) {
 	exps := []string{
 		"(1 + 1) / (2 * 5 - 10) % 2",
 		"@param LIKE 'pattern'",
@@ -2043,6 +2043,8 @@ func TestExprString(t *testing.T) {
 		"CASE WHEN in_stock THEN 'In Stock' END",
 		"CASE WHEN 1 > 0 THEN 1 ELSE 0 END",
 		"CASE WHEN is_active THEN 'active' WHEN is_expired THEN 'expired' ELSE 'active' END",
+		"'text' LIKE 'pattern'",
+		"'text' NOT LIKE 'pattern'",
 	}
 
 	for i, e := range exps {
@@ -2053,6 +2055,49 @@ func TestExprString(t *testing.T) {
 			parsedExp, err := ParseExpFromString(exp.String())
 			require.NoError(t, err)
 			require.Equal(t, exp, parsedExp)
+		})
+	}
+}
+
+func TestLogicOperatorPrecedence(t *testing.T) {
+	type testCase struct {
+		input    string
+		expected string
+	}
+
+	testCases := []testCase{
+		// simple precedence
+		{input: "NOT true", expected: "(NOT true)"},
+		{input: "true AND false OR true", expected: "((true AND false) OR true)"},
+		{input: "NOT true AND false", expected: "((NOT true) AND false)"},
+		{input: "NOT true OR false", expected: "((NOT true) OR false)"},
+
+		// parentheses override precedence
+		{input: "(true OR false) AND true", expected: "((true OR false) AND true)"},
+
+		// multiple NOTs
+		{input: "NOT NOT true AND false", expected: "((NOT (NOT true)) AND false)"},
+
+		// complex nesting
+		{input: "true AND (false OR (NOT false))", expected: "(true AND (false OR (NOT false)))"},
+		{input: "NOT (true AND false) OR true", expected: "((NOT (true AND false)) OR true)"},
+
+		// AND/OR with nested groups
+		{input: "(true AND false) AND (true OR false)", expected: "((true AND false) AND (true OR false))"},
+		{input: "(true OR false) OR (NOT (true AND false))", expected: "((true OR false) OR (NOT (true AND false)))"},
+
+		// deep nesting
+		{input: "(true AND (false OR (NOT true))) OR (NOT false)", expected: "((true AND (false OR (NOT true))) OR (NOT false))"},
+
+		// chain of operators
+		{input: "true AND false OR true AND NOT false OR true", expected: "(((true AND false) OR (true AND (NOT false))) OR true)"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			e, err := ParseExpFromString(tc.input)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, e.String())
 		})
 	}
 }
