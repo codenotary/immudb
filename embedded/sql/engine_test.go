@@ -3073,6 +3073,86 @@ func TestQuery(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 	})
+
+	t.Run("query from values", func(t *testing.T) {
+		_, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`
+			SELECT * FROM (
+				VALUES
+					(1, 'foo'),
+					(2, true)
+			)
+			`,
+			nil,
+		)
+		require.ErrorContains(t, err, "cannot match types VARCHAR and BOOLEAN")
+
+		_, err = engine.queryAll(
+			context.Background(),
+			nil,
+			`
+			SELECT * FROM (
+				VALUES
+					(@a),
+					(@b)
+			)
+			`,
+			map[string]interface{}{"a": 1, "b": "test"},
+		)
+		require.ErrorContains(t, err, "cannot match types INTEGER and VARCHAR")
+
+		rows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			`
+			SELECT * FROM (
+				VALUES
+					(1, 'foo', true, 1.22, '2024-11-29'::TIMESTAMP),
+					(2, 'bar', false, 1.25, '1996-09-11'::TIMESTAMP),
+					(3, 'baz', true, 2.50, '2000-01-01'::TIMESTAMP),
+					(4, 'qux', false, 3.75, '2010-05-15'::TIMESTAMP),
+					(5, 'quux', true, 0.99, '2022-12-31'::TIMESTAMP)
+			)
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, rows, 5)
+
+		expectedRows := []*Row{
+			{
+				ValuesByPosition: []TypedValue{
+					&Integer{1}, &Varchar{"foo"}, &Bool{true}, &Float64{1.22}, &Timestamp{time.Date(2024, 11, 29, 0, 0, 0, 0, time.UTC)},
+				},
+			},
+			{
+				ValuesByPosition: []TypedValue{
+					&Integer{2}, &Varchar{"bar"}, &Bool{false}, &Float64{1.25}, &Timestamp{time.Date(1996, 9, 11, 0, 0, 0, 0, time.UTC)},
+				},
+			},
+			{
+				ValuesByPosition: []TypedValue{
+					&Integer{3}, &Varchar{"baz"}, &Bool{true}, &Float64{2.50}, &Timestamp{time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
+				},
+			},
+			{
+				ValuesByPosition: []TypedValue{
+					&Integer{4}, &Varchar{"qux"}, &Bool{false}, &Float64{3.75}, &Timestamp{time.Date(2010, 5, 15, 0, 0, 0, 0, time.UTC)},
+				},
+			},
+			{
+				ValuesByPosition: []TypedValue{
+					&Integer{5}, &Varchar{"quux"}, &Bool{true}, &Float64{0.99}, &Timestamp{time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+				},
+			},
+		}
+
+		for i, row := range rows {
+			require.Equal(t, expectedRows[i].ValuesByPosition, row.ValuesByPosition)
+		}
+	})
 }
 
 func TestJSON(t *testing.T) {

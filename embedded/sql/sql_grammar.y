@@ -805,6 +805,11 @@ ds:
         $$ = $1
     }
 |
+    '(' VALUES rows ')'
+    {
+        $$ = &valuesDataSource{inferTypes: true, rows: $3}
+    }
+|
     '(' dqlstmt ')' opt_as
     {
         $2.(*SelectStmt).as = $4
