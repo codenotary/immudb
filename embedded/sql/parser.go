@@ -83,6 +83,8 @@ var reservedWords = map[string]int{
 	"AS":             AS,
 	"ASC":            ASC,
 	"DESC":           DESC,
+	"AND":            AND,
+	"OR":             OR,
 	"NOT":            NOT,
 	"LIKE":           LIKE,
 	"EXISTS":         EXISTS,
@@ -155,11 +157,6 @@ var cmpOps = map[string]CmpOperator{
 	"<=": LE,
 	">":  GT,
 	">=": GE,
-}
-
-var logicOps = map[string]LogicOperator{
-	"AND": AND,
-	"OR":  OR,
 }
 
 var ErrEitherNamedOrUnnamedParams = errors.New("either named or unnamed params")
@@ -346,12 +343,6 @@ func (l *lexer) Lex(lval *yySymType) int {
 		if ok {
 			lval.boolean = val
 			return BOOLEAN
-		}
-
-		lop, ok := logicOps[tid]
-		if ok {
-			lval.logicOp = lop
-			return LOP
 		}
 
 		afn, ok := aggregateFns[tid]

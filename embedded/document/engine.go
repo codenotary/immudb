@@ -1175,14 +1175,14 @@ func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, t
 			if i == 0 {
 				innerExp = fieldExp
 			} else {
-				innerExp = sql.NewBinBoolExp(sql.AND, innerExp, fieldExp)
+				innerExp = sql.NewBinBoolExp(sql.And, innerExp, fieldExp)
 			}
 		}
 
 		if i == 0 {
 			outerExp = innerExp
 		} else {
-			outerExp = sql.NewBinBoolExp(sql.OR, outerExp, innerExp)
+			outerExp = sql.NewBinBoolExp(sql.Or, outerExp, innerExp)
 		}
 	}
 

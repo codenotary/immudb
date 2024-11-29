@@ -717,7 +717,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 		expectedError error
 	}{
 		{
-			exp:           &BinBoolExp{op: AND, left: &Bool{val: true}, right: &Bool{val: false}},
+			exp:           &BinBoolExp{op: And, left: &Bool{val: true}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -725,7 +725,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Bool{val: true}, right: &Bool{val: false}},
+			exp:           &BinBoolExp{op: And, left: &Bool{val: true}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -733,7 +733,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Integer{val: 1}, right: &Bool{val: false}},
+			exp:           &BinBoolExp{op: And, left: &Integer{val: 1}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -741,7 +741,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Bool{val: false}, right: &Integer{val: 1}},
+			exp:           &BinBoolExp{op: And, left: &Bool{val: false}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitTable: "mytable",
@@ -1089,7 +1089,7 @@ func TestIsConstant(t *testing.T) {
 	require.False(t, (&AggColSelector{}).isConstant())
 
 	require.True(t, (&NumExp{
-		op:    AND,
+		op:    And,
 		left:  &Integer{val: 1},
 		right: &Integer{val: 2},
 	}).isConstant())
