@@ -157,12 +157,12 @@ func CmpOperatorToString(op CmpOperator) string {
 type LogicOperator = int
 
 const (
-	AND LogicOperator = iota
-	OR
+	And LogicOperator = iota
+	Or
 )
 
 func LogicOperatorToString(op LogicOperator) string {
-	if op == AND {
+	if op == And {
 		return "AND"
 	}
 	return "OR"
@@ -4411,7 +4411,7 @@ func (bexp *NotBoolExp) selectorRanges(table *Table, asTable string, params map[
 }
 
 func (bexp *NotBoolExp) String() string {
-	return "NOT " + bexp.exp.String()
+	return fmt.Sprintf("(NOT %s)", bexp.exp.String())
 }
 
 type LikeBoolExp struct {
@@ -4533,7 +4533,11 @@ func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map
 }
 
 func (bexp *LikeBoolExp) String() string {
-	return fmt.Sprintf("(%s LIKE %s)", bexp.val.String(), bexp.pattern.String())
+	fmtStr := "(%s LIKE %s)"
+	if bexp.notLike {
+		fmtStr = "(%s NOT LIKE %s)"
+	}
+	return fmt.Sprintf(fmtStr, bexp.val.String(), bexp.pattern.String())
 }
 
 type CmpBoolExp struct {
@@ -4887,7 +4891,7 @@ func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 	}
 
 	// short-circuit evaluation
-	if (bl.val && bexp.op == OR) || (!bl.val && bexp.op == AND) {
+	if (bl.val && bexp.op == Or) || (!bl.val && bexp.op == And) {
 		return &Bool{val: bl.val}, nil
 	}
 
@@ -4902,11 +4906,11 @@ func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 	}
 
 	switch bexp.op {
-	case AND:
+	case And:
 		{
 			return &Bool{val: bl.val && br.val}, nil
 		}
-	case OR:
+	case Or:
 		{
 			return &Bool{val: bl.val || br.val}, nil
 		}
@@ -4932,7 +4936,7 @@ func (bexp *BinBoolExp) isConstant() bool {
 }
 
 func (bexp *BinBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
-	if bexp.op == AND {
+	if bexp.op == And {
 		err := bexp.left.selectorRanges(table, asTable, params, rangesByColID)
 		if err != nil {
 			return err
