@@ -3883,7 +3883,8 @@ func (stmt *tableRef) Alias() string {
 }
 
 type valuesDataSource struct {
-	rows []*RowSpec
+	inferTypes bool
+	rows       []*RowSpec
 }
 
 func NewValuesDataSource(rows []*RowSpec) *valuesDataSource {
@@ -3925,11 +3926,37 @@ func (ds *valuesDataSource) Resolve(ctx context.Context, tx *SQLTx, params map[s
 		}
 	}
 
+	emptyColsDesc, emptyParams := map[string]ColDescriptor{}, map[string]string{}
+
+	if ds.inferTypes {
+		for i := 0; i < len(cols); i++ {
+			t := AnyType
+			for j := 0; j < len(ds.rows); j++ {
+				e, err := ds.rows[j].Values[i].substitute(params)
+				if err != nil {
+					return nil, err
+				}
+
+				it, err := e.inferType(emptyColsDesc, emptyParams, "")
+				if err != nil {
+					return nil, err
+				}
+
+				if t == AnyType {
+					t = it
+				} else if t != it && it != AnyType {
+					return nil, fmt.Errorf("cannot match types %s and %s", t, it)
+				}
+			}
+			cols[i].Type = t
+		}
+	}
+
 	values := make([][]ValueExp, len(ds.rows))
 	for i, rowSpec := range ds.rows {
 		values[i] = rowSpec.Values
 	}
-	return newValuesRowReader(tx, params, cols, false, "values", values)
+	return newValuesRowReader(tx, params, cols, ds.inferTypes, "values", values)
 }
 
 type JoinSpec struct {
