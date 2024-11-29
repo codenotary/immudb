@@ -51,8 +51,11 @@ func TestJointRowReader(t *testing.T) {
 	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
-	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}})
+	_, err = newJointRowReader(r, []*JoinSpec{{joinType: RightJoin}})
 	require.ErrorIs(t, err, ErrUnsupportedJoinType)
+
+	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}})
+	require.NoError(t, err)
 
 	_, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
 	require.NoError(t, err)
