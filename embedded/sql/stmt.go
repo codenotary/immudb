@@ -3409,7 +3409,6 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			rowReader = newLimitRowReader(rowReader, limit)
 		}
 	}
-
 	return rowReader, nil
 }
 
