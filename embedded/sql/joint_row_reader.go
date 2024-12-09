@@ -39,7 +39,9 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader,
 	}
 
 	for _, jspec := range joins {
-		if jspec.joinType != InnerJoin {
+		switch jspec.joinType {
+		case InnerJoin, LeftJoin:
+		default:
 			return nil, ErrUnsupportedJoinType
 		}
 	}
@@ -113,7 +115,6 @@ func (jointr *jointRowReader) colsBySelector(ctx context.Context) (map[string]Co
 			colDescriptors[sel] = des
 		}
 	}
-
 	return colDescriptors, nil
 }
 
@@ -240,17 +241,35 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 
 			r, err := reader.Read(ctx)
 			if err == ErrNoMoreRows {
-				// previous reader will need to read next row
-				unsolvedFK = true
+				if jspec.joinType == InnerJoin {
+					// previous reader will need to read next row
+					unsolvedFK = true
 
-				err = reader.Close()
-				if err != nil {
-					return nil, err
+					err = reader.Close()
+					if err != nil {
+						return nil, err
+					}
+
+					break
+				} else { // LEFT JOIN: fill column values with NULLs
+					cols, err := reader.Columns(ctx)
+					if err != nil {
+						return nil, err
+					}
+
+					r = &Row{
+						ValuesByPosition: make([]TypedValue, len(cols)),
+						ValuesBySelector: make(map[string]TypedValue, len(cols)),
+					}
+
+					for i, col := range cols {
+						nullValue := NewNull(col.Type)
+
+						r.ValuesByPosition[i] = nullValue
+						r.ValuesBySelector[col.Selector()] = nullValue
+					}
 				}
-
-				break
-			}
-			if err != nil {
+			} else if err != nil {
 				reader.Close()
 				return nil, err
 			}
