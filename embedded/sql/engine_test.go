@@ -4616,6 +4616,10 @@ func TestOrderBy(t *testing.T) {
 			directions:     []int{1, -1},
 			positionalRefs: []int{4, 5},
 		},
+		{
+			exps:       []string{"weight/(height*height)"},
+			directions: []int{1},
+		},
 	}
 
 	runTest := func(t *testing.T, test *test, expectedTempFiles int) []*Row {
@@ -9552,6 +9556,40 @@ func TestFunctions(t *testing.T) {
 	})
 }
 
+func TestTableResolver(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	r := &mockTableResolver{
+		name: "my_table",
+		cols: []ColDescriptor{
+			{Column: "varchar_col", Type: VarcharType},
+			{Column: "int_col", Type: IntegerType},
+			{Column: "bool_col", Type: BooleanType},
+		},
+		values: [][]ValueExp{{NewVarchar("test"), NewInteger(1), NewBool(true)}},
+	}
+
+	engine, err := NewEngine(
+		st,
+		DefaultOptions().
+			WithPrefix(sqlPrefix).
+			WithTableResolvers(r),
+	)
+	require.NoError(t, err)
+
+	assertQueryShouldProduceResults(
+		t,
+		engine,
+		"SELECT int_col, varchar_col, bool_col FROM my_table",
+		`SELECT * FROM (
+			VALUES
+				(1, 'test', true)
+		)`,
+	)
+}
+
 func assertQueryShouldProduceResults(t *testing.T, e *Engine, query, resultQuery string) {
 	queryReader, err := e.Query(context.Background(), nil, query, nil)
 	require.NoError(t, err)
@@ -9571,4 +9609,25 @@ func assertQueryShouldProduceResults(t *testing.T, e *Engine, query, resultQuery
 		}
 		require.Equal(t, expectedRow.ValuesByPosition, actualRow.ValuesByPosition)
 	}
+}
+
+type mockTableResolver struct {
+	name   string
+	cols   []ColDescriptor
+	values [][]ValueExp
+}
+
+func (r *mockTableResolver) Table() string {
+	return r.name
+}
+
+func (r *mockTableResolver) Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error) {
+	return NewValuesRowReader(
+		tx,
+		nil,
+		r.cols,
+		false,
+		r.name,
+		r.values,
+	)
 }

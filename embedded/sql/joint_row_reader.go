@@ -85,8 +85,12 @@ func (jointr *jointRowReader) colsBySelector(ctx context.Context) (map[string]Co
 		return nil, err
 	}
 
-	for _, jspec := range jointr.joins {
+	jointDescriptors := make(map[string]ColDescriptor, len(colDescriptors))
+	for sel, desc := range colDescriptors {
+		jointDescriptors[sel] = desc
+	}
 
+	for _, jspec := range jointr.joins {
 		// TODO (byo) optimize this by getting selector list only or opening all joint readers
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
@@ -103,7 +107,7 @@ func (jointr *jointRowReader) colsBySelector(ctx context.Context) (map[string]Co
 		}
 
 		for sel, des := range cd {
-			if _, exists := colDescriptors[sel]; exists {
+			if _, exists := jointDescriptors[sel]; exists {
 				return nil, fmt.Errorf(
 					"error resolving '%s' in a join: %w, "+
 						"use aliasing to assign unique names "+
@@ -112,10 +116,10 @@ func (jointr *jointRowReader) colsBySelector(ctx context.Context) (map[string]Co
 					ErrAmbiguousSelector,
 				)
 			}
-			colDescriptors[sel] = des
+			jointDescriptors[sel] = des
 		}
 	}
-	return colDescriptors, nil
+	return jointDescriptors, nil
 }
 
 func (jointr *jointRowReader) colsByPos(ctx context.Context) ([]ColDescriptor, error) {
@@ -169,7 +173,6 @@ func (jointr *jointRowReader) InferParameters(ctx context.Context, params map[st
 			return err
 		}
 	}
-
 	return err
 }
 

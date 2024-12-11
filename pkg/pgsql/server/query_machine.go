@@ -272,7 +272,11 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return err
 	}
 
-	stmts, err := sql.ParseSQL(strings.NewReader(statements))
+	stmts, err := sql.ParseSQL(
+		strings.NewReader(
+			removePGCatalogReferences(statements),
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -300,6 +304,10 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	}
 
 	return nil
+}
+
+func removePGCatalogReferences(sql string) string {
+	return strings.ReplaceAll(sql, "pg_catalog.", "")
 }
 
 func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {

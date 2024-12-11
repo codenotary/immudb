@@ -278,7 +278,6 @@ func (s *ImmuServer) Initialize() error {
 			return err
 		}
 	}
-
 	return err
 }
 

@@ -2677,9 +2677,9 @@ type FnCall struct {
 func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
 	fn, err := v.resolveFunc()
 	if err != nil {
-		return AnyType, err
+		return AnyType, nil
 	}
-	return fn.inferType(cols, params, implicitTable)
+	return fn.InferType(cols, params, implicitTable)
 }
 
 func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -2687,7 +2687,7 @@ func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, par
 	if err != nil {
 		return err
 	}
-	return fn.requiresType(t, cols, params, implicitTable)
+	return fn.RequiresType(t, cols, params, implicitTable)
 }
 
 func (v *FnCall) selectors() []Selector {
@@ -2744,7 +2744,7 @@ func (v *FnCall) reduceParams(tx *SQLTx, row *Row, implicitTable string) ([]Type
 func (v *FnCall) resolveFunc() (Function, error) {
 	fn, exists := builtinFunctions[strings.ToUpper(v.fn)]
 	if !exists {
-		return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
+		return nil, fmt.Errorf("%w: unknown function %s", ErrIllegalArguments, v.fn)
 	}
 	return fn, nil
 }
@@ -2997,7 +2997,11 @@ func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[strin
 		}
 		inferredResType = t
 	}
-	return checkType(ce.elseExp, inferredResType)
+
+	if ce.elseExp != nil {
+		return checkType(ce.elseExp, inferredResType)
+	}
+	return inferredResType, nil
 }
 
 func (ce *CaseWhenExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -3544,6 +3548,12 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 
 	table, err := tableRef.referencedTable(tx)
 	if err != nil {
+		if tx.engine.tableResolveFor(tableRef.table) != nil {
+			return &ScanSpecs{
+				groupBySortExps: groupByCols,
+				orderBySortExps: orderByCols,
+			}, nil
+		}
 		return nil, err
 	}
 
@@ -3849,7 +3859,6 @@ func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return table, nil
 }
 
@@ -3867,11 +3876,14 @@ func (stmt *tableRef) Resolve(ctx context.Context, tx *SQLTx, params map[string]
 	}
 
 	table, err := stmt.referencedTable(tx)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return newRawRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 	}
 
-	return newRawRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
+	if resolver := tx.engine.tableResolveFor(stmt.table); resolver != nil {
+		return resolver.Resolve(ctx, tx, stmt.Alias())
+	}
+	return nil, err
 }
 
 func (stmt *tableRef) Alias() string {
@@ -3955,7 +3967,7 @@ func (ds *valuesDataSource) Resolve(ctx context.Context, tx *SQLTx, params map[s
 	for i, rowSpec := range ds.rows {
 		values[i] = rowSpec.Values
 	}
-	return newValuesRowReader(tx, params, cols, ds.inferTypes, "values", values)
+	return NewValuesRowReader(tx, params, cols, ds.inferTypes, "values", values)
 }
 
 type JoinSpec struct {
@@ -4018,7 +4030,6 @@ func (sel *ColSelector) inferType(cols map[string]ColDescriptor, params map[stri
 	if !ok {
 		return AnyType, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
-
 	return desc.Type, nil
 }
 
@@ -4490,7 +4501,7 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 	}
 
 	if rval.IsNull() {
-		return &Bool{val: false}, nil
+		return &Bool{val: bexp.notLike}, nil
 	}
 
 	rvalStr, ok := rval.RawValue().(string)
@@ -4623,7 +4634,6 @@ func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]ColDescript
 	}
 
 	_, err := bexp.inferType(cols, params, implicitTable)
-
 	return err
 }
 
@@ -5310,7 +5320,7 @@ func (stmt *FnDataSourceStmt) resolveListDatabases(ctx context.Context, tx *SQLT
 		values[i] = []ValueExp{&Varchar{val: db}}
 	}
 
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
@@ -5332,7 +5342,7 @@ func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, 
 		values[i] = []ValueExp{&Varchar{val: t.name}}
 	}
 
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveShowTable(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
@@ -5410,7 +5420,7 @@ func (stmt *FnDataSourceStmt) resolveShowTable(ctx context.Context, tx *SQLTx, p
 		}
 	}
 
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
@@ -5429,19 +5439,12 @@ func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, p
 		},
 	}
 
-	var users []User
-
-	if tx.engine.multidbHandler == nil {
-		return nil, ErrUnspecifiedMultiDBHandler
-	} else {
-		users, err = tx.engine.multidbHandler.ListUsers(ctx)
-		if err != nil {
-			return nil, err
-		}
+	users, err := tx.ListUsers(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	values := make([][]ValueExp, len(users))
-
 	for i, user := range users {
 		perm := user.Permission()
 
@@ -5450,8 +5453,7 @@ func (stmt *FnDataSourceStmt) resolveListUsers(ctx context.Context, tx *SQLTx, p
 			&Varchar{val: perm},
 		}
 	}
-
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
@@ -5546,7 +5548,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 		}
 	}
 
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
@@ -5603,7 +5605,7 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx,
 		}
 	}
 
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 func (stmt *FnDataSourceStmt) resolveListGrants(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
@@ -5665,7 +5667,7 @@ func (stmt *FnDataSourceStmt) resolveListGrants(ctx context.Context, tx *SQLTx, 
 		}
 	}
 
-	return newValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
+	return NewValuesRowReader(tx, params, cols, true, stmt.Alias(), values)
 }
 
 // DropTableStmt represents a statement to delete a table.

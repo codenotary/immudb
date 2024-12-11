@@ -36,6 +36,7 @@ type Options struct {
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
 
 	multidbHandler MultiDBHandler
+	tableResolvers []TableResolver
 }
 
 func DefaultOptions() *Options {
@@ -96,5 +97,10 @@ func (opts *Options) WithSortBufferSize(size int) *Options {
 
 func (opts *Options) WithParseTxMetadataFunc(parseFunc func([]byte) (map[string]interface{}, error)) *Options {
 	opts.parseTxMetadata = parseFunc
+	return opts
+}
+
+func (opts *Options) WithTableResolvers(resolvers ...TableResolver) *Options {
+	opts.tableResolvers = append(opts.tableResolvers, resolvers...)
 	return opts
 }

@@ -37,7 +37,7 @@ type valuesRowReader struct {
 	closed          bool
 }
 
-func newValuesRowReader(tx *SQLTx, params map[string]interface{}, cols []ColDescriptor, checkTypes bool, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
+func NewValuesRowReader(tx *SQLTx, params map[string]interface{}, cols []ColDescriptor, checkTypes bool, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
 	if tableAlias == "" {
 		return nil, fmt.Errorf("%w: table alias is mandatory", ErrIllegalArguments)
 	}

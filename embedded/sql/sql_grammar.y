@@ -88,6 +88,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <joinType> JOINTYPE
 %token <logicOp> AND OR
 %token <cmpOp> CMPOP
+%token NOT_MATCHES_OP
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
 %token <integer> INTEGER
@@ -106,6 +107,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left OR
 %left AND
 
+%right NOT_MATCHES_OP
 %right LIKE
 %right NOT
 
@@ -1107,6 +1109,11 @@ exp:
     boundexp opt_not LIKE exp
     {
         $$ = &LikeBoolExp{val: $1, notLike: $2, pattern: $4}
+    }
+|
+    boundexp NOT_MATCHES_OP exp
+    {
+        $$ = &LikeBoolExp{val: $1, notLike: true, pattern: $3}
     }
 |
     EXISTS '(' dqlstmt ')'

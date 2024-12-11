@@ -12,6 +12,9 @@
 *.out
 coverage.txt
 
+# Output of goyacc
+embedded/sql/y.output
+
 # Editor
 .vscode
 .idea
