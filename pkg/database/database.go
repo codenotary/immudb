@@ -34,6 +34,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/pgsql/pgschema"
 )
 
 const (
@@ -179,7 +180,12 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log logger.Logger) (DB, error) {
+func OpenDB(
+	dbName string,
+	multidbHandler sql.MultiDBHandler,
+	opts *Options,
+	log logger.Logger,
+) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
@@ -233,13 +239,15 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
 		WithMultiDBHandler(multidbHandler).
-		WithParseTxMetadataFunc(parseTxMetadata)
+		WithParseTxMetadataFunc(parseTxMetadata).
+		WithTableResolvers(pgschema.PgCatalogResolvers()...)
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
 		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
+
 	dbi.Logger.Infof("sql-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
@@ -357,7 +365,8 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
 		WithMultiDBHandler(multidbHandler).
-		WithParseTxMetadataFunc(parseTxMetadata)
+		WithParseTxMetadataFunc(parseTxMetadata).
+		WithTableResolvers(pgschema.PgCatalogResolvers()...)
 
 	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 

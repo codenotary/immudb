@@ -22,14 +22,17 @@ import (
 	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 )
 
-var set = regexp.MustCompile(`(?i)set\s+.+`)
-var selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
-var dealloc = regexp.MustCompile(`(?i)deallocate\s+\"([^\"]+)\"`)
+var (
+	set           = regexp.MustCompile(`(?i)set\s+.+`)
+	selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
+	dealloc       = regexp.MustCompile(`(?i)deallocate\s+\"([^\"]+)\"`)
+)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
 		return true
 	}
+
 	if statement == ";" {
 		return true
 	}

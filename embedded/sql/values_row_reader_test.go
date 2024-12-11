@@ -24,23 +24,23 @@ import (
 )
 
 func TestValuesRowReader(t *testing.T) {
-	_, err := newValuesRowReader(nil, nil, nil, true, "", nil)
+	_, err := NewValuesRowReader(nil, nil, nil, true, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	cols := []ColDescriptor{
 		{Column: "col1"},
 	}
 
-	_, err = newValuesRowReader(nil, nil, cols, true, "", nil)
+	_, err = NewValuesRowReader(nil, nil, cols, true, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(nil, nil, cols, true, "", nil)
+	_, err = NewValuesRowReader(nil, nil, cols, true, "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(nil, nil, cols, true, "table1", nil)
+	_, err = NewValuesRowReader(nil, nil, cols, true, "table1", nil)
 	require.NoError(t, err)
 
-	_, err = newValuesRowReader(nil, nil, cols, true, "table1",
+	_, err = NewValuesRowReader(nil, nil, cols, true, "table1",
 		[][]ValueExp{
 			{
 				&Bool{val: true},
@@ -49,7 +49,7 @@ func TestValuesRowReader(t *testing.T) {
 		})
 	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
 
-	_, err = newValuesRowReader(nil, nil,
+	_, err = NewValuesRowReader(nil, nil,
 		[]ColDescriptor{
 			{Table: "table1", Column: "col1"},
 		}, true, "", nil)
@@ -65,7 +65,7 @@ func TestValuesRowReader(t *testing.T) {
 		"param1": 1,
 	}
 
-	rowReader, err := newValuesRowReader(nil, params, cols, true, "table1", values)
+	rowReader, err := NewValuesRowReader(nil, params, cols, true, "table1", values)
 	require.NoError(t, err)
 	require.Nil(t, rowReader.OrderBy())
 	require.Nil(t, rowReader.ScanSpecs())

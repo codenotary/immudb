@@ -118,6 +118,7 @@ type Engine struct {
 	lazyIndexConstraintValidation bool
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
 	multidbHandler                MultiDBHandler
+	tableResolvers                map[string]TableResolver
 }
 
 type MultiDBHandler interface {
@@ -132,6 +133,11 @@ type MultiDBHandler interface {
 	RevokeSQLPrivileges(ctx context.Context, database, username string, privileges []SQLPrivilege) error
 	DropUser(ctx context.Context, username string) error
 	ExecPreparedStmts(ctx context.Context, opts *TxOptions, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
+}
+
+type TableResolver interface {
+	Table() string
+	Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error)
 }
 
 type User interface {
@@ -174,6 +180,10 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 	})
 	if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 		return nil, err
+	}
+
+	for _, r := range opts.tableResolvers {
+		e.registerTableResolver(r.Table(), r)
 	}
 
 	// TODO: find a better way to handle parsing errors
@@ -727,4 +737,18 @@ func (e *Engine) GetStore() *store.ImmuStore {
 
 func (e *Engine) GetPrefix() []byte {
 	return e.prefix
+}
+
+func (e *Engine) tableResolveFor(tableName string) TableResolver {
+	if e.tableResolvers == nil {
+		return nil
+	}
+	return e.tableResolvers[tableName]
+}
+
+func (e *Engine) registerTableResolver(tableName string, r TableResolver) {
+	if e.tableResolvers == nil {
+		e.tableResolvers = make(map[string]TableResolver)
+	}
+	e.tableResolvers[tableName] = r
 }

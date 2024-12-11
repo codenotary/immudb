@@ -429,6 +429,9 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		op := fmt.Sprintf("%c%s", ch, tail)
+		if op == "!~" {
+			return NOT_MATCHES_OP
+		}
 
 		cmpOp, ok := cmpOps[op]
 		if !ok {
@@ -663,7 +666,7 @@ func isLetter(ch byte) bool {
 }
 
 func isComparison(ch byte) bool {
-	return ch == '!' || ch == '<' || ch == '=' || ch == '>'
+	return ch == '!' || ch == '<' || ch == '=' || ch == '>' || ch == '~'
 }
 
 func isQuote(ch byte) bool {

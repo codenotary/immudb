@@ -812,6 +812,10 @@ func (tx *OngoingTx) validateAgainst(hdr *TxHeader) error {
 	return nil
 }
 
+func (tx *OngoingTx) Context() context.Context {
+	return tx.ctx
+}
+
 func cp(s []byte) []byte {
 	if s == nil {
 		return nil

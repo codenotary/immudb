@@ -186,3 +186,10 @@ func (sqlTx *SQLTx) removeTempFiles() error {
 	}
 	return nil
 }
+
+func (sqlTx *SQLTx) ListUsers(ctx context.Context) ([]User, error) {
+	if sqlTx.engine.multidbHandler == nil {
+		return nil, ErrUnspecifiedMultiDBHandler
+	}
+	return sqlTx.engine.multidbHandler.ListUsers(ctx)
+}

@@ -1817,6 +1817,19 @@ func TestParseExp(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: "SELECT name !~ 'laptop.*' FROM products",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					ds: &tableRef{table: "products"},
+					targets: []TargetEntry{
+						{
+							Exp: NewLikeBoolExp(NewColSelector("", "name"), true, NewVarchar("laptop.*")),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, tc := range testCases {

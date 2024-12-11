@@ -47,6 +47,7 @@ var PgTypeMap = map[string][]int{
 	sql.UUIDType:      {2950, 16}, //uuid
 	sql.Float64Type:   {701, 8},   //double-precision floating point number
 	sql.JSONType:      {114, -1},  //json
+	sql.AnyType:       {17, -1},   // bytea
 }
 
 const PgSeverityError = "ERROR"
