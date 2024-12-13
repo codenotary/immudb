@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
 	"github.com/stretchr/testify/require"
@@ -417,6 +419,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 				mr:         mr,
 				statements: make(map[string]*statement),
 				portals:    make(map[string]*portal),
+				db:         &mockDB{},
 			}
 
 			if tt.statements != nil {
@@ -432,4 +435,12 @@ func TestSession_QueriesMachine(t *testing.T) {
 			require.Equal(t, tt.out, err)
 		})
 	}
+}
+
+type mockDB struct {
+	database.DB
+}
+
+func (db *mockDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
+	return nil, fmt.Errorf("dummy error")
 }

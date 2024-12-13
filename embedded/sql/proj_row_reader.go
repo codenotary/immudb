@@ -36,6 +36,10 @@ func newProjectedRowReader(ctx context.Context, rowReader RowReader, tableAlias 
 			return nil, err
 		}
 
+		if len(cols) == 0 {
+			return nil, fmt.Errorf("SELECT * with no tables specified is not valid")
+		}
+
 		for _, col := range cols {
 			targets = append(targets, TargetEntry{
 				Exp: &ColSelector{
