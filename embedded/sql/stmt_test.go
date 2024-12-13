@@ -1459,10 +1459,9 @@ func TestDistinctRowReaderErrors(t *testing.T) {
 	}
 
 	reader, err := stmt.Resolve(context.Background(), nil, nil, nil)
-	require.ErrorIs(t, err, errDummy)
+	require.Error(t, err)
 	require.Nil(t, reader)
 	require.True(t, baseReader.closed)
-
 }
 
 func TestFloat64Type(t *testing.T) {

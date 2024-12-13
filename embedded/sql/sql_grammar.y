@@ -717,6 +717,16 @@ select_stmt: SELECT opt_distinct opt_targets FROM ds opt_indexon opt_joins opt_w
                 offset: $13,
             }
     }
+|
+    SELECT opt_distinct opt_targets
+    {
+        $$ = &SelectStmt{
+            distinct: $2,
+            targets: $3,
+            ds: &valuesDataSource{rows: []*RowSpec{{}}},
+        }
+    }
+;
 
 opt_all:
     {

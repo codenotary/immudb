@@ -3153,6 +3153,23 @@ func TestQuery(t *testing.T) {
 			require.Equal(t, expectedRows[i].ValuesByPosition, row.ValuesByPosition)
 		}
 	})
+
+	t.Run("constant selection query", func(t *testing.T) {
+		_, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT *",
+			nil,
+		)
+		require.ErrorContains(t, err, "SELECT * with no tables specified is not valid")
+
+		assertQueryShouldProduceResults(
+			t,
+			engine,
+			"SELECT 1, true, 'test'",
+			"SELECT * FROM (VALUES (1, true, 'test'))",
+		)
+	})
 }
 
 func TestJSON(t *testing.T) {

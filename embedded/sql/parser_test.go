@@ -899,6 +899,19 @@ func TestSelectStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
+			input: "SELECT 1, true, 'test'",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					targets: []TargetEntry{
+						{Exp: &Integer{1}},
+						{Exp: &Bool{true}},
+						{Exp: &Varchar{"test"}},
+					},
+					ds: &valuesDataSource{rows: []*RowSpec{{}}},
+				},
+			},
+		},
+		{
 			input: "SELECT id, title FROM table1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
