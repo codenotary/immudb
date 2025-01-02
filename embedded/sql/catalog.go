@@ -42,6 +42,10 @@ type Catalog struct {
 	maxTableID uint32 // The maxTableID variable is used to assign unique ids to new tables as they are created.
 }
 
+type Constraint interface{}
+
+type PrimaryKeyConstraint []string
+
 type CheckConstraint struct {
 	id   uint32
 	name string

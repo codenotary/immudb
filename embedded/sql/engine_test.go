@@ -126,6 +126,15 @@ func TestCreateTable(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, name VARCHAR)", nil)
+	require.ErrorIs(t, err, ErrNoPrimaryKey)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER PRIMARY KEY, name VARCHAR PRIMARY KEY)", nil)
+	require.ErrorIs(t, err, ErrMultiplePrimaryKeys)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER PRIMARY KEY, name VARCHAR, PRIMARY KEY (id, name))", nil)
+	require.ErrorIs(t, err, ErrMultiplePrimaryKeys)
+
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
@@ -133,6 +142,9 @@ func TestCreateTable(t *testing.T) {
 	require.ErrorIs(t, err, ErrLimitedKeyType)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table1 (name VARCHAR[30], PRIMARY KEY name)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE table10 (name VARCHAR[30] PRIMARY KEY)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, fmt.Sprintf("CREATE TABLE table2 (name VARCHAR[%d], PRIMARY KEY name)", MaxKeyLen+1), nil)

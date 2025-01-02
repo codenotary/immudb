@@ -456,12 +456,14 @@ func (stmt *DropUserStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 	return nil, tx.engine.multidbHandler.DropUser(ctx, stmt.username)
 }
 
+type TableElem interface{}
+
 type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
 	colsSpec    []*ColSpec
 	checks      []CheckConstraint
-	pkColNames  []string
+	pkColNames  PrimaryKeyConstraint
 }
 
 func NewCreateTableStmt(table string, ifNotExists bool, colsSpec []*ColSpec, pkColNames []string) *CreateTableStmt {
@@ -496,6 +498,10 @@ func zeroRow(tableName string, cols []*ColSpec) *Row {
 }
 
 func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if err := stmt.validatePrimaryKey(); err != nil {
+		return nil, err
+	}
+
 	if stmt.ifNotExists && tx.catalog.ExistTable(stmt.table) {
 		return tx, nil
 	}
@@ -536,7 +542,7 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 		return nil, err
 	}
 
-	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
+	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.primaryKeyCols()}
 	_, err = createIndexStmt.execAt(ctx, tx, params)
 	if err != nil {
 		return nil, err
@@ -571,6 +577,40 @@ func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	tx.mutatedCatalog = true
 
 	return tx, nil
+}
+
+func (stmt *CreateTableStmt) validatePrimaryKey() error {
+	n := 0
+	for _, spec := range stmt.colsSpec {
+		if spec.primaryKey {
+			n++
+		}
+	}
+
+	if len(stmt.pkColNames) > 0 {
+		n++
+	}
+
+	switch n {
+	case 0:
+		return ErrNoPrimaryKey
+	case 1:
+		return nil
+	}
+	return fmt.Errorf("\"%s\": %w", stmt.table, ErrMultiplePrimaryKeys)
+}
+
+func (stmt *CreateTableStmt) primaryKeyCols() []string {
+	if len(stmt.pkColNames) > 0 {
+		return stmt.pkColNames
+	}
+
+	for _, spec := range stmt.colsSpec {
+		if spec.primaryKey {
+			return []string{spec.colName}
+		}
+	}
+	return nil
 }
 
 func persistColumn(tx *SQLTx, col *Column) error {
@@ -633,6 +673,7 @@ type ColSpec struct {
 	maxLen        int
 	autoIncrement bool
 	notNull       bool
+	primaryKey    bool
 }
 
 func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement bool, notNull bool) *ColSpec {
