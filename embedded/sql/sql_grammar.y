@@ -28,7 +28,6 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     stmts []SQLStmt
     stmt SQLStmt
     datasource DataSource
-    colsSpec []*ColSpec
     colSpec *ColSpec
     cols []*ColSelector
     rows []*RowSpec
@@ -57,7 +56,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
-    checks []CheckConstraint
+    check CheckConstraint
     exp ValueExp
     binExp ValueExp
     err error
@@ -73,6 +72,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     sqlPrivilege SQLPrivilege
     sqlPrivileges []SQLPrivilege
     whenThenClauses []whenThenClause
+    tableElem TableElem
+    tableElems []TableElem
 }
 
 %token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
@@ -120,7 +121,6 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %type <stmts> sql sqlstmts
 %type <stmt> sqlstmt ddlstmt dmlstmt dqlstmt select_stmt
-%type <colsSpec> colsSpec
 %type <colSpec> colSpec
 %type <ids> ids one_or_more_ids opt_ids
 %type <cols> cols
@@ -141,7 +141,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
-%type <checks> opt_checks
+%type <check> check
+%type <tableElem> tableElem
+%type <tableElems> tableElems
 %type <exp> exp opt_exp opt_where opt_having boundexp opt_else
 %type <binExp> binExp
 %type <cols> opt_groupby
@@ -152,7 +154,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <ordexps> ordexps opt_orderby
 %type <opt_ord> opt_ord
 %type <ids> opt_indexon
-%type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not
+%type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
 %type <updates> updates
 %type <onConflict> opt_on_conflict
@@ -227,9 +229,34 @@ ddlstmt:
         $$ = &UseSnapshotStmt{period: $3}
     }
 |
-    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' opt_checks PRIMARY KEY one_or_more_ids ')'
+    CREATE TABLE opt_if_not_exists IDENTIFIER '(' tableElems ')'
     {
-        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, checks: $8, pkColNames: $11}
+        colsSpecs := make([]*ColSpec, 0, 5)
+        var checks []CheckConstraint
+
+        var pk PrimaryKeyConstraint
+
+        for _, e := range $6 {
+            switch c := e.(type) {
+                case *ColSpec:
+                    colsSpecs = append(colsSpecs, c)
+                case PrimaryKeyConstraint:
+                    pk = c
+                case CheckConstraint:
+                    if checks == nil {
+                        checks = make([]CheckConstraint, 0, 5)
+                    }
+                    checks = append(checks, c)
+            }
+        }
+
+        $$ = &CreateTableStmt{
+            ifNotExists: $3,
+            table: $4,
+            colsSpec: colsSpecs,
+            pkColNames: pk,
+            checks: checks,
+        }
     }
 |
     DROP TABLE IDENTIFIER
@@ -587,22 +614,50 @@ fnCall:
         $$ = &FnCall{fn: $1, params: $3}
     }
 
-colsSpec:
-    colSpec
+tableElems:
+    tableElem
     {
-        $$ = []*ColSpec{$1}
+        $$ = []TableElem{$1}
     }
 |
-    colsSpec ',' colSpec
+    tableElems ',' tableElem
     {
         $$ = append($1, $3)
     }
 
-colSpec:
-    IDENTIFIER TYPE opt_max_len opt_not_null opt_auto_increment
+tableElem:
+   colSpec
+   {
+        $$ = $1
+   }
+|
+    check
     {
-        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), notNull: $4, autoIncrement: $5}
+        $$ = $1
     }
+|
+    PRIMARY KEY one_or_more_ids
+    {
+        $$ = PrimaryKeyConstraint($3)
+    }
+;
+
+colSpec:
+    IDENTIFIER TYPE opt_max_len opt_not_null opt_auto_increment opt_primary_key
+    {
+        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), notNull: $4 || $6, autoIncrement: $5, primaryKey: $6}
+    }
+
+opt_primary_key:
+    {
+        $$ = false
+    }
+|
+    PRIMARY KEY
+    {
+        $$ = true
+    }
+;
 
 opt_max_len:
     {
@@ -1063,19 +1118,15 @@ opt_as:
         $$ = $2
     }
 
-opt_checks:
+check:
+    CHECK exp
     {
-        $$ = nil
+        $$ = CheckConstraint{exp: $2}
     }
 |
-    CHECK exp ',' opt_checks
+    CONSTRAINT IDENTIFIER CHECK exp
     {
-        $$ = append([]CheckConstraint{{exp: $2}}, $4...)
-    }
-|
-    CONSTRAINT IDENTIFIER CHECK exp ',' opt_checks
-    {
-        $$ = append([]CheckConstraint{{name: $2, exp: $4}}, $6...)
+        $$ = CheckConstraint{name: $2, exp: $4}
     }
 
 opt_exp:

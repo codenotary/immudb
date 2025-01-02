@@ -291,7 +291,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE TABLE table1()",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
+			expectedError:  errors.New("syntax error: unexpected ')', expecting CONSTRAINT or PRIMARY or CHECK or IDENTIFIER at position 21"),
 		},
 		{
 			input: "CREATE TABLE table1(id INTEGER, balance FLOAT, CONSTRAINT non_negative_balance CHECK (balance >= 0), PRIMARY KEY id)",
@@ -312,9 +312,25 @@ func TestCreateTableStmt(t *testing.T) {
 							},
 						},
 					},
-					pkColNames: []string{"id"},
+					pkColNames: PrimaryKeyConstraint{"id"},
 				}},
 			expectedError: nil,
+		},
+		{
+			input: "CREATE TABLE table1(id INTEGER PRIMARY KEY)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{
+							colName:    "id",
+							colType:    IntegerType,
+							primaryKey: true,
+							notNull:    true,
+						},
+					},
+				},
+			},
 		},
 		{
 			input: "DROP TABLE table1",
