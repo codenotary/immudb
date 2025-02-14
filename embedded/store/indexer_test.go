@@ -35,6 +35,13 @@ func TestNewIndexerFailure(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
+func TestNewIndexer(t *testing.T) {
+	stor := ImmuStore{}
+	indexer, err := newIndexer(t.TempDir(), &stor, DefaultOptions())
+	require.Nil(t, err)
+	require.NotNil(t, indexer)
+}
+
 func TestClosedIndexerFailures(t *testing.T) {
 	store, err := Open(t.TempDir(), DefaultOptions().WithIndexOptions(
 		DefaultIndexOptions().WithCompactionThld(1),
