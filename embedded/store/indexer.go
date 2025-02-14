@@ -501,7 +501,7 @@ func (idx *indexer) handleWriteStalling(err error) error {
 	if err := idx.store.FlushIndexes(0, false); err != nil {
 		return err
 	}
-
+	// NOSONAR   (rand is fine here)
 	sleepTime := writeStallingSleepDurationMin + time.Duration(rand.Intn(int(writeStallingSleepDurationMax-writeStallingSleepDurationMin+1)))
 	time.Sleep(sleepTime)
 	return nil
