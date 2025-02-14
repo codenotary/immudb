@@ -92,12 +92,14 @@ var (
 		Help: "The highest id of indexed transaction",
 	}, []string{
 		"db",
+		"index",
 	})
 	metricsLastCommittedTrx = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "immudb_last_committed_trx_id",
 		Help: "The highest id of committed transaction",
 	}, []string{
 		"db",
+		"index",
 	})
 )
 
@@ -179,8 +181,9 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 	}
 
 	dbName := filepath.Base(store.path)
-	indexer.metricsLastIndexedTrx = metricsLastIndexedTrxId.WithLabelValues(dbName)
-	indexer.metricsLastCommittedTrx = metricsLastCommittedTrx.WithLabelValues(dbName)
+	idxName := filepath.Base(path)
+	indexer.metricsLastIndexedTrx = metricsLastIndexedTrxId.WithLabelValues(dbName, idxName)
+	indexer.metricsLastCommittedTrx = metricsLastCommittedTrx.WithLabelValues(dbName, idxName)
 
 	return indexer, nil
 }
