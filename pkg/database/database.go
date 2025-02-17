@@ -1771,7 +1771,7 @@ func (d *db) FindTruncationPoint(ctx context.Context, until time.Time) (*schema.
 			break
 		}
 
-		if ctx.Err() != nil {
+		if err:= ctx.Err(); err != nil {
 			return nil, err
 		}
 
