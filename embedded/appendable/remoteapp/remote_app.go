@@ -37,6 +37,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/remotestorage"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 

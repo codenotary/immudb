@@ -22,6 +22,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/cache"
+
 	"github.com/stretchr/testify/require"
 )
 

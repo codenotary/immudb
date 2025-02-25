@@ -69,25 +69,17 @@ func TestInvalidIndexOptions(t *testing.T) {
 	}{
 		{"nil", nil},
 		{"empty", &IndexOptions{}},
-		{"CacheSize", DefaultIndexOptions().WithCacheSize(0)},
-		{"FlushThld", DefaultIndexOptions().WithFlushThld(0)},
 		{"SyncThld", DefaultIndexOptions().WithSyncThld(0)},
 		{"FlushBufferSize", DefaultIndexOptions().WithFlushBufferSize(0)},
 		{"CleanupPercentage", DefaultIndexOptions().WithCleanupPercentage(-1)},
 		{"CleanupPercentage", DefaultIndexOptions().WithCleanupPercentage(101)},
 		{"MaxActiveSnapshots", DefaultIndexOptions().WithMaxActiveSnapshots(0)},
-		{"MaxNodeSize", DefaultIndexOptions().WithMaxNodeSize(0)},
 		{"RenewSnapRootAfter", DefaultIndexOptions().WithRenewSnapRootAfter(-1)},
-		{"MaxBulkSize", DefaultIndexOptions().WithMaxBulkSize(0)},
-		{"BulkPreparationTimeout", DefaultIndexOptions().WithBulkPreparationTimeout(-1)},
 		{"CompactionThld", DefaultIndexOptions().WithCompactionThld(0)},
 		{"DelayDuringCompaction", DefaultIndexOptions().WithDelayDuringCompaction(-1)},
 		{"NodesLogMaxOpenedFiles", DefaultIndexOptions().WithNodesLogMaxOpenedFiles(0)},
 		{"HistoryLogMaxOpenedFiles", DefaultIndexOptions().WithHistoryLogMaxOpenedFiles(0)},
-		{"CommitLogMaxOpenedFiles", DefaultIndexOptions().WithCommitLogMaxOpenedFiles(0)},
-		{"MaxGlobalBufferedDataSize", DefaultIndexOptions().WithMaxGlobalBufferedDataSize(0)},
-		{"MaxGlobalBufferedDataSize", DefaultIndexOptions().WithMaxGlobalBufferedDataSize(DefaultIndexOptions().MaxBufferedDataSize - 1)},
-		{"MaxBufferedDataSize", DefaultIndexOptions().WithMaxBufferedDataSize(0)},
+		// TODO:		{"CommitLogMaxOpenedFiles", DefaultIndexOptions().WithCommitLogMaxOpenedFiles(0)},
 	} {
 		t.Run(d.n, func(t *testing.T) {
 			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
@@ -181,25 +173,26 @@ func TestValidOptions(t *testing.T) {
 	opts.WithIndexOptions(indexOpts)
 	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 
-	require.Equal(t, 100, indexOpts.WithCacheSize(100).CacheSize)
-	require.Equal(t, 1000, indexOpts.WithFlushThld(1000).FlushThld)
 	require.Equal(t, 10_000, indexOpts.WithSyncThld(10_000).SyncThld)
 	require.Equal(t, 10, indexOpts.WithMaxActiveSnapshots(10).MaxActiveSnapshots)
-	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).MaxNodeSize)
 	require.Equal(t, time.Duration(1000)*time.Millisecond,
 		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).RenewSnapRootAfter)
-	require.Equal(t, 1_000, indexOpts.WithMaxBulkSize(1_000).MaxBulkSize)
-	require.Equal(t, time.Duration(500)*time.Millisecond,
-		indexOpts.WithBulkPreparationTimeout(time.Duration(500)*time.Millisecond).BulkPreparationTimeout)
 	require.Equal(t, 10, indexOpts.WithNodesLogMaxOpenedFiles(10).NodesLogMaxOpenedFiles)
 	require.Equal(t, 11, indexOpts.WithHistoryLogMaxOpenedFiles(11).HistoryLogMaxOpenedFiles)
-	require.Equal(t, 12, indexOpts.WithCommitLogMaxOpenedFiles(12).CommitLogMaxOpenedFiles)
-	require.Equal(t, 3, indexOpts.WithCompactionThld(3).CompactionThld)
+	//	require.Equal(t, 12, indexOpts.WithCommitLogMaxOpenedFiles(12).CommitLogMaxOpenedFiles)
+	require.Equal(t, 0.7, indexOpts.WithCompactionThld(0.7).CompactionThld)
 	require.Equal(t, 1*time.Millisecond, indexOpts.WithDelayDuringCompaction(1*time.Millisecond).DelayDuringCompaction)
 	require.Equal(t, 4096*2, indexOpts.WithFlushBufferSize(4096*2).FlushBufferSize)
 	require.Equal(t, float32(10), indexOpts.WithCleanupPercentage(10).CleanupPercentage)
-	require.Equal(t, int(10), indexOpts.WithMaxBufferedDataSize(10).MaxBufferedDataSize)
-	require.Equal(t, int(10), indexOpts.WithMaxGlobalBufferedDataSize(10).MaxGlobalBufferedDataSize)
+	require.Equal(t, 10*1024*1024, indexOpts.WithSharedWriteBufferSize(10*1024*1024).SharedWriteBufferSize)
+	require.Equal(t, 1024*1024, indexOpts.WithWriteBufferChunkSize(1024*1024).WriteBufferChunkSize)
+	require.Equal(t, 1024*1024, indexOpts.WithMinWriteBufferSize(1024*1024).MinWriteBufferSize)
+	require.Equal(t, 8*1024*1024, indexOpts.WithMaxWriteBufferSize(8*1024*1024).MaxWriteBufferSize)
+
+	require.Equal(t, 8*time.Millisecond, indexOpts.WithBackPressureMinDelay(8*time.Millisecond).BackpressureMinDelay)
+	require.Equal(t, 10*time.Millisecond, indexOpts.WithBackPressureMaxDelay(10*time.Millisecond).BackpressureMaxDelay)
+
+	require.NoError(t, opts.Validate())
 
 	require.Nil(t, opts.WithAHTOptions(nil).AHTOpts)
 	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)

@@ -52,7 +52,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		dbRootPath:          DefaultDbRootPath,
-		storeOpts:           store.DefaultOptions(),
+		storeOpts:           store.DefaultOptions().WithMultiIndexing(true),
 		maxResultSize:       MaxKeyScanLimit,
 		readTxPoolSize:      DefaultReadTxPoolSize,
 		TruncationFrequency: DefaultTruncationFrequency,

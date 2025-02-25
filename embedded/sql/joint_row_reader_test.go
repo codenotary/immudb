@@ -21,18 +21,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestJointRowReader(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, err = newJointRowReader(nil, nil)
+	_, err := newJointRowReader(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())

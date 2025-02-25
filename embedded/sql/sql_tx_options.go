@@ -25,7 +25,7 @@ import (
 
 type TxOptions struct {
 	ReadOnly                bool
-	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
+	SnapshotMustIncludeTxID func(lastCommittedTxID, lastPrecommittedTxID uint64) uint64
 	SnapshotRenewalPeriod   time.Duration
 	ExplicitClose           bool
 	UnsafeMVCC              bool
@@ -57,7 +57,7 @@ func (opts *TxOptions) WithReadOnly(readOnly bool) *TxOptions {
 	return opts
 }
 
-func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64) *TxOptions {
+func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(lastCommittedTxID, lastPrecommittedTxID uint64) uint64) *TxOptions {
 	opts.SnapshotMustIncludeTxID = snapshotMustIncludeTxID
 	return opts
 }

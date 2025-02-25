@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -109,7 +110,7 @@ const (
 const MaxNumberOfColumnsInIndex = 8
 
 type Engine struct {
-	store *store.ImmuStore
+	store *store.Ledger
 
 	prefix                        []byte
 	distinctLimit                 int
@@ -146,12 +147,12 @@ type User interface {
 	SQLPrivileges() []SQLPrivilege
 }
 
-func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
-	if st == nil {
+func NewEngine(ledger *store.Ledger, opts *Options) (*Engine, error) {
+	if ledger == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	if !st.MultiIndexingEnabled() {
+	if !ledger.MultiIndexingEnabled() {
 		return nil, ErrMultiIndexingNotEnabled
 	}
 
@@ -161,7 +162,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	e := &Engine{
-		store:                         st,
+		store:                         ledger,
 		prefix:                        make([]byte, len(opts.prefix)),
 		distinctLimit:                 opts.distinctLimit,
 		sortBufferSize:                opts.sortBufferSize,
@@ -173,7 +174,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 
 	copy(e.prefix, opts.prefix)
 
-	err = st.InitIndexing(&store.IndexSpec{
+	err = ledger.InitIndexing(store.IndexSpec{
 		SourcePrefix:     append(e.prefix, []byte(catalogPrefix)...),
 		TargetPrefix:     append(e.prefix, []byte(catalogPrefix)...),
 		InjectiveMapping: true,
@@ -252,7 +253,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 			EncodeID(primaryIndex.id),
 		)
 
-		err = e.store.InitIndexing(&store.IndexSpec{
+		err = e.store.InitIndexing(store.IndexSpec{
 			SourcePrefix: rowEntryPrefix,
 
 			TargetEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
@@ -276,13 +277,12 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 				EncodeID(index.id),
 			)
 
-			err = e.store.InitIndexing(&store.IndexSpec{
+			err = e.store.InitIndexing(store.IndexSpec{
 				SourcePrefix:      rowEntryPrefix,
 				SourceEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
 				TargetEntryMapper: indexEntryMapperFor(index, primaryIndex),
 				TargetPrefix:      mappedEntryPrefix,
-
-				InjectiveMapping: true,
+				InjectiveMapping:  true,
 			})
 			if errors.Is(err, store.ErrIndexAlreadyInitialized) {
 				continue
@@ -366,7 +366,12 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 		return nil
 	}
 
-	return func(key, value []byte) ([]byte, error) {
+	return func(key []byte, valueReader io.Reader) ([]byte, error) {
+		value, err := io.ReadAll(valueReader)
+		if err != nil {
+			return nil, err
+		}
+
 		encodedValues := make([][]byte, 2+len(index.cols)+1)
 		encodedValues[0] = EncodeID(index.table.id)
 		encodedValues[1] = EncodeID(index.id)
@@ -377,7 +382,7 @@ func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
 			valuesByColID[col.id] = &NullValue{t: col.colType}
 		}
 
-		err := valueExtractor(value, valuesByColID)
+		err = valueExtractor(value, valuesByColID)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +412,6 @@ func (e *Engine) Exec(ctx context.Context, tx *SQLTx, sql string, params map[str
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
-
 	return e.ExecPreparedStmts(ctx, tx, stmts, params)
 }
 
@@ -436,7 +440,6 @@ func (e *Engine) ExecPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLSt
 
 		return ntx, append(ctxs, hctxs...), err
 	}
-
 	return ntx, ctxs, nil
 }
 
@@ -731,7 +734,7 @@ func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error
 	return nil
 }
 
-func (e *Engine) GetStore() *store.ImmuStore {
+func (e *Engine) GetStore() *store.Ledger {
 	return e.store
 }
 

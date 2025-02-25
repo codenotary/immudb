@@ -96,7 +96,7 @@ func (row *Row) compatible(aRow *Row, selectors []*ColSelector, table string) (b
 	return true, nil
 }
 
-func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
+func (row *Row) digest(_ []ColDescriptor) (d [sha256.Size]byte, err error) {
 	h := sha256.New()
 
 	for i, v := range row.ValuesByPosition {
@@ -185,22 +185,6 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		return nil, ErrIllegalArguments
 	}
 
-	rSpec, err := keyReaderSpecFrom(tx.engine.prefix, table, scanSpecs)
-	if err != nil {
-		return nil, err
-	}
-
-	var r store.KeyReader
-
-	if table.name == "pg_type" {
-		r = &emptyKeyReader{}
-	} else {
-		r, err = tx.newKeyReader(*rSpec)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if tableAlias == "" {
 		tableAlias = table.name
 	}
@@ -255,11 +239,16 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		colsBySel:  colsBySel,
 		scanSpecs:  scanSpecs,
 		params:     params,
-		reader:     r,
+		reader:     nil,
 	}, nil
 }
 
-func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
+func keyReaderSpecFrom(
+	sqlPrefix []byte,
+	table *Table,
+	scanSpecs *ScanSpecs,
+	txRange *txRange,
+) (spec *store.KeyReaderSpec, err error) {
 	prefix := MapKey(sqlPrefix, MappedPrefix, EncodeID(table.id), EncodeID(scanSpecs.Index.id))
 
 	var loKey []byte
@@ -327,6 +316,8 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 		DescOrder:      scanSpecs.DescOrder,
 		Filters:        []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 		IncludeHistory: scanSpecs.IncludeHistory,
+		StartTx:        txRange.initialTxID,
+		EndTx:          txRange.finalTxID,
 	}, nil
 }
 
@@ -393,7 +384,6 @@ func (r *rawRowReader) InferParameters(ctx context.Context, params map[string]SQ
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -401,32 +391,65 @@ func (r *rawRowReader) Parameters() map[string]interface{} {
 	return r.params
 }
 
-func (r *rawRowReader) reduceTxRange() (err error) {
-	if r.txRange != nil || (r.period.start == nil && r.period.end == nil) {
-		return nil
-	}
-
+func (r *rawRowReader) getTxRange() (*txRange, error) {
 	txRange := &txRange{
 		initialTxID: uint64(0),
 		finalTxID:   uint64(math.MaxUint64),
 	}
 
+	if r.txRange != nil || (r.period.start == nil && r.period.end == nil) {
+		return txRange, nil
+	}
+
 	if r.period.start != nil {
+		var err error
 		txRange.initialTxID, err = r.period.start.instant.resolve(r.tx, r.params, true, r.period.start.inclusive)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if r.period.end != nil {
+		var err error
 		txRange.finalTxID, err = r.period.end.instant.resolve(r.tx, r.params, false, r.period.end.inclusive)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return txRange, nil
+}
+
+func (r *rawRowReader) prepareReader() error {
+	if r.reader != nil {
+		return nil
+	}
+
+	txRange, err := r.getTxRange()
+	if err != nil {
+		return err
+	}
+	r.txRange = txRange
+
+	rSpec, err := keyReaderSpecFrom(
+		r.tx.engine.prefix,
+		r.table,
+		r.scanSpecs,
+		txRange,
+	)
+	if err != nil {
+		return err
+	}
+
+	var keyReader store.KeyReader
+	if r.table.name == "pg_type" {
+		keyReader = &emptyKeyReader{}
+	} else {
+		keyReader, err = r.tx.newKeyReader(*rSpec)
 		if err != nil {
 			return err
 		}
 	}
-
-	r.txRange = txRange
-
+	r.reader = keyReader
 	return nil
 }
 
@@ -437,9 +460,7 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 
 	//var mkey []byte
 	var vref store.ValueRef
-
-	// evaluation of txRange is postponed to allow parameters to be provided after rowReader initialization
-	err := r.reduceTxRange()
+	err := r.prepareReader()
 	if errors.Is(err, store.ErrTxNotFound) {
 		return nil, ErrNoMoreRows
 	}
@@ -447,16 +468,12 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 		return nil, err
 	}
 
-	if r.txRange == nil {
-		_, vref, err = r.reader.Read(ctx) //mkey
-	} else {
-		_, vref, err = r.reader.ReadBetween(ctx, r.txRange.initialTxID, r.txRange.finalTxID) //mkey
-	}
+	_, vref, err = r.reader.Read(ctx) //mkey
 	if err != nil {
 		return nil, err
 	}
 
-	v, err := vref.Resolve()
+	v, err := r.tx.tx.Resolve(vref)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +486,7 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 
 		switch col.Column {
 		case revCol:
-			val = &Integer{val: int64(vref.HC())}
+			val = &Integer{val: int64(vref.Revision())}
 		case txMetadataCol:
 			val, err = r.parseTxMetadata(vref.TxMetadata())
 			if err != nil {
@@ -571,7 +588,10 @@ func (r *rawRowReader) Close() error {
 		defer r.onCloseCallback()
 	}
 
-	return r.reader.Close()
+	if r.reader != nil {
+		return r.reader.Close()
+	}
+	return nil
 }
 
 func ReadAllRows(ctx context.Context, reader RowReader) ([]*Row, error) {

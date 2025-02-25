@@ -1,294 +1,331 @@
-/*
-Copyright 2024 Codenotary Inc. All rights reserved.
-
-SPDX-License-Identifier: BUSL-1.1
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://mariadb.com/bsl11/
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package store
 
 import (
+	"bytes"
 	"context"
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/appendable"
+	memapp "github.com/codenotary/immudb/embedded/appendable/memory"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
-	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer(t.TempDir(), nil, nil)
-	require.Nil(t, indexer)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-}
+func TestInitIndex(t *testing.T) {
+	nIndexes := 1
+	readTxAt := func(txID uint64, tx *Tx) error {
+		entries := make([]*TxEntry, nIndexes)
+		for i := range entries {
+			key := []byte(fmt.Sprintf("prefix%d:key%d", i, txID))
+			value := []byte(fmt.Sprintf("value-%d", txID))
 
-func TestClosedIndexerFailures(t *testing.T) {
-	store, err := Open(t.TempDir(), DefaultOptions().WithIndexOptions(
-		DefaultIndexOptions().WithCompactionThld(1),
-	))
-	require.NoError(t, err)
+			entries[i] = &TxEntry{
+				k:    key,
+				kLen: len(key),
+				vLen: len(value),
+				hVal: sha256.Sum256(value),
+				vOff: int64(txID),
+			}
+		}
 
-	indexer, err := store.getIndexerFor(nil)
-	require.NoError(t, err)
+		tx.header = &TxHeader{
+			ID:       txID,
+			Metadata: &TxMetadata{},
+			NEntries: nIndexes,
+		}
+		tx.entries = entries
 
-	err = indexer.Close()
-	require.NoError(t, err)
-
-	v, tx, hc, err := indexer.Get(nil)
-	require.Zero(t, v)
-	require.Zero(t, tx)
-	require.Zero(t, hc)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	txs, hCount, err := indexer.History(nil, 0, false, 0)
-	require.Zero(t, txs)
-	require.Zero(t, hCount)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	snap, err := indexer.Snapshot()
-	require.Zero(t, snap)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	snap, err = indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(context.Background(), 0, 0)
-	require.Zero(t, snap)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, _, _, err = indexer.GetWithPrefix(nil, nil)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	err = indexer.Sync()
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	err = indexer.Close()
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	err = indexer.CompactIndex()
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-}
-
-func TestMaxIndexWaitees(t *testing.T) {
-	store, err := Open(t.TempDir(), DefaultOptions().WithMaxWaitees(1).WithMaxActiveTransactions(1))
-	require.NoError(t, err)
-
-	// Grab errors from waiters
-	errCh := make(chan error)
-	for i := 0; i < 2; i++ {
-		go func() {
-			errCh <- store.WaitForIndexingUpto(context.Background(), 1)
-		}()
+		return nil
 	}
 
-	// One goroutine should fail
-	select {
-	case err := <-errCh:
-		require.ErrorIs(t, err, watchers.ErrMaxWaitessLimitExceeded)
-	case <-time.After(time.Second):
-		require.Fail(t, "Did not get waiter error")
-	}
+	ledger := NewMockLedger("", readTxAt)
 
-	// Store one transaction
-	tx, err := store.NewWriteOnlyTx(context.Background())
+	writeBufferSize := 128 * 1024 * 1024
+	pageBufferSize := 1024 * 1024
+
+	indexOptions := DefaultIndexOptions().
+		WithNumIndexers(1).
+		WithSharedWriteBufferSize(writeBufferSize).
+		WithMaxWriteBufferSize(writeBufferSize).
+		WithPageBufferSize(pageBufferSize)
+
+	idx, err := NewIndexerManager(
+		DefaultOptions().
+			WithIndexOptions(indexOptions).
+			WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+				return memapp.New(), nil
+			}),
+	)
 	require.NoError(t, err)
 
-	err = tx.Set([]byte{1}, nil, []byte{2})
+	idx.Start()
+
+	_, err = idx.GetIndexFor(ledger.ID(), nil)
+	require.ErrorIs(t, err, ErrIndexNotFound)
+
+	index, err := idx.InitIndexing(ledger, IndexSpec{})
+	require.NoError(t, err)
+	require.NotNil(t, index)
+
+	_, err = idx.InitIndexing(ledger, IndexSpec{})
+	require.ErrorIs(t, err, ErrIndexAlreadyInitialized)
+}
+
+func TestIndexers(t *testing.T) {
+	nIndexes := 100
+	ledger := NewMockLedger("", readTxAtFor(nIndexes))
+
+	writeBufferSize := 8 * 1024 * 1024
+	pageBufferSize := tbtree.PageSize * 5
+
+	indexOptions := DefaultIndexOptions().
+		WithNumIndexers(8).
+		WithSharedWriteBufferSize(writeBufferSize).
+		WithMaxWriteBufferSize(writeBufferSize).
+		WithPageBufferSize(pageBufferSize)
+
+	idx, err := NewIndexerManager(
+		DefaultOptions().
+			WithIndexOptions(indexOptions).
+			WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+				return memapp.New(), nil
+			}),
+	)
 	require.NoError(t, err)
 
-	hdr, err := tx.AsyncCommit(context.Background())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, hdr.ID)
+	idx.Start()
 
-	// Other goroutine should succeed
-	select {
-	case err := <-errCh:
+	ensureIndexedUpTo := func(idx *index, txID uint64) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
+		err := idx.WaitForIndexingUpTo(ctx, txID)
 		require.NoError(t, err)
-	case <-time.After(time.Second):
-		require.Fail(t, "Did not get successful wait confirmation")
-	}
-}
+		require.Equal(t, txID, idx.Ts())
 
-func TestRestartIndexCornerCases(t *testing.T) {
-	for _, c := range []struct {
-		name string
-		fn   func(t *testing.T, dir string, s *ImmuStore)
-	}{
-		{
-			"Closed store",
-			func(t *testing.T, dir string, s *ImmuStore) {
-				s.Close()
+		snap, err := idx.SnapshotMustIncludeTx(ctx, txID)
+		require.NoError(t, err)
 
-				indexer, err := s.getIndexerFor(nil)
-				require.NoError(t, err)
-
-				err = indexer.restartIndex()
-				require.ErrorIs(t, err, ErrAlreadyClosed)
-			},
-		},
-		{
-			"No nodes folder",
-			func(t *testing.T, dir string, s *ImmuStore) {
-				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit1"), 0777))
-
-				indexer, err := s.getIndexerFor(nil)
-				require.NoError(t, err)
-
-				err = indexer.restartIndex()
-				require.NoError(t, err)
-			},
-		},
-		{
-			"No commit folder",
-			func(t *testing.T, dir string, s *ImmuStore) {
-				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
-
-				indexer, err := s.getIndexerFor(nil)
-				require.NoError(t, err)
-
-				err = indexer.restartIndex()
-				require.NoError(t, err)
-			},
-		},
-		{
-			"Invalid index structure",
-			func(t *testing.T, dir string, s *ImmuStore) {
-				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
-				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit1"), []byte{}, 0777))
-
-				indexer, err := s.getIndexerFor(nil)
-				require.NoError(t, err)
-
-				err = indexer.restartIndex()
-				require.NoError(t, err)
-			},
-		},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			d := t.TempDir()
-			store, err := Open(d, DefaultOptions())
+		// TODO: check snapshot ts
+		for i := uint64(1); i <= txID; i++ {
+			mkey, err := idx.mapKey([]byte(fmt.Sprintf("mprefix%d:key%d", idx.tree.ID(), i)), nil)
 			require.NoError(t, err)
-			defer store.Close()
 
-			c.fn(t, d, store)
-		})
-	}
-}
-
-func TestClosedIndexer(t *testing.T) {
-	i := indexer{closed: true}
-	var err error
-	dummy := []byte("dummy")
-
-	_, _, _, err = i.Get(dummy)
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, err = i.History(dummy, 0, false, 0)
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, err = i.Snapshot()
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, err = i.SnapshotMustIncludeTxIDWithRenewalPeriod(context.Background(), 0, 0)
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, _, err = i.GetBetween(dummy, 1, 2)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, _, _, err = i.GetWithPrefix(dummy, dummy)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	err = i.Sync()
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-
-	err = i.Close()
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrAlreadyClosed)
-}
-
-func TestIndexFlushShouldReleaseMemory(t *testing.T) {
-	d := t.TempDir()
-	store, err := Open(d, DefaultOptions())
-	require.NoError(t, err)
-	defer store.Close()
-
-	key := make([]byte, 100)
-	value := make([]byte, 100)
-
-	n := 100
-	for i := 0; i < n; i++ {
-		tx, err := store.NewWriteOnlyTx(context.Background())
-		require.NoError(t, err)
-
-		err = tx.Set(key, nil, value)
-		require.NoError(t, err)
-		_, err = tx.Commit(context.Background())
-		require.NoError(t, err)
+			err = snap.UseEntry(mkey, func(e *tbtree.Entry) error {
+				hval := e.Value[12 : 12+sha256.Size]
+				expectedHVal := sha256.Sum256([]byte(fmt.Sprintf("value-%d", i)))
+				require.Equal(t, expectedHVal[:], hval)
+				return nil
+			})
+			require.NoError(t, err)
+		}
 	}
 
-	idx, err := store.getIndexerFor([]byte{})
-	require.NoError(t, err)
-	require.NotNil(t, idx)
+	indexes := make([]*index, nIndexes)
 
-	require.Greater(t, store.memSemaphore.Value(), uint64(0))
+	for n := 0; n < nIndexes; n++ {
+		prefix := fmt.Sprintf("prefix%d:", n)
 
-	_, _, err = idx.index.Flush()
-	require.NoError(t, err)
-	require.Zero(t, store.memSemaphore.Value())
-}
-
-func TestIndexerWriteStalling(t *testing.T) {
-	d := t.TempDir()
-	store, err := Open(d, DefaultOptions().WithMultiIndexing(true).WithIndexOptions(DefaultIndexOptions().WithMaxBufferedDataSize(1024).WithMaxGlobalBufferedDataSize(1024)))
-	require.NoError(t, err)
-	defer store.Close()
-
-	nIndexes := 30
-
-	for i := 0; i < nIndexes; i++ {
-		err = store.InitIndexing(&IndexSpec{
-			TargetPrefix: []byte{byte(i)},
-			TargetEntryMapper: func(x int) func(key []byte, value []byte) ([]byte, error) {
-				return func(key, value []byte) ([]byte, error) {
-					return append([]byte{byte(x)}, key...), nil
-				}
-			}(i),
+		index, err := idx.InitIndexing(ledger, IndexSpec{
+			SourcePrefix: []byte(prefix),
+			TargetPrefix: []byte(strings.Replace(prefix, "prefix", "mprefix", 1)),
+			SourceEntryMapper: func(key []byte, _ io.Reader) ([]byte, error) {
+				return key, nil
+			},
+			TargetEntryMapper: func(key []byte, _ io.Reader) ([]byte, error) {
+				return []byte(strings.Replace(string(key), "prefix", "mprefix", 1)), nil
+			},
 		})
 		require.NoError(t, err)
+
+		indexes[n] = index
 	}
 
-	key := make([]byte, 100)
-	value := make([]byte, 100)
+	nTransactions := uint64(1 << 12)
+	ledger.DoneUpTo(nTransactions)
 
-	n := 100
-	for i := 0; i < n; i++ {
-		tx, err := store.NewWriteOnlyTx(context.Background())
-		require.NoError(t, err)
+	var wg sync.WaitGroup
+	wg.Add(nIndexes)
+	for _, idx := range indexes {
+		go func(idx *index) {
+			defer wg.Done()
 
-		err = tx.Set(key, nil, value)
-		require.NoError(t, err)
-		_, err = tx.Commit(context.Background())
-		require.NoError(t, err)
+			ensureIndexedUpTo(idx, nTransactions)
+		}(idx)
 	}
+	wg.Wait()
+}
 
-	for i := 0; i < nIndexes; i++ {
-		idx, err := store.getIndexerFor([]byte{byte(i)})
+func TestIndexingRecovery(t *testing.T) {
+	ledger := NewMockLedger("", readTxAtFor(1))
+
+	treeApp := memapp.New()
+
+	opts := DefaultOptions().
+		WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			switch subPath {
+			case "tree":
+				return treeApp, nil
+			case "history":
+				return memapp.New(), nil
+			}
+			return nil, fmt.Errorf("invalid subpath: %s", subPath)
+		})
+
+	idx, err := NewIndexerManager(opts)
+	require.NoError(t, err)
+
+	idx.Start()
+
+	index, err := idx.InitIndexing(ledger, IndexSpec{})
+	require.NoError(t, err)
+
+	upToTx := uint64(500)
+	ledger.DoneUpTo(upToTx)
+
+	ctx := context.Background()
+
+	err = index.WaitForIndexingUpTo(ctx, upToTx)
+	require.NoError(t, err)
+
+	err = index.Flush(context.Background())
+	require.NoError(t, err)
+
+	upToTx = uint64(1000)
+	ledger.DoneUpTo(upToTx)
+
+	err = index.WaitForIndexingUpTo(ctx, upToTx)
+	require.NoError(t, err)
+
+	err = idx.Close()
+	require.NoError(t, err)
+
+	t.Run("recovery after proper shutdown", func(t *testing.T) {
+		idx, err = NewIndexerManager(opts)
 		require.NoError(t, err)
-		require.Equal(t, idx.Ts(), uint64(n))
+
+		idx.Start()
+
+		index, err = idx.InitIndexing(ledger, IndexSpec{})
+		require.NoError(t, err)
+
+		require.Equal(t, upToTx, index.Ts())
+
+		err = idx.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("recovery after crash", func(t *testing.T) {
+		size, err := treeApp.Size()
+		require.NoError(t, err)
+
+		newSize := size - 1
+
+		err = treeApp.SetOffset(newSize)
+		require.NoError(t, err)
+
+		idx, err = NewIndexerManager(opts)
+		require.NoError(t, err)
+
+		idx.Start()
+
+		index, err = idx.InitIndexing(ledger, IndexSpec{})
+		require.NoError(t, err)
+
+		require.Equal(t, upToTx/2, index.Ts())
+	})
+}
+
+func readTxAtFor(nIndexes int) func(txID uint64, tx *Tx) error {
+	return func(txID uint64, tx *Tx) error {
+		entries := make([]*TxEntry, nIndexes)
+		for i := range entries {
+			key := []byte(fmt.Sprintf("prefix%d:key%d", i, txID))
+			value := []byte(fmt.Sprintf("value-%d", txID))
+
+			entries[i] = &TxEntry{
+				k:    key,
+				kLen: len(key),
+				vLen: len(value),
+				hVal: sha256.Sum256(value),
+				vOff: int64(txID),
+			}
+		}
+
+		tx.header = &TxHeader{
+			ID:       txID,
+			Metadata: &TxMetadata{},
+			NEntries: nIndexes,
+		}
+		tx.entries = entries
+
+		return nil
 	}
+}
+
+type MockLedger struct {
+	path              string
+	commitWh          *watchers.WatchersHub
+	lastCommittedTxID uint64
+	readTxAt          func(txID uint64, tx *Tx) error
+}
+
+func NewMockLedger(path string, readTxAt func(txID uint64, tx *Tx) error) *MockLedger {
+	return &MockLedger{
+		path:              path,
+		commitWh:          watchers.New(0, maxWaitingDefault),
+		lastCommittedTxID: 0,
+		readTxAt:          readTxAt,
+	}
+}
+
+func (s *MockLedger) ID() LedgerID {
+	return 0
+}
+
+func (s *MockLedger) Path() string {
+	return s.path
+}
+
+func (s *MockLedger) DoneUpTo(txID uint64) {
+	err := s.commitWh.DoneUpto(txID)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *MockLedger) LastCommittedTxID() uint64 {
+	doneUpTo, _, err := s.commitWh.Status()
+	if err != nil {
+		panic(err)
+	}
+	return doneUpTo
+}
+
+func (s *MockLedger) WaitFor(ctx context.Context, txID uint64) error {
+	return s.commitWh.WaitFor(ctx, txID)
+}
+
+func (s *MockLedger) ReadTxAt(txID uint64, tx *Tx) error {
+	if s.readTxAt == nil {
+		return fmt.Errorf("ReadTxAt: no read function specified")
+	}
+	return s.readTxAt(txID, tx)
+}
+
+func (s *MockLedger) ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (io.Reader, error) {
+	v := fmt.Sprintf("value-%d", off)
+	if vlen != len(v) {
+		return nil, fmt.Errorf("value size doens't match buffer size")
+	}
+	return bytes.NewReader([]byte(v)), nil
 }

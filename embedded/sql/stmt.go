@@ -1256,7 +1256,6 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
 			return nil, err
 		}
-
 		if errors.Is(err, store.ErrKeyNotFound) && pkMustExist {
 			return nil, fmt.Errorf("%w: specified value must be greater than current one", ErrInvalidValue)
 		}

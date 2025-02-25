@@ -53,7 +53,7 @@ type Storage struct {
 	location      string
 	httpClient    *http.Client
 	sessionToken  string
-	
+
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
 }
@@ -790,16 +790,13 @@ func (s *Storage) getRoleCredentials() error {
 
 	s3CredentialsRefreshTicker := time.NewTicker(s.awsCredsRefreshPeriod)
 	go func() {
-		for {
-			select {
-			case _ = <-s3CredentialsRefreshTicker.C:
-				accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
-				if err != nil {
-					log.Printf("S3 role credentials lookup failed with an error: %v", err)
-					continue
-				}
-				s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
+		for range s3CredentialsRefreshTicker.C {
+			accessKeyID, secretKey, sessionToken, err := s.requestCredentials()
+			if err != nil {
+				log.Printf("S3 role credentials lookup failed with an error: %v", err)
+				continue
 			}
+			s.accessKeyID, s.secretKey, s.sessionToken = accessKeyID, secretKey, sessionToken
 		}
 	}()
 
@@ -819,7 +816,7 @@ func (s *Storage) requestCredentials() (string, string, string, error) {
 
 	tokenResp, err := http.DefaultClient.Do(tokenReq)
 	if err != nil {
-		return "", "", "",  errors.New("cannot get metadata token")
+		return "", "", "", errors.New("cannot get metadata token")
 	}
 	defer tokenResp.Body.Close()
 
@@ -887,9 +884,9 @@ func (s *Storage) requestCredentials() (string, string, string, error) {
 	}
 
 	var credentials struct {
-			AccessKeyID     string `json:"AccessKeyId"`
-			SecretAccessKey string `json:"SecretAccessKey"`
-			SessionToken    string `json:"Token"`
+		AccessKeyID     string `json:"AccessKeyId"`
+		SecretAccessKey string `json:"SecretAccessKey"`
+		SessionToken    string `json:"Token"`
 	}
 	if err := json.Unmarshal(creds, &credentials); err != nil {
 		return "", "", "", errors.New("cannot parse role credentials")

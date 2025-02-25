@@ -26,7 +26,7 @@ import (
 
 func TestOngoingTXAddPrecondition(t *testing.T) {
 	otx := OngoingTx{
-		st: &ImmuStore{
+		l: &Ledger{
 			maxKeyLen: 10,
 		},
 	}
@@ -45,40 +45,40 @@ func TestOngoingTXAddPrecondition(t *testing.T) {
 }
 
 func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
-	st, err := Open(t.TempDir(), DefaultOptions())
+	ledger, err := setupLedger(t, DefaultOptions())
 	require.NoError(t, err)
 
-	defer immustoreClose(t, st)
+	otx := &OngoingTx{
+		l: ledger,
+	}
 
-	otx := &OngoingTx{}
-
-	err = otx.checkPreconditions(context.Background(), st)
+	err = otx.checkCanCommit(context.Background())
 	require.NoError(t, err)
 
 	otx.preconditions = []Precondition{nil}
-	err = otx.checkPreconditions(context.Background(), st)
+	err = otx.checkCanCommit(context.Background())
 	require.ErrorIs(t, err, ErrInvalidPrecondition)
 	require.ErrorIs(t, err, ErrInvalidPreconditionNull)
 
-	err = st.Close()
+	err = ledger.Close()
 	require.NoError(t, err)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(context.Background(), st)
+	err = otx.checkCanCommit(context.Background())
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustNotExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(context.Background(), st)
+	err = otx.checkCanCommit(context.Background())
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
 	}
-	err = otx.checkPreconditions(context.Background(), st)
+	err = otx.checkCanCommit(context.Background())
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
@@ -91,6 +91,6 @@ func TestOngoingTxOptions(t *testing.T) {
 	require.Error(t, opts.Validate())
 
 	require.Equal(t, 1*time.Hour, opts.WithSnapshotRenewalPeriod(1*time.Hour).SnapshotRenewalPeriod)
-	require.EqualValues(t, 1, opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 1 }).SnapshotMustIncludeTxID(100))
+	require.EqualValues(t, 1, opts.WithSnapshotMustIncludeTxID(func(_, _ uint64) uint64 { return 1 }).SnapshotMustIncludeTxID(100, 100))
 	require.True(t, opts.WithUnsafeMVCC(true).UnsafeMVCC)
 }

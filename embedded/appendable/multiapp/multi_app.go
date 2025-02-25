@@ -136,7 +136,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 			return nil, err
 		}
 
-		err = os.Mkdir(path, opts.fileMode)
+		err = os.MkdirAll(path, opts.fileMode)
 		if err != nil {
 			return nil, err
 		}

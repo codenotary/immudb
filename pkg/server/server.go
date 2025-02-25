@@ -137,6 +137,10 @@ func (s *ImmuServer) Initialize() error {
 	// NOTE: MaxActiveDatabases might have changed since the server instance was created
 	s.dbList.Resize(s.Options.MaxActiveDatabases)
 
+	if err := s.initStore(dataDir); err != nil {
+		return err
+	}
+
 	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword, s.Options.ForceAdminPassword); err != nil {
 		return logErr(s.Logger, "unable to load system database: %v", err)
 	}
@@ -459,13 +463,28 @@ func (s *ImmuServer) resetAdminPassword(ctx context.Context, adminPassword strin
 	if err != nil {
 		return false, err
 	}
-
 	return true, nil
+}
+
+func (s *ImmuServer) initStore(path string) error {
+	storeOpts := s.storeOptionsForDB(
+		"",
+		s.remoteStorage,
+		store.DefaultOptions().
+			WithMultiIndexing(true),
+	)
+
+	st, err := store.Open(
+		path,
+		storeOpts,
+	)
+	s.st = st
+	return err
 }
 
 func (s *ImmuServer) loadSystemDatabase(
 	dataDir string,
-	remoteStorage remotestorage.Storage,
+	_ remotestorage.Storage,
 	adminPassword string,
 	forceAdminPasswordReset bool,
 ) error {
@@ -481,7 +500,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
 	_, err = s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
+		s.sysDB, err = database.OpenDB(dbOpts.Database, s.st, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
@@ -522,7 +541,6 @@ func (s *ImmuServer) loadSystemDatabase(
 				s.Logger.Errorf("error starting replication for database '%s'. Reason: %v", s.sysDB.GetName(), err)
 			}
 		}
-
 		return nil
 	}
 
@@ -530,7 +548,7 @@ func (s *ImmuServer) loadSystemDatabase(
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
+	s.sysDB, err = database.OpenDB(dbOpts.Database, s.st, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}

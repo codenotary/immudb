@@ -31,15 +31,20 @@ import (
 func TestReadOnlyReplica(t *testing.T) {
 	rootPath := t.TempDir()
 
-	options := DefaultOptions().WithDBRootPath(rootPath).AsReplica(true)
+	options := DefaultOptions().
+		WithDBRootPath(rootPath).
+		AsReplica(true)
 
-	replica, err := NewDB("db", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	st, err := store.Open(rootPath, options.storeOpts)
+	require.NoError(t, err)
+
+	replica, err := OpenDB("db", st, nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	err = replica.Close()
 	require.NoError(t, err)
 
-	replica, err = OpenDB("db", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	replica, err = OpenDB("db", st, nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	_, err = replica.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})

@@ -309,25 +309,25 @@ func TestStoreScanWithTruncation(t *testing.T) {
 		require.NoError(t, c.TruncateUptoTx(context.Background(), deletePointTx))
 
 		for i := deletePointTx; i < 10; i++ {
-			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-			err := db.st.ReadTx(i, false, tx)
+			err := db.ledger.ReadTx(i, false, tx)
 			require.NoError(t, err)
 
 			for _, e := range tx.Entries() {
-				_, err := db.st.ReadValue(e)
+				_, err := db.ledger.ReadValue(e)
 				require.NoError(t, err)
 			}
 		}
 
 		for i := deletePointTx - 1; i > 0; i-- {
-			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-			err := db.st.ReadTx(i, false, tx)
+			err := db.ledger.ReadTx(i, false, tx)
 			require.NoError(t, err)
 
 			for _, e := range tx.Entries() {
-				_, err := db.st.ReadValue(e)
+				_, err := db.ledger.ReadValue(e)
 				require.Error(t, err)
 			}
 		}

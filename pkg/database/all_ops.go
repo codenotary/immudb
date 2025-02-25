@@ -45,8 +45,8 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 	}
 
 	if !req.NoWait {
-		lastTxID, _ := d.st.CommittedAlh()
-		err := d.st.WaitForIndexingUpto(ctx, lastTxID)
+		lastTxID, _ := d.ledger.CommittedAlh()
+		err := d.ledger.WaitForIndexingUpto(ctx, lastTxID)
 		if err != nil {
 			return nil, err
 		}
@@ -200,10 +200,9 @@ func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.T
 		return entries, preconditions, nil
 	}
 
-	hdr, err := d.st.CommitWith(ctx, callback, !req.NoWait)
+	hdr, err := d.ledger.CommitWith(ctx, callback, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}
-
 	return schema.TxHeaderToProto(hdr), nil
 }

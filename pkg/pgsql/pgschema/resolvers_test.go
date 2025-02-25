@@ -37,7 +37,10 @@ func setupEngine(t *testing.T, multiDBHandler sql.MultiDBHandler) *sql.Engine {
 		opts = opts.WithMultiDBHandler(multiDBHandler)
 	}
 
-	engine, err := sql.NewEngine(st, opts)
+	ledger, err := st.OpenLedger("default")
+	require.NoError(t, err)
+
+	engine, err := sql.NewEngine(ledger, opts)
 	require.NoError(t, err)
 	return engine
 }

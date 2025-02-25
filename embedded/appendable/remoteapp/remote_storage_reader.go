@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
-	"io/ioutil"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/remotestorage"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -29,7 +29,7 @@ func openRemoteStorageReader(r remotestorage.Storage, name string) (*remoteStora
 		metricsUncachedReadErrors.Inc()
 		return nil, err
 	}
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	reader.Close()
 	if err != nil {
 		metricsUncachedReadErrors.Inc()

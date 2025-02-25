@@ -142,7 +142,6 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 		err := onCommitCallback(sqlTx)
 		merr.Append(err)
 	}
-
 	return merr.Reduce()
 }
 

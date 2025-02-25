@@ -33,7 +33,6 @@ func (me *MultiErr) Append(err error) *MultiErr {
 	if err != nil {
 		me.errors = append(me.errors, err)
 	}
-
 	return me
 }
 

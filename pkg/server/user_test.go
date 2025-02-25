@@ -138,7 +138,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
-		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
+		return database.OpenDB(name, s.st, s.multidbHandler(), opts, s.Logger)
 	}, 10, logger.NewMemoryLogger()))
 	s.sysDB = nil
 

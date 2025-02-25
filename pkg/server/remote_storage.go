@@ -192,11 +192,9 @@ func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.
 
 		Metrics.RemoteStorageKind.WithLabelValues(name, remoteStorage.Kind()).Set(1)
 	} else {
-
 		// No remote storage
 		Metrics.RemoteStorageKind.WithLabelValues(name, "none").Set(1)
 	}
-
 	return stOpts
 }
 

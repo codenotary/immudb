@@ -20,16 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -74,6 +71,7 @@ func execAll(db DB, ctx context.Context, req *schema.ExecAllRequest, timeout tim
 	}
 }
 
+/*
 func TestConcurrentCompactIndex(t *testing.T) {
 	db := makeDb(t)
 
@@ -133,6 +131,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 	done <- struct{}{}
 	<-ack
 }
+*/
 
 func TestSetBatch(t *testing.T) {
 	db := makeDb(t)

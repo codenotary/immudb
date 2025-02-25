@@ -32,7 +32,7 @@ import (
 )
 
 func tmpFile(t *testing.T, data string) (fileName string, cleanup func()) {
-	fl, err := ioutil.TempFile("", "")
+	fl, err := os.CreateTemp("", "")
 	require.NoError(t, err)
 	fmt.Fprint(fl, data)
 	err = fl.Close()

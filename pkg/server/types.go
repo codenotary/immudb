@@ -27,6 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/truncator"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/embedded/store"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/stream"
@@ -66,6 +67,8 @@ type ImmuServer struct {
 	truncators     map[string]*truncator.Truncator
 	truncatorMutex sync.Mutex
 
+	st *store.ImmuStore
+
 	Logger      logger.Logger
 	Options     *Options
 	Listener    net.Listener
@@ -75,7 +78,7 @@ type ImmuServer struct {
 	quit        chan struct{}
 	userdata    *usernameToUserdataMap
 	multidbmode bool
-	//Cc                  CorruptionChecker
+
 	sysDB                database.DB
 	metricsServer        *http.Server
 	webServer            *http.Server
@@ -103,9 +106,10 @@ func DefaultServer() *ImmuServer {
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
 
-	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
-		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
-	}, s.Options.MaxActiveDatabases, s.Logger))
+	s.dbList = database.NewDatabaseList(
+		database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
+			return database.OpenDB(name, s.st, s.multidbHandler(), opts, s.Logger)
+		}, s.Options.MaxActiveDatabases, s.Logger))
 	return s
 }
 

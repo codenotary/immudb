@@ -29,16 +29,16 @@ import (
 
 func TestTxReader(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open(t.TempDir(), opts)
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	require.NotNil(t, immuStore)
+	require.NotNil(t, ledger)
 
 	txCount := 1000
 	eCount := 10
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -57,16 +57,16 @@ func TestTxReader(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	_, err = immuStore.NewTxReader(0, false, nil)
+	_, err = ledger.NewTxReader(0, false, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = immuStore.NewTxReader(1, false, nil)
+	_, err = ledger.NewTxReader(1, false, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	txHolder := tempTxHolder(t, immuStore)
+	txHolder := tempTxHolder(t, ledger)
 
 	currTxID := uint64(1)
-	txReader, err := immuStore.NewTxReader(currTxID, false, txHolder)
+	txReader, err := ledger.NewTxReader(currTxID, false, txHolder)
 	require.NoError(t, err)
 
 	for {
@@ -82,7 +82,7 @@ func TestTxReader(t *testing.T) {
 	require.Equal(t, uint64(txCount), currTxID-1)
 
 	currTxID = uint64(txCount)
-	txReader, err = immuStore.NewTxReader(currTxID, true, txHolder)
+	txReader, err = ledger.NewTxReader(currTxID, true, txHolder)
 	require.NoError(t, err)
 
 	for {
@@ -99,20 +99,23 @@ func TestTxReader(t *testing.T) {
 }
 
 func TestWrapAppendableErr(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open(t.TempDir(), opts)
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(1)
+
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	err = immuStore.wrapAppendableErr(nil, "anAction")
+	err = ledger.wrapAppendableErr(nil, "anAction")
 	require.NoError(t, err)
 
 	unwrappedErr := errors.New("some error")
-	err = immuStore.wrapAppendableErr(unwrappedErr, "anAction")
+	err = ledger.wrapAppendableErr(unwrappedErr, "anAction")
 	require.ErrorIs(t, err, unwrappedErr)
 
-	err = immuStore.wrapAppendableErr(singleapp.ErrAlreadyClosed, "anAction")
+	err = ledger.wrapAppendableErr(singleapp.ErrAlreadyClosed, "anAction")
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	err = immuStore.wrapAppendableErr(multiapp.ErrAlreadyClosed, "anAction")
+	err = ledger.wrapAppendableErr(multiapp.ErrAlreadyClosed, "anAction")
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }

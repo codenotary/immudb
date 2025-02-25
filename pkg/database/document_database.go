@@ -5,7 +5,7 @@ SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://mariadb.com/bsl11/
+	https://mariadb.com/bsl11/
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -375,7 +375,7 @@ func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentReq
 		return nil, err
 	}
 
-	err = d.st.ReadTx(docAudit.TxID, false, tx)
+	err = d.ledger.ReadTx(docAudit.TxID, false, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +386,7 @@ func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentReq
 		req.ProofSinceTransactionId = 1
 	}
 
-	lastValidatedHdr, err := d.st.ReadTxHeader(req.ProofSinceTransactionId, false, false)
+	lastValidatedHdr, err := d.ledger.ReadTxHeader(req.ProofSinceTransactionId, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func (d *db) ProofDocument(ctx context.Context, req *protomodel.ProofDocumentReq
 		targetHdr = tx.Header()
 	}
 
-	dualProof, err := d.st.DualProofV2(sourceHdr, targetHdr)
+	dualProof, err := d.ledger.DualProofV2(sourceHdr, targetHdr)
 	if err != nil {
 		return nil, err
 	}

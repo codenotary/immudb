@@ -62,7 +62,6 @@ func NewTx(nentries int, maxKeyLen int) *Tx {
 	}
 
 	header := &TxHeader{NEntries: len(entries)}
-
 	return NewTxWithEntries(header, entries)
 }
 

@@ -18,12 +18,10 @@ package database
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/document"
-	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -40,20 +38,16 @@ func makeDocumentDb(t *testing.T) *db {
 	options := DefaultOptions().
 		WithDBRootPath(rootPath)
 
-	options.storeOpts.IndexOpts.WithCompactionThld(2)
+	options.storeOpts.IndexOpts.WithCompactionThld(0.75)
 
-	d, err := NewDB(dbName, nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
-	require.NoError(t, err)
+	db := makeDbWith(t, dbName, options)
 
 	t.Cleanup(func() {
-		err := d.Close()
+		err := db.Close()
 		if !t.Failed() {
 			require.NoError(t, err)
 		}
 	})
-
-	db := d.(*db)
-
 	return db
 }
 

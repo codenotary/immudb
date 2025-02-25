@@ -61,7 +61,7 @@ type EncodedDocument struct {
 	EncodedDocument []byte
 }
 
-func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
+func NewEngine(ledger *store.Ledger, opts *Options) (*Engine, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		WithPrefix(opts.prefix).
 		WithLazyIndexConstraintValidation(true)
 
-	engine, err := sql.NewEngine(store, sqlOpts)
+	engine, err := sql.NewEngine(ledger, sqlOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (e *Engine) CreateCollection(ctx context.Context, username, name, documentI
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -392,7 +392,7 @@ func (e *Engine) UpdateCollection(ctx context.Context, username, collectionName 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -441,7 +441,7 @@ func (e *Engine) DeleteCollection(ctx context.Context, username, collectionName 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -495,7 +495,7 @@ func (e *Engine) AddField(ctx context.Context, username, collectionName string, 
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -537,7 +537,7 @@ func (e *Engine) RemoveField(ctx context.Context, username, collectionName strin
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -576,7 +576,7 @@ func (e *Engine) CreateIndex(ctx context.Context, username, collectionName strin
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -622,7 +622,7 @@ func (e *Engine) DeleteIndex(ctx context.Context, username, collectionName strin
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0).
 		WithExplicitClose(true)
 
@@ -668,7 +668,7 @@ func (e *Engine) InsertDocuments(ctx context.Context, username, collectionName s
 	opts := sql.DefaultTxOptions().
 		WithUnsafeMVCC(true).
 		WithExtra([]byte(username)).
-		WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 { return 0 }).
+		WithSnapshotMustIncludeTxID(func(_, lastPrecommittedTxID uint64) uint64 { return 0 }).
 		WithSnapshotRenewalPeriod(0)
 
 	sqlTx, err := e.sqlEngine.NewTx(ctx, opts)
@@ -1111,14 +1111,14 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 			return nil, err
 		}
 
-		hdr, err := e.sqlEngine.GetStore().ReadTxHeader(valRef.Tx(), false, false)
+		hdr, err := e.sqlEngine.GetStore().ReadTxHeader(valRef.TxID(), false, false)
 		if err != nil {
 			return nil, err
 		}
 
 		docAtRevision.DocumentId = docID.EncodeToHexString()
 		docAtRevision.Ts = hdr.Ts
-		docAtRevision.Revision = valRef.HC()
+		docAtRevision.Revision = valRef.Revision()
 
 		results = append(results, docAtRevision)
 	}
@@ -1260,15 +1260,15 @@ func (e *Engine) getDocument(key []byte, valRef store.ValueRef, includePayload b
 	var encodedDocVal []byte
 
 	if includePayload {
-		encodedDocVal, err = valRef.Resolve()
+		encodedDocVal, err = e.sqlEngine.GetStore().Resolve(valRef)
 		if err != nil {
 			return nil, mayTranslateError(err)
 		}
 	}
 
 	encDoc := &EncodedDocument{
-		TxID:            valRef.Tx(),
-		Revision:        valRef.HC(),
+		TxID:            valRef.TxID(),
+		Revision:        valRef.Revision(),
 		KVMetadata:      valRef.KVMetadata(),
 		EncodedDocument: encodedDocVal,
 	}
@@ -1347,14 +1347,14 @@ func (e *Engine) getEncodedDocument(ctx context.Context, key []byte, atTx uint64
 		return nil, mayTranslateError(err)
 	}
 
-	encodedDoc, err := valRef.Resolve()
+	encodedDoc, err := e.sqlEngine.GetStore().Resolve(valRef)
 	if err != nil {
 		return nil, mayTranslateError(err)
 	}
 
 	return &EncodedDocument{
-		TxID:            valRef.Tx(),
-		Revision:        valRef.HC(),
+		TxID:            valRef.TxID(),
+		Revision:        valRef.Revision(),
 		KVMetadata:      valRef.KVMetadata(),
 		EncodedDocument: encodedDoc,
 	}, err

@@ -49,7 +49,7 @@ func (s *ImmuServer) NewTx(ctx context.Context, request *schema.NewTxRequest) (*
 		WithReadOnly(request.Mode == schema.TxMode_ReadOnly)
 
 	if request.SnapshotMustIncludeTxID != nil {
-		opts.WithSnapshotMustIncludeTxID(func(_ uint64) uint64 {
+		opts.WithSnapshotMustIncludeTxID(func(_, _ uint64) uint64 {
 			return request.SnapshotMustIncludeTxID.GetValue()
 		})
 	}

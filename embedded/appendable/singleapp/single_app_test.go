@@ -246,7 +246,7 @@ func TestSingleAppReOpening(t *testing.T) {
 }
 
 func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
-	f, err := ioutil.TempFile(t.TempDir(), "singleapp_test_")
+	f, err := os.CreateTemp(t.TempDir(), "singleapp_test_")
 	require.NoError(t, err)
 
 	// should fail reading metadata len
@@ -269,7 +269,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 }
 
 func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
-	f, err := ioutil.TempFile(t.TempDir(), "singleapp_test_")
+	f, err := os.CreateTemp(t.TempDir(), "singleapp_test_")
 	require.NoError(t, err)
 
 	m := appendable.NewMetadata(nil)

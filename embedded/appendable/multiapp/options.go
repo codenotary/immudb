@@ -23,13 +23,15 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 )
 
-const DefaultFileSize = 1 << 26 // 64Mb
-const DefaultMaxOpenedFiles = 10
-const DefaultFileMode = os.FileMode(0755)
-const DefaultCompressionFormat = appendable.DefaultCompressionFormat
-const DefaultCompressionLevel = appendable.DefaultCompressionLevel
-const DefaultReadBufferSize = 4096
-const DefaultWriteBufferSize = 4096
+const (
+	DefaultFileSize          = 1 << 26 // 64Mb
+	DefaultMaxOpenedFiles    = 10
+	DefaultFileMode          = os.FileMode(0755)
+	DefaultCompressionFormat = appendable.DefaultCompressionFormat
+	DefaultCompressionLevel  = appendable.DefaultCompressionLevel
+	DefaultReadBufferSize    = 4096
+	DefaultWriteBufferSize   = 4096
+)
 
 type Options struct {
 	readOnly       bool

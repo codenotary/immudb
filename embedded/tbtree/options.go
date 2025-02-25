@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Codenotary Inc. All rights reserved.
+Copyright 2025 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -18,38 +18,32 @@ package tbtree
 
 import (
 	"fmt"
-	"math"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
-	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/logger"
 )
 
 const (
-	DefaultMaxNodeSize                   = 4096
-	DefaultFlushThld                     = 100_000
-	DefaultSyncThld                      = 1_000_000
-	DefaultFlushBufferSize               = 4096
-	DefaultMaxBufferedDataSize           = 1 << 22 // 4MB
-	DefaultCleanUpPercentage     float32 = 0
-	DefaultMaxActiveSnapshots            = 100
-	DefaultRenewSnapRootAfter            = time.Duration(1000) * time.Millisecond
-	DefaultCacheSize                     = 1 << 27 // 128Mb
-	DefaultFileMode                      = os.FileMode(0755)
-	DefaultFileSize                      = 1 << 26 // 64Mb
-	DefaultMaxKeySize                    = 1024
-	DefaultMaxValueSize                  = 512
-	DefaultCompactionThld                = 2
-	DefaultDelayDuringCompaction         = time.Duration(10) * time.Millisecond
+	DefaultSyncThld                  = 1024 * 1024
+	DefaultFlushBufferSize           = 4096
+	DefaultCompactionThld            = 0.75
+	DefaultCleanUpPercentage float32 = 0
+
+	DefaultFileSize = 1 << 26 // 64Mb
+	DefaultFileMode = os.FileMode(0755)
+
+	DefaultMaxActiveSnapshots = 100
+	DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
+
+	DefaultAppendableWriteBufferSize = 4096
 
 	DefaultNodesLogMaxOpenedFiles   = 10
 	DefaultHistoryLogMaxOpenedFiles = 1
 	DefaultCommitLogMaxOpenedFiles  = 1
-
-	MinCacheSize = 1
 )
 
 type AppFactoryFunc func(
@@ -58,112 +52,75 @@ type AppFactoryFunc func(
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
 
-type AppRemoveFunc func(rootPath, subPath string) error
-
-type OnFlushFunc func(releasedDataSize int)
-
 type Options struct {
 	logger logger.Logger
 
-	ID                  uint16
-	flushThld           int
-	syncThld            int
-	maxBufferedDataSize int // maximum amount of KV data that can be buffered before triggering flushing
-	flushBufferSize     int
-	cleanupPercentage   float32
-	maxActiveSnapshots  int
-	renewSnapRootAfter  time.Duration
-	cacheSize           int
-	cache               *cache.Cache
-	readOnly            bool
-	fileMode            os.FileMode
+	id    TreeID
+	wb    *WriteBuffer
+	pgBuf *PageBuffer
+
+	syncThld int
+
+	cleanupPercentage  float32
+	maxActiveSnapshots int
+	renewSnapRootAfter time.Duration
+	readOnly           bool
+	fileMode           os.FileMode
+
+	appWriteBufferSize int
 
 	nodesLogMaxOpenedFiles   int
 	historyLogMaxOpenedFiles int
 	commitLogMaxOpenedFiles  int
 
-	compactionThld        int
-	delayDuringCompaction time.Duration
-
 	// options below are only set during initialization and stored as metadata
-	maxNodeSize  int
-	maxKeySize   int
-	maxValueSize int
-	fileSize     int
+	fileSize int
 
 	appFactory AppFactoryFunc
-	appRemove  AppRemoveFunc
-	onFlush    OnFlushFunc
+	//appRemove  AppRemoveFunc
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		logger:                logger.NewSimpleLogger("immudb ", os.Stderr),
-		ID:                    0,
-		maxBufferedDataSize:   DefaultMaxBufferedDataSize,
-		flushThld:             DefaultFlushThld,
-		syncThld:              DefaultSyncThld,
-		flushBufferSize:       DefaultFlushBufferSize,
-		cleanupPercentage:     DefaultCleanUpPercentage,
-		maxActiveSnapshots:    DefaultMaxActiveSnapshots,
-		renewSnapRootAfter:    DefaultRenewSnapRootAfter,
-		cacheSize:             DefaultCacheSize,
-		readOnly:              false,
-		fileMode:              DefaultFileMode,
-		compactionThld:        DefaultCompactionThld,
-		delayDuringCompaction: DefaultDelayDuringCompaction,
-
+		logger:                   logger.NewMemoryLogger(),
+		maxActiveSnapshots:       DefaultMaxActiveSnapshots,
+		renewSnapRootAfter:       DefaultRenewSnapRootAfter,
+		fileMode:                 DefaultFileMode,
+		readOnly:                 false,
+		syncThld:                 DefaultSyncThld,
+		appWriteBufferSize:       DefaultAppendableWriteBufferSize,
 		nodesLogMaxOpenedFiles:   DefaultNodesLogMaxOpenedFiles,
 		historyLogMaxOpenedFiles: DefaultHistoryLogMaxOpenedFiles,
 		commitLogMaxOpenedFiles:  DefaultCommitLogMaxOpenedFiles,
-
-		// options below are only set during initialization and stored as metadata
-		maxNodeSize:  DefaultMaxNodeSize,
-		maxKeySize:   DefaultMaxKeySize,
-		maxValueSize: DefaultMaxValueSize,
-		fileSize:     DefaultFileSize,
+		fileSize:                 DefaultFileSize,
+		appFactory:               defaultAppFactory,
 	}
 }
 
+func defaultAppFactory(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+	fullPath := filepath.Join(rootPath, subPath)
+	return multiapp.Open(fullPath, opts)
+}
+
 func (opts *Options) Validate() error {
-	if opts == nil {
-		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	if opts.logger == nil {
+		return fmt.Errorf("%w: invalid Logger", ErrInvalidOptions)
 	}
 
-	if opts.fileSize <= 0 {
-		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
+	if opts.wb == nil {
+		return fmt.Errorf("%w: missing write buffer", ErrInvalidOptions)
 	}
 
-	if opts.maxKeySize <= 0 || opts.maxKeySize > math.MaxUint16 {
-		return fmt.Errorf("%w: invalid MaxKeySize", ErrInvalidOptions)
-	}
-
-	if opts.maxValueSize <= 0 || opts.maxValueSize > math.MaxUint16 {
-		return fmt.Errorf("%w: invalid MaxValueSize", ErrInvalidOptions)
-	}
-
-	if opts.maxNodeSize < requiredNodeSize(opts.maxKeySize, opts.maxValueSize) {
-		return fmt.Errorf("%w: invalid MaxNodeSize", ErrInvalidOptions)
-	}
-
-	if opts.flushThld <= 0 {
-		return fmt.Errorf("%w: invalid FlushThld", ErrInvalidOptions)
-	}
-
-	if opts.syncThld <= 0 {
-		return fmt.Errorf("%w: invalid SyncThld", ErrInvalidOptions)
-	}
-
-	if opts.flushThld > opts.syncThld {
-		return fmt.Errorf("%w: FlushThld must be lower or equal to SyncThld", ErrInvalidOptions)
-	}
-
-	if opts.flushBufferSize <= 0 {
-		return fmt.Errorf("%w: invalid FlushBufferSize", ErrInvalidOptions)
+	if opts.pgBuf == nil {
+		return fmt.Errorf("%w: missing page buffer", ErrInvalidOptions)
 	}
 
 	if opts.cleanupPercentage < 0 || opts.cleanupPercentage > 100 {
 		return fmt.Errorf("%w: invalid CleanupPercentage", ErrInvalidOptions)
+	}
+
+	if opts.appWriteBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid appendable write buffer size", ErrInvalidOptions)
 	}
 
 	if opts.nodesLogMaxOpenedFiles <= 0 {
@@ -186,19 +143,15 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid RenewSnapRootAfter", ErrInvalidOptions)
 	}
 
-	if opts.cacheSize < MinCacheSize || (opts.cacheSize == 0 && opts.cache == nil) {
-		return fmt.Errorf("%w: invalid CacheSize", ErrInvalidOptions)
+	if opts.appFactory == nil {
+		return fmt.Errorf("%w: missing appendable factory", ErrInvalidOptions)
 	}
-
-	if opts.compactionThld <= 0 {
-		return fmt.Errorf("%w: invalid CompactionThld", ErrInvalidOptions)
-	}
-
-	if opts.logger == nil {
-		return fmt.Errorf("%w: invalid Logger", ErrInvalidOptions)
-	}
-
 	return nil
+}
+
+func (opts *Options) WithTreeID(id TreeID) *Options {
+	opts.id = id
+	return opts
 }
 
 func (opts *Options) WithLogger(logger logger.Logger) *Options {
@@ -206,53 +159,18 @@ func (opts *Options) WithLogger(logger logger.Logger) *Options {
 	return opts
 }
 
-func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
+func (opts *Options) WithWriteBuffer(wb *WriteBuffer) *Options {
+	opts.wb = wb
+	return opts
+}
+
+func (opts *Options) WithPageBuffer(pgBuf *PageBuffer) *Options {
+	opts.pgBuf = pgBuf
+	return opts
+}
+
+func (opts *Options) WithAppFactoryFunc(appFactory AppFactoryFunc) *Options {
 	opts.appFactory = appFactory
-	return opts
-}
-
-func (opts *Options) WithAppRemoveFunc(AppRemove AppRemoveFunc) *Options {
-	opts.appRemove = AppRemove
-	return opts
-}
-
-func (opts *Options) WithFlushThld(flushThld int) *Options {
-	opts.flushThld = flushThld
-	return opts
-}
-
-func (opts *Options) WithSyncThld(syncThld int) *Options {
-	opts.syncThld = syncThld
-	return opts
-}
-
-func (opts *Options) WithFlushBufferSize(size int) *Options {
-	opts.flushBufferSize = size
-	return opts
-}
-
-func (opts *Options) WithCleanupPercentage(cleanupPercentage float32) *Options {
-	opts.cleanupPercentage = cleanupPercentage
-	return opts
-}
-
-func (opts *Options) WithMaxActiveSnapshots(maxActiveSnapshots int) *Options {
-	opts.maxActiveSnapshots = maxActiveSnapshots
-	return opts
-}
-
-func (opts *Options) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *Options {
-	opts.renewSnapRootAfter = renewSnapRootAfter
-	return opts
-}
-
-func (opts *Options) WithCacheSize(cacheSize int) *Options {
-	opts.cacheSize = cacheSize
-	return opts
-}
-
-func (opts *Options) WithCache(cache *cache.Cache) *Options {
-	opts.cache = cache
 	return opts
 }
 
@@ -261,67 +179,17 @@ func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	return opts
 }
 
-func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
-	opts.fileMode = fileMode
+func (opts *Options) WithFileMode(mode os.FileMode) *Options {
+	opts.fileMode = mode
 	return opts
 }
 
-func (opts *Options) WithNodesLogMaxOpenedFiles(nodesLogMaxOpenedFiles int) *Options {
-	opts.nodesLogMaxOpenedFiles = nodesLogMaxOpenedFiles
+func (opts *Options) WithAppendableWriteBufferSize(size int) *Options {
+	opts.appWriteBufferSize = size
 	return opts
 }
 
-func (opts *Options) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles int) *Options {
-	opts.historyLogMaxOpenedFiles = historyLogMaxOpenedFiles
-	return opts
-}
-
-func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
-	opts.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
-	return opts
-}
-
-func (opts *Options) WithMaxKeySize(maxKeySize int) *Options {
-	opts.maxKeySize = maxKeySize
-	return opts
-}
-
-func (opts *Options) WithMaxValueSize(maxValueSize int) *Options {
-	opts.maxValueSize = maxValueSize
-	return opts
-}
-
-func (opts *Options) WithMaxNodeSize(maxNodeSize int) *Options {
-	opts.maxNodeSize = maxNodeSize
-	return opts
-}
-
-func (opts *Options) WithFileSize(fileSize int) *Options {
-	opts.fileSize = fileSize
-	return opts
-}
-
-func (opts *Options) WithCompactionThld(compactionThld int) *Options {
-	opts.compactionThld = compactionThld
-	return opts
-}
-
-func (opts *Options) WithDelayDuringCompaction(delay time.Duration) *Options {
-	opts.delayDuringCompaction = delay
-	return opts
-}
-
-func (opts *Options) WithIdentifier(id uint16) *Options {
-	opts.ID = id
-	return opts
-}
-
-func (opts *Options) WithMaxBufferedDataSize(size int) *Options {
-	opts.maxBufferedDataSize = size
-	return opts
-}
-
-func (opts *Options) WithOnFlushFunc(onFlush OnFlushFunc) *Options {
-	opts.onFlush = onFlush
+func (opts *Options) WithSyncThld(syncThld int) *Options {
+	opts.syncThld = syncThld
 	return opts
 }

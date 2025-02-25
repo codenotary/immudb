@@ -312,7 +312,7 @@ func testGetAtRevision(ctx context.Context, t *testing.T, client ic.ImmuClient) 
 	require.EqualValues(t, 3, vitem.Revision)
 }
 
-func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
+func testGetTxByID(ctx context.Context, t *testing.T, _ []byte, _ []float64, _ [][]byte, _ [][]byte, client ic.ImmuClient) {
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
@@ -321,7 +321,7 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 	require.NoError(t, err)
 }
 
-func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
+func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, _ []byte, _ []float64, _ [][]byte, _ [][]byte, client ic.ImmuClient) {
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 

@@ -43,7 +43,10 @@ func makeEngine(t *testing.T) *Engine {
 		}
 	})
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(docPrefix))
+	ledger, err := st.OpenLedger("default")
+	require.NoError(t, err)
+
+	engine, err := NewEngine(ledger, DefaultOptions().WithPrefix(docPrefix))
 	require.NoError(t, err)
 
 	err = engine.CopyCatalogToTx(context.Background(), nil)
@@ -2118,7 +2121,10 @@ func BenchmarkInsertion(b *testing.B) {
 		}
 	}()
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(docPrefix))
+	ledger, err := st.OpenLedger("default")
+	require.NoError(b, err)
+
+	engine, err := NewEngine(ledger, DefaultOptions().WithPrefix(docPrefix))
 	require.NoError(b, err)
 
 	collectionName := "mycollection"

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Codenotary Inc. All rights reserved.
+Copyright 2025 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,232 +17,239 @@ limitations under the License.
 package tbtree
 
 import (
-	"bytes"
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestSnapshotSerialization(t *testing.T) {
-	insertionCountThld := 10_000
-
-	tbtree, err := Open(t.TempDir(), DefaultOptions().WithFlushThld(insertionCountThld))
-	require.NoError(t, err)
-
-	keyCount := insertionCountThld
-	monotonicInsertions(t, tbtree, 1, keyCount, true)
-
-	snapshot, err := tbtree.Snapshot()
-	require.NotNil(t, snapshot)
-	require.NoError(t, err)
-
-	_, _, _, _, err = snapshot.WriteTo(nil, nil, nil)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-
-	dumpNBuf := new(bytes.Buffer)
-	dumpHBuf := new(bytes.Buffer)
-	wopts := &WriteOpts{
-		OnlyMutated:    true,
-		BaseNLogOffset: 0,
-		BaseHLogOffset: 0,
-		reportProgress: func(innerWritten, leafNodesWritten, keysWritten int) {},
+func TestSnapshotSet(t *testing.T) {
+	type test struct {
+		name       string
+		localRange numRange
+		mainRange  numRange
 	}
-	_, _, _, _, err = snapshot.WriteTo(dumpNBuf, dumpHBuf, wopts)
-	require.NoError(t, err)
-	require.True(t, dumpNBuf.Len() == 0)
 
-	_, _, _, err = snapshot.Get(nil)
-	require.ErrorIs(t, err, ErrIllegalArguments)
+	n := 100
 
-	_, _, _, err = snapshot.GetBetween(nil, 1, 2)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-
-	_, _, err = snapshot.History(nil, 0, false, 1)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-
-	_, _, err = snapshot.History([]byte{}, 0, false, 0)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-
-	err = snapshot.Close()
-	require.NoError(t, err)
-
-	_, _, err = tbtree.Flush()
-	require.NoError(t, err)
-
-	snapshot, err = tbtree.Snapshot()
-	require.NoError(t, err)
-
-	fulldumpNBuf := new(bytes.Buffer)
-	fulldumpHBuf := new(bytes.Buffer)
-	wopts = &WriteOpts{
-		OnlyMutated:    false,
-		BaseNLogOffset: 0,
-		BaseHLogOffset: 0,
-		reportProgress: func(innerWritten, leafNodesWritten, keysWritten int) {},
+	cases := []test{
+		{
+			name: "disjoint ranges - main first",
+			mainRange: numRange{
+				start: 0,
+				end:   n - 1,
+			},
+			localRange: numRange{
+				start: n,
+				end:   2*n - 1,
+			},
+		},
+		{
+			name: "disjoint ranges - local first",
+			localRange: numRange{
+				start: 0,
+				end:   n - 1,
+			},
+			mainRange: numRange{
+				start: n,
+				end:   2*n - 1,
+			},
+		},
+		{
+			name: "overlapping ranges from start",
+			mainRange: numRange{
+				start: n / 2,
+				end:   2*n - 1,
+			},
+			localRange: numRange{
+				start: 0,
+				end:   n,
+			},
+		},
+		{
+			name: "overlapping ranges from end",
+			mainRange: numRange{
+				start: 0,
+				end:   n - 1,
+			},
+			localRange: numRange{
+				start: n / 2,
+				end:   n + n/2,
+			},
+		},
+		{
+			name: "local replaces all range",
+			mainRange: numRange{
+				start: 0,
+				end:   n - 1,
+			},
+			localRange: numRange{
+				start: 0,
+				end:   n - 1,
+			},
+		},
 	}
-	_, _, _, _, err = snapshot.WriteTo(fulldumpNBuf, fulldumpHBuf, wopts)
-	require.NoError(t, err)
-	require.True(t, fulldumpNBuf.Len() > 0)
 
-	err = snapshot.Close()
-	require.NoError(t, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			writeBufferSize := 5 * 1024 * 1024
+			pageBufferSize := 1024 * 1024
 
-	err = tbtree.Close()
-	require.NoError(t, err)
+			tree, err := newBTree(writeBufferSize, pageBufferSize)
+			require.NoError(t, err)
+
+			tc.mainRange.forEach(func(n int) {
+				err := tree.Insert(Entry{
+					Ts:    uint64(1),
+					HOff:  OffsetNone,
+					Key:   binary.BigEndian.AppendUint32(nil, uint32(n)),
+					Value: []byte(fmt.Sprintf("value-%d", n)),
+				})
+				require.NoError(t, err)
+			})
+
+			err = tree.Flush(context.Background(), true)
+			require.NoError(t, err)
+
+			snap, err := tree.WriteSnapshot()
+			require.NoError(t, err)
+
+			tc.localRange.forEach(func(n int) {
+				key := binary.BigEndian.AppendUint32(nil, uint32(n))
+				err := snap.Set(key, []byte(fmt.Sprintf("new-value-%d", n)))
+				require.NoError(t, err)
+			})
+
+			u := tc.mainRange.union(tc.localRange)
+			u.forEach(func(n int) {
+				key := binary.BigEndian.AppendUint32(nil, uint32(n))
+				v, ts, hc, err := snap.Get(key)
+				require.NoError(t, err)
+
+				if tc.localRange.contains(n) {
+					expectedHC := uint64(1)
+					if tc.mainRange.contains(n) {
+						expectedHC++
+					}
+					require.Equal(t, uint64(2), ts)
+					require.Equal(t, expectedHC, hc)
+					require.Equal(t, []byte(fmt.Sprintf("new-value-%d", n)), v)
+				} else {
+					require.Equal(t, []byte(fmt.Sprintf("value-%d", n)), v)
+					require.Equal(t, uint64(1), ts)
+					require.Equal(t, uint64(1), hc)
+				}
+			})
+
+			t.Run("forward iteration", func(t *testing.T) {
+				seekAt := u.start + rand.Intn(u.end-u.start+1)
+				it, err := snap.NewIterator(DefaultIteratorOptions())
+				require.NoError(t, err)
+
+				err = it.Seek(binary.BigEndian.AppendUint32(nil, uint32(seekAt)))
+				require.NoError(t, err)
+
+				m := seekAt
+				for {
+					e, err := it.Next()
+					if errors.Is(err, ErrNoMoreEntries) {
+						break
+					}
+
+					if tc.localRange.contains(m) {
+						expectedHC := uint64(0)
+						if tc.mainRange.contains(m) {
+							expectedHC++
+						}
+						require.Equal(t, uint64(2), e.Ts)
+						require.Equal(t, expectedHC, e.HC)
+						require.Equal(t, []byte(fmt.Sprintf("new-value-%d", m)), e.Value)
+					} else {
+						require.Equal(t, uint64(1), e.Ts)
+						require.Equal(t, uint64(0), e.HC)
+						require.Equal(t, []byte(fmt.Sprintf("value-%d", m)), e.Value)
+					}
+					m++
+				}
+				require.Equal(t, u.end+1, m)
+			})
+
+			t.Run("backward iteration", func(t *testing.T) {
+				seekAt := u.start + rand.Intn(u.end-u.start+1)
+
+				opts := DefaultIteratorOptions()
+				opts.Reversed = true
+
+				it, err := snap.NewIterator(opts)
+				require.NoError(t, err)
+
+				err = it.Seek(binary.BigEndian.AppendUint32(nil, uint32(seekAt)))
+				require.NoError(t, err)
+
+				m := seekAt
+				for {
+					e, err := it.Next()
+					if errors.Is(err, ErrNoMoreEntries) {
+						break
+					}
+
+					if tc.localRange.contains(m) {
+						expectedHC := uint64(0)
+						if tc.mainRange.contains(m) {
+							expectedHC++
+						}
+						require.Equal(t, uint64(2), e.Ts)
+						require.Equal(t, expectedHC, e.HC)
+						require.Equal(t, []byte(fmt.Sprintf("new-value-%d", m)), e.Value)
+					} else {
+						require.Equal(t, uint64(1), e.Ts)
+						require.Equal(t, uint64(0), e.HC)
+						require.Equal(t, []byte(fmt.Sprintf("value-%d", m)), e.Value)
+					}
+					m--
+				}
+				require.Equal(t, -1, m)
+			})
+		})
+	}
 }
 
-func TestSnapshotClosing(t *testing.T) {
-	tbtree, err := Open(t.TempDir(), DefaultOptions())
-	require.NoError(t, err)
-
-	snapshot, err := tbtree.Snapshot()
-	require.NoError(t, err)
-
-	err = snapshot.Close()
-	require.NoError(t, err)
-
-	err = snapshot.Close()
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, _, err = snapshot.Get([]byte{})
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, _, err = snapshot.GetBetween([]byte{}, 1, 1)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, err = snapshot.History([]byte{}, 0, false, 1)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, _, _, _, err = snapshot.GetWithPrefix([]byte{}, nil)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, err = snapshot.NewReader(ReaderSpec{})
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	_, err = snapshot.NewHistoryReader(nil)
-	require.ErrorIs(t, err, ErrAlreadyClosed)
-
-	err = tbtree.Close()
-	require.NoError(t, err)
+type numRange struct {
+	start int
+	end   int
 }
 
-func TestSnapshotLoadFromFullDump(t *testing.T) {
-	tbtree, err := Open(t.TempDir(), DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
-	require.NoError(t, err)
-
-	keyCount := 1_000
-	monotonicInsertions(t, tbtree, 1, keyCount, true)
-
-	done := make(chan struct{})
-
-	go func(done chan<- struct{}) {
-		tbtree.Compact()
-		done <- struct{}{}
-	}(done)
-
-	<-done
-
-	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)
-
-	err = tbtree.Close()
-	require.NoError(t, err)
+func (r *numRange) contains(n int) bool {
+	return n >= r.start && n <= r.end
 }
 
-func TestSnapshotIsolation(t *testing.T) {
-	tbtree, err := Open(t.TempDir(), DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
-	require.NoError(t, err)
+func (r *numRange) union(other numRange) numRange {
+	return numRange{
+		start: min(r.start, other.start),
+		end:   max(r.end, other.end),
+	}
+}
 
-	err = tbtree.Insert([]byte("key1"), []byte("value1"))
-	require.NoError(t, err)
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
-	// snapshot creation
-	snap1, err := tbtree.Snapshot()
-	require.NoError(t, err)
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
 
-	snap2, err := tbtree.Snapshot()
-	require.NoError(t, err)
-
-	t.Run("keys inserted before snapshot creation should be reachable", func(t *testing.T) {
-		_, _, _, err = snap1.Get([]byte("key1"))
-		require.NoError(t, err)
-
-		_, _, _, err = snap2.Get([]byte("key1"))
-		require.NoError(t, err)
-
-		_, _, ts, _, err := snap1.GetWithPrefix([]byte("key"), nil)
-		require.NoError(t, err)
-		require.NotZero(t, ts)
-
-		_, _, _, err = snap1.GetBetween([]byte("key1"), 1, snap1.Ts())
-		require.NoError(t, err)
-
-		_, _, _, err = snap2.GetBetween([]byte("key1"), 1, snap2.Ts())
-		require.NoError(t, err)
-
-		_, _, _, _, err = snap1.GetWithPrefix([]byte("key3"), nil)
-		require.ErrorIs(t, err, ErrKeyNotFound)
-
-		_, _, _, _, err = snap1.GetWithPrefix([]byte("key1"), []byte("key1"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
-	})
-
-	err = tbtree.Insert([]byte("key2"), []byte("value2"))
-	require.NoError(t, err)
-
-	t.Run("keys inserted after snapshot creation should NOT be reachable", func(t *testing.T) {
-		_, _, _, err = snap1.Get([]byte("key2"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
-
-		_, _, _, err = snap2.Get([]byte("key2"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
-	})
-
-	err = snap1.Set([]byte("key1"), []byte("value1_snap1"))
-	require.NoError(t, err)
-
-	err = snap1.Set([]byte("key1_snap1"), []byte("value1_snap1"))
-	require.NoError(t, err)
-
-	err = snap2.Set([]byte("key1"), []byte("value1_snap2"))
-	require.NoError(t, err)
-
-	err = snap2.Set([]byte("key1_snap2"), []byte("value1_snap2"))
-	require.NoError(t, err)
-
-	t.Run("keys inserted after snapshot creation should NOT be reachable", func(t *testing.T) {
-
-	})
-
-	_, _, _, err = snap1.Get([]byte("key1_snap1"))
-	require.NoError(t, err)
-
-	_, _, _, err = snap2.Get([]byte("key1_snap2"))
-	require.NoError(t, err)
-
-	_, _, _, err = snap1.Get([]byte("key1_snap2"))
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	_, _, _, err = snap2.Get([]byte("key1_snap1"))
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	_, _, _, err = snap1.GetBetween([]byte("key1_snap2"), 1, snap1.Ts())
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	_, _, _, err = snap2.GetBetween([]byte("key1_snap1"), 1, snap2.Ts())
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	_, _, _, err = tbtree.Get([]byte("key1_snap1"))
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	_, _, _, err = tbtree.Get([]byte("key1_snap2"))
-	require.ErrorIs(t, err, ErrKeyNotFound)
-
-	err = snap1.Close()
-	require.NoError(t, err)
-
-	err = snap2.Close()
-	require.NoError(t, err)
-
-	err = tbtree.Close()
-	require.NoError(t, err)
+func (r *numRange) forEach(each func(n int)) {
+	for n := r.start; n <= r.end; n++ {
+		each(n)
+	}
 }

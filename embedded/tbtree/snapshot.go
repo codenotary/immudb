@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Codenotary Inc. All rights reserved.
+Copyright 2025 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -18,622 +18,384 @@ package tbtree
 
 import (
 	"bytes"
-	"encoding/binary"
-	"io"
-	"math"
-	"sync"
+	"errors"
+	"fmt"
+	"slices"
+
+	"github.com/codenotary/immudb/embedded/radix"
 )
 
-const (
-	InnerNodeType = iota
-	LeafNodeType
+var (
+	ErrSnapshotNotFlushed   = errors.New("snapshot is not flushed")
+	ErrCannotModifySnapshot = errors.New("cannot modify snapshot")
+	ErrInvalidHistoryOffset = errors.New("invalid history offset")
 )
 
-// Snapshot implements a snapshot on top of a B-tree data structure.
-// It provides methods for storing and retrieving key-value pairs.
-// The snapshot maintains a consistent view of the underlying data structure.
-// It uses a lock to ensure concurrent access safety.
-// Snapshot represents a consistent view of a B-tree data structure.
-type Snapshot struct {
-	t           *TBtree
-	id          uint64
-	ts          uint64
-	root        node
-	readers     map[int]io.Closer
-	maxReaderID int
-	closed      bool
-
-	_buf []byte
-
-	mutex sync.RWMutex
+type Snapshot interface {
+	UseEntry(key []byte, onEntry func(e *Entry) error) error
+	Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
+	GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error)
+	GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error)
+	History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error)
+	NewIterator(opts IteratorOptions) (Iterator, error)
+	Set(key []byte, value []byte) error
+	Ts() uint64
+	Close() error
 }
 
-// Set inserts a key-value pair into the snapshot.
-// It locks the snapshot, performs the insertion, and updates the root node if necessary.
-// The method handles splitting of nodes to maintain the B-tree structure.
-// It returns an error if the insertion fails.
-// Example usage:
-//
-//	err := snapshot.Set([]byte("key"), []byte("value"))
-func (s *Snapshot) Set(key, value []byte) error {
-	// Acquire a write lock on the snapshot
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+type TBTreeSnapshot struct {
+	isWriteSnapshot bool
+	rootID          PageID
+	maxTs           uint64
 
-	// Create copies of the key and value to ensure immutability
-	k := make([]byte, len(key))
-	copy(k, key)
-
-	v := make([]byte, len(value))
-	copy(v, value)
-
-	// Insert the key-value pair into the root node
-	nodes, depth, err := s.root.insert([]*KVT{{K: k, V: v, T: s.ts}})
-	if err != nil {
-		return err
-	}
-
-	// Split nodes to maintain the B-tree structure
-	for len(nodes) > 1 {
-		newRoot := &innerNode{
-			t:     s.t,
-			nodes: nodes,
-			_ts:   s.ts,
-			mut:   true,
-		}
-
-		depth++
-
-		nodes, err = newRoot.split()
-		if err != nil {
-			return err
-		}
-	}
-
-	// Update the root node
-	s.root = nodes[0]
-
-	// Update B-tree depth metric
-	metricsBtreeDepth.WithLabelValues(s.t.path).Set(float64(depth))
-
-	return nil
+	tree *TBTree
 }
 
-// Get retrieves the value associated with the given key from the snapshot.
-// It locks the snapshot for reading, and delegates the retrieval to the root node.
-// The method returns the value, timestamp, hash count, and an error.
-// Example usage:
-//
-//	value, timestamp, hashCount, err := snapshot.Get([]byte("key"))
-func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
-	// Acquire a read lock on the snapshot
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Check if the snapshot is closed
-	if s.closed {
-		return nil, 0, 0, ErrAlreadyClosed
-	}
-
-	// Check if the key argument is nil
-	if key == nil {
-		return nil, 0, 0, ErrIllegalArguments
-	}
-
-	// Delegate the retrieval to the root node
-	v, ts, hc, err := s.root.get(key)
-	return cp(v), ts, hc, err
+func (t *TBTree) newReadSnapshot(
+	rootID PageID,
+	maxTs uint64,
+) (Snapshot, error) {
+	return t.newSnapshot(false, rootID, maxTs)
 }
 
-func (s *Snapshot) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if s.closed {
-		return nil, 0, 0, ErrAlreadyClosed
+func (t *TBTree) newSnapshot(
+	isWriteSnapshot bool,
+	rootID PageID,
+	maxTs uint64,
+) (Snapshot, error) {
+	if ok := t.snapshotLock.TryRLock(); !ok {
+		return nil, ErrCompactionInProgress
 	}
 
-	if key == nil {
-		return nil, 0, 0, ErrIllegalArguments
+	snap := &TBTreeSnapshot{
+		isWriteSnapshot: isWriteSnapshot,
+		rootID:          rootID,
+		maxTs:           maxTs,
+		tree:            t,
 	}
 
-	v, ts, hc, err := s.root.getBetween(key, initialTs, finalTs)
-	return cp(v), ts, hc, err
+	return &localSnapshot{
+		snap: snap,
+	}, nil
 }
 
-// History retrieves the history of a key in the snapshot.
-// It locks the snapshot for reading, and delegates the history retrieval to the root node.
-// The method returns an array of timestamps, the hash count, and an error.
-// Example usage:
-//
-//	timestamps, hashCount, err := snapshot.History([]byte("key"), 0, true, 10)
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error) {
-	// Acquire a read lock on the snapshot
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+func (snap *TBTreeSnapshot) UseEntry(
+	key []byte,
+	onEntry func(e *Entry) error,
+) error {
+	var found bool
 
-	// Check if the snapshot is closed
-	if s.closed {
-		return nil, 0, ErrAlreadyClosed
+	err := traverse(
+		snap.tree,
+		snap.rootID,
+		key,
+		func(pg *Page, pgID PageID) (bool, error) {
+			if !pg.IsLeaf() {
+				return true, nil
+			}
+
+			e, err := pg.GetEntry(key)
+			if err == nil {
+				found = true
+				return true, onEntry(e)
+			}
+			return true, err
+		})
+	if err == nil && !found {
+		return ErrKeyNotFound
 	}
-
-	// Check if the key argument is nil
-	if key == nil {
-		return nil, 0, ErrIllegalArguments
-	}
-
-	// Check if the limit argument is less than 1
-	if limit < 1 {
-		return nil, 0, ErrIllegalArguments
-	}
-
-	// Delegate the history retrieval to the root node
-	return s.root.history(key, offset, descOrder, limit)
+	return err
 }
 
-// Ts returns the timestamp associated with the root node of the snapshot.
-// It locks the snapshot for reading and returns the timestamp.
-// Example usage:
-//
-//	timestamp := snapshot.Ts()
-func (s *Snapshot) Ts() uint64 {
-	// Acquire a read lock on the snapshot
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.root.ts()
+func (snap *TBTreeSnapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+	return snap.GetBetween(key, 0, snap.maxTs)
 }
 
-// GetWithPrefix retrieves the key-value pair with a specific prefix from the snapshot.
-// It locks the snapshot for reading, and delegates the retrieval to the root node.
-// The method returns the key, value, timestamp, hash count, and an error.
-// Example usage:
-//
-//	key, value, timestamp, hashCount, err := snapshot.GetWithPrefix([]byte("prefix"), []byte("neq"))
-func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
-	// Acquire a read lock on the snapshot
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Check if the snapshot is closed
-	if s.closed {
-		return nil, nil, 0, 0, ErrAlreadyClosed
-	}
-
-	// Find the leaf node containing the key-value pair
-	_, leaf, off, err := s.root.findLeafNode(prefix, nil, 0, neq, false)
+func (snap *TBTreeSnapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
+	it, err := snap.NewIterator(DefaultIteratorOptions())
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
+	defer it.Close()
 
-	// Retrieve the leaf value at the specified offset
-	leafValue := leaf.values[off]
+	return getWithPrefix(it, prefix, neq)
+}
 
-	// Check if the prefix matches the leaf key
-	if len(prefix) > len(leafValue.key) {
+func getWithPrefix(it Iterator, prefix, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
+	if err := it.Seek(prefix); err != nil {
+		return nil, nil, 0, 0, err
+	}
+
+	e, err := it.Next()
+	if errors.Is(err, ErrNoMoreEntries) {
 		return nil, nil, 0, 0, ErrKeyNotFound
 	}
 
-	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
-		return leafValue.key, cp(leafValue.timedValue().Value), leafValue.timedValue().Ts, leafValue.historyCount(), nil
+	// TODO: check logic
+	if !bytes.HasPrefix(e.Key, prefix) || bytes.Equal(e.Key, neq) {
+		return nil, nil, 0, 0, ErrKeyNotFound
 	}
 
-	return nil, nil, 0, 0, ErrKeyNotFound
+	cp := e.Copy()
+	return cp.Key, cp.Value, cp.Ts, cp.HC + 1, nil
 }
 
-// NewHistoryReader creates a new history reader for the snapshot.
-// It locks the snapshot for reading and creates a new history reader based on the given specification.
-// The method returns the history reader and an error if the creation fails.
-// Example usage:
-//
-//	reader, err := snapshot.NewHistoryReader(&HistoryReaderSpec{Key: []byte("key"), Limit: 10})
-func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
-	// Acquire a read lock on the snapshot
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Check if the snapshot is closed
-	if s.closed {
-		return nil, ErrAlreadyClosed
+func (snap *TBTreeSnapshot) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+	if snap.isWriteSnapshot && finalTs != snap.maxTs {
+		return nil, 0, 0, fmt.Errorf("cannot query history: %w", ErrSnapshotNotFlushed)
 	}
 
-	// Create a new history reader with the given specification
-	reader, err := newHistoryReader(s.maxReaderID, s, spec)
+	if finalTs > snap.maxTs {
+		finalTs = snap.maxTs
+	}
+
+	it, err := snap.NewHistoryIterator(key, snap.maxTs)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	for {
+		tv, err := it.Next()
+		if errors.Is(err, ErrNoMoreEntries) {
+			return nil, 0, 0, ErrKeyNotFound
+		}
+		if err != nil {
+			return nil, 0, 0, err
+		}
+
+		if tv.Ts > finalTs {
+			continue
+		}
+
+		if tv.Ts < initialTs {
+			return nil, 0, 0, ErrKeyNotFound
+		}
+
+		tvc := tv.Copy()
+		return tvc.Value, tvc.Ts, uint64(it.Entries()), err
+	}
+}
+
+func (snap *TBTreeSnapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error) {
+	if snap.isWriteSnapshot {
+		return nil, 0, fmt.Errorf("cannot query history: %w", ErrSnapshotNotFlushed)
+	}
+
+	it, err := snap.NewHistoryIterator(key, snap.maxTs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if offset == uint64(it.Entries()) {
+		return nil, 0, ErrNoMoreEntries
+	}
+
+	if offset > uint64(it.Entries()) {
+		return nil, 0, ErrOffsetOutOfRange
+	}
+
+	if it.Entries() == 0 {
+		return nil, 0, nil
+	}
+
+	var end = it.Entries() - int(offset)
+	var start = end - limit
+
+	if descOrder {
+		start = int(offset)
+		end = start + int(limit)
+	}
+
+	if start < 0 {
+		start = 0
+	}
+
+	if end > it.Entries() {
+		end = it.Entries()
+	}
+
+	if start >= end {
+		return nil, uint64(it.Entries()), ErrInvalidHistoryOffset
+	}
+
+	if _, err := it.Discard(uint64(start)); err != nil {
+		return nil, 0, err
+	}
+
+	n := end - start
+	values := make([]TimedValue, n)
+	for n := 0; n < end-start; n++ {
+		tv, err := it.Next()
+		if err != nil {
+			return nil, 0, err // TODO: handle unexpected ErrStopIteration error
+		}
+		values[n] = tv.Copy()
+	}
+
+	if !descOrder {
+		slices.Reverse(values)
+	}
+	return values, uint64(it.Entries()), nil
+}
+
+func (snap *TBTreeSnapshot) NewIterator(opts IteratorOptions) (Iterator, error) {
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
+
+	it := &TBTreeIterator{
+		opts:       opts,
+		currPageID: PageNone,
+		currPage:   nil,
+		tree:       snap.tree,
+		rootID:     snap.rootID,
+		maxTs:      snap.maxTs,
+	}
+	if it.rootID != PageNone {
+		it.stack.Push(it.rootID)
+	}
+	return it, nil
+}
+
+func (snap *TBTreeSnapshot) Set(key []byte, value []byte) error {
+	return ErrCannotModifySnapshot
+}
+
+func (snap *TBTreeSnapshot) Ts() uint64 {
+	return snap.maxTs
+}
+
+func (snap *TBTreeSnapshot) Close() error {
+	snap.tree.snapshotLock.RUnlock()
+
+	if snap.isWriteSnapshot {
+		snap.tree.mtx.RUnlock()
+	}
+	return nil
+}
+
+type localSnapshot struct {
+	snap Snapshot
+
+	tree *radix.Tree
+}
+
+func (snap *localSnapshot) UseEntry(key []byte, onEntry func(e *Entry) error) error {
+	if snap.tree != nil {
+		value, hc, err := snap.tree.Get(key)
+		if err == nil {
+			return onEntry(&Entry{
+				Ts:    snap.localTs(),
+				HOff:  OffsetNone,
+				HC:    hc + 1,
+				Key:   key,
+				Value: value,
+			})
+		}
+	}
+	return snap.snap.UseEntry(key, onEntry)
+}
+
+func (snap *localSnapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+	if snap.tree != nil {
+		v, hc, err := snap.tree.Get(key)
+		if err == nil {
+			return v, snap.localTs(), hc + 1, nil
+		}
+	}
+	return snap.snap.Get(key)
+}
+
+func (snap *localSnapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
+	it, err := snap.NewIterator(DefaultIteratorOptions())
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	defer it.Close()
+
+	return getWithPrefix(it, prefix, neq)
+}
+
+func (snap *localSnapshot) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
+	if finalTs >= snap.snap.Ts() && snap.tree != nil {
+		value, hc, err := snap.tree.Get(key)
+		if err == nil {
+			return value, snap.localTs(), hc, nil
+		}
+		if !errors.Is(err, radix.ErrKeyNotFound) {
+			return nil, 0, 0, err
+		}
+	}
+	return snap.snap.GetBetween(key, initialTs, finalTs)
+}
+
+func (snap *localSnapshot) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error) {
+	values, hc, err := snap.snap.History(key, offset, descOrder, limit)
+	if errors.Is(err, ErrInvalidHistoryOffset) && offset == hc {
+		err = nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if snap.tree == nil || len(values) >= limit {
+		return values, hc, err
+	}
+
+	v, _, err := snap.tree.Get(key)
+	if errors.Is(err, radix.ErrKeyNotFound) {
+		return values, hc, nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+
+	values = append(values, TimedValue{
+		Value: v,
+		Ts:    snap.snap.Ts() + 1,
+	})
+	return values, hc + 1, nil
+}
+
+func (snap *localSnapshot) NewIterator(opts IteratorOptions) (Iterator, error) {
+	it, err := snap.snap.NewIterator(opts)
+	if snap.tree == nil {
+		return it, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	// Store the reader in the snapshot's readers map
-	s.readers[reader.id] = reader
-	s.maxReaderID++
-
-	return reader, nil
+	return &MergeIterator{
+		iterA: it,
+		iterB: &radixTreeIterator{
+			Iterator: snap.tree.NewIterator(opts.Reversed),
+			ts:       snap.localTs(),
+		},
+		reversed: opts.Reversed,
+	}, nil
 }
 
-// NewReader creates a new reader for the snapshot.
-// It locks the snapshot for writing and creates a new reader based on the given specification.
-// The method returns the reader and an error if the creation fails.
-// Example usage:
-//
-//	reader, err := snapshot.NewReader(ReaderSpec{Prefix: []byte("prefix"), DescOrder: true})
-func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return nil, ErrAlreadyClosed
+func (snap *localSnapshot) Set(key []byte, value []byte) error {
+	if snap.tree == nil {
+		snap.tree = radix.New()
 	}
-
-	if len(spec.SeekKey) > s.t.maxKeySize || len(spec.Prefix) > s.t.maxKeySize {
-		return nil, ErrIllegalArguments
-	}
-
-	greatestPrefixedKey := greatestKeyOfSize(s.t.maxKeySize)
-	copy(greatestPrefixedKey, spec.Prefix)
-
-	// Adjust seekKey based on key prefix
-	seekKey := spec.SeekKey
-	inclusiveSeek := spec.InclusiveSeek
-
-	if spec.DescOrder {
-		if len(spec.SeekKey) == 0 || bytes.Compare(spec.SeekKey, greatestPrefixedKey) > 0 {
-			seekKey = greatestPrefixedKey
-			inclusiveSeek = true
-		}
-	} else {
-		if bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
-			seekKey = spec.Prefix
-			inclusiveSeek = true
-		}
-	}
-
-	// Adjust endKey based on key prefix
-	endKey := spec.EndKey
-	inclusiveEnd := spec.InclusiveEnd
-
-	if spec.DescOrder {
-		if bytes.Compare(spec.EndKey, spec.Prefix) < 0 {
-			endKey = spec.Prefix
-			inclusiveEnd = true
-		}
-	} else {
-		if len(spec.EndKey) == 0 || bytes.Compare(spec.EndKey, greatestPrefixedKey) > 0 {
-			endKey = greatestPrefixedKey
-			inclusiveEnd = true
-		}
-	}
-
-	// Create a new reader with the given specification
-	r = &Reader{
-		snapshot:       s,
-		id:             s.maxReaderID,
-		seekKey:        seekKey,
-		endKey:         endKey,
-		prefix:         spec.Prefix,
-		inclusiveSeek:  inclusiveSeek,
-		inclusiveEnd:   inclusiveEnd,
-		includeHistory: spec.IncludeHistory,
-		descOrder:      spec.DescOrder,
-		offset:         spec.Offset,
-		closed:         false,
-	}
-
-	s.readers[r.id] = r
-	s.maxReaderID++
-
-	return r, nil
-}
-
-// closedReader removes a closed reader from the snapshot's readers map.
-// It locks the snapshot for writing and removes the reader with the specified ID.
-// The method returns an error if the removal fails.
-func (s *Snapshot) closedReader(id int) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	delete(s.readers, id)
-	return nil
-}
-
-// Close closes the snapshot and releases any associated resources.
-// It locks the snapshot for writing, checks if there are any active readers, and marks the snapshot as closed.
-// The method returns an error if there are active readers.
-// Example usage:
-//
-//	err := snapshot.Close()
-func (s *Snapshot) Close() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
-	if len(s.readers) > 0 {
-		return ErrReadersNotClosed
-	}
-
-	err := s.t.snapshotClosed(s)
-	if err != nil {
+	_, _, hc, err := snap.snap.Get(key)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return err
 	}
-
-	s.closed = true
-
-	return nil
+	return snap.tree.Insert(key, value, hc)
 }
 
-// WriteTo writes the snapshot to the specified writers.
-// It locks the snapshot for writing, performs the write operation on the root node,
-// and returns the root offset, minimum offset, number of bytes written to nw and hw,
-// and an error if any.
-//
-// Parameters:
-// - nw: The writer to write the snapshot's nodes.
-// - hw: The writer to write the snapshot's history.
-// - writeOpts: The options for the write operation.
-//
-// Returns:
-// - rootOffset: The offset of the root node in the written data.
-// - minOffset: The minimum offset of all written nodes.
-// - wN: The number of bytes written to nw.
-// - wH: The number of bytes written to hw.
-// - err: An error if the write operation fails or the arguments are invalid.
-//
-// Example usage:
-//
-//	rootOffset, minOffset, wN, wH, err := snapshot.WriteTo(nw, hw, &WriteOpts{})
-func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, minOffset int64, wN, wH int64, err error) {
-	if nw == nil || writeOpts == nil {
-		return 0, 0, 0, 0, ErrIllegalArguments
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.root.writeTo(nw, hw, writeOpts, s._buf)
+func (snap *localSnapshot) Ts() uint64 {
+	return snap.snap.Ts()
 }
 
-func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error) {
-	if writeOpts.OnlyMutated && !n.mutated() && n._minOff >= writeOpts.MinOffset {
-		return n.off, n._minOff, 0, 0, nil
-	}
-
-	var cnw, chw int64
-
-	wopts := &WriteOpts{
-		OnlyMutated:    writeOpts.OnlyMutated,
-		commitLog:      writeOpts.commitLog,
-		reportProgress: writeOpts.reportProgress,
-		MinOffset:      writeOpts.MinOffset,
-	}
-
-	offsets := make([]int64, len(n.nodes))
-	minOffsets := make([]int64, len(n.nodes))
-	minOff = math.MaxInt64
-
-	for i, c := range n.nodes {
-		wopts.BaseNLogOffset = writeOpts.BaseNLogOffset + cnw
-		wopts.BaseHLogOffset = writeOpts.BaseHLogOffset + chw
-
-		no, mo, wn, wh, err := c.writeTo(nw, hw, wopts, buf)
-		if err != nil {
-			return 0, 0, cnw, chw, err
-		}
-
-		offsets[i] = no
-		minOffsets[i] = mo
-
-		if minOffsets[i] < minOff {
-			minOff = minOffsets[i]
-		}
-
-		cnw += wn
-		chw += wh
-	}
-
-	size, err := n.size()
-	if err != nil {
-		return 0, 0, cnw, chw, err
-	}
-
-	bi := 0
-
-	buf[bi] = InnerNodeType
-	bi++
-
-	binary.BigEndian.PutUint16(buf[bi:], uint16(len(n.nodes)))
-	bi += 2
-
-	for i, c := range n.nodes {
-		n := writeNodeRefToWithOffset(c, offsets[i], minOffsets[i], buf[bi:])
-		bi += n
-	}
-
-	wn, err := nw.Write(buf[:bi])
-	if err != nil {
-		return 0, 0, int64(wn), chw, err
-	}
-
-	wN = cnw + int64(size)
-	nOff = writeOpts.BaseNLogOffset + cnw
-
-	if writeOpts.commitLog {
-		n.off = writeOpts.BaseNLogOffset + cnw
-		n._minOff = minOff
-
-		if n.mut {
-			n.mut = false
-
-			for i, c := range n.nodes {
-				_, isNodeRef := c.(*nodeRef)
-
-				if isNodeRef {
-					continue
-				}
-
-				n.nodes[i] = &nodeRef{
-					t:       n.t,
-					_minKey: c.minKey(),
-					_ts:     c.ts(),
-					off:     c.offset(),
-					_minOff: c.minOffset(),
-				}
-
-				n.t.cachePut(c)
-			}
-		}
-	}
-
-	writeOpts.reportProgress(1, 0, 0)
-
-	return nOff, minOff, wN, chw, nil
+func (snap *localSnapshot) localTs() uint64 {
+	return snap.Ts() + 1
 }
 
-func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error) {
-	if writeOpts.OnlyMutated && !l.mutated() && l.off >= writeOpts.MinOffset {
-		return l.off, l.off, 0, 0, nil
-	}
-
-	size, err := l.size()
-	if err != nil {
-		return 0, 0, 0, 0, err
-	}
-
-	bi := 0
-
-	buf[bi] = LeafNodeType
-	bi++
-
-	binary.BigEndian.PutUint16(buf[bi:], uint16(len(l.values)))
-	bi += 2
-
-	accH := int64(0)
-
-	for _, v := range l.values {
-		timedValue := v.timedValues[0]
-
-		binary.BigEndian.PutUint16(buf[bi:], uint16(len(v.key)))
-		bi += 2
-
-		copy(buf[bi:], v.key)
-		bi += len(v.key)
-
-		binary.BigEndian.PutUint16(buf[bi:], uint16(len(timedValue.Value)))
-		bi += 2
-
-		copy(buf[bi:], timedValue.Value)
-		bi += len(timedValue.Value)
-
-		binary.BigEndian.PutUint64(buf[bi:], timedValue.Ts)
-		bi += 8
-
-		hOff := v.hOff
-
-		if len(v.timedValues) > 1 {
-			hbuf := new(bytes.Buffer)
-
-			binary.Write(hbuf, binary.BigEndian, uint32(len(v.timedValues)-1))
-
-			for _, tv := range v.timedValues[1:] {
-
-				binary.Write(hbuf, binary.BigEndian, uint16(len(tv.Value)))
-
-				hbuf.Write(tv.Value)
-
-				binary.Write(hbuf, binary.BigEndian, uint64(tv.Ts))
-			}
-
-			binary.Write(hbuf, binary.BigEndian, uint64(v.hOff))
-
-			hOff = writeOpts.BaseHLogOffset + accH
-
-			n, err := hw.Write(hbuf.Bytes())
-			if err != nil {
-				return 0, 0, 0, int64(n), err
-			}
-
-			accH += int64(n)
-		}
-
-		binary.BigEndian.PutUint64(buf[bi:], uint64(hOff))
-		bi += 8
-
-		hCount := v.historyCount()
-
-		binary.BigEndian.PutUint64(buf[bi:], hCount-1)
-		bi += 8
-
-		if writeOpts.commitLog {
-			v.timedValues = v.timedValues[:1]
-			v.hOff = hOff
-			v.hCount = hCount - 1
-		}
-	}
-
-	n, err := nw.Write(buf[:bi])
-	if err != nil {
-		return 0, 0, int64(n), accH, err
-	}
-
-	wN = int64(size)
-	nOff = writeOpts.BaseNLogOffset
-
-	if writeOpts.commitLog {
-		l.off = nOff
-
-		if l.mut {
-			l.mut = false
-			l.t.cachePut(l)
-		}
-	}
-
-	writeOpts.reportProgress(0, 1, len(l.values))
-
-	return nOff, nOff, wN, accH, nil
-}
-
-func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error) {
-	if writeOpts.OnlyMutated && n._minOff >= writeOpts.MinOffset {
-		return n.off, n._minOff, 0, 0, nil
-	}
-
-	node, err := n.t.nodeAt(n.off, false)
-	if err != nil {
-		return 0, 0, 0, 0, err
-	}
-
-	off, mOff, wn, wh, err := node.writeTo(nw, hw, writeOpts, buf)
-	if err != nil {
-		return 0, 0, wn, wh, err
-	}
-
-	if writeOpts.commitLog {
-		n.off = off
-		n._minOff = mOff
-	}
-
-	return off, mOff, wn, wh, nil
-}
-
-func writeNodeRefToWithOffset(n node, offset, minOff int64, buf []byte) int {
-	i := 0
-
-	minKey := n.minKey()
-	binary.BigEndian.PutUint16(buf[i:], uint16(len(minKey)))
-	i += 2
-
-	copy(buf[i:], minKey)
-	i += len(minKey)
-
-	binary.BigEndian.PutUint64(buf[i:], n.ts())
-	i += 8
-
-	binary.BigEndian.PutUint64(buf[i:], uint64(offset))
-	i += 8
-
-	binary.BigEndian.PutUint64(buf[i:], uint64(minOff))
-	i += 8
-
-	return i
+func (snap *localSnapshot) Close() error {
+	return snap.snap.Close()
 }

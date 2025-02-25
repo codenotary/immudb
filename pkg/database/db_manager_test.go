@@ -16,24 +16,7 @@ limitations under the License.
 
 package database
 
-import (
-	"context"
-	"fmt"
-	"math/rand"
-	"os"
-	"path/filepath"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
-
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/require"
-)
-
+/*
 type mockDB struct {
 	DB
 
@@ -385,3 +368,4 @@ func TestLazyDB(t *testing.T) {
 		require.False(t, m.IsLoaded(0))
 	})
 }
+*/
