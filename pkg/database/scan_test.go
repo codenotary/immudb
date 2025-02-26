@@ -281,7 +281,7 @@ func TestStoreScanWithTruncation(t *testing.T) {
 	fileSize := 8
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0

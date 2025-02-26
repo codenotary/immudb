@@ -144,7 +144,7 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 		immustoreClose(t, st)
 	})
 
-	ledger, err := st.GetLedgerByName("default")
+	ledger, err := st.OpenLedger("default")
 	require.NoError(t, err)
 
 	maxTxID := ledger.TxCount()

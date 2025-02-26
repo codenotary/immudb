@@ -39,6 +39,18 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
+	finfo, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if !finfo.IsDir() {
+		return nil, ErrPathIsNotADirectory
+	}
+
 	// TODO: list path and open ledgers
 	// setup next ledger id
 	st := &ImmuStore{
@@ -47,18 +59,18 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		indexerManager: indexerManager,
 	}
 
-	ledgers, err := openAllLedgers(path, st)
-	if err != nil {
-		return nil, err
-	}
-	st.ledgers = ledgers
-	st.nextLedgerID.Store(uint32(len(ledgers)))
+	//ledgers, err := openAllLedgers(path, st)
+	//if err != nil {
+	//	return nil, err
+	//}
 
+	st.ledgers = make(map[string]*Ledger)
 	indexerManager.Start()
 
 	return st, nil
 }
 
+/*
 func openAllLedgers(path string, st *ImmuStore) (map[string]*Ledger, error) {
 	ledgers := make(map[string]*Ledger)
 
@@ -88,7 +100,7 @@ func openAllLedgers(path string, st *ImmuStore) (map[string]*Ledger, error) {
 		}
 
 		name := entry.Name()
-		ledger, err := openLedger(name, st)
+		ledger, err := openLedger(name, st, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +108,7 @@ func openAllLedgers(path string, st *ImmuStore) (map[string]*Ledger, error) {
 		ledgers[name] = ledger
 	}
 	return ledgers, nil
-}
+}*/
 
 func (st *ImmuStore) getNextLedgerID() (LedgerID, error) {
 	newID := st.nextLedgerID.Add(1)
@@ -107,15 +119,19 @@ func (st *ImmuStore) getNextLedgerID() (LedgerID, error) {
 }
 
 func (st *ImmuStore) OpenLedger(name string) (*Ledger, error) {
+	return st.OpenLedgerWithOpts(name, st.opts)
+}
+
+func (st *ImmuStore) OpenLedgerWithOpts(name string, opts *Options) (*Ledger, error) {
 	st.mtx.Lock()
 	defer st.mtx.Unlock()
 
 	ledger := st.ledgers[name]
 	if ledger != nil && !ledger.IsClosed() {
-		return ledger, fmt.Errorf("%s: %w", name, ErrLedgerExists)
+		return ledger, nil
 	}
 
-	ledger, err := openLedger(name, st)
+	ledger, err := openLedger(name, st, opts)
 	if err != nil {
 		return nil, err
 	}

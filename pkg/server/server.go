@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -629,7 +628,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 	var dirs []string
 
 	//get first level sub directories of data dir
-	files, err := ioutil.ReadDir(s.Options.Dir)
+	files, err := os.ReadDir(s.Options.Dir)
 	if err != nil {
 		return err
 	}
@@ -838,7 +837,6 @@ func (s *ImmuServer) updateConfigItem(key string, newOrUpdatedLine string, uncha
 	if err := s.OS.WriteFile(configFilepath, []byte(strings.Join(configLines, "\n")), 0644); err != nil {
 		return err
 	}
-
 	return nil
 }
 

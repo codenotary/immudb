@@ -373,7 +373,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 			indexerManager: indexerManager,
 		}
 		indexerManager.Start()
-		return openLedgerWith(path, vLogs, txLog, cLog, &st)
+		return openLedgerWith(path, vLogs, txLog, cLog, &st, st.opts)
 
 	}
 
@@ -396,7 +396,8 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "ro_path")
 		require.NoError(t, os.MkdirAll(path, 0500))
 
-		_, err := openLedger(filepath.Join(path, "subpath"), &ImmuStore{opts: DefaultOptions()})
+		opts := DefaultOptions()
+		_, err := openLedger(filepath.Join(path, "subpath"), &ImmuStore{opts: opts}, opts)
 		require.ErrorContains(t, err, "subpath: permission denied")
 	})
 
@@ -414,7 +415,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					}, nil
 				})
 
-			_, err := openLedger("default", &ImmuStore{path: t.TempDir(), opts: opts})
+			_, err := openLedger("default", &ImmuStore{path: t.TempDir(), opts: opts}, opts)
 			require.ErrorIs(t, err, injectedError)
 		}
 	})

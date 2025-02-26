@@ -134,8 +134,8 @@ type refVLog struct {
 func openLedger(
 	name string,
 	store *ImmuStore,
+	opts *Options,
 ) (*Ledger, error) {
-	opts := store.opts
 	path := filepath.Join(store.path, name)
 
 	finfo, err := os.Stat(path)
@@ -224,15 +224,14 @@ func openLedger(
 			vLogs[i] = vLog
 		}
 	}
-	return openLedgerWith(path, vLogs, txLog, cLog, store)
+	return openLedgerWith(path, vLogs, txLog, cLog, store, opts)
 }
 
-func openLedgerWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, store *ImmuStore) (*Ledger, error) {
+func openLedgerWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, store *ImmuStore, opts *Options) (*Ledger, error) {
 	if txLog == nil || cLog == nil {
 		return nil, fmt.Errorf("%w: invalid txLog or cLog", ErrIllegalArguments)
 	}
 
-	opts := store.opts
 	err := opts.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrIllegalArguments, err)

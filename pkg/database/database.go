@@ -198,7 +198,12 @@ func OpenDB(
 		replicaStates = make(map[string]*replicaState, opts.syncAcks)
 	}
 
-	ledger, err := st.OpenLedger(dbName)
+	ledgerOpts := opts.GetStoreOptions().
+		WithLogger(log).
+		WithMultiIndexing(true).
+		WithExternalCommitAllowance(opts.syncReplication)
+
+	ledger, err := st.OpenLedgerWithOpts(dbName, ledgerOpts)
 	exists := errors.Is(err, store.ErrLedgerExists)
 	if exists {
 		err = nil
@@ -217,22 +222,8 @@ func OpenDB(
 		mutex:         &instrumentedRWMutex{},
 	}
 
-	//dbDir := dbi.Path()
-	//_, err := os.Stat(dbDir)
-	//if os.IsNotExist(err) {
-	//	return nil, fmt.Errorf("missing database directories: %s", dbDir)
-	//}
-
-	/*
-		stOpts := opts.GetStoreOptions().
-			WithLogger(log).
-			WithMultiIndexing(true).
-			WithExternalCommitAllowance(opts.syncReplication)*/
-
-	if !exists {
-		if err := initIndexes(ledger, log); err != nil {
-			return nil, err
-		}
+	if err := initIndexes(ledger, log); err != nil {
+		return nil, err
 	}
 
 	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
@@ -279,7 +270,7 @@ func initIndexes(ledger *store.Ledger, logger logger.Logger) error {
 			SourcePrefix: []byte{prefix},
 			TargetPrefix: []byte{prefix},
 		})
-		if err != nil {
+		if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 			ledger.Close()
 			return logErr(logger, "unable to open database: %s", err)
 		}
@@ -405,7 +396,6 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	if err != nil {
 		return nil, err
 	}
-
 	return schema.TxHeaderToProto(hdr), nil
 }
 

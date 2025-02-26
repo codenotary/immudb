@@ -44,7 +44,7 @@ func TestReplication(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	st, err := store.Open(path, store.DefaultOptions())
+	st, err := store.Open(path, store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 
 	db, err := database.OpenDB("replicated_defaultdb", st, nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
@@ -84,7 +84,7 @@ func TestReplicationIsAbortedOnServerVersionMismatch(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	st, err := store.Open(path, store.DefaultOptions())
+	st, err := store.Open(path, store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
 
 	db, err := database.OpenDB("replicated_defaultdb", st, nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
