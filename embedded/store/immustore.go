@@ -51,64 +51,17 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, ErrPathIsNotADirectory
 	}
 
-	// TODO: list path and open ledgers
-	// setup next ledger id
 	st := &ImmuStore{
 		path:           path,
 		opts:           opts,
 		indexerManager: indexerManager,
+		ledgers:        make(map[string]*Ledger),
 	}
 
-	//ledgers, err := openAllLedgers(path, st)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	st.ledgers = make(map[string]*Ledger)
 	indexerManager.Start()
 
 	return st, nil
 }
-
-/*
-func openAllLedgers(path string, st *ImmuStore) (map[string]*Ledger, error) {
-	ledgers := make(map[string]*Ledger)
-
-	finfo, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return ledgers, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	if !finfo.IsDir() {
-		return nil, ErrPathIsNotADirectory
-	}
-
-	dirEntries, err := os.ReadDir(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return ledgers, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	for _, entry := range dirEntries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		ledger, err := openLedger(name, st, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		ledgers[name] = ledger
-	}
-	return ledgers, nil
-}*/
 
 func (st *ImmuStore) getNextLedgerID() (LedgerID, error) {
 	newID := st.nextLedgerID.Add(1)
@@ -149,14 +102,6 @@ func (st *ImmuStore) GetLedgerByName(name string) (*Ledger, error) {
 		return ledger, fmt.Errorf("%s: %w", name, ErrLedgerNotExists)
 	}
 	return ledger, nil
-}
-
-func (st *ImmuStore) removeLedger(name string) error {
-	st.mtx.Lock()
-	defer st.mtx.Unlock()
-
-	delete(st.ledgers, name)
-	return nil
 }
 
 func (st *ImmuStore) IsClosed() bool {
