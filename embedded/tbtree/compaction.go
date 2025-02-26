@@ -82,7 +82,10 @@ func (job *CompactionJob) runCompaction(ctx context.Context) error {
 		return err
 	}
 
-	err = tree.flush(ctx, flushOptions{fullDump: true, dstApp: newTreeApp})
+	err = tree.flush(
+		ctx,
+		flushOptions{fullDump: true, dstApp: newTreeApp},
+	)
 	if err != nil {
 		return err
 	}

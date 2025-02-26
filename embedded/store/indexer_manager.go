@@ -34,8 +34,7 @@ type IndexerManager struct {
 	mtx    sync.RWMutex
 	logger logger.Logger
 
-	pgBuf     *tbtree.PageBuffer
-	compactor *Compactor
+	pgBuf *tbtree.PageBuffer
 
 	indexes map[LedgerID][]*index
 
@@ -53,23 +52,13 @@ func NewIndexerManager(opts *Options) (*IndexerManager, error) {
 		return nil, err
 	}
 
-	var compactor *Compactor
-	if !opts.CompactionDisabled {
-		compactor = NewCompactor(opts.logger)
-	}
-
-	indexers, err := createIndexers(opts, compactor)
+	indexers, err := createIndexers(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	if !opts.CompactionDisabled {
-		compactor.Start()
-	}
-
 	return &IndexerManager{
 		logger:     opts.logger,
-		compactor:  compactor,
 		pgBuf:      tbtree.NewPageBuffer(opts.IndexOpts.PageBufferSize),
 		indexers:   indexers,
 		indexes:    make(map[LedgerID][]*index),
@@ -128,7 +117,7 @@ func (m *IndexerManager) WaitForIndexingUpTo(ctx context.Context, ledgerID Ledge
 	})
 }
 
-func createIndexers(opts *Options, compactor *Compactor) ([]Indexer, error) {
+func createIndexers(opts *Options) ([]Indexer, error) {
 	swb := tbtree.NewSharedWriteBuffer(
 		opts.IndexOpts.SharedWriteBufferSize,
 		opts.IndexOpts.WriteBufferChunkSize,
@@ -145,7 +134,7 @@ func createIndexers(opts *Options, compactor *Compactor) ([]Indexer, error) {
 			return nil, err
 		}
 
-		indexers[i] = NewIndexer(opts, wb, compactor)
+		indexers[i] = NewIndexer(opts, wb)
 	}
 	return indexers, nil
 }
@@ -303,10 +292,6 @@ func (m *IndexerManager) Close() error {
 
 	if m.closed {
 		return ErrAlreadyClosed
-	}
-
-	if m.compactor != nil {
-		m.compactor.Close()
 	}
 
 	merr := multierr.NewMultiErr()

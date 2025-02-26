@@ -80,7 +80,7 @@ func setupLedgerToDir(t *testing.T, dir string, opts *Options) (*Ledger, error) 
 	return ledger, err
 }
 
-func TestImmudbStoreConcurrency(t *testing.T) {
+func TestLedgerConcurrency(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(4)
@@ -151,7 +151,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStoreConcurrentCommits(t *testing.T) {
+func TestLedgerConcurrentCommits(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(5)
@@ -213,7 +213,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStoreConcurrentCommitsWithEmbeddedValues(t *testing.T) {
+func TestLedgerConcurrentCommitsWithEmbeddedValues(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(5).
@@ -278,12 +278,12 @@ func TestImmudbStoreConcurrentCommitsWithEmbeddedValues(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
+func TestLedgerOpenWithInvalidPath(t *testing.T) {
 	_, err := Open("ledger_test.go", DefaultOptions())
 	require.ErrorIs(t, err, ErrPathIsNotADirectory)
 }
 
-func TestImmudbStoreOnClosedStore(t *testing.T) {
+func TestLedgerOnClosedStore(t *testing.T) {
 	ledger, err := setupLedger(t, DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 
@@ -314,7 +314,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
-func TestImmudbStoreSettings(t *testing.T) {
+func TestLedgerSettings(t *testing.T) {
 	ledger, err := setupLedger(t, DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 
@@ -329,7 +329,7 @@ func TestImmudbStoreSettings(t *testing.T) {
 	require.Equal(t, DefaultOptions().MaxValueLen, ledger.MaxValueLen())
 }
 
-func TestImmudbStoreWithTimeFunction(t *testing.T) {
+func TestLedgerWithTimeFunction(t *testing.T) {
 	immuStore, err := setupLedger(t, DefaultOptions())
 	require.NoError(t, err)
 
@@ -357,7 +357,7 @@ func TestImmudbStoreWithTimeFunction(t *testing.T) {
 	require.Equal(t, fixedTime.Unix(), hdr.Ts)
 }
 
-func TestImmudbStoreEdgeCases(t *testing.T) {
+func TestLedgerEdgeCases(t *testing.T) {
 	t.Run("should fail with invalid options", func(t *testing.T) {
 		_, err := Open(t.TempDir(), nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
@@ -997,7 +997,7 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
-func TestImmudbStoreIndexing(t *testing.T) {
+func TestLedgerIndexing(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
@@ -1132,7 +1132,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreRWTransactions(t *testing.T) {
+func TestLedgerRWTransactions(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -1576,7 +1576,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreKVMetadata(t *testing.T) {
+func TestLedgerKVMetadata(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -1649,7 +1649,7 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	require.Equal(t, []byte{1, 1, 1}, v)
 }
 
-func TestImmudbStoreNonIndexableEntries(t *testing.T) {
+func TestLedgerNonIndexableEntries(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -1719,7 +1719,7 @@ func TestImmudbStoreNonIndexableEntries(t *testing.T) {
 	require.Equal(t, []byte("indexedValue1"), val)
 }
 
-func TestImmudbStoreCommitWith(t *testing.T) {
+func TestLedgerCommitWith(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -1769,7 +1769,7 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	require.Equal(t, []byte("value"), val)
 }
 
-func TestImmudbStoreHistoricalValues(t *testing.T) {
+func TestLedgerHistoricalValues(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -1849,7 +1849,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStoreWithCompactionDisabled(t *testing.T) {
+func TestLedgerWithCompactionDisabled(t *testing.T) {
 	opts := DefaultOptions().WithCompactionDisabled(true)
 	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
@@ -1858,7 +1858,7 @@ func TestImmudbStoreWithCompactionDisabled(t *testing.T) {
 	require.ErrorIs(t, err, ErrCompactionDisabled)
 }
 
-func TestImmudbStoreInclusionProof(t *testing.T) {
+func TestLedgerInclusionProof(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().
@@ -2075,7 +2075,7 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 	}
 }
 
-func TestImmudbStoreConsistencyProof(t *testing.T) {
+func TestLedgerConsistencyProof(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -2142,7 +2142,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 	}
 }
 
-func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
+func TestLedgerConsistencyProofAgainstLatest(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1)
@@ -2204,7 +2204,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 	}
 }
 
-func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
+func TestLedgerConsistencyProofReopened(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().
@@ -2761,7 +2761,7 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 	return la.Appendable.Append(bs)
 }
 
-func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
+func TestLedgerCommitWithPreconditions(t *testing.T) {
 	ledger, err := setupLedger(
 		t,
 		DefaultOptions().
@@ -3167,7 +3167,7 @@ func BenchmarkExportTx(b *testing.B) {
 	}
 }*/
 
-func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
+func TestLedgerIncompleteCommitWrite(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().
@@ -3231,7 +3231,7 @@ func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
+func TestLedgerTruncatedCommitLog(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().
@@ -3574,7 +3574,7 @@ func TestBlTXOrdering(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreExternalCommitAllowance(t *testing.T) {
+func TestLedgerExternalCommitAllowance(t *testing.T) {
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithExternalCommitAllowance(true)
@@ -3630,7 +3630,7 @@ func TestImmudbStoreExternalCommitAllowance(t *testing.T) {
 	require.Equal(t, uint64(txCount), immuStore.LastCommittedTxID())
 }
 
-func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
+func TestLedgerPrecommittedTxLoading(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().
@@ -3691,7 +3691,7 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
+func TestLedgerPrecommittedTxDiscarding(t *testing.T) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().
@@ -3774,7 +3774,7 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 	wg.Wait()
 }
 
-func TestImmudbStoreMVCC(t *testing.T) {
+func TestLedgerMVCC(t *testing.T) {
 	ledger, err := setupLedger(t, DefaultOptions())
 	require.NoError(t, err)
 
@@ -4244,7 +4244,7 @@ func TestImmudbStoreMVCC(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreMVCCBoundaries(t *testing.T) {
+func TestLedgerMVCCBoundaries(t *testing.T) {
 	mvccReadsetLimit := 3
 
 	ledger, err := setupLedger(t, DefaultOptions().WithMVCCReadSetLimit(mvccReadsetLimit))
@@ -4412,7 +4412,7 @@ func TestImmudbStoreMVCCBoundaries(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreWithClosedContext(t *testing.T) {
+func TestLedgerWithClosedContext(t *testing.T) {
 	ledger, err := setupLedger(t, DefaultOptions())
 	require.NoError(t, err)
 
@@ -4440,7 +4440,7 @@ func TestImmudbStoreWithClosedContext(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreWithoutVLogCache(t *testing.T) {
+func TestLedgerWithoutVLogCache(t *testing.T) {
 	ledger, err := setupLedger(t, DefaultOptions().WithVLogCacheSize(0))
 	require.NoError(t, err)
 
@@ -4463,7 +4463,7 @@ func TestImmudbStoreWithoutVLogCache(t *testing.T) {
 	require.Equal(t, []byte("value1"), val)
 }
 
-func TestImmudbStoreWithVLogCache(t *testing.T) {
+func TestLedgerWithVLogCache(t *testing.T) {
 	ledger, err := setupLedger(t, DefaultOptions().WithVLogCacheSize(10))
 	require.NoError(t, err)
 
@@ -4486,7 +4486,7 @@ func TestImmudbStoreWithVLogCache(t *testing.T) {
 	require.Equal(t, []byte("value1"), val)
 }
 
-func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
+func TestLedgerTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
 	fileSize := 1024
 
 	opts := DefaultOptions().
@@ -4543,7 +4543,7 @@ func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
 	}
 }
 
-func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
+func TestLedgerTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
 	fileSize := 1024
 
 	opts := DefaultOptions().
@@ -4601,7 +4601,7 @@ func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
 	}
 }
 
-func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
+func TestLedgerTruncateUptoTx_ForIdempotency(t *testing.T) {
 	fileSize := 1024
 
 	opts := DefaultOptions().
@@ -4663,7 +4663,7 @@ func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
 
 }
 
-func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
+func TestLedger_WithConcurrentWritersOnMultipleIO(t *testing.T) {
 	fileSize := 1024
 
 	opts := DefaultOptions().
@@ -4721,7 +4721,7 @@ func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
 	}
 }
 
-func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
+func TestLedger_WithConcurrentTruncate(t *testing.T) {
 	fileSize := 1024
 
 	opts := DefaultOptions().
@@ -4907,7 +4907,7 @@ func TestExportTxWithTruncation(t *testing.T) {
 	})
 }
 
-func TestImmudbStoreTxMetadata(t *testing.T) {
+func TestLedgerTxMetadata(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 
 	ledger, err := setupLedger(t, opts)
@@ -4967,7 +4967,7 @@ func TestImmudbStoreTxMetadata(t *testing.T) {
 
 }
 
-func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
+func TestLedgerTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
 	fileSize := 1024
 
 	opts := DefaultOptions().
@@ -5047,7 +5047,7 @@ func TestCommitOfEmptyTxWithMetadata(t *testing.T) {
 	require.Empty(t, txholder.Entries())
 }
 
-func TestImmudbStore_ExportTxWithEmptyValues(t *testing.T) {
+func TestLedger_ExportTxWithEmptyValues(t *testing.T) {
 	opts := DefaultOptions().WithEmbeddedValues(false)
 
 	ledger, err := setupLedger(t, opts)

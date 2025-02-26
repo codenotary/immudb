@@ -28,10 +28,7 @@ const maxEntryValueSize = lszSize + offsetSize + sha256.Size + sszSize + maxTxMe
 type Indexer struct {
 	mtx sync.RWMutex
 
-	logger logger.Logger
-	//indexes []*index
-
-	compactor      *Compactor
+	logger         logger.Logger
 	compactionThld float64
 
 	ctx          context.Context
@@ -47,7 +44,6 @@ type Indexer struct {
 func NewIndexer(
 	opts *Options,
 	wb *tbtree.WriteBuffer,
-	compactor *Compactor,
 ) Indexer {
 	wb.Grow(1)
 
@@ -58,7 +54,6 @@ func NewIndexer(
 		logger:         opts.logger,
 		tx:             tx,
 		wb:             wb,
-		compactor:      compactor,
 		compactionThld: opts.IndexOpts.CompactionThld,
 		queue:          container.NewDequeue[indexEntry](10),
 		backpressure: backoff.Backoff{
@@ -134,47 +129,7 @@ func (indexer *Indexer) tryIndexNext() (bool, error) {
 	} else if err != nil {
 		return false, err
 	}
-
-	//if started := indexer.maybeStartCompaction(idx); started {
-	// TODO: remove index from main queue.
-	//}
 	return true, nil
-}
-
-func (indexer *Indexer) maybeStartCompaction(idx *index) bool {
-	if indexer.compactor == nil {
-		return false
-	}
-
-	if idx.tree.StalePagePercentage() < indexer.compactionThld {
-		return false
-	}
-
-	job, err := idx.tree.NewCompactionJob()
-	if err != nil {
-		indexer.logger.Warningf(
-			"%s: unable to start compaction for index %s",
-			err,
-			idx.tree.Path(),
-		)
-		return false
-	}
-
-	if !indexer.compactor.SendJob(job) {
-		indexer.logger.Infof(
-			"Aborting compaction job for index at path=%s. Too many compaction jobs already running.",
-			idx.tree.Path(),
-		)
-
-		job.Abort()
-		return false
-	}
-
-	indexer.logger.Warningf(
-		"Compaction job for index at path=%s has been queued.",
-		idx.tree.Path(),
-	)
-	return true
 }
 
 func (indexer *Indexer) pushIndex(idx *index) {
