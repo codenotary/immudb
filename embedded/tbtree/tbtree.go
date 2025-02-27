@@ -21,17 +21,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/multierr"
 )
-
-const MaxEntrySize = 2 * 1024
 
 var (
 	ErrActiveSnapshots      = errors.New("tree has active snapshots")
@@ -42,7 +44,18 @@ var (
 	ErrTreeLocked           = errors.New("tree is locked")
 )
 
-type TreeID uint16
+const (
+	MaxEntrySize = 2 * 1024
+
+	HistoryLogFileName = "history"
+	TreeLogFileName    = "tree"
+)
+
+type (
+	TreeID        uint16
+	ReadDirFunc   func(path string) ([]os.DirEntry, error)
+	AppRemoveFunc func(rootPath, subPath string) error
+)
 
 type TBTree struct {
 	mtx sync.RWMutex
@@ -88,11 +101,12 @@ type TBTree struct {
 	appWriteBufferSize int
 	readOnly           bool
 
-	appFactory AppFactoryFunc
-	appRemove  AppRemoveFunc
-}
+	compactionThld float32
 
-type AppRemoveFunc func(rootPath, subPath string) error
+	readDirFunc ReadDirFunc
+	appFactory  AppFactoryFunc
+	appRemove   AppRemoveFunc
+}
 
 func Open(
 	path string,
@@ -109,12 +123,41 @@ func Open(
 		WithFileMode(opts.fileMode).
 		WithWriteBufferSize(opts.appWriteBufferSize)
 
-	treeApp, err := opts.appFactory(path, "tree", appOpts.WithFileExt("t"))
+	historyApp, err := opts.appFactory(path, HistoryLogFileName, appOpts.WithFileExt("hx"))
 	if err != nil {
 		return nil, err
 	}
 
-	historyApp, err := opts.appFactory(path, "history", appOpts.WithFileExt("hx"))
+	var t *TBTree
+	recoveryAttempts, err := recoverLatestValidTreeSnapshot(path, opts.readDir, func(snapPath string, snapTs uint64) error {
+		treeApp, err := opts.appFactory(path, snapPath, appOpts.WithFileExt("t"))
+		if err != nil {
+			return err
+		}
+
+		t, err = OpenWith(path, treeApp, historyApp, opts)
+		if err != nil {
+			_ = opts.appRemove(path, snapPath)
+		}
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if t != nil {
+		return t, nil
+	}
+
+	if recoveryAttempts > 0 {
+		opts.logger.Warningf(
+			"%s: no snapshot could be recovered, attempts=%d",
+			t.Path(),
+			recoveryAttempts,
+		)
+	}
+
+	treeApp, err := opts.appFactory(path, TreeLogFileName, appOpts.WithFileExt("t"))
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +201,11 @@ func OpenWith(
 		fileMode:           opts.fileMode,
 		appWriteBufferSize: opts.appWriteBufferSize,
 		syncThld:           opts.syncThld,
+		compactionThld:     opts.compactionThld,
 		readOnly:           opts.readOnly,
 		appFactory:         opts.appFactory,
+		appRemove:          opts.appRemove,
+		readDirFunc:        opts.readDir,
 	}
 
 	err := t.recoverRootPage()
@@ -172,6 +218,36 @@ func OpenWith(
 		return nil, err
 	}
 	return t, nil
+}
+
+func recoverLatestValidTreeSnapshot(dir string, readDir ReadDirFunc, recoverSnap func(snapPath string, snapTs uint64) error) (int, error) {
+	entries, err := readDir(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	recoveryAttempts := 0
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), TreeLogFileName) {
+			continue
+		}
+
+		parts := strings.Split(e.Name(), "_")
+		if len(parts) != 2 {
+			continue
+		}
+
+		snapTs, err := strconv.ParseUint(parts[1], 10, 64)
+		if err != nil || parts[0] != TreeLogFileName {
+			continue
+		}
+
+		if err := recoverSnap(e.Name(), snapTs); err == nil {
+			return 0, nil
+		}
+		recoveryAttempts++
+	}
+	return recoveryAttempts, nil
 }
 
 func (t *TBTree) recoverRootPage() error {
@@ -856,8 +932,8 @@ func (t *TBTree) flushTo(ctx context.Context, dstApp appendable.Appendable) (int
 		return -1, flushRes{}, err
 	}
 
-	t.numPages.Add(uint64(res.pagesFlushed))
 	t.stalePages.Add(res.stalePages)
+	t.numPages.Add(uint64(res.pagesFlushed))
 
 	ts := t.Ts()
 	commitEntry := CommitEntry{
@@ -1083,12 +1159,13 @@ func (t *TBTree) NumPages() uint64 {
 	return t.numPages.Load()
 }
 
-func (t *TBTree) StalePagePercentage() float64 {
+func (t *TBTree) StalePagePercentage() float32 {
+	stalePages := t.StalePages()
 	numPages := t.NumPages()
 	if numPages == 0 {
 		return 0
 	}
-	return float64(t.StalePages()) / float64(numPages)
+	return float32(stalePages) / float32(numPages)
 }
 
 func (t *TBTree) SnapshotAtTs(ctx context.Context, ts uint64) (Snapshot, error) {
@@ -1162,13 +1239,12 @@ func (t *TBTree) Close() error {
 		return err
 	}
 
-	_ = t.treeApp.Sync()
-	_ = t.historyApp.Sync()
-
-	_ = t.treeApp.Close()
-	_ = t.historyApp.Close()
-
-	return nil
+	return multierr.NewMultiErr().
+		Append(t.historyApp.Sync()).
+		Append(t.treeApp.Sync()).
+		Append(t.historyApp.Close()).
+		Append(t.treeApp.Close()).
+		Reduce()
 }
 
 func (t *TBTree) ActiveSnapshots() int {
@@ -1243,4 +1319,10 @@ func readCommitEntry(buf []byte) (CommitEntry, error) {
 		return e, fmt.Errorf("%w: commit entry checksum doesn't match", ErrCorruptedEntry)
 	}
 	return e, nil
+}
+
+func computeChecksum(data []byte) uint32 {
+	crc := crc32.New(crc32.MakeTable(crc32.Castagnoli))
+	crc.Write(data)
+	return crc.Sum32()
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
-	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
@@ -73,10 +72,7 @@ const MinimumTruncationFrequency = 1 * time.Hour
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
 type AppRemoveFunc func(rootPath, subPath string) error
-
-type IndexCacheFactoryFunc func() *cache.Cache
-
-type FlushFunc func() error
+type ReadDirFunc func(path string) ([]os.DirEntry, error)
 
 type Options struct {
 	ReadOnly bool
@@ -95,8 +91,8 @@ type Options struct {
 	logger logger.Logger
 
 	appFactory AppFactoryFunc
-
-	appRemove AppRemoveFunc
+	appRemove  AppRemoveFunc
+	readDir    ReadDirFunc
 
 	CompactionDisabled bool
 
@@ -189,11 +185,10 @@ func DefaultOptions() *Options {
 		CommitLogMaxOpenedFiles: DefaultCommitLogMaxOpenedFiles,
 
 		MaxWaitees: DefaultMaxWaitees,
-
 		TimeFunc: func() time.Time {
 			return time.Now()
 		},
-
+		readDir:              os.ReadDir,
 		WriteTxHeaderVersion: DefaultWriteTxHeaderVersion,
 
 		// options below are only set during initialization and stored as metadata
@@ -470,6 +465,11 @@ func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 
 func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
 	opts.appRemove = appRemove
+	return opts
+}
+
+func (opts *Options) WithReadDirFunc(readDir ReadDirFunc) *Options {
+	opts.readDir = readDir
 	return opts
 }
 

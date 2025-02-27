@@ -99,7 +99,7 @@ func TestSnapshotSet(t *testing.T) {
 			writeBufferSize := 5 * 1024 * 1024
 			pageBufferSize := 1024 * 1024
 
-			tree, err := newBTree(writeBufferSize, pageBufferSize)
+			tree, err := newTBTree(writeBufferSize, pageBufferSize)
 			require.NoError(t, err)
 
 			tc.mainRange.forEach(func(n int) {

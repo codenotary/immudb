@@ -24,6 +24,10 @@ import (
 )
 
 func (t *TBTree) Compact(ctx context.Context) error {
+	if t.StalePagePercentage() < t.compactionThld {
+		return ErrCompactionThresholdNotReached
+	}
+
 	appOpts := multiapp.DefaultOptions().
 		WithReadOnly(t.readOnly).
 		WithRetryableSync(false).
@@ -37,11 +41,16 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		defer t.mtx.Unlock()
 
 		err := t.flushToTreeLog(ctx)
-		// NOTE: Holding the lock on mtx while reading rootPageID and Ts ensures atomicity.
-		return t.rootPageID(), t.Ts(), err
+		// NOTE: Holding the lock on mtx while reading snapRootID and Ts ensures atomicity.
+		return t.lastSnapshotRootID(), t.lastSnapshotTs.Load(), err
 	}()
 	if err != nil {
 		return err
+	}
+
+	// tree is empty, nothing to compact
+	if snapRootID == PageNone {
+		return nil
 	}
 
 	newTreeApp, err := t.appFactory(t.Path(), snapFolder("tree", snapTs), appOpts)

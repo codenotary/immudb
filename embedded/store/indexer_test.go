@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -60,6 +61,9 @@ func TestInitIndex(t *testing.T) {
 		WithIndexOptions(indexOptions).
 		WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	ledger := NewMockLedger("", opts, readTxAt)
@@ -98,6 +102,9 @@ func TestIndexers(t *testing.T) {
 		WithIndexOptions(indexOptions).
 		WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	ledger := NewMockLedger("", opts, readTxAtFor(nIndexes))
@@ -182,6 +189,9 @@ func TestIndexingRecovery(t *testing.T) {
 				return memapp.New(), nil
 			}
 			return nil, fmt.Errorf("invalid subpath: %s", subPath)
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	ledger := NewMockLedger("", opts, readTxAtFor(1))

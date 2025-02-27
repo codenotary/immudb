@@ -19,6 +19,7 @@ package tbtree
 import (
 	"bytes"
 	"context"
+	"os"
 	"sort"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -38,7 +39,7 @@ import (
 )
 
 func TestInsert(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		128*1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)
@@ -116,7 +117,7 @@ func TestInsert(t *testing.T) {
 // TODO: following tests must be merged.
 // TODO: only a key version per tx can be set.
 func TestInsertDuplicateKeys(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		1024*1024,
 		100*PageSize,
 	)
@@ -208,7 +209,7 @@ func TestInsertDuplicateKeys(t *testing.T) {
 }
 
 func TestInsertDuplicateKey(t *testing.T) {
-	tree, err := newBTree(128*1024*1024, 100*PageSize)
+	tree, err := newTBTree(128*1024*1024, 100*PageSize)
 	require.NoError(t, err)
 
 	key := make([]byte, 50)
@@ -269,6 +270,9 @@ func TestRecoverSnapshotDuringOpen(t *testing.T) {
 				return historyApp, nil
 			}
 			return nil, fmt.Errorf("unknown path: %s", subPath)
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	tree, err := Open("", opts)
@@ -376,7 +380,7 @@ func TestIteratorSeek(t *testing.T) {
 		return bytes.Compare(sortedKeys[i], sortedKeys[j]) < 0
 	})
 
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		128*1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)
@@ -509,6 +513,9 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 		WithMaxActiveSnapshots(n).
 		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	tree, err := Open("", opts)
@@ -589,6 +596,9 @@ func TestIteratorNextBetween(t *testing.T) {
 		WithPageBuffer(pgBuf).
 		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	tree, err := Open("", opts)
@@ -681,6 +691,9 @@ func TestIterator(t *testing.T) {
 		WithPageBuffer(pgBuf).
 		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	tree, err := Open("", opts)
@@ -771,7 +784,7 @@ func TestIterator(t *testing.T) {
 }
 
 func TestSnapshotIsolation(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		10*1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)
@@ -894,7 +907,7 @@ func TestSnapshotIsolation(t *testing.T) {
 }
 
 func TestGetWithPrefix(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)
@@ -938,7 +951,7 @@ func TestGetWithPrefix(t *testing.T) {
 }
 
 func TestGetBetween(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)
@@ -1011,6 +1024,9 @@ func TestCompact(t *testing.T) {
 				compactedTreeApp = memApp
 			}
 			return memApp, nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	tree, err := Open(
@@ -1039,16 +1055,20 @@ func TestCompact(t *testing.T) {
 	}
 
 	insertKeys(n, 1, "value")
-	require.Equal(t, tree.StalePagePercentage(), float64(0))
+	require.Equal(t, tree.StalePagePercentage(), float32(0))
 
 	insertKeys(n, 2, "new-value")
-	require.Greater(t, tree.StalePagePercentage(), float64(0))
+	require.Greater(t, tree.StalePagePercentage(), float32(0))
 
 	sizeBeforeCompaction, err := tree.treeApp.Size()
 	require.NoError(t, err)
 
 	require.Greater(t, tree.StalePages(), uint32(0))
 
+	err = tree.Compact(context.Background())
+	require.Equal(t, err, ErrCompactionThresholdNotReached)
+
+	tree.compactionThld = 0.1
 	err = tree.Compact(context.Background())
 	require.NoError(t, err)
 
@@ -1079,7 +1099,7 @@ func TestCompact(t *testing.T) {
 
 	require.Equal(t, sizeAfterCompaction, treeSize)
 	require.Equal(t, uint32(0), tree.StalePages())
-	require.Equal(t, float64(0), tree.StalePagePercentage())
+	require.Equal(t, float32(0), tree.StalePagePercentage())
 
 	snap, err := tree.ReadSnapshot()
 	require.NoError(t, err)
@@ -1177,7 +1197,7 @@ func requireEntriesAreSorted(t *testing.T, snap Snapshot, expectedKVs int) {
 	require.Equal(t, expectedKVs, n)
 }
 
-func newBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
+func newTBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
 	wb, err := newWriteBuffer(writeBufferSize)
 	if err != nil {
 		return nil, err
@@ -1190,6 +1210,9 @@ func newBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
 		WithPageBuffer(pgBuf).
 		WithAppFactoryFunc(func(_, _ string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
 		})
 
 	return Open(

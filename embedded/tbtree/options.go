@@ -30,7 +30,7 @@ import (
 const (
 	DefaultSyncThld                  = 1024 * 1024
 	DefaultFlushBufferSize           = 4096
-	DefaultCompactionThld            = 0.75
+	DefaultCompactionThld            = 0.5
 	DefaultCleanUpPercentage float32 = 0
 
 	DefaultFileSize = 1 << 26 // 64Mb
@@ -59,7 +59,8 @@ type Options struct {
 	wb    *WriteBuffer
 	pgBuf *PageBuffer
 
-	syncThld int
+	syncThld       int
+	compactionThld float32
 
 	cleanupPercentage  float32
 	maxActiveSnapshots int
@@ -78,6 +79,7 @@ type Options struct {
 
 	appFactory AppFactoryFunc
 	appRemove  AppRemoveFunc
+	readDir    ReadDirFunc
 }
 
 func DefaultOptions() *Options {
@@ -88,6 +90,7 @@ func DefaultOptions() *Options {
 		fileMode:                 DefaultFileMode,
 		readOnly:                 false,
 		syncThld:                 DefaultSyncThld,
+		compactionThld:           DefaultCompactionThld,
 		appWriteBufferSize:       DefaultAppendableWriteBufferSize,
 		nodesLogMaxOpenedFiles:   DefaultNodesLogMaxOpenedFiles,
 		historyLogMaxOpenedFiles: DefaultHistoryLogMaxOpenedFiles,
@@ -95,6 +98,7 @@ func DefaultOptions() *Options {
 		fileSize:                 DefaultFileSize,
 		appFactory:               defaultAppFactory,
 		appRemove:                defaultAppRemove,
+		readDir:                  os.ReadDir,
 	}
 }
 
@@ -185,6 +189,11 @@ func (opts *Options) WithAppFactoryFunc(appFactory AppFactoryFunc) *Options {
 	return opts
 }
 
+func (opts *Options) WithReadDirFunc(readDir ReadDirFunc) *Options {
+	opts.readDir = readDir
+	return opts
+}
+
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
 	return opts
@@ -200,8 +209,13 @@ func (opts *Options) WithAppendableWriteBufferSize(size int) *Options {
 	return opts
 }
 
-func (opts *Options) WithSyncThld(syncThld int) *Options {
-	opts.syncThld = syncThld
+func (opts *Options) WithSyncThld(thld int) *Options {
+	opts.syncThld = thld
+	return opts
+}
+
+func (opts *Options) WithCompactionThld(thld float32) *Options {
+	opts.compactionThld = thld
 	return opts
 }
 

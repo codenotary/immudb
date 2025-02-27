@@ -68,8 +68,6 @@ func (idx *Indexer) Start() {
 	go idx.doIndexing()
 }
 
-// TODO: for reading a tx we can use a normal TxBuffer
-
 func (indexer *Indexer) doIndexing() error {
 	indexWhileReady := func() {
 		ready := true

@@ -27,7 +27,7 @@ import (
 )
 
 func TestHistoryIterator(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		128*1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)
@@ -80,7 +80,7 @@ func TestHistoryIterator(t *testing.T) {
 }
 
 func TestHistory(t *testing.T) {
-	tree, err := newBTree(
+	tree, err := newTBTree(
 		128*1024*1024,
 		(1+rand.Intn(100))*PageSize,
 	)

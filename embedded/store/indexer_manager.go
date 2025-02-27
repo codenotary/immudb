@@ -357,6 +357,10 @@ func (indexer *Indexer) newIndex(
 		treeOpts = treeOpts.WithAppRemoveFunc(tbtree.AppRemoveFunc(opts.appRemove))
 	}
 
+	if opts.readDir != nil {
+		treeOpts = treeOpts.WithReadDirFunc(tbtree.ReadDirFunc(opts.readDir))
+	}
+
 	tree, err := tbtree.Open(path, treeOpts)
 	if err != nil {
 		return nil, err

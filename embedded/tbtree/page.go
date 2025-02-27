@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"sort"
 	"unsafe"
 )
@@ -799,12 +798,6 @@ func (pg *Page) Put(buf []byte) int {
 	off += 2
 
 	return off
-}
-
-func computeChecksum(data []byte) uint32 {
-	crc := crc32.New(crc32.MakeTable(crc32.Castagnoli))
-	crc.Write(data)
-	return crc.Sum32()
 }
 
 func expandToFixedPage(buf []byte) (*Page, int, error) {
