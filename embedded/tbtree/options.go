@@ -77,7 +77,7 @@ type Options struct {
 	fileSize int
 
 	appFactory AppFactoryFunc
-	//appRemove  AppRemoveFunc
+	appRemove  AppRemoveFunc
 }
 
 func DefaultOptions() *Options {
@@ -94,12 +94,18 @@ func DefaultOptions() *Options {
 		commitLogMaxOpenedFiles:  DefaultCommitLogMaxOpenedFiles,
 		fileSize:                 DefaultFileSize,
 		appFactory:               defaultAppFactory,
+		appRemove:                defaultAppRemove,
 	}
 }
 
 func defaultAppFactory(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 	fullPath := filepath.Join(rootPath, subPath)
 	return multiapp.Open(fullPath, opts)
+}
+
+func defaultAppRemove(rootPath, subPath string) error {
+	fullPath := filepath.Join(rootPath, subPath)
+	return os.RemoveAll(fullPath)
 }
 
 func (opts *Options) Validate() error {
@@ -166,6 +172,11 @@ func (opts *Options) WithWriteBuffer(wb *WriteBuffer) *Options {
 
 func (opts *Options) WithPageBuffer(pgBuf *PageBuffer) *Options {
 	opts.pgBuf = pgBuf
+	return opts
+}
+
+func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
+	opts.appRemove = appRemove
 	return opts
 }
 

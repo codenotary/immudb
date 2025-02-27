@@ -325,7 +325,6 @@ func (opts *Options) Validate() error {
 	if err != nil {
 		return err
 	}
-
 	return opts.AHTOpts.Validate()
 }
 

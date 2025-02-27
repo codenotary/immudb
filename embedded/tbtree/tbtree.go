@@ -92,7 +92,7 @@ type TBTree struct {
 	appRemove  AppRemoveFunc
 }
 
-type AppRemoveFunc func()
+type AppRemoveFunc func(rootPath, subPath string) error
 
 func Open(
 	path string,

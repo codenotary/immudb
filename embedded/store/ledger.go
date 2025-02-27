@@ -3485,8 +3485,8 @@ func (s *Ledger) Name() string {
 	return filepath.Base(s.path)
 }
 
-func (s *Ledger) IndexOptions() *IndexOptions {
-	return s.opts.IndexOpts
+func (s *Ledger) Options() *Options {
+	return s.opts
 }
 
 func digest(s []byte) [sha256.Size]byte {

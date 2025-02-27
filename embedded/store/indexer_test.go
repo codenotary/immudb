@@ -47,8 +47,6 @@ func TestInitIndex(t *testing.T) {
 		return nil
 	}
 
-	ledger := NewMockLedger("", readTxAt)
-
 	writeBufferSize := 128 * 1024 * 1024
 	pageBufferSize := 1024 * 1024
 
@@ -58,12 +56,16 @@ func TestInitIndex(t *testing.T) {
 		WithMaxWriteBufferSize(writeBufferSize).
 		WithPageBufferSize(pageBufferSize)
 
+	opts := DefaultOptions().
+		WithIndexOptions(indexOptions).
+		WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			return memapp.New(), nil
+		})
+
+	ledger := NewMockLedger("", opts, readTxAt)
+
 	idx, err := NewIndexerManager(
-		DefaultOptions().
-			WithIndexOptions(indexOptions).
-			WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
-				return memapp.New(), nil
-			}),
+		opts,
 	)
 	require.NoError(t, err)
 
@@ -82,7 +84,6 @@ func TestInitIndex(t *testing.T) {
 
 func TestIndexers(t *testing.T) {
 	nIndexes := 100
-	ledger := NewMockLedger("", readTxAtFor(nIndexes))
 
 	writeBufferSize := 8 * 1024 * 1024
 	pageBufferSize := tbtree.PageSize * 5
@@ -93,12 +94,16 @@ func TestIndexers(t *testing.T) {
 		WithMaxWriteBufferSize(writeBufferSize).
 		WithPageBufferSize(pageBufferSize)
 
+	opts := DefaultOptions().
+		WithIndexOptions(indexOptions).
+		WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			return memapp.New(), nil
+		})
+
+	ledger := NewMockLedger("", opts, readTxAtFor(nIndexes))
+
 	idx, err := NewIndexerManager(
-		DefaultOptions().
-			WithIndexOptions(indexOptions).
-			WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
-				return memapp.New(), nil
-			}),
+		opts,
 	)
 	require.NoError(t, err)
 
@@ -166,8 +171,6 @@ func TestIndexers(t *testing.T) {
 }
 
 func TestIndexingRecovery(t *testing.T) {
-	ledger := NewMockLedger("", readTxAtFor(1))
-
 	treeApp := memapp.New()
 
 	opts := DefaultOptions().
@@ -180,6 +183,8 @@ func TestIndexingRecovery(t *testing.T) {
 			}
 			return nil, fmt.Errorf("invalid subpath: %s", subPath)
 		})
+
+	ledger := NewMockLedger("", opts, readTxAtFor(1))
 
 	idx, err := NewIndexerManager(opts)
 	require.NoError(t, err)
@@ -274,14 +279,16 @@ func readTxAtFor(nIndexes int) func(txID uint64, tx *Tx) error {
 
 type MockLedger struct {
 	path              string
+	opts              *Options
 	commitWh          *watchers.WatchersHub
 	lastCommittedTxID uint64
 	readTxAt          func(txID uint64, tx *Tx) error
 }
 
-func NewMockLedger(path string, readTxAt func(txID uint64, tx *Tx) error) *MockLedger {
+func NewMockLedger(path string, opts *Options, readTxAt func(txID uint64, tx *Tx) error) *MockLedger {
 	return &MockLedger{
 		path:              path,
+		opts:              opts,
 		commitWh:          watchers.New(0, maxWaitingDefault),
 		lastCommittedTxID: 0,
 		readTxAt:          readTxAt,
@@ -330,6 +337,6 @@ func (s *MockLedger) ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte
 	return bytes.NewReader([]byte(v)), nil
 }
 
-func (s *MockLedger) IndexOptions() *IndexOptions {
-	return DefaultIndexOptions()
+func (s *MockLedger) Options() *Options {
+	return s.opts
 }

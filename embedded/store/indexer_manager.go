@@ -28,7 +28,7 @@ type IndexableLedger interface {
 	LastCommittedTxID() uint64
 	ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (io.Reader, error)
 	ReadTxAt(txID uint64, tx *Tx) error
-	IndexOptions() *IndexOptions
+	Options() *Options
 }
 
 type IndexerManager struct {
@@ -41,9 +41,6 @@ type IndexerManager struct {
 
 	indexers    []Indexer
 	nextIndexID atomic.Uint32
-
-	appFactory AppFactoryFunc
-	maxWaitees int
 
 	closed bool
 }
@@ -59,12 +56,10 @@ func NewIndexerManager(opts *Options) (*IndexerManager, error) {
 	}
 
 	return &IndexerManager{
-		logger:     opts.logger,
-		pgBuf:      tbtree.NewPageBuffer(opts.IndexOpts.PageBufferSize),
-		indexers:   indexers,
-		indexes:    make(map[LedgerID][]*index),
-		appFactory: opts.appFactory,
-		maxWaitees: opts.MaxWaitees,
+		logger:   opts.logger,
+		pgBuf:    tbtree.NewPageBuffer(opts.IndexOpts.PageBufferSize),
+		indexers: indexers,
+		indexes:  make(map[LedgerID][]*index),
 	}, nil
 }
 
@@ -194,13 +189,10 @@ func (m *IndexerManager) InitIndexing(ledger IndexableLedger, spec IndexSpec) (*
 
 	index, err := indexer.newIndex(
 		uint16(nextIndexID),
-		ledger,
 		indexPath,
+		ledger,
 		spec,
-		ledger.IndexOptions(),
-		m.maxWaitees,
 		m.pgBuf,
-		m.appFactory,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: could not open indexer", err)
@@ -343,23 +335,26 @@ func (m *IndexerManager) GetIndexFor(ledgerID LedgerID, key []byte) (*index, err
 
 func (indexer *Indexer) newIndex(
 	id uint16,
-	ledger IndexableLedger,
 	path string,
+	ledger IndexableLedger,
 	spec IndexSpec,
-	opts *IndexOptions,
-	maxWaitees int,
 	pgBuf *tbtree.PageBuffer,
-	appFactory AppFactoryFunc,
 ) (*index, error) {
+	opts := ledger.Options()
+
 	treeOpts := tbtree.DefaultOptions().
 		WithTreeID(tbtree.TreeID(id)).
 		WithWriteBuffer(indexer.wb).
 		WithPageBuffer(pgBuf).
-		WithMaxActiveSnapshots(opts.MaxActiveSnapshots).
+		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithLogger(indexer.logger)
 
-	if appFactory != nil {
-		treeOpts = treeOpts.WithAppFactoryFunc(tbtree.AppFactoryFunc(appFactory))
+	if opts.appFactory != nil {
+		treeOpts = treeOpts.WithAppFactoryFunc(tbtree.AppFactoryFunc(opts.appFactory))
+	}
+
+	if opts.appRemove != nil {
+		treeOpts = treeOpts.WithAppRemoveFunc(tbtree.AppRemoveFunc(opts.appRemove))
 	}
 
 	tree, err := tbtree.Open(path, treeOpts)
@@ -367,7 +362,7 @@ func (indexer *Indexer) newIndex(
 		return nil, err
 	}
 
-	wHub := watchers.New(0, maxWaitees)
+	wHub := watchers.New(0, opts.MaxWaitees)
 	if err := wHub.DoneUpto(tree.Ts()); err != nil {
 		return nil, err
 	}
