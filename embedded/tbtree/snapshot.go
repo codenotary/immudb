@@ -63,8 +63,9 @@ func (t *TBTree) newSnapshot(
 	rootID PageID,
 	maxTs uint64,
 ) (Snapshot, error) {
-	if ok := t.snapshotLock.TryRLock(); !ok {
-		return nil, ErrCompactionInProgress
+	if n := t.snapshotCount.Add(1); n > uint64(t.maxActiveSnapshots) {
+		t.snapshotCount.Add(^uint64(0))
+		return nil, ErrorToManyActiveSnapshots
 	}
 
 	snap := &TBTreeSnapshot{
@@ -266,7 +267,7 @@ func (snap *TBTreeSnapshot) Ts() uint64 {
 }
 
 func (snap *TBTreeSnapshot) Close() error {
-	snap.tree.snapshotLock.RUnlock()
+	snap.tree.snapshotCount.Add(^uint64(0))
 
 	if snap.isWriteSnapshot {
 		snap.tree.mtx.RUnlock()

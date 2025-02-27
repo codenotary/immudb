@@ -270,7 +270,7 @@ func (indexer *Indexer) tryFlushIndexes() (bool, error) {
 			panic("queue is empty")
 		}
 
-		err := e.index.tree.TryFlush(context.Background(), false)
+		err := e.index.tree.TryFlush(context.Background())
 		if errors.Is(err, tbtree.ErrTreeLocked) {
 			continue
 		} else if err != nil {

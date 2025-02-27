@@ -193,3 +193,8 @@ func (opts *Options) WithSyncThld(syncThld int) *Options {
 	opts.syncThld = syncThld
 	return opts
 }
+
+func (opts *Options) WithMaxActiveSnapshots(n int) *Options {
+	opts.maxActiveSnapshots = n
+	return opts
+}

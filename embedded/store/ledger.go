@@ -1084,15 +1084,7 @@ func (s *Ledger) CompactIndexes() error {
 	if s.compactionDisabled {
 		return ErrCompactionDisabled
 	}
-
-	/*
-		for _, indexer := range s.indexers {
-			err := indexer.CompactIndex()
-			if err != nil {
-				return err
-			}
-		}*/
-	return fmt.Errorf("compaction not implemented")
+	return s.store.indexerManager.CompactIndexes(s.ID())
 }
 
 func (s *Ledger) FlushIndexes(cleanupPercentage float32, synced bool) error {
@@ -3491,6 +3483,10 @@ func (s *Ledger) Path() string {
 
 func (s *Ledger) Name() string {
 	return filepath.Base(s.path)
+}
+
+func (s *Ledger) IndexOptions() *IndexOptions {
+	return s.opts.IndexOpts
 }
 
 func digest(s []byte) [sha256.Size]byte {

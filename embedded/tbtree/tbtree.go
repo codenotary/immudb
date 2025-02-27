@@ -29,7 +29,6 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/latch"
 )
 
 const MaxEntrySize = 2 * 1024
@@ -78,8 +77,8 @@ type TBTree struct {
 	nSplits int
 	depth   int
 
-	// Tracks the number of active snapshots to ensure compaction does not start while any exist.
-	snapshotLock latch.LWLock
+	snapshotCount      atomic.Uint64
+	maxActiveSnapshots int
 
 	syncThld      int
 	unsyncedBytes atomic.Uint32
@@ -151,6 +150,7 @@ func OpenWith(
 		tailHistoryPageID:  PageNone,
 		depth:              0,
 		mutated:            false,
+		maxActiveSnapshots: opts.maxActiveSnapshots,
 		fileSize:           opts.fileSize,
 		fileMode:           opts.fileMode,
 		appWriteBufferSize: opts.appWriteBufferSize,
@@ -605,6 +605,8 @@ func (t *TBTree) UseEntry(key []byte, onEntry func(e *Entry) error) error {
 	if err != nil {
 		return err
 	}
+	defer snap.Close()
+
 	return snap.UseEntry(key, onEntry)
 }
 
@@ -781,34 +783,35 @@ func (t *TBTree) lastSnapshotRootID() PageID {
 	return PageID(t.lastSnapshotID.Load())
 }
 
-func (t *TBTree) Flush(ctx context.Context, resetBuffer bool) error {
+func (t *TBTree) Flush(ctx context.Context) error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	opts := flushOptions{
-		resetBuffer: resetBuffer,
-		dstApp:      t.treeApp,
-	}
-	return t.flush(ctx, opts)
+	return t.flush(ctx)
 }
 
-func (t *TBTree) TryFlush(ctx context.Context, resetBuffer bool) error {
+func (t *TBTree) FlushReset(ctx context.Context) error {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+
+	err := t.flush(ctx)
+	t.wb.Reset()
+	return err
+}
+
+func (t *TBTree) TryFlush(ctx context.Context) error {
 	if !t.mtx.TryLock() {
 		return ErrTreeLocked
 	}
 	defer t.mtx.Unlock()
 
-	opts := flushOptions{
-		resetBuffer: resetBuffer,
-		dstApp:      t.treeApp,
-	}
-	return t.flush(ctx, opts)
+	return t.flush(ctx)
 }
 
-func (t *TBTree) flush(ctx context.Context, opts flushOptions) error {
+func (t *TBTree) flush(ctx context.Context) error {
 	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
 
-	if !opts.fullDump && !t.mutated {
+	if !t.mutated {
 		t.logger.Infof("flushing not needed. exiting...")
 		return nil
 	}
@@ -818,18 +821,16 @@ func (t *TBTree) flush(ctx context.Context, opts flushOptions) error {
 		return err
 	}
 
-	res, err := t.flushTree(ctx, t.rootPageID(), opts)
+	opts := flushOptions{
+		dstApp: t.treeApp,
+	}
+	res, err := t.flushTreeLog(ctx, t.rootPageID(), opts)
 	if err != nil {
 		return err
 	}
 
-	if opts.fullDump {
-		t.numPages.Store(uint64(res.pagesFlushed))
-		t.stalePages.Store(res.stalePages)
-	} else {
-		t.numPages.Add(uint64(res.pagesFlushed))
-		t.stalePages.Add(res.stalePages)
-	}
+	t.numPages.Add(uint64(res.pagesFlushed))
+	t.stalePages.Add(res.stalePages)
 
 	ts := t.Ts()
 	commitEntry := CommitEntry{
@@ -851,19 +852,11 @@ func (t *TBTree) flush(ctx context.Context, opts flushOptions) error {
 	t.tailHistoryPageID = PageNone
 	t.mutated = false
 
-	if opts.fullDump {
-		err := t.treeApp.Sync()
-		if err != nil {
-			return err
-		}
-		t.unsyncedBytes.Store(0)
-	} else if !opts.noSync {
-		t.maybeSync(uint32(res.bytesWritten + hLogBytesWritten))
-	}
+	t.maybeSync(uint32(res.bytesWritten + hLogBytesWritten))
 
-	if opts.resetBuffer {
-		t.wb.Reset()
-	}
+	//if opts.resetBuffer {
+	//	t.wb.Reset()
+	//}
 
 	t.logger.Infof("flushing completed, index=%s", t.path)
 	return nil
@@ -876,7 +869,7 @@ func (t *TBTree) maybeSync(n uint32) {
 
 	go func() {
 		// Prevent compaction to swap the treeApp file during sync
-		t.snapshotLock.RLock()
+		t.snapshotCount.Add(1)
 
 		err := t.historyApp.Sync()
 		if err != nil {
@@ -889,7 +882,7 @@ func (t *TBTree) maybeSync(n uint32) {
 		}
 		t.unsyncedBytes.Store(0)
 
-		t.snapshotLock.RUnlock()
+		t.snapshotCount.Add(^uint64(0))
 	}()
 }
 
@@ -939,14 +932,12 @@ type flushRes struct {
 }
 
 type flushOptions struct {
-	noSync      bool
-	fullDump    bool
-	resetBuffer bool
-	dstApp      appendable.Appendable
+	fullDump bool
+	dstApp   appendable.Appendable
 }
 
 // TODO: apply some sort of batching when writing data??
-func (t *TBTree) flushTree(ctx context.Context, pageID PageID, opts flushOptions) (flushRes, error) {
+func (t *TBTree) flushTreeLog(ctx context.Context, pageID PageID, opts flushOptions) (flushRes, error) {
 	if err := ctx.Err(); err != nil {
 		return flushRes{}, err
 	}
@@ -989,7 +980,7 @@ func (t *TBTree) flushTree(ctx context.Context, pageID PageID, opts flushOptions
 			continue
 		}
 
-		res, err := t.flushTree(ctx, childPageID, opts)
+		res, err := t.flushTreeLog(ctx, childPageID, opts)
 		if err != nil {
 			return flushRes{rootID: PageNone}, err
 		}
@@ -1133,7 +1124,7 @@ func (t *TBTree) ensureLatestSnapshotContainsTs(
 	}
 
 	if flushNeeded {
-		err := t.flush(ctx, flushOptions{dstApp: t.treeApp})
+		err := t.flush(ctx)
 		if err != nil {
 			return PageNone, 0, err
 		}
@@ -1149,13 +1140,12 @@ func (t *TBTree) Close() error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	if !t.snapshotLock.TryLock() {
+	if t.ActiveSnapshots() > 0 {
 		return ErrActiveSnapshots
 	}
-	defer t.snapshotLock.Unlock()
 
 	ctx := context.Background()
-	if err := t.flush(ctx, flushOptions{noSync: true, dstApp: t.treeApp}); err != nil {
+	if err := t.flush(ctx); err != nil {
 		return err
 	}
 
@@ -1166,6 +1156,10 @@ func (t *TBTree) Close() error {
 	_ = t.historyApp.Close()
 
 	return nil
+}
+
+func (t *TBTree) ActiveSnapshots() int {
+	return int(t.snapshotCount.Load())
 }
 
 const CommitEntrySize = 36 + CommitMagicSize

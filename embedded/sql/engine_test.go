@@ -1193,7 +1193,7 @@ func TestAddColumn(t *testing.T) {
 		st, err := store.Open(dir, opts)
 		require.NoError(t, err)
 
-		ledger, err := st.GetLedgerByName("default")
+		ledger, err := st.OpenLedger("default")
 		require.NoError(t, err)
 
 		engine, err := NewEngine(
@@ -1297,7 +1297,7 @@ func TestRenaming(t *testing.T) {
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
-		ledger, err := st.GetLedgerByName("default")
+		ledger, err := st.OpenLedger("default")
 		require.NoError(t, err)
 
 		engine, err := NewEngine(ledger, DefaultOptions().WithPrefix(sqlPrefix))
@@ -1552,7 +1552,7 @@ func TestAlterTableDropColumn(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, st.Close()) }()
 
-		ledger, err := st.GetLedgerByName("default")
+		ledger, err := st.OpenLedger("default")
 		require.NoError(t, err)
 
 		engine, err := NewEngine(ledger, DefaultOptions().WithPrefix(sqlPrefix))

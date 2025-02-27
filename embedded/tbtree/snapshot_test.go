@@ -112,11 +112,12 @@ func TestSnapshotSet(t *testing.T) {
 				require.NoError(t, err)
 			})
 
-			err = tree.Flush(context.Background(), true)
+			err = tree.FlushReset(context.Background())
 			require.NoError(t, err)
 
 			snap, err := tree.WriteSnapshot()
 			require.NoError(t, err)
+			defer snap.Close()
 
 			tc.localRange.forEach(func(n int) {
 				key := binary.BigEndian.AppendUint32(nil, uint32(n))

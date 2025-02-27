@@ -84,7 +84,7 @@ func TestInsert(t *testing.T) {
 	requireEntriesAreSorted(t, writeSnap, n)
 	writeSnap.Close()
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 	require.Zero(t, tree.wb.UsedPages())
 
@@ -110,6 +110,7 @@ func TestInsert(t *testing.T) {
 	defer snap.Close()
 
 	requireEntriesAreSorted(t, snap, n)
+	require.Equal(t, tree.ActiveSnapshots(), 1)
 }
 
 // TODO: following tests must be merged.
@@ -164,7 +165,7 @@ func TestInsertDuplicateKeys(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	it, err := tree.NewIterator(DefaultIteratorOptions())
@@ -231,7 +232,7 @@ func TestInsertDuplicateKey(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	err = tree.UseEntry(key, func(e *Entry) error {
@@ -277,7 +278,7 @@ func TestRecoverSnapshotDuringOpen(t *testing.T) {
 	_, err = randomInserts(tree, n)
 	require.NoError(t, err)
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	firstRootID := tree.rootPageID()
@@ -296,7 +297,7 @@ func TestRecoverSnapshotDuringOpen(t *testing.T) {
 		}
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	latestRootID := tree.rootPageID()
@@ -478,7 +479,7 @@ func TestIteratorSeek(t *testing.T) {
 		})
 	})
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	t.Run("iteration on read snapshot", func(t *testing.T) {
@@ -501,9 +502,11 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 	wb, err := newWriteBuffer(128 * 1024 * 1024)
 	require.NoError(t, err)
 
+	n := 1000
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
+		WithMaxActiveSnapshots(n).
 		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
 		})
@@ -513,7 +516,6 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 
 	var key [4]byte
 
-	n := 1000
 	snapshots := make([]Snapshot, n)
 
 	for i := 0; i < n; i++ {
@@ -526,7 +528,7 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = tree.Flush(context.Background(), true)
+		err = tree.FlushReset(context.Background())
 		require.NoError(t, err)
 
 		snap, err := tree.ReadSnapshot()
@@ -569,6 +571,12 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 	wg.Wait()
 
 	requireNoPageIsPinned(t, pgBuf)
+
+	for _, snap := range snapshots {
+		err := snap.Close()
+		require.NoError(t, err)
+	}
+	require.Equal(t, 0, tree.ActiveSnapshots())
 }
 
 func TestIteratorNextBetween(t *testing.T) {
@@ -603,7 +611,7 @@ func TestIteratorNextBetween(t *testing.T) {
 		}
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	snap, err := tree.ReadSnapshot()
@@ -691,7 +699,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	t.Run("forward iteration", func(t *testing.T) {
@@ -791,8 +799,9 @@ func TestSnapshotIsolation(t *testing.T) {
 	checkSnapshot := func(txID uint64) {
 		snap, err := tree.SnapshotAtTs(context.Background(), txID)
 		require.NoError(t, err)
-		require.Equal(t, tree.Ts(), uint64(numInserts))
+		defer snap.Close()
 
+		require.Equal(t, tree.Ts(), uint64(numInserts))
 		hcTotal := 0
 		n := 0
 		it, err := snap.NewIterator(DefaultIteratorOptions())
@@ -840,6 +849,8 @@ func TestSnapshotIsolation(t *testing.T) {
 			require.Equal(t, ts, uint64(tx))
 			require.Equal(t, hc, uint64(ts))
 			require.Equal(t, value, []byte(fmt.Sprintf("value%d-%d", nKey, tx)))
+
+			snap.Close()
 		}
 	})
 
@@ -856,6 +867,8 @@ func TestSnapshotIsolation(t *testing.T) {
 			require.Equal(t, ts, uint64(tx))
 			require.Equal(t, hc, uint64(ts))
 			require.Equal(t, value, []byte(fmt.Sprintf("value%d-%d", nKey, tx)))
+
+			snap.Close()
 		}
 	})
 
@@ -875,6 +888,7 @@ func TestSnapshotIsolation(t *testing.T) {
 			for i, v := range values {
 				require.Equal(t, v.Value, []byte(fmt.Sprintf("value%d-%d", nKey, i+1)))
 			}
+			snap.Close()
 		}
 	})
 }
@@ -903,7 +917,7 @@ func TestGetWithPrefix(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	snap, err := tree.ReadSnapshot()
@@ -947,7 +961,7 @@ func TestGetBetween(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	snap, err := tree.ReadSnapshot()
@@ -980,7 +994,7 @@ func TestGetBetween(t *testing.T) {
 	require.Equal(t, ts, uint64(nEntries))
 }
 
-func TestCompactionJob(t *testing.T) {
+func TestCompact(t *testing.T) {
 	tree, err := newBTree(
 		1024*1024,
 		100*PageSize,
@@ -1002,7 +1016,7 @@ func TestCompactionJob(t *testing.T) {
 			})
 			require.NoError(t, err)
 		}
-		err = tree.Flush(context.Background(), true)
+		err = tree.FlushReset(context.Background())
 		require.NoError(t, err)
 	}
 
@@ -1017,10 +1031,7 @@ func TestCompactionJob(t *testing.T) {
 
 	require.Greater(t, tree.StalePages(), uint32(0))
 
-	job, err := tree.NewCompactionJob()
-	require.NoError(t, err)
-
-	err = job.Run(context.Background())
+	err = tree.Compact(context.Background())
 	require.NoError(t, err)
 
 	sizeAfterCompaction, err := tree.treeApp.Size()

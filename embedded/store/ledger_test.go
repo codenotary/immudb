@@ -1774,15 +1774,15 @@ func TestLedgerHistoricalValues(t *testing.T) {
 		WithSynced(false).
 		WithMaxConcurrency(1)
 
-	leger, err := setupLedger(t, opts)
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
-	require.NotNil(t, leger)
+	require.NotNil(t, ledger)
 
 	txCount := 10
 	eCount := 10
 
 	for i := 0; i < txCount; i++ {
-		tx, err := leger.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -1801,7 +1801,7 @@ func TestLedgerHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	err = leger.CompactIndexes()
+	err = ledger.CompactIndexes()
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -1810,7 +1810,7 @@ func TestLedgerHistoricalValues(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				snap, err := leger.Snapshot(nil)
+				snap, err := ledger.Snapshot(nil)
 				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
@@ -1827,7 +1827,7 @@ func TestLedgerHistoricalValues(t *testing.T) {
 							v := make([]byte, 8)
 							binary.BigEndian.PutUint64(v, valRef.TxID()-1)
 
-							val, err := leger.Resolve(valRef)
+							val, err := ledger.Resolve(valRef)
 							require.NoError(t, err)
 							require.Equal(t, v, val)
 						}
@@ -5047,7 +5047,7 @@ func TestCommitOfEmptyTxWithMetadata(t *testing.T) {
 	require.Empty(t, txholder.Entries())
 }
 
-func TestLedger_ExportTxWithEmptyValues(t *testing.T) {
+func TestLedgerExportTxWithEmptyValues(t *testing.T) {
 	opts := DefaultOptions().WithEmbeddedValues(false)
 
 	ledger, err := setupLedger(t, opts)

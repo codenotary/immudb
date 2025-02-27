@@ -23,79 +23,37 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 )
 
-type CompactionJob struct {
-	tree   *TBTree
-	closed bool
-}
-
-func (t *TBTree) NewCompactionJob() (*CompactionJob, error) {
-	if !t.mtx.TryLock() {
-		return nil, ErrTreeLocked
-	}
-
-	if !t.snapshotLock.TryLock() {
-		t.mtx.Unlock()
-		return nil, ErrActiveSnapshots
-	}
-
-	return &CompactionJob{
-		tree: t,
-	}, nil
-}
-
-func (job *CompactionJob) Run(ctx context.Context) error {
-	err := job.runCompaction(ctx)
-	job.close()
-	return err
-}
-
-func (job *CompactionJob) Abort() {
-	job.close()
-}
-
-func (job *CompactionJob) Path() string {
-	return job.tree.Path()
-}
-
-func (job *CompactionJob) close() {
-	if job.closed {
-		return
-	}
-
-	job.tree.snapshotLock.Unlock()
-	job.tree.mtx.Unlock()
-	job.closed = true
-}
-
-func (job *CompactionJob) runCompaction(ctx context.Context) error {
-	tree := job.tree
+func (t *TBTree) Compact(ctx context.Context) error {
 	appOpts := multiapp.DefaultOptions().
-		WithReadOnly(job.tree.readOnly).
+		WithReadOnly(t.readOnly).
 		WithRetryableSync(false).
-		WithFileSize(tree.fileSize).
-		WithFileMode(tree.fileMode).
-		WithWriteBufferSize(tree.appWriteBufferSize).
+		WithFileSize(t.fileSize).
+		WithFileMode(t.fileMode).
+		WithWriteBufferSize(t.appWriteBufferSize).
 		WithFileExt("t")
 
-	newTreeApp, err := tree.appFactory(tree.path, snapFolder("tree", tree.Ts()), appOpts)
+	newTreeApp, err := t.appFactory(t.Path(), snapFolder("tree", t.Ts()), appOpts)
 	if err != nil {
 		return err
 	}
+	defer newTreeApp.Close()
 
-	err = tree.flush(
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+
+	_, err = t.flushTreeLog(
 		ctx,
-		flushOptions{fullDump: true, dstApp: newTreeApp},
+		t.rootPageID(),
+		flushOptions{
+			fullDump: true,
+			dstApp:   newTreeApp,
+		},
 	)
 	if err != nil {
 		return err
 	}
 
-	oldTreeApp := tree.treeApp
-	tree.treeApp = newTreeApp
-
-	_ = oldTreeApp.Close()
-
-	tree.pgBuf.InvalidateTreePages(tree.ID())
+	t.pgBuf.InvalidateTreePages(t.ID())
 	return nil
 }
 

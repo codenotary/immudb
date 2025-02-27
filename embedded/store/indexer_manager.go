@@ -28,6 +28,7 @@ type IndexableLedger interface {
 	LastCommittedTxID() uint64
 	ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (io.Reader, error)
 	ReadTxAt(txID uint64, tx *Tx) error
+	IndexOptions() *IndexOptions
 }
 
 type IndexerManager struct {
@@ -90,6 +91,23 @@ func (m *IndexerManager) PauseIndexing() error {
 }
 
 func (m *IndexerManager) ResumeIndexing() error {
+	return nil
+}
+
+func (m *IndexerManager) CompactIndexes(id LedgerID) error {
+	indexes, err := m.ledgerIndexes(id)
+	if err != nil {
+		return err
+	}
+
+	for _, idx := range indexes {
+		err := idx.tree.Compact(context.Background())
+		if err != nil {
+			return err
+		}
+
+		// TODO: restart index after compaction
+	}
 	return nil
 }
 
@@ -179,6 +197,7 @@ func (m *IndexerManager) InitIndexing(ledger IndexableLedger, spec IndexSpec) (*
 		ledger,
 		indexPath,
 		spec,
+		ledger.IndexOptions(),
 		m.maxWaitees,
 		m.pgBuf,
 		m.appFactory,
@@ -327,21 +346,23 @@ func (indexer *Indexer) newIndex(
 	ledger IndexableLedger,
 	path string,
 	spec IndexSpec,
+	opts *IndexOptions,
 	maxWaitees int,
 	pgBuf *tbtree.PageBuffer,
 	appFactory AppFactoryFunc,
 ) (*index, error) {
-	opts := tbtree.DefaultOptions().
+	treeOpts := tbtree.DefaultOptions().
 		WithTreeID(tbtree.TreeID(id)).
 		WithWriteBuffer(indexer.wb).
 		WithPageBuffer(pgBuf).
+		WithMaxActiveSnapshots(opts.MaxActiveSnapshots).
 		WithLogger(indexer.logger)
 
 	if appFactory != nil {
-		opts = opts.WithAppFactoryFunc(tbtree.AppFactoryFunc(appFactory))
+		treeOpts = treeOpts.WithAppFactoryFunc(tbtree.AppFactoryFunc(appFactory))
 	}
 
-	tree, err := tbtree.Open(path, opts)
+	tree, err := tbtree.Open(path, treeOpts)
 	if err != nil {
 		return nil, err
 	}

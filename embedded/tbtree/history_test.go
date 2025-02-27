@@ -50,7 +50,7 @@ func TestHistoryIterator(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	snap, err := tree.ReadSnapshot()
@@ -103,7 +103,7 @@ func TestHistory(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.Flush(context.Background(), true)
+	err = tree.FlushReset(context.Background())
 	require.NoError(t, err)
 
 	t.Run("descending order", func(t *testing.T) {

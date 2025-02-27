@@ -182,7 +182,7 @@ func (idx *index) SnapshotAtTs(ctx context.Context, txID uint64) (tbtree.Snapsho
 }
 
 func (idx *index) Flush(ctx context.Context) error {
-	return idx.tree.Flush(ctx, false)
+	return idx.tree.Flush(ctx)
 }
 
 func (idx *index) IndexingLag() uint64 {

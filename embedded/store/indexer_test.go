@@ -329,3 +329,7 @@ func (s *MockLedger) ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte
 	}
 	return bytes.NewReader([]byte(v)), nil
 }
+
+func (s *MockLedger) IndexOptions() *IndexOptions {
+	return DefaultIndexOptions()
+}
