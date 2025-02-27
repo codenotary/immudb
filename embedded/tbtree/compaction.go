@@ -24,6 +24,11 @@ import (
 )
 
 func (t *TBTree) Compact(ctx context.Context) error {
+	if !t.compacting.CompareAndSwap(false, true) {
+		return ErrCompactionInProgress
+	}
+	defer t.compacting.Store(false)
+
 	if t.StalePagePercentage() < t.compactionThld {
 		return ErrCompactionThresholdNotReached
 	}

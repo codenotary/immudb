@@ -102,6 +102,7 @@ type TBTree struct {
 	readOnly           bool
 
 	compactionThld float32
+	compacting     atomic.Bool
 
 	readDirFunc ReadDirFunc
 	appFactory  AppFactoryFunc

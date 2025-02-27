@@ -21,6 +21,7 @@ import (
 	"context"
 	"os"
 	"sort"
+	"sync/atomic"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
@@ -1069,8 +1070,29 @@ func TestCompact(t *testing.T) {
 	require.Equal(t, err, ErrCompactionThresholdNotReached)
 
 	tree.compactionThld = 0.1
-	err = tree.Compact(context.Background())
-	require.NoError(t, err)
+
+	concurrentCompactions := 10
+	var doneCompactions atomic.Uint32
+
+	var wg sync.WaitGroup
+	wg.Add(concurrentCompactions)
+	for i := 0; i < concurrentCompactions; i++ {
+		go func() {
+			defer wg.Done()
+
+			err = tree.Compact(context.Background())
+			if err == nil {
+				doneCompactions.Add(1)
+			}
+
+			if err != nil {
+				require.ErrorIs(t, err, ErrCompactionInProgress)
+			}
+		}()
+	}
+	wg.Wait()
+
+	require.Equal(t, 1, int(doneCompactions.Load()))
 
 	require.NotNil(t, compactedTreeApp)
 
