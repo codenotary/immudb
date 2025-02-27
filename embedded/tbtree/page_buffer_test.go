@@ -16,16 +16,7 @@ limitations under the License.
 
 package tbtree
 
-import (
-	"fmt"
-	"math/rand"
-	"sync"
-	"sync/atomic"
-	"testing"
-
-	"github.com/stretchr/testify/require"
-)
-
+/*
 func TestPageBuffer(t *testing.T) {
 	return
 	maxPages := 10
@@ -107,3 +98,4 @@ func (loader *mockPageLoader) Load(dst []byte, id PageID) error {
 	copy(dst, loader.buf[id:id+PageSize])
 	return nil
 }
+*/

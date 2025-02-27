@@ -16,23 +16,7 @@ limitations under the License.
 
 package main
 
-import (
-	"bytes"
-	"context"
-	"encoding/base64"
-	"encoding/binary"
-	"errors"
-	"flag"
-	"fmt"
-	"math/rand"
-	"sync"
-	"time"
-
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/htree"
-	"github.com/codenotary/immudb/embedded/store"
-)
-
+/*
 func main() {
 	dataDir := flag.String("dataDir", "data", "data directory")
 
@@ -418,3 +402,4 @@ func main() {
 
 	panic("please specify a valid mode of operation: interactive|auto")
 }
+*/

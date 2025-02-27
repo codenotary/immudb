@@ -32,24 +32,50 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		WithWriteBufferSize(t.appWriteBufferSize).
 		WithFileExt("t")
 
-	newTreeApp, err := t.appFactory(t.Path(), snapFolder("tree", t.Ts()), appOpts)
+	snapRootID, snapTs, err := func() (PageID, uint64, error) {
+		t.mtx.Lock()
+		defer t.mtx.Unlock()
+
+		err := t.flushToTreeLog(ctx)
+		// NOTE: Holding the lock on mtx while reading rootPageID and Ts ensures atomicity.
+		return t.rootPageID(), t.Ts(), err
+	}()
+	if err != nil {
+		return err
+	}
+
+	newTreeApp, err := t.appFactory(t.Path(), snapFolder("tree", snapTs), appOpts)
 	if err != nil {
 		return err
 	}
 	defer newTreeApp.Close()
 
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-
-	_, err = t.flushTreeLog(
+	res, err := t.flushTreeLog(
 		ctx,
-		t.rootPageID(),
+		snapRootID,
 		flushOptions{
 			fullDump: true,
 			dstApp:   newTreeApp,
 		},
 	)
 	if err != nil {
+		return err
+	}
+
+	hLogSize, err := t.historyApp.Size()
+	if err != nil {
+		return err
+	}
+
+	ce := CommitEntry{
+		Ts:                snapTs,
+		HLogSize:          uint64(hLogSize),
+		TotalPages:        uint64(res.pagesFlushed),
+		StalePages:        0,
+		IndexedEntryCount: t.IndexedEntryCount(),
+	}
+
+	if err := commit(&ce, newTreeApp); err != nil {
 		return err
 	}
 

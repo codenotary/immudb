@@ -89,7 +89,10 @@ type TBTree struct {
 	readOnly           bool
 
 	appFactory AppFactoryFunc
+	appRemove  AppRemoveFunc
 }
+
+type AppRemoveFunc func()
 
 func Open(
 	path string,
@@ -686,6 +689,9 @@ func (tv *TimedValue) Copy() TimedValue {
 
 func (t *TBTree) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []TimedValue, hCount uint64, err error) {
 	snap, err := t.ReadSnapshot()
+	if errors.Is(err, ErrNoSnapshotAvailable) {
+		return nil, 0, ErrKeyNotFound
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -714,6 +720,9 @@ func (t *TBTree) ReadSnapshot() (Snapshot, error) {
 
 func (t *TBTree) snapshot() (Snapshot, error) {
 	// TODO: check max number of active snapshots
+
+	ts := t.lastSnapshotTs.Load()
+
 	snapRootID := t.lastSnapshotRootID()
 	if snapRootID == PageNone {
 		return nil, ErrNoSnapshotAvailable
@@ -722,7 +731,7 @@ func (t *TBTree) snapshot() (Snapshot, error) {
 
 	return t.newReadSnapshot(
 		snapRootID,
-		t.lastSnapshotTs.Load(),
+		ts,
 	)
 }
 
@@ -787,14 +796,14 @@ func (t *TBTree) Flush(ctx context.Context) error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	return t.flush(ctx)
+	return t.flushToTreeLog(ctx)
 }
 
 func (t *TBTree) FlushReset(ctx context.Context) error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	err := t.flush(ctx)
+	err := t.flushToTreeLog(ctx)
 	t.wb.Reset()
 	return err
 }
@@ -805,28 +814,46 @@ func (t *TBTree) TryFlush(ctx context.Context) error {
 	}
 	defer t.mtx.Unlock()
 
-	return t.flush(ctx)
+	return t.flushToTreeLog(ctx)
 }
 
-func (t *TBTree) flush(ctx context.Context) error {
-	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
-
+func (t *TBTree) flushToTreeLog(ctx context.Context) error {
 	if !t.mutated {
 		t.logger.Infof("flushing not needed. exiting...")
 		return nil
 	}
 
-	hLogBytesWritten, hLogSize, err := t.flushHistory(ctx)
+	hLogBytesWritten, res, err := t.flushTo(ctx, t.treeApp)
 	if err != nil {
 		return err
 	}
 
+	t.rootID.Store(uint64(res.rootID))
+	t.lastSnapshotID.Store(uint64(res.rootID))
+	t.lastSnapshotTs.Store(t.Ts())
+
+	t.headHistoryPageID = PageNone
+	t.tailHistoryPageID = PageNone
+	t.mutated = false
+
+	t.maybeSync(uint32(res.bytesWritten + hLogBytesWritten))
+	return nil
+}
+
+func (t *TBTree) flushTo(ctx context.Context, dstApp appendable.Appendable) (int, flushRes, error) {
+	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
+
+	hLogBytesWritten, hLogSize, err := t.flushHistory(ctx)
+	if err != nil {
+		return -1, flushRes{}, err
+	}
+
 	opts := flushOptions{
-		dstApp: t.treeApp,
+		dstApp: dstApp,
 	}
 	res, err := t.flushTreeLog(ctx, t.rootPageID(), opts)
 	if err != nil {
-		return err
+		return -1, flushRes{}, err
 	}
 
 	t.numPages.Add(uint64(res.pagesFlushed))
@@ -841,25 +868,11 @@ func (t *TBTree) flush(ctx context.Context) error {
 		IndexedEntryCount: t.IndexedEntryCount(),
 	}
 	if err := commit(&commitEntry, opts.dstApp); err != nil {
-		return err
+		return -1, flushRes{}, err
 	}
 
-	t.rootID.Store(uint64(res.rootID))
-	t.lastSnapshotID.Store(uint64(res.rootID))
-	t.lastSnapshotTs.Store(ts)
-
-	t.headHistoryPageID = PageNone
-	t.tailHistoryPageID = PageNone
-	t.mutated = false
-
-	t.maybeSync(uint32(res.bytesWritten + hLogBytesWritten))
-
-	//if opts.resetBuffer {
-	//	t.wb.Reset()
-	//}
-
 	t.logger.Infof("flushing completed, index=%s", t.path)
-	return nil
+	return hLogBytesWritten, res, nil
 }
 
 func (t *TBTree) maybeSync(n uint32) {
@@ -954,7 +967,7 @@ func (t *TBTree) flushTreeLog(ctx context.Context, pageID PageID, opts flushOpti
 
 	var stalePages uint32
 	if pg.IsLeaf() {
-		if pg.IsCopied() {
+		if isMemPage && pg.IsCopied() {
 			stalePages++
 		}
 
@@ -991,7 +1004,7 @@ func (t *TBTree) flushTreeLog(ctx context.Context, pageID PageID, opts flushOpti
 		pagesFlushed += res.pagesFlushed
 	}
 
-	if pageID.isMemPage() && pg.IsCopied() {
+	if isMemPage && pg.IsCopied() {
 		stalePages++
 	}
 
@@ -1124,7 +1137,7 @@ func (t *TBTree) ensureLatestSnapshotContainsTs(
 	}
 
 	if flushNeeded {
-		err := t.flush(ctx)
+		err := t.flushToTreeLog(ctx)
 		if err != nil {
 			return PageNone, 0, err
 		}
@@ -1145,7 +1158,7 @@ func (t *TBTree) Close() error {
 	}
 
 	ctx := context.Background()
-	if err := t.flush(ctx); err != nil {
+	if err := t.flushToTreeLog(ctx); err != nil {
 		return err
 	}
 

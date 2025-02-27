@@ -535,7 +535,7 @@ func TestIndexCompactionForRemoteStorage(t *testing.T) {
 	st, err := store.Open(path, stOpts.WithIndexOptions(stOpts.IndexOpts.WithCompactionThld(1)))
 	require.NoError(t, err)
 
-	ledger, err := st.GetLedgerByName(ledgerName)
+	ledger, err := st.OpenLedger(ledgerName)
 	require.NoError(t, err)
 
 	err = ledger.CompactIndexes()
@@ -547,7 +547,7 @@ func TestIndexCompactionForRemoteStorage(t *testing.T) {
 	entries, subpath, err := storage.ListEntries(context.Background(), "testdb/index/")
 	require.NoError(t, err)
 	require.Len(t, entries, 0)
-	require.Equal(t, subpath, []string{"commit0000000000000001", "history", "nodes0000000000000001"})
+	require.Equal(t, []string{"history", "tree_0000000000000001"}, subpath)
 }
 
 func TestRemoteStorageUsedForNewDB(t *testing.T) {

@@ -132,7 +132,7 @@ func TestMultipleLocalWriteBuffer(t *testing.T) {
 	numBuffers := 100
 	maxBufferSize := 10 * chunkSize
 
-	buffers := make([]WriteBuffer, numBuffers)
+	buffers := make([]*WriteBuffer, numBuffers)
 	for i := 0; i < numBuffers; i++ {
 		wb, err := NewWriteBuffer(
 			sb,
@@ -141,7 +141,7 @@ func TestMultipleLocalWriteBuffer(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		buffers[i] = *wb
+		buffers[i] = wb
 	}
 
 	var totalPagesAllocated atomic.Uint32

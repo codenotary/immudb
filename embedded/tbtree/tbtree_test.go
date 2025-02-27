@@ -995,9 +995,27 @@ func TestGetBetween(t *testing.T) {
 }
 
 func TestCompact(t *testing.T) {
-	tree, err := newBTree(
-		1024*1024,
-		100*PageSize,
+	wb, err := newWriteBuffer(1024 * 1024)
+	require.NoError(t, err)
+
+	pgBuf := NewPageBuffer(100 * PageSize)
+
+	var compactedTreeApp appendable.Appendable
+
+	opts := DefaultOptions().
+		WithWriteBuffer(wb).
+		WithPageBuffer(pgBuf).
+		WithAppFactoryFunc(func(_, subpath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			memApp := memapp.New()
+			if subpath == snapFolder("tree", 2) {
+				compactedTreeApp = memApp
+			}
+			return memApp, nil
+		})
+
+	tree, err := Open(
+		"",
+		opts,
 	)
 	require.NoError(t, err)
 
@@ -1034,9 +1052,34 @@ func TestCompact(t *testing.T) {
 	err = tree.Compact(context.Background())
 	require.NoError(t, err)
 
-	sizeAfterCompaction, err := tree.treeApp.Size()
+	require.NotNil(t, compactedTreeApp)
+
+	sizeAfterCompaction, err := compactedTreeApp.Size()
 	require.NoError(t, err)
 	require.Less(t, sizeAfterCompaction, sizeBeforeCompaction)
+
+	hLog := tree.historyApp
+
+	err = tree.Close()
+	require.NoError(t, err)
+
+	tree, err = Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		switch subPath {
+		case "history":
+			return hLog, nil
+		case "tree":
+			return compactedTreeApp, nil
+		}
+		return memapp.New(), nil
+	}))
+	require.NoError(t, err)
+
+	treeSize, err := tree.treeApp.Size()
+	require.NoError(t, err)
+
+	require.Equal(t, sizeAfterCompaction, treeSize)
+	require.Equal(t, uint32(0), tree.StalePages())
+	require.Equal(t, float64(0), tree.StalePagePercentage())
 
 	snap, err := tree.ReadSnapshot()
 	require.NoError(t, err)
@@ -1142,14 +1185,16 @@ func newBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
 
 	pgBuf := NewPageBuffer(pageBufferSize)
 
+	opts := DefaultOptions().
+		WithWriteBuffer(wb).
+		WithPageBuffer(pgBuf).
+		WithAppFactoryFunc(func(_, _ string, _ *multiapp.Options) (appendable.Appendable, error) {
+			return memapp.New(), nil
+		})
+
 	return Open(
 		"",
-		DefaultOptions().
-			WithWriteBuffer(wb).
-			WithPageBuffer(pgBuf).
-			WithAppFactoryFunc(func(_, _ string, _ *multiapp.Options) (appendable.Appendable, error) {
-				return memapp.New(), nil
-			}),
+		opts,
 	)
 }
 
