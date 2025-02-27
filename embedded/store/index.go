@@ -3,17 +3,15 @@ package store
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"math"
 	"path/filepath"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
-	"github.com/codenotary/immudb/pkg/guard"
 )
 
 const indexDir = "index"
@@ -42,8 +40,8 @@ func (spec *IndexSpec) Path(basePath string) string {
 type index struct {
 	path string
 
-	closeGuard guard.CloseGuard
-	deleted    atomic.Bool
+	mtx    sync.RWMutex
+	closed bool
 
 	ledger IndexableLedger
 
@@ -59,66 +57,72 @@ func (idx *index) mapKey(key []byte, valReader io.Reader) ([]byte, error) {
 	return idx.spec.SourceEntryMapper(key, valReader)
 }
 
-func (idx *index) setDeleted() {
-	idx.deleted.Store(true)
-}
-
-func (idx *index) isDeleted() bool {
-	return idx.deleted.Load()
-}
-
 func (idx *index) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, 0, 0, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
-
 	return idx.tree.Get(key)
 }
 
 func (idx *index) GetWithPrefix(key []byte, neq []byte) ([]byte, []byte, uint64, uint64, error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
 
 	return idx.tree.GetWithPrefix(key, neq)
 }
 
 func (idx *index) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (value []byte, tx uint64, hc uint64, err error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, 0, 0, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
 
-	if err := idx.Flush(context.Background()); err != nil {
+	if err := idx.Flush(); err != nil {
 		return nil, 0, 0, err
 	}
 	return idx.tree.GetBetween(key, initialTxID, finalTxID)
 }
 
 func (idx *index) History(key []byte, offset uint64, descOrder bool, limit int) (timedValues []tbtree.TimedValue, hCount uint64, err error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, 0, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
 
-	if err := idx.Flush(context.Background()); err != nil {
+	if err := idx.Flush(); err != nil {
 		return nil, 0, err
 	}
 	return idx.tree.History(key, offset, descOrder, limit)
 }
 
 func (idx *index) Snapshot() (tbtree.Snapshot, error) {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
+		return nil, ErrAlreadyClosed
+	}
 	return idx.SnapshotMustIncludeTx(context.Background(), 0)
 }
 
 func (idx *index) WriteSnapshot() (tbtree.Snapshot, error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
-
 	return idx.tree.WriteSnapshot()
 }
 
@@ -149,40 +153,66 @@ func (idx *index) advance(ts uint64, lastEntry uint32) error {
 }
 
 func (idx *index) WaitForIndexingUpTo(ctx context.Context, txID uint64) error {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
-
 	return idx.wHub.WaitFor(ctx, txID)
 }
 
 func (idx *index) SnapshotMustIncludeTx(ctx context.Context, txID uint64) (tbtree.Snapshot, error) {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
+		return nil, ErrAlreadyClosed
+	}
 	return idx.SnapshotMustIncludeTxWithRenewalPeriod(ctx, txID, 0)
 }
 
 func (idx *index) SnapshotMustIncludeTxWithRenewalPeriod(ctx context.Context, txID uint64, renewalPeriod time.Duration) (tbtree.Snapshot, error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
 
 	// TODO: consider renewal period
 	return idx.tree.SnapshotMustIncludeTs(ctx, txID)
 }
 
 func (idx *index) SnapshotAtTs(ctx context.Context, txID uint64) (tbtree.Snapshot, error) {
-	if !idx.closeGuard.Acquire() {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
 		return nil, ErrAlreadyClosed
 	}
-	defer idx.closeGuard.Release()
-
 	// TODO: consider renewal period
 	return idx.tree.SnapshotAtTs(ctx, txID)
 }
 
-func (idx *index) Flush(ctx context.Context) error {
-	return idx.tree.Flush(ctx)
+func (idx *index) Flush() error {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
+		return ErrAlreadyClosed
+	}
+	return idx.tree.Flush()
+}
+
+func (idx *index) Compact(ctx context.Context) error {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	if idx.closed {
+		return ErrAlreadyClosed
+	}
+	return idx.tree.Compact(ctx)
 }
 
 func (idx *index) IndexingLag() uint64 {
@@ -206,11 +236,23 @@ func (idx *index) TargetPrefix() []byte {
 }
 
 func (idx *index) Close() error {
-	err := idx.closeGuard.Close(func() error {
-		return idx.tree.Close()
-	})
-	if errors.Is(err, guard.ErrAlreadyClosed) {
+	idx.mtx.RLock()
+	defer idx.mtx.RLock()
+
+	if idx.closed {
 		return ErrAlreadyClosed
 	}
+
+	err := idx.tree.Close()
+	if err == nil {
+		idx.closed = true
+	}
 	return err
+}
+
+func (idx *index) Closed() bool {
+	idx.mtx.RLock()
+	defer idx.mtx.RLock()
+
+	return idx.closed
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package tbtree
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -50,7 +49,7 @@ func TestHistoryIterator(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.FlushReset(context.Background())
+	err = tree.FlushReset()
 	require.NoError(t, err)
 
 	snap, err := tree.ReadSnapshot()
@@ -103,7 +102,7 @@ func TestHistory(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.FlushReset(context.Background())
+	err = tree.FlushReset()
 	require.NoError(t, err)
 
 	t.Run("descending order", func(t *testing.T) {

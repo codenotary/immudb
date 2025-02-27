@@ -27,7 +27,13 @@ func (t *TBTree) Compact(ctx context.Context) error {
 	if !t.compacting.CompareAndSwap(false, true) {
 		return ErrCompactionInProgress
 	}
-	defer t.compacting.Store(false)
+
+	var compactionDone bool
+	defer func() {
+		// NOTE: After a successful compaction, the compaction flag remains true
+		// to prevent additional compactions from running on the tree unless it is explicitly re-opened.
+		t.compacting.Store(compactionDone)
+	}()
 
 	if t.StalePagePercentage() < t.compactionThld {
 		return ErrCompactionThresholdNotReached
@@ -45,7 +51,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		t.mtx.Lock()
 		defer t.mtx.Unlock()
 
-		err := t.flushToTreeLog(ctx)
+		err := t.flushToTreeLog()
 		// NOTE: Holding the lock on mtx while reading snapRootID and Ts ensures atomicity.
 		return t.lastSnapshotRootID(), t.lastSnapshotTs.Load(), err
 	}()
@@ -53,9 +59,8 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		return err
 	}
 
-	// tree is empty, nothing to compact
 	if snapRootID == PageNone {
-		return nil
+		return fmt.Errorf("attempting to compact an empty tree")
 	}
 
 	newTreeApp, err := t.appFactory(t.Path(), snapFolder("tree", snapTs), appOpts)
@@ -65,7 +70,6 @@ func (t *TBTree) Compact(ctx context.Context) error {
 	defer newTreeApp.Close()
 
 	res, err := t.flushTreeLog(
-		ctx,
 		snapRootID,
 		flushOptions{
 			fullDump: true,
@@ -92,6 +96,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 	if err := commit(&ce, newTreeApp); err != nil {
 		return err
 	}
+	compactionDone = true
 
 	t.pgBuf.InvalidateTreePages(t.ID())
 	return nil

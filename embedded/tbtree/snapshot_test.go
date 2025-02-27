@@ -17,7 +17,6 @@ limitations under the License.
 package tbtree
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -112,7 +111,7 @@ func TestSnapshotSet(t *testing.T) {
 				require.NoError(t, err)
 			})
 
-			err = tree.FlushReset(context.Background())
+			err = tree.FlushReset()
 			require.NoError(t, err)
 
 			snap, err := tree.WriteSnapshot()

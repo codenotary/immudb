@@ -869,38 +869,38 @@ func (t *TBTree) lastSnapshotRootID() PageID {
 	return PageID(t.lastSnapshotID.Load())
 }
 
-func (t *TBTree) Flush(ctx context.Context) error {
+func (t *TBTree) Flush() error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	return t.flushToTreeLog(ctx)
+	return t.flushToTreeLog()
 }
 
-func (t *TBTree) FlushReset(ctx context.Context) error {
+func (t *TBTree) FlushReset() error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	err := t.flushToTreeLog(ctx)
+	err := t.flushToTreeLog()
 	t.wb.Reset()
 	return err
 }
 
-func (t *TBTree) TryFlush(ctx context.Context) error {
+func (t *TBTree) TryFlush() error {
 	if !t.mtx.TryLock() {
 		return ErrTreeLocked
 	}
 	defer t.mtx.Unlock()
 
-	return t.flushToTreeLog(ctx)
+	return t.flushToTreeLog()
 }
 
-func (t *TBTree) flushToTreeLog(ctx context.Context) error {
+func (t *TBTree) flushToTreeLog() error {
 	if !t.mutated {
 		t.logger.Infof("flushing not needed. exiting...")
 		return nil
 	}
 
-	hLogBytesWritten, res, err := t.flushTo(ctx, t.treeApp)
+	hLogBytesWritten, res, err := t.flushTo(t.treeApp)
 	if err != nil {
 		return err
 	}
@@ -917,10 +917,10 @@ func (t *TBTree) flushToTreeLog(ctx context.Context) error {
 	return nil
 }
 
-func (t *TBTree) flushTo(ctx context.Context, dstApp appendable.Appendable) (int, flushRes, error) {
+func (t *TBTree) flushTo(dstApp appendable.Appendable) (int, flushRes, error) {
 	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
 
-	hLogBytesWritten, hLogSize, err := t.flushHistory(ctx)
+	hLogBytesWritten, hLogSize, err := t.flushHistory()
 	if err != nil {
 		return -1, flushRes{}, err
 	}
@@ -928,7 +928,7 @@ func (t *TBTree) flushTo(ctx context.Context, dstApp appendable.Appendable) (int
 	opts := flushOptions{
 		dstApp: dstApp,
 	}
-	res, err := t.flushTreeLog(ctx, t.rootPageID(), opts)
+	res, err := t.flushTreeLog(t.rootPageID(), opts)
 	if err != nil {
 		return -1, flushRes{}, err
 	}
@@ -976,7 +976,7 @@ func (t *TBTree) maybeSync(n uint32) {
 	}()
 }
 
-func (t *TBTree) flushHistory(ctx context.Context) (int, uint64, error) {
+func (t *TBTree) flushHistory() (int, uint64, error) {
 	currPage := t.headHistoryPageID
 	if currPage == PageNone {
 		return 0, 0, nil
@@ -984,10 +984,6 @@ func (t *TBTree) flushHistory(ctx context.Context) (int, uint64, error) {
 
 	var n int
 	for currPage != PageNone {
-		if err := ctx.Err(); err != nil {
-			return -1, 0, err
-		}
-
 		hp, err := t.wb.GetHistoryPage(currPage)
 		if err != nil {
 			return -1, 0, err
@@ -1027,11 +1023,7 @@ type flushOptions struct {
 }
 
 // TODO: apply some sort of batching when writing data??
-func (t *TBTree) flushTreeLog(ctx context.Context, pageID PageID, opts flushOptions) (flushRes, error) {
-	if err := ctx.Err(); err != nil {
-		return flushRes{}, err
-	}
-
+func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushRes, error) {
 	isMemPage := pageID.isMemPage()
 	if !isMemPage && !opts.fullDump {
 		return flushRes{}, fmt.Errorf("attempted to flush a non in memory page")
@@ -1070,7 +1062,7 @@ func (t *TBTree) flushTreeLog(ctx context.Context, pageID PageID, opts flushOpti
 			continue
 		}
 
-		res, err := t.flushTreeLog(ctx, childPageID, opts)
+		res, err := t.flushTreeLog(childPageID, opts)
 		if err != nil {
 			return flushRes{rootID: PageNone}, err
 		}
@@ -1215,7 +1207,7 @@ func (t *TBTree) ensureLatestSnapshotContainsTs(
 	}
 
 	if flushNeeded {
-		err := t.flushToTreeLog(ctx)
+		err := t.flushToTreeLog()
 		if err != nil {
 			return PageNone, 0, err
 		}
@@ -1235,8 +1227,7 @@ func (t *TBTree) Close() error {
 		return ErrActiveSnapshots
 	}
 
-	ctx := context.Background()
-	if err := t.flushToTreeLog(ctx); err != nil {
+	if err := t.flushToTreeLog(); err != nil {
 		return err
 	}
 

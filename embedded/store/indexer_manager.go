@@ -96,7 +96,12 @@ func (m *IndexerManager) CompactIndexes(id LedgerID) error {
 	}
 
 	for _, idx := range indexes {
-		err := idx.tree.Compact(context.Background())
+		err := idx.Compact(context.Background())
+		switch {
+		case errors.Is(err, ErrAlreadyClosed),
+			errors.Is(err, tbtree.ErrCompactionThresholdNotReached):
+			err = nil
+		}
 		if err != nil {
 			return err
 		}
@@ -268,7 +273,7 @@ func (m *IndexerManager) DeleteIndexing(ledgerID LedgerID, prefix []byte) (*inde
 	}
 
 	index, err := m.closeIndexing(ledgerID, prefix)
-	if errors.Is(err, ErrAlreadyClosed) && index.isDeleted() {
+	if errors.Is(err, ErrAlreadyClosed) {
 		return nil, ErrIndexNotFound
 	}
 	if err != nil {
@@ -280,9 +285,7 @@ func (m *IndexerManager) DeleteIndexing(ledgerID LedgerID, prefix []byte) (*inde
 	if err := os.RemoveAll(index.path); err != nil {
 		return nil, err
 	}
-
 	m.indexes[ledgerID] = removeIndex(m.indexes[ledgerID], prefix)
-	index.setDeleted()
 
 	return index, nil
 }
@@ -326,7 +329,7 @@ func (m *IndexerManager) GetIndexFor(ledgerID LedgerID, key []byte) (*index, err
 	}
 
 	for _, idx := range indexes {
-		if !idx.closeGuard.Closed() && bytes.HasPrefix(key, idx.spec.TargetPrefix) {
+		if !idx.Closed() && bytes.HasPrefix(key, idx.spec.TargetPrefix) {
 			return idx, nil
 		}
 	}

@@ -212,7 +212,7 @@ func TestIndexingRecovery(t *testing.T) {
 	err = index.WaitForIndexingUpTo(ctx, upToTx)
 	require.NoError(t, err)
 
-	err = index.Flush(context.Background())
+	err = index.Flush()
 	require.NoError(t, err)
 
 	upToTx = uint64(1000)
