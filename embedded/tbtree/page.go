@@ -94,12 +94,13 @@ func cp(b []byte) []byte {
 }
 
 type CommitEntry struct {
-	Checksum          uint32
-	Ts                uint64
-	HLogSize          uint64
-	TotalPages        uint64
-	StalePages        uint32
-	IndexedEntryCount uint32
+	Checksum              uint32
+	Ts                    uint64
+	HLogLastEntryOff      uint64
+	HLogLastEntryChecksum uint32
+	TotalPages            uint64
+	StalePages            uint32
+	IndexedEntryCount     uint32
 }
 
 type PageHeaderData struct {

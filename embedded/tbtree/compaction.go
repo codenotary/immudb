@@ -87,7 +87,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 
 	ce := CommitEntry{
 		Ts:                snapTs,
-		HLogSize:          uint64(hLogSize),
+		HLogLastEntryOff:  uint64(hLogSize),
 		TotalPages:        uint64(res.pagesFlushed),
 		StalePages:        0,
 		IndexedEntryCount: t.IndexedEntryCount(),

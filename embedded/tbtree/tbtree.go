@@ -277,7 +277,7 @@ func (t *TBTree) recoverRootPage() error {
 		return err
 	}
 
-	if err := t.historyApp.SetOffset(int64(commitEntry.HLogSize)); err != nil {
+	if err := t.historyApp.SetOffset(int64(commitEntry.HLogLastEntryOff)); err != nil {
 		return err
 	}
 
@@ -920,7 +920,9 @@ func (t *TBTree) flushToTreeLog() error {
 func (t *TBTree) flushTo(dstApp appendable.Appendable) (int, flushRes, error) {
 	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
 
-	hLogBytesWritten, hLogSize, err := t.flushHistory()
+	// TODO: should get checksum of last history entry?
+
+	hLogBytesWritten, hlogLastEntryChecksum, hLogLastEntryOff, err := t.flushHistory()
 	if err != nil {
 		return -1, flushRes{}, err
 	}
@@ -938,11 +940,12 @@ func (t *TBTree) flushTo(dstApp appendable.Appendable) (int, flushRes, error) {
 
 	ts := t.Ts()
 	commitEntry := CommitEntry{
-		Ts:                ts,
-		HLogSize:          hLogSize,
-		TotalPages:        uint64(res.pagesFlushed),
-		StalePages:        t.stalePages.Load(),
-		IndexedEntryCount: t.IndexedEntryCount(),
+		Ts:                    ts,
+		HLogLastEntryOff:      hLogLastEntryOff,
+		HLogLastEntryChecksum: hlogLastEntryChecksum,
+		TotalPages:            uint64(res.pagesFlushed),
+		StalePages:            t.stalePages.Load(),
+		IndexedEntryCount:     t.IndexedEntryCount(),
 	}
 	if err := commit(&commitEntry, opts.dstApp); err != nil {
 		return -1, flushRes{}, err
@@ -976,23 +979,29 @@ func (t *TBTree) maybeSync(n uint32) {
 	}()
 }
 
-func (t *TBTree) flushHistory() (int, uint64, error) {
+func (t *TBTree) flushHistory() (int, uint32, uint64, error) {
 	currPage := t.headHistoryPageID
 	if currPage == PageNone {
-		return 0, 0, nil
+		// TODO: save last entry checksum and return it
+		return 0, 0, 0, nil
 	}
+
+	var lastWrittenEntry []byte
+	var lastEntryOff int64
 
 	var n int
 	for currPage != PageNone {
 		hp, err := t.wb.GetHistoryPage(currPage)
 		if err != nil {
-			return -1, 0, err
+			return -1, 0, 0, err
 		}
 
-		data := hp.Data() // TODO: batch writes
-		if _, _, err := t.historyApp.Append(data); err != nil {
-			return -1, 0, err
+		data := hp.Data()
+		lastEntryOff, _, err = t.historyApp.Append(data)
+		if err != nil {
+			return -1, 0, 0, err
 		}
+		lastWrittenEntry = data
 
 		n += len(data)
 
@@ -1003,11 +1012,12 @@ func (t *TBTree) flushHistory() (int, uint64, error) {
 	t.headHistoryPageID = PageNone
 	err := t.historyApp.Flush()
 	if err != nil {
-		return -1, 0, err
+		return -1, 0, 0, err
 	}
 
-	size, err := t.historyApp.Size()
-	return n, uint64(size), err
+	// TODO: save to tree
+	checksum := computeChecksum(lastWrittenEntry)
+	return n, checksum, uint64(lastEntryOff), err
 }
 
 type flushRes struct {
@@ -1022,7 +1032,6 @@ type flushOptions struct {
 	dstApp   appendable.Appendable
 }
 
-// TODO: apply some sort of batching when writing data??
 func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushRes, error) {
 	isMemPage := pageID.isMemPage()
 	if !isMemPage && !opts.fullDump {
@@ -1123,7 +1132,6 @@ func (t *TBTree) getWritePage(pgID PageID) (*Page, error) {
 	}
 
 	// TODO: remove this allocation
-
 	var pgCopy Page
 	err := t.pgBuf.UsePage(t.id, pgID, t.readPage, func(pg *Page) error {
 		pgCopy = *pg
@@ -1243,7 +1251,7 @@ func (t *TBTree) ActiveSnapshots() int {
 	return int(t.snapshotCount.Load())
 }
 
-const CommitEntrySize = 36 + CommitMagicSize
+const CommitEntrySize = 40 + CommitMagicSize
 
 func commit(e *CommitEntry, app appendable.Appendable) error {
 	var buf [CommitEntrySize]byte
@@ -1265,8 +1273,11 @@ func putCommitEntry(e *CommitEntry, buf []byte) {
 	binary.BigEndian.PutUint64(buf[off:], e.Ts)
 	off += 8
 
-	binary.BigEndian.PutUint64(buf[off:], e.HLogSize)
+	binary.BigEndian.PutUint64(buf[off:], e.HLogLastEntryOff)
 	off += 8
+
+	binary.BigEndian.PutUint32(buf[off:], e.HLogLastEntryChecksum)
+	off += 4
 
 	binary.BigEndian.PutUint64(buf[off:], e.TotalPages)
 	off += 8
@@ -1296,8 +1307,11 @@ func readCommitEntry(buf []byte) (CommitEntry, error) {
 	e.Ts = binary.BigEndian.Uint64(buf[off:])
 	off += 8
 
-	e.HLogSize = binary.BigEndian.Uint64(buf[off:])
+	e.HLogLastEntryOff = binary.BigEndian.Uint64(buf[off:])
 	off += 8
+
+	e.HLogLastEntryChecksum = binary.BigEndian.Uint32(buf[off:])
+	off += 4
 
 	e.TotalPages = binary.BigEndian.Uint64(buf[off:])
 	off += 8
