@@ -18,6 +18,7 @@ package tbtree
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -94,13 +95,15 @@ func cp(b []byte) []byte {
 }
 
 type CommitEntry struct {
-	Checksum              uint32
-	Ts                    uint64
-	HLogLastEntryOff      uint64
-	HLogLastEntryChecksum uint32
-	TotalPages            uint64
-	StalePages            uint32
-	IndexedEntryCount     uint32
+	HLogChecksum      [sha256.Size]byte
+	TLogChecksum      [sha256.Size]byte
+	Ts                uint64
+	TLogOff           uint64
+	HLogOff           uint64
+	HLogFlushedBytes  uint32
+	TotalPages        uint64
+	StalePages        uint32
+	IndexedEntryCount uint32
 }
 
 type PageHeaderData struct {
