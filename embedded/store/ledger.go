@@ -1923,8 +1923,8 @@ func (s *Ledger) mayCommit() error {
 	return nil
 }
 
-func (s *Ledger) doneCommitUpTo(upToTx uint64, n int) error {
-	s.store.indexerManager.NotifyTransactions(n)
+func (s *Ledger) doneCommitUpTo(upToTx uint64, committedTxs int) error {
+	s.store.indexerManager.NotifyTransactions(uint64(committedTxs))
 
 	err := s.commitWHub.DoneUpto(upToTx)
 	return err

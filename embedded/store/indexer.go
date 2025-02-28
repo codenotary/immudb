@@ -25,6 +25,10 @@ var (
 // vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmds
 const maxEntryValueSize = lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen
 
+type indexEntry struct {
+	index *index
+}
+
 type Indexer struct {
 	logger logger.Logger
 
@@ -78,12 +82,15 @@ func (idx *Indexer) Start() {
 	go idx.doIndexing()
 }
 
-func (indexer *Indexer) doIndexing() error {
+func (indexer *Indexer) doIndexing() {
+	defer func() {
+		indexer.logger.Infof("exiting from indexing loop")
+	}()
+
 	for {
 		doneUpTo, _, err := indexer.indexingWHub.Status()
 		if errors.Is(err, watchers.ErrAlreadyClosed) {
-			indexer.logger.Infof("exiting from indexing loop")
-			return nil
+			break
 		}
 
 		for indexer.indexNext() {
@@ -91,8 +98,7 @@ func (indexer *Indexer) doIndexing() error {
 
 		err = indexer.indexingWHub.WaitFor(indexer.Context(), doneUpTo+1)
 		if errors.Is(err, watchers.ErrAlreadyClosed) {
-			indexer.logger.Infof("exiting from indexing loop")
-			return nil
+			break
 		}
 	}
 }
@@ -110,8 +116,8 @@ func (indexer *Indexer) indexNext() bool {
 		var err error
 		ready, err = indexer.tryIndexNext()
 
-		if n > 0 {
-			indexer.logger.Warningf("while attempting indexing: %s", err)
+		if err != nil {
+			indexer.logger.Warningf("while attempting indexing: %s, attempt=%d", err, n+1)
 		}
 		return err
 	})
@@ -119,27 +125,32 @@ func (indexer *Indexer) indexNext() bool {
 }
 
 func (indexer *Indexer) tryIndexNext() (bool, error) {
-	// TODO: need to use a deque + tracking of minimum instead
-	// of a priority queue.
 	idx := indexer.popIndex()
 	if idx == nil {
 		return false, nil
 	}
+
+	push := true
 	defer func() {
-		indexer.pushIndex(idx)
+		if push {
+			indexer.pushIndex(idx)
+		}
 	}()
 
 	if !idx.shouldIndex() {
-		panic("condition shouldIndex() should always be true")
+		return false, fmt.Errorf("unexpected attempt to index up-to-date index at path %s", idx.path)
 	}
 
 	err := indexer.indexUpTo(idx, idx.ledger.LastCommittedTxID())
-	if errors.Is(err, tbtree.ErrTreeLocked) {
-		return true, nil
-	} else if err != nil {
-		return false, err
+	switch {
+	case errors.Is(err, watchers.ErrAlreadyClosed),
+		errors.Is(err, ErrAlreadyClosed):
+		push = false
+		err = nil
+	case errors.Is(err, tbtree.ErrTreeLocked):
+		err = nil
 	}
-	return true, nil
+	return err == nil, err
 }
 
 func (indexer *Indexer) pushIndex(idx *index) {
@@ -202,7 +213,7 @@ func (indexer *Indexer) indexUpTo(index *index, upToTx uint64) error {
 
 func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
 	entries := tx.Entries()
-	if len(entries) == 0 { // TODO: can this case happen?
+	if len(entries) == 0 {
 		return 0, nil
 	}
 
@@ -212,7 +223,6 @@ func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
 	}
 
 	for i := range entries[n:] {
-		// TODO: entries should be read one by one from reader
 		e, shouldIndex, err := indexer.mapEntryAt(index, tx, i)
 		if err != nil {
 			return n + uint32(i), err
@@ -391,6 +401,13 @@ func (indexer *Indexer) mapKey(ledger IndexableLedger, key []byte, vLen int, vOf
 	return mapper(key, valReader)
 }
 
+func (indexer *Indexer) Indexes() int {
+	indexer.mtx.RLock()
+	defer indexer.mtx.RUnlock()
+
+	return indexer.queue.Len()
+}
+
 func (indexer *Indexer) Close() error {
 	indexer.mtx.Lock()
 	defer indexer.mtx.Unlock()
@@ -404,8 +421,4 @@ func (indexer *Indexer) Close() error {
 		indexer.cancel()
 	}
 	return nil
-}
-
-type indexEntry struct {
-	index *index
 }

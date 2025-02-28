@@ -47,7 +47,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
-	if !finfo.IsDir() {
+	if finfo != nil && !finfo.IsDir() {
 		return nil, ErrPathIsNotADirectory
 	}
 

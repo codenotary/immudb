@@ -81,12 +81,16 @@ func (w *WatchersHub) RecedeTo(t uint64) error {
 	return nil
 }
 
-func (w *WatchersHub) Inc(n int) (uint64, error) {
+func (w *WatchersHub) Inc(n uint64) (uint64, error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	err := w.doneUpTo(w.value + uint64(n))
-	return w.value + uint64(n), err
+	newValue := w.value + n
+	err := w.doneUpTo(newValue)
+	if err != nil {
+		return w.value, err
+	}
+	return newValue, nil
 }
 
 func (w *WatchersHub) DoneUpto(t uint64) error {

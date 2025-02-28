@@ -16,7 +16,23 @@ limitations under the License.
 
 package main
 
-/*
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/binary"
+	"errors"
+	"flag"
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/htree"
+	"github.com/codenotary/immudb/embedded/store"
+)
+
 func main() {
 	dataDir := flag.String("dataDir", "data", "data directory")
 
@@ -96,85 +112,71 @@ func main() {
 		WithMaxValueLen(1 << 26) // 64Mb
 
 	immuStore, err := store.Open(*dataDir, opts)
+	exitOnErr(err)
+
+	immuStoreLedger, err := immuStore.OpenLedger("test")
+	exitOnErr(err)
 
 	st, err := store.Open("data", store.DefaultOptions())
-	if err != nil {
-		panic(err)
-	}
+	exitOnErr(err)
 
 	defer st.Close()
 
-	tx, err := st.NewWriteOnlyTx(context.Background())
-	if err != nil {
-		panic(err)
-	}
+	stLedger, err := st.OpenLedger("default")
+	exitOnErr(err)
+
+	tx, err := stLedger.NewWriteOnlyTx(context.Background())
+	exitOnErr(err)
 
 	err = tx.Set([]byte("hello"), nil, []byte("immutable-world!"))
-	if err != nil {
-		panic(err)
-	}
+	exitOnErr(err)
 
 	hdr, err := tx.Commit(context.Background())
-	if err != nil {
-		panic(err)
-	}
+	exitOnErr(err)
 
 	fmt.Printf("key %s successfully set in tx %d", "hello", hdr.ID)
 
-	if err != nil {
-		panic(err)
-	}
+	exitOnErr(err)
 
 	defer func() {
-		err := immuStore.Close()
+		err := immuStoreLedger.Close()
 		if err != nil {
 			fmt.Printf("\r\nImmutable Transactional Key-Value Log closed with error: %v\r\n", err)
-			panic(err)
+			exitOnErr(err)
 		}
 		fmt.Printf("\r\nImmutable Transactional Key-Value Log successfully closed!\r\n")
 	}()
 
-	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully opened!\r\n", immuStore.TxCount())
+	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully opened!\r\n", immuStoreLedger.TxCount())
 
 	if *mode == "interactive" {
 		if *action == "get" {
 			time.Sleep(time.Duration(*waitForIndexing) * time.Millisecond)
 
-			snap, err := immuStore.Snapshot(nil)
-			if err != nil {
-				panic(err)
-			}
+			snap, err := immuStoreLedger.Snapshot(nil)
+			exitOnErr(err)
+
 			defer snap.Close()
 
 			valRef, err := snap.Get(context.Background(), []byte(*key))
-			if err != nil {
-				panic(err)
-			}
+			exitOnErr(err)
 
-			val, err := valRef.Resolve()
-			if err != nil {
-				panic(err)
-			}
+			val, err := immuStoreLedger.Resolve(valRef)
+			exitOnErr(err)
 
-			fmt.Printf("key: %s, value: %s, ts: %d, hc: %d\r\n", *key, base64.StdEncoding.EncodeToString(val), valRef.Tx(), valRef.HC())
+			fmt.Printf("key: %s, value: %s, ts: %d, hc: %d\r\n", *key, base64.StdEncoding.EncodeToString(val), valRef.TxID(), valRef.Revision())
 			return
 		}
 
 		if *action == "set" {
-			tx, err := st.NewWriteOnlyTx(context.Background())
-			if err != nil {
-				panic(err)
-			}
+			tx, err := stLedger.NewWriteOnlyTx(context.Background())
+			exitOnErr(err)
 
 			err = tx.Set([]byte(*key), nil, []byte(*value))
-			if err != nil {
-				panic(err)
-			}
+			exitOnErr(err)
 
 			_, err = tx.Commit(context.Background())
-			if err != nil {
-				panic(err)
-			}
+			exitOnErr(err)
 
 			return
 		}
@@ -182,7 +184,7 @@ func main() {
 		panic("invalid action")
 	}
 
-	txHolderPool, err := immuStore.NewTxHolderPool(*committers, false)
+	txHolderPool, err := immuStoreLedger.NewTxHolderPool(*committers, false)
 	if err != nil {
 		panic(fmt.Sprintf("Couldn't allocate tx holder pool: %v", err))
 	}
@@ -252,22 +254,16 @@ func main() {
 				ids := make([]uint64, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					tx, err := immuStore.NewWriteOnlyTx(context.Background())
-					if err != nil {
-						panic(err)
-					}
+					tx, err := immuStoreLedger.NewWriteOnlyTx(context.Background())
+					exitOnErr(err)
 
 					for _, e := range entries[t] {
 						err = tx.Set(e.Key, e.Metadata, e.Value)
-						if err != nil {
-							panic(err)
-						}
+						exitOnErr(err)
 					}
 
 					txhdr, err := tx.Commit(context.Background())
-					if err != nil {
-						panic(err)
-					}
+					exitOnErr(err)
 
 					ids[t] = txhdr.ID
 
@@ -285,23 +281,20 @@ func main() {
 					fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
 
 					txHolder, err := txHolderPool.Alloc()
-					if err != nil {
-						panic(err)
-					}
+					exitOnErr(err)
+
 					defer txHolderPool.Release(txHolder)
 
 					for i := range ids {
-						immuStore.ReadTx(ids[i], true, txHolder)
+						immuStoreLedger.ReadTx(ids[i], true, txHolder)
 
 						for ei, e := range txHolder.Entries() {
 							if !bytes.Equal(e.Key(), entries[i][ei].Key) {
 								panic(fmt.Errorf("committed tx key does not match input values"))
 							}
 
-							val, err := immuStore.ReadValue(e)
-							if err != nil {
-								panic(err)
-							}
+							val, err := immuStoreLedger.ReadValue(e)
+							exitOnErr(err)
 
 							if !bytes.Equal(val, entries[i][ei].Value) {
 								panic(fmt.Errorf("committed tx value does not match input values"))
@@ -335,15 +328,12 @@ func main() {
 			start := time.Now()
 
 			txHolder, err := txHolderPool.Alloc()
-			if err != nil {
-				panic(err)
-			}
+			exitOnErr(err)
+
 			defer txHolderPool.Release(txHolder)
 
-			txReader, err := immuStore.NewTxReader(1, false, txHolder)
-			if err != nil {
-				panic(err)
-			}
+			txReader, err := immuStoreLedger.NewTxReader(1, false, txHolder)
+			exitOnErr(err)
 
 			verifiedTxs := 0
 
@@ -353,25 +343,19 @@ func main() {
 					if errors.Is(err, store.ErrNoMoreEntries) {
 						break
 					}
-					panic(err)
+					exitOnErr(err)
 				}
 
 				entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
-				if err != nil {
-					panic(err)
-				}
+				exitOnErr(err)
 
 				if *kvInclusion {
 					for _, e := range tx.Entries() {
 						proof, err := tx.Proof(e.Key())
-						if err != nil {
-							panic(err)
-						}
+						exitOnErr(err)
 
-						val, err := immuStore.ReadValue(e)
-						if err != nil {
-							panic(err)
-						}
+						val, err := immuStoreLedger.ReadValue(e)
+						exitOnErr(err)
 
 						kv := &store.EntrySpec{Key: e.Key(), Value: val}
 
@@ -402,4 +386,9 @@ func main() {
 
 	panic("please specify a valid mode of operation: interactive|auto")
 }
-*/
+
+func exitOnErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

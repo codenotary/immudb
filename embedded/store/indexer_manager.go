@@ -134,9 +134,12 @@ func (m *IndexerManager) Flush() error {
 }
 
 func (m *IndexerManager) WaitForIndexingUpTo(ctx context.Context, ledgerID LedgerID, txID uint64) error {
-	// TODO: waiting should not block the mutex.
 	return m.ForEachIndex(ledgerID, func(index *index) error {
-		return index.WaitForIndexingUpTo(ctx, txID)
+		err := index.WaitForIndexingUpTo(ctx, txID)
+		if errors.Is(err, ErrAlreadyClosed) {
+			return nil
+		}
+		return err
 	})
 }
 
@@ -394,6 +397,6 @@ func (indexer *Indexer) newIndex(
 	return idx, nil
 }
 
-func (m *IndexerManager) NotifyTransactions(n int) {
+func (m *IndexerManager) NotifyTransactions(n uint64) {
 	m.indexingWHub.Inc(n)
 }

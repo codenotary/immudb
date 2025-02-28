@@ -86,6 +86,80 @@ func TestInitIndex(t *testing.T) {
 	require.ErrorIs(t, err, ErrIndexAlreadyInitialized)
 }
 
+func TestCloseIndexing(t *testing.T) {
+	writeBufferSize := 1024 * 1024
+	pageBufferSize := tbtree.PageSize * 5
+
+	indexOptions := DefaultIndexOptions().
+		WithNumIndexers(1).
+		WithSharedWriteBufferSize(writeBufferSize).
+		WithMaxWriteBufferSize(writeBufferSize).
+		WithPageBufferSize(pageBufferSize)
+
+	opts := DefaultOptions().
+		WithIndexOptions(indexOptions).
+		WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			return memapp.New(), nil
+		}).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
+		})
+
+	idxManager, err := NewIndexerManager(opts)
+	require.NoError(t, err)
+
+	defer idxManager.Close()
+
+	idxManager.Start()
+
+	ledger := NewMockLedger("", opts, readTxAtFor(1))
+
+	idx, err := idxManager.InitIndexing(ledger, IndexSpec{})
+	require.NoError(t, err)
+
+	ledger.DoneUpTo(10)
+	idxManager.NotifyTransactions(10)
+
+	err = idxManager.WaitForIndexingUpTo(context.Background(), ledger.ID(), 10)
+	require.NoError(t, err)
+
+	t.Run("closing index with active snapshots should fail", func(t *testing.T) {
+		snap, err := idx.tree.SnapshotMustIncludeTs(context.Background(), 10)
+		require.NoError(t, err)
+		defer snap.Close()
+
+		_, err = idxManager.CloseIndexing(ledger.ID(), nil)
+		require.ErrorIs(t, err, tbtree.ErrActiveSnapshots)
+	})
+
+	t.Run("closing index should succeeed", func(t *testing.T) {
+		_, err = idxManager.CloseIndexing(ledger.ID(), nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("closing an already closed index should fail", func(t *testing.T) {
+		_, err = idxManager.CloseIndexing(ledger.ID(), nil)
+		require.ErrorIs(t, err, ErrAlreadyClosed)
+	})
+
+	_, err = idxManager.GetIndexFor(ledger.ID(), nil)
+	require.ErrorIs(t, err, ErrIndexNotFound)
+
+	err = idxManager.WaitForIndexingUpTo(context.Background(), ledger.ID(), 100)
+	require.NoError(t, err)
+
+	// retrigger indexing
+	ledger.DoneUpTo(11)
+	idxManager.NotifyTransactions(11)
+
+	t.Run("index should eventually be removed from indexer queue", func(t *testing.T) {
+		require.Eventually(t, func() bool {
+			indexer := &idxManager.indexers[0]
+			return indexer.Indexes() == 0
+		}, time.Second, time.Millisecond*10)
+	})
+}
+
 func TestIndexers(t *testing.T) {
 	nIndexes := 100
 
@@ -109,9 +183,7 @@ func TestIndexers(t *testing.T) {
 
 	ledger := NewMockLedger("", opts, readTxAtFor(nIndexes))
 
-	idx, err := NewIndexerManager(
-		opts,
-	)
+	idx, err := NewIndexerManager(opts)
 	require.NoError(t, err)
 
 	idx.Start()
@@ -164,7 +236,7 @@ func TestIndexers(t *testing.T) {
 
 	nTransactions := uint64(1 << 12)
 	ledger.DoneUpTo(nTransactions)
-	idx.NotifyTransactions(int(nTransactions))
+	idx.NotifyTransactions(nTransactions)
 
 	var wg sync.WaitGroup
 	wg.Add(nIndexes)
@@ -207,7 +279,7 @@ func TestIndexingRecovery(t *testing.T) {
 
 	upToTx := uint64(500)
 	ledger.DoneUpTo(upToTx)
-	idx.NotifyTransactions(int(upToTx))
+	idx.NotifyTransactions(upToTx)
 
 	ctx := context.Background()
 
@@ -219,7 +291,7 @@ func TestIndexingRecovery(t *testing.T) {
 
 	upToTx = uint64(1000)
 	ledger.DoneUpTo(upToTx)
-	idx.NotifyTransactions(int(upToTx))
+	idx.NotifyTransactions(upToTx)
 
 	err = index.WaitForIndexingUpTo(ctx, upToTx)
 	require.NoError(t, err)
