@@ -608,7 +608,7 @@ func openLedgerWith(path string, vLogs []appendable.Appendable, txLog, cLog appe
 		return nil, err
 	}
 
-	err = ledger.commitWHub.DoneUpto(committedTxID)
+	err = ledger.doneCommitUpTo(committedTxID, int(committedTxID))
 	if err != nil {
 		ledger.Close()
 		return nil, err
@@ -1918,9 +1918,16 @@ func (s *Ledger) mayCommit() error {
 	s.committedTxID = commitUpToTxID
 	s.committedAlh = commitUpToTxAlh
 
-	s.commitWHub.DoneUpto(commitUpToTxID)
+	s.doneCommitUpTo(commitUpToTxID, txsCountToBeCommitted)
 
 	return nil
+}
+
+func (s *Ledger) doneCommitUpTo(upToTx uint64, n int) error {
+	s.store.indexerManager.NotifyTransactions(n)
+
+	err := s.commitWHub.DoneUpto(upToTx)
+	return err
 }
 
 func (s *Ledger) CommitWith(ctx context.Context, callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error), waitForIndexing bool) (*TxHeader, error) {
@@ -3214,7 +3221,7 @@ func (s *Ledger) sync() error {
 	s.committedTxID = commitUpToTxID
 	s.committedAlh = commitUpToTxAlh
 
-	s.commitWHub.DoneUpto(commitUpToTxID)
+	s.doneCommitUpTo(commitUpToTxID, txsCountToBeCommitted)
 
 	return nil
 }

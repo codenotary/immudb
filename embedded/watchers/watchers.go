@@ -29,7 +29,7 @@ var ErrIllegalState = errors.New("watchers: illegal state")
 type WatchersHub struct {
 	wpoints map[uint64]*waitingPoint
 
-	doneUpto uint64 // no-wait on lower or equal values
+	value uint64 // no-wait on lower or equal values
 
 	maxWaiting int
 	waiting    int
@@ -48,7 +48,7 @@ type waitingPoint struct {
 func New(doneUpto uint64, maxWaiting int) *WatchersHub {
 	return &WatchersHub{
 		wpoints:    make(map[uint64]*waitingPoint, 0),
-		doneUpto:   doneUpto,
+		value:      doneUpto,
 		maxWaiting: maxWaiting,
 	}
 }
@@ -61,7 +61,7 @@ func (w *WatchersHub) Status() (doneUpto uint64, waiting int, err error) {
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return w.doneUpto, w.waiting, nil
+	return w.value, w.waiting, nil
 }
 
 func (w *WatchersHub) RecedeTo(t uint64) error {
@@ -72,28 +72,40 @@ func (w *WatchersHub) RecedeTo(t uint64) error {
 		return ErrAlreadyClosed
 	}
 
-	if w.doneUpto < t {
+	if w.value < t {
 		return ErrIllegalState
 	}
 
-	w.doneUpto = t
+	w.value = t
 
 	return nil
+}
+
+func (w *WatchersHub) Inc(n int) (uint64, error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	err := w.doneUpTo(w.value + uint64(n))
+	return w.value + uint64(n), err
 }
 
 func (w *WatchersHub) DoneUpto(t uint64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
+	return w.doneUpTo(t)
+}
+
+func (w *WatchersHub) doneUpTo(t uint64) error {
 	if w.closed {
 		return ErrAlreadyClosed
 	}
 
-	if w.doneUpto >= t {
+	if w.value >= t {
 		return nil
 	}
 
-	for i := w.doneUpto + 1; i <= t; i++ {
+	for i := w.value + 1; i <= t; i++ {
 		if w.waiting == 0 {
 			break
 		}
@@ -107,7 +119,7 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 		}
 	}
 
-	w.doneUpto = t
+	w.value = t
 
 	return nil
 }
@@ -120,7 +132,7 @@ func (w *WatchersHub) WaitFor(ctx context.Context, t uint64) error {
 		return ErrAlreadyClosed
 	}
 
-	if w.doneUpto >= t {
+	if w.value >= t {
 		return nil
 	}
 

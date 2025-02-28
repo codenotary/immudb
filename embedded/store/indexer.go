@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"time"
 
 	"github.com/codenotary/immudb/embedded/container"
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/util/backoff"
+	"github.com/codenotary/immudb/embedded/watchers"
 )
 
 var (
@@ -26,16 +26,22 @@ var (
 const maxEntryValueSize = lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen
 
 type Indexer struct {
-	mtx sync.RWMutex
+	logger logger.Logger
 
-	logger         logger.Logger
-	compactionThld float64
+	mtx   sync.RWMutex
+	queue *container.Dequeue[indexEntry]
 
-	ctx          context.Context
+	closed bool
+
+	// tracks the total number of transactions available for indexing across all ledgers
+	indexingWHub *watchers.WatchersHub
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	backpressure backoff.Backoff
 
-	wb    *tbtree.WriteBuffer
-	queue *container.Dequeue[indexEntry]
+	wb *tbtree.WriteBuffer
 
 	vEntrybuf [maxEntryValueSize]byte
 	tx        *Tx
@@ -44,18 +50,22 @@ type Indexer struct {
 func NewIndexer(
 	opts *Options,
 	wb *tbtree.WriteBuffer,
+	indexingWHub *watchers.WatchersHub,
 ) Indexer {
 	wb.Grow(1)
 
 	tx := NewTx(opts.MaxTxEntries, opts.MaxKeyLen)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return Indexer{
-		ctx:            context.Background(),
-		logger:         opts.logger,
-		tx:             tx,
-		wb:             wb,
-		compactionThld: opts.IndexOpts.CompactionThld,
-		queue:          container.NewDequeue[indexEntry](10),
+		ctx:          ctx,
+		cancel:       cancel,
+		logger:       opts.logger,
+		tx:           tx,
+		wb:           wb,
+		indexingWHub: indexingWHub,
+		queue:        container.NewDequeue[indexEntry](10),
 		backpressure: backoff.Backoff{
 			MinDelay:   opts.IndexOpts.BackpressureMinDelay,
 			MaxDelay:   opts.IndexOpts.BackpressureMaxDelay,
@@ -69,27 +79,40 @@ func (idx *Indexer) Start() {
 }
 
 func (indexer *Indexer) doIndexing() error {
-	indexWhileReady := func() {
-		ready := true
-		for ready {
-			ready = indexer.indexNext()
+	for {
+		doneUpTo, _, err := indexer.indexingWHub.Status()
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
+			indexer.logger.Infof("exiting from indexing loop")
+			return nil
+		}
+
+		for indexer.indexNext() {
+		}
+
+		err = indexer.indexingWHub.WaitFor(indexer.Context(), doneUpTo+1)
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
+			indexer.logger.Infof("exiting from indexing loop")
+			return nil
 		}
 	}
+}
 
-	for {
-		indexWhileReady()
+func (indexer *Indexer) Context() context.Context {
+	indexer.mtx.RLock()
+	defer indexer.mtx.RUnlock()
 
-		// TODO: use a condition variable to listen to all ledgers.
-		time.Sleep(time.Millisecond * 10)
-	}
+	return indexer.ctx
 }
 
 func (indexer *Indexer) indexNext() bool {
 	var ready bool
-	_ = indexer.backpressure.Retry(func(_ int) error {
+	_ = indexer.backpressure.Retry(func(n int) error {
 		var err error
 		ready, err = indexer.tryIndexNext()
-		// TODO: add debug log
+
+		if n > 0 {
+			indexer.logger.Warningf("while attempting indexing: %s", err)
+		}
 		return err
 	})
 	return ready
@@ -112,17 +135,6 @@ func (indexer *Indexer) tryIndexNext() (bool, error) {
 
 	err := indexer.indexUpTo(idx, idx.ledger.LastCommittedTxID())
 	if errors.Is(err, tbtree.ErrTreeLocked) {
-		// NOTE: if the index didn't manage to make progress, than
-		// the indexer could get stack on it, while other indexes are waiting.
-
-		// TODO: introduce a secondary queue containing indexes
-		// which cannot progress immediately. An index is pushed to the main queue if progress was made,
-		// to the second queue otherwise.
-
-		// The next index to be indexed will be popped always from the first queue if that is non empty,
-		// from the second queue otherwise.
-
-		// The second queue could even be a standard queue.
 		return true, nil
 	} else if err != nil {
 		return false, err
@@ -135,6 +147,14 @@ func (indexer *Indexer) pushIndex(idx *index) {
 
 	indexer.queue.PushBack(indexEntry{idx})
 
+	if cancel := indexer.cancel; cancel != nil {
+		ctx, newCancel := context.WithCancel(context.Background())
+
+		indexer.ctx = ctx
+		indexer.cancel = newCancel
+
+		cancel()
+	}
 	indexer.mtx.Unlock()
 }
 
@@ -375,7 +395,14 @@ func (indexer *Indexer) Close() error {
 	indexer.mtx.Lock()
 	defer indexer.mtx.Unlock()
 
-	// TODO: signal the indexer thread to exit
+	if indexer.closed {
+		return ErrAlreadyClosed
+	}
+
+	indexer.closed = true
+	if indexer.cancel != nil {
+		indexer.cancel()
+	}
 	return nil
 }
 

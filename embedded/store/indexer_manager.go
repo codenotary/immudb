@@ -42,6 +42,8 @@ type IndexerManager struct {
 	indexers    []Indexer
 	nextIndexID atomic.Uint32
 
+	indexingWHub *watchers.WatchersHub
+
 	closed bool
 }
 
@@ -50,16 +52,19 @@ func NewIndexerManager(opts *Options) (*IndexerManager, error) {
 		return nil, err
 	}
 
-	indexers, err := createIndexers(opts)
+	indexingWHub := watchers.New(0, opts.MaxWaitees)
+
+	indexers, err := createIndexers(opts, indexingWHub)
 	if err != nil {
 		return nil, err
 	}
 
 	return &IndexerManager{
-		logger:   opts.logger,
-		pgBuf:    tbtree.NewPageBuffer(opts.IndexOpts.PageBufferSize),
-		indexers: indexers,
-		indexes:  make(map[LedgerID][]*index),
+		logger:       opts.logger,
+		pgBuf:        tbtree.NewPageBuffer(opts.IndexOpts.PageBufferSize),
+		indexers:     indexers,
+		indexes:      make(map[LedgerID][]*index),
+		indexingWHub: indexingWHub,
 	}, nil
 }
 
@@ -135,7 +140,7 @@ func (m *IndexerManager) WaitForIndexingUpTo(ctx context.Context, ledgerID Ledge
 	})
 }
 
-func createIndexers(opts *Options) ([]Indexer, error) {
+func createIndexers(opts *Options, indexingWHub *watchers.WatchersHub) ([]Indexer, error) {
 	swb := tbtree.NewSharedWriteBuffer(
 		opts.IndexOpts.SharedWriteBufferSize,
 		opts.IndexOpts.WriteBufferChunkSize,
@@ -152,7 +157,7 @@ func createIndexers(opts *Options) ([]Indexer, error) {
 			return nil, err
 		}
 
-		indexers[i] = NewIndexer(opts, wb)
+		indexers[i] = NewIndexer(opts, wb, indexingWHub)
 	}
 	return indexers, nil
 }
@@ -315,6 +320,8 @@ func (m *IndexerManager) Close() error {
 		}
 	}
 
+	m.indexingWHub.Close()
+
 	for i := range m.indexers {
 		_ = m.indexers[i].Close()
 	}
@@ -385,4 +392,8 @@ func (indexer *Indexer) newIndex(
 	indexer.pushIndex(idx)
 
 	return idx, nil
+}
+
+func (m *IndexerManager) NotifyTransactions(n int) {
+	m.indexingWHub.Inc(n)
 }

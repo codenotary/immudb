@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -153,13 +154,14 @@ func (idx *index) advance(ts uint64, lastEntry uint32) error {
 }
 
 func (idx *index) WaitForIndexingUpTo(ctx context.Context, txID uint64) error {
-	idx.mtx.RLock()
-	defer idx.mtx.RUnlock()
-
-	if idx.closed {
-		return ErrAlreadyClosed
+	if idx.wHub != nil {
+		err := idx.wHub.WaitFor(ctx, txID)
+		if errors.Is(err, watchers.ErrAlreadyClosed) {
+			return ErrAlreadyClosed
+		}
+		return err
 	}
-	return idx.wHub.WaitFor(ctx, txID)
+	return watchers.ErrMaxWaitessLimitExceeded
 }
 
 func (idx *index) SnapshotMustIncludeTx(ctx context.Context, txID uint64) (tbtree.Snapshot, error) {
@@ -242,6 +244,8 @@ func (idx *index) Close() error {
 	if idx.closed {
 		return ErrAlreadyClosed
 	}
+
+	idx.wHub.Close()
 
 	err := idx.tree.Close()
 	if err == nil {

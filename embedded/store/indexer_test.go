@@ -164,6 +164,7 @@ func TestIndexers(t *testing.T) {
 
 	nTransactions := uint64(1 << 12)
 	ledger.DoneUpTo(nTransactions)
+	idx.NotifyTransactions(int(nTransactions))
 
 	var wg sync.WaitGroup
 	wg.Add(nIndexes)
@@ -206,6 +207,7 @@ func TestIndexingRecovery(t *testing.T) {
 
 	upToTx := uint64(500)
 	ledger.DoneUpTo(upToTx)
+	idx.NotifyTransactions(int(upToTx))
 
 	ctx := context.Background()
 
@@ -217,6 +219,7 @@ func TestIndexingRecovery(t *testing.T) {
 
 	upToTx = uint64(1000)
 	ledger.DoneUpTo(upToTx)
+	idx.NotifyTransactions(int(upToTx))
 
 	err = index.WaitForIndexingUpTo(ctx, upToTx)
 	require.NoError(t, err)
