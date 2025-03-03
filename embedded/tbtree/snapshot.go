@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/codenotary/immudb/embedded/container"
 	"github.com/codenotary/immudb/embedded/radix"
 )
 
@@ -251,6 +252,7 @@ func (snap *TBTreeSnapshot) NewIterator(opts IteratorOptions) (Iterator, error) 
 		tree:       snap.tree,
 		rootID:     snap.rootID,
 		maxTs:      snap.maxTs,
+		stack:      container.NewStack[PageID](100),
 	}
 	if it.rootID != PageNone {
 		it.stack.Push(it.rootID)

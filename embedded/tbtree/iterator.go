@@ -71,7 +71,7 @@ type TBTreeIterator struct {
 	currPageID PageID
 	currPage   *Page
 	nextIdx    int
-	stack      container.FixedSizeStack[PageID]
+	stack      *container.Stack[PageID]
 }
 
 func DefaultIteratorOptions() IteratorOptions {

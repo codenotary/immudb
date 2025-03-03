@@ -88,12 +88,12 @@ func (t *TBTree) Compact(ctx context.Context) error {
 	ce := CommitEntry{
 		Ts:                snapTs,
 		HLogOff:           uint64(hLogSize),
-		TotalPages:        uint64(res.pagesFlushed),
+		TotalPages:        uint64(res.totalPages),
 		StalePages:        0,
 		IndexedEntryCount: t.IndexedEntryCount(),
 	}
 
-	if err := commit(&ce, newTreeApp); err != nil {
+	if err := commit(&ce, nil); err != nil {
 		return err
 	}
 	compactionDone = true

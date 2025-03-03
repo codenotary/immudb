@@ -26,7 +26,9 @@ func (app *ChecksumAppendable) Append(bs []byte) (off int64, n int, err error) {
 	return off, n, err
 }
 
-func (app *ChecksumAppendable) Sum() (checksum [sha256.Size]byte) {
+func (app *ChecksumAppendable) Sum(b []byte) (checksum [sha256.Size]byte) {
+	_, _ = app.h.Write(b)
+
 	copy(checksum[:], app.h.Sum(nil))
 	return checksum
 }

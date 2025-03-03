@@ -107,15 +107,15 @@ func TestInnerPageInsert(t *testing.T) {
 
 		_, err = pg.InsertKey(key, pgID)
 		if errors.Is(err, ErrPageFull) {
-			require.Greater(t, requiredInnerPageItemSize(key), pg.FreeSpace())
+			require.Greater(t, requiredInnerPageItemSize(keySize), pg.FreeSpace())
 			break
 		}
 
 		if !pageExists {
-			if spaceBeforeInsert-requiredInnerPageItemSize(key) != pg.FreeSpace() {
-				fmt.Println(spaceBeforeInsert, requiredInnerPageItemSize(key))
+			if spaceBeforeInsert-requiredInnerPageItemSize(keySize) != pg.FreeSpace() {
+				fmt.Println(spaceBeforeInsert, requiredInnerPageItemSize(keySize))
 			}
-			require.Equal(t, spaceBeforeInsert-requiredInnerPageItemSize(key), pg.FreeSpace())
+			require.Equal(t, spaceBeforeInsert-requiredInnerPageItemSize(keySize), pg.FreeSpace())
 			n++
 		} else {
 			require.Equal(t, spaceBeforeInsert, pg.FreeSpace())

@@ -196,7 +196,7 @@ func readHistoryEntry(app appendable.Appendable, off int64, valueBuf []byte) (vl
 	}
 
 	vlen = binary.BigEndian.Uint16(buf[16:])
-	if vlen > MaxEntrySize {
+	if int(vlen) > MaxEntrySize {
 		return 0, 0, 0, ErrCorruptedEntry
 	}
 

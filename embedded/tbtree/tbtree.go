@@ -36,17 +36,17 @@ import (
 )
 
 var (
+	ErrEntryIsTooLarge      = errors.New("error is too large")
 	ErrActiveSnapshots      = errors.New("tree has active snapshots")
 	ErrCompactionInProgress = errors.New("compaction in progress")
 	ErrStaleRootTimestamp   = errors.New("stale root timestamp")
 	ErrInvalidTimestamp     = errors.New("invalid timestamp")
 	ErrNoValidPageFound     = errors.New("no valid page found")
 	ErrTreeLocked           = errors.New("tree is locked")
+	ErrInvalidCommitEntry   = errors.New("invalid commit entry")
 )
 
 const (
-	MaxEntrySize = 2 * 1024
-
 	HistoryLogFileName = "history"
 	TreeLogFileName    = "tree"
 )
@@ -254,6 +254,10 @@ func recoverLatestValidTreeSnapshot(dir string, readDir ReadDirFunc, recoverSnap
 func (t *TBTree) recoverRootPage() error {
 	commitEntry, rootPageOff, err := t.findLastValidPage()
 	if errors.Is(err, ErrNoValidPageFound) {
+		if err := t.treeApp.SetOffset(0); err != nil {
+			return err
+		}
+
 		if err := t.historyApp.SetOffset(0); err != nil {
 			return err
 		}
@@ -277,7 +281,8 @@ func (t *TBTree) recoverRootPage() error {
 		return err
 	}
 
-	if err := t.historyApp.SetOffset(int64(commitEntry.HLogOff)); err != nil {
+	hLogOff := int64(commitEntry.HLogOff) + int64(commitEntry.HLogFlushedBytes)
+	if err := t.historyApp.SetOffset(hLogOff); err != nil {
 		return err
 	}
 
@@ -308,6 +313,11 @@ func (t *TBTree) findLastValidPage() (CommitEntry, int64, error) {
 		}
 
 		e, err := readCommitEntry(buf[:])
+		if err != nil {
+			return CommitEntry{}, -1, err
+		}
+
+		err = t.validateCommitEntry(&e, off)
 		if err == nil {
 			return e, off, nil
 		}
@@ -320,6 +330,64 @@ func (t *TBTree) findLastValidPage() (CommitEntry, int64, error) {
 		}
 	}
 	return CommitEntry{}, 0, ErrNoValidPageFound
+}
+
+func (t *TBTree) validateCommitEntry(e *CommitEntry, entryOff int64) error {
+	if !e.Valid() {
+		return ErrInvalidCommitEntry
+	}
+
+	tLogBytes := (entryOff + CommitEntrySize) - int64(e.TLogOff)
+	if tLogBytes <= 0 {
+		return fmt.Errorf("%w: invalid tLogBytes", ErrInvalidCommitEntry)
+	}
+
+	tLogSize, err := t.treeApp.Size()
+	if err != nil {
+		return err
+	}
+
+	if e.TLogOff+uint64(tLogBytes) > uint64(tLogSize) {
+		return fmt.Errorf("%w: invalid tLogOffset", ErrInvalidCommitEntry)
+	}
+
+	hLogSize, err := t.historyApp.Size()
+	if err != nil {
+		return err
+	}
+
+	if e.HLogFlushedBytes > 0 &&
+		(int64(e.HLogOff) > hLogSize || int64(e.HLogOff)+int64(e.HLogFlushedBytes) > hLogSize) {
+		return ErrInvalidCommitEntry
+	}
+
+	tLogBytesExcludingChecksum := tLogBytes - sha256.Size - CommitMagicSize
+	if tLogBytesExcludingChecksum <= 0 {
+		return ErrInvalidCommitEntry
+	}
+
+	tLogChecksum, err := appendable.Checksum(t.treeApp, int64(e.TLogOff), tLogBytesExcludingChecksum)
+	if err != nil {
+		return err
+	}
+
+	var hLogChecksum [sha256.Size]byte
+
+	if e.HLogFlushedBytes > 0 {
+		hLogChecksum, err = appendable.Checksum(t.historyApp, int64(e.HLogOff), int64(e.HLogFlushedBytes))
+		if err != nil {
+			return err
+		}
+	}
+
+	if tLogChecksum != e.TLogChecksum {
+		return fmt.Errorf("%w: tree log checksum mismatch", ErrInvalidCommitEntry)
+	}
+
+	if hLogChecksum != e.HLogChecksum {
+		return fmt.Errorf("%w: history log checksum mismatch", ErrInvalidCommitEntry)
+	}
+	return nil
 }
 
 func findMagic(buf []byte) int {
@@ -359,7 +427,18 @@ func (t *TBTree) canAccommodateWrite() bool {
 	return t.wb.Grow(t.depth + 2)
 }
 
+func validateEntry(e *Entry) error {
+	if requiredInnerPageItemSize(len(e.Key)) > MaxEntrySize || requiredPageItemSize(len(e.Key), len(e.Value)) > MaxEntrySize {
+		return ErrEntryIsTooLarge
+	}
+	return nil
+}
+
 func (t *TBTree) Insert(e Entry) error {
+	if err := validateEntry(&e); err != nil {
+		return err
+	}
+
 	if e.Ts == 0 {
 		return fmt.Errorf("%w: timestamp must be greater than zero", ErrInvalidTimestamp)
 	}
@@ -452,23 +531,6 @@ func (t *TBTree) Advance(ts uint64, entryCount uint32) error {
 	t.indexedEntryCount.Store(entryCount)
 
 	t.mtx.Unlock()
-
-	//t.rootID.Store(uint64(newPageID))
-
-	/*
-		rootPageID := t.rootPageID()
-		if rootPageID == PageNone {
-			pg, newPageID, err = t.wb.AllocLeafPage()
-		} else {
-			pg, newPageID, err = t.wb.GetOrDup(t.rootPageID(), t.dupPage)
-		}
-		if err != nil {
-			return err
-		}*/
-
-	//pg.SetTs(ts)
-	//pg.SetIndexedEntryCount(entryCount)
-	//pg.SetAsRoot()
 
 	return nil
 }
@@ -900,62 +962,68 @@ func (t *TBTree) flushToTreeLog() error {
 		return nil
 	}
 
-	hLogBytesWritten, res, err := t.flushTo(t.treeApp)
+	bytesWritten, rootID, err := t.flushTo(t.treeApp)
 	if err != nil {
 		return err
 	}
 
-	t.rootID.Store(uint64(res.rootID))
-	t.lastSnapshotID.Store(uint64(res.rootID))
+	t.rootID.Store(uint64(rootID))
+	t.lastSnapshotID.Store(uint64(rootID))
 	t.lastSnapshotTs.Store(t.Ts())
 
 	t.headHistoryPageID = PageNone
 	t.tailHistoryPageID = PageNone
 	t.mutated = false
 
-	t.maybeSync(uint32(res.bytesWritten + hLogBytesWritten))
+	t.maybeSync(uint32(bytesWritten))
 	return nil
 }
 
-func (t *TBTree) flushTo(dstApp appendable.Appendable) (int, flushRes, error) {
+func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
 
 	// TODO: should get checksum of last history entry?
 
 	hLogFlushRes, err := t.flushHistory()
 	if err != nil {
-		return -1, flushRes{}, err
+		return -1, PageNone, err
 	}
 
-	opts := flushOptions{
-		dstApp: dstApp,
-	}
-
-	res, err := t.flushTreeLog(t.rootPageID(), opts)
+	tLogOff, err := treeLog.Size()
 	if err != nil {
-		return -1, flushRes{}, err
+		return -1, PageNone, err
 	}
 
-	t.stalePages.Add(res.stalePages)
-	t.numPages.Add(uint64(res.pagesFlushed))
+	treeLogWithChecksum := appendable.WithChecksum(treeLog)
+	opts := flushOptions{
+		dstApp: treeLogWithChecksum,
+	}
+
+	tLogRes, err := t.flushTreeLog(t.rootPageID(), opts)
+	if err != nil {
+		return -1, PageNone, err
+	}
+
+	t.stalePages.Add(tLogRes.stalePages)
+	t.numPages.Add(uint64(tLogRes.totalPages))
 
 	ts := t.Ts()
 	commitEntry := CommitEntry{
-		HLogChecksum: hLogFlushRes.checksum,
-		// TODO: treelog checksum
+		HLogChecksum:      hLogFlushRes.checksum,
 		Ts:                ts,
+		TLogOff:           uint64(tLogOff),
 		HLogOff:           uint64(hLogFlushRes.off),
 		HLogFlushedBytes:  uint32(hLogFlushRes.n),
-		TotalPages:        uint64(res.pagesFlushed),
+		TotalPages:        uint64(tLogRes.totalPages),
 		StalePages:        t.stalePages.Load(),
 		IndexedEntryCount: t.IndexedEntryCount(),
 	}
-	if err := commit(&commitEntry, opts.dstApp); err != nil {
-		return -1, flushRes{}, err
+	if err := commit(&commitEntry, treeLogWithChecksum); err != nil {
+		return -1, PageNone, err
 	}
 
 	t.logger.Infof("flushing completed, index=%s", t.path)
-	return hLogFlushRes.n, res, nil
+	return hLogFlushRes.n, tLogRes.rootID, nil
 }
 
 func (t *TBTree) maybeSync(n uint32) {
@@ -1025,16 +1093,18 @@ func (t *TBTree) flushHistory() (WriteRes, error) {
 	err = historyApp.Flush()
 
 	return WriteRes{
-		off: off,
-		n:   n,
+		checksum: historyApp.Sum(nil),
+		off:      off,
+		n:        n,
 	}, err
 }
 
-type flushRes struct {
-	pagesFlushed int
-	bytesWritten int
-	rootID       PageID
-	stalePages   uint32
+type flushTreeRes struct {
+	WriteRes
+
+	rootID     PageID
+	totalPages int
+	stalePages uint32
 }
 
 type flushOptions struct {
@@ -1042,15 +1112,15 @@ type flushOptions struct {
 	dstApp   appendable.Appendable
 }
 
-func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushRes, error) {
+func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, error) {
 	isMemPage := pageID.isMemPage()
 	if !isMemPage && !opts.fullDump {
-		return flushRes{}, fmt.Errorf("attempted to flush a non in memory page")
+		return flushTreeRes{}, fmt.Errorf("attempted to flush a non in memory page")
 	}
 
 	pg, err := t.getWritePage(pageID)
 	if err != nil {
-		return flushRes{rootID: PageNone}, err
+		return flushTreeRes{rootID: PageNone}, err
 	}
 
 	var stalePages uint32
@@ -1061,14 +1131,16 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushRes, error
 
 		n, pgID, err := t.appendPage(pg, opts.dstApp)
 		if err != nil {
-			return flushRes{rootID: PageNone}, err
+			return flushTreeRes{rootID: PageNone}, err
 		}
 
-		return flushRes{
-			pagesFlushed: 1,
-			bytesWritten: n,
-			rootID:       pgID,
-			stalePages:   stalePages,
+		return flushTreeRes{
+			WriteRes: WriteRes{
+				n: n,
+			},
+			rootID:     pgID,
+			totalPages: 1,
+			stalePages: stalePages,
 		}, err
 	}
 
@@ -1083,13 +1155,13 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushRes, error
 
 		res, err := t.flushTreeLog(childPageID, opts)
 		if err != nil {
-			return flushRes{rootID: PageNone}, err
+			return flushTreeRes{rootID: PageNone}, err
 		}
 		pg.SetPageID(i, res.rootID)
 
 		stalePages += res.stalePages
-		totalBytesWritten += res.bytesWritten
-		pagesFlushed += res.pagesFlushed
+		totalBytesWritten += res.n
+		pagesFlushed += res.totalPages
 	}
 
 	if isMemPage && pg.IsCopied() {
@@ -1097,11 +1169,13 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushRes, error
 	}
 
 	n, pgID, err := t.appendPage(pg, opts.dstApp)
-	return flushRes{
-		pagesFlushed: pagesFlushed + 1,
-		bytesWritten: totalBytesWritten + n,
-		rootID:       pgID,
-		stalePages:   stalePages,
+	return flushTreeRes{
+		WriteRes: WriteRes{
+			n: totalBytesWritten + n,
+		},
+		totalPages: pagesFlushed + 1,
+		rootID:     pgID,
+		stalePages: stalePages,
 	}, err
 }
 
@@ -1260,14 +1334,21 @@ func (t *TBTree) ActiveSnapshots() int {
 }
 
 func (c *CommitEntry) Valid() bool {
-	return true
+	return c.Ts > 0 && int64(c.TLogOff) >= 0 && int64(c.HLogOff) >= 0
 }
 
-const CommitEntrySize = 40 + CommitMagicSize
+const CommitEntrySize = 108 + CommitMagicSize
 
-func commit(e *CommitEntry, app appendable.Appendable) error {
+func commit(e *CommitEntry, app *appendable.ChecksumAppendable) error {
 	var buf [CommitEntrySize]byte
-	putCommitEntry(e, buf[:])
+	n := putCommitEntry(e, buf[:])
+	if n != CommitEntrySize {
+		return fmt.Errorf("error while serializing commit entry")
+	}
+
+	// exclude tLogCheckusum and CommitMagic fields from checksum calculation
+	tLogChecksum := app.Sum(buf[:(n - sha256.Size - 2)])
+	copy(buf[(n-sha256.Size-CommitMagicSize):], tLogChecksum[:])
 
 	_, _, err := app.Append(buf[:])
 	if err != nil {
@@ -1276,13 +1357,13 @@ func commit(e *CommitEntry, app appendable.Appendable) error {
 	return app.Flush()
 }
 
-func putCommitEntry(e *CommitEntry, buf []byte) {
+func putCommitEntry(e *CommitEntry, buf []byte) int {
 	off := 0
 
-	binary.BigEndian.PutUint32(buf[off:], 0)
-	off += 4
-
 	binary.BigEndian.PutUint64(buf[off:], e.Ts)
+	off += 8
+
+	binary.BigEndian.PutUint64(buf[off:], e.TLogOff)
 	off += 8
 
 	binary.BigEndian.PutUint64(buf[off:], e.HLogOff)
@@ -1300,10 +1381,14 @@ func putCommitEntry(e *CommitEntry, buf []byte) {
 	binary.BigEndian.PutUint32(buf[off:], e.IndexedEntryCount)
 	off += 4
 
-	binary.BigEndian.PutUint16(buf[off:], CommitMagic)
+	off += copy(buf[off:], e.HLogChecksum[:])
 
-	//checksum := computeChecksum(buf[ChecksumSize:])
-	//binary.BigEndian.PutUint32(buf[:], checksum)
+	off += copy(buf[off:], e.TLogChecksum[:])
+
+	binary.BigEndian.PutUint16(buf[off:], CommitMagic)
+	off += 2
+
+	return off
 }
 
 func readCommitEntry(buf []byte) (CommitEntry, error) {
@@ -1313,10 +1398,10 @@ func readCommitEntry(buf []byte) (CommitEntry, error) {
 
 	off := 0
 
-	//e.Checksum = binary.BigEndian.Uint32(buf[off:])
-	//off += 4
-
 	e.Ts = binary.BigEndian.Uint64(buf[off:])
+	off += 8
+
+	e.TLogOff = binary.BigEndian.Uint64(buf[off:])
 	off += 8
 
 	e.HLogOff = binary.BigEndian.Uint64(buf[off:])
@@ -1332,9 +1417,11 @@ func readCommitEntry(buf []byte) (CommitEntry, error) {
 	off += 4
 
 	e.IndexedEntryCount = binary.BigEndian.Uint32(buf[off:])
+	off += 4
 
-	//if computeChecksum(buf[ChecksumSize:]) != e.Checksum {
-	//	return e, fmt.Errorf("%w: commit entry checksum doesn't match", ErrCorruptedEntry)
-	//	}
+	off += copy(e.HLogChecksum[:], buf[off:])
+
+	off += copy(e.TLogChecksum[:], buf[off:])
+
 	return e, nil
 }

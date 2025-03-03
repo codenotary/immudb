@@ -39,6 +39,8 @@ const (
 	InnerPageEntryDataSize = int(unsafe.Sizeof(InnerPageEntryData{}))
 	PageHeaderDataSize     = int(unsafe.Sizeof(PageHeaderData{}))
 	PageSize               = 4096
+	MaxFreePageSpace       = PageSize - PageHeaderDataSize
+	MaxEntrySize           = MaxFreePageSpace / 2
 
 	LeafNodeFlag = 1 << 0
 	RootFlag     = 1 << 1
@@ -95,8 +97,6 @@ func cp(b []byte) []byte {
 }
 
 type CommitEntry struct {
-	HLogChecksum      [sha256.Size]byte
-	TLogChecksum      [sha256.Size]byte
 	Ts                uint64
 	TLogOff           uint64
 	HLogOff           uint64
@@ -104,6 +104,8 @@ type CommitEntry struct {
 	TotalPages        uint64
 	StalePages        uint32
 	IndexedEntryCount uint32
+	HLogChecksum      [sha256.Size]byte
+	TLogChecksum      [sha256.Size]byte
 }
 
 type PageHeaderData struct {
@@ -267,7 +269,7 @@ func (pg *Page) InsertKey(key []byte, id PageID) (int, error) {
 		return idx, nil
 	}
 
-	space := requiredInnerPageItemSize(key)
+	space := requiredInnerPageItemSize(len(key))
 	if pg.FreeSpace() < space {
 		return -1, ErrPageFull
 	}
@@ -323,13 +325,18 @@ func (pg *Page) moveItemsTo(dst *Page, start, end int) {
 			assert(err == nil, "get antry at")
 
 			_, _, err = dst.InsertEntry(&e)
+			if err != nil {
+				panic(err)
+			}
 			assert(err == nil, "err != nil")
 		} else {
 			e := pg.innerPageEntryAt(i)
 			pgID := binary.BigEndian.Uint64(pg.data[e.Offset : e.Offset+8])
 			key := pg.data[e.Offset+8 : e.Offset+8+e.KeySize]
 			_, err := dst.InsertKey(key, PageID(pgID))
-			assert(err == nil, "err != nil")
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 }
@@ -341,9 +348,9 @@ func (pg *Page) entrySpaceAt(idx int) int {
 	return pg.innerPageEntryAt(idx).dataSize() + InnerPageEntryDataSize
 }
 
-func (pg *Page) findSplitIdx(insertIdx, newItemSpace, maxSpace int) (int, int) {
+func (pg *Page) findSplitIdx(insertIdx, newItemSpace, desiredMaxSpace int) (int, int) {
 	var splitIdx, space int
-	for ; splitIdx < int(pg.NumEntries)+1 && space < maxSpace; splitIdx++ {
+	for ; splitIdx < int(pg.NumEntries) && space < desiredMaxSpace; splitIdx++ {
 		var s int
 		switch {
 		case splitIdx < insertIdx:
@@ -354,7 +361,7 @@ func (pg *Page) findSplitIdx(insertIdx, newItemSpace, maxSpace int) (int, int) {
 			s = pg.entrySpaceAt(splitIdx - 1)
 		}
 
-		if space+s > maxSpace {
+		if space+s > MaxFreePageSpace {
 			return splitIdx, space
 		}
 		space += s
@@ -367,6 +374,7 @@ func (pg *Page) compact() (int, error) {
 
 	var tempPg Page
 	tempPg.init(true)
+	tempPg.Flags = pg.Flags
 
 	i := 0
 	for i < int(pg.NumEntries) {
@@ -398,7 +406,7 @@ func (pg *Page) compact() (int, error) {
 func (pg *Page) splitInnerPage(newPg *Page, key []byte, pgID, prevID PageID) int {
 	assert(!pg.IsLeaf(), "splitInnerPage() called on a leaf page")
 
-	requiredSpace := requiredInnerPageItemSize(key)
+	requiredSpace := requiredInnerPageItemSize(len(key))
 	spacePerPage := (pg.UsedSpace() + requiredSpace) / 2
 
 	// assuming no page fragmentation
@@ -414,6 +422,7 @@ func (pg *Page) splitInnerPage(newPg *Page, key []byte, pgID, prevID PageID) int
 
 	var tempPage Page
 	tempPage.init(pg.IsLeaf())
+	tempPage.Flags = pg.Flags
 
 	if splitIdx-1 < idx { // e belongs to the new page
 		pg.moveItemsTo(&tempPage, 0, splitIdx)
@@ -421,24 +430,20 @@ func (pg *Page) splitInnerPage(newPg *Page, key []byte, pgID, prevID PageID) int
 		pg.moveItemsTo(newPg, splitIdx, idx)
 
 		insertIdx, err := newPg.InsertKey(key, pgID)
-		if err != nil {
-			panic(err)
-		}
+		assertNoErr(err)
 
 		pg.moveItemsTo(newPg, idx, int(pg.NumEntries))
 
 		newPg.SetPageID(insertIdx-1, prevID)
 	} else {
-		pg.moveItemsTo(newPg, splitIdx, int(pg.NumEntries))
+		pg.moveItemsTo(newPg, splitIdx-1, int(pg.NumEntries))
 
 		pg.moveItemsTo(&tempPage, 0, idx)
 
 		insertIdx, err := tempPage.InsertKey(key, pgID)
-		if err != nil {
-			panic(err)
-		}
+		assertNoErr(err)
 
-		pg.moveItemsTo(&tempPage, idx, splitIdx)
+		pg.moveItemsTo(&tempPage, idx, splitIdx-1)
 		tempPage.SetPageID(insertIdx-1, prevID)
 	}
 
@@ -450,8 +455,8 @@ func (pg *Page) splitInnerPage(newPg *Page, key []byte, pgID, prevID PageID) int
 
 	tempPage.pop()
 
-	assert(tempPage.NumEntries > 1, "> 1")
-	assert(newPg.NumEntries > 1, "> 1")
+	assert(tempPage.NumEntries >= 1, "empty left page after split")
+	assert(newPg.NumEntries >= 1, "empty right page split")
 
 	*pg = tempPage
 
@@ -462,16 +467,17 @@ func (pg *Page) splitLeafPage(newPg *Page, e *Entry) int {
 	assert(pg.IsLeaf(), "splitLeafPage() called on a non leaf page")
 
 	requiredSpace := e.requiredPageItemSize()
-	spacePerPage := (pg.UsedSpace() - int(pg.UnusedSpace) + requiredSpace) / 2
+	maxSpaceLeft := (pg.UsedSpace() - int(pg.UnusedSpace) + requiredSpace) / 2
 
 	idx, found := pg.find(e.Key)
 	assert(!found, "splitLeafPage(): key already exists")
 
-	splitIdx, _ := pg.findSplitIdx(idx, requiredSpace, spacePerPage)
+	splitIdx, _ := pg.findSplitIdx(idx, requiredSpace, maxSpaceLeft)
 	assert(splitIdx > 0, "splitIdx == 0")
 
 	var tempPage Page
 	tempPage.init(pg.IsLeaf())
+	tempPage.Flags = pg.Flags
 
 	if splitIdx-1 < idx { // e belongs to the new page
 		pg.moveItemsTo(&tempPage, 0, splitIdx)
@@ -479,21 +485,28 @@ func (pg *Page) splitLeafPage(newPg *Page, e *Entry) int {
 		pg.moveItemsTo(newPg, splitIdx, idx)
 
 		_, _, err := newPg.InsertEntry(e)
-		assert(err == nil, "InsertEntry: err != nil")
+		if err != nil {
+			panic(err)
+		}
 
 		pg.moveItemsTo(newPg, idx, int(pg.NumEntries))
 	} else {
-		pg.moveItemsTo(newPg, splitIdx, int(pg.NumEntries))
+		pg.moveItemsTo(newPg, splitIdx-1, int(pg.NumEntries))
 
 		pg.moveItemsTo(&tempPage, 0, idx)
 
 		_, _, err := tempPage.InsertEntry(e)
-		assert(err == nil, "InsertEntry: err != nil")
+		if err != nil {
+			panic(err)
+		}
 
-		pg.moveItemsTo(&tempPage, idx, splitIdx)
+		pg.moveItemsTo(&tempPage, idx, splitIdx-1)
 	}
 
 	*pg = tempPage
+
+	assert(tempPage.NumEntries >= 1, "empty left page after split")
+	assert(newPg.NumEntries >= 1, "empty right page split")
 
 	return idx
 }
@@ -880,13 +893,19 @@ func requiredPageItemSize(keySize int, valueSize int) int {
 		valueSize
 }
 
-func requiredInnerPageItemSize(key []byte) int {
-	return InnerPageEntryDataSize + len(key) + 8 // PageID
+func requiredInnerPageItemSize(keySize int) int {
+	return InnerPageEntryDataSize + keySize + 8 // PageID
 }
 
 func assert(cond bool, msg string) {
 	if !cond {
 		panic(msg)
+	}
+}
+
+func assertNoErr(err error) {
+	if err != nil {
+		panic(err)
 	}
 }
 

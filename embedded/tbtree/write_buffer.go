@@ -83,6 +83,12 @@ func (wb *SharedWriteBuffer) reset(numChunk int) {
 	}
 }
 
+func (wb *SharedWriteBuffer) ReleaseAll() {
+	for i := range wb.state {
+		wb.state[i].Store(false)
+	}
+}
+
 func (wb *SharedWriteBuffer) Release(numChunk int) {
 	wasAllocated := wb.state[numChunk].Swap(false)
 	assert(wasAllocated, "attempt to release a non allocated slot")

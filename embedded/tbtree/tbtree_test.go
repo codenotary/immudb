@@ -39,26 +39,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsert(t *testing.T) {
-	tree, err := newTBTree(
-		128*1024*1024,
-		(1+rand.Intn(100))*PageSize,
-	)
-	require.NoError(t, err)
+func randomGenerator(keyLenRange, valueLenRange Range) EntryGenerator {
+	keyBuf := make([]byte, keyLenRange.Max)
+	valueBuf := make([]byte, valueLenRange.Max)
 
-	keyRange := Range{Min: 100, Max: 1000}
-	valueRange := Range{Min: 1, Max: 100}
-
-	keyBuf := make([]byte, keyRange.Max)
-	valueBuf := make([]byte, valueRange.Max)
-
-	gen := EntryGenerator{
+	return EntryGenerator{
 		NewEntry: func(rnd *rand.Rand, i int) Entry {
 			rnd.Read(keyBuf)
 			rnd.Read(valueBuf)
 
-			ks := keyRange.Int(rnd)
-			vs := valueRange.Int(rnd)
+			ks := keyLenRange.Int(rnd)
+			vs := valueLenRange.Int(rnd)
 
 			return Entry{
 				Ts:    uint64(i + 1),
@@ -69,50 +60,122 @@ func TestInsert(t *testing.T) {
 			}
 		},
 	}
-	gen.WithSeed(time.Now().UnixNano())
+}
 
-	n := 10000
-	gen.Times(n, func(_ int, e Entry) {
-		err := tree.Insert(e)
-		require.NoError(t, err)
-	})
+func monotonicGenerator(n int, ascending bool) EntryGenerator {
+	var keyBuf [4]byte
 
-	require.Equal(t, tree.wb.UsedPages(), tree.nSplits+1)
-	require.True(t, tree.rootPageID().isMemPage())
-	require.Equal(t, tree.Ts(), uint64(n))
+	return EntryGenerator{
+		NewEntry: func(rnd *rand.Rand, i int) Entry {
+			if ascending {
+				binary.BigEndian.PutUint32(keyBuf[:], uint32(i))
+			} else {
+				binary.BigEndian.PutUint32(keyBuf[:], uint32(n-i))
+			}
 
-	writeSnap, err := tree.WriteSnapshot()
-	require.NoError(t, err)
-	requireEntriesAreSorted(t, writeSnap, n)
-	writeSnap.Close()
+			return Entry{
+				Ts:    uint64(i + 1),
+				HOff:  OffsetNone,
+				HC:    0,
+				Key:   keyBuf[:],
+				Value: keyBuf[:],
+			}
+		},
+	}
+}
 
-	err = tree.FlushReset()
-	require.NoError(t, err)
-	require.Zero(t, tree.wb.UsedPages())
+// TODO: test concurrent readers during inserting
 
-	treeApp := tree.treeApp
-	size, _ := treeApp.Size()
-	require.Greater(t, size, int64(0))
-	require.False(t, tree.rootPageID().isMemPage())
+func TestInsert(t *testing.T) {
+	type testCase struct {
+		name string
+		gen  EntryGenerator
+	}
 
-	requireNoPageIsPinned(t, tree.pgBuf)
+	numKeys := 10000
 
-	gen.Times(n, func(_ int, e Entry) {
-		err := tree.UseEntry(e.Key, func(e1 *Entry) error {
-			require.Equal(t, e, *e1)
-			return nil
+	testCases := []testCase{
+		{
+			name: "small keys",
+			gen:  randomGenerator(Range{Min: 10, Max: 100}, Range{Min: 1, Max: 10}),
+		},
+		{
+			name: "medium keys",
+			gen:  randomGenerator(Range{Min: 100, Max: 500}, Range{Min: 1, Max: 10}),
+		},
+		{
+			name: "random large keys",
+			gen:  randomGenerator(Range{Min: 500, Max: MaxEntrySize - 30 - 10}, Range{Min: 1, Max: 10}),
+		},
+		{
+			name: "random large values",
+			gen:  randomGenerator(Range{Min: 100, Max: 100}, Range{Min: 500, Max: 1000}),
+		},
+		{
+			name: "monotonic ascending keys",
+			gen:  monotonicGenerator(numKeys, true),
+		},
+		{
+			name: "monotonic descending keys",
+			gen:  monotonicGenerator(numKeys, false),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tree, err := newTBTree(
+				128*1024*1024,
+				(1+rand.Intn(100))*PageSize,
+			)
+			require.NoError(t, err)
+			defer tree.Close()
+
+			gen := &tc.gen
+			gen.WithSeed(time.Now().UnixNano())
+
+			gen.Times(numKeys, func(_ int, e Entry) {
+				err := tree.Insert(e)
+				require.NoError(t, err)
+			})
+
+			require.Equal(t, tree.wb.UsedPages(), tree.nSplits+1)
+			require.True(t, tree.rootPageID().isMemPage())
+			require.Equal(t, tree.Ts(), uint64(numKeys))
+
+			writeSnap, err := tree.WriteSnapshot()
+			require.NoError(t, err)
+			requireEntriesAreSorted(t, writeSnap, numKeys)
+			writeSnap.Close()
+
+			err = tree.FlushReset()
+			require.NoError(t, err)
+			require.Zero(t, tree.wb.UsedPages())
+
+			treeApp := tree.treeApp
+			size, _ := treeApp.Size()
+			require.Greater(t, size, int64(0))
+			require.False(t, tree.rootPageID().isMemPage())
+
+			requireNoPageIsPinned(t, tree.pgBuf)
+
+			gen.Times(numKeys, func(_ int, e Entry) {
+				err := tree.UseEntry(e.Key, func(e1 *Entry) error {
+					require.Equal(t, e, *e1)
+					return nil
+				})
+				require.NoError(t, err)
+			})
+
+			requireNoPageIsPinned(t, tree.pgBuf)
+
+			snap, err := tree.ReadSnapshot()
+			require.NoError(t, err)
+			defer snap.Close()
+
+			requireEntriesAreSorted(t, snap, numKeys)
+			require.Equal(t, tree.ActiveSnapshots(), 1)
 		})
-		require.NoError(t, err)
-	})
-
-	requireNoPageIsPinned(t, tree.pgBuf)
-
-	snap, err := tree.ReadSnapshot()
-	require.NoError(t, err)
-	defer snap.Close()
-
-	requireEntriesAreSorted(t, snap, n)
-	require.Equal(t, tree.ActiveSnapshots(), 1)
+	}
 }
 
 // TODO: following tests must be merged.
@@ -251,13 +314,13 @@ func TestInsertDuplicateKey(t *testing.T) {
 	}
 }
 
-func TestRecoverSnapshotDuringOpen(t *testing.T) {
+func TestSnapshotRecovery(t *testing.T) {
 	wb, err := newWriteBuffer(128 * 1024 * 1024)
 	require.NoError(t, err)
 
 	pgBuf := NewPageBuffer((1 + rand.Intn(100)) * PageSize)
 
-	var treeAppBuf bytes.Buffer
+	treeApp := memapp.New()
 	historyApp := memapp.New()
 
 	opts := DefaultOptions().
@@ -266,7 +329,7 @@ func TestRecoverSnapshotDuringOpen(t *testing.T) {
 		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			switch subPath {
 			case "tree":
-				return memapp.NewWithBuffer(&treeAppBuf), nil
+				return treeApp, nil
 			case "history":
 				return historyApp, nil
 			}
@@ -279,92 +342,335 @@ func TestRecoverSnapshotDuringOpen(t *testing.T) {
 	tree, err := Open("", opts)
 	require.NoError(t, err)
 
-	n := 100
-	_, err = randomInserts(tree, n)
-	require.NoError(t, err)
+	type expectedSnapshot struct {
+		rootID         PageID
+		ts             uint64
+		tLogSize       int64
+		hLogSize       int64
+		maxExpectedKey int
+	}
 
-	err = tree.FlushReset()
-	require.NoError(t, err)
+	const numSnapshots = 10
+	insertEntries := func(n int) {
+		ts := tree.Ts()
 
-	firstRootID := tree.rootPageID()
-	require.Zero(t, tree.StalePages(), 0)
+		var buf [4]byte
+		for i := 0; i < n; i++ {
+			binary.BigEndian.PutUint32(buf[:], uint32(i))
 
-	_, err = randomInserts(tree, n)
-	require.NoError(t, err)
-
-	var expectedStalePages uint32
-	for slot := 0; slot < wb.UsedPages(); slot++ {
-		pg, err := wb.Get(memPageID(slot))
-		require.NoError(t, err)
-
-		if pg.IsCopied() {
-			expectedStalePages++
+			err := tree.Insert(Entry{
+				Ts:    ts + uint64(i) + 1,
+				HOff:  OffsetNone,
+				HC:    0,
+				Key:   buf[:],
+				Value: buf[:],
+			})
+			require.NoError(t, err)
 		}
 	}
 
-	err = tree.FlushReset()
+	maxExpectedKey := -1
+
+	var snapshots [numSnapshots + 1]expectedSnapshot
+	for n := 0; n < numSnapshots; n++ {
+		numInserts := 10 + rand.Intn(1000)
+		ts := tree.Ts()
+		rootID := tree.rootPageID()
+
+		tLogSize, err := tree.treeApp.Size()
+		require.NoError(t, err)
+
+		hLogSize, err := tree.historyApp.Size()
+		require.NoError(t, err)
+
+		snapshots[n] = expectedSnapshot{
+			rootID:         rootID,
+			ts:             ts,
+			tLogSize:       tLogSize,
+			hLogSize:       hLogSize,
+			maxExpectedKey: maxExpectedKey,
+		}
+
+		if numInserts > maxExpectedKey {
+			maxExpectedKey = numInserts
+		}
+
+		insertEntries(numInserts)
+
+		err = tree.FlushReset()
+		require.NoError(t, err)
+	}
+
+	historyLogSize, err := historyApp.Size()
 	require.NoError(t, err)
 
-	latestRootID := tree.rootPageID()
-	require.Equal(t, tree.StalePages(), expectedStalePages)
+	treeLogSize, err := treeApp.Size()
+	require.NoError(t, err)
+
+	snapshots[numSnapshots] = expectedSnapshot{
+		rootID:         tree.rootPageID(),
+		ts:             tree.Ts(),
+		tLogSize:       treeLogSize,
+		hLogSize:       historyLogSize,
+		maxExpectedKey: maxExpectedKey,
+	}
+
+	latestSnapshotRootID := tree.rootPageID()
+	latestTs := tree.Ts()
 
 	err = tree.Close()
 	require.NoError(t, err)
 
-	/*
-		opts = opts.WithAppFactoryFunc(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
-			switch subPath {
-			case "tlog":
-				return memapp.NewWithBuffer(&treeAppCopy), nil
-			case "hlog":
-				return historyApp, nil
+	t.Run("duplicate commit entry", func(t *testing.T) {
+		// append to the tree log a data segment containing
+		// which contains the commit entry multiple times
+
+		commitEntryOff := treeLogSize - CommitEntrySize
+
+		var commitEntry [CommitEntrySize]byte
+		_, err = treeApp.ReadAt(commitEntry[:], commitEntryOff)
+		require.NoError(t, err)
+
+		magic := commitEntry[len(commitEntry)-CommitMagicSize:]
+		require.Equal(t, magic, []byte{CommitMagic >> 8, CommitMagic & 0xFF})
+
+		padDataSize := 1024*1024 + rand.Intn(1024*1024)
+
+		var buf [4096]byte
+		for n := 0; n < padDataSize; {
+			if rand.Float32() < 0.25 {
+				_, _, err := treeApp.Append(commitEntry[:])
+				require.NoError(t, err)
+
+				n += CommitEntrySize
+			} else {
+				n := 1000 + rand.Intn(len(buf)-1000+1)
+				_, _ = rand.Read(buf[:n])
+				_, _, err := treeApp.Append(buf[:])
+				require.NoError(t, err)
+
+				n += len(buf)
 			}
-			return nil, fmt.Errorf("unknown path: %s", subPath)
+		}
+
+		err = treeApp.SetOffset(treeLogSize + int64(padDataSize))
+		require.NoError(t, err)
+
+		tree, err := Open("", opts)
+		require.NoError(t, err)
+
+		require.Equal(t, latestSnapshotRootID, tree.rootPageID())
+		require.Equal(t, latestTs, tree.Ts())
+
+		size, err := tree.treeApp.Size()
+		require.NoError(t, err)
+		require.Equal(t, treeLogSize, size)
+
+		hLogSize, err := tree.historyApp.Size()
+		require.NoError(t, err)
+		require.Equal(t, historyLogSize, hLogSize)
+	})
+
+	err = treeApp.SetOffset(treeLogSize)
+	require.NoError(t, err)
+
+	randomOffsets := func(treeLog bool, historyLog bool) (int64, int64, expectedSnapshot) {
+		treeLogOff := treeLogSize
+		if treeLog {
+			treeLogOff = 1 + int64(rand.Intn(int(treeLogSize)))
+		}
+
+		hLogOff := historyLogSize
+		if historyLog {
+			hLogOff = 1 + int64(rand.Intn(int(historyLogSize)))
+		}
+
+		if !treeLog && !historyLog {
+			return treeLogOff, hLogOff, snapshots[numSnapshots]
+		}
+
+		i := sort.Search(numSnapshots, func(i int) bool {
+			return snapshots[i].tLogSize >= treeLogOff
+		}) - 1
+
+		j := sort.Search(numSnapshots, func(i int) bool {
+			return snapshots[i].hLogSize >= hLogOff
+		}) - 1
+
+		min := i
+		if j < min {
+			min = j
+		}
+		return treeLogOff, hLogOff, snapshots[min]
+	}
+
+	checkRecoveredSnapshot := func(tree *TBTree, expectedSnap expectedSnapshot) {
+		size, err := tree.treeApp.Size()
+		require.NoError(t, err)
+
+		hLogSize, err := tree.historyApp.Size()
+		require.NoError(t, err)
+
+		require.Equal(t, expectedSnap.rootID, tree.rootPageID())
+		require.Equal(t, expectedSnap.ts, tree.Ts())
+		require.Equal(t, expectedSnap.tLogSize, size)
+		require.Equal(t, expectedSnap.hLogSize, hLogSize)
+
+		snap, err := tree.ReadSnapshot()
+		if errors.Is(err, ErrNoSnapshotAvailable) {
+			require.Zero(t, tree.Ts())
+			return
+		}
+		require.NoError(t, err)
+		defer snap.Close()
+
+		it, err := snap.NewIterator(DefaultIteratorOptions())
+		require.NoError(t, err)
+
+		var buf [4]byte
+		n := 0
+		for {
+			e, err := it.Next()
+			if errors.Is(err, ErrNoMoreEntries) {
+				break
+			}
+
+			binary.BigEndian.PutUint32(buf[:], uint32(n))
+
+			require.NoError(t, err)
+			require.LessOrEqual(t, e.Ts, tree.Ts())
+			require.Equal(t, buf[:], e.Key)
+
+			n++
+		}
+		require.Equal(t, expectedSnap.maxExpectedKey, n)
+	}
+
+	type testCase struct {
+		name          string
+		transformTLog func(int64, appendable.Appendable) appendable.Appendable
+		transformHLog func(int64, appendable.Appendable) appendable.Appendable
+	}
+
+	truncateLog := func(off int64, log appendable.Appendable) appendable.Appendable {
+		return &truncateAppendable{
+			Appendable:  log,
+			truncatedAt: off,
+		}
+	}
+
+	damageLog := func(off int64, log appendable.Appendable) appendable.Appendable {
+		size, _ := log.Size()
+
+		return &damagedAppendable{
+			Appendable: &truncateAppendable{
+				Appendable:  log,
+				truncatedAt: size,
+			},
+			startOff: off,
+		}
+	}
+
+	testCases := []testCase{
+		{
+			name:          "recover latest snapshot",
+			transformTLog: nil,
+			transformHLog: nil,
+		},
+		{
+			name:          "truncated tree log",
+			transformTLog: truncateLog,
+			transformHLog: nil,
+		},
+		{
+			name:          "truncated history log",
+			transformTLog: nil,
+			transformHLog: truncateLog,
+		},
+		{
+			name:          "truncated tree and history log",
+			transformTLog: truncateLog,
+			transformHLog: truncateLog,
+		},
+		{
+			name:          "damaged tree log",
+			transformTLog: damageLog,
+			transformHLog: nil,
+		},
+		{
+			name:          "damaged history log",
+			transformTLog: nil,
+			transformHLog: damageLog,
+		},
+		{
+			name:          "damaged tree log and history log",
+			transformTLog: damageLog,
+			transformHLog: damageLog,
+		},
+		{
+			name:          "truncated tree log and damaged history log",
+			transformTLog: truncateLog,
+			transformHLog: damageLog,
+		},
+		{
+			name:          "damaged tree log and truncated history log",
+			transformTLog: damageLog,
+			transformHLog: truncateLog,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tLogOff, hLogOff, snap := randomOffsets(
+				tc.transformTLog != nil,
+				tc.transformHLog != nil,
+			)
+
+			opts = opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+				switch subPath {
+				case "tree":
+					if tc.transformTLog != nil {
+						return tc.transformTLog(tLogOff, treeApp), nil
+					}
+
+					return &truncateAppendable{
+						Appendable:  treeApp,
+						truncatedAt: treeLogSize,
+					}, nil
+				case "history":
+					if tc.transformHLog != nil {
+						return tc.transformHLog(hLogOff, historyApp), nil
+					}
+
+					return &truncateAppendable{
+						Appendable:  historyApp,
+						truncatedAt: historyLogSize,
+					}, nil
+				}
+				return nil, fmt.Errorf("unknown path: %s", subPath)
+			})
+
+			tree, err := Open("", opts)
+			require.NoError(t, err)
+
+			checkRecoveredSnapshot(tree, snap)
 		})
-	*/
-	t.Run("recover latest snapshot", func(t *testing.T) {
-		tree, err := Open("", opts)
-		require.NoError(t, err)
+	}
+}
 
-		require.Equal(t, latestRootID, tree.rootPageID())
-		require.Equal(t, uint64(2*n), tree.Ts())
-		require.Equal(t, tree.StalePages(), expectedStalePages)
+func TestStalePageCalculation(t *testing.T) {
+	/*
+		TODO: extract to a separate Stale Pages test
 
-		err = tree.Close()
-		require.NoError(t, err)
-	})
+		var expectedStalePages uint32
+		for slot := 0; slot < wb.UsedPages(); slot++ {
+			pg, err := wb.Get(memPageID(slot))
+			require.NoError(t, err)
 
-	t.Run("recover previous snapshot", func(t *testing.T) {
-		treeApp := tree.treeApp
-
-		size, _ := treeApp.Size()
-		newSize := int(firstRootID) + rand.Intn(int(size)-int(firstRootID))
-		err := treeApp.SetOffset(int64(newSize))
-		require.NoError(t, err)
-
-		tree, err := Open("", opts)
-		require.NoError(t, err)
-		require.Equal(t, tree.rootPageID(), firstRootID)
-
-		size, _ = treeApp.Size()
-		require.Equal(t, int64(firstRootID), size-CommitEntrySize)
-		require.Zero(t, tree.StalePages())
-		require.Equal(t, uint64(n), tree.Ts())
-	})
-
-	t.Run("recover to previous snapshot due to checksum mismatch", func(t *testing.T) {
-		_, err := Open("", opts)
-		require.NoError(t, err)
-
-		//size, _ := treeApp.Size()
-		//newSize := int(firstRootID) + rand.Intn(int(size)-int(firstRootID))
-
-		//for off := size; off < int64(newSize)-1; {
-
-		//}
-	})
-
-	// TODO: test hlog recovery (hlog gets trimmed before the last entry pointed by treelog)
+			if pg.IsCopied() {
+				expectedStalePages++
+			}
+		}*/
 }
 
 func TestIteratorSeek(t *testing.T) {
@@ -1194,11 +1500,13 @@ func BenchmarkInsert(b *testing.B) {
 }
 */
 
-func requireEntriesAreSorted(t *testing.T, snap Snapshot, expectedKVs int) {
+func requireEntriesAreSorted(t *testing.T, snap Snapshot, expectedEntries int) {
 	var currKV Entry
 	n := 0
 
 	it, err := snap.NewIterator(DefaultIteratorOptions())
+	require.NoError(t, err)
+	err = it.Seek(nil)
 	require.NoError(t, err)
 
 	for {
@@ -1216,7 +1524,7 @@ func requireEntriesAreSorted(t *testing.T, snap Snapshot, expectedKVs int) {
 		// NOTE: kv is no more reusable after calling next
 		currKV = kv.Copy()
 	}
-	require.Equal(t, expectedKVs, n)
+	require.Equal(t, expectedEntries, n)
 }
 
 func newTBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
@@ -1342,4 +1650,63 @@ func RandomKeys(n int, minLen, maxLen int) ([][]byte, error) {
 		keys = append(keys, key)
 	}
 	return keys, nil
+}
+
+type damagedAppendable struct {
+	appendable.Appendable
+
+	startOff int64
+}
+
+func (app *damagedAppendable) ReadAt(bs []byte, off int64) (int, error) {
+	n := len(bs)
+	m := int64(n)
+	if off >= app.startOff {
+		m = 0
+	} else if off+int64(n) > app.startOff {
+		m = app.startOff - off
+	}
+
+	if m > 0 {
+		_, err := app.Appendable.ReadAt(bs[:m], off)
+		if err != nil {
+			return -1, err
+		}
+	}
+
+	if int64(n)-m > 0 {
+		rand.Read(bs[m:])
+	}
+	return n, nil
+}
+
+type truncateAppendable struct {
+	appendable.Appendable
+
+	truncatedAt int64
+}
+
+func (app *truncateAppendable) ReadAt(bs []byte, off int64) (int, error) {
+	size, err := app.Size()
+	if err != nil {
+		return -1, err
+	}
+
+	if off >= size {
+		return -1, fmt.Errorf("invalid offset")
+	}
+	return app.Appendable.ReadAt(bs, off)
+}
+
+func (app *truncateAppendable) SetOffset(off int64) error {
+	app.truncatedAt = off
+	return nil
+}
+
+func (app *truncateAppendable) Size() (int64, error) {
+	// avoid truncation of underlying log
+	if app.truncatedAt < 0 {
+		return app.Appendable.Size()
+	}
+	return app.truncatedAt, nil
 }
