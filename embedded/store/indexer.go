@@ -245,10 +245,6 @@ func (indexer *Indexer) insert(idx *index, e *tbtree.Entry) error {
 		return nil
 	}
 
-	if errors.Is(err, tbtree.ErrNoChunkAvailable) {
-		panic("chunk not available error")
-	}
-
 	if errors.Is(err, tbtree.ErrWriteBufferFull) {
 		err := indexer.tryFlushBuffer()
 		if err != nil {

@@ -1353,6 +1353,26 @@ func (tb *TBTree) Path() string {
 	return tb.path
 }
 
+func (t *TBTree) GetOptions() *Options {
+	return DefaultOptions().
+		WithReadOnly(t.readOnly).
+		WithFileMode(t.fileMode).
+		//WithFileSize(t.fileSize).
+		WithLogger(t.logger).
+		WithPageBuffer(t.pgBuf).
+		WithSyncThld(t.syncThld).
+		WithAppendableWriteBufferSize(t.appWriteBufferSize).
+		//WithCleanupPercentage(t.cleanupPercentage).
+		WithMaxActiveSnapshots(t.maxActiveSnapshots).
+		//	WithRenewSnapRootAfter(t.renewSnapRootAfter).
+		WithCompactionThld(t.compactionThld).
+		//	WithDelayDuringCompaction(t.delayDuringCompaction).
+		//	WithNodesLogMaxOpenedFiles(t.nodesLogMaxOpenedFiles).
+		//	WithHistoryLogMaxOpenedFiles(t.historyLogMaxOpenedFiles).
+		WithAppFactory(t.appFactory).
+		WithAppRemove(t.appRemove)
+}
+
 func (t *TBTree) Close() error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()

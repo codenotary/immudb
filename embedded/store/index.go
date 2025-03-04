@@ -220,9 +220,12 @@ func (idx *index) Compact(ctx context.Context) error {
 		return err
 	}
 
-	//err = idx.tree.Close()
-	//tbtree.Open(idx.path, tbtree.DefaultOptions())
+	err = idx.tree.Close()
+	if err != nil {
+		return err
+	}
 
+	idx.tree, err = tbtree.Open(idx.path, idx.tree.GetOptions())
 	return err
 }
 

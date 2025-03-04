@@ -179,12 +179,12 @@ func (opts *Options) WithPageBuffer(pgBuf *PageBuffer) *Options {
 	return opts
 }
 
-func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
+func (opts *Options) WithAppRemove(appRemove AppRemoveFunc) *Options {
 	opts.appRemove = appRemove
 	return opts
 }
 
-func (opts *Options) WithAppFactoryFunc(appFactory AppFactoryFunc) *Options {
+func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 	opts.appFactory = appFactory
 	return opts
 }

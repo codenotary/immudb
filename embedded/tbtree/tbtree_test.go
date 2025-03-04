@@ -327,7 +327,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
-		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		WithAppFactory(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			switch subPath {
 			case "tree":
 				return treeApp, nil
@@ -627,7 +627,7 @@ func TestSnapshotRecovery(t *testing.T) {
 				tc.transformHLog != nil,
 			)
 
-			opts = opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			opts = opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 				switch subPath {
 				case "tree":
 					if tc.transformTLog != nil {
@@ -819,7 +819,7 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
 		WithMaxActiveSnapshots(n).
-		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		WithAppFactory(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
 		}).
 		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
@@ -902,7 +902,7 @@ func TestIteratorNextBetween(t *testing.T) {
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
-		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		WithAppFactory(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
 		}).
 		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
@@ -997,7 +997,7 @@ func TestIterator(t *testing.T) {
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
-		WithAppFactoryFunc(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		WithAppFactory(func(rootPath, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
 		}).
 		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
@@ -1327,7 +1327,7 @@ func TestCompaction(t *testing.T) {
 		WithCompactionThld(0.75).
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
-		WithAppFactoryFunc(func(_, subpath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		WithAppFactory(func(_, subpath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			memApp := memapp.New()
 			if subpath == snapFolder("tree", 2) {
 				compactedTreeApp = memApp
@@ -1430,7 +1430,7 @@ func TestCompaction(t *testing.T) {
 	err = tree.Close()
 	require.NoError(t, err)
 
-	opts = opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+	opts = opts.WithAppFactory(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 		switch subPath {
 		case "history":
 			return hLog, nil
@@ -1508,7 +1508,7 @@ func TestFlushEdgeCases(t *testing.T) {
 	t.Run("flush empty tree with non zero timestamp", func(t *testing.T) {
 		var treeLog appendable.Appendable
 
-		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		tree, err := Open("", opts.WithAppFactory(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 			log := memapp.New()
 			if subPath == TreeLogFileName {
 				treeLog = log
@@ -1530,7 +1530,7 @@ func TestFlushEdgeCases(t *testing.T) {
 		err = tree.Close()
 		require.NoError(t, err)
 
-		tree, err = Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		tree, err = Open("", opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			if subPath == TreeLogFileName {
 				return treeLog, nil
 			}
@@ -1544,7 +1544,7 @@ func TestFlushEdgeCases(t *testing.T) {
 	t.Run("flush non-empty tree with advanced timestamp", func(t *testing.T) {
 		var treeLog appendable.Appendable
 
-		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		tree, err := Open("", opts.WithAppFactory(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 			log := memapp.New()
 			if subPath == TreeLogFileName {
 				treeLog = log
@@ -1579,7 +1579,7 @@ func TestFlushEdgeCases(t *testing.T) {
 
 		require.NoError(t, tree.Close())
 
-		tree, err = Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		tree, err = Open("", opts.WithAppFactory(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 			if subPath == TreeLogFileName {
 				return treeLog, nil
 			}
@@ -1636,7 +1636,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 	treeLogAtTs := func(ts uint64) appendable.Appendable {
 		optsCopy := *opts
 
-		optsCopy.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		optsCopy.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
 		}).WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
 			return nil, nil
@@ -1666,7 +1666,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 		})
 
 	t.Run("recover last available snapshot", func(t *testing.T) {
-		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		tree, err := Open("", opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			ts, err := parseSnapFolder(subPath)
 			if err == nil {
 				return treeLogAtTs(ts), nil
@@ -1680,7 +1680,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 	})
 
 	t.Run("recover a previous snapshot", func(t *testing.T) {
-		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		tree, err := Open("", opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			ts, err := parseSnapFolder(subPath)
 			if err == nil && ts > 2 {
 				return nil, fmt.Errorf("damaged snapshot")
@@ -1698,7 +1698,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 	})
 
 	t.Run("recover from tree log", func(t *testing.T) {
-		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		tree, err := Open("", opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			ts, err := parseSnapFolder(subPath)
 			if err == nil && ts > 0 {
 				return nil, fmt.Errorf("damaged snapshot")
@@ -1716,7 +1716,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 	})
 
 	t.Run("recover empty tree", func(t *testing.T) {
-		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+		tree, err := Open("", opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
 			ts, err := parseSnapFolder(subPath)
 			if err == nil && ts > 0 {
 				return nil, fmt.Errorf("damaged snapshot")
@@ -1813,7 +1813,7 @@ func newTBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
-		WithAppFactoryFunc(func(_, _ string, _ *multiapp.Options) (appendable.Appendable, error) {
+		WithAppFactory(func(_, _ string, _ *multiapp.Options) (appendable.Appendable, error) {
 			return memapp.New(), nil
 		}).
 		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {

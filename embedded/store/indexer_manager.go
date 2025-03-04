@@ -363,11 +363,11 @@ func (indexer *Indexer) newIndex(
 		WithLogger(indexer.logger)
 
 	if opts.appFactory != nil {
-		treeOpts = treeOpts.WithAppFactoryFunc(tbtree.AppFactoryFunc(opts.appFactory))
+		treeOpts = treeOpts.WithAppFactory(tbtree.AppFactoryFunc(opts.appFactory))
 	}
 
 	if opts.appRemove != nil {
-		treeOpts = treeOpts.WithAppRemoveFunc(tbtree.AppRemoveFunc(opts.appRemove))
+		treeOpts = treeOpts.WithAppRemove(tbtree.AppRemoveFunc(opts.appRemove))
 	}
 
 	if opts.readDir != nil {
