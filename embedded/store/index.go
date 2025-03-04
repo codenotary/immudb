@@ -208,13 +208,22 @@ func (idx *index) Flush() error {
 }
 
 func (idx *index) Compact(ctx context.Context) error {
-	idx.mtx.RLock()
-	defer idx.mtx.RUnlock()
+	idx.mtx.Lock()
+	defer idx.mtx.Unlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
 	}
-	return idx.tree.Compact(ctx)
+
+	err := idx.tree.Compact(ctx)
+	if err != nil {
+		return err
+	}
+
+	//err = idx.tree.Close()
+	//tbtree.Open(idx.path, tbtree.DefaultOptions())
+
+	return err
 }
 
 func (idx *index) IndexingLag() uint64 {

@@ -19,6 +19,8 @@ package tbtree
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
@@ -70,11 +72,13 @@ func (t *TBTree) Compact(ctx context.Context) error {
 	}
 	defer newTreeApp.Close()
 
+	checksumApp := appendable.WithChecksum(newTreeApp)
+
 	res, err := t.flushTreeLog(
 		snapRootID,
 		flushOptions{
 			fullDump: true,
-			dstApp:   newTreeApp,
+			dstApp:   checksumApp,
 		},
 	)
 	if err != nil {
@@ -86,12 +90,27 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		return err
 	}
 
+	ce := CommitEntry{
+		Ts:                snapTs,
+		TLogOff:           uint64(0),
+		HLogOff:           uint64(hLogSize),
+		HLogFlushedBytes:  0,
+		TotalPages:        uint64(res.totalPages),
+		StalePages:        0,
+		IndexedEntryCount: indexedEntries,
+	}
+
+	if err := commit(&ce, checksumApp); err != nil {
+		return err
+	}
+
 	tLogOff, err := newTreeApp.Size()
 	if err != nil {
 		return err
 	}
 
-	ce := CommitEntry{
+	// NOTE: we push an additional entry to avoid full rehashing of the treeApp during startup.
+	newEntry := CommitEntry{
 		Ts:                snapTs,
 		TLogOff:           uint64(tLogOff),
 		HLogOff:           uint64(hLogSize),
@@ -101,7 +120,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		IndexedEntryCount: indexedEntries,
 	}
 
-	if err := commit(&ce, appendable.WithChecksum(newTreeApp)); err != nil {
+	if err := commit(&newEntry, appendable.WithChecksum(t.treeApp)); err != nil {
 		return err
 	}
 
@@ -118,4 +137,17 @@ func snapFolder(folder string, snapID uint64) string {
 		return folder
 	}
 	return fmt.Sprintf("%s_%016d", folder, snapID)
+}
+
+func parseSnapFolder(name string) (uint64, error) {
+	parts := strings.Split(name, "_")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid snapshot folder name")
+	}
+
+	snapTs, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil || parts[0] != TreeLogFileName {
+		return 0, fmt.Errorf("invalid snapshot folder name")
+	}
+	return snapTs, nil
 }

@@ -19,6 +19,7 @@ package tbtree
 import (
 	"bytes"
 	"context"
+	"math"
 	"os"
 	"sort"
 	"sync/atomic"
@@ -1090,7 +1091,7 @@ func TestIterator(t *testing.T) {
 	})
 }
 
-func TestSnapshotIsolation(t *testing.T) {
+func TestSnapshotVisibility(t *testing.T) {
 	tree, err := newTBTree(
 		10*1024*1024,
 		(1+rand.Intn(100))*PageSize,
@@ -1477,8 +1478,256 @@ func TestCompaction(t *testing.T) {
 	require.Equal(t, n, m)
 }
 
-func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
+func TestFlushEdgeCases(t *testing.T) {
+	wb, err := newWriteBuffer(1024 * 1024)
+	require.NoError(t, err)
 
+	pgBuf := NewPageBuffer(100 * PageSize)
+
+	opts := DefaultOptions().
+		WithCompactionThld(0.75).
+		WithWriteBuffer(wb).
+		WithPageBuffer(pgBuf).
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
+		})
+
+	t.Run("flush empty tree", func(t *testing.T) {
+		tree, err := Open("", opts)
+		require.NoError(t, err)
+		defer tree.Close()
+
+		err = tree.FlushReset()
+		require.NoError(t, err)
+
+		size, err := tree.treeApp.Size()
+		require.NoError(t, err)
+		require.Zero(t, size)
+	})
+
+	t.Run("flush empty tree with non zero timestamp", func(t *testing.T) {
+		var treeLog appendable.Appendable
+
+		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			log := memapp.New()
+			if subPath == TreeLogFileName {
+				treeLog = log
+			}
+			return log, nil
+		}))
+		require.NoError(t, err)
+		defer tree.Close()
+
+		numAdvancements := 10
+		for n := 0; n < numAdvancements; n++ {
+			err = tree.Advance(tree.Ts()+1, 0)
+			require.NoError(t, err)
+
+			err = tree.FlushReset()
+			require.NoError(t, err)
+		}
+
+		err = tree.Close()
+		require.NoError(t, err)
+
+		tree, err = Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			if subPath == TreeLogFileName {
+				return treeLog, nil
+			}
+			return memapp.New(), nil
+		}))
+		require.NoError(t, err)
+		require.Equal(t, uint64(numAdvancements), tree.Ts())
+		require.Zero(t, tree.IndexedEntryCount())
+	})
+
+	t.Run("flush non-empty tree with advanced timestamp", func(t *testing.T) {
+		var treeLog appendable.Appendable
+
+		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			log := memapp.New()
+			if subPath == TreeLogFileName {
+				treeLog = log
+			}
+			return log, nil
+		}))
+		require.NoError(t, err)
+
+		r := Range{Min: 10, Max: 100}
+		gen := randomGenerator(r, r)
+
+		gen.WithSeed(time.Now().UnixNano())
+
+		n := 100
+		gen.Times(n, func(i int, e Entry) {
+			err := tree.Insert(e)
+			require.NoError(t, err)
+		})
+
+		err = tree.FlushReset()
+		require.NoError(t, err)
+
+		numTsAdvancements := 10
+		for n := 0; n < numTsAdvancements; n++ {
+			ts := tree.Ts()
+			err = tree.Advance(ts+1, 50)
+			require.NoError(t, err)
+
+			err = tree.FlushReset()
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, tree.Close())
+
+		tree, err = Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			if subPath == TreeLogFileName {
+				return treeLog, nil
+			}
+			return memapp.New(), nil
+		}))
+		require.NoError(t, err)
+		require.Equal(t, uint64(n+numTsAdvancements), tree.Ts())
+	})
+}
+
+func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
+	wb, err := newWriteBuffer(1024 * 1024)
+	require.NoError(t, err)
+
+	pgBuf := NewPageBuffer(100 * PageSize)
+
+	dirEntries := []os.DirEntry{
+		&dirEntry{
+			name:  "tree",
+			isDir: true,
+		},
+		&dirEntry{
+			name:  "history",
+			isDir: true,
+		},
+		&dirEntry{
+			name:  snapFolder("tree", 2),
+			isDir: true,
+		},
+		&dirEntry{
+			name:  snapFolder("tree", 4),
+			isDir: true,
+		},
+		&dirEntry{
+			name:  snapFolder("tree", 8),
+			isDir: true,
+		},
+		// additional entries that should be ignored
+		&dirEntry{
+			name:  "dir",
+			isDir: true,
+		},
+		&dirEntry{
+			name:  "file",
+			isDir: false,
+		},
+	}
+
+	opts := DefaultOptions().
+		WithCompactionThld(0.75).
+		WithWriteBuffer(wb).
+		WithPageBuffer(pgBuf)
+
+	treeLogAtTs := func(ts uint64) appendable.Appendable {
+		optsCopy := *opts
+
+		optsCopy.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			return memapp.New(), nil
+		}).WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return nil, nil
+		})
+
+		tree, err := Open("", &optsCopy)
+		require.NoError(t, err)
+		defer tree.Close()
+
+		err = tree.Advance(ts, math.MaxUint32)
+		require.NoError(t, err)
+
+		err = tree.FlushReset()
+		require.NoError(t, err)
+
+		return tree.treeApp
+	}
+
+	// ReadDir func is supposed to return entries in lexicographic order.
+	sort.Slice(dirEntries, func(i, j int) bool {
+		return dirEntries[i].Name() < dirEntries[j].Name()
+	})
+
+	opts = opts.
+		WithReadDirFunc(func(path string) ([]os.DirEntry, error) {
+			return dirEntries, nil
+		})
+
+	t.Run("recover last available snapshot", func(t *testing.T) {
+		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			ts, err := parseSnapFolder(subPath)
+			if err == nil {
+				return treeLogAtTs(ts), nil
+			}
+			return memapp.New(), nil
+		}))
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(8), tree.Ts())
+		require.NoError(t, tree.Close())
+	})
+
+	t.Run("recover a previous snapshot", func(t *testing.T) {
+		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			ts, err := parseSnapFolder(subPath)
+			if err == nil && ts > 2 {
+				return nil, fmt.Errorf("damaged snapshot")
+			}
+
+			if err == nil {
+				return treeLogAtTs(ts), nil
+			}
+			return memapp.New(), nil
+		}))
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(2), tree.Ts())
+		require.NoError(t, tree.Close())
+	})
+
+	t.Run("recover from tree log", func(t *testing.T) {
+		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			ts, err := parseSnapFolder(subPath)
+			if err == nil && ts > 0 {
+				return nil, fmt.Errorf("damaged snapshot")
+			}
+
+			if subPath == "tree" {
+				return treeLogAtTs(100), nil
+			}
+			return memapp.New(), nil
+		}))
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(100), tree.Ts())
+		require.NoError(t, tree.Close())
+	})
+
+	t.Run("recover empty tree", func(t *testing.T) {
+		tree, err := Open("", opts.WithAppFactoryFunc(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			ts, err := parseSnapFolder(subPath)
+			if err == nil && ts > 0 {
+				return nil, fmt.Errorf("damaged snapshot")
+			}
+			return memapp.New(), nil
+		}))
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(0), tree.Ts())
+		require.NoError(t, tree.Close())
+	})
 }
 
 /*
@@ -1594,34 +1843,6 @@ func requireNoPageIsPinned(t *testing.T, buf *PageBuffer) {
 	}
 }
 
-func randomInserts(tree *TBTree, n int) (int, error) {
-	totalBytesWritten := 0
-
-	key := make([]byte, 1000)
-	value := make([]byte, 100)
-
-	ts := tree.Ts()
-	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < n; i++ {
-		rand.Read(key)
-		rand.Read(value)
-
-		ks := 10 + rand.Intn(len(key)-10+1)
-		vs := 1 + rand.Intn(len(value))
-
-		err := tree.Insert(Entry{
-			Ts:    uint64(ts+1) + uint64(i),
-			Key:   key[:ks],
-			Value: value[:vs],
-		})
-		if err != nil {
-			return -1, err
-		}
-		totalBytesWritten += 8 + ks + vs
-	}
-	return totalBytesWritten, nil
-}
-
 type Range struct {
 	Min int
 	Max int
@@ -1735,4 +1956,25 @@ func (app *truncateAppendable) Size() (int64, error) {
 		return app.Appendable.Size()
 	}
 	return app.truncatedAt, nil
+}
+
+type dirEntry struct {
+	name  string
+	isDir bool
+}
+
+func (e *dirEntry) Name() string {
+	return e.name
+}
+
+func (e *dirEntry) IsDir() bool {
+	return e.isDir
+}
+
+func (e *dirEntry) Type() os.FileMode {
+	return 0
+}
+
+func (e *dirEntry) Info() (os.FileInfo, error) {
+	return nil, fmt.Errorf("unexpected call to Info()")
 }

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -42,6 +41,7 @@ var (
 	ErrStaleRootTimestamp   = errors.New("stale root timestamp")
 	ErrInvalidTimestamp     = errors.New("invalid timestamp")
 	ErrNoValidPageFound     = errors.New("no valid page found")
+	ErrNoCommitEntryFound   = errors.New("no commit entry found")
 	ErrTreeLocked           = errors.New("tree is locked")
 	ErrInvalidCommitEntry   = errors.New("invalid commit entry")
 )
@@ -140,6 +140,10 @@ func Open(
 		if err != nil {
 			_ = opts.appRemove(path, snapPath)
 		}
+
+		if err == nil && t.Ts() != snapTs {
+			return fmt.Errorf("invalid snapshot: timestamp mismatch (%d != %d)", t.Ts(), snapTs)
+		}
 		return err
 	})
 	if err != nil {
@@ -153,7 +157,7 @@ func Open(
 	if recoveryAttempts > 0 {
 		opts.logger.Warningf(
 			"%s: no snapshot could be recovered, attempts=%d",
-			t.Path(),
+			path,
 			recoveryAttempts,
 		)
 	}
@@ -210,11 +214,6 @@ func OpenWith(
 	}
 
 	err := t.recoverRootPage()
-	if errors.Is(err, ErrNoValidPageFound) {
-		t.rootID.Store(uint64(PageNone))
-		t.lastSnapshotID.Store(uint64(PageNone))
-		return t, nil
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -230,18 +229,15 @@ func recoverLatestValidTreeSnapshot(dir string, readDir ReadDirFunc, recoverSnap
 	}
 
 	recoveryAttempts := 0
-	for _, e := range entries {
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
+
 		if !e.IsDir() || !strings.HasPrefix(e.Name(), TreeLogFileName) {
 			continue
 		}
 
-		parts := strings.Split(e.Name(), "_")
-		if len(parts) != 2 {
-			continue
-		}
-
-		snapTs, err := strconv.ParseUint(parts[1], 10, 64)
-		if err != nil || parts[0] != TreeLogFileName {
+		snapTs, err := parseSnapFolder(e.Name())
+		if err != nil {
 			continue
 		}
 
@@ -254,8 +250,8 @@ func recoverLatestValidTreeSnapshot(dir string, readDir ReadDirFunc, recoverSnap
 }
 
 func (t *TBTree) recoverRootPage() error {
-	commitEntry, rootPageOff, err := t.findLastValidPage()
-	if errors.Is(err, ErrNoValidPageFound) {
+	commitEntry, entryOff, err := t.findLastCommitEntry()
+	if errors.Is(err, ErrNoCommitEntryFound) {
 		if err := t.treeApp.SetOffset(0); err != nil {
 			return err
 		}
@@ -263,23 +259,35 @@ func (t *TBTree) recoverRootPage() error {
 		if err := t.historyApp.SetOffset(0); err != nil {
 			return err
 		}
-		return ErrNoValidPageFound
+
+		t.rootID.Store(uint64(PageNone))
+		t.lastSnapshotID.Store(uint64(PageNone))
+		return nil
 	}
 	if err != nil {
 		return err
 	}
 
-	var pgBuf [PageSize]byte
-	if err := t.readPage(pgBuf[:], PageID(rootPageOff)); err != nil {
+	rootPageOff, err := t.findRootPage(&commitEntry, entryOff)
+	if err != nil && !errors.Is(err, ErrNoValidPageFound) {
 		return err
 	}
 
-	pg := PageFromBytes(pgBuf[:])
-	if !pg.IsRoot() {
-		return fmt.Errorf("%w: expected a valid root page", ErrCorruptedTreeLog)
+	rootPageID := PageNone
+	if !errors.Is(err, ErrNoValidPageFound) {
+		var pgBuf [PageSize]byte
+		if err := t.readPage(pgBuf[:], PageID(rootPageOff)); err != nil {
+			return err
+		}
+
+		pg := PageFromBytes(pgBuf[:])
+		if !pg.IsRoot() {
+			return fmt.Errorf("%w: expected a valid root page", ErrCorruptedTreeLog)
+		}
+		rootPageID = PageID(rootPageOff)
 	}
 
-	if err := t.treeApp.SetOffset(rootPageOff + CommitEntrySize); err != nil {
+	if err := t.treeApp.SetOffset(entryOff + CommitEntrySize); err != nil {
 		return err
 	}
 
@@ -287,8 +295,6 @@ func (t *TBTree) recoverRootPage() error {
 	if err := t.historyApp.SetOffset(hLogOff); err != nil {
 		return err
 	}
-
-	rootPageID := PageID(rootPageOff)
 
 	t.rootTs.Store(commitEntry.Ts)
 	t.rootID.Store(uint64(rootPageID))
@@ -301,7 +307,35 @@ func (t *TBTree) recoverRootPage() error {
 	return nil
 }
 
-func (t *TBTree) findLastValidPage() (CommitEntry, int64, error) {
+func (t *TBTree) findRootPage(ce *CommitEntry, entryOff int64) (int64, error) {
+	if ce.TLogOff < uint64(entryOff) {
+		return entryOff, nil
+	}
+
+	var commitEntry [CommitEntrySize]byte
+	for off := int64(ce.TLogOff) - CommitEntrySize; off >= 0; off -= CommitEntrySize {
+		_, err := t.treeApp.ReadAt(commitEntry[:], off)
+		if err != nil {
+			return -1, err
+		}
+
+		e, err := readCommitEntry(commitEntry[:])
+		if err != nil {
+			return -1, err
+		}
+
+		if err := t.validateCommitEntry(&e, off); err != nil {
+			return -1, err
+		}
+
+		if int64(e.TLogOff) != off {
+			return off, nil
+		}
+	}
+	return -1, ErrNoValidPageFound
+}
+
+func (t *TBTree) findLastCommitEntry() (CommitEntry, int64, error) {
 	size, err := t.treeApp.Size()
 	if err != nil {
 		return CommitEntry{}, 0, err
@@ -331,7 +365,7 @@ func (t *TBTree) findLastValidPage() (CommitEntry, int64, error) {
 			off -= CommitEntrySize
 		}
 	}
-	return CommitEntry{}, 0, ErrNoValidPageFound
+	return CommitEntry{}, 0, ErrNoCommitEntryFound
 }
 
 func (t *TBTree) validateCommitEntry(e *CommitEntry, entryOff int64) error {
@@ -526,8 +560,9 @@ func (t *TBTree) Advance(ts uint64, entryCount uint32) error {
 		return ErrTreeLocked
 	}
 
-	// No need to set mutated = true here because advancing the timestamp
-	// does not add any new entries to the tree, so flushing is unnecessary.
+	// NOTE: Even if there is no data to flush,
+	// the highest timestamp seen must still be recorded in the commit entry.
+	t.mutated = true
 
 	t.rootTs.Store(ts)
 	t.indexedEntryCount.Store(entryCount)
@@ -1116,9 +1151,15 @@ type flushOptions struct {
 }
 
 func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, error) {
+	if pageID == PageNone {
+		return flushTreeRes{
+			rootID: PageNone,
+		}, nil
+	}
+
 	isMemPage := pageID.isMemPage()
 	if !isMemPage && !opts.fullDump {
-		return flushTreeRes{}, fmt.Errorf("attempted to flush a non in memory page")
+		return flushTreeRes{}, nil
 	}
 
 	pg, err := t.getWritePage(pageID)
