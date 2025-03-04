@@ -218,6 +218,8 @@ func OpenWith(
 	if err != nil {
 		return nil, err
 	}
+
+	t.pgBuf.InvalidatePages(t.ID())
 	return t, nil
 }
 
@@ -1057,15 +1059,16 @@ type WriteRes struct {
 }
 
 func (t *TBTree) flushHistory() (WriteRes, error) {
-	currPage := t.headHistoryPageID
-	if currPage == PageNone {
-		// TODO: save last entry checksum and return it
-		return WriteRes{}, nil
-	}
-
 	off, err := t.historyApp.Size()
 	if err != nil {
 		return WriteRes{}, err
+	}
+
+	currPage := t.headHistoryPageID
+	if currPage == PageNone {
+		return WriteRes{
+			off: off,
+		}, nil
 	}
 
 	historyApp := appendable.WithChecksum(t.historyApp)

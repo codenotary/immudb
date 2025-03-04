@@ -1314,7 +1314,7 @@ func TestGetBetween(t *testing.T) {
 	require.Equal(t, ts, uint64(nEntries))
 }
 
-func TestCompact(t *testing.T) {
+func TestCompaction(t *testing.T) {
 	wb, err := newWriteBuffer(1024 * 1024)
 	require.NoError(t, err)
 
@@ -1323,6 +1323,7 @@ func TestCompact(t *testing.T) {
 	var compactedTreeApp appendable.Appendable
 
 	opts := DefaultOptions().
+		WithCompactionThld(0.75).
 		WithWriteBuffer(wb).
 		WithPageBuffer(pgBuf).
 		WithAppFactoryFunc(func(_, subpath string, _ *multiapp.Options) (appendable.Appendable, error) {
@@ -1367,6 +1368,24 @@ func TestCompact(t *testing.T) {
 	insertKeys(n, 2, "new-value")
 	require.Greater(t, tree.StalePagePercentage(), float32(0))
 
+	snap, err := tree.ReadSnapshot()
+	require.NoError(t, err)
+
+	requireEntriesAreSorted(t, snap, n)
+
+	countCachedPages := func() int {
+		cachedPages := 0
+		for tp := range pgBuf.descTable {
+			if tp.TreeID() == tree.ID() {
+				cachedPages++
+			}
+		}
+		return cachedPages
+	}
+	require.Greater(t, countCachedPages(), 0)
+
+	require.NoError(t, snap.Close())
+
 	sizeBeforeCompaction, err := tree.treeApp.Size()
 	require.NoError(t, err)
 
@@ -1399,7 +1418,6 @@ func TestCompact(t *testing.T) {
 	wg.Wait()
 
 	require.Equal(t, 1, int(doneCompactions.Load()))
-
 	require.NotNil(t, compactedTreeApp)
 
 	sizeAfterCompaction, err := compactedTreeApp.Size()
@@ -1411,7 +1429,7 @@ func TestCompact(t *testing.T) {
 	err = tree.Close()
 	require.NoError(t, err)
 
-	tree, err = Open("", opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+	opts = opts.WithAppFactoryFunc(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 		switch subPath {
 		case "history":
 			return hLog, nil
@@ -1419,7 +1437,9 @@ func TestCompact(t *testing.T) {
 			return compactedTreeApp, nil
 		}
 		return memapp.New(), nil
-	}))
+	})
+
+	tree, err = Open("", opts)
 	require.NoError(t, err)
 
 	treeSize, err := tree.treeApp.Size()
@@ -1428,9 +1448,11 @@ func TestCompact(t *testing.T) {
 	require.Equal(t, sizeAfterCompaction, treeSize)
 	require.Equal(t, uint32(0), tree.StalePages())
 	require.Equal(t, float32(0), tree.StalePagePercentage())
+	require.Zero(t, countCachedPages(), 0) // cached pages are invalidated
 
-	snap, err := tree.ReadSnapshot()
+	snap, err = tree.ReadSnapshot()
 	require.NoError(t, err)
+	defer snap.Close()
 
 	it, err := snap.NewIterator(DefaultIteratorOptions())
 	require.NoError(t, err)
@@ -1453,6 +1475,10 @@ func TestCompact(t *testing.T) {
 		m++
 	}
 	require.Equal(t, n, m)
+}
+
+func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
+
 }
 
 /*

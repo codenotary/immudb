@@ -37,7 +37,7 @@ type PageLoader func(dst []byte, id PageID) error
 
 type PageDescriptor struct {
 	allocated atomic.Bool
-	ip        TreePage
+	tp        TreePage
 	lock      latch.LWLock
 }
 
@@ -55,7 +55,7 @@ func NewPageBuffer(size int) *PageBuffer {
 
 	desc := make([]PageDescriptor, nPages)
 	for i := range desc {
-		desc[i].ip = math.MaxUint64
+		desc[i].tp = math.MaxUint64
 	}
 
 	return &PageBuffer{
@@ -114,9 +114,9 @@ func (buf *PageBuffer) loadPage(ip TreePage, loader PageLoader) (*Page, uint32, 
 	}
 
 	desc := &buf.descriptors[newDescID]
-	delete(buf.descTable, desc.ip)
+	delete(buf.descTable, desc.tp)
 
-	desc.ip = ip
+	desc.tp = ip
 
 	buf.descTable[ip] = uint32(newDescID)
 
@@ -143,7 +143,7 @@ func (buf *PageBuffer) pinDescriptor(
 		desc.lock.RLock()
 	}
 
-	if desc.ip != ip {
+	if desc.tp != ip {
 		desc.lock.RUnlock()
 		return nil, 0, ErrDescriptorChanged
 	}
@@ -191,15 +191,15 @@ func (buf *PageBuffer) pageDesc(ip TreePage) int {
 	return int(desc)
 }
 
-func (buf *PageBuffer) InvalidateTreePages(id TreeID) {
+func (buf *PageBuffer) InvalidatePages(id TreeID) {
 	buf.mtx.Lock()
+	defer buf.mtx.Unlock()
 
 	for pgID := range buf.descTable {
 		if pgID.TreeID() == id {
 			delete(buf.descTable, pgID)
 		}
 	}
-	buf.mtx.Unlock()
 }
 
 type TreePage uint64

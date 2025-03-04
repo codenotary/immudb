@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -185,7 +186,6 @@ func TestCompactLeafPage(t *testing.T) {
 
 func TestLeafPageSplit(t *testing.T) {
 	pgBeforeSplit := NewLeafPage()
-
 	discardedEntry := insertKVsWhileFull(t, pgBeforeSplit)
 
 	entriesBeforeSplit := pgBeforeSplit.NumEntries
@@ -274,28 +274,10 @@ func TestInnerPageSplit(t *testing.T) {
 }
 
 func insertKVsWhileFull(t *testing.T, pg *Page) *Entry {
-	key := make([]byte, 50)
-	value := make([]byte, 50)
-	for {
-		rand.Read(key)
-		rand.Read(value)
-
-		ks := 1 + rand.Intn(len(key))
-		vs := 1 + rand.Intn(len(value))
-
-		e := &Entry{
-			Ts:    uint64(time.Now().UnixNano()),
-			HOff:  OffsetNone,
-			Key:   key[:ks],
-			Value: value[:vs],
-		}
-
-		_, _, err := pg.InsertEntry(e)
-		if errors.Is(err, ErrPageFull) {
-			return e
-		}
-		require.NoError(t, err)
-	}
+	e, err := insertKVsUpToSpace(pg, math.MaxInt)
+	require.NoError(t, err)
+	require.NotNil(t, e)
+	return e
 }
 
 func insertKeysWhileFull(t *testing.T, pg *Page) ([]byte, PageID) {
@@ -314,27 +296,60 @@ func insertKeysWhileFull(t *testing.T, pg *Page) ([]byte, PageID) {
 	}
 }
 
-func TestPageHeaderSerializeDeserialize(t *testing.T) {
-	p := PageHeaderData{
-		Flags:          uint16(rand.Int()),
-		NumEntries:     uint16(rand.Int()),
-		FreeSpaceStart: uint16(rand.Int()),
-		FreeSpaceEnd:   uint16(rand.Int()),
-		UnusedSpace:    uint16(rand.Int()),
+func insertKVsUpToSpace(pg *Page, maxSpace int) (*Entry, error) {
+	key := make([]byte, 50)
+	value := make([]byte, 50)
+
+	for pg.UsedSpace() < maxSpace {
+		rand.Read(key)
+		rand.Read(value)
+
+		ks := 1 + rand.Intn(len(key))
+		vs := 1 + rand.Intn(len(value))
+
+		e := &Entry{
+			Ts:    uint64(time.Now().UnixNano()),
+			HOff:  OffsetNone,
+			Key:   key[:ks],
+			Value: value[:vs],
+		}
+
+		if pg.UsedSpace()+requiredPageItemSize(ks, vs) > maxSpace {
+			return e, nil
+		}
+
+		_, _, err := pg.InsertEntry(e)
+		if errors.Is(err, ErrPageFull) {
+			return e, nil
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	var buf [PageHeaderDataSize]byte
-
-	n := p.Put(buf[:])
-	require.Equal(t, n, PageHeaderDataSize-PageFooterSize)
-
-	var p1 PageHeaderData
-	p1.Read(buf[:])
-	require.Equal(t, p, p1)
+	return nil, nil
 }
 
-func TestPageSerialization(t *testing.T) {
-	t.Run("leaf page serialization", func(t *testing.T) {
+func TestSerializePage(t *testing.T) {
+	t.Run("serialize header", func(t *testing.T) {
+		p := PageHeaderData{
+			Flags:          uint16(rand.Int()),
+			NumEntries:     uint16(rand.Int()),
+			FreeSpaceStart: uint16(rand.Int()),
+			FreeSpaceEnd:   uint16(rand.Int()),
+			UnusedSpace:    uint16(rand.Int()),
+		}
+
+		var buf [PageHeaderDataSize]byte
+
+		n := p.Put(buf[:])
+		require.Equal(t, n, PageHeaderDataSize-PageFooterSize)
+
+		var p1 PageHeaderData
+		p1.Read(buf[:])
+		require.Equal(t, p, p1)
+	})
+
+	t.Run("serialize leaf page", func(t *testing.T) {
 		var pg Page
 		pg.init(true)
 
@@ -367,7 +382,7 @@ func TestPageSerialization(t *testing.T) {
 		require.True(t, pg.IsLeaf())
 	})
 
-	t.Run("inner page serialization", func(t *testing.T) {
+	t.Run("serialize inner page", func(t *testing.T) {
 		var pg Page
 		pg.init(false)
 

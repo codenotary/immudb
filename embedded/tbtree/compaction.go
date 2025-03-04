@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 )
 
@@ -47,13 +48,13 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		WithWriteBufferSize(t.appWriteBufferSize).
 		WithFileExt("t")
 
-	snapRootID, snapTs, err := func() (PageID, uint64, error) {
+	snapRootID, snapTs, indexedEntries, err := func() (PageID, uint64, uint32, error) {
 		t.mtx.Lock()
 		defer t.mtx.Unlock()
 
 		err := t.flushToTreeLog()
 		// NOTE: Holding the lock on mtx while reading snapRootID and Ts ensures atomicity.
-		return t.lastSnapshotRootID(), t.lastSnapshotTs.Load(), err
+		return t.lastSnapshotRootID(), t.lastSnapshotTs.Load(), t.IndexedEntryCount(), err
 	}()
 	if err != nil {
 		return err
@@ -85,20 +86,30 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		return err
 	}
 
-	ce := CommitEntry{
-		Ts:                snapTs,
-		HLogOff:           uint64(hLogSize),
-		TotalPages:        uint64(res.totalPages),
-		StalePages:        0,
-		IndexedEntryCount: t.IndexedEntryCount(),
-	}
-
-	if err := commit(&ce, nil); err != nil {
+	tLogOff, err := newTreeApp.Size()
+	if err != nil {
 		return err
 	}
-	compactionDone = true
 
-	t.pgBuf.InvalidateTreePages(t.ID())
+	ce := CommitEntry{
+		Ts:                snapTs,
+		TLogOff:           uint64(tLogOff),
+		HLogOff:           uint64(hLogSize),
+		HLogFlushedBytes:  0,
+		TotalPages:        uint64(res.totalPages),
+		StalePages:        0,
+		IndexedEntryCount: indexedEntries,
+	}
+
+	if err := commit(&ce, appendable.WithChecksum(newTreeApp)); err != nil {
+		return err
+	}
+
+	if err := newTreeApp.Sync(); err != nil {
+		return err
+	}
+
+	compactionDone = true
 	return nil
 }
 
