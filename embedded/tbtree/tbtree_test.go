@@ -1493,7 +1493,9 @@ func TestFlushEdgeCases(t *testing.T) {
 		})
 
 	t.Run("flush empty tree", func(t *testing.T) {
-		tree, err := Open("", opts)
+		tree, err := Open("", opts.WithAppFactory(func(_, _ string, _ *multiapp.Options) (appendable.Appendable, error) {
+			return memapp.New(), nil
+		}))
 		require.NoError(t, err)
 		defer tree.Close()
 
