@@ -57,10 +57,9 @@ type Iterator interface {
 type TBTreeIterator struct {
 	tree *TBTree
 
-	// pageBuf [PageSize]byte
+	// TODO: only allocate a single page per iterator
+	// that can be reused
 
-	// TODO: either allocate a per iterator page buffer
-	// or make the same page being reused in the page buffer
 	opts   IteratorOptions
 	rootID PageID
 	maxTs  uint64
@@ -123,7 +122,6 @@ func traverse(
 
 		_, childPageID, err := pg.Find(key)
 		if err != nil {
-
 			return err
 		}
 
@@ -183,6 +181,7 @@ func (it *TBTreeIterator) Next() (*Entry, error) {
 	if it.maxTs < endTs {
 		endTs = it.maxTs
 	}
+
 	e, err := it.nextBetween(it.opts.StartTs, endTs)
 	if err == nil {
 		// TODO: this is a temporary hack to prevent in place modifications
@@ -335,25 +334,31 @@ func (it *TBTreeIterator) nextEntryBetween(e *Entry, initialTs, finalTs uint64) 
 		return Entry{}, false, nil
 	}
 
-	historyIt := &HistoryIterator{
-		e: entryInfo{
-			Ts:        e.Ts,
-			HOff:      e.HOff,
-			ValueSize: uint16(len(e.Value)),
-		},
-		historyApp:      it.tree.historyApp,
-		n:               int(e.HC) + 1,
-		consumedEntries: 0,
+	getHistoryIt := func() *HistoryIterator {
+		return &HistoryIterator{
+			e: entryInfo{
+				Ts:        e.Ts,
+				HOff:      e.HOff,
+				ValueSize: uint16(len(e.Value)),
+			},
+			historyApp:      it.tree.historyApp,
+			n:               int(e.HC) + 1,
+			consumedEntries: 0,
+		}
 	}
 
 	if e.Ts <= finalTs {
 		if it.opts.IncludeHistory {
+			historyIt := getHistoryIt()
+
 			historyIt.consumedEntries = 1
 			it.currHistoryKey = e.Key
 			it.currHistoryIt = historyIt
 		}
 		return *e, true, nil
 	}
+
+	historyIt := getHistoryIt()
 
 	discarded, err := historyIt.discardUpToTx(finalTs)
 	if err != nil {
