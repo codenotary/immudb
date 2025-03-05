@@ -45,7 +45,7 @@ func TestHistoryIterator(t *testing.T) {
 			Value: []byte(fmt.Sprintf("value%d", n)),
 		}
 
-		err := tree.Insert(e)
+		err := tree.InsertAdvance(e)
 		require.NoError(t, err)
 	}
 
@@ -98,7 +98,7 @@ func TestHistory(t *testing.T) {
 			Value: []byte(fmt.Sprintf("value%d", n)),
 		}
 
-		err := tree.Insert(e)
+		err := tree.InsertAdvance(e)
 		require.NoError(t, err)
 	}
 

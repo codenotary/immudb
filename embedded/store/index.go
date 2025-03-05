@@ -58,6 +58,15 @@ func (idx *index) mapKey(key []byte, valReader io.Reader) ([]byte, error) {
 	return idx.spec.SourceEntryMapper(key, valReader)
 }
 
+func (idx *index) Insert(e tbtree.Entry) error {
+	if !idx.mtx.TryRLock() {
+		return tbtree.ErrTreeLocked
+	}
+	defer idx.mtx.RUnlock()
+
+	return idx.tree.Insert(e)
+}
+
 func (idx *index) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
 	idx.mtx.RLock()
 	defer idx.mtx.RUnlock()
@@ -75,7 +84,6 @@ func (idx *index) GetWithPrefix(key []byte, neq []byte) ([]byte, []byte, uint64,
 	if idx.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
-
 	return idx.tree.GetWithPrefix(key, neq)
 }
 
@@ -87,7 +95,7 @@ func (idx *index) GetBetween(key []byte, initialTxID uint64, finalTxID uint64) (
 		return nil, 0, 0, ErrAlreadyClosed
 	}
 
-	if err := idx.Flush(); err != nil {
+	if err := idx.tree.Flush(); err != nil {
 		return nil, 0, 0, err
 	}
 	return idx.tree.GetBetween(key, initialTxID, finalTxID)
@@ -101,7 +109,7 @@ func (idx *index) History(key []byte, offset uint64, descOrder bool, limit int) 
 		return nil, 0, ErrAlreadyClosed
 	}
 
-	if err := idx.Flush(); err != nil {
+	if err := idx.tree.Flush(); err != nil {
 		return nil, 0, err
 	}
 	return idx.tree.History(key, offset, descOrder, limit)
@@ -132,7 +140,10 @@ func (idx *index) ID() tbtree.TreeID {
 }
 
 func (idx *index) EntriesIndexedAtTs(ts uint64) uint32 {
-	currTs := idx.Ts()
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	currTs := idx.tree.Ts()
 
 	switch {
 	case ts <= currTs:
@@ -146,7 +157,9 @@ func (idx *index) EntriesIndexedAtTs(ts uint64) uint32 {
 }
 
 // Must be called with close guard already acquired
-func (idx *index) advance(ts uint64, lastEntry uint32) error {
+func (idx *index) setTs(ts uint64, lastEntry uint32) error {
+	idx.wHub.DoneUpto(ts)
+
 	if err := idx.tree.Advance(ts, lastEntry); err != nil {
 		return err
 	}
@@ -250,8 +263,8 @@ func (idx *index) TargetPrefix() []byte {
 }
 
 func (idx *index) Close() error {
-	idx.mtx.RLock()
-	defer idx.mtx.RLock()
+	idx.mtx.Lock()
+	defer idx.mtx.Unlock()
 
 	if idx.closed {
 		return ErrAlreadyClosed
@@ -268,7 +281,7 @@ func (idx *index) Close() error {
 
 func (idx *index) Closed() bool {
 	idx.mtx.RLock()
-	defer idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
 
 	return idx.closed
 }

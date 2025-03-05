@@ -392,7 +392,7 @@ func (indexer *Indexer) newIndex(
 		wHub:   wHub,
 	}
 
-	indexer.pushIndex(idx)
+	indexer.pushIndex(idx, true)
 
 	return idx, nil
 }

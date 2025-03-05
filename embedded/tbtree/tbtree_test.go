@@ -135,7 +135,7 @@ func TestInsert(t *testing.T) {
 			gen.WithSeed(time.Now().UnixNano())
 
 			gen.Times(numKeys, func(_ int, e Entry) {
-				err := tree.Insert(e)
+				err := tree.InsertAdvance(e)
 				require.NoError(t, err)
 			})
 
@@ -227,7 +227,7 @@ func TestInsertDuplicateKeys(t *testing.T) {
 
 	n := 10000
 	gen.Times(n, func(i int, e Entry) {
-		err := tree.Insert(e)
+		err := tree.InsertAdvance(e)
 		require.NoError(t, err)
 	})
 
@@ -294,7 +294,7 @@ func TestInsertDuplicateKey(t *testing.T) {
 
 	n := 1009 + rand.Intn(10000)
 	gen.Times(n, func(i int, e Entry) {
-		err := tree.Insert(e)
+		err := tree.InsertAdvance(e)
 		require.NoError(t, err)
 	})
 
@@ -359,7 +359,7 @@ func TestSnapshotRecovery(t *testing.T) {
 		for i := 0; i < n; i++ {
 			binary.BigEndian.PutUint32(buf[:], uint32(i))
 
-			err := tree.Insert(Entry{
+			err := tree.InsertAdvance(Entry{
 				Ts:    ts + uint64(i) + 1,
 				HOff:  OffsetNone,
 				HC:    0,
@@ -696,7 +696,7 @@ func TestIteratorSeek(t *testing.T) {
 	defer tree.Close()
 
 	for i, key := range sortedKeys {
-		err := tree.Insert(Entry{
+		err := tree.InsertAdvance(Entry{
 			Ts:    uint64(i + 1),
 			Key:   key,
 			Value: []byte(fmt.Sprintf("value%d", i)),
@@ -836,7 +836,7 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 	for i := 0; i < n; i++ {
 		binary.BigEndian.PutUint32(key[:], uint32(i))
 
-		err := tree.Insert(Entry{
+		err := tree.InsertAdvance(Entry{
 			Ts:    uint64(i + 1),
 			Key:   key[:],
 			Value: key[:],
@@ -920,7 +920,7 @@ func TestIteratorNextBetween(t *testing.T) {
 		for n := m; n < numKeys; n++ {
 			binary.BigEndian.PutUint32(key[:], uint32(n))
 
-			err := tree.Insert(Entry{
+			err := tree.InsertAdvance(Entry{
 				Ts:    uint64(m + 1),
 				Key:   key[:],
 				Value: []byte(fmt.Sprintf("value%d", m+1)),
@@ -1011,7 +1011,7 @@ func TestIterator(t *testing.T) {
 	for i := 0; i < n; i += 2 {
 		x := binary.BigEndian.AppendUint32(nil, uint32(i))
 
-		err := tree.Insert(Entry{
+		err := tree.InsertAdvance(Entry{
 			Ts:    uint64(i + 1),
 			HOff:  OffsetNone,
 			Key:   x,
@@ -1106,7 +1106,7 @@ func TestSnapshotVisibility(t *testing.T) {
 		for j := 0; j < numKeys; j++ {
 			binary.BigEndian.PutUint32(keyBuf[:], uint32(j))
 
-			err := tree.Insert(Entry{
+			err := tree.InsertAdvance(Entry{
 				Ts:    uint64(i),
 				HOff:  OffsetNone,
 				HC:    0,
@@ -1234,7 +1234,7 @@ func TestGetWithPrefix(t *testing.T) {
 			Value: []byte(fmt.Sprintf("value%d", n)),
 		}
 
-		err := tree.Insert(e)
+		err := tree.InsertAdvance(e)
 		require.NoError(t, err)
 	}
 
@@ -1278,7 +1278,7 @@ func TestGetBetween(t *testing.T) {
 			Value: []byte(fmt.Sprintf("value%d", n)),
 		}
 
-		err := tree.Insert(e)
+		err := tree.InsertAdvance(e)
 		require.NoError(t, err)
 	}
 
@@ -1352,7 +1352,7 @@ func TestCompaction(t *testing.T) {
 		for i := 0; i < n; i++ {
 			binary.BigEndian.PutUint32(keyBuf[:], uint32(i)+1)
 
-			err := tree.Insert(Entry{
+			err := tree.InsertAdvance(Entry{
 				Ts:    ts,
 				Key:   keyBuf[:],
 				Value: []byte(fmt.Sprintf("%s-%d", valuePrefix, i)),
@@ -1560,7 +1560,7 @@ func TestFlushEdgeCases(t *testing.T) {
 
 		n := 100
 		gen.Times(n, func(i int, e Entry) {
-			err := tree.Insert(e)
+			err := tree.InsertAdvance(e)
 			require.NoError(t, err)
 		})
 

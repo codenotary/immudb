@@ -115,7 +115,6 @@ func (indexer *Indexer) indexNext() bool {
 	_ = indexer.backpressure.Retry(func(n int) error {
 		var err error
 		ready, err = indexer.tryIndexNext()
-
 		if err != nil {
 			indexer.logger.Warningf("while attempting indexing: %s, attempt=%d", err, n+1)
 		}
@@ -133,7 +132,7 @@ func (indexer *Indexer) tryIndexNext() (bool, error) {
 	push := true
 	defer func() {
 		if push {
-			indexer.pushIndex(idx)
+			indexer.pushIndex(idx, false)
 		}
 	}()
 
@@ -150,22 +149,25 @@ func (indexer *Indexer) tryIndexNext() (bool, error) {
 	case errors.Is(err, tbtree.ErrTreeLocked):
 		err = nil
 	}
-	return err == nil, err
+	return true, err
 }
 
-func (indexer *Indexer) pushIndex(idx *index) {
+func (indexer *Indexer) pushIndex(idx *index, cancelCtx bool) {
 	indexer.mtx.Lock()
 
 	indexer.queue.PushBack(indexEntry{idx})
 
-	if cancel := indexer.cancel; cancel != nil {
-		ctx, newCancel := context.WithCancel(context.Background())
+	if cancelCtx {
+		if cancel := indexer.cancel; cancel != nil {
+			ctx, newCancel := context.WithCancel(context.Background())
 
-		indexer.ctx = ctx
-		indexer.cancel = newCancel
+			indexer.ctx = ctx
+			indexer.cancel = newCancel
 
-		cancel()
+			cancel()
+		}
 	}
+
 	indexer.mtx.Unlock()
 }
 
@@ -202,13 +204,13 @@ func (indexer *Indexer) indexUpTo(index *index, upToTx uint64) error {
 			// If the write buffer fills up while indexing transaction T, a flush may be required.
 			// We can persist the snapshot, but T's entries must stay hidden.
 			// Thus, we must track the last fully indexed transaction T and the number of indexed entries in T+1.
-			if err := index.advance(txID-1, entriesIndexed); err != nil {
+			if err := index.setTs(txID-1, entriesIndexed); err != nil {
 				return err
 			}
 			return err
 		}
 	}
-	return index.advance(upToTx, 0)
+	return index.setTs(upToTx, 0)
 }
 
 func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
@@ -218,12 +220,12 @@ func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
 	}
 
 	n := index.EntriesIndexedAtTs(tx.header.ID)
-	if n == math.MaxUint32 {
+	if n >= uint32(len(entries)) {
 		return n, nil
 	}
 
 	for i := range entries[n:] {
-		e, shouldIndex, err := indexer.mapEntryAt(index, tx, i)
+		e, shouldIndex, err := indexer.mapEntryAt(index, tx, int(n)+i)
 		if err != nil {
 			return n + uint32(i), err
 		}
@@ -240,7 +242,7 @@ func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
 }
 
 func (indexer *Indexer) insert(idx *index, e *tbtree.Entry) error {
-	err := idx.tree.Insert(*e)
+	err := idx.Insert(*e)
 	if err == nil {
 		return nil
 	}
@@ -250,7 +252,7 @@ func (indexer *Indexer) insert(idx *index, e *tbtree.Entry) error {
 		if err != nil {
 			return err
 		}
-		return idx.tree.Insert(*e)
+		return idx.Insert(*e)
 	}
 	return err
 }

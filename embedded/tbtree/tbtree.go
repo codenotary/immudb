@@ -471,6 +471,18 @@ func validateEntry(e *Entry) error {
 }
 
 func (t *TBTree) Insert(e Entry) error {
+	return t.insert(e)
+}
+
+func (t *TBTree) InsertAdvance(e Entry) error {
+	err := t.insert(e)
+	if err == nil {
+		t.rootTs.Store(e.Ts)
+	}
+	return err
+}
+
+func (t *TBTree) insert(e Entry) error {
 	if err := validateEntry(&e); err != nil {
 		return err
 	}
@@ -491,7 +503,7 @@ func (t *TBTree) Insert(e Entry) error {
 		return ErrWriteBufferFull
 	}
 
-	res, err := t.insert(t.rootPageID(), e, 0)
+	res, err := t.insertToPage(t.rootPageID(), e, 0)
 	if err != nil {
 		return err
 	}
@@ -517,8 +529,8 @@ func (t *TBTree) Insert(e Entry) error {
 		t.rootID.Store(uint64(res.newPageID))
 	}
 
-	t.rootTs.Store(e.Ts)
 	t.mutated = true
+
 	return nil
 }
 
@@ -548,17 +560,12 @@ func (t *TBTree) dupPage(pgID PageID, dst []byte) error {
 }
 
 func (t *TBTree) Advance(ts uint64, entryCount uint32) error {
-	rootTs := t.Ts()
-	if ts == t.Ts() {
-		return nil
-	} else if ts < rootTs {
+	if ts < t.Ts() {
 		return ErrInvalidTimestamp
 	}
 
 	// Locking the tree prevents flushers to observe inconsistent (Ts, IndexedEntryCount) pairs.
-	if !t.mtx.TryLock() {
-		return ErrTreeLocked
-	}
+	t.mtx.Lock()
 
 	// NOTE: Even if there is no data to flush,
 	// the highest timestamp seen must still be recorded in the commit entry.
@@ -572,7 +579,7 @@ func (t *TBTree) Advance(ts uint64, entryCount uint32) error {
 	return nil
 }
 
-func (t *TBTree) insert(id PageID, e Entry, depth int) (insertResult, error) {
+func (t *TBTree) insertToPage(id PageID, e Entry, depth int) (insertResult, error) {
 	if id == PageNone {
 		return t.insertEmpty(&e)
 	}
@@ -591,7 +598,7 @@ func (t *TBTree) insert(id PageID, e Entry, depth int) (insertResult, error) {
 		return insertResult{}, err
 	}
 
-	res, err := t.insert(childPageID, e, depth+1)
+	res, err := t.insertToPage(childPageID, e, depth+1)
 	if err != nil {
 		return insertResult{}, err
 	}
@@ -1159,7 +1166,9 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, e
 
 	isMemPage := pageID.isMemPage()
 	if !isMemPage && !opts.fullDump {
-		return flushTreeRes{}, nil
+		return flushTreeRes{
+			rootID: pageID,
+		}, nil
 	}
 
 	pg, err := t.getWritePage(pageID)
@@ -1360,6 +1369,7 @@ func (t *TBTree) GetOptions() *Options {
 		//WithFileSize(t.fileSize).
 		WithLogger(t.logger).
 		WithPageBuffer(t.pgBuf).
+		WithWriteBuffer(t.wb).
 		WithSyncThld(t.syncThld).
 		WithAppendableWriteBufferSize(t.appWriteBufferSize).
 		//WithCleanupPercentage(t.cleanupPercentage).
