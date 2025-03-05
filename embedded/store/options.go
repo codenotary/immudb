@@ -18,7 +18,7 @@ const (
 	DefaultNumIndexers = 8
 
 	DefaultWriteBufferChunkSize  = 1024 * 1024
-	DefaultSharedWriteBufferSize = 4 * 1024 * DefaultWriteBufferChunkSize
+	DefaultSharedWriteBufferSize = 128 * DefaultWriteBufferChunkSize
 	DefaultMinWriteBufferSize    = DefaultWriteBufferChunkSize
 	DefaultMaxWriteBufferSize    = DefaultSharedWriteBufferSize
 
