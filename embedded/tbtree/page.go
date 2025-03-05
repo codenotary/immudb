@@ -400,6 +400,8 @@ func (pg *Page) compact() (int, error) {
 
 	*pg = tempPg
 
+	assert(pg.NumEntries >= 1, "num entries")
+
 	return freedSpace, nil
 }
 

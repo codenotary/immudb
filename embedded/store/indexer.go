@@ -115,6 +115,14 @@ func (indexer *Indexer) indexNext() bool {
 	_ = indexer.backpressure.Retry(func(n int) error {
 		var err error
 		ready, err = indexer.tryIndexNext()
+
+		if errors.Is(err, tbtree.ErrWriteBufferFull) {
+			if err := indexer.tryFlushBuffer(); err != nil {
+				return err
+			}
+			return nil
+		}
+
 		if err != nil {
 			indexer.logger.Warningf("while attempting indexing: %s, attempt=%d", err, n+1)
 		}
@@ -191,7 +199,7 @@ func (indexer *Indexer) popIndex() *index {
 }
 
 func (indexer *Indexer) indexUpTo(index *index, upToTx uint64) error {
-	indexer.logger.Infof("indexing %s up to %d", index.path, upToTx)
+	indexer.logger.Infof("indexing %s from %d up to %d, percentage=%f", index.path, index.Ts(), upToTx, float64(index.Ts())/float64(upToTx))
 
 	for txID := index.Ts() + 1; txID <= upToTx; txID++ {
 		err := index.ledger.ReadTxAt(txID, indexer.tx)
@@ -234,27 +242,11 @@ func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
 			continue
 		}
 
-		if err := indexer.insert(index, &e); err != nil {
+		if err := index.Insert(e); err != nil {
 			return n + uint32(i), err
 		}
 	}
 	return math.MaxUint32, nil
-}
-
-func (indexer *Indexer) insert(idx *index, e *tbtree.Entry) error {
-	err := idx.Insert(*e)
-	if err == nil {
-		return nil
-	}
-
-	if errors.Is(err, tbtree.ErrWriteBufferFull) {
-		err := indexer.tryFlushBuffer()
-		if err != nil {
-			return err
-		}
-		return idx.Insert(*e)
-	}
-	return err
 }
 
 func (indexer *Indexer) tryFlushBuffer() error {

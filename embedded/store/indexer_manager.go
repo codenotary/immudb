@@ -199,7 +199,6 @@ func (m *IndexerManager) InitIndexing(ledger IndexableLedger, spec IndexSpec) (*
 
 	indexerID := int(nextIndexID) % len(m.indexers)
 	indexer := &m.indexers[indexerID]
-
 	index, err := indexer.newIndex(
 		uint16(nextIndexID),
 		indexPath,

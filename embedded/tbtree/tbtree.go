@@ -357,7 +357,6 @@ func (t *TBTree) findLastCommitEntry() (CommitEntry, int64, error) {
 		if err == nil {
 			return e, off, nil
 		}
-
 		i := findMagic(buf[:])
 		if i >= 0 {
 			off -= int64(CommitEntrySize - i - 1)
@@ -1052,6 +1051,7 @@ func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 	t.numPages.Add(uint64(tLogRes.totalPages))
 
 	ts := t.Ts()
+
 	commitEntry := CommitEntry{
 		HLogChecksum:      hLogFlushRes.checksum,
 		Ts:                ts,
@@ -1408,7 +1408,8 @@ func (t *TBTree) ActiveSnapshots() int {
 }
 
 func (c *CommitEntry) Valid() bool {
-	return c.Ts > 0 && int64(c.TLogOff) >= 0 && int64(c.HLogOff) >= 0
+	//(c.Ts > 0 || c.IndexedEntryCount > 0)
+	return int64(c.TLogOff) >= 0 && int64(c.HLogOff) >= 0
 }
 
 const CommitEntrySize = 108 + CommitMagicSize
