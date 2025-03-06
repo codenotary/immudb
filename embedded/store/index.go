@@ -221,17 +221,21 @@ func (idx *index) Flush() error {
 }
 
 func (idx *index) Compact(ctx context.Context, force bool) error {
-	idx.mtx.Lock()
-	defer idx.mtx.Unlock()
+	err := func() error {
+		idx.mtx.RLock()
+		defer idx.mtx.RUnlock()
 
-	if idx.closed {
-		return ErrAlreadyClosed
-	}
-
-	err := idx.tree.Compact(ctx, force)
+		if idx.closed {
+			return ErrAlreadyClosed
+		}
+		return idx.tree.Compact(ctx, force)
+	}()
 	if err != nil {
 		return err
 	}
+
+	idx.mtx.Lock()
+	defer idx.mtx.Unlock()
 
 	err = idx.tree.Close()
 	if err != nil {
