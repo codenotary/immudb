@@ -145,6 +145,7 @@ func NewWriteBuffer(
 	swb *SharedWriteBuffer,
 	minSize,
 	maxSize int,
+	metrics metrics.WriteBufferMetrics,
 ) (*WriteBuffer, error) {
 	minChunks := (minSize + (swb.ChunkSize() - 1)) / swb.ChunkSize()
 	maxChunks := (maxSize + (swb.ChunkSize() - 1)) / swb.ChunkSize()
@@ -160,6 +161,7 @@ func NewWriteBuffer(
 		reservedChunks:               0,
 		allocatedChunks:              0,
 		allocatedPagesInCurrentChunk: swb.ChunkSize() / PageSize,
+		metrics:                      metrics,
 	}
 
 	if !wb.Grow(minChunks * swb.PagesPerChunk()) {

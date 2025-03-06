@@ -1836,7 +1836,7 @@ func newWriteBuffer(size int) (*WriteBuffer, error) {
 	}
 
 	sw := NewSharedWriteBuffer(size, chunkSize)
-	return NewWriteBuffer(sw, chunkSize, size)
+	return NewWriteBuffer(sw, chunkSize, size, metrics.NewNopWriteBufferMetrics())
 }
 
 func requireNoPageIsPinned(t *testing.T, buf *PageCache) {

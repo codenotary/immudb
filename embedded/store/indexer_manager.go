@@ -159,6 +159,7 @@ func createIndexers(opts *Options, indexingWHub *watchers.WatchersHub) ([]Indexe
 			swb,
 			opts.IndexOpts.MinWriteBufferSize,
 			opts.IndexOpts.MaxWriteBufferSize,
+			metrics.NewNopWriteBufferMetrics(),
 		)
 		if err != nil {
 			return nil, err

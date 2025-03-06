@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/metrics"
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
@@ -29,7 +30,7 @@ func main() {
 
 		buffers := make([]*tbtree.WriteBuffer, numThreads)
 		for t := 0; t < 64; t++ {
-			wb, err := tbtree.NewWriteBuffer(swb, chunkSizePages*tbtree.PageSize, size)
+			wb, err := tbtree.NewWriteBuffer(swb, chunkSizePages*tbtree.PageSize, size, metrics.NewNopWriteBufferMetrics())
 			if err != nil {
 				panic(err)
 			}

@@ -38,3 +38,24 @@ var (
 		Help: "Btree depth",
 	}, []string{"index_id"})
 )
+
+var _ WriteBufferMetrics = &nopWriteBufferMetrics{}
+
+type nopWriteBufferMetrics struct {
+}
+
+func NewNopWriteBufferMetrics() WriteBufferMetrics {
+	return &nopWriteBufferMetrics{}
+}
+
+func (m *nopWriteBufferMetrics) SetMaxSize(size int) {
+
+}
+
+func (m *nopWriteBufferMetrics) IncAllocatedPages() {
+
+}
+
+func (m *nopWriteBufferMetrics) ResetAllocatedPages() {
+
+}

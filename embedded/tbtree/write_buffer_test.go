@@ -23,6 +23,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/metrics"
 	"github.com/stretchr/testify/require"
 )
 
@@ -101,7 +102,7 @@ func TestLocalWriteBuffer(t *testing.T) {
 		chunkSize,
 	)
 
-	wb, err := NewWriteBuffer(sb, 0, numChunks*chunkSize)
+	wb, err := NewWriteBuffer(sb, 0, numChunks*chunkSize, metrics.NewNopWriteBufferMetrics())
 	require.NoError(t, err)
 
 	require.Zero(t, wb.FreePages())
@@ -138,6 +139,7 @@ func TestMultipleLocalWriteBuffer(t *testing.T) {
 			sb,
 			chunkSize,
 			maxBufferSize,
+			metrics.NewNopWriteBufferMetrics(),
 		)
 		require.NoError(t, err)
 
