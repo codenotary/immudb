@@ -133,22 +133,26 @@ func Open(
 	}
 
 	var t *TBTree
-	recoveryAttempts, err := recoverLatestValidTreeSnapshot(path, opts.readDir, func(snapPath string, snapTs uint64) error {
-		treeApp, err := opts.appFactory(path, snapPath, appOpts.WithFileExt("t"))
-		if err != nil {
-			return err
-		}
+	recoveryAttempts, err := recoverLatestValidTreeSnapshot(
+		path,
+		opts.readDir,
+		opts.appRemove,
+		func(snapPath string, snapTs uint64) error {
+			treeApp, err := opts.appFactory(path, snapPath, appOpts.WithFileExt("t"))
+			if err != nil {
+				return err
+			}
 
-		t, err = OpenWith(path, treeApp, historyApp, opts)
-		if err != nil {
-			_ = opts.appRemove(path, snapPath)
-		}
+			t, err = OpenWith(path, treeApp, historyApp, opts)
+			if err != nil {
+				return err
+			}
 
-		if err == nil && t.Ts() != snapTs {
-			return fmt.Errorf("invalid snapshot: timestamp mismatch (%d != %d)", t.Ts(), snapTs)
-		}
-		return err
-	})
+			if snapTs > 0 && t.Ts() != snapTs {
+				return fmt.Errorf("invalid snapshot: timestamp mismatch (%d != %d)", t.Ts(), snapTs)
+			}
+			return nil
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -226,14 +230,20 @@ func OpenWith(
 	return t, nil
 }
 
-func recoverLatestValidTreeSnapshot(dir string, readDir ReadDirFunc, recoverSnap func(snapPath string, snapTs uint64) error) (int, error) {
+func recoverLatestValidTreeSnapshot(
+	dir string,
+	readDir ReadDirFunc,
+	removeApp AppRemoveFunc,
+	recoverSnap func(snapPath string, snapTs uint64) error) (int, error) {
+
 	entries, err := readDir(dir)
 	if err != nil {
 		return 0, err
 	}
 
 	recoveryAttempts := 0
-	for i := len(entries) - 1; i >= 0; i-- {
+	i := len(entries) - 1
+	for ; i >= 0; i-- {
 		e := entries[i]
 
 		if !e.IsDir() || !strings.HasPrefix(e.Name(), TreeLogFileName) {
@@ -245,10 +255,30 @@ func recoverLatestValidTreeSnapshot(dir string, readDir ReadDirFunc, recoverSnap
 			continue
 		}
 
-		if err := recoverSnap(e.Name(), snapTs); err == nil {
-			return 0, nil
+		if err = recoverSnap(e.Name(), snapTs); err == nil {
+			break
 		}
+
+		_ = removeApp(dir, e.Name())
+
 		recoveryAttempts++
+	}
+
+	// clean-up remaining folders
+	i--
+	for ; i >= 0; i-- {
+		e := entries[i]
+
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), TreeLogFileName) {
+			continue
+		}
+
+		_, err := parseSnapFolder(e.Name())
+		if err != nil {
+			continue
+		}
+
+		_ = removeApp(dir, e.Name())
 	}
 	return recoveryAttempts, nil
 }

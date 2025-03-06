@@ -140,6 +140,10 @@ func snapFolder(folder string, snapID uint64) string {
 }
 
 func parseSnapFolder(name string) (uint64, error) {
+	if name == TreeLogFileName {
+		return 0, nil
+	}
+
 	parts := strings.Split(name, "_")
 	if len(parts) != 2 {
 		return 0, fmt.Errorf("invalid snapshot folder name")

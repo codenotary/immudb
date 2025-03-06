@@ -114,8 +114,6 @@ func (m *IndexerManager) CompactIndexes(id LedgerID, force bool) error {
 		if err != nil {
 			return err
 		}
-
-		// TODO: restart index after compaction
 	}
 	return nil
 }
