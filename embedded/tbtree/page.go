@@ -529,6 +529,66 @@ func (pg *Page) keyAt(idx int) []byte {
 	return pg.data[e.Offset+8 : e.Offset+8+e.KeySize]
 }
 
+func (pg *Page) putEntryAt(buf []byte, i int) int {
+	off := 0
+	if pg.IsLeaf() {
+		e := pg.leafPageEntryAt(i)
+		binary.BigEndian.PutUint16(buf[off:], e.Offset)
+		off += 2
+
+		binary.BigEndian.PutUint16(buf[off:], e.KeySize)
+		off += 2
+
+		binary.BigEndian.PutUint16(buf[off:], e.ValueSize)
+		off += 2
+
+		return off
+	}
+
+	e := pg.innerPageEntryAt(i)
+	binary.BigEndian.PutUint16(buf[off:], e.Offset)
+	off += 2
+
+	binary.BigEndian.PutUint16(buf[off:], e.KeySize)
+	off += 2
+
+	return off
+}
+
+func readLeafEntryAt(buf []byte) LeafPageEntryData {
+	off := 0
+
+	offset := binary.BigEndian.Uint16(buf[off:])
+	off += 2
+
+	keySize := binary.BigEndian.Uint16(buf[off:])
+	off += 2
+
+	valueSize := binary.BigEndian.Uint16(buf[off:])
+	off += 2
+
+	return LeafPageEntryData{
+		Offset:    offset,
+		KeySize:   keySize,
+		ValueSize: valueSize,
+	}
+}
+
+func readInnerEntryAt(buf []byte) InnerPageEntryData {
+	off := 0
+
+	offset := binary.BigEndian.Uint16(buf[off:])
+	off += 2
+
+	keySize := binary.BigEndian.Uint16(buf[off:])
+	off += 2
+
+	return InnerPageEntryData{
+		Offset:  offset,
+		KeySize: keySize,
+	}
+}
+
 func (pg *Page) Remove(key []byte) (*Entry, error) {
 	idx, found := pg.find(key)
 	if !found {
@@ -810,7 +870,10 @@ func (pg *Page) Put(buf []byte) int {
 	pg.PageHeaderData.Put(buf[:])
 
 	off := PageHeaderDataSize - PageFooterSize
-	off += copy(buf[off:], pg.data[:pg.FreeSpaceStart])
+	for n := 0; n < int(pg.NumEntries); n++ {
+		off += pg.putEntryAt(buf[off:], n)
+	}
+
 	off += copy(buf[off:], pg.data[pg.FreeSpaceEnd:])
 
 	binary.BigEndian.PutUint16(buf[off:], uint16(off+PageFooterSize))
@@ -867,11 +930,35 @@ func expandToFixedPage(buf []byte) (*Page, int, error) {
 		)
 	}
 
+	pg := alignPageToMachineEndianess(buf, hdr)
+	return pg, int(pgSize), nil
+}
+
+// alignToMachineEndianess converts a stored big-endian page into an
+// in-memory format that matches the machine's native endianness.
+//
+// Multi-byte values are stored in big-endian format but must be converted
+// for efficient access using unsafe pointers. This function ensures proper
+// alignment and corrects endianness while preserving the page structure.
+func alignPageToMachineEndianess(buf []byte, hdr PageHeaderData) *Page {
 	pg := PageFromBytes(buf)
-	pg.PageHeaderData = hdr // NOTE: needed because of machine endianess
+	pg.PageHeaderData = hdr
 	pg.Padding = 0
 
-	return pg, int(pgSize), nil
+	isLeaf := pg.IsLeaf()
+	off := PageHeaderDataSize
+	for n := 0; n < int(hdr.NumEntries); n++ {
+		if isLeaf {
+			e := pg.leafPageEntryAt(n)
+			*e = readLeafEntryAt(buf[off:])
+			off += LeafPageEntryDataSize
+		} else {
+			e := pg.innerPageEntryAt(n)
+			*e = readInnerEntryAt(buf[off:])
+			off += InnerPageEntryDataSize
+		}
+	}
+	return pg
 }
 
 func shiftLeft(buf []byte, start, end, n int) {

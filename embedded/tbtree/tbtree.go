@@ -1251,7 +1251,7 @@ func (t *TBTree) appendPage(pg *Page, tlog appendable.Appendable) (int, PageID, 
 		return 0, PageNone, err
 	}
 
-	// TODO: move to t's fields
+	// TODO: move to tree fields
 	var buf [PageSize]byte
 	n := pg.Put(buf[:])
 
