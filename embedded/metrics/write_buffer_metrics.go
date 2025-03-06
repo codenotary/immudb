@@ -17,29 +17,46 @@ limitations under the License.
 package metrics
 
 import (
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type WriteBufferMetrics interface {
-	SetMaxSize(size int)
 	IncAllocatedPages()
 	ResetAllocatedPages()
 }
 
 var (
-	metricsWriteBufferMaxSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "immudb_write_buffer_max_size",
-		Help: "Numbers of btree pages written to disk during the last flush process",
-	}, []string{"index_id"})
-
-	metricsWriteBufferAllocatedSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "immudb_write_buffer_allocated_size",
-		Help: "Btree depth",
-	}, []string{"index_id"})
+	metricsWriteBufferAllocatedPages = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "immudb_write_buffer_allocated_pages",
+		Help: "Number of allocated pages in the write buffer",
+	}, []string{"id"})
 )
 
-var _ WriteBufferMetrics = &nopWriteBufferMetrics{}
+type prometheusWriteBufferMetrics struct {
+	id string
+}
+
+func NewPrometheusWriteBufferMetrics(id int) WriteBufferMetrics {
+	return &prometheusWriteBufferMetrics{
+		id: strconv.Itoa(id),
+	}
+}
+
+func (m *prometheusWriteBufferMetrics) IncAllocatedPages() {
+	metricsWriteBufferAllocatedPages.WithLabelValues(m.id).Inc()
+}
+
+func (m *prometheusWriteBufferMetrics) ResetAllocatedPages() {
+	metricsWriteBufferAllocatedPages.WithLabelValues(m.id).Set(0)
+}
+
+var (
+	_ WriteBufferMetrics = &prometheusWriteBufferMetrics{}
+	_ WriteBufferMetrics = &nopWriteBufferMetrics{}
+)
 
 type nopWriteBufferMetrics struct {
 }
@@ -48,14 +65,6 @@ func NewNopWriteBufferMetrics() WriteBufferMetrics {
 	return &nopWriteBufferMetrics{}
 }
 
-func (m *nopWriteBufferMetrics) SetMaxSize(size int) {
+func (m *nopWriteBufferMetrics) IncAllocatedPages() {}
 
-}
-
-func (m *nopWriteBufferMetrics) IncAllocatedPages() {
-
-}
-
-func (m *nopWriteBufferMetrics) ResetAllocatedPages() {
-
-}
+func (m *nopWriteBufferMetrics) ResetAllocatedPages() {}
