@@ -56,7 +56,7 @@ var (
 	}, []string{"index_id"})
 
 	metricsIndexedEntries = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "immudb_btree_indexed_entris",
+		Name: "immudb_btree_indexed_entries",
 		Help: "Total number of entries stored in the tree",
 	}, []string{"index_id"})
 )
@@ -95,87 +95,4 @@ func (m *prometheusIndexMetrics) SetTs(ts uint64) {
 
 func (m *prometheusIndexMetrics) IncIndexedEntriesTotal() {
 	metricsIndexedEntries.WithLabelValues(m.index).Inc()
-}
-
-type PageCacheMetrics interface {
-	SetCacheSize(size int)
-	IncHits()
-	IncMisses()
-	IncEvictions()
-}
-
-var (
-	metricsPageCacheSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "immudb_page_cache_size_bytes",
-		Help: "Size in bytes of cache used by B-tree indexes",
-	})
-
-	metricsPageCacheHit = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "immudb_btree_page_cache_hits_total",
-			Help: "Total number of B-tree cache hits when retrieving a B-tree page",
-		},
-	)
-
-	metricsPageCacheMiss = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "immudb_btree_page_cache_misses_total",
-			Help: "Total number of B-tree cache misses when retrieving a B-tree node",
-		},
-	)
-
-	// NOTE: This is in practice equal to number of misses
-	metricsPageCacheEvict = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "immudb_btree_page_cache_evictions_total",
-			Help: "Total number of B-tree nodes evicted from cache",
-		},
-	)
-)
-
-var (
-	_ PageCacheMetrics = &prometheusPageCacheMetrics{}
-	_ PageCacheMetrics = &nopPageCacheMetrics{}
-)
-
-func NewPrometheusPageCacheMetrics() PageCacheMetrics {
-	return &prometheusPageCacheMetrics{}
-}
-
-type prometheusPageCacheMetrics struct {
-}
-
-func (m *prometheusPageCacheMetrics) SetCacheSize(n int) {
-	metricsPageCacheSize.Set(float64(n))
-}
-
-func (m *prometheusPageCacheMetrics) IncHits() {
-	metricsPageCacheHit.Add(1)
-}
-
-func (m *prometheusPageCacheMetrics) IncMisses() {
-	metricsPageCacheMiss.Add(1)
-}
-
-func (m *prometheusPageCacheMetrics) IncEvictions() {
-	metricsPageCacheEvict.Add(1)
-}
-
-type nopPageCacheMetrics struct {
-}
-
-func NewNopPageCacheMetrics() PageCacheMetrics {
-	return &nopPageCacheMetrics{}
-}
-
-func (m *nopPageCacheMetrics) SetCacheSize(n int) {
-}
-
-func (m *nopPageCacheMetrics) IncHits() {
-}
-
-func (m *nopPageCacheMetrics) IncMisses() {
-}
-
-func (m *nopPageCacheMetrics) IncEvictions() {
 }

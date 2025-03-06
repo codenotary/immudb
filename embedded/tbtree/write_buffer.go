@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+
+	"github.com/codenotary/immudb/embedded/metrics"
 )
 
 const ChunkNone = -1
@@ -136,7 +138,7 @@ type WriteBuffer struct {
 	allocatedChunks              int
 	allocatedPagesInCurrentChunk int
 
-	numAllocs atomic.Uint32
+	metrics metrics.WriteBufferMetrics
 }
 
 func NewWriteBuffer(
@@ -212,8 +214,6 @@ func (wb *WriteBuffer) GetOrDup(pgID PageID, dupPage func(PageID, []byte) error)
 		return nil, PageNone, err
 	}
 
-	wb.numAllocs.Add(1)
-
 	newPgID := memPageID(slot)
 	pg := PageFromBytes(pgBuf)
 	pg.SetAsCopied()
@@ -224,6 +224,8 @@ func (wb *WriteBuffer) GetOrDup(pgID PageID, dupPage func(PageID, []byte) error)
 func (wb *WriteBuffer) allocPageSlot() (int, error) {
 	pagesPerChunk := wb.swb.PagesPerChunk()
 	if wb.allocatedPagesInCurrentChunk < wb.swb.PagesPerChunk() {
+		wb.metrics.IncAllocatedPages()
+
 		globalPageSlot := wb.bufferChunks[wb.allocatedChunks-1] * uint32(pagesPerChunk)
 		pageSlot := wb.allocatedPagesInCurrentChunk
 		wb.allocatedPagesInCurrentChunk++
@@ -238,6 +240,8 @@ func (wb *WriteBuffer) allocPageSlot() (int, error) {
 	if err != nil {
 		return -1, err
 	}
+
+	wb.metrics.IncAllocatedPages()
 
 	wb.bufferChunks[wb.allocatedChunks] = uint32(numChunk)
 	wb.allocatedChunks++
@@ -304,8 +308,6 @@ func (wb *WriteBuffer) allocPageBuf() ([]byte, PageID, error) {
 		return nil, PageNone, err
 	}
 
-	wb.numAllocs.Add(1)
-
 	pgBuf := wb.swb.GetPageBuf(slot)
 	return pgBuf, memPageID(slot), nil
 }
@@ -352,10 +354,6 @@ func (wb *WriteBuffer) FreePages() int {
 	return wb.availablePages()
 }
 
-func (wb *WriteBuffer) Allocs() int {
-	return int(wb.numAllocs.Load())
-}
-
 func (wb *WriteBuffer) Reset() {
 	for i := wb.minReservedChunks; i < wb.reservedChunks; i++ {
 		wb.swb.Release(int(wb.bufferChunks[i]))
@@ -364,6 +362,8 @@ func (wb *WriteBuffer) Reset() {
 	wb.allocatedChunks = 0
 	wb.reservedChunks = wb.minReservedChunks
 	wb.allocatedPagesInCurrentChunk = wb.swb.PagesPerChunk()
+
+	wb.metrics.ResetAllocatedPages()
 }
 
 func roundUpPages(n int) int {

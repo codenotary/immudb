@@ -95,7 +95,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		TLogOff:           uint64(0),
 		HLogOff:           uint64(hLogSize),
 		HLogFlushedBytes:  0,
-		TotalPages:        uint64(res.totalPages),
+		TotalPages:        uint64(res.totalPagesFlushed),
 		StalePages:        0,
 		IndexedEntryCount: indexedEntries,
 	}
@@ -115,7 +115,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		TLogOff:           uint64(tLogOff),
 		HLogOff:           uint64(hLogSize),
 		HLogFlushedBytes:  0,
-		TotalPages:        uint64(res.totalPages),
+		TotalPages:        uint64(res.totalPagesFlushed),
 		StalePages:        0,
 		IndexedEntryCount: indexedEntries,
 	}

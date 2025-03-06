@@ -1056,10 +1056,12 @@ func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 		return -1, PageNone, err
 	}
 
-	stalePages := t.stalePages.Add(tLogRes.stalePages)
-	totalPages := t.numPages.Add(uint64(tLogRes.totalPages))
+	newPages := uint64(tLogRes.totalPagesFlushed) - uint64(tLogRes.stalePages)
 
-	t.metrics.SetPagesFlushedLastCycle(tLogRes.totalPages)
+	stalePages := t.stalePages.Add(tLogRes.stalePages)
+	totalPages := t.numPages.Add(newPages)
+
+	t.metrics.SetPagesFlushedLastCycle(tLogRes.totalPagesFlushed)
 	t.metrics.SetTotalPages(int(totalPages))
 	t.metrics.SetStalePages(int(stalePages))
 
@@ -1070,9 +1072,9 @@ func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 		Ts:                ts,
 		TLogOff:           uint64(tLogOff),
 		HLogOff:           uint64(hLogFlushRes.off),
-		HLogFlushedBytes:  uint32(hLogFlushRes.n),
-		TotalPages:        uint64(tLogRes.totalPages),
-		StalePages:        t.stalePages.Load(),
+		HLogFlushedBytes:  uint32(hLogFlushRes.n), // TODO: should this really be max 4GB?
+		TotalPages:        totalPages,
+		StalePages:        stalePages,
 		IndexedEntryCount: t.IndexedEntryCount(),
 	}
 	if err := commit(&commitEntry, treeLogWithChecksum); err != nil {
@@ -1160,9 +1162,9 @@ func (t *TBTree) flushHistory() (WriteRes, error) {
 type flushTreeRes struct {
 	WriteRes
 
-	rootID     PageID
-	totalPages int
-	stalePages uint32
+	rootID            PageID
+	totalPagesFlushed int
+	stalePages        uint32
 }
 
 type flushOptions struct {
@@ -1204,9 +1206,9 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, e
 			WriteRes: WriteRes{
 				n: n,
 			},
-			rootID:     pgID,
-			totalPages: 1,
-			stalePages: stalePages,
+			rootID:            pgID,
+			totalPagesFlushed: 1,
+			stalePages:        stalePages,
 		}, err
 	}
 
@@ -1227,7 +1229,7 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, e
 
 		stalePages += res.stalePages
 		totalBytesWritten += res.n
-		pagesFlushed += res.totalPages
+		pagesFlushed += res.totalPagesFlushed
 	}
 
 	if isMemPage && pg.IsCopied() {
@@ -1239,9 +1241,9 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, e
 		WriteRes: WriteRes{
 			n: totalBytesWritten + n,
 		},
-		totalPages: pagesFlushed + 1,
-		rootID:     pgID,
-		stalePages: stalePages,
+		totalPagesFlushed: pagesFlushed + 1,
+		rootID:            pgID,
+		stalePages:        stalePages,
 	}, err
 }
 
