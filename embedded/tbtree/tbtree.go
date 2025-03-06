@@ -1056,10 +1056,8 @@ func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 		return -1, PageNone, err
 	}
 
-	newPages := uint64(tLogRes.totalPagesFlushed) - uint64(tLogRes.stalePages)
-
 	stalePages := t.stalePages.Add(tLogRes.stalePages)
-	totalPages := t.numPages.Add(newPages)
+	totalPages := t.numPages.Add(uint64(tLogRes.totalPagesFlushed))
 
 	t.metrics.SetPagesFlushedLastCycle(tLogRes.totalPagesFlushed)
 	t.metrics.SetTotalPages(int(totalPages))
