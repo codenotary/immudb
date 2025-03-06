@@ -1080,11 +1080,11 @@ func (s *Ledger) ForEachIndex(onIndex func(index *index) error) error {
 	return s.store.indexerManager.ForEachIndex(s.ID(), onIndex)
 }
 
-func (s *Ledger) CompactIndexes() error {
+func (s *Ledger) CompactIndexes(force bool) error {
 	if s.compactionDisabled {
 		return ErrCompactionDisabled
 	}
-	return s.store.indexerManager.CompactIndexes(s.ID())
+	return s.store.indexerManager.CompactIndexes(s.ID(), force)
 }
 
 func (s *Ledger) FlushIndexes(cleanupPercentage float32, synced bool) error {

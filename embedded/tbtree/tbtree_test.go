@@ -1393,7 +1393,7 @@ func TestCompaction(t *testing.T) {
 
 	require.Greater(t, tree.StalePages(), uint32(0))
 
-	err = tree.Compact(context.Background())
+	err = tree.Compact(context.Background(), false)
 	require.Equal(t, err, ErrCompactionThresholdNotReached)
 
 	tree.compactionThld = 0.1
@@ -1407,7 +1407,7 @@ func TestCompaction(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			err := tree.Compact(context.Background())
+			err := tree.Compact(context.Background(), false)
 			if err == nil {
 				doneCompactions.Add(1)
 			}

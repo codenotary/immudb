@@ -98,14 +98,14 @@ func (m *IndexerManager) ResumeIndexing() error {
 	return nil
 }
 
-func (m *IndexerManager) CompactIndexes(id LedgerID) error {
+func (m *IndexerManager) CompactIndexes(id LedgerID, force bool) error {
 	indexes, err := m.ledgerIndexes(id)
 	if err != nil {
 		return err
 	}
 
 	for _, idx := range indexes {
-		err := idx.Compact(context.Background())
+		err := idx.Compact(context.Background(), force)
 		switch {
 		case errors.Is(err, ErrAlreadyClosed),
 			errors.Is(err, tbtree.ErrCompactionThresholdNotReached):

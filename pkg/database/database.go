@@ -322,7 +322,7 @@ func (d *db) FlushIndex(req *schema.FlushIndexRequest) error {
 
 // CompactIndex ...
 func (d *db) CompactIndex() error {
-	return d.ledger.CompactIndexes()
+	return d.ledger.CompactIndexes(false)
 }
 
 // Set ...

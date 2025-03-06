@@ -26,7 +26,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 )
 
-func (t *TBTree) Compact(ctx context.Context) error {
+func (t *TBTree) Compact(ctx context.Context, force bool) error {
 	if !t.compacting.CompareAndSwap(false, true) {
 		return ErrCompactionInProgress
 	}
@@ -38,7 +38,7 @@ func (t *TBTree) Compact(ctx context.Context) error {
 		t.compacting.Store(compactionDone)
 	}()
 
-	if t.StalePagePercentage() < t.compactionThld {
+	if !force && (t.StalePagePercentage() < t.compactionThld) {
 		return ErrCompactionThresholdNotReached
 	}
 

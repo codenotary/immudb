@@ -532,13 +532,13 @@ func requireDataExistsOnRemoteStorage(t *testing.T, storage remotestorage.Storag
 func TestIndexCompactionForRemoteStorage(t *testing.T) {
 	path, ledgerName, storage, stOpts := testAppendableIsUploadedToRemoteStorage(t)
 
-	st, err := store.Open(path, stOpts.WithIndexOptions(stOpts.IndexOpts.WithCompactionThld(1)))
+	st, err := store.Open(path, stOpts.WithIndexOptions(stOpts.IndexOpts.WithCompactionThld(0.1)))
 	require.NoError(t, err)
 
 	ledger, err := st.OpenLedger(ledgerName)
 	require.NoError(t, err)
 
-	err = ledger.CompactIndexes()
+	err = ledger.CompactIndexes(true)
 	require.NoError(t, err)
 
 	err = st.Close()

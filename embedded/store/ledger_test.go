@@ -1801,7 +1801,7 @@ func TestLedgerHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	err = ledger.CompactIndexes()
+	err = ledger.CompactIndexes(false)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -1854,7 +1854,7 @@ func TestLedgerWithCompactionDisabled(t *testing.T) {
 	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	err = ledger.CompactIndexes()
+	err = ledger.CompactIndexes(false)
 	require.ErrorIs(t, err, ErrCompactionDisabled)
 }
 

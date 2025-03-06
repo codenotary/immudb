@@ -220,7 +220,7 @@ func (idx *index) Flush() error {
 	return idx.tree.Flush()
 }
 
-func (idx *index) Compact(ctx context.Context) error {
+func (idx *index) Compact(ctx context.Context, force bool) error {
 	idx.mtx.Lock()
 	defer idx.mtx.Unlock()
 
@@ -228,7 +228,7 @@ func (idx *index) Compact(ctx context.Context) error {
 		return ErrAlreadyClosed
 	}
 
-	err := idx.tree.Compact(ctx)
+	err := idx.tree.Compact(ctx, force)
 	if err != nil {
 		return err
 	}
