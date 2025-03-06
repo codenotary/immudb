@@ -31,6 +31,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/metrics"
 	"github.com/codenotary/immudb/embedded/multierr"
 )
 
@@ -67,7 +68,7 @@ type TBTree struct {
 	logger logger.Logger
 
 	wb    *WriteBuffer
-	pgBuf *PageBuffer
+	pgBuf *PageCache
 
 	rootID         atomic.Uint64
 	lastSnapshotID atomic.Uint64
@@ -103,6 +104,8 @@ type TBTree struct {
 
 	compactionThld float32
 	compacting     atomic.Bool
+
+	metrics metrics.IndexMetrics
 
 	readDirFunc ReadDirFunc
 	appFactory  AppFactoryFunc
@@ -208,6 +211,7 @@ func OpenWith(
 		syncThld:           opts.syncThld,
 		compactionThld:     opts.compactionThld,
 		readOnly:           opts.readOnly,
+		metrics:            metrics.NewPrometheusIndexMetrics(path),
 		appFactory:         opts.appFactory,
 		appRemove:          opts.appRemove,
 		readDirFunc:        opts.readDir,
@@ -477,6 +481,7 @@ func (t *TBTree) InsertAdvance(e Entry) error {
 	err := t.insert(e)
 	if err == nil {
 		t.rootTs.Store(e.Ts)
+		t.metrics.SetTs(e.Ts)
 	}
 	return err
 }
@@ -529,6 +534,7 @@ func (t *TBTree) insert(e Entry) error {
 	}
 
 	t.mutated = true
+	t.metrics.IncIndexedEntriesTotal()
 
 	return nil
 }
@@ -574,6 +580,8 @@ func (t *TBTree) Advance(ts uint64, entryCount uint32) error {
 	t.indexedEntryCount.Store(entryCount)
 
 	t.mtx.Unlock()
+
+	t.metrics.SetTs(ts)
 
 	return nil
 }
@@ -680,6 +688,7 @@ func (t *TBTree) insertLeaf(pg *Page, pgID PageID, e Entry, depth int) (insertRe
 	}
 
 	t.depth = depth
+	t.metrics.SetDepth(t.depth)
 
 	return insertResult{
 		split:     false,
@@ -1047,8 +1056,12 @@ func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 		return -1, PageNone, err
 	}
 
-	t.stalePages.Add(tLogRes.stalePages)
-	t.numPages.Add(uint64(tLogRes.totalPages))
+	stalePages := t.stalePages.Add(tLogRes.stalePages)
+	totalPages := t.numPages.Add(uint64(tLogRes.totalPages))
+
+	t.metrics.SetPagesFlushedLastCycle(tLogRes.totalPages)
+	t.metrics.SetTotalPages(int(totalPages))
+	t.metrics.SetStalePages(int(stalePages))
 
 	ts := t.Ts()
 

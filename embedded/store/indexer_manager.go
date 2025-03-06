@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/embedded/metrics"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
@@ -35,7 +36,7 @@ type IndexerManager struct {
 	mtx    sync.RWMutex
 	logger logger.Logger
 
-	pgBuf *tbtree.PageBuffer
+	pgBuf *tbtree.PageCache
 
 	indexes map[LedgerID][]*index
 
@@ -60,8 +61,11 @@ func NewIndexerManager(opts *Options) (*IndexerManager, error) {
 	}
 
 	return &IndexerManager{
-		logger:       opts.logger,
-		pgBuf:        tbtree.NewPageBuffer(opts.IndexOpts.PageBufferSize),
+		logger: opts.logger,
+		pgBuf: tbtree.NewPageCache(
+			opts.IndexOpts.PageBufferSize,
+			metrics.NewPrometheusPageCacheMetrics(),
+		),
 		indexers:     indexers,
 		indexes:      make(map[LedgerID][]*index),
 		indexingWHub: indexingWHub,
@@ -350,7 +354,7 @@ func (indexer *Indexer) newIndex(
 	path string,
 	ledger IndexableLedger,
 	spec IndexSpec,
-	pgBuf *tbtree.PageBuffer,
+	pgBuf *tbtree.PageCache,
 ) (*index, error) {
 	opts := ledger.Options()
 

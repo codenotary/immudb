@@ -57,7 +57,7 @@ type Options struct {
 
 	id    TreeID
 	wb    *WriteBuffer
-	pgBuf *PageBuffer
+	pgBuf *PageCache
 
 	syncThld       int
 	compactionThld float32
@@ -174,7 +174,7 @@ func (opts *Options) WithWriteBuffer(wb *WriteBuffer) *Options {
 	return opts
 }
 
-func (opts *Options) WithPageBuffer(pgBuf *PageBuffer) *Options {
+func (opts *Options) WithPageBuffer(pgBuf *PageCache) *Options {
 	opts.pgBuf = pgBuf
 	return opts
 }

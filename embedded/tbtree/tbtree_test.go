@@ -26,6 +26,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/metrics"
 
 	memapp "github.com/codenotary/immudb/embedded/appendable/memory"
 
@@ -319,7 +320,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	wb, err := newWriteBuffer(128 * 1024 * 1024)
 	require.NoError(t, err)
 
-	pgBuf := NewPageBuffer((1 + rand.Intn(100)) * PageSize)
+	pgBuf := NewPageCache((1+rand.Intn(100))*PageSize, metrics.NewNopPageCacheMetrics())
 
 	treeApp := memapp.New()
 	historyApp := memapp.New()
@@ -810,7 +811,7 @@ func TestIteratorSeek(t *testing.T) {
 }
 
 func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
-	pgBuf := NewPageBuffer(100 * PageSize)
+	pgBuf := NewPageCache(100*PageSize, metrics.NewNopPageCacheMetrics())
 	wb, err := newWriteBuffer(128 * 1024 * 1024)
 	require.NoError(t, err)
 
@@ -895,7 +896,7 @@ func TestConcurrentIterationOnMultipleSnapshots(t *testing.T) {
 }
 
 func TestIteratorNextBetween(t *testing.T) {
-	pgBuf := NewPageBuffer(100 * PageSize)
+	pgBuf := NewPageCache(100*PageSize, metrics.NewNopPageCacheMetrics())
 	wb, err := newWriteBuffer(128 * 1024 * 1024)
 	require.NoError(t, err)
 
@@ -992,7 +993,7 @@ func TestIterator(t *testing.T) {
 	wb, err := newWriteBuffer(128 * 1024 * 1024)
 	require.NoError(t, err)
 
-	pgBuf := NewPageBuffer(64 * 1024 * 1024)
+	pgBuf := NewPageCache(64*1024*1024, metrics.NewNopPageCacheMetrics())
 
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
@@ -1319,7 +1320,7 @@ func TestCompaction(t *testing.T) {
 	wb, err := newWriteBuffer(1024 * 1024)
 	require.NoError(t, err)
 
-	pgBuf := NewPageBuffer(100 * PageSize)
+	pgBuf := NewPageCache(100*PageSize, metrics.NewNopPageCacheMetrics())
 
 	var compactedTreeApp appendable.Appendable
 
@@ -1482,7 +1483,7 @@ func TestFlushEdgeCases(t *testing.T) {
 	wb, err := newWriteBuffer(1024 * 1024)
 	require.NoError(t, err)
 
-	pgBuf := NewPageBuffer(100 * PageSize)
+	pgBuf := NewPageCache(100*PageSize, metrics.NewNopPageCacheMetrics())
 
 	opts := DefaultOptions().
 		WithCompactionThld(0.75).
@@ -1596,7 +1597,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 	wb, err := newWriteBuffer(1024 * 1024)
 	require.NoError(t, err)
 
-	pgBuf := NewPageBuffer(100 * PageSize)
+	pgBuf := NewPageCache(100*PageSize, metrics.NewNopPageCacheMetrics())
 
 	dirEntries := []os.DirEntry{
 		&dirEntry{
@@ -1810,7 +1811,7 @@ func newTBTree(writeBufferSize, pageBufferSize int) (*TBTree, error) {
 		return nil, err
 	}
 
-	pgBuf := NewPageBuffer(pageBufferSize)
+	pgBuf := NewPageCache(pageBufferSize, metrics.NewNopPageCacheMetrics())
 
 	opts := DefaultOptions().
 		WithWriteBuffer(wb).
@@ -1838,7 +1839,7 @@ func newWriteBuffer(size int) (*WriteBuffer, error) {
 	return NewWriteBuffer(sw, chunkSize, size)
 }
 
-func requireNoPageIsPinned(t *testing.T, buf *PageBuffer) {
+func requireNoPageIsPinned(t *testing.T, buf *PageCache) {
 	for i := range buf.descriptors {
 		desc := &buf.descriptors[i]
 		require.True(t, desc.lock.Free())

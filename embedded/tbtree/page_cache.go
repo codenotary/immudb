@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/metrics"
 	"github.com/codenotary/immudb/pkg/latch"
 )
 
@@ -41,8 +42,10 @@ type PageDescriptor struct {
 	lock      latch.LWLock
 }
 
-type PageBuffer struct {
+type PageCache struct {
 	mtx sync.RWMutex
+
+	metrics metrics.PageCacheMetrics
 
 	descTable   map[TreePage]uint32
 	descriptors []PageDescriptor
@@ -50,7 +53,10 @@ type PageBuffer struct {
 	buf []byte
 }
 
-func NewPageBuffer(size int) *PageBuffer {
+func NewPageCache(
+	size int,
+	metrics metrics.PageCacheMetrics,
+) *PageCache {
 	nPages := roundUpPages(size)
 
 	desc := make([]PageDescriptor, nPages)
@@ -58,85 +64,97 @@ func NewPageBuffer(size int) *PageBuffer {
 		desc[i].tp = math.MaxUint64
 	}
 
-	return &PageBuffer{
+	metrics.SetCacheSize(PageSize * nPages)
+
+	return &PageCache{
+		metrics:     metrics,
 		descTable:   make(map[TreePage]uint32, nPages),
 		descriptors: desc,
 		buf:         make([]byte, PageSize*nPages),
 	}
 }
 
-func (buf *PageBuffer) Get(tid TreeID, id PageID, loader PageLoader) (*Page, error) {
-	pg, err := buf.get(indexPage(tid, id), loader)
+func (c *PageCache) Get(tid TreeID, id PageID, loader PageLoader) (*Page, error) {
+	pg, err := c.get(indexPage(tid, id), loader)
 	return pg, err
 }
 
-func (buf *PageBuffer) UsePage(tid TreeID, id PageID, loader PageLoader, onPage func(pg *Page) error) error {
-	pg, err := buf.Get(tid, id, loader)
+func (c *PageCache) UsePage(tid TreeID, id PageID, loader PageLoader, onPage func(pg *Page) error) error {
+	pg, err := c.Get(tid, id, loader)
 	if err != nil {
 		return err
 	}
 
 	err = onPage(pg)
-	buf.Release(tid, id)
+	c.Release(tid, id)
 	return err
 }
 
-func (buf *PageBuffer) get(ip TreePage, loader PageLoader) (*Page, error) {
+func (c *PageCache) get(ip TreePage, loader PageLoader) (*Page, error) {
 	var err error = ErrDescriptorChanged
 	var pg *Page
 	for errors.Is(err, ErrDescriptorChanged) {
-		descID := buf.pageDesc(ip)
+		descID := c.pageDesc(ip)
 		if descID >= 0 {
-			pg, _, err = buf.pinDescriptor(uint32(descID), ip, false)
+			pg, _, err = c.pinDescriptor(uint32(descID), ip, false)
+			if err == nil {
+				c.metrics.IncHits()
+			}
 		} else {
-			pg, _, err = buf.loadPage(ip, loader)
+			pg, _, err = c.loadPage(ip, loader)
 		}
 	}
 	return pg, err
 }
 
-func (buf *PageBuffer) loadPage(ip TreePage, loader PageLoader) (*Page, uint32, error) {
-	newDescID, newSlotAllocated, err := buf.allocDescriptor()
+func (c *PageCache) loadPage(ip TreePage, loader PageLoader) (*Page, uint32, error) {
+	newDescID, newSlotAllocated, err := c.allocDescriptor()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	buf.mtx.Lock()
+	c.mtx.Lock()
 
-	descID, has := buf.descTable[ip]
+	descID, has := c.descTable[ip]
 	if has {
-		buf.mtx.Unlock()
+		c.mtx.Unlock()
 
-		buf.descriptors[newDescID].allocated.Store(!newSlotAllocated)
-		buf.descriptors[newDescID].lock.Unlock()
+		c.descriptors[newDescID].allocated.Store(!newSlotAllocated)
+		c.descriptors[newDescID].lock.Unlock()
 
-		return buf.pinDescriptor(uint32(descID), ip, false)
+		pg, desc, err := c.pinDescriptor(uint32(descID), ip, false)
+		if err == nil {
+			c.metrics.IncHits()
+		}
+		return pg, desc, err
 	}
 
-	desc := &buf.descriptors[newDescID]
-	delete(buf.descTable, desc.tp)
+	desc := &c.descriptors[newDescID]
+	delete(c.descTable, desc.tp)
 
 	desc.tp = ip
 
-	buf.descTable[ip] = uint32(newDescID)
+	c.descTable[ip] = uint32(newDescID)
 
-	buf.mtx.Unlock()
+	c.mtx.Unlock()
 
-	pageData := buf.buf[newDescID*PageSize : (newDescID+1)*PageSize]
+	c.metrics.IncMisses()
+
+	pageData := c.buf[newDescID*PageSize : (newDescID+1)*PageSize]
 	err = loader(pageData, ip.PageID())
 	if err != nil {
 		desc.lock.Unlock()
 		return nil, 0, err
 	}
-	return buf.pinDescriptor(uint32(newDescID), ip, true)
+	return c.pinDescriptor(uint32(newDescID), ip, true)
 }
 
-func (buf *PageBuffer) pinDescriptor(
+func (c *PageCache) pinDescriptor(
 	descID uint32,
 	ip TreePage,
 	downgrade bool,
 ) (*Page, uint32, error) {
-	desc := &buf.descriptors[descID]
+	desc := &c.descriptors[descID]
 	if downgrade {
 		desc.lock.Downgrade()
 	} else {
@@ -148,22 +166,24 @@ func (buf *PageBuffer) pinDescriptor(
 		return nil, 0, ErrDescriptorChanged
 	}
 
-	pageData := buf.buf[descID*PageSize : (descID+1)*PageSize]
+	pageData := c.buf[descID*PageSize : (descID+1)*PageSize]
 	return PageFromBytes(pageData), descID, nil
 }
 
-func (buf *PageBuffer) allocDescriptor() (int, bool, error) {
-	for i := range buf.descriptors {
-		desc := &buf.descriptors[i]
+func (c *PageCache) allocDescriptor() (int, bool, error) {
+	for i := range c.descriptors {
+		desc := &c.descriptors[i]
 		if !desc.allocated.Load() && desc.lock.TryLock() {
 			desc.allocated.Store(true)
 			return i, true, nil
 		}
 	}
 
+	c.metrics.IncEvictions()
+
 	for {
-		for i := range buf.descriptors {
-			desc := &buf.descriptors[i]
+		for i := range c.descriptors {
+			desc := &c.descriptors[i]
 			if desc.lock.TryLock() {
 				return i, false, nil
 			}
@@ -173,31 +193,31 @@ func (buf *PageBuffer) allocDescriptor() (int, bool, error) {
 	}
 }
 
-func (buf *PageBuffer) Release(tid TreeID, pgID PageID) {
-	descID := buf.pageDesc(indexPage(tid, pgID))
+func (c *PageCache) Release(tid TreeID, pgID PageID) {
+	descID := c.pageDesc(indexPage(tid, pgID))
 	assert(descID >= 0, "Release(): no descriptor found")
 
-	desc := &buf.descriptors[descID]
+	desc := &c.descriptors[descID]
 	desc.lock.RUnlock()
 }
 
-func (buf *PageBuffer) pageDesc(ip TreePage) int {
-	buf.mtx.RLock()
-	desc, ok := buf.descTable[ip]
-	buf.mtx.RUnlock()
+func (c *PageCache) pageDesc(ip TreePage) int {
+	c.mtx.RLock()
+	desc, ok := c.descTable[ip]
+	c.mtx.RUnlock()
 	if !ok {
 		return -1
 	}
 	return int(desc)
 }
 
-func (buf *PageBuffer) InvalidatePages(id TreeID) {
-	buf.mtx.Lock()
-	defer buf.mtx.Unlock()
+func (c *PageCache) InvalidatePages(id TreeID) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 
-	for pgID := range buf.descTable {
+	for pgID := range c.descTable {
 		if pgID.TreeID() == id {
-			delete(buf.descTable, pgID)
+			delete(c.descTable, pgID)
 		}
 	}
 }
