@@ -1770,15 +1770,25 @@ func TestLedgerCommitWith(t *testing.T) {
 }
 
 func TestLedgerHistoricalValues(t *testing.T) {
+	size := 10 * tbtree.PageSize
+
 	opts := DefaultOptions().
 		WithSynced(false).
-		WithMaxConcurrency(1)
+		WithMaxConcurrency(1).
+		WithIndexOptions(
+			DefaultIndexOptions().
+				WithNumIndexers(1).
+				WithWriteBufferChunkSize(size).
+				WithSharedWriteBufferSize(size).
+				WithMaxWriteBufferSize(size).
+				WithMinWriteBufferSize(size),
+		)
 
 	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 	require.NotNil(t, ledger)
 
-	txCount := 10
+	txCount := 100
 	eCount := 10
 
 	for i := 0; i < txCount; i++ {

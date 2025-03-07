@@ -106,11 +106,6 @@ func (m *IndexerManager) CompactIndexes(id LedgerID, force bool) error {
 
 	for _, idx := range indexes {
 		err := idx.Compact(context.Background(), force)
-		switch {
-		case errors.Is(err, ErrAlreadyClosed),
-			errors.Is(err, tbtree.ErrCompactionThresholdNotReached):
-			err = nil
-		}
 		if err != nil {
 			return err
 		}

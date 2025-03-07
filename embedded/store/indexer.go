@@ -285,7 +285,7 @@ func (indexer *Indexer) tryFlushIndexes() (bool, error) {
 	for n := 0; n < numIndexes; n++ {
 		e, ok := indexer.queue.PopFront()
 		if !ok {
-			panic("queue is empty")
+			return false, fmt.Errorf("queue is empty")
 		}
 
 		err := e.index.tree.TryFlush()
