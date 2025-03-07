@@ -132,7 +132,7 @@ func Open(
 		return nil, err
 	}
 
-	var t *TBTree
+	var tree *TBTree
 	recoveryAttempts, err := recoverLatestValidTreeSnapshot(
 		path,
 		opts.readDir,
@@ -143,15 +143,20 @@ func Open(
 				return err
 			}
 
-			t, err = OpenWith(path, treeApp, historyLog, snapTs, opts)
+			// NOTE: The timestamp of the recovered snapshot must be greater than or equal to
+			// the timestamp recorded in the snapshot folder. This ensures the recovery process
+			// does not truncate both the tree and history log, which would result in silently
+			// recovering an empty tree.
+
+			tree, err = OpenWith(path, treeApp, historyLog, snapTs, opts)
 			return err
 		})
 	if err != nil {
 		return nil, err
 	}
 
-	if t != nil {
-		return t, nil
+	if tree != nil {
+		return tree, nil
 	}
 
 	if recoveryAttempts > 0 {
