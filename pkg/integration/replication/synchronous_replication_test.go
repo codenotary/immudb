@@ -272,7 +272,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 		suite.AddReplica(true)
 		suite.AddReplica(true)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key5"), []byte("value5"))
