@@ -82,8 +82,8 @@ type TBTree struct {
 	tailHistoryPageID   PageID
 	bufferedHistoryData uint64
 
-	treeApp    appendable.Appendable
-	historyApp appendable.Appendable
+	treeLog    appendable.Appendable
+	historyLog appendable.Appendable
 
 	numPages   atomic.Uint64
 	stalePages atomic.Uint32 // refers to the last persisted snapshot
@@ -127,7 +127,7 @@ func Open(
 		WithFileMode(opts.fileMode).
 		WithWriteBufferSize(opts.appWriteBufferSize)
 
-	historyApp, err := opts.appFactory(path, HistoryLogFileName, appOpts.WithFileExt("hx"))
+	historyLog, err := opts.appFactory(path, HistoryLogFileName, appOpts.WithFileExt("hx"))
 	if err != nil {
 		return nil, err
 	}
@@ -143,15 +143,8 @@ func Open(
 				return err
 			}
 
-			t, err = OpenWith(path, treeApp, historyApp, opts)
-			if err != nil {
-				return err
-			}
-
-			if snapTs > 0 && t.Ts() != snapTs {
-				return fmt.Errorf("invalid snapshot: timestamp mismatch (%d != %d)", t.Ts(), snapTs)
-			}
-			return nil
+			t, err = OpenWith(path, treeApp, historyLog, snapTs, opts)
+			return err
 		})
 	if err != nil {
 		return nil, err
@@ -169,26 +162,28 @@ func Open(
 		)
 	}
 
-	treeApp, err := opts.appFactory(path, TreeLogFileName, appOpts.WithFileExt("t"))
+	treeLog, err := opts.appFactory(path, TreeLogFileName, appOpts.WithFileExt("t"))
 	if err != nil {
 		return nil, err
 	}
 
 	return OpenWith(
 		path,
-		treeApp,
-		historyApp,
+		treeLog,
+		historyLog,
+		0,
 		opts,
 	)
 }
 
 func OpenWith(
 	path string,
-	treeApp,
-	historyApp appendable.Appendable,
+	treeLog,
+	historyLog appendable.Appendable,
+	minTs uint64,
 	opts *Options,
 ) (*TBTree, error) {
-	if treeApp == nil || historyApp == nil {
+	if treeLog == nil || historyLog == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -202,8 +197,8 @@ func OpenWith(
 		id:                 opts.id,
 		wb:                 opts.wb,
 		pgBuf:              opts.pgBuf,
-		treeApp:            treeApp,
-		historyApp:         historyApp,
+		treeLog:            treeLog,
+		historyLog:         historyLog,
 		headHistoryPageID:  PageNone,
 		tailHistoryPageID:  PageNone,
 		depth:              0,
@@ -221,7 +216,7 @@ func OpenWith(
 		readDirFunc:        opts.readDir,
 	}
 
-	err := t.recoverRootPage()
+	err := t.recoverRootPage(minTs)
 	if err != nil {
 		return nil, err
 	}
@@ -283,14 +278,18 @@ func recoverLatestValidTreeSnapshot(
 	return recoveryAttempts, nil
 }
 
-func (t *TBTree) recoverRootPage() error {
+func (t *TBTree) recoverRootPage(minTs uint64) error {
 	commitEntry, entryOff, err := t.findLastCommitEntry()
 	if errors.Is(err, ErrNoCommitEntryFound) {
-		if err := t.treeApp.SetOffset(0); err != nil {
+		if minTs > 0 {
+			return ErrInvalidTimestamp
+		}
+
+		if err := t.treeLog.SetOffset(0); err != nil {
 			return err
 		}
 
-		if err := t.historyApp.SetOffset(0); err != nil {
+		if err := t.historyLog.SetOffset(0); err != nil {
 			return err
 		}
 
@@ -300,6 +299,10 @@ func (t *TBTree) recoverRootPage() error {
 	}
 	if err != nil {
 		return err
+	}
+
+	if commitEntry.Ts < minTs {
+		return ErrInvalidTimestamp
 	}
 
 	rootPageOff, err := t.findRootPage(&commitEntry, entryOff)
@@ -321,12 +324,12 @@ func (t *TBTree) recoverRootPage() error {
 		rootPageID = PageID(rootPageOff)
 	}
 
-	if err := t.treeApp.SetOffset(entryOff + CommitEntrySize); err != nil {
+	if err := t.treeLog.SetOffset(entryOff + CommitEntrySize); err != nil {
 		return err
 	}
 
 	hLogOff := int64(commitEntry.HLogOff) + int64(commitEntry.HLogFlushedBytes)
-	if err := t.historyApp.SetOffset(hLogOff); err != nil {
+	if err := t.historyLog.SetOffset(hLogOff); err != nil {
 		return err
 	}
 
@@ -348,7 +351,7 @@ func (t *TBTree) findRootPage(ce *CommitEntry, entryOff int64) (int64, error) {
 
 	var commitEntry [CommitEntrySize]byte
 	for off := int64(ce.TLogOff) - CommitEntrySize; off >= 0; off -= CommitEntrySize {
-		_, err := t.treeApp.ReadAt(commitEntry[:], off)
+		_, err := t.treeLog.ReadAt(commitEntry[:], off)
 		if err != nil {
 			return -1, err
 		}
@@ -370,7 +373,7 @@ func (t *TBTree) findRootPage(ce *CommitEntry, entryOff int64) (int64, error) {
 }
 
 func (t *TBTree) findLastCommitEntry() (CommitEntry, int64, error) {
-	size, err := t.treeApp.Size()
+	size, err := t.treeLog.Size()
 	if err != nil {
 		return CommitEntry{}, 0, err
 	}
@@ -378,7 +381,7 @@ func (t *TBTree) findLastCommitEntry() (CommitEntry, int64, error) {
 	// search for the latest valid committed entry
 	var buf [CommitEntrySize]byte
 	for off := size - CommitEntrySize; off >= 0; {
-		if _, err := t.treeApp.ReadAt(buf[:], off); err != nil {
+		if _, err := t.treeLog.ReadAt(buf[:], off); err != nil {
 			return CommitEntry{}, -1, err
 		}
 
@@ -411,7 +414,7 @@ func (t *TBTree) validateCommitEntry(e *CommitEntry, entryOff int64) error {
 		return fmt.Errorf("%w: invalid tLogBytes", ErrInvalidCommitEntry)
 	}
 
-	tLogSize, err := t.treeApp.Size()
+	tLogSize, err := t.treeLog.Size()
 	if err != nil {
 		return err
 	}
@@ -420,7 +423,7 @@ func (t *TBTree) validateCommitEntry(e *CommitEntry, entryOff int64) error {
 		return fmt.Errorf("%w: invalid tLogOffset", ErrInvalidCommitEntry)
 	}
 
-	hLogSize, err := t.historyApp.Size()
+	hLogSize, err := t.historyLog.Size()
 	if err != nil {
 		return err
 	}
@@ -435,7 +438,7 @@ func (t *TBTree) validateCommitEntry(e *CommitEntry, entryOff int64) error {
 		return ErrInvalidCommitEntry
 	}
 
-	tLogChecksum, err := appendable.Checksum(t.treeApp, int64(e.TLogOff), tLogBytesExcludingChecksum)
+	tLogChecksum, err := appendable.Checksum(t.treeLog, int64(e.TLogOff), tLogBytesExcludingChecksum)
 	if err != nil {
 		return err
 	}
@@ -443,7 +446,7 @@ func (t *TBTree) validateCommitEntry(e *CommitEntry, entryOff int64) error {
 	var hLogChecksum [sha256.Size]byte
 
 	if e.HLogFlushedBytes > 0 {
-		hLogChecksum, err = appendable.Checksum(t.historyApp, int64(e.HLogOff), int64(e.HLogFlushedBytes))
+		hLogChecksum, err = appendable.Checksum(t.historyLog, int64(e.HLogOff), int64(e.HLogFlushedBytes))
 		if err != nil {
 			return err
 		}
@@ -575,7 +578,7 @@ func (t *TBTree) readPage(dst []byte, pgID PageID) error {
 		return ErrInvalidPageID
 	}
 
-	err := readPageToBuf(dst, t.treeApp, off)
+	err := readPageToBuf(dst, t.treeLog, off)
 	if err != nil {
 		return err
 	}
@@ -959,14 +962,14 @@ func (t *TBTree) snapshot() (Snapshot, error) {
 func (t *TBTree) getRevision(hoff uint64, n int) (HistoryEntry, error) {
 	var buf [MaxEntrySize]byte
 	for i := 0; i < n-1; i++ {
-		_, err := t.historyApp.ReadAt(buf[:8], int64(hoff))
+		_, err := t.historyLog.ReadAt(buf[:8], int64(hoff))
 		if err != nil {
 			return HistoryEntry{}, err
 		}
 		hoff = binary.BigEndian.Uint64(buf[:])
 	}
 
-	_, err := t.historyApp.ReadAt(buf[:18], int64(hoff))
+	_, err := t.historyLog.ReadAt(buf[:18], int64(hoff))
 	if err != nil {
 		return HistoryEntry{}, err
 	}
@@ -974,7 +977,7 @@ func (t *TBTree) getRevision(hoff uint64, n int) (HistoryEntry, error) {
 	ts := binary.BigEndian.Uint64(buf[8:])
 	vlen := binary.BigEndian.Uint16(buf[16:])
 
-	_, err = t.historyApp.ReadAt(buf[:vlen], int64(hoff+18))
+	_, err = t.historyLog.ReadAt(buf[:vlen], int64(hoff+18))
 	if err != nil {
 		return HistoryEntry{}, err
 	}
@@ -1044,7 +1047,7 @@ func (t *TBTree) flushToTreeLog() error {
 		return nil
 	}
 
-	bytesWritten, rootID, err := t.flushTo(t.treeApp)
+	bytesWritten, rootID, err := t.flushTo(t.treeLog)
 	if err != nil {
 		return err
 	}
@@ -1122,12 +1125,12 @@ func (t *TBTree) maybeSync(n uint32) {
 		// Prevent compaction to swap the treeApp file during sync
 		t.snapshotCount.Add(1)
 
-		err := t.historyApp.Sync()
+		err := t.historyLog.Sync()
 		if err != nil {
 			t.logger.Warningf("%w: unable to sync history log, path=%s", err, t.path)
 		}
 
-		err = t.treeApp.Sync()
+		err = t.treeLog.Sync()
 		if err != nil {
 			t.logger.Warningf("%w: unable to sync tree log, path=%s", err, t.path)
 		}
@@ -1144,7 +1147,7 @@ type WriteRes struct {
 }
 
 func (t *TBTree) flushHistory() (WriteRes, error) {
-	off, err := t.historyApp.Size()
+	off, err := t.historyLog.Size()
 	if err != nil {
 		return WriteRes{}, err
 	}
@@ -1156,7 +1159,7 @@ func (t *TBTree) flushHistory() (WriteRes, error) {
 		}, nil
 	}
 
-	historyApp := appendable.WithChecksum(t.historyApp)
+	historyApp := appendable.WithChecksum(t.historyLog)
 
 	var n int
 	for currPage != PageNone {
@@ -1439,10 +1442,10 @@ func (t *TBTree) Close() error {
 	}
 
 	return multierr.NewMultiErr().
-		Append(t.historyApp.Sync()).
-		Append(t.treeApp.Sync()).
-		Append(t.historyApp.Close()).
-		Append(t.treeApp.Close()).
+		Append(t.historyLog.Sync()).
+		Append(t.treeLog.Sync()).
+		Append(t.historyLog.Close()).
+		Append(t.treeLog.Close()).
 		Reduce()
 }
 

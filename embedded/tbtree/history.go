@@ -59,7 +59,7 @@ func (snap *TBTreeSnapshot) NewHistoryIterator(
 	key []byte,
 	maxTs uint64,
 ) (*HistoryIterator, error) {
-	return newHistoryIterator(snap.tree.historyApp, snap, key, maxTs)
+	return newHistoryIterator(snap.tree.historyLog, snap, key, maxTs)
 }
 
 func newHistoryIterator(

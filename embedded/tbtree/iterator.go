@@ -341,7 +341,7 @@ func (it *TBTreeIterator) nextEntryBetween(e *Entry, initialTs, finalTs uint64) 
 				HOff:      e.HOff,
 				ValueSize: uint16(len(e.Value)),
 			},
-			historyApp:      it.tree.historyApp,
+			historyApp:      it.tree.historyLog,
 			n:               int(e.HC) + 1,
 			consumedEntries: 0,
 		}

@@ -85,7 +85,13 @@ func (t *TBTree) Compact(ctx context.Context, force bool) error {
 		return err
 	}
 
-	hLogSize, err := t.historyApp.Size()
+	// make sure history log is synced before writing the commit entry
+	err = t.historyLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	hLogSize, err := t.historyLog.Size()
 	if err != nil {
 		return err
 	}
@@ -120,7 +126,7 @@ func (t *TBTree) Compact(ctx context.Context, force bool) error {
 		IndexedEntryCount: indexedEntries,
 	}
 
-	if err := commit(&newEntry, appendable.WithChecksum(t.treeApp)); err != nil {
+	if err := commit(&newEntry, appendable.WithChecksum(t.treeLog)); err != nil {
 		return err
 	}
 

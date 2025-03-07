@@ -55,10 +55,10 @@ func TestHistoryIterator(t *testing.T) {
 	snap, err := tree.ReadSnapshot()
 	require.NoError(t, err)
 
-	_, err = newHistoryIterator(tree.historyApp, snap, []byte("key"), uint64(nEntries))
+	_, err = newHistoryIterator(tree.historyLog, snap, []byte("key"), uint64(nEntries))
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
-	it, err := newHistoryIterator(tree.historyApp, snap, key, uint64(nEntries))
+	it, err := newHistoryIterator(tree.historyLog, snap, key, uint64(nEntries))
 	require.NoError(t, err)
 	require.Equal(t, nEntries, it.Entries())
 

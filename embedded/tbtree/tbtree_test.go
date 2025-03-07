@@ -153,7 +153,7 @@ func TestInsert(t *testing.T) {
 			require.NoError(t, err)
 			require.Zero(t, tree.wb.UsedPages())
 
-			treeApp := tree.treeApp
+			treeApp := tree.treeLog
 			size, _ := treeApp.Size()
 			require.Greater(t, size, int64(0))
 			require.False(t, tree.rootPageID().isMemPage())
@@ -379,10 +379,10 @@ func TestSnapshotRecovery(t *testing.T) {
 		ts := tree.Ts()
 		rootID := tree.rootPageID()
 
-		tLogSize, err := tree.treeApp.Size()
+		tLogSize, err := tree.treeLog.Size()
 		require.NoError(t, err)
 
-		hLogSize, err := tree.historyApp.Size()
+		hLogSize, err := tree.historyLog.Size()
 		require.NoError(t, err)
 
 		snapshots[n] = expectedSnapshot{
@@ -464,11 +464,11 @@ func TestSnapshotRecovery(t *testing.T) {
 		require.Equal(t, latestSnapshotRootID, tree.rootPageID())
 		require.Equal(t, latestTs, tree.Ts())
 
-		size, err := tree.treeApp.Size()
+		size, err := tree.treeLog.Size()
 		require.NoError(t, err)
 		require.Equal(t, treeLogSize, size)
 
-		hLogSize, err := tree.historyApp.Size()
+		hLogSize, err := tree.historyLog.Size()
 		require.NoError(t, err)
 		require.Equal(t, historyLogSize, hLogSize)
 	})
@@ -507,10 +507,10 @@ func TestSnapshotRecovery(t *testing.T) {
 	}
 
 	checkRecoveredSnapshot := func(tree *TBTree, expectedSnap expectedSnapshot) {
-		size, err := tree.treeApp.Size()
+		size, err := tree.treeLog.Size()
 		require.NoError(t, err)
 
-		hLogSize, err := tree.historyApp.Size()
+		hLogSize, err := tree.historyLog.Size()
 		require.NoError(t, err)
 
 		require.Equal(t, expectedSnap.rootID, tree.rootPageID())
@@ -1388,7 +1388,7 @@ func TestCompaction(t *testing.T) {
 
 	require.NoError(t, snap.Close())
 
-	sizeBeforeCompaction, err := tree.treeApp.Size()
+	sizeBeforeCompaction, err := tree.treeLog.Size()
 	require.NoError(t, err)
 
 	require.Greater(t, tree.StalePages(), uint32(0))
@@ -1426,25 +1426,80 @@ func TestCompaction(t *testing.T) {
 	require.NoError(t, err)
 	require.Less(t, sizeAfterCompaction, sizeBeforeCompaction)
 
-	hLog := tree.historyApp
+	hLog := tree.historyLog
 
 	err = tree.Close()
 	require.NoError(t, err)
 
-	opts = opts.WithAppFactory(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
-		switch subPath {
-		case "history":
-			return hLog, nil
-		case "tree":
-			return compactedTreeApp, nil
-		}
-		return memapp.New(), nil
+	readDir := func(path string) ([]os.DirEntry, error) {
+		return []os.DirEntry{
+			&dirEntry{
+				isDir: true,
+				name:  snapFolder(TreeLogFileName, 0),
+			},
+			&dirEntry{
+				isDir: true,
+				name:  snapFolder(TreeLogFileName, 2),
+			},
+		}, nil
+
+	}
+
+	oldTreeLog := tree.treeLog
+
+	t.Run("recovers from old tree log when compacted log has not been fully written", func(t *testing.T) {
+		compactedTreeLogIsRemoved := false
+
+		opts = opts.WithAppFactory(func(_, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			switch subPath {
+			case "history":
+				return hLog, nil
+			case snapFolder(TreeLogFileName, 0):
+				return oldTreeLog, nil
+			case snapFolder(TreeLogFileName, 2):
+				return &truncateAppendable{
+					Appendable:  compactedTreeApp,
+					truncatedAt: sizeAfterCompaction - 1,
+				}, nil
+			}
+			return memapp.New(), nil
+		}).WithReadDirFunc(readDir).WithAppRemove(func(_, subPath string) error {
+			compactedTreeLogIsRemoved = true
+			require.Equal(t, snapFolder(TreeLogFileName, 2), subPath)
+			return nil
+		})
+
+		tree, err = Open("", opts)
+		require.NoError(t, err)
+
+		require.True(t, compactedTreeLogIsRemoved)
+		require.Equal(t, oldTreeLog, tree.treeLog)
+		require.Equal(t, uint64(2), tree.Ts())
 	})
 
-	tree, err = Open("", opts)
+	oldLogIsRemoved := false
+	tree, err = Open("",
+		opts.WithAppFactory(func(_, subPath string, _ *multiapp.Options) (appendable.Appendable, error) {
+			switch subPath {
+			case "history":
+				return hLog, nil
+			case snapFolder(TreeLogFileName, 0):
+				return oldTreeLog, nil
+			case snapFolder(TreeLogFileName, 2):
+				return compactedTreeApp, nil
+			}
+			return memapp.New(), nil
+		}).WithReadDirFunc(readDir).
+			WithAppRemove(func(_, subPath string) error {
+				oldLogIsRemoved = true
+				require.Equal(t, snapFolder(TreeLogFileName, 0), subPath)
+				return nil
+			}))
 	require.NoError(t, err)
+	require.True(t, oldLogIsRemoved)
+	require.Equal(t, compactedTreeApp, tree.treeLog)
 
-	treeSize, err := tree.treeApp.Size()
+	treeSize, err := tree.treeLog.Size()
 	require.NoError(t, err)
 
 	require.Equal(t, sizeAfterCompaction, treeSize)
@@ -1503,7 +1558,7 @@ func TestFlushEdgeCases(t *testing.T) {
 		err = tree.FlushReset()
 		require.NoError(t, err)
 
-		size, err := tree.treeApp.Size()
+		size, err := tree.treeLog.Size()
 		require.NoError(t, err)
 		require.Zero(t, size)
 	})
@@ -1655,7 +1710,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 		err = tree.FlushReset()
 		require.NoError(t, err)
 
-		return tree.treeApp
+		return tree.treeLog
 	}
 
 	// ReadDir func is supposed to return entries in lexicographic order.
