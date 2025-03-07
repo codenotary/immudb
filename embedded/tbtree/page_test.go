@@ -241,13 +241,13 @@ func TestInnerPageSplit(t *testing.T) {
 	require.Equal(t, entriesBeforeSplit+1, pg.NumEntries+newPage.NumEntries)
 
 	switch {
-	case idx < int(pg.NumEntries):
+	case idx <= int(pg.NumEntries):
 		foundKey := pg.keyAt(idx)
 		require.Equal(t, key, foundKey)
 
 		id := pg.ChildPageAt(idx)
 		require.Equal(t, pgID, id)
-	case idx >= int(pg.NumEntries):
+	case idx > int(pg.NumEntries):
 		foundKey := newPage.keyAt(idx - int(pg.NumEntries))
 		require.Equal(t, key, foundKey)
 
