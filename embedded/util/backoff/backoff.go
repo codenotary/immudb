@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand/v2"
+	"math/rand"
 	"time"
 )
 

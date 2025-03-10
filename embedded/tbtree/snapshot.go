@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/codenotary/immudb/embedded/container"
 	"github.com/codenotary/immudb/embedded/radix"
@@ -235,9 +234,15 @@ func (snap *TBTreeSnapshot) History(key []byte, offset uint64, descOrder bool, l
 	}
 
 	if !descOrder {
-		slices.Reverse(values)
+		reverseSlice(values)
 	}
 	return values, uint64(it.Entries()), nil
+}
+
+func reverseSlice[T any](s []T) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
 }
 
 func (snap *TBTreeSnapshot) NewIterator(opts IteratorOptions) (Iterator, error) {

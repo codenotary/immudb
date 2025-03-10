@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.18 as build
+FROM golang:1.19 as build
 ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum /src/
