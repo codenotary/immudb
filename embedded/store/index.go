@@ -39,11 +39,13 @@ func (spec *IndexSpec) Path(basePath string) string {
 }
 
 type index struct {
-	path string
+	mtx sync.RWMutex
 
-	mtx    sync.RWMutex
-	closed bool
+	path      string
+	indexerID int
+	closed    bool
 
+	srcIdx *index
 	ledger IndexableLedger
 
 	spec IndexSpec
@@ -255,6 +257,9 @@ func (idx *index) shouldIndex() bool {
 }
 
 func (idx *index) Ts() uint64 {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
 	return idx.tree.Ts()
 }
 

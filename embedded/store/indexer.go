@@ -148,6 +148,16 @@ func (indexer *Indexer) tryIndexNext() (bool, error) {
 		return false, fmt.Errorf("unexpected attempt to index up-to-date index at path %s", idx.path)
 	}
 
+	upToTx := idx.ledger.LastCommittedTxID()
+	if srcIdx := idx.srcIdx; srcIdx != nil && upToTx > srcIdx.Ts() {
+		upToTx = srcIdx.Ts()
+	}
+
+	// index must be at least as up to date as its source indexer
+	if upToTx <= idx.Ts() {
+		return true, nil
+	}
+
 	err := indexer.indexUpTo(idx, idx.ledger.LastCommittedTxID())
 	switch {
 	case errors.Is(err, watchers.ErrAlreadyClosed),
@@ -198,42 +208,43 @@ func (indexer *Indexer) popIndex() *index {
 	return nil
 }
 
-func (indexer *Indexer) indexUpTo(index *index, upToTx uint64) error {
-	indexer.logger.Infof("indexing %s from %d up to %d, percentage=%f", index.path, index.Ts(), upToTx, float64(index.Ts())/float64(upToTx))
+func (indexer *Indexer) indexUpTo(idx *index, upToTx uint64) error {
+	indexer.logger.Infof("indexing %s from %d up to %d, percentage=%f", idx.path, idx.Ts(), upToTx, float64(idx.Ts())/float64(upToTx))
 
-	for txID := index.Ts() + 1; txID <= upToTx; txID++ {
-		err := index.ledger.ReadTxAt(txID, indexer.tx)
+	for txID := idx.Ts() + 1; txID <= upToTx; txID++ {
+		err := idx.ledger.ReadTxAt(txID, indexer.tx)
 		if err != nil {
 			return err
 		}
 
-		entriesIndexed, err := indexer.indexEntries(index, indexer.tx)
+		entriesIndexed, err := indexer.indexEntries(idx, indexer.tx)
 		if err != nil {
 			// If the write buffer fills up while indexing transaction T, a flush may be required.
 			// We can persist the snapshot, but T's entries must stay hidden.
 			// Thus, we must track the last fully indexed transaction T and the number of indexed entries in T+1.
-			if err := index.setTs(txID-1, entriesIndexed); err != nil {
+			if err := idx.setTs(txID-1, entriesIndexed); err != nil {
 				return err
 			}
 			return err
 		}
 	}
-	return index.setTs(upToTx, 0)
+	return idx.setTs(upToTx, 0)
 }
 
-func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
+func (indexer *Indexer) indexEntries(idx *index, tx *Tx) (uint32, error) {
 	entries := tx.Entries()
 	if len(entries) == 0 {
 		return 0, nil
 	}
 
-	n := index.EntriesIndexedAtTs(tx.header.ID)
+	n := idx.EntriesIndexedAtTs(tx.header.ID)
 	if n >= uint32(len(entries)) {
 		return n, nil
 	}
 
+	srcIdx := idx
 	for i := range entries[n:] {
-		e, shouldIndex, err := indexer.mapEntryAt(index, tx, int(n)+i)
+		e, shouldIndex, err := indexer.mapEntryAt(idx, tx, int(n)+i)
 		if err != nil {
 			return n + uint32(i), err
 		}
@@ -242,11 +253,36 @@ func (indexer *Indexer) indexEntries(index *index, tx *Tx) (uint32, error) {
 			continue
 		}
 
-		if err := index.Insert(e); err != nil {
+		if srcIdx != nil {
+			if err := indexer.markAsDeleted(
+				idx,
+				e.Key,
+				tx.header.ID-1,
+			); err != nil {
+				return 0, err
+			}
+		}
+
+		if err := idx.Insert(e); err != nil {
 			return n + uint32(i), err
 		}
 	}
 	return math.MaxUint32, nil
+}
+
+func (indexer *Indexer) markAsDeleted(idx *index, key []byte, txID uint64) error {
+
+	/*
+		value, _, _, err := idx.GetBetween(key, 0, txID)
+		if errors.Is(err, tbtree.ErrKeyNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}*/
+
+	//indexer.mapEntryAt(idx, )
+	return nil
 }
 
 func (indexer *Indexer) tryFlushBuffer() error {

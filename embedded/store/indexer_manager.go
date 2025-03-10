@@ -189,16 +189,29 @@ func (m *IndexerManager) InitIndexing(ledger IndexableLedger, spec IndexSpec) (*
 	}
 
 	indexPath := spec.Path(ledger.Path())
-
 	nextIndexID := m.nextIndexID.Add(1) - 1
+	indexerID := int(nextIndexID) % len(m.indexers)
+	var srcIndex *index
+
+	if spec.InjectiveMapping {
+		var err error
+		indexes := m.indexes[ledger.ID()]
+		srcIndex, err = getIndexerFor(spec.SourcePrefix, indexes)
+		if err != nil {
+			return nil, err
+		}
+		indexerID = srcIndex.indexerID
+	}
+
 	if nextIndexID > math.MaxUint16 {
 		return nil, ErrIndexLimitExceeded
 	}
 
-	indexerID := int(nextIndexID) % len(m.indexers)
 	indexer := &m.indexers[indexerID]
 	index, err := indexer.newIndex(
 		uint16(nextIndexID),
+		indexerID,
+		srcIndex,
 		indexPath,
 		ledger,
 		spec,
@@ -343,8 +356,19 @@ func (m *IndexerManager) GetIndexFor(ledgerID LedgerID, key []byte) (*index, err
 	return nil, ErrIndexNotFound
 }
 
+func getIndexerFor(key []byte, indexes []*index) (*index, error) {
+	for _, idx := range indexes {
+		if !idx.Closed() && bytes.HasPrefix(key, idx.spec.TargetPrefix) {
+			return idx, nil
+		}
+	}
+	return nil, ErrIndexNotFound
+}
+
 func (indexer *Indexer) newIndex(
 	id uint16,
+	indexerID int,
+	srcIdx *index,
 	path string,
 	ledger IndexableLedger,
 	spec IndexSpec,
@@ -382,11 +406,13 @@ func (indexer *Indexer) newIndex(
 	}
 
 	idx := &index{
-		ledger: ledger,
-		path:   path,
-		spec:   spec,
-		tree:   tree,
-		wHub:   wHub,
+		path:      path,
+		indexerID: indexerID,
+		ledger:    ledger,
+		srcIdx:    srcIdx,
+		spec:      spec,
+		tree:      tree,
+		wHub:      wHub,
 	}
 
 	indexer.pushIndex(idx, true)
