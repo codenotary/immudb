@@ -1578,7 +1578,7 @@ func TestFlushEdgeCases(t *testing.T) {
 
 		numAdvancements := 10
 		for n := 0; n < numAdvancements; n++ {
-			err = tree.Advance(tree.Ts()+1, 0)
+			err = tree.AdvanceTs(tree.Ts()+1, 0)
 			require.NoError(t, err)
 
 			err = tree.FlushReset()
@@ -1628,7 +1628,7 @@ func TestFlushEdgeCases(t *testing.T) {
 		numTsAdvancements := 10
 		for n := 0; n < numTsAdvancements; n++ {
 			ts := tree.Ts()
-			err = tree.Advance(ts+1, 50)
+			err = tree.AdvanceTs(ts+1, 50)
 			require.NoError(t, err)
 
 			err = tree.FlushReset()
@@ -1704,7 +1704,7 @@ func TestOpenShouldRecoverLatestSnapshot(t *testing.T) {
 		require.NoError(t, err)
 		defer tree.Close()
 
-		err = tree.Advance(ts, math.MaxUint32)
+		err = tree.AdvanceTs(ts, math.MaxUint32)
 		require.NoError(t, err)
 
 		err = tree.FlushReset()

@@ -74,11 +74,14 @@ func (t *TBTree) Compact(ctx context.Context, force bool) error {
 
 	checksumApp := appendable.WithChecksum(newTreeApp)
 
+	activePages := t.ActivePages()
+
 	res, err := t.flushTreeLog(
 		snapRootID,
 		flushOptions{
 			fullDump: true,
 			dstApp:   checksumApp,
+			progress: t.metrics.NewFlushProgressTracker(float64(activePages), snapTs),
 		},
 	)
 	if err != nil {

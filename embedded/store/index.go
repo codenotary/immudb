@@ -160,10 +160,8 @@ func (idx *index) EntriesIndexedAtTs(ts uint64) uint32 {
 }
 
 // Must be called with close guard already acquired
-func (idx *index) setTs(ts uint64, lastEntry uint32) error {
-	idx.wHub.DoneUpto(ts)
-
-	if err := idx.tree.Advance(ts, lastEntry); err != nil {
+func (idx *index) advanceTs(ts uint64, lastEntry uint32) error {
+	if err := idx.tree.AdvanceTs(ts, lastEntry); err != nil {
 		return err
 	}
 	return idx.wHub.DoneUpto(ts)

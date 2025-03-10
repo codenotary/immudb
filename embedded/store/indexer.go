@@ -222,13 +222,13 @@ func (indexer *Indexer) indexUpTo(idx *index, upToTx uint64) error {
 			// If the write buffer fills up while indexing transaction T, a flush may be required.
 			// We can persist the snapshot, but T's entries must stay hidden.
 			// Thus, we must track the last fully indexed transaction T and the number of indexed entries in T+1.
-			if err := idx.setTs(txID-1, entriesIndexed); err != nil {
+			if err := idx.advanceTs(txID-1, entriesIndexed); err != nil {
 				return err
 			}
 			return err
 		}
 	}
-	return idx.setTs(upToTx, 0)
+	return idx.advanceTs(upToTx, 0)
 }
 
 func (indexer *Indexer) indexEntries(idx *index, tx *Tx) (uint32, error) {

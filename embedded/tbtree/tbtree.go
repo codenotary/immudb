@@ -107,6 +107,8 @@ type TBTree struct {
 
 	metrics metrics.IndexMetrics
 
+	allocatedPagesSinceLastFlush int
+
 	readDirFunc ReadDirFunc
 	appFactory  AppFactoryFunc
 	appRemove   AppRemoveFunc
@@ -552,6 +554,7 @@ func (t *TBTree) insert(e Entry) error {
 
 	if res.split {
 		t.nSplits++
+		t.allocatedPagesSinceLastFlush++
 		t.depth++
 
 		newRootNode, newRootID, err := t.wb.AllocInnerPage()
@@ -602,7 +605,7 @@ func (t *TBTree) dupPage(pgID PageID, dst []byte) error {
 	return nil
 }
 
-func (t *TBTree) Advance(ts uint64, entryCount uint32) error {
+func (t *TBTree) AdvanceTs(ts uint64, entryCount uint32) error {
 	if ts < t.Ts() {
 		return ErrInvalidTimestamp
 	}
@@ -672,6 +675,7 @@ func (t *TBTree) insertInnerPage(pg *Page, newPageID PageID, res insertResult) (
 		if err != nil {
 			return insertResult{}, true, err
 		}
+		t.allocatedPagesSinceLastFlush++
 
 		pg.splitInnerPage(
 			splitPage,
@@ -695,6 +699,7 @@ func (t *TBTree) insertEmpty(e *Entry) (insertResult, error) {
 	if err != nil {
 		return insertResult{}, err
 	}
+	t.allocatedPagesSinceLastFlush++
 
 	if _, _, err := pg.InsertEntry(e); err != nil {
 		return insertResult{}, err
@@ -752,6 +757,7 @@ func (t *TBTree) archiveEntry(e *Entry) (uint64, error) {
 		}
 		pg.SetNextPageID(newPageID)
 		t.tailHistoryPageID = newPageID
+		t.allocatedPagesSinceLastFlush++
 
 		n, err = newPage.Append(&HistoryEntry{
 			PrevOffset: uint64(e.HOff),
@@ -776,6 +782,7 @@ func (t *TBTree) splitLeafPage(pg *Page, pgID PageID, e *Entry) (insertResult, e
 	if err != nil {
 		return insertResult{}, err
 	}
+	t.allocatedPagesSinceLastFlush++
 
 	prevEntry, err := pg.Remove(e.Key)
 	if errors.Is(err, ErrKeyNotFound) {
@@ -813,6 +820,7 @@ func (t *TBTree) getCurrHistoryPage() (*HistoryPage, error) {
 		}
 		t.headHistoryPageID = id
 		t.tailHistoryPageID = id
+		t.allocatedPagesSinceLastFlush++
 		return pg, nil
 	}
 	return t.wb.GetHistoryPage(t.tailHistoryPageID)
@@ -1064,17 +1072,18 @@ func (t *TBTree) flushToTreeLog() error {
 	t.headHistoryPageID = PageNone
 	t.tailHistoryPageID = PageNone
 	t.mutated = false
+	t.allocatedPagesSinceLastFlush = 0
 
 	t.maybeSync(uint32(bytesWritten))
 	return nil
 }
 
 func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
-	t.logger.Infof("starting flushing, index=%s, ts=%d", t.path, t.Ts())
+	t.logger.Infof("starting flushing, index=%s, ts=%d, pages=%d", t.path, t.Ts(), t.allocatedPagesSinceLastFlush)
 
-	// TODO: should get checksum of last history entry?
+	progressTracker := t.metrics.NewFlushProgressTracker(float64(t.allocatedPagesSinceLastFlush), t.Ts())
 
-	hLogFlushRes, err := t.flushHistory()
+	hLogFlushRes, err := t.flushHistory(progressTracker)
 	if err != nil {
 		return -1, PageNone, err
 	}
@@ -1086,7 +1095,8 @@ func (t *TBTree) flushTo(treeLog appendable.Appendable) (int, PageID, error) {
 
 	treeLogWithChecksum := appendable.WithChecksum(treeLog)
 	opts := flushOptions{
-		dstApp: treeLogWithChecksum,
+		dstApp:   treeLogWithChecksum,
+		progress: progressTracker,
 	}
 
 	tLogRes, err := t.flushTreeLog(t.rootPageID(), opts)
@@ -1151,7 +1161,7 @@ type WriteRes struct {
 	n        int
 }
 
-func (t *TBTree) flushHistory() (WriteRes, error) {
+func (t *TBTree) flushHistory(progress metrics.ProgressTracker) (WriteRes, error) {
 	off, err := t.historyLog.Size()
 	if err != nil {
 		return WriteRes{}, err
@@ -1183,6 +1193,8 @@ func (t *TBTree) flushHistory() (WriteRes, error) {
 
 		next := hp.NextPageID()
 		currPage = next
+
+		progress.Add(1)
 	}
 
 	t.headHistoryPageID = PageNone
@@ -1206,6 +1218,7 @@ type flushTreeRes struct {
 type flushOptions struct {
 	fullDump bool
 	dstApp   appendable.Appendable
+	progress metrics.ProgressTracker
 }
 
 func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, error) {
@@ -1232,6 +1245,8 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, e
 		if isMemPage && pg.IsCopied() {
 			stalePages++
 		}
+
+		opts.progress.Add(1)
 
 		n, pgID, err := t.appendPage(pg, opts.dstApp)
 		if err != nil {
@@ -1271,6 +1286,8 @@ func (t *TBTree) flushTreeLog(pageID PageID, opts flushOptions) (flushTreeRes, e
 	if isMemPage && pg.IsCopied() {
 		stalePages++
 	}
+
+	opts.progress.Add(1)
 
 	n, pgID, err := t.appendPage(pg, opts.dstApp)
 	return flushTreeRes{
@@ -1346,6 +1363,10 @@ func (t *TBTree) StalePages() uint32 {
 
 func (t *TBTree) NumPages() uint64 {
 	return t.numPages.Load()
+}
+
+func (t *TBTree) ActivePages() uint64 {
+	return t.NumPages() - uint64(t.StalePages())
 }
 
 func (t *TBTree) StalePagePercentage() float32 {
