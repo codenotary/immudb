@@ -26,7 +26,8 @@ type IndexSpec struct {
 	TargetEntryMapper EntryMapper
 	TargetPrefix      []byte
 
-	InjectiveMapping bool
+	InjectiveMapping        bool
+	SourceIndexTargetPrefix []byte
 }
 
 func (spec *IndexSpec) Path(basePath string) string {

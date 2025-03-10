@@ -177,7 +177,7 @@ func NewEngine(ledger *store.Ledger, opts *Options) (*Engine, error) {
 	err = ledger.InitIndexing(store.IndexSpec{
 		SourcePrefix:     append(e.prefix, []byte(catalogPrefix)...),
 		TargetPrefix:     append(e.prefix, []byte(catalogPrefix)...),
-		InjectiveMapping: true,
+		InjectiveMapping: false,
 	})
 	if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 		return nil, err
@@ -259,7 +259,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 			TargetEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
 			TargetPrefix:      mappedPKEntryPrefix,
 
-			InjectiveMapping: true,
+			InjectiveMapping: false,
 		})
 		if err != nil && !errors.Is(err, store.ErrIndexAlreadyInitialized) {
 			return nil, err
@@ -282,7 +282,9 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 				SourceEntryMapper: indexEntryMapperFor(primaryIndex, primaryIndex),
 				TargetEntryMapper: indexEntryMapperFor(index, primaryIndex),
 				TargetPrefix:      mappedEntryPrefix,
-				InjectiveMapping:  true,
+
+				InjectiveMapping:        true,
+				SourceIndexTargetPrefix: mappedPKEntryPrefix,
 			})
 			if errors.Is(err, store.ErrIndexAlreadyInitialized) {
 				continue

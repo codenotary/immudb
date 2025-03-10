@@ -29,6 +29,7 @@ type IndexableLedger interface {
 	LastCommittedTxID() uint64
 	ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (io.Reader, error)
 	ReadTxAt(txID uint64, tx *Tx) error
+	ReadTxEntry(txID uint64, key []byte, skipIntegrityCheck bool) (*TxEntry, *TxHeader, error)
 	Options() *Options
 }
 
@@ -196,7 +197,8 @@ func (m *IndexerManager) InitIndexing(ledger IndexableLedger, spec IndexSpec) (*
 	if spec.InjectiveMapping {
 		var err error
 		indexes := m.indexes[ledger.ID()]
-		srcIndex, err = getIndexerFor(spec.SourcePrefix, indexes)
+
+		srcIndex, err = getIndexerFor(spec.SourceIndexTargetPrefix, indexes)
 		if err != nil {
 			return nil, err
 		}

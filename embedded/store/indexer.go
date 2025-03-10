@@ -242,9 +242,10 @@ func (indexer *Indexer) indexEntries(idx *index, tx *Tx) (uint32, error) {
 		return n, nil
 	}
 
-	srcIdx := idx
 	for i := range entries[n:] {
-		e, shouldIndex, err := indexer.mapEntryAt(idx, tx, int(n)+i)
+		e := entries[i+int(n)]
+
+		sourceKey, indexEntry, shouldIndex, err := indexer.mapEntryAt(idx, tx, int(n)+i)
 		if err != nil {
 			return n + uint32(i), err
 		}
@@ -253,36 +254,86 @@ func (indexer *Indexer) indexEntries(idx *index, tx *Tx) (uint32, error) {
 			continue
 		}
 
-		if srcIdx != nil {
-			if err := indexer.markAsDeleted(
+		if idx.srcIdx != nil {
+			if err := indexer.markPrevEntryAsDeleted(
 				idx,
-				e.Key,
-				tx.header.ID-1,
+				e.key(),
+				sourceKey,
+				indexEntry.Key,
+				tx.header.ID,
 			); err != nil {
 				return 0, err
 			}
 		}
 
-		if err := idx.Insert(e); err != nil {
+		if err := idx.Insert(indexEntry); err != nil {
 			return n + uint32(i), err
 		}
 	}
 	return math.MaxUint32, nil
 }
 
-func (indexer *Indexer) markAsDeleted(idx *index, key []byte, txID uint64) error {
+func (indexer *Indexer) markPrevEntryAsDeleted(
+	idx *index,
+	key []byte,
+	sourceKey []byte,
+	targetKey []byte,
+	txID uint64,
+) error {
+	srcIdx := idx.srcIdx
 
-	/*
-		value, _, _, err := idx.GetBetween(key, 0, txID)
-		if errors.Is(err, tbtree.ErrKeyNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}*/
+	_, prevTxID, _, err := srcIdx.GetBetween(sourceKey, 0, txID-1)
+	if errors.Is(err, tbtree.ErrKeyNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 
-	//indexer.mapEntryAt(idx, )
-	return nil
+	prevEntry, prevTxHdr, err := srcIdx.ledger.ReadTxEntry(prevTxID, key, false)
+	if err != nil {
+		return err
+	}
+
+	var txmd []byte
+	if prevTxHdr.Metadata != nil {
+		txmd = prevTxHdr.Metadata.Bytes()
+	}
+
+	var kvmd *KVMetadata
+	if prevEntry.Metadata() != nil {
+		kvmd = prevEntry.Metadata()
+	} else {
+		kvmd = NewKVMetadata()
+	}
+	kvmd.AsDeleted(true)
+
+	e, err := indexer.getIndexEntry(
+		idx,
+		sourceKey,
+		txID,
+		prevEntry,
+		txmd,
+		kvmd.Bytes(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(targetKey, e.Key) {
+		return nil
+	}
+
+	if !hasPrefix(e.Key, idx.spec.TargetPrefix) {
+		return fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
+	}
+
+	err = idx.Insert(e)
+	if errors.Is(err, tbtree.ErrInvalidTimestamp) {
+		// the key was already indexed in a previous attempt
+		return nil
+	}
+	return err
 }
 
 func (indexer *Indexer) tryFlushBuffer() error {
@@ -338,7 +389,7 @@ func (indexer *Indexer) tryFlushIndexes() (bool, error) {
 	return nFlushed == numIndexes, nil
 }
 
-func (indexer *Indexer) mapEntryAt(idx *index, tx *Tx, i int) (tbtree.Entry, bool, error) {
+func (indexer *Indexer) mapEntryAt(idx *index, tx *Tx, i int) ([]byte, tbtree.Entry, bool, error) {
 	e := tx.entries[i]
 
 	var txmd []byte
@@ -347,25 +398,16 @@ func (indexer *Indexer) mapEntryAt(idx *index, tx *Tx, i int) (tbtree.Entry, boo
 	}
 
 	if e.md != nil && e.md.NonIndexable() {
-		return tbtree.Entry{}, false, nil
+		return nil, tbtree.Entry{}, false, nil
 	}
 
 	if !bytes.HasPrefix(e.key(), idx.spec.SourcePrefix) {
-		return tbtree.Entry{}, false, nil
+		return nil, tbtree.Entry{}, false, nil
 	}
 
 	sourceKey, err := indexer.mapKey(idx.ledger, e.key(), e.vLen, e.vOff, e.hVal, idx.spec.SourceEntryMapper)
 	if err != nil {
-		return tbtree.Entry{}, false, err
-	}
-
-	targetKey, err := indexer.mapKey(idx.ledger, sourceKey, e.vLen, e.vOff, e.hVal, idx.spec.TargetEntryMapper)
-	if err != nil {
-		return tbtree.Entry{}, false, err
-	}
-
-	if !bytes.HasPrefix(targetKey, idx.spec.TargetPrefix) {
-		return tbtree.Entry{}, false, fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
+		return nil, tbtree.Entry{}, false, err
 	}
 
 	var kvmd []byte
@@ -373,15 +415,36 @@ func (indexer *Indexer) mapEntryAt(idx *index, tx *Tx, i int) (tbtree.Entry, boo
 		kvmd = e.Metadata().Bytes()
 	}
 
+	indexEntry, err := indexer.getIndexEntry(idx, sourceKey, tx.header.ID, e, txmd, kvmd)
+	return sourceKey, indexEntry, err == nil, err
+}
+
+func (indexer *Indexer) getIndexEntry(
+	idx *index,
+	sourceKey []byte,
+	txID uint64,
+	e *TxEntry,
+	txmd []byte,
+	kvmd []byte,
+) (tbtree.Entry, error) {
+	targetKey, err := indexer.mapKey(idx.ledger, sourceKey, e.vLen, e.vOff, e.hVal, idx.spec.TargetEntryMapper)
+	if err != nil {
+		return tbtree.Entry{}, err
+	}
+
+	if !bytes.HasPrefix(targetKey, idx.spec.TargetPrefix) {
+		return tbtree.Entry{}, fmt.Errorf("%w: the target entry mapper has not generated a key with the specified target prefix", ErrIllegalArguments)
+	}
+
 	n := serializeIndexableEntry(indexer.vEntrybuf[:], txmd, e, kvmd)
 
 	return tbtree.Entry{
-		Ts:    tx.header.ID,
+		Ts:    txID,
 		HC:    0,
 		HOff:  tbtree.OffsetNone,
 		Key:   targetKey, // TODO: target key should also be buffered
 		Value: indexer.vEntrybuf[:n],
-	}, true, nil
+	}, nil
 }
 
 func serializeIndexableEntry(b []byte, txmd []byte, e *TxEntry, kvmd []byte) int {

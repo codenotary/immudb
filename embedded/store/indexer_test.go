@@ -380,41 +380,45 @@ func NewMockLedger(path string, opts *Options, readTxAt func(txID uint64, tx *Tx
 	}
 }
 
-func (s *MockLedger) ID() LedgerID {
+func (l *MockLedger) ID() LedgerID {
 	return 0
 }
 
-func (s *MockLedger) Path() string {
-	return s.path
+func (l *MockLedger) Path() string {
+	return l.path
 }
 
-func (s *MockLedger) DoneUpTo(txID uint64) {
-	err := s.commitWh.DoneUpto(txID)
+func (l *MockLedger) DoneUpTo(txID uint64) {
+	err := l.commitWh.DoneUpto(txID)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (s *MockLedger) LastCommittedTxID() uint64 {
-	doneUpTo, _, err := s.commitWh.Status()
+func (l *MockLedger) LastCommittedTxID() uint64 {
+	doneUpTo, _, err := l.commitWh.Status()
 	if err != nil {
 		panic(err)
 	}
 	return doneUpTo
 }
 
-func (s *MockLedger) WaitFor(ctx context.Context, txID uint64) error {
-	return s.commitWh.WaitFor(ctx, txID)
+func (l *MockLedger) WaitFor(ctx context.Context, txID uint64) error {
+	return l.commitWh.WaitFor(ctx, txID)
 }
 
-func (s *MockLedger) ReadTxAt(txID uint64, tx *Tx) error {
-	if s.readTxAt == nil {
+func (l *MockLedger) ReadTxAt(txID uint64, tx *Tx) error {
+	if l.readTxAt == nil {
 		return fmt.Errorf("ReadTxAt: no read function specified")
 	}
-	return s.readTxAt(txID, tx)
+	return l.readTxAt(txID, tx)
 }
 
-func (s *MockLedger) ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (io.Reader, error) {
+func (l *MockLedger) ReadTxEntry(txID uint64, key []byte, skipIntegrityCheck bool) (*TxEntry, *TxHeader, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
+func (l *MockLedger) ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte, skipIntegrityCheck bool) (io.Reader, error) {
 	v := fmt.Sprintf("value-%d", off)
 	if vlen != len(v) {
 		return nil, fmt.Errorf("value size doens't match buffer size")
@@ -422,6 +426,6 @@ func (s *MockLedger) ValueReaderAt(vlen int, off int64, hvalue [sha256.Size]byte
 	return bytes.NewReader([]byte(v)), nil
 }
 
-func (s *MockLedger) Options() *Options {
-	return s.opts
+func (l *MockLedger) Options() *Options {
+	return l.opts
 }
