@@ -24,11 +24,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
-	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
-	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	pserr "github.com/codenotary/immudb/v2/pkg/pgsql/errors"
+	bm "github.com/codenotary/immudb/v2/pkg/pgsql/server/bmessages"
+	fm "github.com/codenotary/immudb/v2/pkg/pgsql/server/fmessages"
 )
 
 const (

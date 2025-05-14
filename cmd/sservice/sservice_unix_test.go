@@ -23,12 +23,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
-	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/immudbcmdtest"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service/servicetest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	daem "github.com/takama/daemon"

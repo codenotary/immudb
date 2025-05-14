@@ -19,7 +19,7 @@ package immudb
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/helper"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )

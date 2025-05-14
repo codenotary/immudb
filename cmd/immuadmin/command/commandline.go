@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/v2/pkg/client/homedir"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/spf13/cobra"
 )
 

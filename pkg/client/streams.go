@@ -24,12 +24,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/v2/pkg/client/errors"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 )
 
 // StreamSet performs a write operation of a value for a single key retrieving key and value form io.Reader streams.

@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/signer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -40,6 +40,9 @@ func TestServerCurrentStateSigned(t *testing.T) {
 
 	stSig := NewStateSigner(sig)
 	s = s.WithOptions(s.Options.WithAuth(false).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
+
+	err = s.initStore(dbRootpath)
+	require.NoError(t, err)
 
 	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)

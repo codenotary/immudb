@@ -20,8 +20,8 @@ import (
 	"errors"
 	"strings"
 
-	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	bm "github.com/codenotary/immudb/v2/pkg/pgsql/server/bmessages"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 )
 
 var ErrUnknowMessageType = errors.New("found an unknown message type on the wire")

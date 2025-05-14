@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 // Scan ...
@@ -31,7 +31,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	currTxID, _ := d.st.CommittedAlh()
+	currTxID, _ := d.ledger.CommittedAlh()
 
 	if req == nil || req.SinceTx > currTxID {
 		return nil, store.ErrIllegalArguments
@@ -90,7 +90,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 			return nil, err
 		}
 
-		e, err := d.getAtTx(ctx, key, valRef.Tx(), 0, snap, valRef.HC(), true)
+		e, err := d.getAtTx(ctx, key, valRef.TxID(), 0, snap, valRef.Revision(), true)
 		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, io.EOF) {
 			continue // ignore deleted or truncated ones (referenced key may have been deleted or truncated)
 		}

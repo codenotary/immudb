@@ -19,8 +19,8 @@ package server
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"github.com/stretchr/testify/require"
 )
 

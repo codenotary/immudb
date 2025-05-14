@@ -19,7 +19,7 @@ package server
 import (
 	"context"
 
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/database"
 )
 
 type sessionMock struct {

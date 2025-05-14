@@ -17,8 +17,8 @@ limitations under the License.
 package runner
 
 import (
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks"
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
+	"github.com/codenotary/immudb/v2/test/performance-test-suite/pkg/benchmarks"
+	"github.com/codenotary/immudb/v2/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 func getBenchmarksToRun() []benchmarks.Benchmark {

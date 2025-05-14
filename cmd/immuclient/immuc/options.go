@@ -17,7 +17,7 @@ limitations under the License.
 package immuc
 
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 )
 
 type Options struct {

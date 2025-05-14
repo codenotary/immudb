@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/auth"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"github.com/spf13/cobra"
 )
 

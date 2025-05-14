@@ -19,13 +19,13 @@ package main
 import (
 	"os"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/v2/pkg/client/homedir"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
 	"github.com/spf13/viper"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	immutest "github.com/codenotary/immudb/cmd/immutest/command"
-	"github.com/codenotary/immudb/cmd/version"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	immutest "github.com/codenotary/immudb/v2/cmd/immutest/command"
+	"github.com/codenotary/immudb/v2/cmd/version"
 )
 
 func main() {

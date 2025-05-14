@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 
-	c "github.com/codenotary/immudb/cmd/helper"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

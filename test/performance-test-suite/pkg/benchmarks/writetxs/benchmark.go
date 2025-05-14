@@ -27,11 +27,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/test/performance-test-suite/pkg/benchmarks"
 )
 
 func h256(s string) []byte {
@@ -116,7 +116,7 @@ func (b *benchmark) Warmup(tempDirBase string) error {
 	if err != nil {
 		return err
 	}
-	b.tempDirs=append(b.tempDirs,primaryPath)
+	b.tempDirs = append(b.tempDirs, primaryPath)
 
 	primaryServerOpts := server.
 		DefaultOptions().
@@ -159,7 +159,7 @@ func (b *benchmark) Warmup(tempDirBase string) error {
 			return err
 		}
 
-		b.tempDirs=append(b.tempDirs,replicaPath)
+		b.tempDirs = append(b.tempDirs, replicaPath)
 
 		replicaServerOptions := server.
 			DefaultOptions().
@@ -241,7 +241,7 @@ func (b *benchmark) Cleanup() error {
 		b.replicaServer.Stop()
 		b.replicaServer = nil
 	}
-	for _,tDir := range(b.tempDirs) {
+	for _, tDir := range b.tempDirs {
 		os.RemoveAll(tDir)
 	}
 	return nil

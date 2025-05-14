@@ -19,7 +19,7 @@ package immuadmin
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )

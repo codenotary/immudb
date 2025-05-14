@@ -17,11 +17,11 @@ limitations under the License.
 package immudbcmdtest
 
 import (
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/database"
-	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	pgsqlsrv "github.com/codenotary/immudb/v2/pkg/pgsql/server"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 )
 
 type ImmuServerMock struct {

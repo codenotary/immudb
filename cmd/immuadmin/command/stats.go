@@ -22,9 +22,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuadmin/command/stats"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immuadmin/command/stats"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 func (cl *commandline) status(cmd *cobra.Command) {

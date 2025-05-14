@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
@@ -32,7 +32,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		return nil, ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.CommittedAlh()
+	lastTxID, _ := d.ledger.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, ErrIllegalState
 	}
@@ -83,7 +83,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		valbuf.Bytes(),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(ctx, pkKey, req.SqlGetRequest.AtTx, d.st, true)
+	e, err := d.sqlGetAt(ctx, pkKey, req.SqlGetRequest.AtTx, d.ledger, true)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	defer d.releaseTx(tx)
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(e.Tx, false, tx)
+	err = d.ledger.ReadTx(e.Tx, false, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
+		rootTxHdr, err = d.ledger.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		targetTxHdr = rootTxHdr
 	}
 
-	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
+	dualProof, err := d.ledger.DualProof(sourceTxHdr, targetTxHdr)
 	if err != nil {
 		return nil, err
 	}
@@ -189,13 +189,13 @@ func (d *db) sqlGetAt(ctx context.Context, key []byte, atTx uint64, index store.
 		return nil, err
 	}
 
-	val, err := valRef.Resolve()
+	val, err := d.ledger.Resolve(valRef)
 	if err != nil {
 		return nil, err
 	}
 
 	return &schema.SQLEntry{
-		Tx:       valRef.Tx(),
+		Tx:       valRef.TxID(),
 		Key:      key,
 		Metadata: schema.KVMetadataToProto(valRef.KVMetadata()),
 		Value:    val,
@@ -429,7 +429,7 @@ func (d *db) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sq
 
 func (d *db) CopySQLCatalog(ctx context.Context, txID uint64) (uint64, error) {
 	// copy sql catalogue
-	tx, err := d.st.NewTx(ctx, store.DefaultTxOptions())
+	tx, err := d.ledger.NewTx(ctx, store.DefaultTxOptions())
 	if err != nil {
 		return 0, err
 	}
@@ -443,7 +443,6 @@ func (d *db) CopySQLCatalog(ctx context.Context, txID uint64) (uint64, error) {
 
 	// setting the metadata to record the transaction upto which the log was truncated
 	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(txID))
-
 	tx.RequireMVCCOnFollowingTxs(true)
 
 	// commit catalogue as a new transaction

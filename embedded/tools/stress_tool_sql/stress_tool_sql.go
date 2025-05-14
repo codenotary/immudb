@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 type Entry struct {
@@ -123,13 +123,18 @@ func main() {
 		WithCompresionLevel(c.compressionLevel).
 		WithMaxValueLen(1 << 26) // 64Mb
 
-	dataStore, err := store.Open(c.dataDir, opts)
+	st, err := store.Open(c.dataDir, opts)
+	if err != nil {
+		panic(err)
+	}
+
+	dataStore, err := st.OpenLedger("default")
 	if err != nil {
 		panic(err)
 	}
 
 	defer func() {
-		for name, store := range map[string]*store.ImmuStore{"data": dataStore} {
+		for name, store := range map[string]*store.Ledger{"data": dataStore} {
 			store.Close()
 			if err != nil {
 				log.Printf("\r\nBacking store %s closed with error: %v\r\n", name, err)
@@ -139,7 +144,7 @@ func main() {
 		}
 	}()
 
-	for name, store := range map[string]*store.ImmuStore{"data": dataStore} {
+	for name, store := range map[string]*store.Ledger{"data": dataStore} {
 		log.Printf("Store %s with %d Txs successfully opened!\r\n", name, store.TxCount())
 	}
 

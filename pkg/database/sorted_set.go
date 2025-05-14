@@ -24,8 +24,8 @@ import (
 	"io"
 	"math"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 const setLenLen = 8
@@ -53,8 +53,8 @@ func (d *db) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeade
 		return nil, ErrIsReplica
 	}
 
-	lastTxID, _ := d.st.CommittedAlh()
-	err := d.st.WaitForIndexingUpto(ctx, lastTxID)
+	lastTxID, _ := d.ledger.CommittedAlh()
+	err := d.ledger.WaitForIndexingUpto(ctx, lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (d *db) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeade
 	// check referenced key exists and it's not a reference
 	key := EncodeKey(req.Key)
 
-	refEntry, err := d.getAtTx(ctx, key, req.AtTx, 0, d.st, 0, true)
+	refEntry, err := d.getAtTx(ctx, key, req.AtTx, 0, d.ledger, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (d *db) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeade
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	tx, err := d.st.NewWriteOnlyTx(ctx)
+	tx, err := d.ledger.NewWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	currTxID, _ := d.st.CommittedAlh()
+	currTxID, _ := d.ledger.CommittedAlh()
 
 	if req.SinceTx > currTxID {
 		return nil, ErrIllegalArguments
@@ -240,7 +240,7 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 		return nil, store.ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.CommittedAlh()
+	lastTxID, _ := d.ledger.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, store.ErrIllegalArguments
 	}
@@ -256,7 +256,7 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txMetatadata.Id), false, lastTx)
+	err = d.ledger.ReadTx(uint64(txMetatadata.Id), false, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -265,13 +265,13 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
+		prevTxHdr, err = d.ledger.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	dualProof, err := d.st.DualProof(prevTxHdr, lastTx.Header())
+	dualProof, err := d.ledger.DualProof(prevTxHdr, lastTx.Header())
 	if err != nil {
 		return nil, err
 	}

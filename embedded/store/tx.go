@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/htree"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/htree"
 )
 
 type Tx struct {
@@ -62,7 +62,6 @@ func NewTx(nentries int, maxKeyLen int) *Tx {
 	}
 
 	header := &TxHeader{NEntries: len(entries)}
-
 	return NewTxWithEntries(header, entries)
 }
 

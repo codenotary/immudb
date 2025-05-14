@@ -22,8 +22,8 @@ import (
 	"math"
 	"net"
 
-	"github.com/codenotary/immudb/pkg/pgsql/errors"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 )
 
 type rawMessage struct {

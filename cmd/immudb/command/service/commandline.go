@@ -19,11 +19,11 @@ package service
 import (
 	"os"
 
-	"github.com/codenotary/immudb/cmd/immudb/command/service/config"
-	"github.com/codenotary/immudb/cmd/immudb/command/service/constants"
-	"github.com/codenotary/immudb/cmd/sservice"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service/config"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service/constants"
+	"github.com/codenotary/immudb/v2/cmd/sservice"
 
-	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/helper"
 	"github.com/spf13/cobra"
 )
 

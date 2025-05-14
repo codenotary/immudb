@@ -19,8 +19,8 @@ package server
 import (
 	"crypto/tls"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/database"
 )
 
 type Option func(s *pgsrv)

@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 const (

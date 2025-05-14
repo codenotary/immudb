@@ -19,7 +19,7 @@ package cache
 import (
 	"errors"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 var ErrCacheNotLocked = errors.New("cache is not locked")

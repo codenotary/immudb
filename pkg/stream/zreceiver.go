@@ -35,7 +35,7 @@ func NewZStreamReceiver(s io.Reader, bs int) *zStreamReceiver {
 
 func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, uint64, io.Reader, error) {
 	ris := make([][]byte, 4)
-	for i, _ := range ris {
+	for i := range ris {
 		r, err := ReadValue(zr.s, zr.BufferSize)
 		if err != nil {
 			return nil, nil, 0, 0, nil, err

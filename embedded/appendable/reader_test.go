@@ -21,7 +21,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/appendable/mocked"
+	"github.com/codenotary/immudb/v2/embedded/appendable/mocked"
 
 	"github.com/stretchr/testify/require"
 )

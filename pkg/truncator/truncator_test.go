@@ -24,15 +24,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/stretchr/testify/require"
 )
 
-func makeDbWith(t *testing.T, dbName string, opts *database.Options) database.DB {
-	d, err := database.NewDB(dbName, nil, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
+func makeDbWith(
+	t *testing.T,
+	dbName string,
+	opts *database.Options,
+) database.DB {
+	st, err := store.Open(opts.GetDBRootPath(), opts.GetStoreOptions())
+	require.NoError(t, err)
+
+	d, err := database.OpenDB(
+		dbName,
+		st,
+		nil,
+		opts,
+		logger.NewSimpleLogger("immudb ", os.Stderr),
+	)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -41,7 +54,6 @@ func makeDbWith(t *testing.T, dbName string, opts *database.Options) database.DB
 			require.NoError(t, err)
 		}
 	})
-
 	return d
 }
 
@@ -50,7 +62,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 
 	so := options.GetStoreOptions()
 
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(0.75)).
 		WithEmbeddedValues(false).
 		WithFileSize(6).
 		WithVLogCacheSize(0).
@@ -118,7 +130,7 @@ func TestTruncator(t *testing.T) {
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
 
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(0.75)).
 		WithFileSize(6)
 	options.WithStoreOptions(so)
 
@@ -144,7 +156,7 @@ func TestTruncator_with_truncation_frequency(t *testing.T) {
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
 
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(0.75)).WithFileSize(6)
 
 	options.WithStoreOptions(so)
 
@@ -207,7 +219,7 @@ func TestTruncator_with_retention_period(t *testing.T) {
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
 
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(0.75)).WithFileSize(6)
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
@@ -245,7 +257,7 @@ func TestTruncator_with_nothing_to_truncate(t *testing.T) {
 	so := options.GetStoreOptions().
 		WithEmbeddedValues(false)
 
-	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(0.75)).WithFileSize(6)
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)

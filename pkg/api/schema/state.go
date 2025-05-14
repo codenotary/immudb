@@ -22,7 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/codenotary/immudb/v2/pkg/signer"
 )
 
 func (state *ImmutableState) ToBytes() []byte {

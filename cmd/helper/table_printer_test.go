@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/v2/cmd/cmdtest"
 	"github.com/stretchr/testify/assert"
 )
 

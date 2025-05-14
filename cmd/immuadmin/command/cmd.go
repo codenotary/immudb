@@ -17,10 +17,10 @@ limitations under the License.
 package immuadmin
 
 import (
-	"github.com/codenotary/immudb/cmd/docs/man"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/cmd/docs/man"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/version"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/spf13/cobra"
 )
 

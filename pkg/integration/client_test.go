@@ -24,22 +24,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/v2/pkg/client/homedir"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
 	"github.com/rs/xid"
 
-	ic "github.com/codenotary/immudb/pkg/client"
-	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
+	ic "github.com/codenotary/immudb/v2/pkg/client"
+	immuErrors "github.com/codenotary/immudb/v2/pkg/client/errors"
 
-	"github.com/codenotary/immudb/pkg/fs"
+	"github.com/codenotary/immudb/v2/pkg/fs"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/grpc"
@@ -312,7 +313,7 @@ func testGetAtRevision(ctx context.Context, t *testing.T, client ic.ImmuClient) 
 	require.EqualValues(t, 3, vitem.Revision)
 }
 
-func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
+func testGetTxByID(ctx context.Context, t *testing.T, _ []byte, _ []float64, _ [][]byte, _ [][]byte, client ic.ImmuClient) {
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
@@ -321,7 +322,7 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 	require.NoError(t, err)
 }
 
-func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
+func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, _ []byte, _ []float64, _ [][]byte, _ [][]byte, client ic.ImmuClient) {
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
@@ -966,7 +967,7 @@ func TestImmuClient_GetAll(t *testing.T) {
 	require.NoError(t, err)
 
 	err = client.CompactIndex(ctx, &emptypb.Empty{})
-	require.NoError(t, err)
+	require.ErrorContains(t, err, tbtree.ErrCompactionThresholdNotReached.Error())
 
 	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)

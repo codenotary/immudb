@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
 )
 
 const DefaultFileMode = os.FileMode(0644)

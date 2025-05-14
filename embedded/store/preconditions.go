@@ -20,14 +20,14 @@ import (
 	"context"
 	"errors"
 
-	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
 )
 
 type Precondition interface {
 	String() string
 
 	// Validate performs initial validation check to discard invalid preconditions before even executing them
-	Validate(st *ImmuStore) error
+	Validate(st *Ledger) error
 
 	// Check performs the validation on a current state of the database
 	Check(ctx context.Context, idx KeyIndex) (bool, error)
@@ -39,7 +39,7 @@ type PreconditionKeyMustExist struct {
 
 func (cs *PreconditionKeyMustExist) String() string { return "KeyMustExist" }
 
-func (cs *PreconditionKeyMustExist) Validate(st *ImmuStore) error {
+func (cs *PreconditionKeyMustExist) Validate(st *Ledger) error {
 	if len(cs.Key) == 0 {
 		return ErrInvalidPreconditionNullKey
 	}
@@ -56,7 +56,6 @@ func (cs *PreconditionKeyMustExist) Check(ctx context.Context, idx KeyIndex) (bo
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
 	}
-
 	return err == nil, nil
 }
 
@@ -66,7 +65,7 @@ type PreconditionKeyMustNotExist struct {
 
 func (cs *PreconditionKeyMustNotExist) String() string { return "KeyMustNotExist" }
 
-func (cs *PreconditionKeyMustNotExist) Validate(st *ImmuStore) error {
+func (cs *PreconditionKeyMustNotExist) Validate(st *Ledger) error {
 	if len(cs.Key) == 0 {
 		return ErrInvalidPreconditionNullKey
 	}
@@ -94,7 +93,7 @@ type PreconditionKeyNotModifiedAfterTx struct {
 
 func (cs *PreconditionKeyNotModifiedAfterTx) String() string { return "KeyNotModifiedAfterTxID" }
 
-func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
+func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *Ledger) error {
 	if len(cs.Key) == 0 {
 		return ErrInvalidPreconditionNullKey
 	}
@@ -121,5 +120,5 @@ func (cs *PreconditionKeyNotModifiedAfterTx) Check(ctx context.Context, idx KeyI
 		return false, err
 	}
 
-	return valRef.Tx() <= cs.TxID, nil
+	return valRef.TxID() <= cs.TxID, nil
 }

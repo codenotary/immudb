@@ -17,9 +17,9 @@ limitations under the License.
 package servicetest
 
 import (
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 )
 
 func NewDefaultImmuServerMock() *ImmuServerMock {

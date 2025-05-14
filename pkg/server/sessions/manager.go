@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/multierr"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/multierr"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions/internal/transactions"
 )
 
 const infinity = time.Duration(math.MaxInt64)
@@ -144,11 +144,6 @@ func (sm *manager) deleteSession(sessionID string) error {
 	}
 
 	merr := multierr.NewMultiErr()
-
-	if err := sess.CloseDocumentReaders(); err != nil {
-		merr.Append(err)
-	}
-
 	if err := sess.RollbackTransactions(); err != nil {
 		merr.Append(err)
 	}

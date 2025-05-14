@@ -20,8 +20,8 @@ import (
 	"bufio"
 	"bytes"
 
-	pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	pgserrors "github.com/codenotary/immudb/v2/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 )
 
 // BindMsg Once a prepared statement exists, it can be readied for execution using a Bind message. The Bind message gives the

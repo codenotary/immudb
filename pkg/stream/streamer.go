@@ -17,7 +17,7 @@ limitations under the License.
 package stream
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 // ImmuServiceSender_Stream is used to inject schema.ImmuService_StreamGetServer, schema.ImmuService_StreamZScanServer inside both client and server senders

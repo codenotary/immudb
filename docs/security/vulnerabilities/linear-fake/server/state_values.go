@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 var (

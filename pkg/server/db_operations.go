@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 

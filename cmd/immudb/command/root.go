@@ -19,9 +19,9 @@ package immudb
 import (
 	"path/filepath"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/server"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"

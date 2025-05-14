@@ -17,11 +17,11 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/errors"
-	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 

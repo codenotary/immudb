@@ -35,7 +35,7 @@ type TxOptions struct {
 	// It gives the possibility to reuse a snapshot which includes a percentage of the transactions already indexed
 	// e.g. func(lastPrecommittedTxID uint64) uint64 { return  lastPrecommittedTxID * 90 / 100 }
 	// or just a fixed transaction ID e.g. func(_ uint64) uint64 { return  1_000 }
-	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
+	SnapshotMustIncludeTxID func(lastCommittedTxID, lastPrecommittedTxID uint64) uint64
 	// SnapshotRenewalPeriod determines for how long a snaphsot may reuse existent dumped root
 	SnapshotRenewalPeriod time.Duration
 
@@ -46,8 +46,8 @@ type TxOptions struct {
 func DefaultTxOptions() *TxOptions {
 	return &TxOptions{
 		Mode: ReadWriteTx,
-		SnapshotMustIncludeTxID: func(lastPrecommittedTxID uint64) uint64 {
-			return lastPrecommittedTxID
+		SnapshotMustIncludeTxID: func(lastCommittedTxID, lastPrecommittedTxID uint64) uint64 {
+			return lastCommittedTxID
 		},
 		UnsafeMVCC: false,
 	}
@@ -70,7 +70,7 @@ func (opts *TxOptions) WithMode(mode TxMode) *TxOptions {
 	return opts
 }
 
-func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64) *TxOptions {
+func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(lastCommittedTxID, lastPrecommittedTxID uint64) uint64) *TxOptions {
 	opts.SnapshotMustIncludeTxID = snapshotMustIncludeTxID
 	return opts
 }

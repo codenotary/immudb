@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	immudb "github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/errors"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	immudb "github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/errors"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 )
 

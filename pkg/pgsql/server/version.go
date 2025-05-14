@@ -17,9 +17,9 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/embedded/sql"
-	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	bm "github.com/codenotary/immudb/v2/pkg/pgsql/server/bmessages"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 )
 
 func (s *session) writeVersionInfo() error {

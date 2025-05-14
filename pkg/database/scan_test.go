@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
 
@@ -281,7 +281,7 @@ func TestStoreScanWithTruncation(t *testing.T) {
 	fileSize := 8
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
@@ -309,25 +309,25 @@ func TestStoreScanWithTruncation(t *testing.T) {
 		require.NoError(t, c.TruncateUptoTx(context.Background(), deletePointTx))
 
 		for i := deletePointTx; i < 10; i++ {
-			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-			err := db.st.ReadTx(i, false, tx)
+			err := db.ledger.ReadTx(i, false, tx)
 			require.NoError(t, err)
 
 			for _, e := range tx.Entries() {
-				_, err := db.st.ReadValue(e)
+				_, err := db.ledger.ReadValue(e)
 				require.NoError(t, err)
 			}
 		}
 
 		for i := deletePointTx - 1; i > 0; i-- {
-			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-			err := db.st.ReadTx(i, false, tx)
+			err := db.ledger.ReadTx(i, false, tx)
 			require.NoError(t, err)
 
 			for _, e := range tx.Entries() {
-				_, err := db.st.ReadValue(e)
+				_, err := db.ledger.ReadValue(e)
 				require.Error(t, err)
 			}
 		}

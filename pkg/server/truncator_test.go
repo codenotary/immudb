@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
@@ -135,7 +135,7 @@ func TestServerLoadDatabaseWithRetention(t *testing.T) {
 	require.NoError(t, err)
 
 	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
-		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
+		return database.OpenDB(name, s.st, s.multidbHandler(), opts, s.Logger)
 	}, 10, logger.NewMemoryLogger()))
 	s.sysDB = nil
 

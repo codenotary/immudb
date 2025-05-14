@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"os"
 
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 )
 
 // GetKeyValuesFromFiles returns an array of stream.KeyValue from full file names paths. Each key value is composed by a key that is the file name and a reader of the content of the file, if exists.

@@ -17,8 +17,8 @@ limitations under the License.
 package immudb
 
 import (
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
 	"github.com/spf13/viper"
 )
 

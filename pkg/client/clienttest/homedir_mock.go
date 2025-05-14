@@ -18,7 +18,7 @@ limitations under the License.
 package clienttest
 
 import (
-	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/v2/pkg/client/homedir"
 )
 
 var (

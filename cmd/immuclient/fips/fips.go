@@ -26,8 +26,8 @@ import (
 
 	_ "crypto/tls/fipsonly"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	immuclient "github.com/codenotary/immudb/cmd/immuclient/command"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	immuclient "github.com/codenotary/immudb/v2/cmd/immuclient/command"
 )
 
 func main() {

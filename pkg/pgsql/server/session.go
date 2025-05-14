@@ -23,14 +23,14 @@ import (
 
 	"net"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/pgsql/errors"
-	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/errors"
+	fm "github.com/codenotary/immudb/v2/pkg/pgsql/server/fmessages"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 )
 
 type session struct {

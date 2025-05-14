@@ -19,7 +19,7 @@ package sql
 import (
 	"fmt"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 const (

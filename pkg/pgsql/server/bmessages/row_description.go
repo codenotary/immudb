@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 )
 
 func RowDescription(cols []sql.ColDescriptor, formatCodes []int16) []byte {
