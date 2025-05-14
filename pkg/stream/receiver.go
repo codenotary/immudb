@@ -21,7 +21,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/errors"
 )
 
 // NewMsgReceiver returns a NewMsgReceiver reader

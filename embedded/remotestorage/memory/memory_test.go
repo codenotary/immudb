@@ -25,14 +25,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func tmpFile(t *testing.T, data string) (fileName string, cleanup func()) {
-	fl, err := ioutil.TempFile("", "")
+	fl, err := os.CreateTemp("", "")
 	require.NoError(t, err)
 	fmt.Fprint(fl, data)
 	err = fl.Close()

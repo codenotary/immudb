@@ -21,7 +21,7 @@ import (
 	"encoding/binary"
 	"strings"
 
-	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/sql"
 )
 
 // DataRow if ResultColumnFormatCodes is nil default text format is used

@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/v2/cmd/cmdtest"
 	"github.com/stretchr/testify/require"
 )
 

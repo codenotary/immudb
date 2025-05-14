@@ -19,7 +19,7 @@ package stream
 import (
 	"io"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 // ParseZEntry ...

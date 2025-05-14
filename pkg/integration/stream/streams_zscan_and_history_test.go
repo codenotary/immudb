@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"github.com/stretchr/testify/require"
 )
 

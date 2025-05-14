@@ -23,10 +23,10 @@ import (
 	"errors"
 	"fmt"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/spf13/cobra"
 )
 

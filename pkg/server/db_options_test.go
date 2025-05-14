@@ -19,7 +19,7 @@ package server
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/replication"
+	"github.com/codenotary/immudb/v2/pkg/replication"
 	"github.com/stretchr/testify/require"
 )
 

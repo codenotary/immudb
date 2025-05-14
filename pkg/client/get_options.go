@@ -17,7 +17,7 @@ limitations under the License.
 package client
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 // GetOption is used to set additional options when reading a value with a Get call

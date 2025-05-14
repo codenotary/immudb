@@ -22,10 +22,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/clienttest"
 	"github.com/stretchr/testify/require"
 )
 

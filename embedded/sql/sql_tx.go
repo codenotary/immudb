@@ -22,8 +22,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/multierr"
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/multierr"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 // SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
@@ -142,7 +142,6 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 		err := onCommitCallback(sqlTx)
 		merr.Append(err)
 	}
-
 	return merr.Reduce()
 }
 

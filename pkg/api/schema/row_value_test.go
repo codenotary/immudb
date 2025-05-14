@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/sql"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,7 +80,7 @@ func TestRowComparison(t *testing.T) {
 	require.False(t, equals)
 
 	_, err = intValue1.Equal(trueValue)
-	require.ErrorIs(t, err ,sql.ErrNotComparableValues)
+	require.ErrorIs(t, err, sql.ErrNotComparableValues)
 
 	equals, err = intValue1.Equal(intValue2)
 	require.NoError(t, err)

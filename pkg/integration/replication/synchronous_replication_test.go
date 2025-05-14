@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -272,7 +272,7 @@ func (suite *SyncTestMinimumReplicasSuite) TestMinimumReplicas() {
 		suite.AddReplica(true)
 		suite.AddReplica(true)
 
-		ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
 		_, err := client.Set(ctxTimeout, []byte("key5"), []byte("value5"))

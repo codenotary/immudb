@@ -13,8 +13,8 @@ import (
 
 	mrand "math/rand"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	immudb "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	immudb "github.com/codenotary/immudb/v2/pkg/client"
 )
 
 var (

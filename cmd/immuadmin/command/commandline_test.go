@@ -22,13 +22,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/helper"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/codenotary/immudb/v2/pkg/client/clienttest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/spf13/cobra"
 )
 

@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 var ErrReferencedKeyCannotBeAReference = errors.New("referenced key cannot be a reference")
@@ -46,14 +46,14 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 		return nil, ErrIsReplica
 	}
 
-	lastTxID, _ := d.st.CommittedAlh()
-	err := d.st.WaitForIndexingUpto(ctx, lastTxID)
+	lastTxID, _ := d.ledger.CommittedAlh()
+	err := d.ledger.WaitForIndexingUpto(ctx, lastTxID)
 	if err != nil {
 		return nil, err
 	}
 
 	// check key does not exists or it's already a reference
-	entry, err := d.getAtTx(ctx, EncodeKey(req.Key), req.AtTx, 0, d.st, 0, true)
+	entry, err := d.getAtTx(ctx, EncodeKey(req.Key), req.AtTx, 0, d.ledger, 0, true)
 	if err != nil && err != store.ErrKeyNotFound {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 	}
 
 	// check referenced key exists and it's not a reference
-	refEntry, err := d.getAtTx(ctx, EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, 0, true)
+	refEntry, err := d.getAtTx(ctx, EncodeKey(req.ReferencedKey), req.AtTx, 0, d.ledger, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	tx, err := d.st.NewWriteOnlyTx(ctx)
+	tx, err := d.ledger.NewWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (d *db) VerifiableSetReference(ctx context.Context, req *schema.VerifiableR
 		return nil, store.ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.CommittedAlh()
+	lastTxID, _ := d.ledger.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, store.ErrIllegalArguments
 	}
@@ -137,7 +137,7 @@ func (d *db) VerifiableSetReference(ctx context.Context, req *schema.VerifiableR
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txMetatadata.Id), false, lastTx)
+	err = d.ledger.ReadTx(uint64(txMetatadata.Id), false, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,13 +147,13 @@ func (d *db) VerifiableSetReference(ctx context.Context, req *schema.VerifiableR
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
+		prevTxHdr, err = d.ledger.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	dualProof, err := d.st.DualProof(prevTxHdr, lastTx.Header())
+	dualProof, err := d.ledger.DualProof(prevTxHdr, lastTx.Header())
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ package audit
 import (
 	"fmt"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

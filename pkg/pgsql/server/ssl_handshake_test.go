@@ -23,8 +23,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	pserr "github.com/codenotary/immudb/v2/pkg/pgsql/errors"
 	"github.com/stretchr/testify/require"
 )
 

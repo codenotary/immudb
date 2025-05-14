@@ -26,15 +26,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/replication"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/replication"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -60,10 +60,8 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("replication-skip-integrity-check", replication.DefaultSkipIntegrityCheck, "disable integrity check when reading data during replication")
 	c.Flags().Bool("replication-wait-for-indexing", replication.DefaultWaitForIndexing, "wait for indexing to be up to date during replication")
 
-	c.Flags().Uint32("indexing-flush-threshold", tbtree.DefaultFlushThld, "number of new index entries between disk flushes")
 	c.Flags().Float32("indexing-cleanup-percentage", tbtree.DefaultCleanUpPercentage, "percentage of node files cleaned up during each flush")
 	c.Flags().Uint32("indexing-sync-threshold", tbtree.DefaultSyncThld, "number of new index entries between disk flushes with file sync")
-	c.Flags().Uint32("indexing-cache-size", tbtree.DefaultCacheSize, "size of the Btree node cache (number of nodes)")
 	c.Flags().Uint32("indexing-max-active-snapshots", tbtree.DefaultMaxActiveSnapshots, "maximum number of active btree snapshots")
 
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")

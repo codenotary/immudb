@@ -25,7 +25,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/runner"
+	"github.com/codenotary/immudb/v2/test/performance-test-suite/pkg/runner"
 )
 
 func main() {

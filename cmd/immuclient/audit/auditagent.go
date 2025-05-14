@@ -22,14 +22,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	immusrvc "github.com/codenotary/immudb/cmd/sservice"
-	"github.com/codenotary/immudb/pkg/server"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	immusrvc "github.com/codenotary/immudb/v2/cmd/sservice"
+	"github.com/codenotary/immudb/v2/pkg/server"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/auditor"
-	"github.com/codenotary/immudb/pkg/client/state"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/auditor"
+	"github.com/codenotary/immudb/v2/pkg/client/state"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 )

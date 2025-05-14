@@ -22,9 +22,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
-	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/immudbcmdtest"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

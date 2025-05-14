@@ -29,11 +29,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
-	"github.com/codenotary/immudb/embedded/appendable/singleapp"
-	"github.com/codenotary/immudb/embedded/remotestorage"
-	"github.com/codenotary/immudb/embedded/remotestorage/memory"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/v2/embedded/appendable/singleapp"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage/memory"
+
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

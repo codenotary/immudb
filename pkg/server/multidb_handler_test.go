@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"github.com/stretchr/testify/require"
 )
 

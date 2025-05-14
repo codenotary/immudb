@@ -22,9 +22,9 @@ import (
 	"math"
 	"testing"
 
-	pgserror "github.com/codenotary/immudb/pkg/pgsql/errors"
-	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	pgserror "github.com/codenotary/immudb/v2/pkg/pgsql/errors"
+	h "github.com/codenotary/immudb/v2/pkg/pgsql/server/fmessages/fmessages_test"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
 	"github.com/stretchr/testify/require"
 )
 

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +37,10 @@ func setupEngine(t *testing.T, multiDBHandler sql.MultiDBHandler) *sql.Engine {
 		opts = opts.WithMultiDBHandler(multiDBHandler)
 	}
 
-	engine, err := sql.NewEngine(st, opts)
+	ledger, err := st.OpenLedger("default")
+	require.NoError(t, err)
+
+	engine, err := sql.NewEngine(ledger, opts)
 	require.NoError(t, err)
 	return engine
 }

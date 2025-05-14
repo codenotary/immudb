@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) ([]*schema.NamedParam, error) {

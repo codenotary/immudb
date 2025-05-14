@@ -21,7 +21,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/stream/streamtest"
+	"github.com/codenotary/immudb/v2/pkg/stream/streamtest"
 	"github.com/stretchr/testify/require"
 )
 

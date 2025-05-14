@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/multiapp"
 )
 
 const DefaultFileSize = multiapp.DefaultFileSize

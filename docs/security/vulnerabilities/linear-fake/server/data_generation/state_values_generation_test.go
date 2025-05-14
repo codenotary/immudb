@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/fs"
+	"github.com/codenotary/immudb/v2/pkg/fs"
 	"github.com/stretchr/testify/require"
 )
 
@@ -327,7 +327,7 @@ func TestVerifyDualProofLongLinearProofWithReplica(t *testing.T) {
 			"package main\n"+
 			"\n"+
 			"import (\n"+
-			"	\"github.com/codenotary/immudb/pkg/api/schema\"\n"+
+			"	\"github.com/codenotary/immudb/v2/pkg/api/schema\"\n"+
 			")\n"+
 			"\n"+
 			"var (\n"+

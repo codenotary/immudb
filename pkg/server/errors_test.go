@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
-	immuerrors "github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	immuerrors "github.com/codenotary/immudb/v2/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 type groupedRowReader struct {

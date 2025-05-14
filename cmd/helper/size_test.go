@@ -3,7 +3,7 @@ package helper_test
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/helper"
 	"github.com/stretchr/testify/require"
 )
 

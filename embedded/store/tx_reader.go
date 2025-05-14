@@ -31,11 +31,11 @@ type TxReader struct {
 	CurrTxID uint64
 	CurrAlh  [sha256.Size]byte
 
-	st  *ImmuStore
+	st  *Ledger
 	_tx *Tx
 }
 
-func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
+func (s *Ledger) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -46,7 +46,7 @@ func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReade
 	return s.newTxReader(initialTxID, desc, false, false, tx)
 }
 
-func (s *ImmuStore) newTxReader(initialTxID uint64, desc, allowPrecommitted bool, skipIntegrityCheck bool, tx *Tx) (*TxReader, error) {
+func (s *Ledger) newTxReader(initialTxID uint64, desc, allowPrecommitted bool, skipIntegrityCheck bool, tx *Tx) (*TxReader, error) {
 	if initialTxID == 0 {
 		return nil, ErrIllegalArguments
 	}

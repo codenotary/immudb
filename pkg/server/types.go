@@ -23,22 +23,23 @@ import (
 	"os"
 	"sync"
 
-	"github.com/codenotary/immudb/pkg/server/sessions"
-	"github.com/codenotary/immudb/pkg/truncator"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/pkg/truncator"
 
-	"github.com/codenotary/immudb/embedded/remotestorage"
-	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
-	"github.com/codenotary/immudb/pkg/replication"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	pgsqlsrv "github.com/codenotary/immudb/v2/pkg/pgsql/server"
+	"github.com/codenotary/immudb/v2/pkg/replication"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/rs/xid"
 
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 )
 
 // usernameToUserdataMap keeps an associacion of username to userdata
@@ -66,6 +67,8 @@ type ImmuServer struct {
 	truncators     map[string]*truncator.Truncator
 	truncatorMutex sync.Mutex
 
+	st *store.ImmuStore
+
 	Logger      logger.Logger
 	Options     *Options
 	Listener    net.Listener
@@ -75,7 +78,7 @@ type ImmuServer struct {
 	quit        chan struct{}
 	userdata    *usernameToUserdataMap
 	multidbmode bool
-	//Cc                  CorruptionChecker
+
 	sysDB                database.DB
 	metricsServer        *http.Server
 	webServer            *http.Server
@@ -103,9 +106,10 @@ func DefaultServer() *ImmuServer {
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
 
-	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
-		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
-	}, s.Options.MaxActiveDatabases, s.Logger))
+	s.dbList = database.NewDatabaseList(
+		database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
+			return database.OpenDB(name, s.st, s.multidbHandler(), opts, s.Logger)
+		}, s.Options.MaxActiveDatabases, s.Logger))
 	return s
 }
 

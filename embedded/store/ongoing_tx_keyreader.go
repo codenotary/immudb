@@ -73,6 +73,8 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 		InclusiveSeek: spec.InclusiveSeek,
 		InclusiveEnd:  spec.InclusiveEnd,
 		DescOrder:     spec.DescOrder,
+		StartTx:       spec.StartTx,
+		EndTx:         spec.EndTx,
 	}
 
 	keyReader, err := snap.NewKeyReader(rspec)
@@ -93,45 +95,35 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 	}, nil
 }
 
-func (r *ongoingTxKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, err error) {
-	return r.ReadBetween(ctx, 0, 0)
-}
-
-func (r *ongoingTxKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID uint64) (key []byte, valRef ValueRef, err error) {
+func (r *ongoingTxKeyReader) Read(ctx context.Context) (key []byte, valRef ValueRef, err error) {
 	for {
-		if initialTxID == 0 && finalTxID == 0 {
-			key, valRef, err = r.keyReader.Read(ctx)
-		} else {
-			key, valRef, err = r.keyReader.ReadBetween(ctx, initialTxID, finalTxID)
-		}
-
+		key, valRef, err = r.keyReader.Read(ctx)
 		if errors.Is(err, ErrNoMoreEntries) {
 			expectedRead := expectedRead{
-				initialTxID:           initialTxID,
-				finalTxID:             finalTxID,
+				initialTxID:           r.expectedReader.spec.StartTx,
+				finalTxID:             r.expectedReader.spec.EndTx,
 				expectedNoMoreEntries: true,
 			}
 
-			if r.tx.mvccReadSet.readsetSize == r.tx.st.mvccReadSetLimit {
+			if r.tx.mvccReadSet.readsetSize == r.tx.l.mvccReadSetLimit {
 				return nil, nil, ErrMVCCReadSetLimitExceeded
 			}
 
 			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 			r.tx.mvccReadSet.readsetSize++
 		}
-
 		if err != nil {
 			return nil, nil, err
 		}
 
 		expectedRead := expectedRead{
-			initialTxID: initialTxID,
-			finalTxID:   finalTxID,
+			initialTxID: r.expectedReader.spec.StartTx,
+			finalTxID:   r.expectedReader.spec.EndTx,
 			expectedKey: cp(key),
-			expectedTx:  valRef.Tx(),
+			expectedTx:  valRef.TxID(),
 		}
 
-		if r.tx.mvccReadSet.readsetSize == r.tx.st.mvccReadSetLimit {
+		if r.tx.mvccReadSet.readsetSize == r.tx.l.mvccReadSetLimit {
 			return nil, nil, ErrMVCCReadSetLimitExceeded
 		}
 
@@ -156,27 +148,8 @@ func (r *ongoingTxKeyReader) ReadBetween(ctx context.Context, initialTxID, final
 			r.skipped++
 			continue
 		}
-
 		return key, valRef, nil
 	}
-}
-
-func (r *ongoingTxKeyReader) Reset() error {
-	err := r.keyReader.Reset()
-	if err != nil {
-		return err
-	}
-
-	if r.tx.mvccReadSet.readsetSize == r.tx.st.mvccReadSetLimit {
-		return ErrMVCCReadSetLimitExceeded
-	}
-
-	r.expectedReader.expectedReads = append(r.expectedReader.expectedReads, nil)
-	r.expectedReader.i++
-
-	r.tx.mvccReadSet.readsetSize++
-
-	return nil
 }
 
 func (r *ongoingTxKeyReader) Close() error {

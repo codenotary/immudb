@@ -19,8 +19,8 @@ package server
 import (
 	"context"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 

@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	immuerror "github.com/codenotary/immudb/pkg/errors"
+	immuerror "github.com/codenotary/immudb/v2/pkg/errors"
 
 	"github.com/o1egl/paseto"
 	"github.com/rs/xid"
@@ -173,12 +173,12 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 	return jsonToken, nil
 }
 
-//NewUUID generate uuid
+// NewUUID generate uuid
 func NewUUID() xid.ID {
 	return xid.New()
 }
 
-//NewStringUUID generate uuid and return as string
+// NewStringUUID generate uuid and return as string
 func NewStringUUID() string {
 	return xid.New().String()
 }

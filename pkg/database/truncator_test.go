@@ -25,13 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/protomodel"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func encodeOffset(offset int64, vLogID byte) int64 {
@@ -78,7 +76,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	fileSize := 1024
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
@@ -97,7 +95,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 
 	deletePointTx := uint64(15)
 
-	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
+	hdr, err := db.ledger.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
 	c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -105,13 +103,13 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 	for i := deletePointTx; i < 20; i++ {
-		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-		err = db.st.ReadTx(i, false, tx)
+		err = db.ledger.ReadTx(i, false, tx)
 		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
-			_, err := db.st.ReadValue(e)
+			_, err := db.ledger.ReadValue(e)
 			require.NoError(t, err)
 		}
 	}
@@ -124,7 +122,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	fileSize := 1024
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
@@ -143,7 +141,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 
 	deletePointTx := uint64(15)
 
-	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
+	hdr, err := db.ledger.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
 	c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -151,26 +149,26 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 	for i := deletePointTx; i < 20; i++ {
-		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-		err = db.st.ReadTx(i, false, tx)
+		err = db.ledger.ReadTx(i, false, tx)
 		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
-			_, err := db.st.ReadValue(e)
+			_, err := db.ledger.ReadValue(e)
 			require.NoError(t, err)
 		}
 	}
 
 	// ensure earlier transactions are deleted
 	for i := uint64(5); i > 0; i-- {
-		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-		err = db.st.ReadTx(i, false, tx)
+		err = db.ledger.ReadTx(i, false, tx)
 		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
-			_, err := db.st.ReadValue(e)
+			_, err := db.ledger.ReadValue(e)
 			require.Error(t, err)
 		}
 	}
@@ -183,7 +181,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	fileSize := 1024
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
 	options.storeOpts.VLogCacheSize = 0
@@ -214,7 +212,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 
 	deletePointTx := uint64(15)
 
-	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
+	hdr, err := db.ledger.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
 	c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -222,26 +220,26 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 	for i := deletePointTx; i <= 30; i++ {
-		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-		err = db.st.ReadTx(i, false, tx)
+		err = db.ledger.ReadTx(i, false, tx)
 		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
-			_, err := db.st.ReadValue(e)
+			_, err := db.ledger.ReadValue(e)
 			require.NoError(t, err)
 		}
 	}
 
 	// ensure earlier transactions are deleted
 	for i := uint64(5); i > 0; i-- {
-		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-		err = db.st.ReadTx(i, false, tx)
+		err = db.ledger.ReadTx(i, false, tx)
 		require.NoError(t, err)
 
 		for _, e := range tx.Entries() {
-			_, err := db.st.ReadValue(e)
+			_, err := db.ledger.ReadValue(e)
 			require.Error(t, err)
 		}
 	}
@@ -278,7 +276,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 	fileSize := 1024
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
 
@@ -308,7 +306,7 @@ func setupCommonTest(t *testing.T) *db {
 	rootPath := t.TempDir()
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(1024)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(1024)
 	options.storeOpts.VLogCacheSize = 0
 	options.storeOpts.EmbeddedValues = false
 
@@ -358,8 +356,8 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 
 	// delete txns in the store upto a certain txn
 	t.Run("succeed truncating sql catalog", func(t *testing.T) {
-		lastCommitTx := db.st.LastCommittedTxID()
-		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false, false)
+		lastCommitTx := db.ledger.LastCommittedTxID()
+		hdr, err := db.ledger.ReadTxHeader(deleteUptoTx.Id, false, false)
 		require.NoError(t, err)
 
 		c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -367,13 +365,13 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		// should add an extra transaction with catalogue
-		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		require.Equal(t, lastCommitTx+1, db.ledger.LastCommittedTxID())
 	})
 
 	t.Run("verify transaction committed post truncation has truncation header", func(t *testing.T) {
-		lastCommitTx := db.st.LastCommittedTxID()
+		lastCommitTx := db.ledger.LastCommittedTxID()
 
-		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
+		hdr, err := db.ledger.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 		require.NotNil(t, hdr.Metadata)
 		require.True(t, hdr.Metadata.HasTruncatedTxID())
@@ -410,13 +408,13 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 
 	t.Run("succeed reading KV data post truncation", func(t *testing.T) {
 		for _, v := range committedTxPostTruncation {
-			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			tx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
 
-			err := db.st.ReadTx(v.Id, false, tx)
+			err := db.ledger.ReadTx(v.Id, false, tx)
 			require.NoError(t, err)
 
 			for _, e := range tx.Entries() {
-				val, err := db.st.ReadValue(e)
+				val, err := db.ledger.ReadValue(e)
 				require.NoError(t, err)
 				require.NotNil(t, val)
 			}
@@ -430,18 +428,18 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 	fileSize := 1024
 
 	options := DefaultOptions().WithDBRootPath(rootPath)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(fileSize)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0.75)).WithFileSize(fileSize)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
 	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1")}}})
-	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
+	require.Equal(t, uint64(1), db.ledger.LastCommittedTxID())
 
 	deletePointTx := uint64(1)
 
-	hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
+	hdr, err := db.ledger.ReadTxHeader(deletePointTx, false, false)
 	require.NoError(t, err)
 
 	c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -450,17 +448,17 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 
 	expectedCommitTx := uint64(2)
 	// ensure that a transaction is added for the sql catalog commit
-	require.Equal(t, expectedCommitTx, db.st.LastCommittedTxID())
+	require.Equal(t, expectedCommitTx, db.ledger.LastCommittedTxID())
 
 	// verify that the transaction added for the sql catalog commit has the truncation header
-	hdr, err = db.st.ReadTxHeader(expectedCommitTx, false, false)
+	hdr, err = db.ledger.ReadTxHeader(expectedCommitTx, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, hdr.Metadata)
 	require.True(t, hdr.Metadata.HasTruncatedTxID())
 
 	// verify using the ReadTx API that the transaction added for the sql catalog commit has the truncation header
-	ptx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
-	err = db.st.ReadTx(expectedCommitTx, false, ptx)
+	ptx := store.NewTx(db.ledger.MaxTxEntries(), db.ledger.MaxKeyLen())
+	err = db.ledger.ReadTx(expectedCommitTx, false, ptx)
 	require.NoError(t, err)
 	require.True(t, ptx.Header().Metadata.HasTruncatedTxID())
 }
@@ -482,9 +480,9 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 	}
 
 	verify := func(t *testing.T, txID uint64) {
-		lastCommitTx := db.st.LastCommittedTxID()
+		lastCommitTx := db.ledger.LastCommittedTxID()
 
-		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
+		hdr, err := db.ledger.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 		require.NotNil(t, hdr.Metadata)
 		require.True(t, hdr.Metadata.HasTruncatedTxID())
@@ -501,9 +499,9 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 	exec(t, "ALTER TABLE table1 ADD COLUMN surname VARCHAR")
 
 	t.Run("succeed truncating sql catalog", func(t *testing.T) {
-		lastCommitTx := db.st.LastCommittedTxID()
+		lastCommitTx := db.ledger.LastCommittedTxID()
 
-		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
+		hdr, err := db.ledger.ReadTxHeader(lastCommitTx, false, false)
 		require.NoError(t, err)
 
 		c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -511,7 +509,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		// should add an extra transaction with catalogue
-		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		require.Equal(t, lastCommitTx+1, db.ledger.LastCommittedTxID())
 		verify(t, hdr.ID)
 	})
 
@@ -533,9 +531,9 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 
 	// delete txns in the store upto a certain txn
 	t.Run("succeed truncating sql catalog again", func(t *testing.T) {
-		lastCommitTx := db.st.LastCommittedTxID()
+		lastCommitTx := db.ledger.LastCommittedTxID()
 
-		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false, false)
+		hdr, err := db.ledger.ReadTxHeader(deleteUptoTx.Id, false, false)
 		require.NoError(t, err)
 
 		c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -543,7 +541,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		require.NoError(t, c.TruncateUptoTx(context.Background(), hdr.ID))
 
 		// should add an extra transaction with catalogue
-		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		require.Equal(t, lastCommitTx+1, db.ledger.LastCommittedTxID())
 		verify(t, hdr.ID)
 	})
 
@@ -568,7 +566,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
-	require.Equal(t, uint64(0), db.st.LastCommittedTxID())
+	require.Equal(t, uint64(0), db.ledger.LastCommittedTxID())
 
 	for i := 1; i <= 10; i++ {
 		kv := &schema.KeyValue{
@@ -603,7 +601,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 		deletePointTx := uint64(5)
 
-		hdr, err := db.st.ReadTxHeader(deletePointTx, false, false)
+		hdr, err := db.ledger.ReadTxHeader(deletePointTx, false, false)
 		require.NoError(t, err)
 
 		c := NewVlogTruncator(db, logger.NewMemoryLogger())
@@ -615,156 +613,4 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 	<-doneWritesCh
 	<-doneTruncateCh
-}
-
-func Test_vlogCompactor_with_document_store(t *testing.T) {
-	db := setupCommonTest(t)
-
-	exec := func(t *testing.T, stmt string) {
-		_, ctx, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: stmt})
-		require.NoError(t, err)
-		require.Len(t, ctx, 1)
-	}
-
-	query := func(t *testing.T, stmt string, expectedRows int) {
-		rows, err := db.SQLQueryAll(context.Background(), nil, &schema.SQLQueryRequest{Sql: stmt})
-		require.NoError(t, err)
-		require.NoError(t, err)
-		require.Len(t, rows, expectedRows)
-	}
-
-	verify := func(t *testing.T, txID uint64) {
-		lastCommitTx := db.st.LastCommittedTxID()
-
-		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
-		require.NoError(t, err)
-		require.NotNil(t, hdr.Metadata)
-		require.True(t, hdr.Metadata.HasTruncatedTxID())
-
-		truncatedTxId, err := hdr.Metadata.GetTruncatedTxID()
-		require.NoError(t, err)
-		require.Equal(t, txID, truncatedTxId)
-	}
-
-	// create a new table
-	exec(t, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], amount INTEGER, PRIMARY KEY id)")
-	exec(t, "CREATE UNIQUE INDEX ON table1 (name)")
-
-	// create new document store
-	// create collection
-	collectionName := "mycollection"
-	_, err := db.CreateCollection(context.Background(), "admin", &protomodel.CreateCollectionRequest{
-		Name: collectionName,
-		Fields: []*protomodel.Field{
-			{Name: "pincode", Type: protomodel.FieldType_DOUBLE},
-		},
-		Indexes: []*protomodel.Index{
-			{Fields: []string{"pincode"}},
-		},
-	})
-	require.NoError(t, err)
-
-	t.Run("succeed truncating sql catalog", func(t *testing.T) {
-		lastCommitTx := db.st.LastCommittedTxID()
-
-		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
-		require.NoError(t, err)
-
-		err = NewVlogTruncator(db, logger.NewMemoryLogger()).TruncateUptoTx(context.Background(), hdr.ID)
-		require.NoError(t, err)
-
-		// should add two extra transaction with catalogue
-		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
-		verify(t, hdr.ID)
-	})
-
-	t.Run("succeed loading catalog from latest schema", func(t *testing.T) {
-		query(t, "SELECT * FROM table1", 0)
-
-		// get collection
-		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
-			Name: collectionName,
-		})
-		require.NoError(t, err)
-		resp := cinfo.Collection
-		require.Equal(t, 2, len(resp.Indexes))
-		require.Contains(t, resp.Indexes[0].Fields, "_id")
-		require.Contains(t, resp.Indexes[1].Fields, "pincode")
-	})
-
-	// insert some data
-	for i := 1; i <= 5; i++ {
-		var err error
-		kv := &schema.KeyValue{
-			Key:   []byte(fmt.Sprintf("key_%d", i)),
-			Value: []byte(fmt.Sprintf("val_%d", i)),
-		}
-		_, err = db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
-		require.NoError(t, err)
-
-		res, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
-			CollectionName: collectionName,
-			Documents: []*structpb.Struct{
-				{
-					Fields: map[string]*structpb.Value{
-						"pincode": {
-							Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
-						},
-					},
-				},
-			},
-		})
-		require.NoError(t, err)
-		require.NotNil(t, res)
-	}
-
-	// delete txns in the store upto a certain txn
-	t.Run("succeed truncating sql catalog again", func(t *testing.T) {
-		lastCommitTx := db.st.LastCommittedTxID()
-
-		hdr, err := db.st.ReadTxHeader(lastCommitTx, false, false)
-		require.NoError(t, err)
-
-		err = NewVlogTruncator(db, logger.NewMemoryLogger()).TruncateUptoTx(context.Background(), hdr.ID)
-		require.NoError(t, err)
-
-		// should add an extra transaction with catalogue
-		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
-		verify(t, hdr.ID)
-	})
-
-	t.Run("adding new rows/documents should work", func(t *testing.T) {
-		exec(t, "INSERT INTO table1(name, amount) VALUES('Foo', 0)")
-		exec(t, "INSERT INTO table1(name, amount) VALUES('Fin', 0)")
-
-		res, err := db.InsertDocuments(context.Background(), "admin", &protomodel.InsertDocumentsRequest{
-			CollectionName: collectionName,
-			Documents: []*structpb.Struct{
-				{
-					Fields: map[string]*structpb.Value{
-						"pincode": {
-							Kind: &structpb.Value_NumberValue{NumberValue: 999},
-						},
-					},
-				},
-			},
-		})
-		require.NoError(t, err)
-		require.NotNil(t, res)
-	})
-
-	// check if can query the table with new catalogue
-	t.Run("succeed loading catalog from latest schema should work", func(t *testing.T) {
-		query(t, "SELECT * FROM table1", 2)
-
-		cinfo, err := db.GetCollection(context.Background(), &protomodel.GetCollectionRequest{
-			Name: collectionName,
-		})
-		require.NoError(t, err)
-
-		resp := cinfo.Collection
-		require.Equal(t, 2, len(resp.Indexes))
-		require.Contains(t, resp.Indexes[0].Fields, "_id")
-		require.Contains(t, resp.Indexes[1].Fields, "pincode")
-	})
 }

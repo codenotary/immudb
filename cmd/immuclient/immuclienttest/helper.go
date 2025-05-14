@@ -23,12 +23,12 @@ import (
 	"os"
 	"sync"
 
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuclient/immuc"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immuclient/immuc"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

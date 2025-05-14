@@ -24,8 +24,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuclient/immuc"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immuclient/immuc"
 	"github.com/peterh/liner"
 	"github.com/spf13/viper"
 )

@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"

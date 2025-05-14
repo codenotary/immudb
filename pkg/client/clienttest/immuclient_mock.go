@@ -21,9 +21,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	immuclient "github.com/codenotary/immudb/v2/pkg/client"
 	"google.golang.org/grpc"
 )
 

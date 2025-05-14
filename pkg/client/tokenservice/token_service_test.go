@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/v2/pkg/client/homedir"
 
 	"github.com/stretchr/testify/require"
 )

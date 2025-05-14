@@ -29,7 +29,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/peer"
 
-	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

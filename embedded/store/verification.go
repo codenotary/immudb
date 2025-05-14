@@ -21,8 +21,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/codenotary/immudb/embedded/ahtree"
-	"github.com/codenotary/immudb/embedded/htree"
+	"github.com/codenotary/immudb/v2/embedded/ahtree"
+	"github.com/codenotary/immudb/v2/embedded/htree"
 )
 
 func VerifyInclusion(proof *htree.InclusionProof, entryDigest, root [sha256.Size]byte) bool {

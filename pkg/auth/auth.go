@@ -35,7 +35,7 @@ var AuthEnabled bool
 // DevMode if set to true, remote client commands (except admin ones) will be accepted even if auth is off
 var DevMode bool
 
-//IsTampered if set to true then one of the databases is tempered and the user is notified
+// IsTampered if set to true then one of the databases is tempered and the user is notified
 var IsTampered bool
 
 // WarnDefaultAdminPassword warning user message for the case when admin uses the default password

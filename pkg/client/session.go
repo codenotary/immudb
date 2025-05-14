@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/errors"
-	"github.com/codenotary/immudb/pkg/client/state"
-	"github.com/codenotary/immudb/pkg/signer"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client/cache"
+	"github.com/codenotary/immudb/v2/pkg/client/errors"
+	"github.com/codenotary/immudb/v2/pkg/client/state"
+	"github.com/codenotary/immudb/v2/pkg/signer"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 )

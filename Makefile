@@ -179,7 +179,7 @@ build/codegen:
 build/codegenv2:
 	$(PWD)/ext-tools/buf format -w
 
-	$(PROTOC) -I pkg/api/proto/ pkg/api/proto/authorization.proto pkg/api/proto/documents.proto \
+	$(PROTOC) -I pkg/api/proto/ pkg/api/proto/authorization.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \

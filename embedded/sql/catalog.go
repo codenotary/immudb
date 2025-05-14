@@ -23,11 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 	"github.com/google/uuid"
 )
 
@@ -818,7 +819,6 @@ func loadMaxPK(ctx context.Context, sqlPrefix []byte, tx *store.OngoingTx, table
 	if err != nil {
 		return nil, err
 	}
-
 	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
@@ -1670,7 +1670,12 @@ func iteratePrefix(ctx context.Context, tx *store.OngoingTx, prefix []byte, onSp
 		deleted := md != nil && md.Deleted()
 		var v []byte
 		if !deleted {
-			v, err = vref.Resolve()
+			valueReader, err := vref.Resolve()
+			if err != nil {
+				return err
+			}
+
+			v, err = io.ReadAll(valueReader)
 			if err != nil {
 				return err
 			}

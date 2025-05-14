@@ -23,12 +23,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/ahtree"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/replication"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/replication"
 )
 
 type Milliseconds int64
@@ -55,43 +53,17 @@ type dbOptions struct {
 	WaitForIndexing              bool   `json:"waitForIndexing"`
 
 	// store options
-	EmbeddedValues bool `json:"embeddedValues"` // permanent
-	PreallocFiles  bool `json:"preallocFiles"`  // permanent
-	FileSize       int  `json:"fileSize"`       // permanent
-	MaxKeyLen      int  `json:"maxKeyLen"`      // permanent
-	MaxValueLen    int  `json:"maxValueLen"`    // permanent
-	MaxTxEntries   int  `json:"maxTxEntries"`   // permanent
+	StoreOptions
 
-	ExcludeCommitTime bool `json:"excludeCommitTime"`
-
-	MaxActiveTransactions int `json:"maxActiveTransactions"`
-	MVCCReadSetLimit      int `json:"mvccReadSetLimit"`
-
-	MaxConcurrency   int `json:"maxConcurrency"`
-	MaxIOConcurrency int `json:"maxIOConcurrency"`
-
-	WriteBufferSize int `json:"writeBufferSize"`
-
-	TxLogCacheSize          int `json:"txLogCacheSize"`
-	VLogCacheSize           int `json:"vLogCacheSize"`
-	VLogMaxOpenedFiles      int `json:"vLogMaxOpenedFiles"`
-	TxLogMaxOpenedFiles     int `json:"txLogMaxOpenedFiles"`
-	CommitLogMaxOpenedFiles int `json:"commitLogMaxOpenedFiles"`
-	WriteTxHeaderVersion    int `json:"writeTxHeaderVersion"`
-
-	ReadTxPoolSize int `json:"readTxPoolSize"`
-
-	IndexOptions *indexOptions `json:"indexOptions"`
-
-	AHTOptions *ahtOptions `json:"ahtOptions"`
-
-	Autoload featureState `json:"autoload"` // unspecfied is considered as enabled for backward compatibility
+	ReadTxPoolSize int          `json:"readTxPoolSize"`
+	Autoload       featureState `json:"autoload"` // unspecfied is considered as enabled for backward compatibility
 
 	CreatedBy string    `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedBy string    `json:"updatedBy"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
+	// truncation options
 	RetentionPeriod     Milliseconds `json:"retentionPeriod"`
 	TruncationFrequency Milliseconds `json:"truncationFrequency"` // ms
 }
@@ -131,46 +103,14 @@ type ahtOptions struct {
 	WriteBufferSize int `json:"writeBufferSize"`
 }
 
-const (
-	DefaultMaxValueLen   = 1 << 25 //32Mb
-	DefaultStoreFileSize = 1 << 29 //512Mb
-)
-
 func (s *ImmuServer) defaultDBOptions(dbName, userName string) *dbOptions {
 	dbOpts := &dbOptions{
-		Database: dbName,
-
-		synced:        s.Options.synced,
-		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
-
-		EmbeddedValues: store.DefaultEmbeddedValues,
-		PreallocFiles:  store.DefaultPreallocFiles,
-		FileSize:       DefaultStoreFileSize,
-		MaxKeyLen:      store.DefaultMaxKeyLen,
-		MaxValueLen:    DefaultMaxValueLen,
-		MaxTxEntries:   store.DefaultMaxTxEntries,
-
-		ExcludeCommitTime: false,
-
-		MaxActiveTransactions:   store.DefaultMaxActiveTransactions,
-		MVCCReadSetLimit:        store.DefaultMVCCReadSetLimit,
-		MaxConcurrency:          store.DefaultMaxConcurrency,
-		MaxIOConcurrency:        store.DefaultMaxIOConcurrency,
-		WriteBufferSize:         store.DefaultWriteBufferSize,
-		TxLogCacheSize:          store.DefaultTxLogCacheSize,
-		VLogCacheSize:           store.DefaultVLogCacheSize,
-		VLogMaxOpenedFiles:      store.DefaultVLogMaxOpenedFiles,
-		TxLogMaxOpenedFiles:     store.DefaultTxLogMaxOpenedFiles,
-		CommitLogMaxOpenedFiles: store.DefaultCommitLogMaxOpenedFiles,
-		WriteTxHeaderVersion:    store.DefaultWriteTxHeaderVersion,
-		ReadTxPoolSize:          database.DefaultReadTxPoolSize,
-
-		IndexOptions: s.defaultIndexOptions(),
-
-		AHTOptions: s.defaultAHTOptions(),
-
-		Autoload: unspecifiedState,
-
+		Database:            dbName,
+		synced:              s.Options.synced,
+		SyncFrequency:       Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
+		StoreOptions:        defaultStoreOptions(),
+		ReadTxPoolSize:      database.DefaultReadTxPoolSize,
+		Autoload:            unspecifiedState,
 		CreatedAt:           time.Now(),
 		CreatedBy:           userName,
 		TruncationFrequency: Milliseconds(database.DefaultTruncationFrequency.Milliseconds()),
@@ -180,7 +120,6 @@ func (s *ImmuServer) defaultDBOptions(dbName, userName string) *dbOptions {
 		repOpts := s.Options.ReplicationOptions
 
 		dbOpts.Replica = repOpts != nil && repOpts.IsReplica
-
 		dbOpts.SyncReplication = repOpts.SyncReplication
 
 		if dbOpts.Replica {
@@ -197,35 +136,7 @@ func (s *ImmuServer) defaultDBOptions(dbName, userName string) *dbOptions {
 			dbOpts.SyncAcks = repOpts.SyncAcks
 		}
 	}
-
 	return dbOpts
-}
-
-func (s *ImmuServer) defaultIndexOptions() *indexOptions {
-	return &indexOptions{
-		FlushThreshold:           tbtree.DefaultFlushThld,
-		SyncThreshold:            tbtree.DefaultSyncThld,
-		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
-		CleanupPercentage:        tbtree.DefaultCleanUpPercentage,
-		CacheSize:                tbtree.DefaultCacheSize,
-		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
-		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
-		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter.Milliseconds(),
-		CompactionThld:           tbtree.DefaultCompactionThld,
-		DelayDuringCompaction:    tbtree.DefaultDelayDuringCompaction.Milliseconds(),
-		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
-		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
-		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
-		MaxBulkSize:              store.DefaultIndexingMaxBulkSize,
-		BulkPreparationTimeout:   Milliseconds(store.DefaultBulkPreparationTimeout.Milliseconds()),
-	}
-}
-
-func (s *ImmuServer) defaultAHTOptions() *ahtOptions {
-	return &ahtOptions{
-		SyncThreshold:   ahtree.DefaultSyncThld,
-		WriteBufferSize: ahtree.DefaultWriteBufferSize,
-	}
 }
 
 func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
@@ -246,21 +157,21 @@ func (opts *dbOptions) storeOptions() *store.Options {
 
 	if opts.IndexOptions != nil {
 		indexOpts.
-			WithFlushThld(opts.IndexOptions.FlushThreshold).
+			//WithFlushThld(opts.IndexOptions.FlushThreshold).
 			WithSyncThld(opts.IndexOptions.SyncThreshold).
 			WithFlushBufferSize(opts.IndexOptions.FlushBufferSize).
 			WithCleanupPercentage(opts.IndexOptions.CleanupPercentage).
-			WithCacheSize(opts.IndexOptions.CacheSize).
-			WithMaxNodeSize(opts.IndexOptions.MaxNodeSize).
+			//WithCacheSize(opts.IndexOptions.CacheSize).
+			//WithMaxNodeSize(opts.IndexOptions.MaxNodeSize).
 			WithMaxActiveSnapshots(opts.IndexOptions.MaxActiveSnapshots).
 			WithRenewSnapRootAfter(time.Millisecond * time.Duration(opts.IndexOptions.RenewSnapRootAfter)).
-			WithCompactionThld(opts.IndexOptions.CompactionThld).
+			//WithCompactionThld(opts.IndexOptions.CompactionThld).
 			WithDelayDuringCompaction(time.Millisecond * time.Duration(opts.IndexOptions.DelayDuringCompaction)).
 			WithNodesLogMaxOpenedFiles(opts.IndexOptions.NodesLogMaxOpenedFiles).
-			WithHistoryLogMaxOpenedFiles(opts.IndexOptions.HistoryLogMaxOpenedFiles).
-			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles).
-			WithMaxBulkSize(opts.IndexOptions.MaxBulkSize).
-			WithBulkPreparationTimeout(time.Millisecond * time.Duration(opts.IndexOptions.BulkPreparationTimeout))
+			WithHistoryLogMaxOpenedFiles(opts.IndexOptions.HistoryLogMaxOpenedFiles)
+		//WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles).
+		//WithMaxBulkSize(opts.IndexOptions.MaxBulkSize).
+		//WithBulkPreparationTimeout(time.Millisecond * time.Duration(opts.IndexOptions.BulkPreparationTimeout))
 	}
 
 	ahtOpts := store.DefaultAHTOptions()
@@ -298,7 +209,6 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	} else {
 		stOpts.WithTimeFunc(func() time.Time { return time.Now() })
 	}
-
 	return stOpts
 }
 
@@ -319,32 +229,24 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			SkipIntegrityCheck:           &schema.NullableBool{Value: opts.SkipIntegrityCheck},
 			WaitForIndexing:              &schema.NullableBool{Value: opts.WaitForIndexing},
 		},
-
-		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
-
-		FileSize:       &schema.NullableUint32{Value: uint32(opts.FileSize)},
-		MaxKeyLen:      &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
-		MaxValueLen:    &schema.NullableUint32{Value: uint32(opts.MaxValueLen)},
-		MaxTxEntries:   &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
-		EmbeddedValues: &schema.NullableBool{Value: opts.EmbeddedValues},
-		PreallocFiles:  &schema.NullableBool{Value: opts.PreallocFiles},
-
-		ExcludeCommitTime: &schema.NullableBool{Value: opts.ExcludeCommitTime},
-
-		MaxActiveTransactions: &schema.NullableUint32{Value: uint32(opts.MaxActiveTransactions)},
-		MvccReadSetLimit:      &schema.NullableUint32{Value: uint32(opts.MVCCReadSetLimit)},
-
-		MaxConcurrency:   &schema.NullableUint32{Value: uint32(opts.MaxConcurrency)},
-		MaxIOConcurrency: &schema.NullableUint32{Value: uint32(opts.MaxIOConcurrency)},
-
-		WriteBufferSize: &schema.NullableUint32{Value: uint32(opts.WriteBufferSize)},
-
+		SyncFrequency:           &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
+		FileSize:                &schema.NullableUint32{Value: uint32(opts.FileSize)},
+		MaxKeyLen:               &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
+		MaxValueLen:             &schema.NullableUint32{Value: uint32(opts.MaxValueLen)},
+		MaxTxEntries:            &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
+		EmbeddedValues:          &schema.NullableBool{Value: opts.EmbeddedValues},
+		PreallocFiles:           &schema.NullableBool{Value: opts.PreallocFiles},
+		ExcludeCommitTime:       &schema.NullableBool{Value: opts.ExcludeCommitTime},
+		MaxActiveTransactions:   &schema.NullableUint32{Value: uint32(opts.MaxActiveTransactions)},
+		MvccReadSetLimit:        &schema.NullableUint32{Value: uint32(opts.MVCCReadSetLimit)},
+		MaxConcurrency:          &schema.NullableUint32{Value: uint32(opts.MaxConcurrency)},
+		MaxIOConcurrency:        &schema.NullableUint32{Value: uint32(opts.MaxIOConcurrency)},
+		WriteBufferSize:         &schema.NullableUint32{Value: uint32(opts.WriteBufferSize)},
 		TxLogCacheSize:          &schema.NullableUint32{Value: uint32(opts.TxLogCacheSize)},
 		VLogCacheSize:           &schema.NullableUint32{Value: uint32(opts.VLogCacheSize)},
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: uint32(opts.VLogMaxOpenedFiles)},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.CommitLogMaxOpenedFiles)},
-
 		IndexSettings: &schema.IndexNullableSettings{
 			FlushThreshold:           &schema.NullableUint32{Value: uint32(opts.IndexOptions.FlushThreshold)},
 			SyncThreshold:            &schema.NullableUint32{Value: uint32(opts.IndexOptions.SyncThreshold)},
@@ -627,7 +529,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 	// index options
 	if settings.IndexSettings != nil {
 		if opts.IndexOptions == nil {
-			opts.IndexOptions = s.defaultIndexOptions()
+			opts.IndexOptions = defaultIndexOptions()
 		}
 
 		if settings.IndexSettings.FlushThreshold != nil {
@@ -680,7 +582,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 	// aht options
 	if settings.AhtSettings != nil {
 		if opts.AHTOptions == nil {
-			opts.AHTOptions = s.defaultAHTOptions()
+			opts.AHTOptions = defaultAHTOptions()
 		}
 
 		if settings.AhtSettings.SyncThreshold != nil {
@@ -696,7 +598,6 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrIllegalArguments, err)
 	}
-
 	return nil
 }
 

@@ -21,7 +21,7 @@ import (
 	"io"
 	"testing"
 
-	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
+	h "github.com/codenotary/immudb/v2/pkg/pgsql/server/fmessages/fmessages_test"
 	"github.com/stretchr/testify/require"
 )
 

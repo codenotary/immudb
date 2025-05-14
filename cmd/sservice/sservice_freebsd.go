@@ -31,7 +31,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 

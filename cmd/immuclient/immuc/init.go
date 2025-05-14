@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
 
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/status"
 )

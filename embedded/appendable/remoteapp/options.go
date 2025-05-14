@@ -19,7 +19,7 @@ package remoteapp
 import (
 	"time"
 
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/v2/embedded/appendable/multiapp"
 )
 
 type Options struct {
