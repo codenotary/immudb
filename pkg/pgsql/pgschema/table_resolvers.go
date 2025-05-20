@@ -19,7 +19,7 @@ package pgschema
 import (
 	"context"
 
-	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/sql"
 )
 
 var pgClassCols = []sql.ColDescriptor{

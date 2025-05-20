@@ -22,8 +22,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

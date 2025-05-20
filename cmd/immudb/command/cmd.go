@@ -21,11 +21,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/docs/man"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immudb/command/service"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/v2/cmd/docs/man"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service"
+	"github.com/codenotary/immudb/v2/cmd/version"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +52,7 @@ func Execute() {
 	if err != nil {
 		c.QuitWithUserError(err)
 	}
+
 	if err := cmd.Execute(); err != nil {
 		c.QuitWithUserError(err)
 	}

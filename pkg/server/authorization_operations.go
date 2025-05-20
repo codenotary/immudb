@@ -21,8 +21,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/protomodel"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/protomodel"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

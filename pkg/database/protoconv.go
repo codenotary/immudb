@@ -17,8 +17,8 @@ limitations under the License.
 package database
 
 import (
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 func PreconditionFromProto(c *schema.Precondition) (store.Precondition, error) {

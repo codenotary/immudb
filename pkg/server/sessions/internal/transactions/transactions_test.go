@@ -21,16 +21,21 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewTx(t *testing.T) {
 	path := t.TempDir()
 
-	db, err := database.NewDB("db1", nil, database.DefaultOptions().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
+	st, err := store.Open(path, store.DefaultOptions())
+	require.NoError(t, err)
+	defer st.Close()
+
+	db, err := database.OpenDB("db1", st, nil, database.DefaultOptions().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
 	require.NoError(t, err)
 
 	_, err = NewTransaction(context.Background(), nil, db, "session1")

@@ -27,10 +27,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 )
 
 func getCmdline(t *testing.T) *commandline {

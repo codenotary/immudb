@@ -19,7 +19,7 @@ package runner
 import (
 	"time"
 
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
+	"github.com/codenotary/immudb/v2/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 type Duration time.Duration

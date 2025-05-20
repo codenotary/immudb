@@ -22,11 +22,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/protomodel"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/swagger"
-	"github.com/codenotary/immudb/webconsole"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/api/protomodel"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/swagger"
+	"github.com/codenotary/immudb/v2/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -57,11 +57,6 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 	}
 
 	err = protomodel.RegisterAuthorizationServiceHandler(ctx, proxyMux, grpcClient)
-	if err != nil {
-		return nil, err
-	}
-
-	err = protomodel.RegisterDocumentServiceHandler(ctx, proxyMux, grpcClient)
 	if err != nil {
 		return nil, err
 	}

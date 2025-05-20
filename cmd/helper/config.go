@@ -21,7 +21,7 @@ import (
 	"os/user"
 	"strings"
 
-	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
+	service "github.com/codenotary/immudb/v2/cmd/immuclient/service/constants"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

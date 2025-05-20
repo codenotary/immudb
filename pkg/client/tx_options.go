@@ -19,7 +19,7 @@ package client
 import (
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 // TxOption is used to set additional options when creating a transaction with a NewTx call

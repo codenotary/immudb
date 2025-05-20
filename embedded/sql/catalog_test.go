@@ -21,7 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -149,17 +148,12 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 }
 
 func TestCatalogTableLength(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
 	totalTablesCount := uint32(0)
 
 	for _, v := range []string{"table1", "table2", "table3"} {
-		_, _, err = engine.Exec(
+		_, _, err := engine.Exec(
 			context.Background(), nil,
 			`
 			CREATE TABLE `+v+` (
@@ -212,7 +206,7 @@ func TestCatalogTableLength(t *testing.T) {
 
 	t.Run("table count should increase on adding new table", func(t *testing.T) {
 		for _, v := range []string{"table4", "table5", "table6"} {
-			_, _, err = engine.Exec(
+			_, _, err := engine.Exec(
 				context.Background(), nil,
 				`
 				CREATE TABLE `+v+` (
@@ -258,7 +252,7 @@ func TestCatalogTableLength(t *testing.T) {
 
 	t.Run("adding new table should increase table count", func(t *testing.T) {
 		tableName := "table7"
-		_, _, err = engine.Exec(
+		_, _, err := engine.Exec(
 			context.Background(), nil,
 			`
 				CREATE TABLE `+tableName+` (

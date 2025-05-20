@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/codenotary/immudb/embedded/multierr"
+	"github.com/codenotary/immudb/v2/embedded/multierr"
 )
 
 type jointRowReader struct {

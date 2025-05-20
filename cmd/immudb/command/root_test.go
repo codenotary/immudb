@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service/servicetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/spf13/cobra"
 )
 

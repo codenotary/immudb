@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/fs"
+	"github.com/codenotary/immudb/v2/pkg/fs"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,18 +57,17 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	require.False(t, VerifyDualProof(&DualProof{}, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
 
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open(t.TempDir(), opts)
+
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	defer immustoreClose(t, immuStore)
-
-	require.NotNil(t, immuStore)
+	require.NotNil(t, ledger)
 
 	txCount := 10
 	eCount := 4
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -87,22 +86,22 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	sourceTx := tempTxHolder(t, immuStore)
-	targetTx := tempTxHolder(t, immuStore)
+	sourceTx := tempTxHolder(t, ledger)
+	targetTx := tempTxHolder(t, ledger)
 
 	targetTxID := uint64(txCount)
-	err = immuStore.ReadTx(targetTxID, false, targetTx)
+	err = ledger.ReadTx(targetTxID, false, targetTx)
 	require.NoError(t, err)
 	require.Equal(t, uint64(txCount), targetTx.header.ID)
 
 	for i := 0; i < txCount-1; i++ {
 		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(sourceTxID, false, sourceTx)
+		err := ledger.ReadTx(sourceTxID, false, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
-		dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
+		dproof, err := ledger.DualProof(sourceTx.Header(), targetTx.Header())
 		require.NoError(t, err)
 
 		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
@@ -128,23 +127,34 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 }
 
 func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "data")
+	storeDir := t.TempDir()
+
+	dir := filepath.Join(storeDir, "default")
 	copier := fs.NewStandardCopier()
 	require.NoError(t, copier.CopyDir("../../test/data_long_linear_proof", dir))
 
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open(dir, opts)
-	require.NoError(t, err)
-	defer immustoreClose(t, immuStore)
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(1)
 
-	maxTxID := immuStore.TxCount()
+	st, err := Open(storeDir, opts)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		immustoreClose(t, st)
+	})
+
+	ledger, err := st.OpenLedger("default")
+	require.NoError(t, err)
+
+	maxTxID := ledger.TxCount()
 
 	t.Run("data check", func(t *testing.T) {
 		require.EqualValues(t, 30, maxTxID, "Invalid dataset - expected 30 transactions")
 
 		t.Run("transactions 1-10 do not use linear proof longer than 1", func(t *testing.T) {
 			for txID := uint64(1); txID <= 10; txID++ {
-				hdr, err := immuStore.ReadTxHeader(txID, true, false)
+				hdr, err := ledger.ReadTxHeader(txID, true, false)
 				require.NoError(t, err)
 				require.Equal(t, txID-1, hdr.BlTxID)
 			}
@@ -152,7 +162,7 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 
 		t.Run("transactions 11-20 use long linear proof", func(t *testing.T) {
 			for txID := uint64(11); txID <= 20; txID++ {
-				hdr, err := immuStore.ReadTxHeader(txID, true, false)
+				hdr, err := ledger.ReadTxHeader(txID, true, false)
 				require.NoError(t, err)
 				require.EqualValues(t, 10, hdr.BlTxID)
 			}
@@ -160,7 +170,7 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 
 		t.Run("transactions 21-30 do not use linear proof longer than 1", func(t *testing.T) {
 			for txID := uint64(21); txID <= 30; txID++ {
-				hdr, err := immuStore.ReadTxHeader(txID, true, false)
+				hdr, err := ledger.ReadTxHeader(txID, true, false)
 				require.NoError(t, err)
 				require.Equal(t, txID-1, hdr.BlTxID)
 			}
@@ -172,16 +182,16 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 		for sourceTxID := uint64(1); sourceTxID < maxTxID; sourceTxID++ {
 			for targetTxID := sourceTxID; targetTxID < maxTxID; targetTxID++ {
 
-				sourceTx := tempTxHolder(t, immuStore)
-				targetTx := tempTxHolder(t, immuStore)
+				sourceTx := tempTxHolder(t, ledger)
+				targetTx := tempTxHolder(t, ledger)
 
-				err := immuStore.ReadTx(sourceTxID, false, sourceTx)
+				err := ledger.ReadTx(sourceTxID, false, sourceTx)
 				require.NoError(t, err)
 
-				err = immuStore.ReadTx(targetTxID, false, targetTx)
+				err = ledger.ReadTx(targetTxID, false, targetTx)
 				require.NoError(t, err)
 
-				dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
+				dproof, err := ledger.DualProof(sourceTx.Header(), targetTx.Header())
 				require.NoError(t, err)
 
 				verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())

@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
-	tlscert "github.com/codenotary/immudb/pkg/cert"
+	tlscert "github.com/codenotary/immudb/v2/pkg/cert"
 )
 
 const (

@@ -19,7 +19,7 @@ package server
 import (
 	"context"
 
-	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

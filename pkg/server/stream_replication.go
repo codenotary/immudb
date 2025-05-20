@@ -21,8 +21,8 @@ import (
 	"encoding/binary"
 	"strconv"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"google.golang.org/grpc/metadata"
 )
 

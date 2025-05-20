@@ -26,10 +26,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
-	"github.com/codenotary/immudb/embedded/cache"
-	"github.com/codenotary/immudb/embedded/multierr"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/v2/embedded/cache"
+	"github.com/codenotary/immudb/v2/embedded/multierr"
 )
 
 var ErrIllegalArguments = errors.New("ahtree: illegal arguments")

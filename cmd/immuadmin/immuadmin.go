@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
+import immuadmin "github.com/codenotary/immudb/v2/cmd/immuadmin/command"
 
 func main() {
 	immuadmin.Execute()

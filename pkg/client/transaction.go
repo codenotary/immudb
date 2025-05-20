@@ -20,8 +20,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client/errors"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/metadata"
 )

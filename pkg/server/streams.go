@@ -21,11 +21,11 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/errors"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"

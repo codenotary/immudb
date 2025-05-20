@@ -21,8 +21,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	immuclient "github.com/codenotary/immudb/v2/pkg/client"
 )
 
 var config struct {

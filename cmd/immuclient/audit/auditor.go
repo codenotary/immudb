@@ -27,16 +27,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/codenotary/immudb/v2/pkg/signer"
 
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/immuos"
-	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
+	"github.com/codenotary/immudb/v2/pkg/server"
 
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/auditor"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/state"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/auditor"
+	"github.com/codenotary/immudb/v2/pkg/client/cache"
+	"github.com/codenotary/immudb/v2/pkg/client/state"
 	"github.com/spf13/viper"
 )
 

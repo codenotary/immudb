@@ -22,10 +22,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +44,10 @@ func TestReplication(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
+	st, err := store.Open(path, store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+
+	db, err := database.OpenDB("replicated_defaultdb", st, nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
 	require.NoError(t, err)
 
 	txReplicator, err := NewTxReplicator(xid.New(), db, rOpts, logger)
@@ -80,7 +84,10 @@ func TestReplicationIsAbortedOnServerVersionMismatch(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
+	st, err := store.Open(path, store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+
+	db, err := database.OpenDB("replicated_defaultdb", st, nil, database.DefaultOptions().AsReplica(true).WithDBRootPath(path), logger)
 	require.NoError(t, err)
 
 	txReplicator, err := NewTxReplicator(xid.New(), db, rOpts, logger)

@@ -24,13 +24,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
-	"github.com/codenotary/immudb/embedded/appendable/remoteapp"
-	"github.com/codenotary/immudb/embedded/remotestorage"
-	"github.com/codenotary/immudb/embedded/remotestorage/s3"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/v2/embedded/appendable/remoteapp"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage/s3"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/errors"
 	"github.com/rs/xid"
 )
 
@@ -192,11 +192,9 @@ func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.
 
 		Metrics.RemoteStorageKind.WithLabelValues(name, remoteStorage.Kind()).Set(1)
 	} else {
-
 		// No remote storage
 		Metrics.RemoteStorageKind.WithLabelValues(name, "none").Set(1)
 	}
-
 	return stOpts
 }
 

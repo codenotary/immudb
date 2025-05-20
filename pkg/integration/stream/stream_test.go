@@ -22,9 +22,9 @@ import (
 	"context"
 	"crypto/sha256"
 
-	ic "github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/errors"
-	"github.com/codenotary/immudb/pkg/signer"
+	ic "github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/errors"
+	"github.com/codenotary/immudb/v2/pkg/signer"
 
 	"fmt"
 	"io"
@@ -32,12 +32,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/codenotary/immudb/pkg/stream"
-	"github.com/codenotary/immudb/pkg/stream/streamtest"
-	"github.com/codenotary/immudb/pkg/streamutils"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream/streamtest"
+	"github.com/codenotary/immudb/v2/pkg/streamutils"
 	"github.com/stretchr/testify/require"
 )
 

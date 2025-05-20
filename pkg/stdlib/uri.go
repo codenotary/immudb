@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

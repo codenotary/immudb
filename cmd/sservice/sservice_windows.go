@@ -28,11 +28,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/helper"
 
 	"github.com/takama/daemon"
 	"golang.org/x/sys/windows"
@@ -197,7 +197,7 @@ func (ss *sservice) InstallConfig(serviceName string) (err error) {
 	return ss.v.WriteConfigAs(cp)
 }
 
-//CopyExecInOsDefault copy the executable in default exec folder and returns the path
+// CopyExecInOsDefault copy the executable in default exec folder and returns the path
 func (ss *sservice) CopyExecInOsDefault(serviceName string) (path string, err error) {
 	currentExec, err := os.Executable()
 	if err != nil {

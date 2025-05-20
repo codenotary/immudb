@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"github.com/spf13/cobra"
 )
 

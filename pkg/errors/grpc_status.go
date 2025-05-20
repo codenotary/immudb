@@ -20,7 +20,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/status"
 )

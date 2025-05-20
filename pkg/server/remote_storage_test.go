@@ -26,13 +26,13 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/remotestorage"
-	"github.com/codenotary/immudb/embedded/remotestorage/memory"
-	"github.com/codenotary/immudb/embedded/remotestorage/s3"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage/memory"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage/s3"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
@@ -471,7 +471,7 @@ func TestAppendableIsUploadedToRemoteStorage(t *testing.T) {
 	testAppendableIsUploadedToRemoteStorage(t)
 }
 
-func testAppendableIsUploadedToRemoteStorage(t *testing.T) (string, remotestorage.Storage, *store.Options) {
+func testAppendableIsUploadedToRemoteStorage(t *testing.T) (string, string, remotestorage.Storage, *store.Options) {
 	dir := t.TempDir()
 
 	opts := DefaultOptions().WithDir(dir)
@@ -482,13 +482,18 @@ func testAppendableIsUploadedToRemoteStorage(t *testing.T) (string, remotestorag
 
 	s.remoteStorage = memory.Open()
 
-	stOpts := s.databaseOptionsFrom(s.defaultDBOptions("testdb", "")).GetStoreOptions().WithEmbeddedValues(false)
+	stOpts := s.databaseOptionsFrom(
+		s.defaultDBOptions("testdb", ""),
+	).GetStoreOptions().
+		WithEmbeddedValues(false)
 
-	path := filepath.Join(dir, "testdb")
-	st, err := store.Open(path, stOpts)
+	st, err := store.Open(dir, stOpts)
 	require.NoError(t, err)
 
-	tx, err := st.NewWriteOnlyTx(context.Background())
+	ledger, err := st.OpenLedger("testdb")
+	require.NoError(t, err)
+
+	tx, err := ledger.NewWriteOnlyTx(context.Background())
 	require.NoError(t, err)
 
 	err = tx.Set([]byte{1}, nil, []byte{2})
@@ -499,10 +504,9 @@ func testAppendableIsUploadedToRemoteStorage(t *testing.T) (string, remotestorag
 
 	err = st.Close()
 	require.NoError(t, err)
-
 	requireDataExistsOnRemoteStorage(t, s.remoteStorage)
 
-	return path, s.remoteStorage, stOpts
+	return dir, "testdb", s.remoteStorage, stOpts
 }
 
 func requireDataExistsOnRemoteStorage(t *testing.T, storage remotestorage.Storage) {
@@ -512,9 +516,8 @@ func requireDataExistsOnRemoteStorage(t *testing.T, storage remotestorage.Storag
 		"testdb/aht/data/00000000.dat",
 		"testdb/aht/tree/00000000.sha",
 		"testdb/commit/00000000.txi",
-		"testdb/index/commit/00000000.ri",
 		"testdb/index/history/00000000.hx",
-		"testdb/index/nodes/00000000.n",
+		"testdb/index/tree/00000000.t",
 		"testdb/tx/00000000.tx",
 		"testdb/val_0/00000000.val",
 	} {
@@ -527,12 +530,15 @@ func requireDataExistsOnRemoteStorage(t *testing.T, storage remotestorage.Storag
 }
 
 func TestIndexCompactionForRemoteStorage(t *testing.T) {
-	path, storage, stOpts := testAppendableIsUploadedToRemoteStorage(t)
+	path, ledgerName, storage, stOpts := testAppendableIsUploadedToRemoteStorage(t)
 
-	st, err := store.Open(path, stOpts.WithIndexOptions(stOpts.IndexOpts.WithCompactionThld(1)))
+	st, err := store.Open(path, stOpts.WithIndexOptions(stOpts.IndexOpts.WithCompactionThld(0.1)))
 	require.NoError(t, err)
 
-	err = st.CompactIndexes()
+	ledger, err := st.OpenLedger(ledgerName)
+	require.NoError(t, err)
+
+	err = ledger.CompactIndexes(true)
 	require.NoError(t, err)
 
 	err = st.Close()
@@ -541,7 +547,7 @@ func TestIndexCompactionForRemoteStorage(t *testing.T) {
 	entries, subpath, err := storage.ListEntries(context.Background(), "testdb/index/")
 	require.NoError(t, err)
 	require.Len(t, entries, 0)
-	require.Equal(t, subpath, []string{"commit0000000000000001", "history", "nodes0000000000000001"})
+	require.Equal(t, []string{"history", "tree_0000000000000001"}, subpath)
 }
 
 func TestRemoteStorageUsedForNewDB(t *testing.T) {
@@ -549,18 +555,22 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 
 	s := DefaultServer()
 
-	s.WithOptions(DefaultOptions().
-		WithDir(dir).
-		WithPort(0).
-		WithPgsqlServer(false).
-		WithListener(bufconn.Listen(1024 * 1024)),
+	s.WithOptions(
+		DefaultOptions().
+			WithDir(dir).
+			WithPort(0).
+			WithPgsqlServer(false).
+			WithListener(bufconn.Listen(1024 * 1024)),
 	)
-
-	err := s.Initialize()
-	require.NoError(t, err)
 
 	m := memory.Open()
 	s.remoteStorage = m
+
+	err := s.initStore(dir)
+	require.NoError(t, err)
+
+	err = s.loadSystemDatabase(dir, nil, auth.SysAdminPassword, false)
+	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),

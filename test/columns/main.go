@@ -21,10 +21,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 	"math/rand"
+	"strings"
 
-	immuclient "github.com/codenotary/immudb/pkg/client"
+	immuclient "github.com/codenotary/immudb/v2/pkg/client"
 )
 
 var config struct {
@@ -109,7 +109,7 @@ func (w *worker) delcol() {
 	colname := w.cols[idx]
 	s := fmt.Sprintf("alter table %s drop column %s", w.tabname, colname)
 	w.exec(s)
-	w.cols = append(w.cols[:idx],w.cols[idx+1:]...)
+	w.cols = append(w.cols[:idx], w.cols[idx+1:]...)
 	log.Printf("Removed column %s", colname)
 }
 
@@ -117,7 +117,7 @@ func (w *worker) addline() {
 	l := len(w.cols)
 	v := make([]string, l)
 	for i := 0; i < l; i++ {
-		v[i] = "'"+getRnd()+"'"
+		v[i] = "'" + getRnd() + "'"
 	}
 	cols := strings.Join(w.cols, ",")
 	vals := strings.Join(v, ",")

@@ -17,7 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"github.com/codenotary/immudb/cmd/immuclient/cli"
+	"github.com/codenotary/immudb/v2/cmd/immuclient/cli"
 	"github.com/spf13/cobra"
 )
 

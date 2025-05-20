@@ -20,7 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 func minUint64(a, b uint64) uint64 {

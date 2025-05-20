@@ -20,7 +20,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 )
 
 func (i *immuc) HealthCheck(args []string) (string, error) {

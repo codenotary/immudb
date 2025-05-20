@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -32,28 +31,28 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/codenotary/immudb/pkg/server/sessions"
-	"github.com/codenotary/immudb/pkg/truncator"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/pkg/truncator"
 
-	"github.com/codenotary/immudb/embedded/remotestorage"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/errors"
-	"github.com/codenotary/immudb/pkg/replication"
+	"github.com/codenotary/immudb/v2/embedded/remotestorage"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/replication"
 
-	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
+	pgsqlsrv "github.com/codenotary/immudb/v2/pkg/pgsql/server"
 
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/database"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/signer"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/api/protomodel"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/version"
+	"github.com/codenotary/immudb/v2/pkg/api/protomodel"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -136,6 +135,10 @@ func (s *ImmuServer) Initialize() error {
 
 	// NOTE: MaxActiveDatabases might have changed since the server instance was created
 	s.dbList.Resize(s.Options.MaxActiveDatabases)
+
+	if err := s.initStore(dataDir); err != nil {
+		return err
+	}
 
 	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword, s.Options.ForceAdminPassword); err != nil {
 		return logErr(s.Logger, "unable to load system database: %v", err)
@@ -259,7 +262,6 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
-	protomodel.RegisterDocumentServiceServer(s.GrpcServer, s)
 	protomodel.RegisterAuthorizationServiceServer(s.GrpcServer, &authenticationServiceImp{server: s})
 	grpc_prometheus.Register(s.GrpcServer)
 
@@ -374,6 +376,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	s.mux.Unlock()
 	s.pgsqlMux.Unlock()
+
 	<-s.quit
 
 	return err
@@ -459,13 +462,29 @@ func (s *ImmuServer) resetAdminPassword(ctx context.Context, adminPassword strin
 	if err != nil {
 		return false, err
 	}
-
 	return true, nil
+}
+
+func (s *ImmuServer) initStore(path string) error {
+	opts := getStoreOptionsFromConfig(s.Options.Config)
+
+	storeOpts := s.storeOptionsForDB(
+		"",
+		s.remoteStorage,
+		opts.WithMultiIndexing(true),
+	)
+
+	st, err := store.Open(
+		path,
+		storeOpts,
+	)
+	s.st = st
+	return err
 }
 
 func (s *ImmuServer) loadSystemDatabase(
 	dataDir string,
-	remoteStorage remotestorage.Storage,
+	_ remotestorage.Storage,
 	adminPassword string,
 	forceAdminPasswordReset bool,
 ) error {
@@ -481,7 +500,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
 	_, err = s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
+		s.sysDB, err = database.OpenDB(dbOpts.Database, s.st, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
@@ -522,7 +541,6 @@ func (s *ImmuServer) loadSystemDatabase(
 				s.Logger.Errorf("error starting replication for database '%s'. Reason: %v", s.sysDB.GetName(), err)
 			}
 		}
-
 		return nil
 	}
 
@@ -530,7 +548,7 @@ func (s *ImmuServer) loadSystemDatabase(
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
+	s.sysDB, err = database.OpenDB(dbOpts.Database, s.st, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -611,7 +629,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 	var dirs []string
 
 	//get first level sub directories of data dir
-	files, err := ioutil.ReadDir(s.Options.Dir)
+	files, err := os.ReadDir(s.Options.Dir)
 	if err != nil {
 		return err
 	}
@@ -820,7 +838,6 @@ func (s *ImmuServer) updateConfigItem(key string, newOrUpdatedLine string, uncha
 	if err := s.OS.WriteFile(configFilepath, []byte(strings.Join(configLines, "\n")), 0644); err != nil {
 		return err
 	}
-
 	return nil
 }
 

@@ -19,8 +19,8 @@ package server
 import (
 	"time"
 
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/truncator"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/truncator"
 )
 
 func (s *ImmuServer) isTruncatorRunningFor(db string) bool {

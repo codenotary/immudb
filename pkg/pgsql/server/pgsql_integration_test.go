@@ -29,10 +29,10 @@ import (
 	"testing"
 	"time"
 
-	isql "github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/pgsql/errors"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
-	"github.com/codenotary/immudb/pkg/server"
+	isql "github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/pgmeta"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/jackc/pgx/v4"
 	pq "github.com/lib/pq"
 

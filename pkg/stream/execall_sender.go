@@ -19,7 +19,7 @@ package stream
 import (
 	"bytes"
 
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/errors"
 	"github.com/golang/protobuf/proto"
 )
 

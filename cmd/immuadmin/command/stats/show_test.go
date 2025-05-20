@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
+	"github.com/codenotary/immudb/v2/cmd/immuadmin/command/stats/statstest"
 	"github.com/stretchr/testify/require"
 )
 

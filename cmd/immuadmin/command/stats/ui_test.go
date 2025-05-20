@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
+	"github.com/codenotary/immudb/v2/cmd/immuadmin/command/stats/statstest"
 	"github.com/prometheus/common/expfmt"
 	"github.com/stretchr/testify/assert"
 )

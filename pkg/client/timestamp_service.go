@@ -19,7 +19,7 @@ package client
 import (
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/timestamp"
+	"github.com/codenotary/immudb/v2/pkg/client/timestamp"
 )
 
 // TimestampService is a simple service returning the current time.

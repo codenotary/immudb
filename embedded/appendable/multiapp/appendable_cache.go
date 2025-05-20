@@ -17,8 +17,8 @@ limitations under the License.
 package multiapp
 
 import (
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/cache"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/cache"
 )
 
 type appendableCache struct {

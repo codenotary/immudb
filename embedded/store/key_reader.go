@@ -17,19 +17,22 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"math"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
 )
 
 type Snapshot struct {
-	st             *ImmuStore
+	st             *Ledger
 	prefix         []byte
-	snap           *tbtree.Snapshot
+	snap           tbtree.Snapshot
 	ts             time.Time
 	refInterceptor valueRefInterceptor
 }
@@ -59,8 +62,6 @@ var (
 
 type KeyReader interface {
 	Read(ctx context.Context) (key []byte, val ValueRef, err error)
-	ReadBetween(ctx context.Context, initialTxID uint64, finalTxID uint64) (key []byte, val ValueRef, err error)
-	Reset() error
 	Close() error
 }
 
@@ -74,6 +75,8 @@ type KeyReaderSpec struct {
 	DescOrder      bool
 	Filters        []FilterFn
 	Offset         uint64
+	StartTx        uint64
+	EndTx          uint64
 }
 
 func (s *Snapshot) set(key, value []byte) error {
@@ -196,69 +199,85 @@ func (s *Snapshot) Close() error {
 	return s.snap.Close()
 }
 
+func identityValueRefInterceptor(key []byte, valRef ValueRef) ValueRef {
+	return valRef
+}
+
+func (s *Snapshot) valueRefInterceptor() valueRefInterceptor {
+	if s.refInterceptor != nil {
+		return s.refInterceptor
+	}
+	return identityValueRefInterceptor
+}
+
 func (s *Snapshot) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
-	r, err := s.snap.NewReader(tbtree.ReaderSpec{
-		SeekKey:        spec.SeekKey,
-		EndKey:         spec.EndKey,
-		Prefix:         spec.Prefix,
-		InclusiveSeek:  spec.InclusiveSeek,
-		InclusiveEnd:   spec.InclusiveEnd,
-		IncludeHistory: spec.IncludeHistory,
-		DescOrder:      spec.DescOrder,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var refInterceptor valueRefInterceptor
-
-	if s.refInterceptor == nil {
-		refInterceptor = func(key []byte, valRef ValueRef) ValueRef {
-			return valRef
-		}
-	} else {
-		refInterceptor = s.refInterceptor
-	}
-
 	for _, filter := range spec.Filters {
 		if filter == nil {
 			return nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
 		}
 	}
 
+	seekSpec, err := seekSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	it, err := prepareIterator(seekSpec, s.snap)
+	if err != nil {
+		return nil, err
+	}
+
 	return &storeKeyReader{
 		snap:           s,
-		reader:         r,
-		filters:        spec.Filters,
-		includeHistory: spec.IncludeHistory,
-		refInterceptor: refInterceptor,
-		offset:         spec.Offset,
+		spec:           seekSpec,
+		it:             it,
+		refInterceptor: s.valueRefInterceptor(),
 	}, nil
 }
 
 type ValueRef interface {
-	Resolve() (val []byte, err error)
-	Tx() uint64
-	HC() uint64
+	Resolve() (io.Reader, error)
+	TxID() uint64
+	Revision() uint64
+	Hash() [sha256.Size]byte
+	Offset() int64
+	Len() uint32
 	TxMetadata() *TxMetadata
 	KVMetadata() *KVMetadata
-	HVal() [sha256.Size]byte
-	Len() uint32
-	VOff() int64
+}
+
+// Resolve reads the value referenced by the given ValueRef and updates the value cache.
+// It returns the value as a byte slice or an error if the operation fails.
+func (s *Ledger) Resolve(vRef ValueRef) ([]byte, error) {
+	r, err := vRef.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, nil
+	}
+
+	v, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.updateValueCache(vRef.Offset(), v)
+	return v, err
 }
 
 type valueRef struct {
-	tx     uint64
-	hc     uint64 // version
-	hVal   [sha256.Size]byte
-	vOff   int64
-	valLen uint32
-	txmd   *TxMetadata
-	kvmd   *KVMetadata
-	st     *ImmuStore
+	tx       uint64
+	revision uint64
+	hVal     [sha256.Size]byte
+	vOff     int64
+	valLen   uint32
+	txmd     *TxMetadata
+	kvmd     *KVMetadata
+	st       *Ledger
 }
 
-func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, error) {
+func (st *Ledger) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, error) {
 	// vLen + vOff + vHash
 	const valrLen = lszSize + offsetSize + sha256.Size
 
@@ -328,21 +347,20 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, e
 	}
 
 	return &valueRef{
-		tx:     tx,
-		hc:     hc,
-		hVal:   hVal,
-		vOff:   vOff,
-		valLen: valLen,
-		txmd:   txmd,
-		kvmd:   kvmd,
-		st:     st,
+		tx:       tx,
+		revision: hc,
+		hVal:     hVal,
+		vOff:     vOff,
+		valLen:   valLen,
+		txmd:     txmd,
+		kvmd:     kvmd,
+		st:       st,
 	}, nil
 }
 
-// Resolve ...
-func (v *valueRef) Resolve() (val []byte, err error) {
+// Resolve returns the value as a byte slice.
+func (v *valueRef) Resolve() (io.Reader, error) {
 	refVal := make([]byte, v.valLen)
-
 	if v.kvmd != nil && v.kvmd.ExpiredAt(time.Now()) {
 		return nil, ErrExpiredEntry
 	}
@@ -356,20 +374,21 @@ func (v *valueRef) Resolve() (val []byte, err error) {
 		return nil, nil
 	}
 
-	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal, false)
+	_, err := v.st.readValueAt(refVal, v.vOff, v.hVal, false)
 	if err != nil {
 		return nil, err
 	}
 
-	return refVal, nil
+	// TODO: should read value lazily.
+	return bytes.NewReader(refVal), nil
 }
 
-func (v *valueRef) Tx() uint64 {
+func (v *valueRef) TxID() uint64 {
 	return v.tx
 }
 
-func (v *valueRef) HC() uint64 {
-	return v.hc
+func (v *valueRef) Revision() uint64 {
+	return v.revision
 }
 
 func (v *valueRef) TxMetadata() *TxMetadata {
@@ -380,7 +399,7 @@ func (v *valueRef) KVMetadata() *KVMetadata {
 	return v.kvmd
 }
 
-func (v *valueRef) HVal() [sha256.Size]byte {
+func (v *valueRef) Hash() [sha256.Size]byte {
 	return v.hVal
 }
 
@@ -388,111 +407,180 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (v *valueRef) VOff() int64 {
+func (v *valueRef) Offset() int64 {
 	return v.vOff
 }
 
 type storeKeyReader struct {
-	snap           *Snapshot
-	reader         *tbtree.Reader
-	filters        []FilterFn
-	includeHistory bool
+	snap *Snapshot
+	spec KeyReaderSpec
 
+	it             tbtree.Iterator
 	refInterceptor valueRefInterceptor
-
-	offset  uint64
-	skipped uint64
+	skipped        uint64
+	end            bool
 }
 
-func (r *storeKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
+func (r *storeKeyReader) Read(ctx context.Context) ([]byte, ValueRef, error) {
 	for {
-		key, indexedVal, tx, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
+		// TODO: remember to copy key
+		e, err := r.next()
 		if err != nil {
 			return nil, nil, err
 		}
 
-		val, err = r.snap.st.valueRefFrom(tx, hc, indexedVal)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		valRef := r.refInterceptor(key, val)
-
-		filterEntry := false
-
-		if !r.includeHistory {
-			for _, filter := range r.filters {
-				err = filter(valRef, r.snap.ts)
-				if err != nil {
-					filterEntry = true
-					break
-				}
-			}
-		}
-
-		if filterEntry {
+		if len(r.spec.Prefix) > 0 && !bytes.HasPrefix(e.Key, r.spec.Prefix) {
 			continue
 		}
 
-		if r.skipped < r.offset {
+		val, err := r.snap.st.valueRefFrom(e.Ts, e.HC+1, e.Value)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		valRef := r.refInterceptor(e.Key, val)
+		if r.skip(valRef) {
+			continue
+		}
+
+		if r.skipped < r.spec.Offset {
 			r.skipped++
 			continue
 		}
 
-		return key, valRef, nil
+		return e.Key, valRef, nil
 	}
 }
 
-func (r *storeKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, err error) {
-	for {
-		key, indexedVal, tx, hc, err := r.reader.Read()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		val, err = r.snap.st.valueRefFrom(tx, hc, indexedVal)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		valRef := r.refInterceptor(key, val)
-
-		filterEntry := false
-
-		if !r.includeHistory {
-			for _, filter := range r.filters {
-				err = filter(valRef, r.snap.ts)
-				if err != nil {
-					filterEntry = true
-					break
-				}
-			}
-		}
-
-		if filterEntry {
-			continue
-		}
-
-		if r.skipped < r.offset {
-			r.skipped++
-			continue
-		}
-
-		return key, valRef, nil
+func (r *storeKeyReader) skip(ref ValueRef) bool {
+	if r.spec.IncludeHistory {
+		return false
 	}
+
+	for _, filter := range r.spec.Filters {
+		if err := filter(ref, r.snap.ts); err != nil {
+			return true
+		}
+	}
+	return false
 }
 
-func (r *storeKeyReader) Reset() error {
-	err := r.reader.Reset()
+func prepareIterator(spec KeyReaderSpec, snap tbtree.Snapshot) (tbtree.Iterator, error) {
+	opts := tbtree.DefaultIteratorOptions()
+	opts.StartTs = spec.StartTx
+
+	if spec.EndTx == 0 {
+		opts.EndTs = math.MaxUint64
+	} else {
+		opts.EndTs = spec.EndTx
+	}
+	opts.Reversed = spec.DescOrder
+	opts.IncludeHistory = spec.IncludeHistory
+
+	it, err := snap.NewIterator(opts)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	err = it.Seek(spec.SeekKey)
+	return it, err
+}
+
+func (r *storeKeyReader) next() (*tbtree.Entry, error) {
+	if r.end {
+		return nil, ErrNoMoreEntries
 	}
 
-	r.skipped = 0
+	it := r.it
 
-	return nil
+	e, err := it.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	if !r.spec.InclusiveSeek && bytes.Equal(e.Key, r.spec.SeekKey) {
+		e, err = it.Next()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(r.spec.EndKey) > 0 {
+		cmp := bytes.Compare(r.spec.EndKey, e.Key)
+
+		if r.spec.DescOrder && (cmp > 0 || (cmp == 0 && !r.spec.InclusiveEnd)) {
+			return nil, ErrNoMoreEntries
+		}
+
+		if !r.spec.DescOrder && (cmp < 0 || (cmp == 0 && !r.spec.InclusiveEnd)) {
+			return nil, ErrNoMoreEntries
+		}
+	}
+	return e, nil
 }
 
 func (r *storeKeyReader) Close() error {
-	return r.reader.Close()
+	return r.it.Close()
+}
+
+func seekSpec(spec KeyReaderSpec) (KeyReaderSpec, error) {
+	if len(spec.SeekKey) > tbtree.MaxEntrySize || len(spec.Prefix) > tbtree.MaxEntrySize {
+		return KeyReaderSpec{}, ErrIllegalArguments
+	}
+
+	greatestPrefixedKey := greatestKeyOfSize(tbtree.MaxEntrySize)
+	copy(greatestPrefixedKey, spec.Prefix)
+
+	// Adjust seekKey based on key prefix
+	seekKey := spec.SeekKey
+	inclusiveSeek := spec.InclusiveSeek
+
+	if spec.DescOrder {
+		if len(spec.SeekKey) == 0 || bytes.Compare(spec.SeekKey, greatestPrefixedKey) > 0 {
+			seekKey = greatestPrefixedKey
+			inclusiveSeek = true
+		}
+	} else {
+		if bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
+			seekKey = spec.Prefix
+			inclusiveSeek = true
+		}
+	}
+
+	// Adjust endKey based on key prefix
+	endKey := spec.EndKey
+	inclusiveEnd := spec.InclusiveEnd
+
+	if spec.DescOrder {
+		if bytes.Compare(spec.EndKey, spec.Prefix) < 0 {
+			endKey = spec.Prefix
+			inclusiveEnd = true
+		}
+	} else {
+		if len(spec.EndKey) == 0 || bytes.Compare(spec.EndKey, greatestPrefixedKey) > 0 {
+			endKey = greatestPrefixedKey
+			inclusiveEnd = true
+		}
+	}
+
+	return KeyReaderSpec{
+		SeekKey:        seekKey,
+		EndKey:         endKey,
+		Prefix:         spec.Prefix,
+		InclusiveSeek:  inclusiveSeek,
+		InclusiveEnd:   inclusiveEnd,
+		IncludeHistory: spec.IncludeHistory,
+		DescOrder:      spec.DescOrder,
+		Filters:        spec.Filters,
+		Offset:         spec.Offset,
+		StartTx:        spec.StartTx,
+		EndTx:          spec.EndTx,
+	}, nil
+}
+
+func greatestKeyOfSize(size int) []byte {
+	k := make([]byte, size)
+	for i := 0; i < size; i++ {
+		k[i] = 0xFF
+	}
+	return k
 }

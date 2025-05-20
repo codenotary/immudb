@@ -38,16 +38,16 @@ V_COMMIT := $(shell git rev-parse HEAD)
 V_BUILT_BY := $(shell git config user.email)
 V_BUILT_AT := $(shell date +%s)
 V_LDFLAGS_SYMBOL := -s
-V_LDFLAGS_BUILD := -X "github.com/codenotary/immudb/cmd/version.Version=${VERSION}" \
-					-X "github.com/codenotary/immudb/cmd/version.Commit=${V_COMMIT}" \
-					-X "github.com/codenotary/immudb/cmd/version.BuiltBy=${V_BUILT_BY}"\
-					-X "github.com/codenotary/immudb/cmd/version.BuiltAt=${V_BUILT_AT}"
+V_LDFLAGS_BUILD := -X "github.com/codenotary/immudb/v2/cmd/version.Version=${VERSION}" \
+					-X "github.com/codenotary/immudb/v2/cmd/version.Commit=${V_COMMIT}" \
+					-X "github.com/codenotary/immudb/v2/cmd/version.BuiltBy=${V_BUILT_BY}"\
+					-X "github.com/codenotary/immudb/v2/cmd/version.BuiltAt=${V_BUILT_AT}"
 V_LDFLAGS_COMMON := ${V_LDFLAGS_SYMBOL} ${V_LDFLAGS_BUILD}
 V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
-				  -X github.com/codenotary/immudb/cmd/version.Static=static \
+				  -X github.com/codenotary/immudb/v2/cmd/version.Static=static \
 				  -extldflags "-static"
 V_LDFLAGS_FIPS_BUILD = ${V_LDFLAGS_BUILD} \
-				  -X github.com/codenotary/immudb/cmd/version.FIPSEnabled=true
+				  -X github.com/codenotary/immudb/v2/cmd/version.FIPSEnabled=true
 V_GO_ENV_FLAGS := GOOS=$(GOOS) GOARCH=$(GOARCH)
 V_BUILD_NAME ?= ""
 V_BUILD_FLAG = -o $(V_BUILD_NAME)
@@ -179,7 +179,7 @@ build/codegen:
 build/codegenv2:
 	$(PWD)/ext-tools/buf format -w
 
-	$(PROTOC) -I pkg/api/proto/ pkg/api/proto/authorization.proto pkg/api/proto/documents.proto \
+	$(PROTOC) -I pkg/api/proto/ pkg/api/proto/authorization.proto \
 	  -I pkg/api/schema/ \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \

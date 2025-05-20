@@ -24,12 +24,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
-	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/pgsql/server/bmessages"
+	h "github.com/codenotary/immudb/v2/pkg/pgsql/server/fmessages/fmessages_test"
 	"github.com/stretchr/testify/require"
 )
 

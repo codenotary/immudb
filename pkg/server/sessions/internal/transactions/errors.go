@@ -16,6 +16,6 @@ limitations under the License.
 
 package transactions
 
-import "github.com/codenotary/immudb/pkg/errors"
+import "github.com/codenotary/immudb/v2/pkg/errors"
 
 var ErrTransactionNotFound = errors.New("no transaction found").WithCode(errors.CodInvalidParameterValue)

@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/errors"
 	"github.com/golang/protobuf/proto"
 )
 

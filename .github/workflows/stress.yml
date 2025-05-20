@@ -5,8 +5,29 @@ on:
     - '**'
   schedule:
     - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
+  stress-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+    - name: Setup runner for Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.18"
+    - name: Build and run immudb
+      run: make immudb && ./immudb -d
+    - uses: actions/checkout@v4
+    - name: Build stress tool
+      run: |
+        go run ./tools/testing/stress_tool_test_kv/ \
+          -mix-read-writes \
+          -randomize-key-length \
+          -total-entries-written 300000 \
+          -total-entries-read 10000
+
   stress-build:
     runs-on: ubuntu-latest
     steps:

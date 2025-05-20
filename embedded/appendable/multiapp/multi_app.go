@@ -27,10 +27,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/fileutils"
-	"github.com/codenotary/immudb/embedded/appendable/singleapp"
-	"github.com/codenotary/immudb/embedded/cache"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/fileutils"
+	"github.com/codenotary/immudb/v2/embedded/appendable/singleapp"
+	"github.com/codenotary/immudb/v2/embedded/cache"
 )
 
 var ErrorPathIsNotADirectory = errors.New("multiapp: path is not a directory")
@@ -136,7 +136,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 			return nil, err
 		}
 
-		err = os.Mkdir(path, opts.fileMode)
+		err = os.MkdirAll(path, opts.fileMode)
 		if err != nil {
 			return nil, err
 		}

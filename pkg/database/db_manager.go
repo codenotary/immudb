@@ -23,10 +23,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/cache"
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/cache"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 )
 
 type DBManager struct {

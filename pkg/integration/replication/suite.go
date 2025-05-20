@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -167,7 +167,7 @@ func (suite *baseReplicationTestSuite) PromoteReplica(replicaNum, syncAcks int) 
 
 	host, port := suite.primary.Address(suite.T())
 
-	for i, _ := range suite.replicas {
+	for i := range suite.replicas {
 		ctx, client, cleanup := suite.internalClientFor(suite.replicas[i], suite.replicasDBName[i])
 		defer cleanup()
 

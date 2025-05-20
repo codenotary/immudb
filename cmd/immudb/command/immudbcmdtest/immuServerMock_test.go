@@ -19,12 +19,12 @@ package immudbcmdtest
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
-	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	pgsqlsrv "github.com/codenotary/immudb/v2/pkg/pgsql/server"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"github.com/stretchr/testify/require"
 )
 
