@@ -19,9 +19,10 @@ package multiapp
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/mocked"
-	"github.com/codenotary/immudb/embedded/cache"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/mocked"
+	"github.com/codenotary/immudb/v2/embedded/cache"
+
 	"github.com/stretchr/testify/require"
 )
 

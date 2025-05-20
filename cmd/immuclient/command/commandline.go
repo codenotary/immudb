@@ -1,10 +1,10 @@
 package immuclient
 
 import (
-	"github.com/codenotary/immudb/cmd/helper"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuclient/immuc"
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immuclient/immuc"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/spf13/cobra"
 )
 

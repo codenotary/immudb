@@ -21,14 +21,41 @@ import (
 	"os"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/ahtree"
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/multiapp"
-	"github.com/codenotary/immudb/embedded/cache"
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/codenotary/immudb/pkg/helpers/semaphore"
+	"github.com/codenotary/immudb/v2/embedded/ahtree"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
 )
+
+const (
+	DefaultMaxValueLen = 4096
+
+	DefaultNumIndexers = 8
+
+	DefaultWriteBufferChunkSize  = 1024 * 1024
+	DefaultSharedWriteBufferSize = 128 * DefaultWriteBufferChunkSize
+	DefaultMinWriteBufferSize    = DefaultWriteBufferChunkSize
+	DefaultMaxWriteBufferSize    = DefaultSharedWriteBufferSize
+
+	DefaultPageBufferSize = 128 * 1024 * 1024
+
+	DefaultBackpressureMinDelay = 50 * time.Millisecond
+	DefaultBackpressureMaxDelay = 2 * time.Second
+)
+
+type TimeFunc func() time.Time
+
+type AppFactoryFunc func(
+	rootPath string,
+	subPath string,
+	opts *multiapp.Options,
+) (appendable.Appendable, error)
+
+func (opts *Options) WithAppFactoryFunc(appFactory AppFactoryFunc) *Options {
+	opts.appFactory = appFactory
+	return opts
+}
 
 const DefaultMaxActiveTransactions = 1000
 const DefaultMVCCReadSetLimit = 100_000
@@ -36,7 +63,6 @@ const DefaultMaxConcurrency = 30
 const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 10 // 1024
 const DefaultMaxKeyLen = 1024
-const DefaultMaxValueLen = 4096 // 4Kb
 const DefaultSyncFrequency = 20 * time.Millisecond
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = multiapp.DefaultFileSize
@@ -61,21 +87,8 @@ const MinimumTruncationFrequency = 1 * time.Hour
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
-type AppFactoryFunc func(
-	rootPath string,
-	subPath string,
-	opts *multiapp.Options,
-) (appendable.Appendable, error)
-
 type AppRemoveFunc func(rootPath, subPath string) error
-
-type IndexCacheFactoryFunc func() *cache.Cache
-
-type IndexMemSemaphoreFactoryFunc func() *semaphore.Semaphore
-
-type TimeFunc func() time.Time
-
-type FlushFunc func() error
+type ReadDirFunc func(path string) ([]os.DirEntry, error)
 
 type Options struct {
 	ReadOnly bool
@@ -94,8 +107,8 @@ type Options struct {
 	logger logger.Logger
 
 	appFactory AppFactoryFunc
-
-	appRemove AppRemoveFunc
+	appRemove  AppRemoveFunc
+	readDir    ReadDirFunc
 
 	CompactionDisabled bool
 
@@ -147,65 +160,14 @@ type Options struct {
 	CompressionLevel  int
 	EmbeddedValues    bool
 	PreallocFiles     bool
+	// Discard processing of transactions that were precommitted before opening
+	DiscardPrecommittedTransactions bool
 
 	// options below affect indexing
 	IndexOpts *IndexOptions
 
 	// options below affect appendable hash tree
 	AHTOpts *AHTOptions
-}
-
-type IndexOptions struct {
-	// Global limit for amount of data that can be buffered from all indexes
-	MaxGlobalBufferedDataSize int
-
-	// MaxBufferedDataSize
-	MaxBufferedDataSize int
-
-	// Size (in bytes) of the Btree node cache
-	CacheSize int
-
-	// Number of new index entries between disk flushes
-	FlushThld int
-
-	// Number of new index entries between disk flushes with file sync
-	SyncThld int
-
-	// Size of the in-memory flush buffer (in bytes)
-	FlushBufferSize int
-
-	// Percentage of node files cleaned up during each flush
-	CleanupPercentage float32
-
-	// Maximum number of active btree snapshots
-	MaxActiveSnapshots int
-
-	// Max size of a single Btree node in bytes
-	MaxNodeSize int
-
-	// Time between the most recent DB snapshot is automatically renewed
-	RenewSnapRootAfter time.Duration
-
-	// Minimum number of updates entries in the btree to allow for full compaction
-	CompactionThld int
-
-	// Additional delay added during indexing when full compaction is in progress
-	DelayDuringCompaction time.Duration
-
-	// Maximum number of simultaneously opened nodes files
-	NodesLogMaxOpenedFiles int
-
-	// Maximum number of simultaneously opened node history files
-	HistoryLogMaxOpenedFiles int
-
-	// Maximum number of simultaneously opened commit log files
-	CommitLogMaxOpenedFiles int
-
-	// Maximum number of transactions indexed together
-	MaxBulkSize int
-
-	// Maximum time waiting for more transactions to be committed and included into the same bulk
-	BulkPreparationTimeout time.Duration
 }
 
 type AHTOptions struct {
@@ -239,48 +201,47 @@ func DefaultOptions() *Options {
 		CommitLogMaxOpenedFiles: DefaultCommitLogMaxOpenedFiles,
 
 		MaxWaitees: DefaultMaxWaitees,
-
 		TimeFunc: func() time.Time {
 			return time.Now()
 		},
-
+		readDir:              os.ReadDir,
 		WriteTxHeaderVersion: DefaultWriteTxHeaderVersion,
 
 		// options below are only set during initialization and stored as metadata
-		MaxTxEntries:      DefaultMaxTxEntries,
-		MaxKeyLen:         DefaultMaxKeyLen,
-		MaxValueLen:       DefaultMaxValueLen,
-		FileSize:          DefaultFileSize,
-		CompressionFormat: DefaultCompressionFormat,
-		CompressionLevel:  DefaultCompressionLevel,
-		EmbeddedValues:    DefaultEmbeddedValues,
-		PreallocFiles:     DefaultPreallocFiles,
-
-		IndexOpts: DefaultIndexOptions(),
-		AHTOpts:   DefaultAHTOptions(),
+		MaxTxEntries:                    DefaultMaxTxEntries,
+		MaxKeyLen:                       DefaultMaxKeyLen,
+		MaxValueLen:                     DefaultMaxValueLen,
+		FileSize:                        DefaultFileSize,
+		CompressionFormat:               DefaultCompressionFormat,
+		CompressionLevel:                DefaultCompressionLevel,
+		EmbeddedValues:                  DefaultEmbeddedValues,
+		PreallocFiles:                   DefaultPreallocFiles,
+		DiscardPrecommittedTransactions: false,
+		IndexOpts:                       DefaultIndexOptions(),
+		AHTOpts:                         DefaultAHTOptions(),
 	}
 }
 
 func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
-		MaxGlobalBufferedDataSize: DefaultIndexingGlobalMaxBufferedDataSize,
-		MaxBufferedDataSize:       tbtree.DefaultMaxBufferedDataSize,
-		CacheSize:                 tbtree.DefaultCacheSize,
-		FlushThld:                 tbtree.DefaultFlushThld,
-		SyncThld:                  tbtree.DefaultSyncThld,
-		FlushBufferSize:           tbtree.DefaultFlushBufferSize,
-		CleanupPercentage:         tbtree.DefaultCleanUpPercentage,
-		MaxActiveSnapshots:        tbtree.DefaultMaxActiveSnapshots,
-		MaxNodeSize:               tbtree.DefaultMaxNodeSize,
-		RenewSnapRootAfter:        tbtree.DefaultRenewSnapRootAfter,
-		CompactionThld:            tbtree.DefaultCompactionThld,
-		DelayDuringCompaction:     0,
-		NodesLogMaxOpenedFiles:    tbtree.DefaultNodesLogMaxOpenedFiles,
-		HistoryLogMaxOpenedFiles:  tbtree.DefaultHistoryLogMaxOpenedFiles,
-		CommitLogMaxOpenedFiles:   tbtree.DefaultCommitLogMaxOpenedFiles,
+		NumIndexers:                DefaultNumIndexers,
+		MinWriteBufferSize:         DefaultMinWriteBufferSize,
+		MaxWriteBufferSize:         DefaultMaxWriteBufferSize,
+		PageBufferSize:             DefaultPageBufferSize,
+		SharedWriteBufferSize:      DefaultSharedWriteBufferSize,
+		SharedWriteBufferChunkSize: DefaultWriteBufferChunkSize,
+		BackpressureMinDelay:       DefaultBackpressureMinDelay,
+		BackpressureMaxDelay:       DefaultBackpressureMaxDelay,
 
-		MaxBulkSize:            DefaultIndexingMaxBulkSize,
-		BulkPreparationTimeout: DefaultBulkPreparationTimeout,
+		SyncThld:                 tbtree.DefaultSyncThld,
+		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
+		CleanupPercentage:        tbtree.DefaultCleanUpPercentage,
+		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
+		RenewSnapRootAfter:       tbtree.DefaultSnapshotRenewalPeriod,
+		CompactionThld:           tbtree.DefaultCompactionThld,
+		DelayDuringCompaction:    0,
+		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
+		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
 	}
 }
 
@@ -375,7 +336,6 @@ func (opts *Options) Validate() error {
 	if err != nil {
 		return err
 	}
-
 	return opts.AHTOpts.Validate()
 }
 
@@ -383,61 +343,91 @@ func (opts *IndexOptions) Validate() error {
 	if opts == nil {
 		return fmt.Errorf("%w: nil index options ", ErrInvalidOptions)
 	}
-	if opts.MaxBufferedDataSize <= 0 {
-		return fmt.Errorf("%w: invalid index option MaxBufferedDataSize", ErrInvalidOptions)
-	}
-	if opts.MaxGlobalBufferedDataSize <= 0 {
-		return fmt.Errorf("%w: invalid index option MaxGlobalBufferedDataSize", ErrInvalidOptions)
-	}
-	if opts.MaxBufferedDataSize > opts.MaxGlobalBufferedDataSize {
-		return fmt.Errorf("%w: invalid index option MaxBufferedDataSize > MaxGlobalBufferedDataSize", ErrInvalidOptions)
-	}
-	if opts.CacheSize <= 0 {
-		return fmt.Errorf("%w: invalid index option CacheSize", ErrInvalidOptions)
-	}
-	if opts.FlushThld <= 0 {
-		return fmt.Errorf("%w: invalid index option FlushThld", ErrInvalidOptions)
-	}
+
 	if opts.SyncThld <= 0 {
 		return fmt.Errorf("%w: invalid index option SyncThld", ErrInvalidOptions)
 	}
+
 	if opts.FlushBufferSize <= 0 {
 		return fmt.Errorf("%w: invalid index option FlushBufferSize", ErrInvalidOptions)
 	}
+
 	if opts.CleanupPercentage < 0 || opts.CleanupPercentage > 100 {
 		return fmt.Errorf("%w: invalid index option CleanupPercentage", ErrInvalidOptions)
 	}
+
 	if opts.MaxActiveSnapshots <= 0 {
 		return fmt.Errorf("%w: invalid index option MaxActiveSnapshots", ErrInvalidOptions)
 	}
-	if opts.MaxNodeSize <= 0 {
-		return fmt.Errorf("%w: invalid index option MaxNodeSize", ErrInvalidOptions)
-	}
-	if opts.CompactionThld <= 0 {
+
+	if opts.CompactionThld <= 0 || opts.CompactionThld > 1 {
 		return fmt.Errorf("%w: invalid index option CompactionThld", ErrInvalidOptions)
 	}
+
 	if opts.DelayDuringCompaction < 0 {
 		return fmt.Errorf("%w: invalid index option DelayDuringCompaction", ErrInvalidOptions)
 	}
+
 	if opts.RenewSnapRootAfter < 0 {
 		return fmt.Errorf("%w: invalid index option RenewSnapRootAfter", ErrInvalidOptions)
 	}
-	if opts.MaxBulkSize < 1 {
-		return fmt.Errorf("%w: invalid MaxBulkSize", ErrInvalidOptions)
-	}
-	if opts.BulkPreparationTimeout < 0 {
-		return fmt.Errorf("%w: invalid BulkPreparationTimeout", ErrInvalidOptions)
-	}
+
 	if opts.NodesLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid index option NodesLogMaxOpenedFiles", ErrInvalidOptions)
 	}
+
 	if opts.HistoryLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid index option HistoryLogMaxOpenedFiles", ErrInvalidOptions)
 	}
-	if opts.CommitLogMaxOpenedFiles <= 0 {
-		return fmt.Errorf("%w: invalid index option CommitLogMaxOpenedFiles", ErrInvalidOptions)
+
+	if opts.SharedWriteBufferChunkSize == 0 {
+		return fmt.Errorf("%w: write buffer chunk size cannot be zero", ErrInvalidOptions)
 	}
 
+	if opts.SharedWriteBufferChunkSize%tbtree.PageSize != 0 {
+		return fmt.Errorf("%w: write buffer chunk size must be a multiple of the page size", ErrInvalidOptions)
+	}
+
+	if opts.SharedWriteBufferSize == 0 {
+		return fmt.Errorf("%w: shared write buffer size cannot be zero", ErrInvalidOptions)
+	}
+
+	if opts.SharedWriteBufferSize%opts.SharedWriteBufferChunkSize != 0 {
+		return fmt.Errorf("%w: shared write buffer size must be a multiple of the chunk size", ErrInvalidOptions)
+	}
+
+	if opts.MaxWriteBufferSize%tbtree.PageSize != 0 {
+		return fmt.Errorf("%w: write buffer size must be a multiple of the page size", ErrInvalidOptions)
+	}
+
+	if opts.MinWriteBufferSize == 0 {
+		return fmt.Errorf("%w: min write buffer size cannot be zero", ErrInvalidOptions)
+	}
+
+	if opts.MaxWriteBufferSize == 0 {
+		return fmt.Errorf("%w: max write buffer size cannot be zero", ErrInvalidOptions)
+	}
+
+	if opts.MinWriteBufferSize > opts.MaxWriteBufferSize {
+		return fmt.Errorf("%w: min write buffer size cannot be greater than max size", ErrInvalidOptions)
+	}
+
+	if opts.MaxWriteBufferSize > opts.SharedWriteBufferSize {
+		return fmt.Errorf("%w: max write buffer size cannot be greater than the shared write buffer size", ErrInvalidOptions)
+	}
+
+	if opts.BackpressureMinDelay == 0 {
+		return fmt.Errorf("backpressure min delay cannot be zero")
+	}
+
+	if opts.BackpressureMaxDelay < opts.BackpressureMinDelay {
+		return fmt.Errorf("max backpressure delay cannot be less than min delay")
+	}
+
+	numChunks := opts.SharedWriteBufferSize / opts.SharedWriteBufferChunkSize
+	if numChunks < opts.NumIndexers {
+		return fmt.Errorf("shared write buffer should have at least %d chunks", opts.NumIndexers)
+	}
 	return nil
 }
 
@@ -451,7 +441,6 @@ func (opts *AHTOptions) Validate() error {
 	if opts.SyncThld <= 0 {
 		return fmt.Errorf("%w: invalid AHT option SyncThld", ErrInvalidOptions)
 	}
-
 	return nil
 }
 
@@ -492,6 +481,11 @@ func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 
 func (opts *Options) WithAppRemoveFunc(appRemove AppRemoveFunc) *Options {
 	opts.appRemove = appRemove
+	return opts
+}
+
+func (opts *Options) WithReadDirFunc(readDir ReadDirFunc) *Options {
+	opts.readDir = readDir
 	return opts
 }
 
@@ -620,90 +614,8 @@ func (opts *Options) WithAHTOptions(ahtOptions *AHTOptions) *Options {
 	return opts
 }
 
-// IndexOptions
-
-func (opts *IndexOptions) WithCacheSize(cacheSize int) *IndexOptions {
-	opts.CacheSize = cacheSize
-	return opts
-}
-
-func (opts *IndexOptions) WithFlushThld(flushThld int) *IndexOptions {
-	opts.FlushThld = flushThld
-	return opts
-}
-
-func (opts *IndexOptions) WithSyncThld(syncThld int) *IndexOptions {
-	opts.SyncThld = syncThld
-	return opts
-}
-
-func (opts *IndexOptions) WithFlushBufferSize(flushBufferSize int) *IndexOptions {
-	opts.FlushBufferSize = flushBufferSize
-	return opts
-}
-
-func (opts *IndexOptions) WithCleanupPercentage(cleanupPercentage float32) *IndexOptions {
-	opts.CleanupPercentage = cleanupPercentage
-	return opts
-}
-
-func (opts *IndexOptions) WithMaxActiveSnapshots(maxActiveSnapshots int) *IndexOptions {
-	opts.MaxActiveSnapshots = maxActiveSnapshots
-	return opts
-}
-
-func (opts *IndexOptions) WithMaxNodeSize(maxNodeSize int) *IndexOptions {
-	opts.MaxNodeSize = maxNodeSize
-	return opts
-}
-
-func (opts *IndexOptions) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
-	opts.RenewSnapRootAfter = renewSnapRootAfter
-	return opts
-}
-
-func (opts *IndexOptions) WithMaxBulkSize(maxBulkSize int) *IndexOptions {
-	opts.MaxBulkSize = maxBulkSize
-	return opts
-}
-
-func (opts *IndexOptions) WithBulkPreparationTimeout(bulkPreparationTimeout time.Duration) *IndexOptions {
-	opts.BulkPreparationTimeout = bulkPreparationTimeout
-	return opts
-}
-
-func (opts *IndexOptions) WithCompactionThld(compactionThld int) *IndexOptions {
-	opts.CompactionThld = compactionThld
-	return opts
-}
-
-func (opts *IndexOptions) WithDelayDuringCompaction(delayDuringCompaction time.Duration) *IndexOptions {
-	opts.DelayDuringCompaction = delayDuringCompaction
-	return opts
-}
-
-func (opts *IndexOptions) WithNodesLogMaxOpenedFiles(nodesLogMaxOpenedFiles int) *IndexOptions {
-	opts.NodesLogMaxOpenedFiles = nodesLogMaxOpenedFiles
-	return opts
-}
-
-func (opts *IndexOptions) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles int) *IndexOptions {
-	opts.HistoryLogMaxOpenedFiles = historyLogMaxOpenedFiles
-	return opts
-}
-
-func (opts *IndexOptions) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *IndexOptions {
-	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
-	return opts
-}
-
-func (opts *IndexOptions) WithMaxBufferedDataSize(size int) *IndexOptions {
-	opts.MaxBufferedDataSize = size
-	return opts
-}
-
-func (opts *IndexOptions) WithMaxGlobalBufferedDataSize(size int) *IndexOptions {
-	opts.MaxGlobalBufferedDataSize = size
+func (opts *Options) WithDiscardPrecommittedTransactions(discard bool) *Options {
+	opts.DiscardPrecommittedTransactions = discard
 	return opts
 }
 

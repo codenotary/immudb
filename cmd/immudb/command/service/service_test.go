@@ -23,12 +23,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service/servicetest"
 	"github.com/stretchr/testify/require"
 	"github.com/takama/daemon"
 
-	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/codenotary/immudb/v2/pkg/client/clienttest"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )

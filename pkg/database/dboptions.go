@@ -19,7 +19,7 @@ package database
 import (
 	"time"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 )
 
 const (
@@ -52,7 +52,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		dbRootPath:          DefaultDbRootPath,
-		storeOpts:           store.DefaultOptions(),
+		storeOpts:           store.DefaultOptions().WithMultiIndexing(true),
 		maxResultSize:       MaxKeyScanLimit,
 		readTxPoolSize:      DefaultReadTxPoolSize,
 		TruncationFrequency: DefaultTruncationFrequency,

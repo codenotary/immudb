@@ -31,8 +31,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/fileutils"
+	"github.com/codenotary/immudb/v2/embedded/appendable"
+	"github.com/codenotary/immudb/v2/embedded/appendable/fileutils"
 )
 
 var ErrorPathIsNotADirectory = errors.New("singleapp: path is not a directory")

@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"

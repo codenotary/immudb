@@ -24,14 +24,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/replication"
-	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/replication"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
 
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 )
 
 const SystemDBName = "systemdb"

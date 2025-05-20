@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import immudb "github.com/codenotary/immudb/cmd/immudb/command"
+import immudb "github.com/codenotary/immudb/v2/cmd/immudb/command"
 
 func main() {
 	immudb.Execute()

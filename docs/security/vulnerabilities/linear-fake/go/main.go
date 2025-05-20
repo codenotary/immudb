@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	immudb "github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/state"
+	immudb "github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/state"
 )
 
 func verifyTxRead(client immudb.ImmuClient, txID uint64, stateService state.StateService) (string, error) {

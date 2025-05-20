@@ -20,18 +20,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSortRowReader(t *testing.T) {
-	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, err = newSortRowReader(nil, nil)
+	_, err := newSortRowReader(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())

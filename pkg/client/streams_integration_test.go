@@ -25,10 +25,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/stream"
-	"github.com/codenotary/immudb/pkg/stream/streamtest"
-	"github.com/codenotary/immudb/pkg/streamutils"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream/streamtest"
+	"github.com/codenotary/immudb/v2/pkg/streamutils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )

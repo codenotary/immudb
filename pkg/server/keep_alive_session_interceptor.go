@@ -19,7 +19,7 @@ package server
 import (
 	"context"
 
-	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/auth"
 	"google.golang.org/grpc"
 )
 

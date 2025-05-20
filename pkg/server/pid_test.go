@@ -22,7 +22,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/stretchr/testify/require"
 )
 

@@ -42,7 +42,7 @@ func ErrorResponse(setters ...Option) *errorResp {
 	return er
 }
 
-//Encode encode in binary
+// Encode encode in binary
 func (er *errorResp) Encode() []byte {
 	messageType := []byte(`E`)
 	messageLength := make([]byte, 4)

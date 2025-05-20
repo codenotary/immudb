@@ -19,7 +19,7 @@ package stream
 import (
 	"fmt"
 
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/errors"
 )
 
 var ErrMaxValueLenExceeded = "internal store max value length exceeded"

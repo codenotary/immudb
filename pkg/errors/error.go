@@ -27,24 +27,25 @@ import (
 // errors.New
 // errors.Wrap
 //
-// if read == 0 && err == io.EOF {
-//    return errors.New(ErrReaderIsEmpty).WithCode(errors.CodInvalidParameterValue)
-// }
+//	if read == 0 && err == io.EOF {
+//	   return errors.New(ErrReaderIsEmpty).WithCode(errors.CodInvalidParameterValue)
+//	}
 //
 // or
 //
 // u, err := s.getValidatedUser(r.user, r.Password)
-// if err != nil {
-//    return nil, errors.Wrap(err, "invalid user name or password").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
-// }
+//
+//	if err != nil {
+//	   return nil, errors.Wrap(err, "invalid user name or password").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
+//	}
 //
 // If the error is registered inside an init function like it's possible to skip the inline code definition.
 //
-// func init() {
-//    ...
-//    errors.CodeMap[ErrMaxValueLenExceeded] = errors.CodDataException
-//    ...
-// }
+//	func init() {
+//	   ...
+//	   errors.CodeMap[ErrMaxValueLenExceeded] = errors.CodDataException
+//	   ...
+//	}
 //
 // Errors are converted in the transportation in gRPC status. When adding a new error code it's required to add an entry in gRPC error map. See map.go
 //
@@ -52,7 +53,6 @@ import (
 // In order to avoid dependency between client and server package SDK contains proper error codes definitions, like server.
 //
 // Both SDK ImmuError and server Error can be compared with errors.Is utility.
-//
 type Error interface {
 	Error() string
 	Message() string

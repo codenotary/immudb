@@ -30,19 +30,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/cert"
-	"github.com/codenotary/immudb/pkg/fs"
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/cmd/version"
+	"github.com/codenotary/immudb/v2/pkg/cert"
+	"github.com/codenotary/immudb/v2/pkg/fs"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/tbtree"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/auth"
+	"github.com/codenotary/immudb/v2/pkg/database"
+	"github.com/codenotary/immudb/v2/pkg/immuos"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -114,7 +114,10 @@ func TestServerReOpen(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
+	err := s.initStore(dbRootpath)
+	require.NoError(t, err)
+
+	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
@@ -124,6 +127,9 @@ func TestServerReOpen(t *testing.T) {
 
 	s, closer = testServer(serverOptions)
 	defer closer()
+
+	err = s.initStore(dbRootpath)
+	require.NoError(t, err)
 
 	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
@@ -142,7 +148,10 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
+	err := s.initStore(dbRootpath)
+	require.NoError(t, err)
+
+	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
@@ -153,32 +162,50 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 
 func TestServerResetAdminPassword(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir(t.TempDir())
-	options := database.DefaultOptions().WithDBRootPath(serverOptions.Dir)
+	options := database.DefaultOptions().
+		WithDBRootPath(serverOptions.Dir)
+
 	dbRootpath := options.GetDBRootPath()
 
 	var txID uint64
+
+	var st *store.ImmuStore
 
 	t.Run("Create new database", func(t *testing.T) {
 		s, closer := testServer(serverOptions)
 		defer closer()
 
-		err := s.loadSystemDatabase(dbRootpath, nil, "password1", false)
+		err := s.initStore(dbRootpath)
 		require.NoError(t, err)
 
-		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password1"))
+		err = s.loadSystemDatabase(dbRootpath, nil, "password1", false)
 		require.NoError(t, err)
 
-		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
+		_, err = s.getValidatedUser(
+			context.Background(),
+			[]byte(auth.SysAdminUsername),
+			[]byte("password1"),
+		)
+		require.NoError(t, err)
+
+		_, err = s.getValidatedUser(
+			context.Background(),
+			[]byte(auth.SysAdminUsername),
+			[]byte("password2"),
+		)
 		require.ErrorContains(t, err, "password")
 
 		txID, err = s.sysDB.TxCount()
 		require.NoError(t, err)
+
+		st = s.st
 	})
 
 	t.Run("Run db without resetting password", func(t *testing.T) {
 		s, closer := testServer(serverOptions)
 		defer closer()
 
+		s.st = st
 		err := s.loadSystemDatabase(dbRootpath, nil, "password2", false)
 		require.NoError(t, err)
 
@@ -196,6 +223,8 @@ func TestServerResetAdminPassword(t *testing.T) {
 	t.Run("Run db with password reset", func(t *testing.T) {
 		s, closer := testServer(serverOptions)
 		defer closer()
+
+		s.st = st
 
 		err := s.loadSystemDatabase(dbRootpath, nil, "password2", true)
 		require.NoError(t, err)
@@ -216,6 +245,8 @@ func TestServerResetAdminPassword(t *testing.T) {
 		s, closer := testServer(serverOptions)
 		defer closer()
 
+		s.st = st
+
 		err := s.loadSystemDatabase(dbRootpath, nil, "password2", true)
 		require.NoError(t, err)
 
@@ -230,7 +261,6 @@ func TestServerResetAdminPassword(t *testing.T) {
 		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.NoError(t, err)
 	})
-
 }
 
 type dbMockResetAdminPasswordCornerCases struct {

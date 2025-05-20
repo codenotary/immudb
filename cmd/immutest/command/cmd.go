@@ -17,9 +17,9 @@ limitations under the License.
 package immutest
 
 import (
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
+	"github.com/codenotary/immudb/v2/cmd/version"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
 	"github.com/spf13/cobra"
 )
 

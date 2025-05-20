@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/v2/cmd/cmdtest"
 
-	"github.com/codenotary/immudb/embedded/logger"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/v2/embedded/logger"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/database"
 	"github.com/stretchr/testify/require"
 )
 

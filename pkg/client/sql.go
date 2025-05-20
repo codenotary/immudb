@@ -23,11 +23,11 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/v2/pkg/client/errors"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/store"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

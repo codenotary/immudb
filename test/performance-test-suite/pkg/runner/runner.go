@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
+	"github.com/codenotary/immudb/v2/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 func RunAllBenchmarks(d time.Duration, tempDir string, seed uint64) (*BenchmarkSuiteResult, error) {

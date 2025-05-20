@@ -50,7 +50,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 			},
 		}
 
-		_, err := keyReaderSpecFrom(prefix, table, scanSpecs)
+		_, err := keyReaderSpecFrom(prefix, table, scanSpecs, &txRange{})
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 
@@ -66,7 +66,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 			},
 		}
 
-		_, err := keyReaderSpecFrom(prefix, table, scanSpecs)
+		_, err := keyReaderSpecFrom(prefix, table, scanSpecs, &txRange{})
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 }

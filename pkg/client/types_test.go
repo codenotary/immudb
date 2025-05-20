@@ -19,7 +19,7 @@ package client
 import (
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/v2/pkg/stream"
 )
 
 func TestWithStreamServiceFactory(t *testing.T) {

@@ -19,7 +19,7 @@ package client
 import (
 	"context"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
 	"google.golang.org/grpc"
 )
 

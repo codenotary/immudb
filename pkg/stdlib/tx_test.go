@@ -24,7 +24,7 @@ import (
 
 	"google.golang.org/grpc/status"
 
-	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
 	"github.com/stretchr/testify/require"
 )
 

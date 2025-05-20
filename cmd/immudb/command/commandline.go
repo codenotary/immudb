@@ -17,7 +17,7 @@ limitations under the License.
 package immudb
 
 import (
-	c "github.com/codenotary/immudb/cmd/helper"
+	c "github.com/codenotary/immudb/v2/cmd/helper"
 	"github.com/spf13/cobra"
 )
 

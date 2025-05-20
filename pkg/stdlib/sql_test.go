@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

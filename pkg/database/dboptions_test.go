@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/v2/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 

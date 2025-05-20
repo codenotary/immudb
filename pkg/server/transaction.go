@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/v2/embedded/sql"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -49,7 +49,7 @@ func (s *ImmuServer) NewTx(ctx context.Context, request *schema.NewTxRequest) (*
 		WithReadOnly(request.Mode == schema.TxMode_ReadOnly)
 
 	if request.SnapshotMustIncludeTxID != nil {
-		opts.WithSnapshotMustIncludeTxID(func(_ uint64) uint64 {
+		opts.WithSnapshotMustIncludeTxID(func(_, _ uint64) uint64 {
 			return request.SnapshotMustIncludeTxID.GetValue()
 		})
 	}

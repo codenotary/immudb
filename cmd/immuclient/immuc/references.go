@@ -25,8 +25,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/client"
 )
 
 func (i *immuc) SetReference(args []string) (string, error) {

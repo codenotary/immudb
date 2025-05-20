@@ -19,7 +19,7 @@ package runner
 import (
 	"os"
 
-	"github.com/codenotary/immudb/cmd/version"
+	"github.com/codenotary/immudb/v2/cmd/version"
 )
 
 func gatherProcessInfo() ProcessInfo {

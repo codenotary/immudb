@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/immudb/command/service/constants"
+	"github.com/codenotary/immudb/v2/cmd/immudb/command/service/constants"
 
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"

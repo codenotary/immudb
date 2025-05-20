@@ -21,12 +21,12 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/v2/cmd/helper"
+	test "github.com/codenotary/immudb/v2/cmd/immuclient/immuclienttest"
+	"github.com/codenotary/immudb/v2/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 )
 

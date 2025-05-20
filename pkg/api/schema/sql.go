@@ -19,7 +19,7 @@ package schema
 import (
 	"time"
 
-	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/v2/embedded/sql"
 	"github.com/google/uuid"
 )
 

@@ -19,8 +19,8 @@ package sessions
 import (
 	"fmt"
 
-	"github.com/codenotary/immudb/pkg/errors"
-	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
+	"github.com/codenotary/immudb/v2/pkg/errors"
+	"github.com/codenotary/immudb/v2/pkg/server/sessions/internal/transactions"
 )
 
 var ErrSessionAlreadyPresent = errors.New("session already present").WithCode(errors.CodInternalError)

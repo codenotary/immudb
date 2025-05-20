@@ -19,8 +19,8 @@ package servertest
 import (
 	"context"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	"github.com/codenotary/immudb/v2/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 

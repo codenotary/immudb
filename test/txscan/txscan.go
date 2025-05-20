@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/api/schema"
+	immuclient "github.com/codenotary/immudb/v2/pkg/client"
 	"google.golang.org/grpc/metadata"
 )
 

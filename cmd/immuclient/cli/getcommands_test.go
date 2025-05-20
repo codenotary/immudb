@@ -18,13 +18,13 @@ package cli
 
 /*
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"strings"
 	"testing"
 
-	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
+	test "github.com/codenotary/immudb/v2/cmd/immuclient/immuclienttest"
+	"github.com/codenotary/immudb/v2/pkg/server"
+	"github.com/codenotary/immudb/v2/pkg/server/servertest"
 )
 
 func TestGetByIndex(t *testing.T) {

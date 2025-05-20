@@ -22,21 +22,23 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 )
 
 // OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
 // The snapshot may be locally modified but isolated from other transactions
 type OngoingTx struct {
-	st *ImmuStore
+	l *Ledger
 
 	ctx context.Context
 
 	snapshots []*Snapshot // snapshot per index
 
-	mode                    TxMode // MVCC validations are not needed for read-only transactions
-	snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
-	snapshotRenewalPeriod   time.Duration
+	mode                  TxMode // MVCC validations are not needed for read-only transactions
+	snapshotRenewalPeriod time.Duration
+
+	snapshotTxID uint64
 
 	unsafeMVCC bool
 
@@ -97,7 +99,7 @@ type EntrySpec struct {
 	IsValueTruncated bool
 }
 
-func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
+func newOngoingTx(ctx context.Context, s *Ledger, opts *TxOptions) (*OngoingTx, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -107,13 +109,19 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 		return nil, err
 	}
 
+	snapshotTxID := s.LastCommittedTxID()
+	if opts.SnapshotMustIncludeTxID != nil {
+		snapshotTxID = opts.SnapshotMustIncludeTxID(s.LastCommittedTxID(), s.LastPrecommittedTxID())
+	}
+
 	tx := &OngoingTx{
-		st:               s,
+		l:                s,
 		ctx:              ctx,
 		transientEntries: make(map[int]*EntrySpec),
 		entriesByKey:     make(map[[sha256.Size]byte]int),
 		ts:               time.Now(),
 		unsafeMVCC:       opts.UnsafeMVCC,
+		snapshotTxID:     snapshotTxID,
 	}
 
 	tx.mode = opts.Mode
@@ -122,7 +130,6 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 		return tx, nil
 	}
 
-	tx.snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID
 	tx.snapshotRenewalPeriod = opts.SnapshotRenewalPeriod
 	tx.mvccReadSet = &mvccReadSet{}
 
@@ -130,22 +137,22 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 }
 
 type ongoingValRef struct {
-	value []byte
-	hc    uint64
-	txmd  *TxMetadata
-	kvmd  *KVMetadata
+	value    []byte
+	revision uint64
+	txmd     *TxMetadata
+	kvmd     *KVMetadata
 }
 
-func (oref *ongoingValRef) Resolve() (val []byte, err error) {
-	return oref.value, nil
+func (oref *ongoingValRef) Resolve() (io.Reader, error) {
+	return bytes.NewReader(oref.value), nil
 }
 
-func (oref *ongoingValRef) Tx() uint64 {
+func (oref *ongoingValRef) TxID() uint64 {
 	return 0
 }
 
-func (oref *ongoingValRef) HC() uint64 {
-	return oref.hc
+func (oref *ongoingValRef) Revision() uint64 {
+	return oref.revision
 }
 
 func (oref *ongoingValRef) TxMetadata() *TxMetadata {
@@ -156,7 +163,7 @@ func (oref *ongoingValRef) KVMetadata() *KVMetadata {
 	return oref.kvmd
 }
 
-func (oref *ongoingValRef) HVal() [sha256.Size]byte {
+func (oref *ongoingValRef) Hash() [sha256.Size]byte {
 	return sha256.Sum256(oref.value)
 }
 
@@ -164,7 +171,7 @@ func (oref *ongoingValRef) Len() uint32 {
 	return uint32(len(oref.value))
 }
 
-func (oref *ongoingValRef) VOff() int64 {
+func (oref *ongoingValRef) Offset() int64 {
 	return 0
 }
 
@@ -174,6 +181,10 @@ func (tx *OngoingTx) IsWriteOnly() bool {
 
 func (tx *OngoingTx) IsReadOnly() bool {
 	return tx.mode == ReadOnlyTx
+}
+
+func (tx *OngoingTx) IsReadWrite() bool {
+	return tx.mode == ReadWriteTx
 }
 
 func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
@@ -196,19 +207,14 @@ func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
 		}
 	}
 
-	var snapshotMustIncludeTxID uint64
+	var snapshotMustIncludeTxID uint64 = tx.snapshotTxID
 
-	if tx.snapshotMustIncludeTxID != nil {
-		snapshotMustIncludeTxID = tx.snapshotMustIncludeTxID(tx.st.LastPrecommittedTxID())
-	}
-
-	mandatoryMVCCUpToTxID := tx.st.MandatoryMVCCUpToTxID()
-
+	mandatoryMVCCUpToTxID := tx.l.MandatoryMVCCUpToTxID()
 	if mandatoryMVCCUpToTxID > snapshotMustIncludeTxID {
 		snapshotMustIncludeTxID = mandatoryMVCCUpToTxID
 	}
 
-	snap, err := tx.st.SnapshotMustIncludeTxIDWithRenewalPeriod(tx.ctx, key, snapshotMustIncludeTxID, tx.snapshotRenewalPeriod)
+	snap, err := tx.l.SnapshotMustIncludeTxIDWithRenewalPeriod(tx.ctx, key, snapshotMustIncludeTxID, tx.snapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -227,10 +233,10 @@ func (tx *OngoingTx) snap(key []byte) (*Snapshot, error) {
 		}
 
 		return &ongoingValRef{
-			hc:    valRef.HC(),
-			value: entrySpec.Value,
-			txmd:  tx.metadata,
-			kvmd:  entrySpec.Metadata,
+			revision: valRef.Revision(),
+			value:    entrySpec.Value,
+			txmd:     tx.metadata,
+			kvmd:     entrySpec.Metadata,
 		}
 	}
 
@@ -252,17 +258,17 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		return ErrNullKey
 	}
 
-	if len(key) > tx.st.maxKeyLen {
+	if len(key) > tx.l.maxKeyLen {
 		return ErrMaxKeyLenExceeded
 	}
 
-	if len(value) > tx.st.maxValueLen {
+	if len(value) > tx.l.maxValueLen {
 		return ErrMaxValueLenExceeded
 	}
 
 	kid := sha256.Sum256(key)
 	keyRef, isKeyUpdate := tx.entriesByKey[kid]
-	if !isKeyUpdate && len(tx.entries) > tx.st.maxTxEntries {
+	if !isKeyUpdate && len(tx.entries) > tx.l.maxTxEntries {
 		return ErrMaxTxEntriesLimitExceeded
 	}
 
@@ -284,17 +290,13 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
 	var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
-	tx.st.indexersMux.RLock()
-	indexers := tx.st.indexers
-	tx.st.indexersMux.RUnlock()
-
-	for _, indexer := range indexers {
-		if isTransient && !hasPrefix(key, indexer.TargetPrefix()) {
-			continue
+	err := tx.l.store.indexerManager.ForEachIndex(tx.l.ID(), func(index *index) error {
+		if isTransient && !hasPrefix(key, index.TargetPrefix()) {
+			return nil
 		}
 
-		if !isTransient && (!hasPrefix(key, indexer.SourcePrefix()) || indexer.spec.SourceEntryMapper != nil) {
-			continue
+		if !isTransient && (!hasPrefix(key, index.SourcePrefix()) || index.spec.SourceEntryMapper != nil) {
+			return nil
 		}
 
 		var targetKey []byte
@@ -302,13 +304,15 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		if isTransient {
 			targetKey = key
 		} else {
+			vReader := bytes.NewReader(value)
 			// map the key, get the snapshot for mapped key, set
-			sourceKey, err := mapKey(key, value, indexer.spec.SourceEntryMapper)
+			sourceKey, err := mapKey(key, vReader, index.spec.SourceEntryMapper)
 			if err != nil {
 				return err
 			}
 
-			targetKey, err = mapKey(sourceKey, value, indexer.spec.TargetEntryMapper)
+			vReader.Reset(value)
+			targetKey, err = mapKey(sourceKey, vReader, index.spec.TargetEntryMapper)
 			if err != nil {
 				return err
 			}
@@ -340,6 +344,10 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 				tx.entriesByKey[kid] = len(tx.entriesByKey)
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	if isKeyUpdate {
@@ -358,11 +366,10 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		}
 
 	}
-
 	return nil
 }
 
-func mapKey(key []byte, value []byte, mapper EntryMapper) (mappedKey []byte, err error) {
+func mapKey(key []byte, value io.Reader, mapper EntryMapper) (mappedKey []byte, err error) {
 	if mapper == nil {
 		return key, nil
 	}
@@ -388,7 +395,7 @@ func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 		return ErrIllegalArguments
 	}
 
-	err := c.Validate(tx.st)
+	err := c.Validate(tx.l)
 	if err != nil {
 		return err
 	}
@@ -398,7 +405,7 @@ func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 }
 
 func (tx *OngoingTx) mvccReadSetLimitReached() bool {
-	return tx.mvccReadSet.readsetSize == tx.st.mvccReadSetLimit
+	return tx.mvccReadSet.readsetSize == tx.l.mvccReadSetLimit
 }
 
 func (tx *OngoingTx) Delete(ctx context.Context, key []byte) error {
@@ -465,12 +472,12 @@ func (tx *OngoingTx) GetWithFilters(ctx context.Context, key []byte, filters ...
 		return nil, err
 	}
 
-	if !tx.IsReadOnly() && valRef.Tx() > 0 {
+	if !tx.IsReadOnly() && valRef.TxID() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGet := expectedGet{
 			key:        cp(key),
 			filters:    filters,
-			expectedTx: valRef.Tx(),
+			expectedTx: valRef.TxID(),
 		}
 
 		if tx.mvccReadSetLimitReached() {
@@ -480,7 +487,6 @@ func (tx *OngoingTx) GetWithFilters(ctx context.Context, key []byte, filters ...
 		tx.mvccReadSet.expectedGets = append(tx.mvccReadSet.expectedGets, expectedGet)
 		tx.mvccReadSet.readsetSize++
 	}
-
 	return valRef, nil
 }
 
@@ -524,14 +530,14 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(ctx context.Context, prefix, neq []
 		return nil, nil, err
 	}
 
-	if !tx.IsReadOnly() && valRef.Tx() > 0 {
+	if !tx.IsReadOnly() && valRef.TxID() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:      cp(prefix),
 			neq:         cp(neq),
 			filters:     filters,
 			expectedKey: cp(key),
-			expectedTx:  valRef.Tx(),
+			expectedTx:  valRef.TxID(),
 		}
 
 		if tx.mvccReadSetLimitReached() {
@@ -559,10 +565,8 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		return snap.NewKeyReader(spec)
 	}
-
 	return newOngoingTxKeyReader(tx, spec)
 }
 
@@ -607,8 +611,7 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-
-	return tx.st.commit(ctx, tx, nil, false, waitForIndexing)
+	return tx.l.commit(ctx, tx, nil, false, waitForIndexing)
 }
 
 func (tx *OngoingTx) Cancel() error {
@@ -638,12 +641,19 @@ func (tx *OngoingTx) hasPreconditions() bool {
 	return len(tx.preconditions) > 0 || (tx.mvccReadSet != nil && !tx.mvccReadSet.isEmpty())
 }
 
-func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) error {
+func (tx *OngoingTx) checkCanCommit(ctx context.Context) error {
+	if err := tx.checkPreconditions(ctx); err != nil {
+		return err
+	}
+	return tx.checkConflicts(ctx)
+}
+
+func (tx *OngoingTx) checkPreconditions(ctx context.Context) error {
 	for _, c := range tx.preconditions {
 		if c == nil {
 			return ErrInvalidPreconditionNull
 		}
-		ok, err := c.Check(ctx, st)
+		ok, err := c.Check(ctx, tx.l)
 		if err != nil {
 			return fmt.Errorf("error checking %s precondition: %w", c, err)
 		}
@@ -651,20 +661,22 @@ func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) erro
 			return fmt.Errorf("%w: %s", ErrPreconditionFailed, c)
 		}
 	}
+	return nil
+}
 
-	if tx.IsWriteOnly() {
-		// read-only transactions won't be invalidated
+func (tx *OngoingTx) checkConflicts(ctx context.Context) error {
+	if !tx.IsReadWrite() {
 		return nil
 	}
 
 	for _, txSnap := range tx.snapshots {
-		if txSnap.Ts() > st.LastPrecommittedTxID() {
+		if txSnap.Ts() > tx.l.LastPrecommittedTxID() {
 			// read-write transactions when no other transaction was committed won't be invalidated
 			return nil
 		}
 
-		// current snapshot is fetched without flushing
-		snap, err := st.syncSnapshot(txSnap.prefix)
+		// current write snapshot, fetched without flushing
+		snap, err := tx.l.writeSnapshot(txSnap.prefix)
 		if err != nil {
 			return err
 		}
@@ -686,7 +698,7 @@ func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) erro
 				return err
 			}
 
-			if e.expectedTx != valRef.Tx() {
+			if e.expectedTx != valRef.TxID() {
 				return ErrTxReadConflict
 			}
 		}
@@ -707,7 +719,7 @@ func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) erro
 				return err
 			}
 
-			if !bytes.Equal(e.expectedKey, key) || e.expectedTx != valRef.Tx() {
+			if !bytes.Equal(e.expectedKey, key) || e.expectedTx != valRef.TxID() {
 				return ErrTxReadConflict
 			}
 		}
@@ -724,69 +736,75 @@ func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) erro
 				InclusiveSeek: eReader.spec.InclusiveSeek,
 				InclusiveEnd:  eReader.spec.InclusiveEnd,
 				DescOrder:     eReader.spec.DescOrder,
+				StartTx:       eReader.spec.StartTx,
+				EndTx:         eReader.spec.EndTx,
 			}
 
-			reader, err := snap.NewKeyReader(rspec)
+			err := validateExpectedReads(
+				ctx,
+				snap,
+				rspec,
+				eReader,
+			)
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
 
-			defer reader.Close()
+func validateExpectedReads(
+	ctx context.Context,
+	snap *Snapshot,
+	rspec KeyReaderSpec,
+	eReader *expectedReader,
+) error {
+	reader, err := snap.NewKeyReader(rspec)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
 
-			for _, eReads := range eReader.expectedReads {
-				var key []byte
-				var valRef ValueRef
+	for _, eReads := range eReader.expectedReads {
+		var key []byte
+		var valRef ValueRef
 
-				for _, eRead := range eReads {
-
-					if len(key) == 0 {
-						if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
-							key, valRef, err = reader.Read(ctx)
-						} else {
-							key, valRef, err = reader.ReadBetween(ctx, eRead.initialTxID, eRead.finalTxID)
-						}
-
-						if err != nil && !errors.Is(err, ErrNoMoreEntries) {
-							return err
-						}
-					}
-
-					if eRead.expectedNoMoreEntries {
-						if err == nil {
-							return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
-						}
-
-						break
-					}
-
-					if eRead.expectedTx == 0 {
-						if err == nil && bytes.Equal(eRead.expectedKey, key) {
-							// key was updated by the transaction
-							key = nil
-							valRef = nil
-						}
-					} else {
-						if errors.Is(err, ErrNoMoreEntries) {
-							return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
-						}
-
-						if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
-							return fmt.Errorf("%w: fetching a different key or an updated one", ErrTxReadConflict)
-						}
-
-						key = nil
-						valRef = nil
-					}
-				}
-
-				err = reader.Reset()
-				if err != nil {
+		for _, eRead := range eReads {
+			if len(key) == 0 {
+				key, valRef, err = reader.Read(ctx)
+				if err != nil && !errors.Is(err, ErrNoMoreEntries) {
 					return err
 				}
 			}
+
+			if eRead.expectedNoMoreEntries {
+				if err == nil {
+					return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
+				}
+				break
+			}
+
+			if eRead.expectedTx == 0 {
+				if err == nil && bytes.Equal(eRead.expectedKey, key) {
+					// key was updated by the transaction
+					key = nil
+					valRef = nil
+				}
+			} else {
+				if errors.Is(err, ErrNoMoreEntries) {
+					return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
+				}
+
+				if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.TxID() {
+					return fmt.Errorf("%w: fetching a different key or an updated one", ErrTxReadConflict)
+				}
+
+				key = nil
+				valRef = nil
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -814,6 +832,10 @@ func (tx *OngoingTx) validateAgainst(hdr *TxHeader) error {
 
 func (tx *OngoingTx) Context() context.Context {
 	return tx.ctx
+}
+
+func (tx *OngoingTx) Resolve(vRef ValueRef) ([]byte, error) {
+	return tx.l.Resolve(vRef)
 }
 
 func cp(s []byte) []byte {

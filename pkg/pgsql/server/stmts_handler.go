@@ -19,7 +19,7 @@ package server
 import (
 	"regexp"
 
-	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
+	pserr "github.com/codenotary/immudb/v2/pkg/pgsql/errors"
 )
 
 var (

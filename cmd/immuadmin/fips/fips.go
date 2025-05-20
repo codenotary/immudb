@@ -22,7 +22,7 @@ package main
 import (
 	_ "crypto/tls/fipsonly"
 
-	immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
+	immuadmin "github.com/codenotary/immudb/v2/cmd/immuadmin/command"
 )
 
 func main() {

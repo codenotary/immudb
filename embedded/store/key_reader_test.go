@@ -25,17 +25,20 @@ import (
 )
 
 func TestImmudbStoreReader(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(t.TempDir(), opts)
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(4)
+
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer ledger.Close()
 
 	txCount := 100
 	eCount := 100
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -53,8 +56,9 @@ func TestImmudbStoreReader(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot(nil)
+	snap, err := ledger.Snapshot(nil)
 	require.NoError(t, err)
+	require.Equal(t, uint64(txCount), snap.Ts())
 
 	defer snap.Close()
 
@@ -66,7 +70,7 @@ func TestImmudbStoreReader(t *testing.T) {
 			valRef, err := snap.GetBetween(context.Background(), k[:], 1, uint64(i+1))
 			require.NoError(t, err)
 
-			require.EqualValues(t, i+1, valRef.Tx())
+			require.EqualValues(t, i+1, valRef.TxID())
 		}
 	}
 
@@ -86,7 +90,7 @@ func TestImmudbStoreReader(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, k[:], rk)
 
-		rv, err := vref.Resolve()
+		rv, err := ledger.Resolve(vref)
 		require.NoError(t, err)
 		require.Equal(t, v[:], rv)
 	}
@@ -96,17 +100,18 @@ func TestImmudbStoreReader(t *testing.T) {
 }
 
 func TestImmudbStoreReaderAsBefore(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(t.TempDir(), opts)
-	require.NoError(t, err)
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(4)
 
-	defer immustoreClose(t, immuStore)
+	ledger, err := setupLedger(t, opts)
+	require.NoError(t, err)
 
 	txCount := 100
 	eCount := 100
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -124,17 +129,18 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot(nil)
+	snap, err := ledger.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
 
-	reader, err := snap.NewKeyReader(KeyReaderSpec{})
-	require.NoError(t, err)
-
-	defer reader.Close()
-
 	for i := 0; i < txCount; i++ {
+		reader, err := snap.NewKeyReader(KeyReaderSpec{
+			StartTx: 0,
+			EndTx:   uint64(i + 1),
+		})
+		require.NoError(t, err)
+
 		for j := 0; j < eCount; j++ {
 			var k [8]byte
 			binary.BigEndian.PutUint64(k[:], uint64(j))
@@ -142,11 +148,11 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, err := reader.ReadBetween(context.Background(), 0, uint64(i+1))
+			rk, vref, err := reader.Read(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
-			rv, err := vref.Resolve()
+			rv, err := ledger.Resolve(vref)
 			require.NoError(t, err)
 			require.Equal(t, v[:], rv)
 		}
@@ -154,23 +160,26 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 		_, _, err = reader.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreEntries)
 
-		err = reader.Reset()
+		err = reader.Close()
 		require.NoError(t, err)
 	}
 }
 
 func TestImmudbStoreReaderWithOffset(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(t.TempDir(), opts)
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(4)
+
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer ledger.Close()
 
 	txCount := 10
 	eCount := 100
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -188,7 +197,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot(nil)
+	snap, err := ledger.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
@@ -213,7 +222,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, k[:], rk)
 
-		rv, err := vref.Resolve()
+		rv, err := ledger.Resolve(vref)
 		require.NoError(t, err)
 		require.Equal(t, v[:], rv)
 	}
@@ -224,16 +233,16 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 
 func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(t.TempDir(), opts)
+	ledger, err := setupLedger(t, opts)
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer ledger.Close()
 
 	txCount := 10
 	eCount := 100
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		tx, err := ledger.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
@@ -251,21 +260,21 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	snap, err := immuStore.Snapshot(nil)
+	snap, err := ledger.Snapshot(nil)
 	require.NoError(t, err)
 
 	defer snap.Close()
 
 	offset := eCount - 10
 
-	reader, err := snap.NewKeyReader(KeyReaderSpec{
-		Offset: uint64(offset),
-	})
-	require.NoError(t, err)
-
-	defer reader.Close()
-
 	for i := 0; i < txCount; i++ {
+		reader, err := snap.NewKeyReader(KeyReaderSpec{
+			Offset:  uint64(offset),
+			StartTx: 0,
+			EndTx:   uint64(i + 1),
+		})
+		require.NoError(t, err)
+
 		for j := 0; j < eCount-offset; j++ {
 			var k [8]byte
 			binary.BigEndian.PutUint64(k[:], uint64(j+offset))
@@ -273,11 +282,11 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, err := reader.ReadBetween(context.Background(), 0, uint64(i+1))
+			rk, vref, err := reader.Read(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
-			rv, err := vref.Resolve()
+			rv, err := ledger.Resolve(vref)
 			require.NoError(t, err)
 			require.Equal(t, v[:], rv)
 		}
@@ -285,7 +294,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 		_, _, err = reader.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreEntries)
 
-		err = reader.Reset()
+		err = reader.Close()
 		require.NoError(t, err)
 	}
 }

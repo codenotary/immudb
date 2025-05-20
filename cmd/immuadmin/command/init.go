@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/v2/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

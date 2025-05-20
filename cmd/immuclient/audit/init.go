@@ -21,9 +21,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"
-	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
-	immusrvc "github.com/codenotary/immudb/cmd/sservice"
+	srvc "github.com/codenotary/immudb/v2/cmd/immuclient/service/configs"
+	service "github.com/codenotary/immudb/v2/cmd/immuclient/service/constants"
+	immusrvc "github.com/codenotary/immudb/v2/cmd/sservice"
 )
 
 // Init ...
