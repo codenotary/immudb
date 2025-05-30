@@ -509,7 +509,6 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 	bi += 2
 
 	accH := int64(0)
-
 	for _, v := range l.values {
 		timedValue := v.timedValues[0]
 
