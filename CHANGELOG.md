@@ -4,8 +4,20 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.9.7"></a>
+## [v1.9.7] - 2025-05-30
+### Bug Fixes
+- **embedded/tbtree:** save timestamp to a separate file to avoid rescanning empty indexes
+
+
+<a name="v2.0.0-RC1"></a>
+## [v2.0.0-RC1] - 2025-05-20
+### Changes
+- v2 version
+
+
 <a name="v1.9.6"></a>
-## [v1.9.6] - 2025-03-25
+## [v1.9.6] - 2025-03-31
 ### Bug Fixes
 - **embedded/sql:** correctly handle logical operator precedence (NOT, AND, OR)
 
@@ -3917,7 +3929,9 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** audit path construction
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.6...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.7...HEAD
+[v1.9.7]: https://github.com/vchain-us/immudb/compare/v2.0.0-RC1...v1.9.7
+[v2.0.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.9.6...v2.0.0-RC1
 [v1.9.6]: https://github.com/vchain-us/immudb/compare/v1.9.5...v1.9.6
 [v1.9.5]: https://github.com/vchain-us/immudb/compare/v1.9.4...v1.9.5
 [v1.9.4]: https://github.com/vchain-us/immudb/compare/v1.9.3...v1.9.4
