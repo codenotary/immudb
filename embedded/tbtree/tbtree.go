@@ -78,6 +78,7 @@ const (
 	commitFolderPrefix = "commit"
 
 	historyFolder = "history" // history data is snapshot-agnostic / compaction-agnostic i.e. history(t) = history(compact(t))
+	timestampFile = "TIMESTAMP"
 )
 
 // initial and final nLog size, root node size, nLog digest since initial and final points
@@ -175,9 +176,9 @@ type TBtree struct {
 	cache  *cache.Cache
 	nmutex sync.Mutex // mutex for cache and file reading
 
-	hLog appendable.Appendable
-
-	cLog appendable.Appendable
+	hLog   appendable.Appendable
+	cLog   appendable.Appendable
+	tsFile string
 
 	root node
 
@@ -240,6 +241,7 @@ type node interface {
 	minKey() []byte
 	ts() uint64
 	setTs(ts uint64) (node, error)
+	tsMutated() bool
 	size() (int, error)
 	mutated() bool
 	offset() int64    // only valid when !mutated()
@@ -364,6 +366,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		nFolder := snapFolder(nodesFolderPrefix, snapID)
 		cFolder := snapFolder(commitFolderPrefix, snapID)
+		tsFile := snapFolder(timestampFile, snapID)
 
 		snapPath := filepath.Join(path, cFolder)
 
@@ -396,7 +399,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		}
 		if err == nil && !discardSnapshotsFolder {
 			// TODO: semantic validation and further amendment procedures may be done instead of a full initialization
-			t, err = OpenWith(path, nLog, hLog, cLog, opts)
+			t, err = OpenWith(path, tsFile, nLog, hLog, cLog, opts)
 		}
 		if err != nil {
 			opts.logger.Infof("skipping snapshots at '%s', opening btree returned: %v", snapPath, err)
@@ -446,15 +449,13 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return OpenWith(path, nLog, hLog, cLog, opts)
+	return OpenWith(path, timestampFile, nLog, hLog, cLog, opts)
 }
 
 func snapFolder(folder string, snapID uint64) string {
 	if snapID == 0 {
 		return folder
 	}
-
 	return fmt.Sprintf("%s%016d", folder, snapID)
 }
 
@@ -488,8 +489,9 @@ func discardSnapshots(path string, snapIDs []uint64, appRemove AppRemoveFunc, lo
 	for _, snapID := range snapIDs {
 		nFolder := snapFolder(nodesFolderPrefix, snapID)
 		cFolder := snapFolder(commitFolderPrefix, snapID)
+		tsFile := snapFolder(timestampFile, snapID)
 
-		logger.Infof("discarding snapshot with id=%d at '%s'..., %d", snapID, path)
+		logger.Infof("discarding snapshot with id=%d at '%s'...", snapID, path)
 
 		err := appRemove(path, nFolder)
 		if err != nil {
@@ -501,13 +503,15 @@ func discardSnapshots(path string, snapIDs []uint64, appRemove AppRemoveFunc, lo
 			return err
 		}
 
+		_ = os.Remove(filepath.Join(path, tsFile))
+
 		logger.Infof("snapshot with id=%d at '%s' has been discarded, %d", snapID, path)
 	}
 
 	return nil
 }
 
-func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
+func OpenWith(path, tsFile string, nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
 	if nLog == nil || hLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -575,6 +579,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		nLog:                     nLog,
 		hLog:                     hLog,
 		cLog:                     cLog,
+		tsFile:                   tsFile,
 		cache:                    nodeCache,
 		maxNodeSize:              maxNodeSize,
 		maxKeySize:               maxKeySize,
@@ -694,6 +699,13 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 	opts.logger.Infof("index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedCLogEntries)
 
+	if ts := t.readTsFile(); ts > t.root.ts() {
+		root, err := t.root.setTs(ts)
+		if err != nil {
+			return nil, err
+		}
+		t.root = root
+	}
 	return t, nil
 }
 
@@ -825,7 +837,6 @@ func (t *TBtree) readNodeFrom(r *appendable.Reader) (node, error) {
 		n.off = off
 		return n, nil
 	}
-
 	return nil, ErrReadingFileContent
 }
 
@@ -857,7 +868,6 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 			n._minOff = nref._minOff
 		}
 	}
-
 	return n, nil
 }
 
@@ -959,7 +969,6 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 			l._ts = ts
 		}
 	}
-
 	return l, nil
 }
 
@@ -1158,7 +1167,6 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	}
 
 	sync := forceSync || t.insertionCountSinceSync >= t.syncThld
-
 	if sync {
 		err = t.hLog.Sync()
 		if err != nil {
@@ -1291,6 +1299,54 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 	t.lastSnapRootAt = time.Now()
 
 	return wN, wH, nil
+}
+
+func (t *TBtree) readTsFile() uint64 {
+	path := filepath.Join(t.path, t.tsFile)
+
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	return binary.BigEndian.Uint64(bs)
+}
+
+// The timestamp (ts) file is essential for optimizing crash recovery and restart times.
+// Initially, the B-Tree design only persisted timestamp information directly with inserted key-value entries.
+// However, when the tree's logical timestamp is advanced (e.g., via `SetTs()`), this crucial
+// 'high-water mark' is not automatically written to disk.
+//
+// Consequently, without this dedicated timestamp file, a system restart or crash would
+// necessitate re-scanning entire segments of the transaction log. This can be
+// extremely time-consuming, especially if long segments of the log have been processed
+// but haven't resulted in new key insertions that trigger a tree flush, leading to
+// inefficient recovery and prolonged downtime.
+func (t *TBtree) writeTsFile() error {
+	return writeTsFile(t.path, t.tsFile, t.root.ts())
+}
+
+func writeTsFile(path, name string, ts uint64) error {
+	tempFileName, err := func() (string, error) {
+		tempFile, err := os.CreateTemp(path, "")
+		if err != nil {
+			return "", err
+		}
+		defer tempFile.Close()
+
+		var buf [8]byte
+		binary.BigEndian.PutUint64(buf[:], ts)
+		_, err = tempFile.Write(buf[:])
+		if err != nil {
+			return "", err
+		}
+
+		err = tempFile.Sync()
+		return tempFile.Name(), err
+	}()
+	if err != nil {
+		return err
+	}
+	return os.Rename(tempFileName, filepath.Join(path, name))
 }
 
 // SnapshotCount returns the number of stored snapshots
@@ -1464,7 +1520,14 @@ func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc
 		cLog.Close()
 	}()
 
-	return t.fullDumpTo(snap, nLog, cLog, progressOutput)
+	err = t.fullDumpTo(snap, nLog, cLog, progressOutput)
+	if err == nil {
+		tsFile := snapFolder(timestampFile, snap.Ts())
+		if err := writeTsFile(t.path, tsFile, snap.Ts()); err != nil {
+			t.logger.Errorf("%s: unable to write ts file at path %s", err, t.path)
+		}
+	}
+	return err
 }
 
 func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable, progressOutput writeProgressOutputFunc) error {
@@ -1561,6 +1624,12 @@ func (t *TBtree) Close() error {
 
 	t.closed = true
 
+	if t.root.tsMutated() {
+		if err := t.writeTsFile(); err != nil {
+			return err
+		}
+	}
+
 	merrors := multierr.NewMultiErr()
 
 	_, _, err := t.flushTree(0, true, false, "close")
@@ -1607,7 +1676,6 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "increaseTs")
 		return err
 	}
-
 	return nil
 }
 
@@ -2097,6 +2165,15 @@ func (n *innerNode) size() (int, error) {
 	return size, nil
 }
 
+func (l *innerNode) tsMutated() bool {
+	for _, nd := range l.nodes {
+		if nd.ts() >= l.ts() {
+			return false
+		}
+	}
+	return true
+}
+
 func (n *innerNode) mutated() bool {
 	return n.mut
 }
@@ -2263,6 +2340,10 @@ func (r *nodeRef) size() (int, error) {
 	}
 
 	return n.size()
+}
+
+func (r *nodeRef) tsMutated() bool {
+	return false
 }
 
 func (r *nodeRef) mutated() bool {
@@ -2598,6 +2679,15 @@ func (l *leafNode) size() (int, error) {
 	}
 
 	return size, nil
+}
+
+func (l *leafNode) tsMutated() bool {
+	for _, v := range l.values {
+		if v.timedValues[0].Ts >= l.ts() {
+			return false
+		}
+	}
+	return true
 }
 
 func (l *leafNode) mutated() bool {

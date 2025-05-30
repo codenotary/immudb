@@ -45,7 +45,7 @@ func TestEdgeCases(t *testing.T) {
 	_, err := Open(path, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = OpenWith(path, nil, nil, nil, nil)
+	_, err = OpenWith(path, "", nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	nLog := &mocked.MockedAppendable{}
@@ -58,7 +58,7 @@ func TestEdgeCases(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			return nil
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, ErrCorruptedCLog)
 	})
 
@@ -69,7 +69,7 @@ func TestEdgeCases(t *testing.T) {
 			return md.Bytes()
 		}
 
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, ErrIncompatibleDataFormat)
 	})
 
@@ -86,7 +86,7 @@ func TestEdgeCases(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return 0, injectedError
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -97,7 +97,7 @@ func TestEdgeCases(t *testing.T) {
 		cLog.SetOffsetFn = func(off int64) error {
 			return injectedError
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -125,7 +125,7 @@ func TestEdgeCases(t *testing.T) {
 		hLog.SizeFn = func() (int64, error) {
 			return 0, nil
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.NoError(t, err)
 	})
 
@@ -136,7 +136,7 @@ func TestEdgeCases(t *testing.T) {
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 			return 0, injectedError
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -154,7 +154,7 @@ func TestEdgeCases(t *testing.T) {
 		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 			return 0, injectedError
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -177,7 +177,7 @@ func TestEdgeCases(t *testing.T) {
 
 			return len(bs), err
 		}
-		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, ErrReadingFileContent)
 	})
 
@@ -203,7 +203,7 @@ func TestEdgeCases(t *testing.T) {
 
 				return copy(bs, buff[off:]), nil
 			}
-			_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+			_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 			require.ErrorIs(t, err, injectedError)
 		}
 	})
@@ -239,7 +239,7 @@ func TestEdgeCases(t *testing.T) {
 				return copy(bs, buff[off:]), nil
 			}
 
-			_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+			_, err = OpenWith(path, "", nLog, hLog, cLog, DefaultOptions())
 			require.ErrorIs(t, err, injectedError)
 		}
 	})
@@ -521,7 +521,7 @@ func TestInvalidOpening(t *testing.T) {
 	_, err = Open("tbtree_test.go", DefaultOptions())
 	require.ErrorIs(t, err, ErrorPathIsNotADirectory)
 
-	_, err = OpenWith("tbtree_test", nil, nil, nil, nil)
+	_, err = OpenWith("tbtree_test", "", nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("invalid\x00_dir_name", DefaultOptions())
@@ -1312,6 +1312,100 @@ func TestTBTreeIncreaseTs(t *testing.T) {
 
 	err = tbtree.IncreaseTs(tbtree.Ts() + 1)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
+}
+
+func TestTBTreeFlushAfterIncreaseTs(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(func() {
+		os.RemoveAll(dir)
+	})
+
+	tbtree, err := Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	t.Run("increase ts to empty tree", func(t *testing.T) {
+		err = tbtree.IncreaseTs(100)
+		require.NoError(t, err)
+
+		_, _, err = tbtree.Flush()
+		require.NoError(t, err)
+
+		err = tbtree.Close()
+		require.NoError(t, err)
+
+		tbtree, err = Open(dir, DefaultOptions())
+		require.NoError(t, err)
+
+		require.Equal(t, tbtree.Ts(), uint64(100))
+	})
+
+	insertValues := func(n int) {
+		for i := 0; i < n; i++ {
+			var buf [4]byte
+			binary.BigEndian.PutUint32(buf[:], uint32(i))
+
+			err := tbtree.Insert(
+				buf[:],
+				buf[:],
+			)
+			require.NoError(t, err)
+		}
+	}
+
+	t.Run("increase ts after insertions", func(t *testing.T) {
+		insertValues(10)
+		require.Equal(t, uint64(110), tbtree.Ts())
+
+		err := tbtree.IncreaseTs(200)
+		require.NoError(t, err)
+
+		_, _, err = tbtree.Flush()
+		require.NoError(t, err)
+
+		err = tbtree.Close()
+		require.NoError(t, err)
+
+		tbtree, err = Open(dir, DefaultOptions())
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(200), tbtree.Ts())
+
+		ln, isLeaf := tbtree.root.(*leafNode)
+		require.True(t, isLeaf)
+
+		require.Equal(t, uint64(200), ln.ts())
+		require.Len(t, ln.values, 10)
+
+		for _, v := range ln.values {
+			require.Less(t, v.timedValue().Ts, ln.ts())
+		}
+	})
+
+	t.Run("increase ts after more insertions", func(t *testing.T) {
+		insertValues(1000)
+		require.Equal(t, uint64(1200), tbtree.Ts())
+
+		err := tbtree.IncreaseTs(2500)
+		require.NoError(t, err)
+
+		_, _, err = tbtree.Flush()
+		require.NoError(t, err)
+
+		err = tbtree.Close()
+		require.NoError(t, err)
+
+		tbtree, err = Open(dir, DefaultOptions())
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(2500), tbtree.Ts())
+
+		nd, isInner := tbtree.root.(*innerNode)
+		require.True(t, isInner)
+
+		for _, child := range nd.nodes {
+			require.Less(t, child.ts(), nd.ts())
+		}
+	})
 }
 
 func BenchmarkRandomInsertion(b *testing.B) {
