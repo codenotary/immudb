@@ -482,8 +482,12 @@ func (idx *indexer) doIndexing() {
 		}
 
 		if err != nil && !errors.Is(err, ErrWriteStalling) {
-			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
-			time.Sleep(60 * time.Second)
+			if errors.Is(err, tbtree.ErrKeyNotFound) {
+				idx.store.logger.Warningf("indexing failed at '%s' due to error: %v", idx.store.path, err)
+			} else {
+				idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
+				time.Sleep(60 * time.Second)
+			}
 		}
 
 		if err := idx.handleWriteStalling(err); err != nil {
