@@ -45,6 +45,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("replication-skip-integrity-check", options.ReplicationOptions.SkipIntegrityCheck, "disable integrity check when reading data during replication")
 	cmd.Flags().Bool("replication-wait-for-indexing", options.ReplicationOptions.WaitForIndexing, "wait for indexing to be up to date during replication")
 	cmd.Flags().Int("max-active-databases", options.MaxActiveDatabases, "the maximum number of databases that can be active simultaneously")
+	cmd.Flags().String("config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename e.g. /var/run/immudb.pid")
@@ -117,6 +118,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 
 func setupDefaults(options *server.Options) {
 	viper.SetDefault("dir", options.Dir)
+	viper.SetDefault("config", options.Config)
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
 	viper.SetDefault("replica", false)
