@@ -24,6 +24,7 @@ import (
 
 func parseOptions() (options *server.Options, err error) {
 	dir := viper.GetString("dir")
+	config := viper.GetString("config")
 
 	address := viper.GetString("address")
 	port := viper.GetInt("port")
@@ -134,6 +135,7 @@ func parseOptions() (options *server.Options, err error) {
 	options = server.
 		DefaultOptions().
 		WithDir(dir).
+		WithConfig(config).
 		WithPort(port).
 		WithAddress(address).
 		WithReplicationOptions(replicationOptions).
