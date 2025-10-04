@@ -1859,6 +1859,20 @@ func TestParseExp(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: "SELECT price FROM items WHERE price BETWEEN 1.5 and 3.9",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					targets: []TargetEntry{{Exp: &ColSelector{col: "price"}}},
+					ds:      &tableRef{table: "items"},
+					where: &BinBoolExp{
+						op:    And,
+						left:  &CmpBoolExp{op: GE, left: &ColSelector{col: "price"}, right: &Float64{1.5}},
+						right: &CmpBoolExp{op: LE, left: &ColSelector{col: "price"}, right: &Float64{3.9}},
+					},
+				},
+			},
+		},
 	}
 
 	for i, tc := range testCases {

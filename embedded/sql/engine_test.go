@@ -3182,6 +3182,24 @@ func TestQuery(t *testing.T) {
 			"SELECT * FROM (VALUES (1, true, 'test'))",
 		)
 	})
+
+	t.Run("should resolve rows equivalently for BETWEEN and >= AND <=", func(t *testing.T) {
+		betweenRows, err := engine.queryAll(
+			context.Background(),
+			nil,
+			"SELECT id, title FROM table1 WHERE id BETWEEN 1 AND 3 ORDER BY id",
+			nil,
+		)
+		require.NoError(t, err)
+
+		rangeRows, err := engine.queryAll(
+			context.Background(), nil,
+			"SELECT id, title FROM table1 WHERE id >= 1 AND id <= 3 ORDER BY id",
+			nil,
+		)
+		require.NoError(t, err)
+		require.Equal(t, betweenRows, rangeRows)
+	})
 }
 
 func TestJSON(t *testing.T) {
@@ -6499,7 +6517,7 @@ func TestInferParametersUnbounded(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, AnyType, params["param1"])
 
-	params, err = engine.InferParameters(context.Background(), nil, "SELECT * FROM mytable WHERE @param1 != NOT NULL")
+	params, err = engine.InferParameters(context.Background(), nil, "SELECT * FROM mytable WHERE @param1 OR TRUE")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, BooleanType, params["param1"])

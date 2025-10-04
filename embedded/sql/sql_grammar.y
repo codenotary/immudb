@@ -84,6 +84,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST SCAST
 %token SHOW DATABASES TABLES USERS
+%token BETWEEN
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -105,19 +106,20 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left  ','
 %right AS
 
+%nonassoc BETWEEN
+
 %left OR
 %left AND
 
-%right NOT_MATCHES_OP
-%right LIKE
 %right NOT
 
-%left CMPOP
+%nonassoc CMPOP LIKE NOT_MATCHES_OP IS
+
 %left '+' '-'
 %left '*' '/' '%'
-%left  '.'
+%left '.'
+
 %right STMT_SEPARATOR
-%left IS
 
 %type <stmts> sql sqlstmts
 %type <stmt> sqlstmt ddlstmt dmlstmt dqlstmt select_stmt
@@ -144,8 +146,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <check> check
 %type <tableElem> tableElem
 %type <tableElems> tableElems
-%type <exp> exp opt_exp opt_where opt_having boundexp opt_else
-%type <binExp> binExp
+%type <exp> exp opt_exp opt_where opt_having boundexp opt_else orExp andExp cmpExp primaryBool addExp notExp
+mulExp unaryExp primary
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset case_when_exp
 %type <targets> opt_targets targets
@@ -1140,63 +1142,6 @@ opt_exp:
     }
 ;
 
-exp:
-    boundexp
-    {
-        $$ = $1
-    }
-|
-    binExp
-    {
-        $$ = $1
-    }
-|
-    NOT exp
-    {
-        $$ = &NotBoolExp{exp: $2}
-    }
-|
-    '-' exp
-    {
-        i, isInt := $2.(*Integer)
-        if isInt {
-            i.val = -i.val
-            $$ = i
-        } else {
-            $$ = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: $2}
-        }
-    }
-|
-    boundexp opt_not LIKE exp
-    {
-        $$ = &LikeBoolExp{val: $1, notLike: $2, pattern: $4}
-    }
-|
-    boundexp NOT_MATCHES_OP exp
-    {
-        $$ = &LikeBoolExp{val: $1, notLike: true, pattern: $3}
-    }
-|
-    EXISTS '(' dqlstmt ')'
-    {
-        $$ = &ExistsBoolExp{q: ($3).(DataSource)}
-    }
-|
-    boundexp opt_not IN '(' dqlstmt ')'
-    {
-        $$ = &InSubQueryExp{val: $1, notIn: $2, q: $5.(*SelectStmt)}
-    }
-|
-    boundexp opt_not IN '(' values ')'
-    {
-        $$ = &InListExp{val: $1, notIn: $2, values: $5}
-    }
-|
-    case_when_exp
-    {
-        $$ = $1
-    }
-
 case_when_exp:
     CASE opt_exp when_then_clauses opt_else END
     {
@@ -1231,6 +1176,91 @@ opt_else:
     }
 ;
 
+exp
+    : orExp { $$ = $1 }
+    ;
+
+orExp
+    : orExp OR andExp { $$ = &BinBoolExp{left: $1, op: Or, right: $3} }
+    | andExp
+    ;
+
+andExp
+    : andExp AND notExp { $$ = &BinBoolExp{left: $1, op: And, right: $3} }
+    | notExp
+    ;
+
+notExp
+    : NOT notExp { $$ = &NotBoolExp{exp: $2} }
+    | cmpExp
+    ;
+
+cmpExp
+    : addExp CMPOP addExp               { $$ = &CmpBoolExp{left: $1, op: $2, right: $3} }
+    | addExp IS NULL                    { $$ = &CmpBoolExp{left: $1, op: EQ, right: &NullValue{t: AnyType}} }
+    | addExp IS NOT NULL                { $$ = &CmpBoolExp{left: $1, op: NE, right: &NullValue{t: AnyType}} }
+    | addExp BETWEEN addExp AND addExp
+    {
+        $$ = &BinBoolExp{
+            left: &CmpBoolExp{
+                left: $1,
+                op: GE,
+                right: $3,
+            },
+            op: And,
+            right: &CmpBoolExp{
+                left: $1,
+                op: LE,
+                right: $5,
+            },
+        }
+    }
+    | addExp opt_not LIKE addExp    { $$ = &LikeBoolExp{val: $1, notLike: $2, pattern: $4} }
+    | addExp NOT_MATCHES_OP addExp  { $$ = &LikeBoolExp{val: $1, notLike: true, pattern: $3} }
+    | primaryBool
+    ;
+
+primaryBool
+    : EXISTS '(' dqlstmt ')'            { $$ = &ExistsBoolExp{q: ($3).(DataSource)} }
+    | addExp opt_not IN '(' dqlstmt ')' { $$ = &InSubQueryExp{val: $1, notIn: $2, q: $5.(*SelectStmt)} }
+    | addExp opt_not IN '(' values ')'  { $$ = &InListExp{val: $1, notIn: $2, values: $5} }
+    | case_when_exp                     { $$ = $1 }
+    | addExp
+    ;
+
+addExp
+    : addExp '+' mulExp { $$ = &NumExp{left: $1, op: ADDOP, right: $3} }
+    | addExp '-' mulExp { $$ = &NumExp{left: $1, op: SUBSOP, right: $3} }
+    | mulExp
+    ;
+
+mulExp
+    : mulExp '*' unaryExp { $$ = &NumExp{left: $1, op: MULTOP, right: $3} }
+    | mulExp '/' unaryExp { $$ = &NumExp{left: $1, op: DIVOP, right: $3} }
+    | mulExp '%' unaryExp { $$ = &NumExp{left: $1, op: MODOP, right: $3} }
+    | unaryExp
+    ;
+
+unaryExp
+    : '-' unaryExp
+    {
+        i, isInt := $2.(*Integer)
+        if isInt {
+            i.val = -i.val
+            $$ = i
+        } else {
+            $$ = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: $2}
+        }
+    }
+|
+    primary
+;
+
+primary
+    : '(' exp ')' { $$ = $2 }
+    | boundexp
+    ;
+
 boundexp:
     selector
     {
@@ -1240,11 +1270,6 @@ boundexp:
     val
     {
         $$ = $1
-    }
-|
-    '(' exp ')'
-    {
-        $$ = $2
     }
 |
     boundexp SCAST TYPE
@@ -1262,53 +1287,3 @@ opt_not:
         $$ = true
     }
 
-binExp:
-    exp '+' exp
-    {
-        $$ = &NumExp{left: $1, op: ADDOP, right: $3}
-    }
-|
-    exp '-' exp
-    {
-        $$ = &NumExp{left: $1, op: SUBSOP, right: $3}
-    }
-|
-    exp '/' exp
-    {
-        $$ = &NumExp{left: $1, op: DIVOP, right: $3}
-    }
-|
-    exp '*' exp
-    {
-        $$ = &NumExp{left: $1, op: MULTOP, right: $3}
-    }
-|
-	exp '%' exp
-	{
-		$$ = &NumExp{left: $1, op: MODOP, right: $3}
-	}
-|
-    exp AND exp
-    {
-        $$ = &BinBoolExp{left: $1, op: And, right: $3}
-    }
-|
-    exp OR exp
-    {
-        $$ = &BinBoolExp{left: $1, op: Or, right: $3}
-    }
-|
-    exp CMPOP exp
-    {
-        $$ = &CmpBoolExp{left: $1, op: $2, right: $3}
-    }
-|
-    exp IS NULL
-    {
-        $$ = &CmpBoolExp{left: $1, op: EQ, right: &NullValue{t: AnyType}}
-    }
-|
-    exp IS NOT NULL
-    {
-        $$ = &CmpBoolExp{left: $1, op: NE, right: &NullValue{t: AnyType}}
-    }
