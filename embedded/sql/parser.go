@@ -28,7 +28,7 @@ import (
 
 //go:generate go run golang.org/x/tools/cmd/goyacc -l -o sql_parser.go sql_grammar.y
 
-var reservedWords = map[string]int{
+var keywords = map[string]int{
 	"CREATE":         CREATE,
 	"DROP":           DROP,
 	"USE":            USE,
@@ -118,23 +118,27 @@ var reservedWords = map[string]int{
 	"THEN":           THEN,
 	"ELSE":           ELSE,
 	"END":            END,
+	"EXTRACT":        EXTRACT,
+	"INTEGER":        INTEGER_TYPE,
+	"BOOLEAN":        BOOLEAN_TYPE,
+	"VARCHAR":        VARCHAR_TYPE,
+	"TIMESTAMP":      TIMESTAMP_TYPE,
+	"FLOAT":          FLOAT_TYPE,
+	"BLOB":           BLOB_TYPE,
+	"UUID":           UUID_TYPE,
+	"JSON":           JSON_TYPE,
+	"YEAR":           YEAR,
+	"MONTH":          MONTH,
+	"DAY":            DAY,
+	"HOUR":           HOUR,
+	"MINUTE":         MINUTE,
+	"SECOND":         SECOND,
 }
 
 var joinTypes = map[string]JoinType{
 	"INNER": InnerJoin,
 	"LEFT":  LeftJoin,
 	"RIGHT": RightJoin,
-}
-
-var types = map[string]SQLValueType{
-	"INTEGER":   IntegerType,
-	"BOOLEAN":   BooleanType,
-	"VARCHAR":   VarcharType,
-	"UUID":      UUIDType,
-	"BLOB":      BLOBType,
-	"TIMESTAMP": TimestampType,
-	"FLOAT":     Float64Type,
-	"JSON":      JSONType,
 }
 
 var aggregateFns = map[string]AggregateFn{
@@ -321,7 +325,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		lval.blob = val
-		return BLOB
+		return BLOB_LIT
 	}
 
 	if isLetter(ch) {
@@ -334,16 +338,10 @@ func (l *lexer) Lex(lval *yySymType) int {
 		w := fmt.Sprintf("%c%s", ch, tail)
 		tid := strings.ToUpper(w)
 
-		sqlType, ok := types[tid]
-		if ok {
-			lval.sqlType = sqlType
-			return TYPE
-		}
-
 		val, ok := boolValues[tid]
 		if ok {
 			lval.boolean = val
-			return BOOLEAN
+			return BOOLEAN_LIT
 		}
 
 		afn, ok := aggregateFns[tid]
@@ -358,13 +356,13 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return JOINTYPE
 		}
 
-		tkn, ok := reservedWords[tid]
+		tkn, ok := keywords[tid]
 		if ok {
+			lval.keyword = w
 			return tkn
 		}
 
 		lval.id = strings.ToLower(w)
-
 		return IDENTIFIER
 	}
 
@@ -409,7 +407,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 			}
 
 			lval.float = val
-			return FLOAT
+			return FLOAT_LIT
 		}
 
 		val, err := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64)
@@ -419,7 +417,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		lval.integer = val
-		return INTEGER
+		return INTEGER_LIT
 	}
 
 	if isComparison(ch) {
@@ -452,7 +450,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		lval.str = tail
-		return VARCHAR
+		return VARCHAR_LIT
 	}
 
 	if ch == ':' {
@@ -566,7 +564,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 				return ERROR
 			}
 			lval.float = val
-			return FLOAT
+			return FLOAT_LIT
 		}
 		return DOT
 	}
@@ -680,4 +678,36 @@ func isDoubleQuote(ch byte) bool {
 
 func isDot(ch byte) bool {
 	return ch == '.'
+}
+
+func newCreateTableStmt(
+	name string,
+	elems []TableElem,
+	ifNotExists bool,
+) *CreateTableStmt {
+	colsSpecs := make([]*ColSpec, 0, 5)
+	var checks []CheckConstraint
+
+	var pk PrimaryKeyConstraint
+	for _, e := range elems {
+		switch c := e.(type) {
+		case *ColSpec:
+			colsSpecs = append(colsSpecs, c)
+		case PrimaryKeyConstraint:
+			pk = c
+		case CheckConstraint:
+			if checks == nil {
+				checks = make([]CheckConstraint, 0, 5)
+			}
+			checks = append(checks, c)
+		}
+	}
+
+	return &CreateTableStmt{
+		ifNotExists: ifNotExists,
+		table:       name,
+		colsSpec:    colsSpecs,
+		pkColNames:  pk,
+		checks:      checks,
+	}
 }

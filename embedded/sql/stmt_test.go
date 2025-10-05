@@ -988,6 +988,49 @@ func TestInferTypeCaseWhenExp(t *testing.T) {
 	})
 }
 
+func TestExtractFromTimestampType(t *testing.T) {
+	t.Run("infer type", func(t *testing.T) {
+		for _, arg := range []string{"NOW()", "'2020-01-01'", "NULL"} {
+			e, err := ParseExpFromString(
+				fmt.Sprintf("EXTRACT(YEAR FROM %s)", arg),
+			)
+			require.NoError(t, err)
+
+			inferredType, err := e.inferType(
+				nil,
+				nil,
+				"",
+			)
+			require.NoError(t, err)
+			require.Equal(t, IntegerType, inferredType)
+		}
+	})
+
+	t.Run("requires type", func(t *testing.T) {
+		e, err := ParseExpFromString(
+			"EXTRACT(YEAR FROM NOW())",
+		)
+		require.NoError(t, err)
+
+		err = e.requiresType(Float64Type, nil, nil, "")
+		require.NoError(t, err)
+
+		err = e.requiresType(IntegerType, nil, nil, "")
+		require.NoError(t, err)
+
+		e, err = ParseExpFromString(
+			"EXTRACT(YEAR FROM '2020-01-01')",
+		)
+		require.NoError(t, err)
+
+		err = e.requiresType(Float64Type, nil, nil, "")
+		require.Error(t, err)
+
+		err = e.requiresType(IntegerType, nil, nil, "")
+		require.Error(t, err)
+	})
+}
+
 func TestLikeBoolExpEdgeCases(t *testing.T) {
 	exp := &LikeBoolExp{}
 
@@ -1118,6 +1161,7 @@ func TestIsConstant(t *testing.T) {
 	require.False(t, (&FnCall{}).isConstant())
 
 	require.False(t, (&ExistsBoolExp{}).isConstant())
+	require.False(t, (&ExtractFromTimestampExp{}).isConstant())
 }
 
 func TestTimestamapType(t *testing.T) {

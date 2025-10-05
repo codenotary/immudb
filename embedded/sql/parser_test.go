@@ -70,12 +70,12 @@ func TestUseDatabaseStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input:          "USE db1",
+			input:          "USE DATABASE db1",
 			expectedOutput: []SQLStmt{&UseDatabaseStmt{DB: "db1"}},
 			expectedError:  nil,
 		},
 		{
-			input:          "USE DATABASE db1",
+			input:          "USE db1",
 			expectedOutput: []SQLStmt{&UseDatabaseStmt{DB: "db1"}},
 			expectedError:  nil,
 		},
@@ -291,7 +291,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE TABLE table1()",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  errors.New("syntax error: unexpected ')', expecting CONSTRAINT or PRIMARY or CHECK or IDENTIFIER at position 21"),
+			expectedError:  errors.New("syntax error: unexpected ')' at position 21"),
 		},
 		{
 			input: "CREATE TABLE table1(id INTEGER, balance FLOAT, CONSTRAINT non_negative_balance CHECK (balance >= 0), PRIMARY KEY id)",
@@ -371,7 +371,7 @@ func TestCreateIndexStmt(t *testing.T) {
 		{
 			input:          "CREATE INDEX ON \"table(\"primary\")",
 			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table", cols: []string{"primary"}}},
-			expectedError:  errors.New("syntax error: unexpected ERROR, expecting IDENTIFIER at position 22"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 22"),
 		},
 		{
 			input:          "CREATE INDEX IF NOT EXISTS ON table1(id)",
@@ -451,7 +451,7 @@ func TestAlterTable(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 RENAME COLUMN TO newtitle",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected TO, expecting IDENTIFIER at position 35"),
+			expectedError:  errors.New("syntax error: unexpected TO at position 35"),
 		},
 	}
 
@@ -685,14 +685,19 @@ func TestInsertIntoStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input:          "INSERT INTO table1() VALUES (2, 'untitled')",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ')' at position 20"),
+		},
+		{
 			input:          "UPSERT INTO table1() VALUES (2, 'untitled')",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 20"),
+			expectedError:  errors.New("syntax error: unexpected ')' at position 20"),
 		},
 		{
 			input:          "UPSERT INTO VALUES (2)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER at position 18"),
+			expectedError:  errors.New("syntax error: unexpected VALUES at position 18"),
 		},
 	}
 
@@ -2101,6 +2106,12 @@ func TestExpString(t *testing.T) {
 		"CASE WHEN is_active THEN 'active' WHEN is_expired THEN 'expired' ELSE 'active' END",
 		"'text' LIKE 'pattern'",
 		"'text' NOT LIKE 'pattern'",
+		"EXTRACT(YEAR FROM ts)",
+		"EXTRACT(MONTH FROM ts)",
+		"EXTRACT(DAY FROM ts)",
+		"EXTRACT(HOUR FROM ts)",
+		"EXTRACT(MINUTE FROM ts)",
+		"EXTRACT(SECOND FROM ts)",
 	}
 
 	for i, e := range exps {
@@ -2155,5 +2166,298 @@ func TestLogicOperatorPrecedence(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, e.String())
 		})
+	}
+}
+
+func TestParseUnreservedKeywords(t *testing.T) {
+	type testCase struct {
+		input          string
+		expectedOutput []SQLStmt
+	}
+
+	unreservedKeywords := []string{
+		"admin",
+		"of",
+		"drop",
+		"database",
+		"snapshot",
+		"index",
+		"alter",
+		"add",
+		"rename",
+		"constraint",
+		"key",
+		"grant",
+		"revoke",
+		"privileges",
+		"begin",
+		"transaction",
+		"commit",
+		"rollback",
+		"insert",
+		"delete",
+		"update",
+		"conflict",
+		"if",
+		"show",
+		"tables",
+		"year",
+		"month",
+		"day",
+		"hour",
+		"minute",
+		"second",
+		"users",
+	}
+
+	colNameKeywords := []string{
+		"between",
+		"blob",
+		"boolean",
+		"exists",
+		"extract",
+		"float",
+		"integer",
+		"json",
+		"timestamp",
+		"values",
+		"varchar",
+	}
+
+	getTableCases := func(kw string) []testCase {
+		return []testCase{
+			{
+				input: fmt.Sprintf("CREATE TABLE %s (id INTEGER PRIMARY KEY);", kw),
+				expectedOutput: []SQLStmt{
+					&CreateTableStmt{
+						table:       kw,
+						ifNotExists: false,
+						colsSpec: []*ColSpec{
+							{
+								colName:    "id",
+								colType:    IntegerType,
+								notNull:    true,
+								primaryKey: true,
+							},
+						},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("DROP TABLE %s;", kw),
+				expectedOutput: []SQLStmt{
+					&DropTableStmt{
+						table: kw,
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("CREATE INDEX ON %s (id)", kw),
+				expectedOutput: []SQLStmt{
+					&CreateIndexStmt{
+						table: kw,
+						cols:  []string{"id"},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("CREATE UNIQUE INDEX ON %s (id)", kw),
+				expectedOutput: []SQLStmt{
+					&CreateIndexStmt{
+						table:  kw,
+						unique: true,
+						cols:   []string{"id"},
+					},
+				},
+			},
+			{
+				input: "DROP INDEX " + kw + "." + "id",
+				expectedOutput: []SQLStmt{
+					&DropIndexStmt{
+						table: kw,
+						cols:  []string{"id"},
+					},
+				},
+			},
+			{
+				input: "ALTER TABLE " + kw + " ADD COLUMN id INTEGER NULL",
+				expectedOutput: []SQLStmt{
+					&AddColumnStmt{
+						table: kw,
+						colSpec: &ColSpec{
+							colName: "id",
+							colType: IntegerType,
+						},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("ALTER TABLE %s RENAME TO %s", kw, kw),
+				expectedOutput: []SQLStmt{
+					&RenameTableStmt{
+						oldName: kw,
+						newName: kw,
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("ALTER TABLE %s RENAME COLUMN timestamp TO ts", kw),
+				expectedOutput: []SQLStmt{
+					&RenameColumnStmt{
+						table:   kw,
+						oldName: "timestamp",
+						newName: "ts",
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("ALTER TABLE %s DROP COLUMN timestamp", kw),
+				expectedOutput: []SQLStmt{
+					&DropColumnStmt{
+						table:   kw,
+						colName: "timestamp",
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT pk_constraint", kw),
+				expectedOutput: []SQLStmt{
+					&DropConstraintStmt{
+						table:          kw,
+						constraintName: "pk_constraint",
+					},
+				},
+			},
+		}
+	}
+
+	for _, kw := range unreservedKeywords {
+		tableCases := getTableCases(kw)
+
+		for _, tc := range tableCases {
+			stmt, err := ParseSQLString(tc.input)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedOutput, stmt)
+		}
+	}
+
+	for _, kw := range colNameKeywords {
+		tableCases := getTableCases(kw)
+
+		for _, tc := range tableCases {
+			_, err := ParseSQLString(tc.input)
+			require.Error(t, err)
+		}
+	}
+
+	allColNameKeywords := append(unreservedKeywords, colNameKeywords...)
+
+	colCases := []testCase{}
+
+	for _, kw := range allColNameKeywords {
+		colCases = append(colCases, []testCase{
+			{
+				input: fmt.Sprintf("CREATE INDEX ON users (%s)", kw),
+				expectedOutput: []SQLStmt{
+					&CreateIndexStmt{
+						table: "users",
+						cols:  []string{kw},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("CREATE UNIQUE INDEX ON users (%s, %s)", kw, kw),
+				expectedOutput: []SQLStmt{
+					&CreateIndexStmt{
+						unique: true,
+						table:  "users",
+						cols:   []string{kw, kw},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("DROP INDEX ON users (%s, %s)", kw, kw),
+				expectedOutput: []SQLStmt{
+					&DropIndexStmt{
+						table: "users",
+						cols:  []string{kw, kw},
+					},
+				},
+			},
+			{
+				input: "DROP INDEX users." + kw,
+				expectedOutput: []SQLStmt{
+					&DropIndexStmt{
+						table: "users",
+						cols:  []string{kw},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("ALTER TABLE users RENAME COLUMN %s TO %s", kw, kw),
+				expectedOutput: []SQLStmt{
+					&RenameColumnStmt{
+						table:   "users",
+						oldName: kw,
+						newName: kw,
+					},
+				},
+			},
+			{
+				input: "ALTER TABLE users DROP COLUMN " + kw,
+				expectedOutput: []SQLStmt{
+					&DropColumnStmt{
+						table:   "users",
+						colName: kw,
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("CREATE TABLE users (%s INTEGER)", kw),
+				expectedOutput: []SQLStmt{
+					&CreateTableStmt{
+						table: "users",
+						colsSpec: []*ColSpec{
+							{
+								colName: kw,
+								colType: IntegerType,
+							},
+						},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("INSERT INTO users (%s) VALUES ('')", kw),
+				expectedOutput: []SQLStmt{
+					&UpsertIntoStmt{
+						tableRef: &tableRef{table: "users"},
+						cols:     []string{kw},
+						isInsert: true,
+						ds: &valuesDataSource{
+							rows: []*RowSpec{{Values: []ValueExp{NewVarchar("")}}},
+						},
+					},
+				},
+			},
+			{
+				input: fmt.Sprintf("UPSERT INTO users (%s) VALUES ('')", kw),
+				expectedOutput: []SQLStmt{
+					&UpsertIntoStmt{
+						tableRef: &tableRef{table: "users"},
+						cols:     []string{kw},
+						ds: &valuesDataSource{
+							rows: []*RowSpec{{Values: []ValueExp{NewVarchar("")}}},
+						},
+					},
+				},
+			},
+		}...,
+		)
+	}
+
+	for _, tc := range colCases {
+		stmt, err := ParseSQLString(tc.input)
+		require.NoError(t, err)
+		require.Equal(t, tc.expectedOutput, stmt)
 	}
 }

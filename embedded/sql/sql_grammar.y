@@ -40,9 +40,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     str string
     boolean bool
     blob []byte
+    keyword string
     sqlType SQLValueType
     aggFn AggregateFn
-    ids []string
+    colNames []string
     col *ColSelector
     sel Selector
     targets []TargetEntry
@@ -74,17 +75,21 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     whenThenClauses []whenThenClause
     tableElem TableElem
     tableElems []TableElem
+    timestampField TimestampFieldType
 }
 
-%token CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP
-%token TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
-%token BEGIN TRANSACTION COMMIT ROLLBACK
-%token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
-%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END
-%token NOT LIKE IF EXISTS IN IS
-%token AUTO_INCREMENT NULL CAST SCAST
-%token SHOW DATABASES TABLES USERS
-%token BETWEEN
+%token <keyword> CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF
+%token <keyword> INTEGER_TYPE BOOLEAN_TYPE VARCHAR_TYPE UUID_TYPE BLOB_TYPE TIMESTAMP_TYPE FLOAT_TYPE JSON_TYPE
+%token <keyword> TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
+%token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
+%token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
+%token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END
+%token <keyword> NOT LIKE IF EXISTS IN IS
+%token <keyword> AUTO_INCREMENT NULL CAST SCAST
+%token <keyword> SHOW DATABASES TABLES USERS
+%token <keyword> BETWEEN
+%token <keyword> EXTRACT YEAR MONTH DAY HOUR MINUTE SECOND
+
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -92,12 +97,11 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <cmpOp> CMPOP
 %token NOT_MATCHES_OP
 %token <id> IDENTIFIER
-%token <sqlType> TYPE
-%token <integer> INTEGER
-%token <float> FLOAT
-%token <str> VARCHAR
-%token <boolean> BOOLEAN
-%token <blob> BLOB
+%token <integer> INTEGER_LIT
+%token <float> FLOAT_LIT
+%token <str> VARCHAR_LIT
+%token <boolean> BOOLEAN_LIT
+%token <blob> BLOB_LIT
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 %token <dot> DOT
@@ -124,7 +128,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <stmts> sql sqlstmts
 %type <stmt> sqlstmt ddlstmt dmlstmt dqlstmt select_stmt
 %type <colSpec> colSpec
-%type <ids> ids one_or_more_ids opt_ids
+%type <colNames> col_names insert_cols one_or_more_col_names
 %type <cols> cols
 %type <rows> rows
 %type <row> row
@@ -155,7 +159,7 @@ mulExp unaryExp primary
 %type <id> opt_as
 %type <ordexps> ordexps opt_orderby
 %type <opt_ord> opt_ord
-%type <ids> opt_indexon
+%type <colNames> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
 %type <updates> updates
@@ -164,6 +168,10 @@ mulExp unaryExp primary
 %type <sqlPrivilege> sqlPrivilege
 %type <sqlPrivileges> sqlPrivileges
 %type <whenThenClauses> when_then_clauses
+%type <timestampField> timestamp_field
+%type <sqlType> sql_type
+%type <keyword> unreserved_keyword colNameKeyword
+%type <str> qualifiedName tableName col_name
 
 %start sql
 
@@ -211,9 +219,14 @@ ddlstmt:
         $$ = &RollbackStmt{}
     }
 |
-    CREATE DATABASE opt_if_not_exists IDENTIFIER
+    CREATE DATABASE IF NOT EXISTS IDENTIFIER
     {
-        $$ = &CreateDatabaseStmt{ifNotExists: $3, DB: $4}
+        $$ = &CreateDatabaseStmt{ifNotExists: true, DB: $6}
+    }
+|
+    CREATE DATABASE IDENTIFIER
+    {
+        $$ = &CreateDatabaseStmt{ifNotExists: false, DB: $3}
     }
 |
     USE IDENTIFIER
@@ -231,92 +244,72 @@ ddlstmt:
         $$ = &UseSnapshotStmt{period: $3}
     }
 |
-    CREATE TABLE opt_if_not_exists IDENTIFIER '(' tableElems ')'
+    CREATE TABLE IF NOT EXISTS tableName '(' tableElems ')'
     {
-        colsSpecs := make([]*ColSpec, 0, 5)
-        var checks []CheckConstraint
-
-        var pk PrimaryKeyConstraint
-
-        for _, e := range $6 {
-            switch c := e.(type) {
-                case *ColSpec:
-                    colsSpecs = append(colsSpecs, c)
-                case PrimaryKeyConstraint:
-                    pk = c
-                case CheckConstraint:
-                    if checks == nil {
-                        checks = make([]CheckConstraint, 0, 5)
-                    }
-                    checks = append(checks, c)
-            }
-        }
-
-        $$ = &CreateTableStmt{
-            ifNotExists: $3,
-            table: $4,
-            colsSpec: colsSpecs,
-            pkColNames: pk,
-            checks: checks,
-        }
+        $$ = newCreateTableStmt($6, $8, true)
     }
 |
-    DROP TABLE IDENTIFIER
+    CREATE TABLE tableName '(' tableElems ')'
+    {
+       $$ = newCreateTableStmt($3, $5, false)
+    }
+|
+    DROP TABLE qualifiedName
     {
         $$ = &DropTableStmt{table: $3}
     }
 |
-    CREATE INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
+    CREATE INDEX opt_if_not_exists ON tableName '(' col_names ')'
     {
         $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7}
     }
 |
-    CREATE UNIQUE INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
+    CREATE UNIQUE INDEX opt_if_not_exists ON tableName '(' col_names ')'
     {
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
     }
 |
-    DROP INDEX ON IDENTIFIER '(' ids ')'
+    DROP INDEX ON tableName '(' col_names ')'
     {
         $$ = &DropIndexStmt{table: $4, cols: $6}
     }
 |
-    DROP INDEX IDENTIFIER DOT IDENTIFIER
+    DROP INDEX tableName DOT col_name
     {
         $$ = &DropIndexStmt{table: $3, cols: []string{$5}}
     }
 |
-    ALTER TABLE IDENTIFIER ADD COLUMN colSpec
+    ALTER TABLE tableName ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
 |
-    ALTER TABLE IDENTIFIER RENAME TO IDENTIFIER
+    ALTER TABLE tableName RENAME TO tableName
     {
         $$ = &RenameTableStmt{oldName: $3, newName: $6}
     }
 |
-    ALTER TABLE IDENTIFIER RENAME COLUMN IDENTIFIER TO IDENTIFIER
+    ALTER TABLE tableName RENAME COLUMN col_name TO col_name
     {
         $$ = &RenameColumnStmt{table: $3, oldName: $6, newName: $8}
     }
 |
-    ALTER TABLE IDENTIFIER DROP COLUMN IDENTIFIER
+    ALTER TABLE tableName DROP COLUMN col_name
     {
         $$ = &DropColumnStmt{table: $3, colName: $6}
     }
 |
-    ALTER TABLE IDENTIFIER DROP CONSTRAINT IDENTIFIER
+    ALTER TABLE tableName DROP CONSTRAINT IDENTIFIER
     {
         $$ = &DropConstraintStmt{table: $3, constraintName: $6}
     }
 |
-    CREATE USER IDENTIFIER WITH PASSWORD VARCHAR permission
+    CREATE USER IDENTIFIER WITH PASSWORD VARCHAR_LIT permission
     {
         $$ = &CreateUserStmt{username: $3, password: $6, permission: $7}
     }
 |
-    ALTER USER IDENTIFIER WITH PASSWORD VARCHAR permission
+    ALTER USER IDENTIFIER WITH PASSWORD VARCHAR_LIT permission
     {
         $$ = &AlterUserStmt{username: $3, password: $6, permission: $7}
     }
@@ -326,15 +319,16 @@ ddlstmt:
         $$ = &DropUserStmt{username: $3}
     }
 |
-    GRANT sqlPrivileges ON DATABASE IDENTIFIER TO USER IDENTIFIER
+    GRANT sqlPrivileges ON DATABASE qualifiedName TO USER IDENTIFIER
     {
         $$ = &AlterPrivilegesStmt{database: $5, user: $8, privileges: $2, isGrant: true}
     }
 |
-    REVOKE sqlPrivileges ON DATABASE IDENTIFIER TO USER IDENTIFIER
+    REVOKE sqlPrivileges ON DATABASE qualifiedName TO USER IDENTIFIER
     {
         $$ = &AlterPrivilegesStmt{database: $5, user: $8, privileges: $2}
     }
+;
 
 sqlPrivileges:
     ALL PRIVILEGES
@@ -387,6 +381,7 @@ sqlPrivilege:
     {
         $$ = SQLPrivilegeAlter
     }
+;
 
 permission:
     {
@@ -407,6 +402,7 @@ permission:
     {
         $$ = PermissionAdmin
     }
+;
 
 opt_if_not_exists:
     {
@@ -417,27 +413,17 @@ opt_if_not_exists:
     {
         $$ = true
     }
-
-one_or_more_ids:
-    IDENTIFIER
-    {
-        $$ = []string{$1}
-    }
-|
-    '(' ids ')'
-    {
-        $$ = $2
-    }
+;
 
 dmlstmt:
-    INSERT INTO tableRef '(' opt_ids ')' values_or_query opt_on_conflict
+    INSERT INTO tableRef insert_cols values_or_query opt_on_conflict
     {
-        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $5, ds: $7, onConflict: $8}
+        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $4, ds: $5, onConflict: $6}
     }
 |
-    UPSERT INTO tableRef '(' ids ')' values_or_query
+    UPSERT INTO tableRef insert_cols values_or_query
     {
-        $$ = &UpsertIntoStmt{tableRef: $3, cols: $5, ds: $7}
+        $$ = &UpsertIntoStmt{tableRef: $3, cols: $4, ds: $5}
     }
 |
     DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset
@@ -489,16 +475,6 @@ update:
         $$ = &colUpdate{col: $1, op: $2, val: $3}
     }
 
-opt_ids:
-    {
-        $$ = nil
-    }
-|
-    ids
-    {
-        $$ = $1
-    }
-
 rows:
     row
     {
@@ -514,17 +490,6 @@ row:
     '(' opt_values ')'
     {
         $$ = &RowSpec{Values: $2}
-    }
-
-ids:
-    IDENTIFIER
-    {
-        $$ = []string{$1}
-    }
-|
-    ids ',' IDENTIFIER
-    {
-        $$ = append($1, $3)
     }
 
 cols:
@@ -560,32 +525,32 @@ values:
     }
 
 val:
-    INTEGER
+    INTEGER_LIT
     {
         $$ = &Integer{val: int64($1)}
     }
 |
-    FLOAT
+    FLOAT_LIT
     {
         $$ = &Float64{val: float64($1)}
     }
 |
-    VARCHAR
+    VARCHAR_LIT
     {
         $$ = &Varchar{val: $1}
     }
 |
-    BOOLEAN
+    BOOLEAN_LIT
     {
         $$ = &Bool{val:$1}
     }
 |
-    BLOB
+    BLOB_LIT
     {
         $$ = &Blob{val: $1}
     }
 |
-    CAST '(' exp AS TYPE ')'
+    CAST '(' exp AS sql_type ')'
     {
         $$ = &Cast{val: $3, t: $5}
     }
@@ -609,6 +574,18 @@ val:
     {
         $$ = &NullValue{t: AnyType}
     }
+;
+
+sql_type:
+    INTEGER_TYPE { $$ = IntegerType }
+    | BOOLEAN_TYPE { $$ = BooleanType }
+    | VARCHAR_TYPE { $$ = VarcharType }
+    | UUID_TYPE { $$ = UUIDType }
+    | BLOB_TYPE  { $$ = BLOBType }
+    | TIMESTAMP_TYPE { $$ = TimestampType }
+    | FLOAT_TYPE { $$ = Float64Type }
+    | JSON_TYPE { $$ = JSONType }
+;
 
 fnCall:
     IDENTIFIER '(' opt_values ')'
@@ -638,17 +615,25 @@ tableElem:
         $$ = $1
     }
 |
-    PRIMARY KEY one_or_more_ids
+    PRIMARY KEY one_or_more_col_names
     {
         $$ = PrimaryKeyConstraint($3)
     }
 ;
 
 colSpec:
-    IDENTIFIER TYPE opt_max_len opt_not_null opt_auto_increment opt_primary_key
+    col_name sql_type opt_max_len opt_not_null opt_auto_increment opt_primary_key
     {
-        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), notNull: $4 || $6, autoIncrement: $5, primaryKey: $6}
+        $$ = &ColSpec{
+            colName: $1, 
+            colType: $2, 
+            maxLen: int($3), 
+            notNull: $4 || $6, 
+            autoIncrement: $5,
+            primaryKey: $6,
+        }
     }
+;
 
 opt_primary_key:
     {
@@ -666,12 +651,12 @@ opt_max_len:
         $$ = 0
     }
 |
-    '[' INTEGER ']'
+    '[' INTEGER_LIT ']'
     {
         $$ = $2
     }
 |
-    '(' INTEGER ')'
+    '(' INTEGER_LIT ')'
     {
         $$ = $2
     }
@@ -849,26 +834,114 @@ selector:
     }
 
 jsonFields:
-    ARROW VARCHAR
+    ARROW VARCHAR_LIT
     {
         $$ = []string{$2}
     }
 |
-    jsonFields ARROW VARCHAR
+    jsonFields ARROW VARCHAR_LIT
     {
         $$ = append($$, $3)
     }
 
 col:
-    IDENTIFIER
+    col_name
     {
         $$ = &ColSelector{col: $1}
     }
 |
-    IDENTIFIER DOT IDENTIFIER
+    col_name DOT col_name
     {
         $$ = &ColSelector{table: $1, col: $3}
     }
+;
+
+tableName: qualifiedName;
+
+col_name:
+    qualifiedName
+|
+    colNameKeyword { $$ = $1 }
+;
+
+col_names:
+    col_name { $$ = []string{$1} }
+|
+    col_names ',' col_name { $$ = append($1, $3) }  
+;
+
+one_or_more_col_names:
+    col_name
+    {
+        $$ = []string{$1}
+    }
+|
+    '(' col_names ')'
+    {
+        $$ = $2
+    }
+;
+
+insert_cols:
+    { $$ = nil }
+|
+    '(' col_names ')' { $$ = $2 }
+;
+
+
+colNameKeyword:
+    BETWEEN
+    | BLOB_TYPE
+    | BOOLEAN_TYPE
+    | EXISTS
+    | EXTRACT
+    | FLOAT_TYPE
+    | INTEGER_TYPE
+    | JSON_TYPE
+    | TIMESTAMP_TYPE
+    | VALUES
+    | VARCHAR_TYPE
+;
+
+qualifiedName:
+    IDENTIFIER { $$ = $1 }
+    | unreserved_keyword { $$ = string($1) }
+;
+
+unreserved_keyword:
+    ADMIN
+    | OF
+    | DROP
+    | DATABASE
+    | SNAPSHOT
+    | INDEX
+    | ALTER
+    | ADD
+    | RENAME
+    | CONSTRAINT
+    | KEY
+    | GRANT
+    | REVOKE
+    | PRIVILEGES
+    | BEGIN
+    | TRANSACTION
+    | COMMIT
+    | ROLLBACK
+    | INSERT
+    | DELETE
+    | UPDATE
+    | CONFLICT
+    | IF
+    | SHOW
+    | TABLES
+    | YEAR
+    | MONTH
+    | DAY
+    | HOUR
+    | MINUTE
+    | SECOND
+    | USERS
+;
 
 ds:
     tableRef opt_period opt_as
@@ -920,7 +993,7 @@ ds:
     }
 
 tableRef:
-    IDENTIFIER
+    qualifiedName
     {
         $$ = &tableRef{table: $1}
     }
@@ -1074,10 +1147,11 @@ opt_indexon:
         $$ = nil
     }
 |
-    USE INDEX ON one_or_more_ids
+    USE INDEX ON one_or_more_col_names
     {
         $$ = $4
     }
+;
 
 ordexps:
     exp opt_ord
@@ -1110,15 +1184,16 @@ opt_as:
         $$ = ""
     }
 |
-    IDENTIFIER
+    qualifiedName
     {
         $$ = $1
     }
 |
-    AS IDENTIFIER
+    AS qualifiedName
     {
         $$ = $2
     }
+;
 
 check:
     CHECK exp
@@ -1272,10 +1347,16 @@ boundexp:
         $$ = $1
     }
 |
-    boundexp SCAST TYPE
+    boundexp SCAST sql_type
     {
         $$ = &Cast{val: $1, t: $3}
     }
+|
+    EXTRACT '(' timestamp_field FROM exp ')'
+    {
+        $$ = &ExtractFromTimestampExp{Field: $3, Exp: $5}
+    }
+;
 
 opt_not:
     {
@@ -1286,4 +1367,13 @@ opt_not:
     {
         $$ = true
     }
+;
 
+timestamp_field:
+    YEAR   { $$ = TimestampFieldTypeYear; }
+    | MONTH  { $$ = TimestampFieldTypeMonth; }
+    | DAY    { $$ = TimestampFieldTypeDay; }
+    | HOUR   { $$ = TimestampFieldTypeHour; }
+    | MINUTE { $$ = TimestampFieldTypeMinute; }
+    | SECOND { $$ = TimestampFieldTypeSecond; }
+;
