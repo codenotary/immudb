@@ -3202,6 +3202,69 @@ func TestQuery(t *testing.T) {
 	})
 }
 
+func TestExtractFromTimestamp(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	t.Run("extract from constant expressions", func(t *testing.T) {
+		assertQueryShouldProduceResults(
+			t,
+			engine,
+			`SELECT
+			EXTRACT(YEAR FROM '2020-01-15'),
+			EXTRACT(MONTH FROM '2020-01-15'),
+			EXTRACT(DAY FROM '2020-01-15'::TIMESTAMP),
+			EXTRACT(HOUR FROM '2020-01-15 12:30:24'),
+			EXTRACT(MINUTE FROM '2020-01-15 12:30:24'),
+			EXTRACT(SECOND FROM '2020-01-15 12:30:24'::TIMESTAMP)
+		`,
+			`SELECT * FROM (
+			VALUES (2020, 01, 15, 12, 30, 24)
+		)`,
+		)
+	})
+
+	t.Run("extract from table", func(t *testing.T) {
+		_, _, err := engine.Exec(
+			context.Background(),
+			nil,
+			`CREATE TABLE events(ts TIMESTAMP PRIMARY KEY);
+
+			INSERT INTO events(ts) VALUES
+				('2021-07-04 14:45:30'::TIMESTAMP),
+				('1999-12-31 23:59:59'::TIMESTAMP);
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+
+		assertQueryShouldProduceResults(
+			t,
+			engine,
+			`SELECT
+				EXTRACT(YEAR FROM ts),
+				EXTRACT(MONTH FROM ts),
+				EXTRACT(DAY FROM ts),
+				EXTRACT(HOUR FROM ts),
+				EXTRACT(MINUTE FROM ts),
+				EXTRACT(SECOND FROM ts)
+			FROM events
+			ORDER BY ts
+			`,
+			`SELECT * FROM (
+				VALUES
+					(1999, 12, 31, 23, 59, 59),
+					(2021, 07, 04, 14, 45, 30)
+			)`,
+		)
+	})
+
+}
+
 func TestJSON(t *testing.T) {
 	opts := store.DefaultOptions().WithMultiIndexing(true)
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
