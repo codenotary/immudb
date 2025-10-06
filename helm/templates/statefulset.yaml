@@ -32,12 +32,27 @@ spec:
       - name: immudb-storage
         persistentVolumeClaim:
           claimName: {{ include "immudb.fullname" . }}
+      {{- if .Values.config.enabled }}
+      - name: immudb-config
+        configMap:
+          name: {{ include "immudb.fullname" . }}-config
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if or .Values.args .Values.config.enabled }}
+          command: ["/usr/sbin/immudb"]
+          args:
+          {{- if .Values.config.enabled }}
+            - --config=/etc/immudb/immudb.toml
+          {{- end }}
+          {{- range .Values.args }}
+            - {{ . | quote }}
+          {{- end }}
+          {{- end }}
           ports:
             - name: http
               containerPort: 8080
@@ -57,14 +72,23 @@ spec:
             httpGet:
               path: /readyz
               port: metrics
-          {{- if $.Values.adminPassword }}
           env:
+          {{- if $.Values.adminPassword }}
           - name: IMMUDB_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: {{ include "immudb.fullname" . }}-credentials
                 key: immudb-admin-password
           {{- end}}
+          {{- range .Values.env }}
+          - name: {{ .name }}
+            {{- if .value }}
+            value: {{ .value | quote }}
+            {{- else if .valueFrom }}
+            valueFrom:
+              {{- toYaml .valueFrom | nindent 14 }}
+            {{- end }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -73,6 +97,11 @@ spec:
             {{- if $.Values.volumeSubPath.enabled }}
             subPath: {{ $.Values.volumeSubPath.path | quote }}
             {{- end}}
+          {{- if .Values.config.enabled }}
+          - mountPath: /etc/immudb
+            name: immudb-config
+            readOnly: true
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -18,6 +18,66 @@ volume:
   size: 5Gi
 adminPassword: ""
 
+# ImmuDB Configuration Options
+# You can configure immudb using three methods:
+# 1. Environment variables (env)
+# 2. Configuration file (config)
+# 3. Command line arguments (args)
+
+# Environment variables for immudb
+# All immudb configuration can be set via environment variables by prefixing with "IMMUDB_"
+# Examples:
+# - IMMUDB_PORT=3323
+# - IMMUDB_ADDRESS=0.0.0.0
+# - IMMUDB_DEVMODE=false
+env: []
+  # - name: IMMUDB_PORT
+  #   value: "3323"
+  # - name: IMMUDB_DEVMODE
+  #   value: "false"
+  # - name: IMMUDB_PGSQL_SERVER
+  #   value: "true"
+  # - name: IMMUDB_S3_STORAGE
+  #   value: "true"
+  # - name: IMMUDB_S3_BUCKET_NAME
+  #   value: "my-immudb-bucket"
+
+# Configuration file for immudb
+# If enabled, creates a ConfigMap with immudb.toml configuration file
+# This will be mounted to /etc/immudb/immudb.toml
+config:
+  enabled: false
+  # Configuration in TOML format
+  # See https://docs.immudb.io/master/running/configuration.html for all options
+  data: |
+    dir = "/var/lib/immudb"
+    network = "tcp"
+    address = "0.0.0.0"
+    port = 3322
+    dbname = "immudb"
+    auth = true
+    devmode = false
+    pgsql-server = true
+    pgsql-server-port = 5432
+    metrics-server = true
+    metrics-server-port = 9497
+    web-server = true
+    web-server-port = 8080
+    # S3 configuration example:
+    # s3-storage = true
+    # s3-bucket-name = "my-immudb-bucket"
+    # s3-endpoint = "s3.amazonaws.com"
+    # s3-location = "us-east-1"
+
+# Command line arguments for immudb
+# These will be passed directly to the immudb command
+# See `immudb --help` for all available options
+args: []
+  # - "--devmode"
+  # - "--pgsql-server=false"
+  # - "--s3-storage"
+  # - "--s3-bucket-name=my-immudb-bucket"
+
 podAnnotations: {}
 
 podSecurityContext:
