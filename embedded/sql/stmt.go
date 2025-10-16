@@ -2166,7 +2166,6 @@ func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, pa
 	if t != IntegerType && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
-
 	return nil
 }
 
@@ -4778,6 +4777,124 @@ func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[
 func (bexp *CmpBoolExp) String() string {
 	opStr := CmpOperatorToString(bexp.op)
 	return fmt.Sprintf("(%s %s %s)", bexp.left.String(), opStr, bexp.right.String())
+}
+
+type TimestampFieldType string
+
+const (
+	TimestampFieldTypeYear   TimestampFieldType = "YEAR"
+	TimestampFieldTypeMonth  TimestampFieldType = "MONTH"
+	TimestampFieldTypeDay    TimestampFieldType = "DAY"
+	TimestampFieldTypeHour   TimestampFieldType = "HOUR"
+	TimestampFieldTypeMinute TimestampFieldType = "MINUTE"
+	TimestampFieldTypeSecond TimestampFieldType = "SECOND"
+)
+
+type ExtractFromTimestampExp struct {
+	Field TimestampFieldType
+	Exp   ValueExp
+}
+
+func (te *ExtractFromTimestampExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	inferredType, err := te.Exp.inferType(cols, params, implicitTable)
+	if err != nil {
+		return "", err
+	}
+
+	if inferredType != TimestampType &&
+		inferredType != VarcharType &&
+		inferredType != AnyType {
+		return "", fmt.Errorf("timestamp expression must be of type %v or %v, but was: %v", TimestampType, VarcharType, inferredType)
+	}
+	return IntegerType, nil
+}
+
+func (te *ExtractFromTimestampExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType && t != Float64Type {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return te.Exp.requiresType(TimestampType, cols, params, implicitTable)
+}
+
+func (te *ExtractFromTimestampExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	exp, err := te.Exp.substitute(params)
+	if err != nil {
+		return nil, err
+	}
+	return &ExtractFromTimestampExp{
+		Field: te.Field,
+		Exp:   exp,
+	}, nil
+}
+
+func (te *ExtractFromTimestampExp) selectors() []Selector {
+	return te.Exp.selectors()
+}
+
+func (te *ExtractFromTimestampExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	v, err := te.Exp.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	if v.IsNull() {
+		return NewNull(IntegerType), nil
+	}
+
+	if t := v.Type(); t != TimestampType && t != VarcharType {
+		return nil, fmt.Errorf("%w: expected type %v but found type %v", ErrInvalidTypes, TimestampType, t)
+	}
+
+	if v.Type() == VarcharType {
+		converterFunc, err := getConverter(VarcharType, TimestampType)
+		if err != nil {
+			return nil, err
+		}
+		casted, err := converterFunc(v)
+		if err != nil {
+			return nil, err
+		}
+		v = casted
+	}
+
+	t, _ := v.RawValue().(time.Time)
+
+	year, month, day := t.Date()
+
+	switch te.Field {
+	case TimestampFieldTypeYear:
+		return NewInteger(int64(year)), nil
+	case TimestampFieldTypeMonth:
+		return NewInteger(int64(month)), nil
+	case TimestampFieldTypeDay:
+		return NewInteger(int64(day)), nil
+	case TimestampFieldTypeHour:
+		return NewInteger(int64(t.Hour())), nil
+	case TimestampFieldTypeMinute:
+		return NewInteger(int64(t.Minute())), nil
+	case TimestampFieldTypeSecond:
+		return NewInteger(int64(t.Second())), nil
+	}
+	return nil, fmt.Errorf("unknown timestamp field type: %s", te.Field)
+}
+
+func (te *ExtractFromTimestampExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return &ExtractFromTimestampExp{
+		Field: te.Field,
+		Exp:   te.Exp.reduceSelectors(row, implicitTable),
+	}
+}
+
+func (te *ExtractFromTimestampExp) isConstant() bool {
+	return false
+}
+
+func (te *ExtractFromTimestampExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (te *ExtractFromTimestampExp) String() string {
+	return fmt.Sprintf("EXTRACT(%s FROM %s)", te.Field, te.Exp)
 }
 
 func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID map[uint32]*typedValueRange) error {

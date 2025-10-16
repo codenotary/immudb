@@ -596,7 +596,7 @@ func TestTxByID(t *testing.T) {
 	_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER AUTO_INCREMENT, PRIMARY KEY id)"})
 	require.NoError(t, err)
 
-	_, ctx1, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "INSERT INTO mytable() VALUES ()"})
+	_, ctx1, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "INSERT INTO mytable VALUES ()"})
 	require.NoError(t, err)
 	require.Len(t, ctx1, 1)
 

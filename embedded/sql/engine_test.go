@@ -3202,6 +3202,69 @@ func TestQuery(t *testing.T) {
 	})
 }
 
+func TestExtractFromTimestamp(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	t.Run("extract from constant expressions", func(t *testing.T) {
+		assertQueryShouldProduceResults(
+			t,
+			engine,
+			`SELECT
+			EXTRACT(YEAR FROM '2020-01-15'),
+			EXTRACT(MONTH FROM '2020-01-15'),
+			EXTRACT(DAY FROM '2020-01-15'::TIMESTAMP),
+			EXTRACT(HOUR FROM '2020-01-15 12:30:24'),
+			EXTRACT(MINUTE FROM '2020-01-15 12:30:24'),
+			EXTRACT(SECOND FROM '2020-01-15 12:30:24'::TIMESTAMP)
+		`,
+			`SELECT * FROM (
+			VALUES (2020, 01, 15, 12, 30, 24)
+		)`,
+		)
+	})
+
+	t.Run("extract from table", func(t *testing.T) {
+		_, _, err := engine.Exec(
+			context.Background(),
+			nil,
+			`CREATE TABLE events(ts TIMESTAMP PRIMARY KEY);
+
+			INSERT INTO events(ts) VALUES
+				('2021-07-04 14:45:30'::TIMESTAMP),
+				('1999-12-31 23:59:59'::TIMESTAMP);
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+
+		assertQueryShouldProduceResults(
+			t,
+			engine,
+			`SELECT
+				EXTRACT(YEAR FROM ts),
+				EXTRACT(MONTH FROM ts),
+				EXTRACT(DAY FROM ts),
+				EXTRACT(HOUR FROM ts),
+				EXTRACT(MINUTE FROM ts),
+				EXTRACT(SECOND FROM ts)
+			FROM events
+			ORDER BY ts
+			`,
+			`SELECT * FROM (
+				VALUES
+					(1999, 12, 31, 23, 59, 59),
+					(2021, 07, 04, 14, 45, 30)
+			)`,
+		)
+	})
+
+}
+
 func TestJSON(t *testing.T) {
 	opts := store.DefaultOptions().WithMultiIndexing(true)
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
@@ -9449,6 +9512,51 @@ func TestFunctions(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+
+	t.Run("coalesce", func(t *testing.T) {
+		type testCase struct {
+			query          string
+			expectedValues string
+			err            error
+		}
+
+		cases := []testCase{
+			{
+				query:          "SELECT COALESCE (NULL)",
+				expectedValues: "NULL",
+			},
+			{
+				query:          "SELECT COALESCE (NULL, NULL)",
+				expectedValues: "NULL",
+			},
+			{
+				query:          "SELECT COALESCE(NULL, 1, 1.5, 3)",
+				expectedValues: "1",
+			},
+			{
+				query:          "SELECT COALESCE('one', 'two', 'three')",
+				expectedValues: "'one'",
+			},
+			{
+				query: "SELECT COALESCE(1, 'test')",
+				err:   ErrInvalidTypes,
+			},
+		}
+
+		for _, tc := range cases {
+			if tc.err != nil {
+				_, err := engine.queryAll(context.Background(), nil, tc.query, nil)
+				require.ErrorIs(t, err, tc.err)
+				continue
+			}
+
+			assertQueryShouldProduceResults(
+				t,
+				engine,
+				tc.query,
+				fmt.Sprintf("SELECT * FROM (VALUES (%s))", tc.expectedValues))
+		}
+	})
 
 	t.Run("timestamp functions", func(t *testing.T) {
 		_, err := engine.queryAll(context.Background(), nil, "SELECT NOW(1) FROM mytable", nil)

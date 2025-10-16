@@ -56,6 +56,8 @@ type Storage struct {
 	
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
+
+	useFargateCredentials bool
 }
 
 var (
@@ -99,6 +101,7 @@ func Open(
 	location string,
 	prefix string,
 	awsInstanceMetadataURL string,
+	useFargateCredentials bool,
 ) (remotestorage.Storage, error) {
 
 	// Endpoint must always end with '/'
@@ -137,6 +140,7 @@ func Open(
 		},
 		awsInstanceMetadataURL: awsInstanceMetadataURL,
 		awsCredsRefreshPeriod:  time.Minute,
+		useFargateCredentials:     useFargateCredentials,
 	}
 
 	err := s3storage.getRoleCredentials()
@@ -807,6 +811,45 @@ func (s *Storage) getRoleCredentials() error {
 }
 
 func (s *Storage) requestCredentials() (string, string, string, error) {
+	if s.useFargateCredentials {
+		// Use Fargate credentials
+
+		const fargateMetadataEndpoint = "http://169.254.170.2"
+
+		fargateCredentialsRelativeURI := os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
+		if fargateCredentialsRelativeURI == "" {
+			return "", "", "", errors.New("environment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI is not set or empty")
+		}
+		fargateCredentialsURL := fargateMetadataEndpoint + fargateCredentialsRelativeURI
+
+		fargateReq, err := http.NewRequest("GET", fargateCredentialsURL, nil)
+		if err != nil {
+			return "", "", "", errors.New("cannot form fargate credentials request")
+		}
+
+		fargateResp, err := http.DefaultClient.Do(fargateReq)
+		if err != nil {
+			return "", "", "", errors.New("cannot get fargate credentials")
+		}
+		defer fargateResp.Body.Close()
+
+		creds, err := io.ReadAll(fargateResp.Body)
+		if err != nil {
+			return "", "", "", errors.New("cannot read fargate credentials")
+		}
+
+		var credentials struct {
+			AccessKeyID     string `json:"AccessKeyId"`
+			SecretAccessKey string `json:"SecretAccessKey"`
+			SessionToken    string `json:"Token"`
+		}
+		if err := json.Unmarshal(creds, &credentials); err != nil {
+			return "", "", "", errors.New("cannot parse fargate credentials")
+		}
+
+		return credentials.AccessKeyID, credentials.SecretAccessKey, credentials.SessionToken, nil
+	}
+
 	tokenReq, err := http.NewRequest("PUT", fmt.Sprintf("%s%s",
 		s.awsInstanceMetadataURL,
 		"/latest/api/token",
