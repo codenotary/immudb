@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	CoalesceFnCall           string = "COALESCE"
 	LengthFnCall             string = "LENGTH"
 	SubstringFnCall          string = "SUBSTRING"
 	ConcatFnCall             string = "CONCAT"
@@ -47,6 +48,7 @@ const (
 )
 
 var builtinFunctions = map[string]Function{
+	CoalesceFnCall:           &CoalesceFn{},
 	LengthFnCall:             &LengthFn{},
 	SubstringFnCall:          &SubstringFn{},
 	ConcatFnCall:             &ConcatFn{},
@@ -65,6 +67,37 @@ type Function interface {
 	RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error
 	InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error)
 	Apply(tx *SQLTx, params []TypedValue) (TypedValue, error)
+}
+
+type CoalesceFn struct{}
+
+func (f *CoalesceFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return AnyType, nil
+}
+
+func (f *CoalesceFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+
+func (f *CoalesceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	t := AnyType
+
+	for _, p := range params {
+		if !p.IsNull() {
+			if t == AnyType {
+				t = p.Type()
+			} else if p.Type() != t && !(IsNumericType(t) && IsNumericType(p.Type())) {
+				return nil, fmt.Errorf("coalesce: %w", ErrInvalidTypes)
+			}
+		}
+	}
+
+	for _, p := range params {
+		if !p.IsNull() {
+			return p, nil
+		}
+	}
+	return NewNull(t), nil
 }
 
 // -------------------------------------

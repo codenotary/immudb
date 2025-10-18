@@ -9513,6 +9513,51 @@ func TestFunctions(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	t.Run("coalesce", func(t *testing.T) {
+		type testCase struct {
+			query          string
+			expectedValues string
+			err            error
+		}
+
+		cases := []testCase{
+			{
+				query:          "SELECT COALESCE (NULL)",
+				expectedValues: "NULL",
+			},
+			{
+				query:          "SELECT COALESCE (NULL, NULL)",
+				expectedValues: "NULL",
+			},
+			{
+				query:          "SELECT COALESCE(NULL, 1, 1.5, 3)",
+				expectedValues: "1",
+			},
+			{
+				query:          "SELECT COALESCE('one', 'two', 'three')",
+				expectedValues: "'one'",
+			},
+			{
+				query: "SELECT COALESCE(1, 'test')",
+				err:   ErrInvalidTypes,
+			},
+		}
+
+		for _, tc := range cases {
+			if tc.err != nil {
+				_, err := engine.queryAll(context.Background(), nil, tc.query, nil)
+				require.ErrorIs(t, err, tc.err)
+				continue
+			}
+
+			assertQueryShouldProduceResults(
+				t,
+				engine,
+				tc.query,
+				fmt.Sprintf("SELECT * FROM (VALUES (%s))", tc.expectedValues))
+		}
+	})
+
 	t.Run("timestamp functions", func(t *testing.T) {
 		_, err := engine.queryAll(context.Background(), nil, "SELECT NOW(1) FROM mytable", nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
