@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.10.0"></a>
+## [v1.10.0] - 2025-10-18
+### Bug Fixes
+- display actual config file path in startup logs
+
+### Changes
+- **embedded/sql:** add COALESCE function
+- **embedded/sql:** Implement EXTRACT FROM TIMESTAMP expressions
+- **embedded/sql:** Implement BETWEEN AND expressions
+
+### Features
+- **helm:** Add comprehensive configuration support for ImmuDB
+
+
 <a name="v1.9.7"></a>
 ## [v1.9.7] - 2025-05-30
 ### Bug Fixes
@@ -3929,7 +3943,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** audit path construction
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.9.7...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.10.0...HEAD
+[v1.10.0]: https://github.com/vchain-us/immudb/compare/v1.9.7...v1.10.0
 [v1.9.7]: https://github.com/vchain-us/immudb/compare/v2.0.0-RC1...v1.9.7
 [v2.0.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.9.6...v2.0.0-RC1
 [v1.9.6]: https://github.com/vchain-us/immudb/compare/v1.9.5...v1.9.6
