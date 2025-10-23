@@ -45,6 +45,7 @@ func TestS3WithServer(t *testing.T) {
 		"",
 		fmt.Sprintf("prefix_%x", randomBytes),
 		"",
+		false,
 	)
 	require.NoError(t, err)
 

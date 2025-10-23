@@ -60,6 +60,7 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 			s.Options.RemoteStorageOptions.S3Location,
 			s.Options.RemoteStorageOptions.S3PathPrefix,
 			s.Options.RemoteStorageOptions.S3InstanceMetadataURL,
+			s.Options.RemoteStorageOptions.S3UseFargateCredentials,
 		)
 	}
 

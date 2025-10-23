@@ -184,6 +184,20 @@ export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCAT
 ./immudb
 ```
 
+If using Fargate, the credentials URL can be sourced automatically:
+
+```bash
+export IMMUDB_S3_STORAGE=true
+export IMMUDB_S3_ROLE_ENABLED=true
+export IMMUDB_S3_USE_FARGATE_CREDENTIALS=true
+export IMMUDB_S3_BUCKET_NAME=<BUCKET NAME>
+export IMMUDB_S3_LOCATION=<AWS S3 REGION>
+export IMMUDB_S3_PATH_PREFIX=testing-001
+export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCATION}.amazonaws.com"
+
+./immudb
+```
+
 Optionally, you can specify the exact role immudb should be using with:
 
 ```bash

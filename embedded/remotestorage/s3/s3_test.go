@@ -41,6 +41,7 @@ func TestOpen(t *testing.T) {
 		"",
 		"prefix",
 		"",
+		false,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -90,6 +91,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.ErrorIs(t, err, ErrInvalidArguments)
 		require.ErrorIs(t, err, ErrInvalidArgumentsBucketEmpty)
@@ -107,6 +109,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.ErrorIs(t, err, ErrInvalidArguments)
 		require.ErrorIs(t, err, ErrInvalidArgumentsBucketSlash)
@@ -124,6 +127,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 		require.Equal(t, "", s.(*Storage).prefix)
@@ -138,6 +142,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"/test/",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 		require.Equal(t, "test/", s.(*Storage).prefix)
@@ -152,6 +157,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"/test",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 		require.Equal(t, "test/", s.(*Storage).prefix)
@@ -168,6 +174,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 		require.Equal(t, "s3(misconfigured)", s.String())
@@ -184,6 +191,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 
@@ -211,6 +219,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 
@@ -230,6 +239,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.Error(t, err)
 		require.Nil(t, s)
@@ -246,6 +256,7 @@ func TestCornerCases(t *testing.T) {
 			"",
 			"",
 			"",
+			false,
 		)
 		require.NoError(t, err)
 
@@ -262,7 +273,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "", false)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -277,7 +288,7 @@ func TestCornerCases(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
+		s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "", false)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -300,6 +311,7 @@ func TestSignatureV4(t *testing.T) {
 		"us-east-1",
 		"",
 		"",
+		false,
 	)
 	require.NoError(t, err)
 
@@ -378,7 +390,7 @@ func TestHandlingRedirects(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "", false)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -761,7 +773,7 @@ func TestListEntries(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "")
+	s, err := Open(ts.URL, false, "", "", "", "bucket", "", "", "", false)
 	require.NoError(t, err)
 
 	ctx := context.Background()
