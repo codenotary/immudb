@@ -20,17 +20,17 @@ import (
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
 )
 
 func Execute() {
-	if err := newCommand().Execute(); err != nil {
+	cmd, _, _ := newCommand()
+	if err := cmd.Execute(); err != nil {
 		c.QuitWithUserError(err)
 	}
 }
 
-func newCommand() *cobra.Command {
+func newCommand() (*cobra.Command, *commandline, *commandlineBck) {
 	version.App = "immuadmin"
 	// register admin commands
 	cml := NewCommandLine()
@@ -41,15 +41,14 @@ func newCommand() *cobra.Command {
 
 	cmd = cml.Register(cmd)
 	// register backup related commands
-	os := immuos.NewStandardOS()
-	clb, err := newCommandlineBck(os)
+	clb, err := newCommandlineBck(cml)
 	if err != nil {
 		c.QuitToStdErr(err)
 	}
 	cmd = clb.Register(cmd)
 
 	// register hot backup related commands
-	clhb, err := newCommandlineHotBck(os)
+	clhb, err := newCommandlineHotBck(cml)
 	if err != nil {
 		c.QuitToStdErr(err)
 	}
@@ -58,5 +57,5 @@ func newCommand() *cobra.Command {
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/"+version.App))
 	cmd.AddCommand(version.VersionCmd())
 
-	return cmd
+	return cmd, cml, clb
 }

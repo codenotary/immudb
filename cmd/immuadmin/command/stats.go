@@ -33,13 +33,12 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		Short:             "Show heartbeat status",
 		Aliases:           []string{"p"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
 
 			info, err := cl.immuClient.ServerInfo(ctx, &schema.ServerInfoRequest{})
 			if err != nil {
-				c.QuitWithUserError(err)
+				return err
 			}
 
 			startedAt := time.Unix(info.StartedAt, 0)
@@ -68,31 +67,30 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 		Short:             "Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.",
 		Aliases:           []string{"s"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			raw, err := cmd.Flags().GetBool("raw")
 			if err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			options := cl.immuClient.GetOptions()
 			if raw {
 				if err := stats.ShowMetricsRaw(cmd.OutOrStderr(), options.Address); err != nil {
-					c.QuitToStdErr(err)
+					return err
 				}
 				return nil
 			}
 			text, err := cmd.Flags().GetBool("text")
 			if err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			if text {
 				if err := stats.ShowMetricsAsText(cmd.OutOrStderr(), options.Address); err != nil {
-					c.QuitToStdErr(err)
+					return err
 				}
 				return nil
 			}
 			if err := stats.ShowMetricsVisually(options.Address); err != nil {
-				c.QuitToStdErr(err)
+				return err
 			}
 			return nil
 		},

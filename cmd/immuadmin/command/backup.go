@@ -17,7 +17,6 @@ limitations under the License.
 package immuadmin
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	stdos "os"
@@ -32,8 +31,6 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/server"
@@ -70,24 +67,19 @@ type Backupper interface {
 }
 
 type commandlineBck struct {
-	commandline
+	*commandline
 	Backupper
 	c.TerminalReader
 }
 
-func newCommandlineBck(os immuos.OS) (*commandlineBck, error) {
-	b, err := newBackupper(os)
+func newCommandlineBck(cmdl *commandline) (*commandlineBck, error) {
+	b, err := newBackupper(cmdl.os)
 	if err != nil {
 		return nil, err
 	}
-	cl := commandline{}
-	cl.config.Name = "immuadmin"
-	cl.passwordReader = c.DefaultPasswordReader
-	cl.context = context.Background()
-	cl.os = os
 	tr := c.NewTerminalReader(stdos.Stdin)
 
-	return &commandlineBck{cl, b, tr}, nil
+	return &commandlineBck{cmdl, b, tr}, nil
 }
 
 func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
@@ -97,27 +89,32 @@ func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
 	return rootCmd
 }
 
-func (cl *commandlineBck) ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error) {
-	return func(cmd *cobra.Command, args []string) (err error) {
-		if err = cl.config.LoadConfig(cmd); err != nil {
-			return err
-		}
-		// here all command line options and services need to be configured by options retrieved from viper
-		cl.options = Options()
-		cl.ts = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
-		if post != nil {
-			return post(cmd, args)
-		}
-		return nil
+func (cl *commandlineBck) askYN(prompt string, defaultValue string) (string, error) {
+	fmt.Print(prompt)
+	switch defaultValue {
+	case "y":
+		fallthrough
+	case "Y":
+		fmt.Print(" [Y/n]: ")
+	case "n":
+		fallthrough
+	case "N":
+		fmt.Print(" [y/N]: ")
+	default:
+		fmt.Print(" [y/n]: ")
 	}
+	// Always answer yes in non-interactive mode.
+	if cl.nonInteractive {
+		return "Y", nil
+	}
+	return cl.TerminalReader.ReadFromTerminalYN(defaultValue)
 }
 
 func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "dump [file]",
 		Short:             "Dump database content to a file",
-		PersistentPreRunE: cl.ConfigChain(cl.checkLoggedInAndConnect),
-		PersistentPostRun: cl.disconnect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")
 			if len(args) > 0 {
@@ -158,35 +155,28 @@ func (cl *commandlineBck) backup(cmd *cobra.Command) {
 		Short: "Make a copy of the database files and folders",
 		Long: "Pause the immudb server, create and save on the server machine a snapshot " +
 			"of the database files and folders (zip on Windows, tar.gz on Linux or uncompressed).",
-		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			if err = cl.mustNotBeWorkingDir(dbDir); err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			uncompressed, err := cmd.Flags().GetBool("uncompressed")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
-			if err := cl.askUserConfirmation("backup", manualStopStart); err != nil {
-				cl.quit(err)
-				return nil
+			if err := cl.askUserConfirmation(cmd, "backup", manualStopStart); err != nil {
+				return err
 			}
 			backupPath, err := cl.offlineBackup(dbDir, uncompressed, manualStopStart)
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			fmt.Printf("Database backup created: %s\n", backupPath)
 			return nil
@@ -206,27 +196,22 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 		Short: "Restore the database from a snapshot archive or folder",
 		Long: "Pause the immudb server and restore the database files and folders from a snapshot " +
 			"file (zip or tar.gz) or folder (uncompressed) residing on the server machine.",
-		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapshotPath := args[0]
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
-			if err := cl.askUserConfirmation("restore", manualStopStart); err != nil {
-				cl.quit(err)
-				return nil
+			if err := cl.askUserConfirmation(cmd, "restore", manualStopStart); err != nil {
+				return err
 			}
 			autoBackupPath, err := cl.offlineRestore(snapshotPath, dbDir, manualStopStart)
 			if err != nil {
-				cl.quit(err)
-				return nil
+				return err
 			}
 			fmt.Printf("Database restored from backup %s\n", snapshotPath)
 			fmt.Printf("A backup of the previous database has been also created: %s\n", autoBackupPath)
@@ -239,30 +224,37 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bool) error {
+func (cl *commandlineBck) askUserConfirmation(cmd *cobra.Command, process string, manualStopStart bool) error {
 	if !manualStopStart {
-		fmt.Printf(
+		prompt := fmt.Sprintf(
 			"Server will be stopped and then restarted during the %s process.\n"+
 				"NOTE: If the backup process is forcibly interrupted, a manual restart "+
 				"of the immudb service may be needed.\n"+
-				"Are you sure you want to proceed? [y/N]: ", process)
-		answer, err := cl.ReadFromTerminalYN("N")
+				"Are you sure you want to proceed?", process)
+		answer, err := cl.askYN(prompt, "N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 			return errors.New("Canceled")
 
 		}
-		pass, err := cl.passwordReader.Read("Enter admin password:")
+		pass, err := cl.getPassword(cmd, "password-file", "Enter admin password: ")
+		// pass, err := cl.passwordReader.Read("Enter admin password:")
 		if err != nil {
 			return err
 		}
-		_ = cl.checkLoggedInAndConnect(nil, nil)
-		defer cl.disconnect(nil, nil)
-		if _, err = cl.immuClient.Login(cl.context, []byte(auth.SysAdminUsername), pass); err != nil {
+		// Get the selected database for the session.
+		database, err := cmd.Flags().GetString("database")
+		if err != nil {
 			return err
 		}
+		// Verify the user may log into the database.
+		err = cl.openSession([]byte(auth.SysAdminUsername), pass, database)
+		if err != nil {
+			return err
+		}
+		cl.disconnect(nil, nil)
 	} else {
-		fmt.Print("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed? [y/N]: ")
-		answer, err := cl.ReadFromTerminalYN("N")
+		prompt := fmt.Sprint("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed?")
+		answer, err := cl.askYN(prompt, "N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 			return errors.New("Canceled")
 		}

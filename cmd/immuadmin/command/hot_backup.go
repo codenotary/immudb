@@ -18,7 +18,6 @@ package immuadmin
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -33,7 +32,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/immuos"
 )
 
 const (
@@ -55,17 +53,12 @@ var ErrTxWrongOrder = errors.New("incorrect transaction order in file")
 var ErrTxNotInFile = errors.New("last known transaction not in file")
 
 type commandlineHotBck struct {
-	commandline
+	*commandline
 	cmd *cobra.Command
 }
 
-func newCommandlineHotBck(os immuos.OS) (*commandlineHotBck, error) {
-	cl := commandline{}
-	cl.config.Name = "immuadmin"
-	cl.context = context.Background()
-	cl.os = os
-
-	return &commandlineHotBck{commandline: cl}, nil
+func newCommandlineHotBck(cmdl *commandline) (*commandlineHotBck, error) {
+	return &commandlineHotBck{commandline: cmdl}, nil
 }
 
 func (clb *commandlineHotBck) Register(rootCmd *cobra.Command) *cobra.Command {
@@ -88,7 +81,6 @@ func (cl *commandlineHotBck) hotBackup(cmd *cobra.Command) {
 		Long: "Backup a database to file/stream without stopping the database engine. " +
 			"Backup can run from the beginning or starting from arbitrary transaction.",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file := io.Writer(os.Stdout)
 			params, err := prepareBackupParams(cmd.Flags())
@@ -324,7 +316,6 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 		Long: "Restore saved transaction from backup file without stopping the database engine. " +
 			"Restore can restore the data from scratch or apply only the missing data.",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params, err := prepareRestoreParams(cmd.Flags())
 			if err != nil {

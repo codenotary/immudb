@@ -16,23 +16,15 @@ limitations under the License.
 
 package immuadmin
 
-/*
 import (
-	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	stdos "os"
 	"path/filepath"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -40,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -132,6 +125,46 @@ func defaultDaemonMock() *daemonMock {
 	}
 }
 
+func TestAskYN(t *testing.T) {
+	clb, cmd := newTestCommandLineBck(t)
+
+	// Get the mock term reader from the command line.
+	termReaderMock, ok := clb.TerminalReader.(*clienttest.TerminalReaderMock)
+	require.True(t, ok, "The TerminalReader of the command line should be a mockup terminal reader during testing.")
+
+	// Run the help command to initialize default command line flags.
+	cmd.SetArgs([]string{"help"})
+	err := cmd.Execute()
+	assert.NoError(t, err, "Running the help command should not cause an error.")
+
+	// Replace the terminal reader with one that always answers no.
+	termReaderMock.ReadFromTerminalYNF = func(def string) (selected string, err error) {
+		termReaderMock.Counter++
+		return "N", nil
+	}
+	prevTermReaderCounter := termReaderMock.Counter
+
+	// Verify that askYN will receive "N" from the reader.
+	answer, err := clb.askYN("test", "Y")
+	assert.NoError(t, err, "", "askYN should not fail with a mock reader.")
+	assert.Equal(t, "N", answer, "askYN should return N if a mock reader only returning N is used.")
+	assert.Equal(t, prevTermReaderCounter+1, termReaderMock.Counter, "The terminal reader should be called exactly once.")
+	prevTermReaderCounter = termReaderMock.Counter
+
+	// Reinitialize the command line flags, but set the non interactive flag.
+	cmd.SetArgs([]string{"help", "--non-interactive"})
+	err = cmd.Execute()
+	assert.NoError(t, err, "Running the help command should not cause an error.")
+
+	// Verify that askYN will always return "Y" from the reader.
+	answer, err = clb.askYN("test", "N")
+	assert.NoError(t, err, "", "askYN should never fail in interactive mode")
+	assert.Equal(t, "Y", answer, "askYN should always return Y in non interactive mode.")
+	assert.Equal(t, prevTermReaderCounter, termReaderMock.Counter, "The terminal reader should never be called in non interactive mode.")
+}
+
+/*
+
 func TestDumpToFile(t *testing.T) {
 	os := immuos.NewStandardOS()
 	clb, err := newCommandlineBck(os)
@@ -220,6 +253,8 @@ func TestDumpToFile(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("SUCCESS: 1 key-value entries were backed-up to file %s\n", dumpFile), dumpLog)
 }
 
+*/
+
 func deleteBackupFiles(prefix string) {
 	files, _ := filepath.Glob(fmt.Sprintf("./%s_bkp_*", prefix))
 	for _, f := range files {
@@ -228,55 +263,35 @@ func deleteBackupFiles(prefix string) {
 }
 
 func TestBackup(t *testing.T) {
-	os := immuos.NewStandardOS()
-	clb, err := newCommandlineBck(os)
-	require.NoError(t, err)
-	clb.options = client.DefaultOptions()
 
-	loginFOK := func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return &schema.LoginResponse{Token: "token"}, nil
-	}
-	immuClientMock := &clienttest.ImmuClientMock{
-		LoginF: loginFOK,
-	}
-	clb.immuClient = immuClientMock
-	clb.newImmuClient = func(*client.Options) (client.ImmuClient, error) {
-		return immuClientMock, nil
-	}
-	immuClientMock.DisconnectF = func() error {
-		return nil
-	}
+	clb, cmd := newTestCommandLineBck(t)
+	// Get the password reader from the command line and switch to loop mode,
+	// such that all authentication request will be successful.
+	pwr, ok := clb.passwordReader.(*passwordReaderMock)
+	require.True(t, ok, "The password reader of the commandline should be a mock passwordReader during testing.")
+	pwr.SetLoop(true)
 
-	pwReaderMock := &clienttest.PasswordReaderMock{}
-	clb.passwordReader = pwReaderMock
-	clb.context = context.Background()
+	// Get the OS from the command line.
+	os, ok := clb.os.(*immuos.StandardOS)
+	require.True(t, ok, "The os of the command line should be a StandardOS.")
 
-	hds := clienttest.DefaultHomedirServiceMock()
-	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
-		return true, nil
-	}
-	clb.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	// Get the mock term reader from the command line.
+	termReaderMock, ok := clb.TerminalReader.(*clienttest.TerminalReaderMock)
+	require.True(t, ok, "The TerminalReader of the command line should be a mockup terminal reader during testing.")
 
-	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{
-		daemon: daemMock,
-		os:     os,
-		copier: fs.NewStandardCopier(),
-		tarer:  fs.NewStandardTarer(),
-		ziper:  fs.NewStandardZiper(),
-	}
+	// Get the mock daemon from the command line.
+	backupper, ok := clb.Backupper.(*backupper)
+	require.True(t, ok, "The backupper of the command line should be a backupper during testing.")
+	daemMock, ok := backupper.daemon.(*daemonMock)
+	require.True(t, ok, "The daemon of the command line should be a daemMock during testing.")
 
-	okReadFromTerminalYNF := func(def string) (selected string, err error) {
-		return "Y", nil
-	}
-	termReaderMock := &clienttest.TerminalReaderMock{
-		ReadFromTerminalYNF: okReadFromTerminalYNF,
-	}
-	clb.TerminalReader = termReaderMock
-
+	// Setup dummy immudb data folder.
 	dbDir := "backup_test_db_dir"
 	require.NoError(t, stdos.Mkdir(dbDir, 0755))
-	defer stdos.Remove(dbDir)
+	defer func() { stdos.RemoveAll(dbDir) }()
+	identifier := filepath.Join(dbDir, "immudb.identifier")
+	_, err := stdos.Create(identifier)
+	require.NoError(t, err)
 
 	collector := new(cmdtest.StdOutCollector)
 	clb.onError = func(msg interface{}) {
@@ -284,8 +299,6 @@ func TestBackup(t *testing.T) {
 	}
 
 	// success
-	cl := commandline{}
-	cmd, _ := cl.NewCmd()
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
@@ -295,17 +308,11 @@ func TestBackup(t *testing.T) {
 
 	require.NoError(t, collector.Start())
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd := cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
 	require.Nil(t, cmd.Execute())
 	backupLog, err := collector.Stop()
 	require.NoError(t, err)
 	require.Contains(t, backupLog, "Database backup created: ")
 
-	cmd = &cobra.Command{}
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
@@ -313,11 +320,6 @@ func TestBackup(t *testing.T) {
 	})
 	clb.backup(cmd)
 	require.NoError(t, collector.Start())
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
 
 	require.Nil(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -339,11 +341,6 @@ func TestBackup(t *testing.T) {
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
 	require.NoError(t, err)
@@ -353,11 +350,10 @@ func TestBackup(t *testing.T) {
 
 	// reset command
 	deleteBackupFiles(dbDir)
-	cl = commandline{}
-	cmd, _ = cl.NewCmd()
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
+		"--uncompressed=false",
 	})
 	clb.backup(cmd)
 
@@ -367,16 +363,7 @@ func TestBackup(t *testing.T) {
 	os.GetwdF = func() (string, error) {
 		return "", errGetwd
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errGetwd, msg)
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errGetwd, cmd.Execute())
 	os.GetwdF = getwdFOK
 
 	// Abs error
@@ -384,16 +371,7 @@ func TestBackup(t *testing.T) {
 	os.AbsF = func(path string) (string, error) {
 		return "", errAbs1
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errAbs1, msg)
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errAbs1, cmd.Execute())
 
 	errAbs2 := errors.New("Abs error 2")
 	nbAbsCalls = 0
@@ -404,16 +382,7 @@ func TestBackup(t *testing.T) {
 		}
 		return "", errAbs2
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errAbs2, msg)
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errAbs2, cmd.Execute())
 
 	os.AbsF = absFOK
 
@@ -428,11 +397,6 @@ func TestBackup(t *testing.T) {
 	}
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -455,11 +419,6 @@ func TestBackup(t *testing.T) {
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
 	require.NoError(t, err)
@@ -467,79 +426,64 @@ func TestBackup(t *testing.T) {
 	collector.CaptureStderr = false
 	os.AbsF = absFOK
 
+	okReadFromTerminalYNF := termReaderMock.ReadFromTerminalYNF
+
 	// canceled
+	deleteBackupFiles(dbDir)
 	nokReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "N", nil
 	}
 	termReaderMock.ReadFromTerminalYNF = nokReadFromTerminalYNF
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "Canceled", msg.(error).Error())
-	}
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
+	require.Error(t, cmd.Execute(), "Canceled")
 
-	require.NoError(t, cmd.Execute())
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
 		"--manual-stop-start",
 	})
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "Canceled", msg.(error).Error())
-	}
+	require.Error(t, cmd.Execute(), "Canceled")
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
 	termReaderMock.ReadFromTerminalYNF = okReadFromTerminalYNF
 
+	okPwReader := clb.passwordReader
+
 	// password read error
-	cl = commandline{}
-	cmd, _ = cl.NewCmd()
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
+		"--manual-stop-start=false",
 	})
 	pwReadErr := errors.New("password read error")
 	errPwReadF := func(msg string) ([]byte, error) {
 		return nil, pwReadErr
 	}
-	pwReaderMock.ReadF = errPwReadF
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, pwReadErr, msg)
+	errPwReader := &clienttest.PasswordReaderMock{
+		ReadF: errPwReadF,
 	}
-	clb.backup(cmd)
+	clb.passwordReader = errPwReader
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
+	require.Equal(t, pwReadErr, cmd.Execute())
+	clb.passwordReader = okPwReader
 
-	require.NoError(t, cmd.Execute())
-	pwReaderMock.ReadF = nil
+	/*
+		// login error
+		errLogin := errors.New("login error")
+		immuClientMock.LoginF = func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
+			return nil, errLogin
+		}
+		clb.onError = func(msg interface{}) {
+			require.Equal(t, errLogin, msg)
+		}
 
-	// login error
-	errLogin := errors.New("login error")
-	immuClientMock.LoginF = func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return nil, errLogin
-	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errLogin, msg)
-	}
+		// remove ConfigChain method to avoid override options
+		cmd.PersistentPreRunE = nil
+		innercmd = cmd.Commands()[0]
+		innercmd.PersistentPreRunE = nil
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
-	immuClientMock.LoginF = loginFOK
+		require.NoError(t, cmd.Execute())
+		immuClientMock.LoginF = loginFOK
+	*/
 
 	cmd.SetArgs([]string{
 		"backup",
@@ -547,16 +491,7 @@ func TestBackup(t *testing.T) {
 	})
 	expectedErrMsg :=
 		"cannot backup the current directory, please specify a subdirectory, for example ./data"
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, expectedErrMsg, msg.(error).Error())
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), expectedErrMsg)
 
 	// dbdir not exists
 	notADir := dbDir + "_not_a_dir"
@@ -566,16 +501,7 @@ func TestBackup(t *testing.T) {
 	})
 	expectedErrMsg =
 		"stat backup_test_db_dir_not_a_dir: no such file or directory"
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, expectedErrMsg, msg.(error).Error())
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), expectedErrMsg)
 
 	// dbdir not a dir
 	_, err = stdos.Create(notADir)
@@ -583,16 +509,7 @@ func TestBackup(t *testing.T) {
 	defer stdos.Remove(notADir)
 	expectedErrMsg =
 		"backup_test_db_dir_not_a_dir is not a directory"
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, expectedErrMsg, msg.(error).Error())
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), expectedErrMsg)
 
 	// daemon stop error
 	cmd.SetArgs([]string{
@@ -602,17 +519,7 @@ func TestBackup(t *testing.T) {
 	daemMock.StopF = func() (string, error) {
 		return "", errors.New("daemon stop error")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "error stopping immudb server: daemon stop error", msg.(error).Error())
-	}
-	clb.backup(cmd)
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "error stopping immudb server: daemon stop error")
 	daemMock.StopF = nil
 
 	// daemon start error
@@ -621,14 +528,8 @@ func TestBackup(t *testing.T) {
 	}
 	clb.onError = func(msg interface{}) {
 	}
-	clb.backup(cmd)
 	collector.CaptureStderr = true
 	require.NoError(t, collector.Start())
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	backupLog, err = collector.Stop()
@@ -639,52 +540,22 @@ func TestBackup(t *testing.T) {
 }
 
 func TestRestore(t *testing.T) {
-	os := immuos.NewStandardOS()
-	clb, err := newCommandlineBck(os)
-	require.NoError(t, err)
-	clb.options = client.DefaultOptions()
+	clb, cmd := newTestCommandLineBck(t)
+	// Get the password reader from the command line and switch to loop mode,
+	// such that all authentication request will be successful.
+	pwr, ok := clb.passwordReader.(*passwordReaderMock)
+	require.True(t, ok, "The password reader of the commandline should be a mock passwordReader during testing.")
+	pwr.SetLoop(true)
 
-	loginFOK := func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return &schema.LoginResponse{Token: "token"}, nil
-	}
-	immuClientMock := &clienttest.ImmuClientMock{
-		LoginF: loginFOK,
-	}
-	clb.immuClient = immuClientMock
-	clb.newImmuClient = func(*client.Options) (client.ImmuClient, error) {
-		return immuClientMock, nil
-	}
-	immuClientMock.DisconnectF = func() error {
-		return nil
-	}
+	// Get the OS from the command line.
+	os, ok := clb.os.(*immuos.StandardOS)
+	require.True(t, ok, "The os of the command line should be a StandardOS.")
 
-	pwReaderMock := &clienttest.PasswordReaderMock{}
-	clb.passwordReader = pwReaderMock
-	clb.context = context.Background()
-
-	hds := clienttest.DefaultHomedirServiceMock()
-	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
-		return true, nil
-	}
-	clb.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
-
-	daemMock := defaultDaemonMock()
-	bckpr := &backupper{
-		daemon: daemMock,
-		os:     os,
-		copier: fs.NewStandardCopier(),
-		tarer:  fs.NewStandardTarer(),
-		ziper:  fs.NewStandardZiper(),
-	}
-	clb.Backupper = bckpr
-
-	okReadFromTerminalYNF := func(def string) (selected string, err error) {
-		return "Y", nil
-	}
-	termReaderMock := &clienttest.TerminalReaderMock{
-		ReadFromTerminalYNF: okReadFromTerminalYNF,
-	}
-	clb.TerminalReader = termReaderMock
+	// Get the mock daemon from the command line.
+	bckpr, ok := clb.Backupper.(*backupper)
+	require.True(t, ok, "The backupper of the command line should be a backupper during testing.")
+	daemMock, ok := bckpr.daemon.(*daemonMock)
+	require.True(t, ok, "The daemon of the command line should be a daemMock during testing.")
 
 	dbDirSrc := "restore_test_db_dir_src_bkp_1"
 	dbDirDst := "restore_test_db_dir_dst"
@@ -714,19 +585,12 @@ func TestRestore(t *testing.T) {
 	defer stdos.Remove(backupFile2)
 
 	// from .tar.gz
-	cl := commandline{}
-	cmd, _ := cl.NewCmd()
 	cmd.SetArgs([]string{
 		"restore",
 		backupFile,
 		fmt.Sprintf("--dbdir=./%s", dbDirDst),
 	})
 	clb.restore(cmd)
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd := cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
 
 	require.NoError(t, cmd.Execute())
 	deleteBackupFiles(dbDirDst)
@@ -739,11 +603,6 @@ func TestRestore(t *testing.T) {
 	})
 	clb.restore(cmd)
 
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
 	require.NoError(t, cmd.Execute())
 
 	// stat error
@@ -752,32 +611,14 @@ func TestRestore(t *testing.T) {
 	os.StatF = func(name string) (stdos.FileInfo, error) {
 		return nil, errStat
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, errStat, msg)
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Equal(t, errStat, cmd.Execute())
 	os.StatF = statFOK
 
 	// daemon stop error
 	daemMock.StopF = func() (string, error) {
 		return "", errors.New("daemon stop error")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Equal(t, "error stopping immudb server: daemon stop error", fmt.Sprintf("%v", msg))
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "error stopping immudb server: daemon stop error")
 	daemMock.StopF = nil
 
 	// Rename errors
@@ -786,16 +627,7 @@ func TestRestore(t *testing.T) {
 	os.RenameF = func(oldpath, newpath string) error {
 		return errors.New("Rename error 1")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Contains(t, msg.(error).Error(), "Rename error 1")
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "Rename error 1")
 
 	nbCalls := 0
 	os.RenameF = func(oldpath, newpath string) error {
@@ -805,16 +637,7 @@ func TestRestore(t *testing.T) {
 		}
 		return errors.New("Rename error 2")
 	}
-	clb.onError = func(msg interface{}) {
-		require.Contains(t, msg.(error).Error(), "Rename error 2")
-	}
-
-	// remove ConfigChain method to avoid override options
-	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[0]
-	innercmd.PersistentPreRunE = nil
-
-	require.NoError(t, cmd.Execute())
+	require.Error(t, cmd.Execute(), "Rename error 2")
 
 	os.RenameF = renameFOK
 }
@@ -826,11 +649,13 @@ func TestCommandlineBck_Register(t *testing.T) {
 }
 
 func TestNewCommandLineBck(t *testing.T) {
-	cml, err := newCommandlineBck(immuos.NewStandardOS())
+	cmdl := NewCommandLine()
+	cml, err := newCommandlineBck(cmdl)
 	assert.IsType(t, &commandlineBck{}, cml)
 	assert.NoError(t, err)
 }
 
+/*
 func TestCommandlineBck_ConfigChain(t *testing.T) {
 	cmd := &cobra.Command{}
 	c := commandlineBck{
