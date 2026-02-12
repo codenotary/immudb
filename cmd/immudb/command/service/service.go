@@ -104,12 +104,12 @@ Currently working on linux, windows and freebsd operating systems.
 				if msg, err = daemon.Install("--config", cp); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 
 				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 
 				return nil
 			case "uninstall":
@@ -125,7 +125,7 @@ Currently working on linux, windows and freebsd operating systems.
 					return err
 				}
 				if u != "y" {
-					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 					return
 				}
 				// stopping service first
@@ -133,12 +133,12 @@ Currently working on linux, windows and freebsd operating systems.
 					if msg, err = daemon.Stop(); err != nil {
 						return err
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 				}
 				if msg, err = daemon.Remove(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 
 				fmt.Fprintf(cmd.OutOrStdout(), "Erase data? [y/N]")
 				if u, err = cl.treader.ReadFromTerminalYN("N"); err != nil {
@@ -162,29 +162,29 @@ Currently working on linux, windows and freebsd operating systems.
 				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 				return nil
 			case "stop":
 				if msg, err = daemon.Stop(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 				return nil
 			case "restart":
 				if _, err = daemon.Stop(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 				return nil
 			case "status":
 				if msg, err = daemon.Status(); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", msg)
 				return nil
 			}
 			return nil
