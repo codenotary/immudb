@@ -2,6 +2,11 @@ name: Performance tests
 
 on:
   workflow_dispatch:
+    inputs:
+      go-version:
+        required: true
+        type: string
+        default: 'stable'
   workflow_call:
     inputs:
       go-version:
@@ -10,6 +15,11 @@ on:
         default: 'stable'
   schedule:
     - cron: '0 0 * * *'
+    inputs:
+      go-version:
+        required: true
+        type: string
+        default: 'stable'
 
 jobs:
   performance-test-suite-detect-runners:
