@@ -18,7 +18,13 @@ package server
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"math/big"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -26,10 +32,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func freePort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port
+}
+
 func TestStartWebServerHTTP(t *testing.T) {
 	dir := t.TempDir()
 
-	options := DefaultOptions().WithDir(dir)
+	options := DefaultOptions().
+		WithDir(dir).
+		WithAddress("127.0.0.1").
+		WithPort(freePort(t)).
+		WithWebServerPort(freePort(t))
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
 	tlsConfig := &tls.Config{
@@ -59,7 +78,11 @@ func TestStartWebServerHTTP(t *testing.T) {
 func TestStartWebServerHTTPS(t *testing.T) {
 	dir := t.TempDir()
 
-	options := DefaultOptions().WithDir(dir)
+	options := DefaultOptions().
+		WithDir(dir).
+		WithAddress("127.0.0.1").
+		WithPort(freePort(t)).
+		WithWebServerPort(freePort(t))
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
 	tlsConfig := tlsConfigTest(t)
@@ -84,24 +107,26 @@ func TestStartWebServerHTTPS(t *testing.T) {
 }
 
 func tlsConfigTest(t *testing.T) *tls.Config {
-	certPem := []byte(`-----BEGIN CERTIFICATE-----
-MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
-DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
-EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
-7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
-5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
-BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
-NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
-Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
-6MF9+Yw1Yy0t
------END CERTIFICATE-----`)
-	keyPem := []byte(`-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
-AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
-EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
------END EC PRIVATE KEY-----`)
-
-	cert, err := tls.X509KeyPair(certPem, keyPem)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
-	return &tls.Config{Certificates: []tls.Certificate{cert}}
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		DNSNames:     []string{"localhost"},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{{
+			Certificate: [][]byte{certDER},
+			PrivateKey:  key,
+		}},
+	}
 }

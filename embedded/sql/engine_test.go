@@ -4640,18 +4640,20 @@ func TestOrderBy(t *testing.T) {
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY amount", nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
-	rowCount := 100 + rand.Intn(engine.sortBufferSize-100) // [100, sortBufferSize]
+	rng := rand.New(rand.NewSource(1))
+
+	rowCount := 100 + rng.Intn(engine.sortBufferSize-100) // [100, sortBufferSize]
 
 	for id := 1; id <= rowCount; id++ {
-		rand.Seed(int64(id))
+		r := rand.New(rand.NewSource(int64(id)))
 
 		params := map[string]interface{}{
 			"id":      id,
-			"title":   fmt.Sprintf("title%d", rand.Intn(100)),
-			"age":     rand.Intn(100),
-			"weight":  50 + rand.Float64()*50,
-			"height":  rand.Float64() * 200,
-			"created": time.Unix(rand.Int63n(100000), 0).UTC(),
+			"title":   fmt.Sprintf("title%d", r.Intn(100)),
+			"age":     r.Intn(100),
+			"weight":  50 + r.Float64()*50,
+			"height":  r.Float64() * 200,
+			"created": time.Unix(r.Int63n(100000), 0).UTC(),
 		}
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age, height, weight, created_at) VALUES (@id, @title, @age, @height, @weight, @created)", params)
 		require.NoError(t, err)
@@ -4663,7 +4665,7 @@ func TestOrderBy(t *testing.T) {
 		ids := make(map[int64]struct{})
 		for _, row := range rows {
 			id := row.ValuesBySelector[EncodeSelector("", table, "id")].RawValue().(int64)
-			rand.Seed(int64(id))
+			r := rand.New(rand.NewSource(id))
 
 			title := row.ValuesBySelector[EncodeSelector("", table, "title")].RawValue().(string)
 			age := row.ValuesBySelector[EncodeSelector("", table, "age")].RawValue().(int64)
@@ -4671,11 +4673,11 @@ func TestOrderBy(t *testing.T) {
 			weight := row.ValuesBySelector[EncodeSelector("", table, "weight")].RawValue().(float64)
 			created := row.ValuesBySelector[EncodeSelector("", table, "created_at")].RawValue().(time.Time).UTC()
 
-			require.Equal(t, fmt.Sprintf("title%d", rand.Intn(100)), title)
-			require.Equal(t, int64(rand.Intn(100)), age)
-			require.Equal(t, 50+rand.Float64()*50, weight)
-			require.Equal(t, rand.Float64()*200, height)
-			require.Equal(t, time.Unix(rand.Int63n(100000), 0).UTC(), created)
+			require.Equal(t, fmt.Sprintf("title%d", r.Intn(100)), title)
+			require.Equal(t, int64(r.Intn(100)), age)
+			require.Equal(t, 50+r.Float64()*50, weight)
+			require.Equal(t, r.Float64()*200, height)
+			require.Equal(t, time.Unix(r.Int63n(100000), 0).UTC(), created)
 
 			_, exists := ids[id]
 			require.False(t, exists)
@@ -4795,7 +4797,7 @@ func TestOrderBy(t *testing.T) {
 		})
 	}
 
-	engine.sortBufferSize = 4 + rand.Intn(13) // [4, 16]
+	engine.sortBufferSize = 4 + rng.Intn(13) // [4, 16]
 
 	for _, test := range testCases {
 		t.Run(fmt.Sprintf("order by on %s should be executed using file sort", strings.Join(test.exps, ",")), func(t *testing.T) {
@@ -4896,7 +4898,7 @@ func TestOrderBy(t *testing.T) {
 		})
 	})
 
-	nullValues := 1 + rand.Intn(10)
+	nullValues := 1 + rng.Intn(10)
 	for i := 1; i <= nullValues; i++ {
 		params := map[string]interface{}{
 			"id":      rowCount + i,
