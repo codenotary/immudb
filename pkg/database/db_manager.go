@@ -135,14 +135,14 @@ func createCache(m *DBManager, capacity int) *cache.Cache {
 
 		state, err := ref.db.CurrentState()
 		if err != nil {
-			m.logger.Errorf(`%w: while fetching db %s state`, err, ref.db.GetName())
+			m.logger.Errorf(`%v: while fetching db %s state`, err, ref.db.GetName())
 		}
 
 		opts := ref.db.GetOptions()
 
 		err = ref.db.Close()
 		if err != nil {
-			m.logger.Errorf(`%w: while closing db "%s"`, err, ref.db.GetName())
+			m.logger.Errorf(`%v: while closing db "%s"`, err, ref.db.GetName())
 		}
 
 		if i, ok := idx.(int); ok && (i >= 0 && i < len(m.databases)) {

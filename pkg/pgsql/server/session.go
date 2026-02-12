@@ -101,7 +101,7 @@ func (s *session) HandleError(e error) {
 
 	_, err := s.writeMessage(pgerr.Encode())
 	if err != nil {
-		s.log.Errorf("unable to write error on wire: %w", err)
+		s.log.Errorf("unable to write error on wire: %v", err)
 	}
 }
 

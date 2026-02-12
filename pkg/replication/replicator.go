@@ -284,7 +284,7 @@ func (txr *TxReplicator) connect() error {
 
 	info, err := txr.client.ServerInfo(txr.context, &schema.ServerInfoRequest{})
 	if err != nil {
-		txr.logger.Errorf("Connection to %s failed: unable to get primary server info: %w", txr.db.GetName(), err)
+		txr.logger.Errorf("Connection to %s failed: unable to get primary server info: %v", txr.db.GetName(), err)
 		return err
 	}
 	if info.Version != version.Version {
