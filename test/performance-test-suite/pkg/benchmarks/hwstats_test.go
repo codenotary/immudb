@@ -122,7 +122,8 @@ func TestHwStatsProber(t *testing.T) {
 			require.GreaterOrEqual(t, stats.IOCallsWrite, blocks)
 			require.Less(t, stats.IOCallsWrite, blocks+blocksMargin)
 
-			require.GreaterOrEqual(t, stats.IOBytesWrite, blocks*blockSize)
+			// We can not easily check the lower bound - on tmpfs or when data stays
+			// in page cache, write_bytes in /proc/self/io will be 0
 			require.Less(t, stats.IOBytesWrite, (blocks+blocksMargin)*blockSize)
 		})
 
