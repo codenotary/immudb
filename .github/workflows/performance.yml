@@ -2,24 +2,9 @@ name: Performance tests
 
 on:
   workflow_dispatch:
-    inputs:
-      go-version:
-        required: true
-        type: string
-        default: 'stable'
   workflow_call:
-    inputs:
-      go-version:
-        required: true
-        type: string
-        default: 'stable'
   schedule:
     - cron: '0 0 * * *'
-    inputs:
-      go-version:
-        required: true
-        type: string
-        default: 'stable'
 
 jobs:
   performance-test-suite-detect-runners:
@@ -60,7 +45,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v6
         with:
-          go-version: ${{ inputs.go-version }}
+          go-version-file: 'go.mod'
       - uses: actions/checkout@v4
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - name: Run performance tests
