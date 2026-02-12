@@ -43,10 +43,10 @@ jobs:
       INFLUX_HOST: ${{ secrets.INFLUX_HOST }}
       INFLUX_TOKEN: ${{ secrets.INFLUX_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - uses: actions/checkout@v4
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - name: Run performance tests
         id: performance
