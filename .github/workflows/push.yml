@@ -18,7 +18,7 @@ jobs:
     name: Ensure immudb compiles with the oldest supported go version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.MIN_SUPPORTED_GO_VERSION }}
       - uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
       JOB_NAME: ${{ github.job }}
       JOB_ID: ${{ github.run_id }}
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
       outputs:
         matrix: ${{ steps.list-binaries.outputs.matrix }}
       steps:
-        - uses: actions/setup-go@v5
+        - uses: actions/setup-go@v6
           with:
             go-version: ${{ env.GO_VERSION }}
         - uses: actions/checkout@v4
@@ -157,7 +157,7 @@ jobs:
       run: chmod +x dist/*linux-amd64
     - name: Run immudb in the background
       run: dist/immudb-*-linux-amd64 -d
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: ${{ env.GO_VERSION }}
     - uses: actions/checkout@v4
@@ -299,7 +299,7 @@ jobs:
       - old-go
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v4

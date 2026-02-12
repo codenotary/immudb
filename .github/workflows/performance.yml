@@ -47,7 +47,7 @@ jobs:
       INFLUX_HOST: ${{ secrets.INFLUX_HOST }}
       INFLUX_TOKEN: ${{ secrets.INFLUX_TOKEN }}
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ inputs.go-version }}
       - uses: actions/checkout@v4
