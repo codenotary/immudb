@@ -331,5 +331,5 @@ func TestJSONLogger(t *testing.T) {
 }
 
 func logWithFunc(l *JsonLogger, msg string) {
-	l.Infof(msg)
+	l.Infof("%s", msg)
 }

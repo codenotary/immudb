@@ -655,7 +655,7 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 			return nil, status.Errorf(codes.InvalidArgument, "username can not be empty")
 		}
 		if _, err := s.dbList.GetByName(r.Database); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err.Error())
 		}
 		if (r.Action != schema.PermissionAction_GRANT) &&
 			(r.Action != schema.PermissionAction_REVOKE) {

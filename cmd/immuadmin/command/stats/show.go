@@ -52,7 +52,7 @@ func ShowMetricsRaw(w io.Writer, serverAddress string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, string(body)+"\n")
+	fmt.Fprintf(w, "%s\n", string(body))
 	return nil
 }
 
