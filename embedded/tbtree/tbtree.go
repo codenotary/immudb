@@ -848,7 +848,7 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 
 	n := &innerNode{
 		t:       t,
-		nodes:   make([]node, childCount),
+		nodes:   make([]node, 0, childCount),
 		_minOff: math.MaxInt64,
 	}
 
@@ -858,7 +858,13 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 			return nil, err
 		}
 
-		n.nodes[c] = nref
+		// marker node
+		if nref.off == math.MaxInt64 {
+			n._ts = nref.ts()
+			continue
+		}
+
+		n.nodes = append(n.nodes, nref)
 
 		if n._ts < nref._ts {
 			n._ts = nref._ts
@@ -915,13 +921,23 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 
 	l := &leafNode{
 		t:      t,
-		values: make([]*leafValue, valueCount),
+		values: make([]*leafValue, 0, valueCount),
 	}
 
 	for c := 0; c < int(valueCount); c++ {
 		ksize, err := r.ReadUint16()
 		if err != nil {
 			return nil, err
+		}
+
+		if ksize == 0 {
+			ts, err := r.ReadUint64()
+			if err != nil {
+				return nil, err
+			}
+
+			l._ts = ts
+			continue
 		}
 
 		key := make([]byte, ksize)
@@ -963,7 +979,7 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 			hCount:      hCount,
 		}
 
-		l.values[c] = leafValue
+		l.values = append(l.values, leafValue)
 
 		if l._ts < ts {
 			l._ts = ts
