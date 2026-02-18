@@ -352,6 +352,8 @@ Below is a list of known projects that use immudb:
 
 - [immuvoting](https://github.com/padurean/immuvoting) - Publicly cryptographically verifiable electronic voting system powered by immudb.
 
+- [JMDT](https://jmdt.io) - Layer 2 blockchain with Zero-Knowledge Proofs, Decentralized Identity (DID), and Hybrid Multi-Layer distributed Consensus for maximum privacy, scalability, and security. Uses immudb as the immutable ledger layer.
+
 Are you using immudb in your project? Open a pull request to add it to the list.
 
 ## Contributing
