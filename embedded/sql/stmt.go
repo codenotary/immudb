@@ -203,6 +203,7 @@ const (
 	LeftJoin
 	RightJoin
 	CrossJoin
+	FullOuterJoin
 )
 
 type SQLStmt interface {
@@ -3406,12 +3407,44 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}()
 
 	if stmt.joins != nil {
-		var jointRowReader *jointRowReader
-		jointRowReader, err = newJointRowReader(rowReader, stmt.joins)
-		if err != nil {
-			return nil, err
+		hasFullOuter := false
+		for _, jspec := range stmt.joins {
+			if jspec.joinType == FullOuterJoin {
+				hasFullOuter = true
+				break
+			}
 		}
-		rowReader = jointRowReader
+
+		if hasFullOuter {
+			// Process joins one at a time when FULL OUTER JOIN is present
+			for _, jspec := range stmt.joins {
+				if jspec.joinType == FullOuterJoin {
+					rightQ := &SelectStmt{ds: jspec.ds, indexOn: jspec.indexOn}
+					rightReader, jErr := rightQ.Resolve(ctx, tx, params, nil)
+					if jErr != nil {
+						return nil, jErr
+					}
+					fojReader, jErr := newFullOuterJoinRowReader(ctx, rowReader, rightReader, jspec.cond)
+					if jErr != nil {
+						rightReader.Close()
+						return nil, jErr
+					}
+					rowReader = fojReader
+				} else {
+					jReader, jErr := newJointRowReader(rowReader, []*JoinSpec{jspec})
+					if jErr != nil {
+						return nil, jErr
+					}
+					rowReader = jReader
+				}
+			}
+		} else {
+			jointRowReader, jErr := newJointRowReader(rowReader, stmt.joins)
+			if jErr != nil {
+				return nil, jErr
+			}
+			rowReader = jointRowReader
+		}
 	}
 
 	if stmt.where != nil {
@@ -3895,6 +3928,124 @@ func (stmt *IntersectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[st
 	}()
 
 	return newSetOpRowReader(ctx, leftReader, rightReader, setOpIntersect)
+}
+
+// CTEDef holds a single CTE definition (name + query)
+type CTEDef struct {
+	name  string
+	query DataSource
+}
+
+// CTEStmt wraps a query with Common Table Expressions (WITH clause)
+type CTEStmt struct {
+	ctes  []*CTEDef
+	query DataSource
+}
+
+func (stmt *CTEStmt) readOnly() bool                     { return true }
+func (stmt *CTEStmt) requiredPrivileges() []SQLPrivilege  { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *CTEStmt) Alias() string                      { return stmt.query.Alias() }
+
+func (stmt *CTEStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	for _, cte := range stmt.ctes {
+		if err := cte.query.inferParameters(ctx, tx, params); err != nil {
+			return err
+		}
+	}
+	return stmt.query.inferParameters(ctx, tx, params)
+}
+
+func (stmt *CTEStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
+	// Materialize each CTE and register as a temporary table resolver
+	registeredCTEs := make([]string, 0, len(stmt.ctes))
+
+	cleanup := func() {
+		for _, name := range registeredCTEs {
+			delete(tx.engine.tableResolvers, name)
+		}
+	}
+
+	for _, cte := range stmt.ctes {
+		reader, err := cte.query.Resolve(ctx, tx, params, nil)
+		if err != nil {
+			cleanup()
+			return nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
+		}
+
+		rawCols, err := reader.Columns(ctx)
+		if err != nil {
+			reader.Close()
+			cleanup()
+			return nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
+		}
+
+		// Strip table qualifiers — ValuesRowReader requires plain column names
+		cols := make([]ColDescriptor, len(rawCols))
+		for i, c := range rawCols {
+			cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
+		}
+
+		// Materialize all rows
+		var rows [][]ValueExp
+		for {
+			row, err := reader.Read(ctx)
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				reader.Close()
+				cleanup()
+				return nil, fmt.Errorf("error materializing CTE '%s': %w", cte.name, err)
+			}
+
+			rowValues := make([]ValueExp, len(row.ValuesByPosition))
+			for i, v := range row.ValuesByPosition {
+				rowValues[i] = v.(ValueExp)
+			}
+			rows = append(rows, rowValues)
+		}
+		reader.Close()
+
+		// Register as a temporary table resolver
+		tx.engine.registerTableResolver(cte.name, &cteResolver{
+			name: cte.name,
+			cols: cols,
+			rows: rows,
+		})
+		registeredCTEs = append(registeredCTEs, cte.name)
+	}
+
+	// Resolve the main query with CTEs available
+	mainReader, err := stmt.query.Resolve(ctx, tx, params, scanSpecs)
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+
+	// Schedule cleanup when the reader is closed
+	mainReader.onClose(cleanup)
+
+	return mainReader, nil
+}
+
+// cteResolver implements TableResolver for materialized CTEs
+type cteResolver struct {
+	name string
+	cols []ColDescriptor
+	rows [][]ValueExp
+}
+
+func (r *cteResolver) Table() string { return r.name }
+
+func (r *cteResolver) Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error) {
+	if alias == "" {
+		alias = r.name
+	}
+	return NewValuesRowReader(tx, nil, r.cols, true, alias, r.rows)
 }
 
 // CreateViewStmt creates a named view backed by a SELECT query

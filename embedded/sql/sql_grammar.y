@@ -70,6 +70,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     updates []*colUpdate
     onConflict *OnConflictDo
     nullsOrder NullsOrder
+    cteDef *CTEDef
+    cteDefs []*CTEDef
     permission Permission
     sqlPrivilege SQLPrivilege
     sqlPrivileges []SQLPrivilege
@@ -161,6 +163,8 @@ mulExp unaryExp primary
 %type <ordexps> ordexps opt_orderby
 %type <opt_ord> opt_ord
 %type <nullsOrder> opt_nulls_order
+%type <cteDef> cte_def
+%type <cteDefs> cte_defs
 %type <colNames> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
@@ -719,6 +723,16 @@ dqlstmt:
         $$ = $1
     }
 |
+    WITH cte_defs select_stmt
+    {
+        $$ = &CTEStmt{ctes: $2, query: $3.(DataSource)}
+    }
+|
+    WITH cte_defs select_stmt UNION opt_all dqlstmt
+    {
+        $$ = &CTEStmt{ctes: $2, query: &UnionStmt{distinct: $5, left: $3.(DataSource), right: $6.(DataSource)}}
+    }
+|
     select_stmt UNION opt_all dqlstmt
     {
         $$ = &UnionStmt{
@@ -1258,6 +1272,23 @@ opt_nulls_order:
     NULLS LAST
     {
         $$ = NullsLast
+    }
+
+cte_defs:
+    cte_def
+    {
+        $$ = []*CTEDef{$1}
+    }
+|
+    cte_defs ',' cte_def
+    {
+        $$ = append($1, $3)
+    }
+
+cte_def:
+    IDENTIFIER AS '(' dqlstmt ')'
+    {
+        $$ = &CTEDef{name: $1, query: $4.(DataSource)}
     }
 
 opt_as:

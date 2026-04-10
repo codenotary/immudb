@@ -6049,6 +6049,100 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCTE(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (id INTEGER, customer VARCHAR, amount INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO orders (id, customer, amount) VALUES (1, 'Alice', 100);
+		INSERT INTO orders (id, customer, amount) VALUES (2, 'Bob', 200);
+		INSERT INTO orders (id, customer, amount) VALUES (3, 'Alice', 150);
+		INSERT INTO orders (id, customer, amount) VALUES (4, 'Charlie', 50);
+		INSERT INTO orders (id, customer, amount) VALUES (5, 'Bob', 300);
+	`, nil)
+	require.NoError(t, err)
+
+	// Simple CTE
+	r, err := engine.Query(context.Background(), nil, `
+		WITH big_orders AS (
+			SELECT id, customer, amount FROM orders WHERE amount >= 150
+		)
+		SELECT customer, amount FROM big_orders
+	`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Bob", row.ValuesByPosition[0].RawValue())
+	require.Equal(t, int64(200), row.ValuesByPosition[1].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Alice", row.ValuesByPosition[0].RawValue())
+	require.Equal(t, int64(150), row.ValuesByPosition[1].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Bob", row.ValuesByPosition[0].RawValue())
+	require.Equal(t, int64(300), row.ValuesByPosition[1].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+
+	// Multiple CTEs
+	r, err = engine.Query(context.Background(), nil, `
+		WITH
+			alice_orders AS (
+				SELECT id, amount FROM orders WHERE customer = 'Alice'
+			),
+			bob_orders AS (
+				SELECT id, amount FROM orders WHERE customer = 'Bob'
+			)
+		SELECT id, amount FROM alice_orders
+		UNION ALL
+		SELECT id, amount FROM bob_orders
+	`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 4, count) // 2 Alice + 2 Bob
+	r.Close()
+
+	// CTE used in JOIN
+	r, err = engine.Query(context.Background(), nil, `
+		WITH high_value AS (
+			SELECT id, customer FROM orders WHERE amount > 100
+		)
+		SELECT o.id, o.amount FROM orders o
+		INNER JOIN high_value h ON o.id = h.id
+	`, nil)
+	require.NoError(t, err)
+
+	count = 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 3, count) // orders with amount > 100: 200, 150, 300
+	r.Close()
+}
+
 func TestCreateAndDropView(t *testing.T) {
 	engine := setupCommonTest(t)
 
@@ -6275,6 +6369,48 @@ func TestNullsFirstLast(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue()) // val=10
 
+	r.Close()
+}
+
+func TestFullOuterJoin(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE left_t (id INTEGER, val VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE right_t (id INTEGER, data VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO left_t (id, val) VALUES (1, 'a');
+		INSERT INTO left_t (id, val) VALUES (2, 'b');
+		INSERT INTO left_t (id, val) VALUES (3, 'c');
+		INSERT INTO right_t (id, data) VALUES (2, 'x');
+		INSERT INTO right_t (id, data) VALUES (3, 'y');
+		INSERT INTO right_t (id, data) VALUES (4, 'z');
+	`, nil)
+	require.NoError(t, err)
+
+	// FULL OUTER JOIN: all rows from both sides
+	// Expected: (1,a,NULL,NULL), (2,b,2,x), (3,c,3,y), (NULL,NULL,4,z)
+	r, err := engine.Query(context.Background(), nil, `
+		SELECT l.id, l.val, r.id, r.data
+		FROM left_t l FULL JOIN right_t r ON l.id = r.id
+	`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	var ids []interface{}
+	for {
+		row, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		ids = append(ids, row.ValuesByPosition[0].RawValue())
+		count++
+	}
+	require.Equal(t, 4, count)
 	r.Close()
 }
 

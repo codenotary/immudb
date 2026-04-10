@@ -40,7 +40,7 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader,
 
 	for _, jspec := range joins {
 		switch jspec.joinType {
-		case InnerJoin, LeftJoin, CrossJoin:
+		case InnerJoin, LeftJoin, CrossJoin, FullOuterJoin:
 		default:
 			return nil, ErrUnsupportedJoinType
 		}
