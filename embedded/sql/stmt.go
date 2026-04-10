@@ -3776,6 +3776,94 @@ func (stmt *UnionStmt) Alias() string {
 	return ""
 }
 
+// ExceptStmt implements EXCEPT set operation (rows in left but not in right)
+type ExceptStmt struct {
+	left, right DataSource
+}
+
+func (stmt *ExceptStmt) readOnly() bool                            { return true }
+func (stmt *ExceptStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *ExceptStmt) Alias() string                             { return "" }
+
+func (stmt *ExceptStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
+		return err
+	}
+	return stmt.right.inferParameters(ctx, tx, params)
+}
+
+func (stmt *ExceptStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ExceptStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	leftReader, err := stmt.left.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			leftReader.Close()
+		}
+	}()
+
+	rightReader, err := stmt.right.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			rightReader.Close()
+		}
+	}()
+
+	return newSetOpRowReader(ctx, leftReader, rightReader, setOpExcept)
+}
+
+// IntersectStmt implements INTERSECT set operation (rows in both left and right)
+type IntersectStmt struct {
+	left, right DataSource
+}
+
+func (stmt *IntersectStmt) readOnly() bool                            { return true }
+func (stmt *IntersectStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *IntersectStmt) Alias() string                             { return "" }
+
+func (stmt *IntersectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
+		return err
+	}
+	return stmt.right.inferParameters(ctx, tx, params)
+}
+
+func (stmt *IntersectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *IntersectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	leftReader, err := stmt.left.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			leftReader.Close()
+		}
+	}()
+
+	rightReader, err := stmt.right.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			rightReader.Close()
+		}
+	}()
+
+	return newSetOpRowReader(ctx, leftReader, rightReader, setOpIntersect)
+}
+
 func NewTableRef(table string, as string) *tableRef {
 	return &tableRef{
 		table: table,
@@ -4029,9 +4117,18 @@ type JoinSpec struct {
 	indexOn  []string
 }
 
+type NullsOrder int
+
+const (
+	NullsDefault NullsOrder = iota
+	NullsFirst
+	NullsLast
+)
+
 type OrdExp struct {
-	exp       ValueExp
-	descOrder bool
+	exp        ValueExp
+	descOrder  bool
+	nullsOrder NullsOrder
 }
 
 func (oc *OrdExp) AsSelector() Selector {

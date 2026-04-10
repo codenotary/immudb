@@ -6049,6 +6049,114 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestExceptIntersect(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE setA (id INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE setB (id INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO setA (id) VALUES (1);
+		INSERT INTO setA (id) VALUES (2);
+		INSERT INTO setA (id) VALUES (3);
+		INSERT INTO setB (id) VALUES (2);
+		INSERT INTO setB (id) VALUES (3);
+		INSERT INTO setB (id) VALUES (4);
+	`, nil)
+	require.NoError(t, err)
+
+	// EXCEPT: in A but not in B → {1}
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT a.id FROM setA a EXCEPT SELECT b.id FROM setB b`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	// INTERSECT: in both A and B → {2, 3}
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT a.id FROM setA a INTERSECT SELECT b.id FROM setB b`, nil)
+	require.NoError(t, err)
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(3), row.ValuesByPosition[0].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
+func TestNullsFirstLast(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE items (id INTEGER, val INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO items (id, val) VALUES (1, 10);
+		INSERT INTO items (id, val) VALUES (2, 20);
+		INSERT INTO items (id, val) VALUES (3, NULL);
+	`, nil)
+	require.NoError(t, err)
+
+	// NULLS LAST: null value should be at the end
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT id, val FROM items ORDER BY val ASC NULLS LAST`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue()) // val=10
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue()) // val=20
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(3), row.ValuesByPosition[0].RawValue()) // val=NULL
+	require.True(t, row.ValuesByPosition[1].IsNull())
+
+	r.Close()
+
+	// NULLS FIRST with DESC: null first, then descending
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT id, val FROM items ORDER BY val DESC NULLS FIRST`, nil)
+	require.NoError(t, err)
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(3), row.ValuesByPosition[0].RawValue()) // val=NULL first
+	require.True(t, row.ValuesByPosition[1].IsNull())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue()) // val=20
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue()) // val=10
+
+	r.Close()
+}
+
 func TestCrossJoin(t *testing.T) {
 	engine := setupCommonTest(t)
 

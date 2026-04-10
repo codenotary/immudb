@@ -69,6 +69,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     update *colUpdate
     updates []*colUpdate
     onConflict *OnConflictDo
+    nullsOrder NullsOrder
     permission Permission
     sqlPrivilege SQLPrivilege
     sqlPrivileges []SQLPrivilege
@@ -83,7 +84,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <keyword> TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
-%token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END
+%token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
 %token <keyword> NOT LIKE IF EXISTS IN IS
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
 %token <keyword> SHOW DATABASES TABLES USERS
@@ -159,6 +160,7 @@ mulExp unaryExp primary
 %type <id> opt_as
 %type <ordexps> ordexps opt_orderby
 %type <opt_ord> opt_ord
+%type <nullsOrder> opt_nulls_order
 %type <colNames> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
@@ -701,6 +703,22 @@ dqlstmt:
         }
     }
 |
+    select_stmt EXCEPT dqlstmt
+    {
+        $$ = &ExceptStmt{
+            left: $1.(DataSource),
+            right: $3.(DataSource),
+        }
+    }
+|
+    select_stmt INTERSECT dqlstmt
+    {
+        $$ = &IntersectStmt{
+            left: $1.(DataSource),
+            right: $3.(DataSource),
+        }
+    }
+|
     SHOW DATABASES
     {
         $$ = &SelectStmt{
@@ -1177,14 +1195,14 @@ opt_indexon:
 ;
 
 ordexps:
-    exp opt_ord
+    exp opt_ord opt_nulls_order
     {
-        $$ = []*OrdExp{{exp: $1, descOrder: $2}}
+        $$ = []*OrdExp{{exp: $1, descOrder: $2, nullsOrder: $3}}
     }
 |
-    ordexps ',' exp opt_ord
+    ordexps ',' exp opt_ord opt_nulls_order
     {
-        $$ = append($1, &OrdExp{exp: $3, descOrder: $4})
+        $$ = append($1, &OrdExp{exp: $3, descOrder: $4, nullsOrder: $5})
     }
 
 opt_ord:
@@ -1200,6 +1218,21 @@ opt_ord:
     DESC
     {
         $$ = true
+    }
+
+opt_nulls_order:
+    {
+        $$ = NullsDefault
+    }
+|
+    NULLS FIRST
+    {
+        $$ = NullsFirst
+    }
+|
+    NULLS LAST
+    {
+        $$ = NullsLast
     }
 
 opt_as:

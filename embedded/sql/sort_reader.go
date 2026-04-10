@@ -94,6 +94,11 @@ func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, e
 	t1 := make(Tuple, len(ordExps))
 	t2 := make(Tuple, len(ordExps))
 
+	nullsOrders := make([]NullsOrder, len(ordExps))
+	for i, col := range ordExps {
+		nullsOrders[i] = col.nullsOrder
+	}
+
 	sr.sorter.cmp = func(r1, r2 *Row) (int, error) {
 		if err := sr.evalSortExps(r1, t1); err != nil {
 			return 0, err
@@ -103,15 +108,44 @@ func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, e
 			return 0, err
 		}
 
-		res, idx, err := t1.Compare(t2)
-		if err != nil {
-			return 0, err
-		}
+		for i := range t1 {
+			v1Null := t1[i] == nil || t1[i].IsNull()
+			v2Null := t2[i] == nil || t2[i].IsNull()
 
-		if idx >= 0 {
-			return res * int(directions[idx]), nil
+			if v1Null && v2Null {
+				continue
+			}
+			if v1Null || v2Null {
+				nullOrder := nullsOrders[i]
+				if nullOrder == NullsDefault {
+					// immudb default: NULLS FIRST for ASC, NULLS LAST for DESC
+					if directions[i] == sortDirectionAsc {
+						nullOrder = NullsFirst
+					} else {
+						nullOrder = NullsLast
+					}
+				}
+				if v1Null {
+					if nullOrder == NullsFirst {
+						return -1, nil
+					}
+					return 1, nil
+				}
+				if nullOrder == NullsFirst {
+					return 1, nil
+				}
+				return -1, nil
+			}
+
+			res, err := t1[i].Compare(t2[i])
+			if err != nil {
+				return 0, err
+			}
+			if res != 0 {
+				return res * int(directions[i]), nil
+			}
 		}
-		return res, nil
+		return 0, nil
 	}
 	return sr, nil
 }
