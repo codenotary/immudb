@@ -165,7 +165,10 @@ func (sz *StandardZiper) extractAndWriteFile(fileInZip *zip.File, dst string) er
 	}
 	defer rc.Close()
 
-	path := sz.OS.Join(dst, fileInZip.Name)
+	path, err := sanitizeExtractPath(dst, fileInZip.Name)
+	if err != nil {
+		return err
+	}
 
 	if fileInZip.FileInfo().IsDir() {
 		sz.OS.MkdirAll(path, 0755)

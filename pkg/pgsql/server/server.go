@@ -85,6 +85,13 @@ func (s *pgsrv) Serve() (err error) {
 		return errors.New("no listener found for pgsql server")
 	}
 	s.listener = netutil.LimitListener(s.listener, s.maxConnections)
+
+	if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
+		s.logger.Warningf("pgsql server is running WITHOUT TLS. " +
+			"Client passwords will be transmitted in cleartext. " +
+			"Configure TLS or disable the pgsql server (--pgsql-server=false) in production.")
+	}
+
 	s.m.Unlock()
 
 	for {

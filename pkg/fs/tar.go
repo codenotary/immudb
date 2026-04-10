@@ -154,7 +154,10 @@ func (st *StandardTarer) unTarEntry(dst string, tr io.Reader, header *tar.Header
 	if header == nil {
 		return nil
 	}
-	target := st.OS.Join(dst, header.Name)
+	target, err := sanitizeExtractPath(dst, header.Name)
+	if err != nil {
+		return err
+	}
 	switch header.Typeflag { // or header.FileInfo() - same thing
 	case tar.TypeDir:
 		if err := st.OS.MkdirAll(target, 0755); err != nil {

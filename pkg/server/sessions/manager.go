@@ -58,6 +58,7 @@ type Manager interface {
 	DeleteTransaction(transactions.Transaction) error
 	CommitTransaction(ctx context.Context, transaction transactions.Transaction) ([]*sql.SQLTx, error)
 	RollbackTransaction(transaction transactions.Transaction) error
+	CloseSessionsForUser(username string) error
 }
 
 func NewManager(options *Options) (*manager, error) {
@@ -155,6 +156,21 @@ func (sm *manager) deleteSession(sessionID string) error {
 
 	delete(sm.sessions, sessionID)
 
+	return merr.Reduce()
+}
+
+func (sm *manager) CloseSessionsForUser(username string) error {
+	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+
+	merr := multierr.NewMultiErr()
+	for id, sess := range sm.sessions {
+		if sess.GetUser().Username == username {
+			if err := sm.deleteSession(id); err != nil {
+				merr.Append(err)
+			}
+		}
+	}
 	return merr.Reduce()
 }
 

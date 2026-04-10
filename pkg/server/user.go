@@ -347,6 +347,9 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	// invalidate the token for this user
 	auth.DropTokenKeys(targetUser.Username)
 
+	// terminate active sessions for this user
+	s.SessManager.CloseSessionsForUser(targetUser.Username)
+
 	return new(empty.Empty), nil
 }
 
@@ -440,6 +443,9 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	// remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
 
+	// terminate active sessions for this user
+	s.SessManager.CloseSessionsForUser(targetUser.Username)
+
 	return new(empty.Empty), nil
 }
 
@@ -499,6 +505,9 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
+
+	// terminate active sessions for this user
+	s.SessManager.CloseSessionsForUser(targetUser.Username)
 
 	return new(empty.Empty), nil
 }
@@ -726,6 +735,9 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 
 	// remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
+
+	// terminate active sessions for this user
+	s.SessManager.CloseSessionsForUser(targetUser.Username)
 
 	return &schema.ChangeSQLPrivilegesResponse{}, nil
 }
