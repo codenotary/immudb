@@ -1106,7 +1106,9 @@ func NewRowSpec(values []ValueExp) *RowSpec {
 	}
 }
 
-type OnConflictDo struct{}
+type OnConflictDo struct {
+	updates []*colUpdate // nil means DO NOTHING, non-nil means DO UPDATE SET ...
+}
 
 func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	ds, ok := stmt.ds.(*valuesDataSource)
@@ -1311,8 +1313,39 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			}
 
 			if err == nil && stmt.onConflict != nil {
-				// TODO: conflict resolution may be extended. Currently only supports "ON CONFLICT DO NOTHING"
-				continue
+				if stmt.onConflict.updates == nil {
+					// ON CONFLICT DO NOTHING
+					continue
+				}
+
+				// ON CONFLICT DO UPDATE SET ...
+				for _, u := range stmt.onConflict.updates {
+					col, colExists := table.colsByName[u.col]
+					if !colExists {
+						return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, u.col)
+					}
+
+					uval, err := u.val.substitute(params)
+					if err != nil {
+						return nil, err
+					}
+
+					rval, err := uval.reduce(tx, r, table.name)
+					if err != nil {
+						return nil, err
+					}
+
+					valuesByColID[col.id] = rval
+
+					// update row representation for check constraints
+					for i, c := range table.cols {
+						if c.id == col.id {
+							r.ValuesByPosition[i] = rval
+							r.ValuesBySelector[EncodeSelector("", table.name, c.colName)] = rval
+							break
+						}
+					}
+				}
 			}
 		}
 
@@ -3862,6 +3895,84 @@ func (stmt *IntersectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[st
 	}()
 
 	return newSetOpRowReader(ctx, leftReader, rightReader, setOpIntersect)
+}
+
+// CreateViewStmt creates a named view backed by a SELECT query
+type CreateViewStmt struct {
+	viewName    string
+	ifNotExists bool
+	query       DataSource
+}
+
+func (stmt *CreateViewStmt) readOnly() bool                     { return false }
+func (stmt *CreateViewStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *CreateViewStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CreateViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.engine.tableResolveFor(stmt.viewName) != nil {
+		if stmt.ifNotExists {
+			return tx, nil
+		}
+		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, stmt.viewName)
+	}
+
+	// Check that the view name doesn't conflict with a real table
+	if tx.catalog != nil {
+		if _, exists := tx.catalog.tablesByName[stmt.viewName]; exists {
+			return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, stmt.viewName)
+		}
+	}
+
+	tx.engine.registerTableResolver(stmt.viewName, &viewResolver{
+		name:  stmt.viewName,
+		query: stmt.query,
+	})
+
+	return tx, nil
+}
+
+// DropViewStmt removes a named view
+type DropViewStmt struct {
+	viewName string
+	ifExists bool
+}
+
+func (stmt *DropViewStmt) readOnly() bool                     { return false }
+func (stmt *DropViewStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *DropViewStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *DropViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.engine.tableResolveFor(stmt.viewName) == nil {
+		if stmt.ifExists {
+			return tx, nil
+		}
+		return nil, fmt.Errorf("view does not exist (%s)", stmt.viewName)
+	}
+
+	delete(tx.engine.tableResolvers, stmt.viewName)
+	return tx, nil
+}
+
+// viewResolver implements TableResolver for views
+type viewResolver struct {
+	name  string
+	query DataSource
+}
+
+func (r *viewResolver) Table() string { return r.name }
+
+func (r *viewResolver) Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error) {
+	reader, err := r.query.Resolve(ctx, tx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving view '%s': %w", r.name, err)
+	}
+	return reader, nil
 }
 
 func NewTableRef(table string, as string) *tableRef {

@@ -6049,6 +6049,127 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCreateAndDropView(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE employees (id INTEGER, name VARCHAR, dept VARCHAR, salary INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO employees (id, name, dept, salary) VALUES (1, 'Alice', 'eng', 100);
+		INSERT INTO employees (id, name, dept, salary) VALUES (2, 'Bob', 'eng', 120);
+		INSERT INTO employees (id, name, dept, salary) VALUES (3, 'Charlie', 'sales', 90);
+	`, nil)
+	require.NoError(t, err)
+
+	// Create a view
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE VIEW eng_employees AS SELECT id, name, salary FROM employees WHERE dept = 'eng'`, nil)
+	require.NoError(t, err)
+
+	// Query the view
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT name, salary FROM eng_employees`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Alice", row.ValuesByPosition[0].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Bob", row.ValuesByPosition[0].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+
+	// CREATE VIEW IF NOT EXISTS — should not error
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE VIEW IF NOT EXISTS eng_employees AS SELECT id FROM employees`, nil)
+	require.NoError(t, err)
+
+	// CREATE VIEW without IF NOT EXISTS — should error
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE VIEW eng_employees AS SELECT id FROM employees`, nil)
+	require.Error(t, err)
+
+	// DROP VIEW
+	_, _, err = engine.Exec(context.Background(), nil,
+		`DROP VIEW eng_employees`, nil)
+	require.NoError(t, err)
+
+	// Query after drop should fail
+	_, err = engine.Query(context.Background(), nil,
+		`SELECT name FROM eng_employees`, nil)
+	require.Error(t, err)
+
+	// DROP VIEW IF EXISTS — should not error
+	_, _, err = engine.Exec(context.Background(), nil,
+		`DROP VIEW IF EXISTS eng_employees`, nil)
+	require.NoError(t, err)
+
+	// DROP VIEW non-existent — should error
+	_, _, err = engine.Exec(context.Background(), nil,
+		`DROP VIEW eng_employees`, nil)
+	require.Error(t, err)
+}
+
+func TestOnConflictDoUpdate(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE kv (key VARCHAR[100], value VARCHAR[256], version INTEGER, PRIMARY KEY key)`, nil)
+	require.NoError(t, err)
+
+	// Initial insert
+	_, _, err = engine.Exec(context.Background(), nil,
+		`INSERT INTO kv (key, value, version) VALUES ('k1', 'v1', 1)`, nil)
+	require.NoError(t, err)
+
+	// ON CONFLICT DO NOTHING — should not update
+	_, _, err = engine.Exec(context.Background(), nil,
+		`INSERT INTO kv (key, value, version) VALUES ('k1', 'v2', 2) ON CONFLICT DO NOTHING`, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT value, version FROM kv WHERE key = 'k1'`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "v1", row.ValuesByPosition[0].RawValue()) // unchanged
+	require.Equal(t, int64(1), row.ValuesByPosition[1].RawValue())
+	r.Close()
+
+	// ON CONFLICT DO UPDATE SET — should update value and version
+	_, _, err = engine.Exec(context.Background(), nil,
+		`INSERT INTO kv (key, value, version) VALUES ('k1', 'v3', 3) ON CONFLICT DO UPDATE SET value = 'v3', version = 3`, nil)
+	require.NoError(t, err)
+
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT value, version FROM kv WHERE key = 'k1'`, nil)
+	require.NoError(t, err)
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "v3", row.ValuesByPosition[0].RawValue()) // updated
+	require.Equal(t, int64(3), row.ValuesByPosition[1].RawValue())
+	r.Close()
+
+	// Insert new key with ON CONFLICT — should just insert
+	_, _, err = engine.Exec(context.Background(), nil,
+		`INSERT INTO kv (key, value, version) VALUES ('k2', 'v1', 1) ON CONFLICT DO UPDATE SET value = 'should_not_happen'`, nil)
+	require.NoError(t, err)
+
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT value FROM kv WHERE key = 'k2'`, nil)
+	require.NoError(t, err)
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "v1", row.ValuesByPosition[0].RawValue()) // inserted, not updated
+	r.Close()
+}
+
 func TestExceptIntersect(t *testing.T) {
 	engine := setupCommonTest(t)
 

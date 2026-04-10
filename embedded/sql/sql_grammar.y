@@ -87,7 +87,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
 %token <keyword> NOT LIKE IF EXISTS IN IS
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
-%token <keyword> SHOW DATABASES TABLES USERS
+%token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
 %token <keyword> EXTRACT YEAR MONTH DAY HOUR MINUTE SECOND
 
@@ -259,6 +259,26 @@ ddlstmt:
     DROP TABLE qualifiedName
     {
         $$ = &DropTableStmt{table: $3}
+    }
+|
+    CREATE VIEW IF NOT EXISTS IDENTIFIER AS dqlstmt
+    {
+        $$ = &CreateViewStmt{viewName: $6, ifNotExists: true, query: $8.(DataSource)}
+    }
+|
+    CREATE VIEW IDENTIFIER AS dqlstmt
+    {
+        $$ = &CreateViewStmt{viewName: $3, query: $5.(DataSource)}
+    }
+|
+    DROP VIEW IF EXISTS IDENTIFIER
+    {
+        $$ = &DropViewStmt{viewName: $5, ifExists: true}
+    }
+|
+    DROP VIEW IDENTIFIER
+    {
+        $$ = &DropViewStmt{viewName: $3}
     }
 |
     CREATE INDEX opt_if_not_exists ON tableName '(' col_names ')'
@@ -458,6 +478,11 @@ opt_on_conflict:
     ON CONFLICT DO NOTHING
     {
         $$ = &OnConflictDo{}
+    }
+|
+    ON CONFLICT DO UPDATE SET updates
+    {
+        $$ = &OnConflictDo{updates: $6}
     }
 
 updates:
