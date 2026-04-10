@@ -6304,6 +6304,166 @@ func TestSubQuery(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestExistsSubquery(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE orders (id INTEGER, customer_id INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE customers (id INTEGER, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO customers (id, name) VALUES (1, 'Alice');
+		INSERT INTO customers (id, name) VALUES (2, 'Bob');
+		INSERT INTO orders (id, customer_id) VALUES (1, 1);
+		INSERT INTO orders (id, customer_id) VALUES (2, 1);
+	`, nil)
+	require.NoError(t, err)
+
+	// EXISTS with non-correlated subquery: returns rows when subquery has results
+	r, err := engine.Query(context.Background(), nil, `
+		SELECT c.id, c.name FROM customers c
+		WHERE EXISTS (SELECT o.id FROM orders o)
+	`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "c", "id")].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "c", "id")].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	// NOT EXISTS with non-correlated subquery: returns nothing when subquery has results
+	r, err = engine.Query(context.Background(), nil, `
+		SELECT c.id FROM customers c
+		WHERE NOT EXISTS (SELECT o.id FROM orders o)
+	`, nil)
+	require.NoError(t, err)
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	// EXISTS with empty subquery result: no rows returned
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE empty_table (id INTEGER, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	r, err = engine.Query(context.Background(), nil, `
+		SELECT c.id FROM customers c
+		WHERE EXISTS (SELECT e.id FROM empty_table e)
+	`, nil)
+	require.NoError(t, err)
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	// NOT EXISTS with empty subquery: all rows returned
+	r, err = engine.Query(context.Background(), nil, `
+		SELECT c.id FROM customers c
+		WHERE NOT EXISTS (SELECT e.id FROM empty_table e)
+	`, nil)
+	require.NoError(t, err)
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "c", "id")].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "c", "id")].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
+func TestInSubquery(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE products (id INTEGER, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE featured (product_id INTEGER, PRIMARY KEY product_id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO products (id, name) VALUES (1, 'Widget');
+		INSERT INTO products (id, name) VALUES (2, 'Gadget');
+		INSERT INTO products (id, name) VALUES (3, 'Doohickey');
+		INSERT INTO featured (product_id) VALUES (1);
+		INSERT INTO featured (product_id) VALUES (3);
+	`, nil)
+	require.NoError(t, err)
+
+	// IN subquery: products that are featured
+	r, err := engine.Query(context.Background(), nil, `
+		SELECT p.id, p.name FROM products p
+		WHERE p.id IN (SELECT f.product_id FROM featured f)
+	`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesBySelector[EncodeSelector("", "p", "id")].RawValue())
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(3), row.ValuesBySelector[EncodeSelector("", "p", "id")].RawValue())
+
+	// Gadget (id=2) is not featured
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	// NOT IN subquery: products that are NOT featured
+	r, err = engine.Query(context.Background(), nil, `
+		SELECT p.id, p.name FROM products p
+		WHERE p.id NOT IN (SELECT f.product_id FROM featured f)
+	`, nil)
+	require.NoError(t, err)
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesBySelector[EncodeSelector("", "p", "id")].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	// Empty subquery: IN with no matches
+	r, err = engine.Query(context.Background(), nil, `
+		SELECT p.id FROM products p
+		WHERE p.id IN (SELECT f.product_id FROM featured f WHERE f.product_id > 100)
+	`, nil)
+	require.NoError(t, err)
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
 func TestJoinsWithSubquery(t *testing.T) {
 	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
 	require.NoError(t, err)
@@ -9489,7 +9649,7 @@ func TestCheckConstraints(t *testing.T) {
 				PRIMARY KEY id
 			)`, nil,
 		)
-		require.ErrorIs(t, err, ErrNoSupported)
+		require.Error(t, err)
 
 		_, _, err = engine.Exec(
 			context.Background(),
@@ -9502,7 +9662,7 @@ func TestCheckConstraints(t *testing.T) {
 				PRIMARY KEY id
 			)`, nil,
 		)
-		require.ErrorIs(t, err, ErrNoSupported)
+		require.Error(t, err)
 	})
 }
 

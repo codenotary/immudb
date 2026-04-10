@@ -5162,11 +5162,14 @@ type ExistsBoolExp struct {
 }
 
 func (bexp *ExistsBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
-	return AnyType, fmt.Errorf("error inferring type in 'EXISTS' clause: %w", ErrNoSupported)
+	return BooleanType, nil
 }
 
 func (bexp *ExistsBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	return fmt.Errorf("error inferring type in 'EXISTS' clause: %w", ErrNoSupported)
+	if t != BooleanType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return nil
 }
 
 func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -5174,7 +5177,25 @@ func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (bexp *ExistsBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
-	return nil, fmt.Errorf("'EXISTS' clause: %w", ErrNoSupported)
+	if tx == nil {
+		return nil, fmt.Errorf("'EXISTS' clause: %w", ErrNoSupported)
+	}
+
+	reader, err := bexp.q.Resolve(tx.tx.Context(), tx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'EXISTS' clause: %w", err)
+	}
+	defer reader.Close()
+
+	_, err = reader.Read(tx.tx.Context())
+	if err != nil {
+		if err == ErrNoMoreRows {
+			return &Bool{val: false}, nil
+		}
+		return nil, fmt.Errorf("error in 'EXISTS' clause: %w", err)
+	}
+
+	return &Bool{val: true}, nil
 }
 
 func (bexp *ExistsBoolExp) selectors() []Selector {
@@ -5204,11 +5225,14 @@ type InSubQueryExp struct {
 }
 
 func (bexp *InSubQueryExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
-	return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
+	return BooleanType, nil
 }
 
 func (bexp *InSubQueryExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	return fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
+	if t != BooleanType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return nil
 }
 
 func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -5216,7 +5240,58 @@ func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (bexp *InSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
-	return nil, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
+	if tx == nil {
+		return nil, fmt.Errorf("'IN' subquery clause: %w", ErrNoSupported)
+	}
+
+	rval, err := bexp.val.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+	}
+
+	reader, err := bexp.q.Resolve(tx.tx.Context(), tx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
+	}
+	defer reader.Close()
+
+	cols, err := reader.Columns(tx.tx.Context())
+	if err != nil {
+		return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
+	}
+
+	if len(cols) == 0 {
+		return nil, fmt.Errorf("error in 'IN' subquery: subquery must return exactly one column")
+	}
+
+	var found bool
+
+	for {
+		subRow, err := reader.Read(tx.tx.Context())
+		if err != nil {
+			if err == ErrNoMoreRows {
+				break
+			}
+			return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
+		}
+
+		if len(subRow.ValuesByPosition) == 0 {
+			continue
+		}
+
+		subVal := subRow.ValuesByPosition[0]
+		r, err := rval.Compare(subVal)
+		if err != nil {
+			continue
+		}
+
+		if r == 0 {
+			found = true
+			break
+		}
+	}
+
+	return &Bool{val: found != bexp.notIn}, nil
 }
 
 func (bexp *InSubQueryExp) selectors() []Selector {

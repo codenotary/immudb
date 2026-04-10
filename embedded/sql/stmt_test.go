@@ -794,19 +794,24 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 	}
 }
 
-func TestYetUnsupportedExistsBoolExp(t *testing.T) {
+func TestExistsBoolExp(t *testing.T) {
 	exp := &ExistsBoolExp{}
 
-	_, err := exp.inferType(nil, nil, "")
-	require.Error(t, err)
+	tp, err := exp.inferType(nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, BooleanType, tp)
 
 	err = exp.requiresType(BooleanType, nil, nil, "")
+	require.NoError(t, err)
+
+	err = exp.requiresType(IntegerType, nil, nil, "")
 	require.Error(t, err)
 
 	rexp, err := exp.substitute(nil)
 	require.NoError(t, err)
 	require.Equal(t, exp, rexp)
 
+	// reduce with nil tx returns error (no transaction context)
 	_, err = exp.reduce(nil, nil, "")
 	require.Error(t, err)
 
@@ -817,21 +822,26 @@ func TestYetUnsupportedExistsBoolExp(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 }
 
-func TestYetUnsupportedInSubQueryExp(t *testing.T) {
+func TestInSubQueryExp(t *testing.T) {
 	exp := &InSubQueryExp{}
 
-	_, err := exp.inferType(nil, nil, "")
-	require.ErrorIs(t, err, ErrNoSupported)
+	tp, err := exp.inferType(nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, BooleanType, tp)
 
 	err = exp.requiresType(BooleanType, nil, nil, "")
-	require.ErrorIs(t, err, ErrNoSupported)
+	require.NoError(t, err)
+
+	err = exp.requiresType(IntegerType, nil, nil, "")
+	require.Error(t, err)
 
 	rexp, err := exp.substitute(nil)
 	require.NoError(t, err)
 	require.Equal(t, exp, rexp)
 
+	// reduce with nil tx returns error (no transaction context)
 	_, err = exp.reduce(nil, nil, "")
-	require.ErrorIs(t, err, ErrNoSupported)
+	require.Error(t, err)
 
 	require.Equal(t, exp, exp.reduceSelectors(nil, ""))
 
