@@ -24,8 +24,6 @@ import (
 	"os"
 	"strings"
 
-	_ "crypto/tls/fipsonly"
-
 	c "github.com/codenotary/immudb/cmd/helper"
 	immuclient "github.com/codenotary/immudb/cmd/immuclient/command"
 )

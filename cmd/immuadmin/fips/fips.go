@@ -20,8 +20,6 @@ limitations under the License.
 package main
 
 import (
-	_ "crypto/tls/fipsonly"
-
 	immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
 )
 
