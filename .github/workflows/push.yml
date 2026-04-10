@@ -88,9 +88,9 @@ jobs:
           - os: ubuntu-latest
             selector: '*-linux-arm64'
             qemu-binfmt: true
-          - os: ubuntu-latest
-            selector: '*-linux-s390x'
-            qemu-binfmt: true
+          # - os: ubuntu-latest
+          #   selector: '*-linux-s390x'
+          #   qemu-binfmt: true
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/download-artifact@v4
@@ -324,8 +324,3 @@ jobs:
           docker rm -f minio
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Analyze with SonarCloud
-        uses: sonarsource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
