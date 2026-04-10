@@ -189,8 +189,6 @@ jobs:
       - go-version
     uses: ./.github/workflows/performance.yml
     secrets: inherit
-    with:
-      go-version: "1.24"
 
   notarize-binaries:
       name: Notarize binaries
