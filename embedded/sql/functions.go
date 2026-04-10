@@ -18,6 +18,7 @@ package sql
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -58,6 +59,31 @@ const (
 	ArrayUpperFnCall             string = "ARRAY_UPPER"
 	PgGetSerialSequenceFnCall    string = "PG_GET_SERIAL_SEQUENCE"
 	ColDescriptionFnCall         string = "COL_DESCRIPTION"
+
+	// Math functions
+	AbsFnCall     string = "ABS"
+	CeilFnCall    string = "CEIL"
+	FloorFnCall   string = "FLOOR"
+	RoundFnCall   string = "ROUND"
+	PowerFnCall   string = "POWER"
+	SqrtFnCall    string = "SQRT"
+	ModFnCall     string = "MOD"
+	SignFnCall    string = "SIGN"
+
+	// String functions
+	ReplaceFnCall  string = "REPLACE"
+	ReverseFnCall  string = "REVERSE"
+	LeftFnCall     string = "LEFT"
+	RightFnCall    string = "RIGHT"
+	RepeatFnCall   string = "REPEAT"
+	PositionFnCall string = "POSITION"
+	CharLengthFnCall string = "CHAR_LENGTH"
+	OctetLengthFnCall string = "OCTET_LENGTH"
+
+	// Conditional functions
+	NullIfFnCall   string = "NULLIF"
+	GreatestFnCall string = "GREATEST"
+	LeastFnCall    string = "LEAST"
 )
 
 var builtinFunctions = map[string]Function{
@@ -87,6 +113,31 @@ var builtinFunctions = map[string]Function{
 	ArrayUpperFnCall:             &pgNullIntStub{name: ArrayUpperFnCall},
 	PgGetSerialSequenceFnCall:    &pgVarcharStub{name: PgGetSerialSequenceFnCall, nParams: -1},
 	ColDescriptionFnCall:         &pgVarcharStub{name: ColDescriptionFnCall, nParams: -1},
+
+	// Math functions
+	AbsFnCall:     &mathFn{name: AbsFnCall},
+	CeilFnCall:    &mathFn{name: CeilFnCall},
+	FloorFnCall:   &mathFn{name: FloorFnCall},
+	RoundFnCall:   &mathFn{name: RoundFnCall},
+	PowerFnCall:   &mathFn{name: PowerFnCall},
+	SqrtFnCall:    &mathFn{name: SqrtFnCall},
+	ModFnCall:     &mathFn{name: ModFnCall},
+	SignFnCall:    &mathFn{name: SignFnCall},
+
+	// String functions
+	ReplaceFnCall:    &replaceFn{},
+	ReverseFnCall:    &reverseFn{},
+	LeftFnCall:       &leftRightFn{isRight: false},
+	RightFnCall:      &leftRightFn{isRight: true},
+	RepeatFnCall:     &repeatFn{},
+	PositionFnCall:   &positionFn{},
+	CharLengthFnCall: &LengthFn{},
+	OctetLengthFnCall: &LengthFn{},
+
+	// Conditional functions
+	NullIfFnCall:   &nullIfFn{},
+	GreatestFnCall: &greatestLeastFn{isGreatest: true},
+	LeastFnCall:    &greatestLeastFn{isGreatest: false},
 }
 
 type Function interface {
@@ -699,4 +750,321 @@ func (f *pgNullIntStub) RequiresType(t SQLValueType, cols map[string]ColDescript
 
 func (f *pgNullIntStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	return NewNull(IntegerType), nil
+}
+
+// -------------------------------------
+// Math Functions
+// -------------------------------------
+
+type mathFn struct {
+	name string
+}
+
+func (f *mathFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+
+func (f *mathFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != Float64Type && t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as numeric type", ErrInvalidTypes, t)
+	}
+	return nil
+}
+
+func (f *mathFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	switch f.name {
+	case AbsFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Abs)
+	case CeilFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Ceil)
+	case FloorFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Floor)
+	case RoundFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Round)
+	case SqrtFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Sqrt)
+	case SignFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], func(v float64) float64 {
+			if v > 0 {
+				return 1
+			}
+			if v < 0 {
+				return -1
+			}
+			return 0
+		})
+	case PowerFnCall:
+		if len(params) != 2 {
+			return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, f.name)
+		}
+		return f.applyBinary(params[0], params[1], math.Pow)
+	case ModFnCall:
+		if len(params) != 2 {
+			return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, f.name)
+		}
+		return f.applyBinary(params[0], params[1], math.Mod)
+	default:
+		return nil, fmt.Errorf("%w: unknown math function '%s'", ErrIllegalArguments, f.name)
+	}
+}
+
+func (f *mathFn) applyUnary(p TypedValue, fn func(float64) float64) (TypedValue, error) {
+	if p.IsNull() {
+		return NewNull(Float64Type), nil
+	}
+
+	var v float64
+	switch raw := p.RawValue().(type) {
+	case int64:
+		v = float64(raw)
+	case float64:
+		v = raw
+	default:
+		return nil, fmt.Errorf("%w: '%s' expects a numeric argument", ErrIllegalArguments, f.name)
+	}
+	return NewFloat64(fn(v)), nil
+}
+
+func (f *mathFn) applyBinary(a, b TypedValue, fn func(float64, float64) float64) (TypedValue, error) {
+	if a.IsNull() || b.IsNull() {
+		return NewNull(Float64Type), nil
+	}
+
+	var va, vb float64
+	switch raw := a.RawValue().(type) {
+	case int64:
+		va = float64(raw)
+	case float64:
+		va = raw
+	default:
+		return nil, fmt.Errorf("%w: '%s' expects numeric arguments", ErrIllegalArguments, f.name)
+	}
+	switch raw := b.RawValue().(type) {
+	case int64:
+		vb = float64(raw)
+	case float64:
+		vb = raw
+	default:
+		return nil, fmt.Errorf("%w: '%s' expects numeric arguments", ErrIllegalArguments, f.name)
+	}
+	return NewFloat64(fn(va, vb)), nil
+}
+
+// -------------------------------------
+// Additional String Functions
+// -------------------------------------
+
+type replaceFn struct{}
+
+func (f *replaceFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *replaceFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *replaceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 3 {
+		return nil, fmt.Errorf("%w: '%s' expects 3 arguments", ErrIllegalArguments, ReplaceFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	old, _ := params[1].RawValue().(string)
+	new, _ := params[2].RawValue().(string)
+	return NewVarchar(strings.ReplaceAll(s, old, new)), nil
+}
+
+type reverseFn struct{}
+
+func (f *reverseFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *reverseFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *reverseFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, ReverseFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return NewVarchar(string(runes)), nil
+}
+
+type leftRightFn struct {
+	isRight bool
+}
+
+func (f *leftRightFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *leftRightFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *leftRightFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: function expects 2 arguments", ErrIllegalArguments)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	n, _ := params[1].RawValue().(int64)
+	if n < 0 {
+		n = 0
+	}
+	if int(n) > len(s) {
+		return NewVarchar(s), nil
+	}
+	if f.isRight {
+		return NewVarchar(s[len(s)-int(n):]), nil
+	}
+	return NewVarchar(s[:int(n)]), nil
+}
+
+type repeatFn struct{}
+
+func (f *repeatFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *repeatFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *repeatFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, RepeatFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	n, _ := params[1].RawValue().(int64)
+	if n <= 0 {
+		return NewVarchar(""), nil
+	}
+	return NewVarchar(strings.Repeat(s, int(n))), nil
+}
+
+type positionFn struct{}
+
+func (f *positionFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *positionFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *positionFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, PositionFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	substr, _ := params[0].RawValue().(string)
+	s, _ := params[1].RawValue().(string)
+	pos := strings.Index(s, substr)
+	if pos < 0 {
+		return NewInteger(0), nil
+	}
+	return NewInteger(int64(pos + 1)), nil // 1-based
+}
+
+// -------------------------------------
+// Conditional Functions
+// -------------------------------------
+
+type nullIfFn struct{}
+
+func (f *nullIfFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return AnyType, nil
+}
+func (f *nullIfFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *nullIfFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, NullIfFnCall)
+	}
+	r, err := params[0].Compare(params[1])
+	if err != nil {
+		return params[0], nil
+	}
+	if r == 0 {
+		return NewNull(params[0].Type()), nil
+	}
+	return params[0], nil
+}
+
+type greatestLeastFn struct {
+	isGreatest bool
+}
+
+func (f *greatestLeastFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return AnyType, nil
+}
+func (f *greatestLeastFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *greatestLeastFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) == 0 {
+		return nil, fmt.Errorf("%w: function expects at least 1 argument", ErrIllegalArguments)
+	}
+	result := params[0]
+	for _, p := range params[1:] {
+		if result.IsNull() {
+			result = p
+			continue
+		}
+		if p.IsNull() {
+			continue
+		}
+		cmp, err := result.Compare(p)
+		if err != nil {
+			continue
+		}
+		if (f.isGreatest && cmp < 0) || (!f.isGreatest && cmp > 0) {
+			result = p
+		}
+	}
+	return result, nil
 }

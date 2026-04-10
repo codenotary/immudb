@@ -202,6 +202,7 @@ const (
 	InnerJoin JoinType = iota
 	LeftJoin
 	RightJoin
+	CrossJoin
 )
 
 type SQLStmt interface {

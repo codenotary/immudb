@@ -150,7 +150,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <check> check
 %type <tableElem> tableElem
 %type <tableElems> tableElems
-%type <exp> exp opt_exp opt_where opt_having boundexp opt_else orExp andExp cmpExp primaryBool addExp notExp
+%type <exp> exp opt_exp opt_where opt_having boundexp opt_else orExp andExp cmpExp primaryBool addExp notExp opt_join_cond
 mulExp unaryExp primary
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset case_when_exp
@@ -1072,9 +1072,17 @@ joins:
     }
 
 join:
-    opt_join_type JOIN ds opt_indexon ON exp
+    opt_join_type JOIN ds opt_indexon opt_join_cond
     {
-        $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: $6}
+        if $5 == nil && $1 != CrossJoin {
+            yylex.Error("ON clause is required for non-CROSS joins")
+            goto ret1
+        }
+        cond := $5
+        if cond == nil {
+            cond = &Bool{val: true}
+        }
+        $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: cond.(ValueExp)}
     }
 
 opt_join_type:
@@ -1085,6 +1093,16 @@ opt_join_type:
     JOINTYPE
     {
         $$ = $1
+    }
+
+opt_join_cond:
+    {
+        $$ = nil
+    }
+|
+    ON exp
+    {
+        $$ = $2
     }
 
 opt_where:

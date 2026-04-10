@@ -140,6 +140,7 @@ var joinTypes = map[string]JoinType{
 	"INNER": InnerJoin,
 	"LEFT":  LeftJoin,
 	"RIGHT": RightJoin,
+	"CROSS": CrossJoin,
 }
 
 var aggregateFns = map[string]AggregateFn{

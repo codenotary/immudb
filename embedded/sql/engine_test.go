@@ -6049,6 +6049,45 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCrossJoin(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE colors (id INTEGER, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE sizes (id INTEGER, label VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO colors (id, name) VALUES (1, 'red');
+		INSERT INTO colors (id, name) VALUES (2, 'blue');
+		INSERT INTO sizes (id, label) VALUES (1, 'S');
+		INSERT INTO sizes (id, label) VALUES (2, 'M');
+		INSERT INTO sizes (id, label) VALUES (3, 'L');
+	`, nil)
+	require.NoError(t, err)
+
+	// CROSS JOIN produces cartesian product: 2 colors * 3 sizes = 6 rows
+	r, err := engine.Query(context.Background(), nil, `
+		SELECT c.name, s.label FROM colors c CROSS JOIN sizes s
+	`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 6, count)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
 func TestNestedJoins(t *testing.T) {
 	engine := setupCommonTest(t)
 
