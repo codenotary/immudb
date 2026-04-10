@@ -42,6 +42,25 @@ Data stored in immudb is cryptographically coherent and verifiable. Unlike block
 
 When used as a relational data database, it supports both transactions and blobs, so there are no limits to the use cases. Developers and organizations use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
 
+## Recent Changes
+
+### DIFF OF SQL Query
+
+immudb now supports comparing table state between two points in time using the new `DIFF OF` SQL syntax:
+
+```sql
+SELECT _diff_action, id, title, active FROM (DIFF OF mytable) SINCE TX 100 UNTIL TX 200
+```
+
+The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, or `DELETE` within the specified transaction range. Both `SINCE`/`AFTER` and `UNTIL`/`BEFORE` period specifiers are supported. Standard `WHERE` clauses can be applied to filter results.
+
+### Security Hardening
+
+- **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
+- **Session invalidation**: User deactivation, password changes, permission changes, and SQL privilege changes now immediately terminate all active sessions for the affected user.
+- **Token file permissions**: Client authentication tokens are now written with `0600` permissions (owner-only) instead of `0644`.
+- **PgSQL TLS warning**: The PostgreSQL-compatible server now logs a warning at startup when running without TLS, as cleartext password authentication is used.
+
 ## Contents
 
 - [immudb](#immudb)
