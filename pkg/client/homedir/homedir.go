@@ -45,12 +45,12 @@ func (h *homedirService) WriteFileToUserHomeDir(content []byte, pathToFile strin
 		user, err := user.Current()
 		if err == nil {
 			p = filepath.Join(user.HomeDir, p)
-			if err := ioutil.WriteFile(p, content, 0644); err == nil {
+			if err := ioutil.WriteFile(p, content, 0600); err == nil {
 				return nil
 			}
 		}
 	}
-	return ioutil.WriteFile(p, content, 0644)
+	return ioutil.WriteFile(p, content, 0600)
 }
 
 // FileExistsInUserHomeDir checks if the file at the provided path exists or, in

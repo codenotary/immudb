@@ -327,3 +327,36 @@ func TestManagerNewSessionFailureForNoRandomSource(t *testing.T) {
 		require.ErrorIs(t, err, ErrCantCreateSession)
 	})
 }
+
+func TestCloseSessionsForUser(t *testing.T) {
+	opts := DefaultOptions().WithMaxSessions(10)
+	m, err := NewManager(opts)
+	require.NoError(t, err)
+
+	// Create 2 sessions for alice and 1 for bob
+	_, err = m.NewSession(&auth.User{Username: "alice"}, nil)
+	require.NoError(t, err)
+	_, err = m.NewSession(&auth.User{Username: "alice"}, nil)
+	require.NoError(t, err)
+	_, err = m.NewSession(&auth.User{Username: "bob"}, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, 3, m.SessionCount())
+
+	// Close alice's sessions
+	err = m.CloseSessionsForUser("alice")
+	require.NoError(t, err)
+
+	// Only bob's session should remain
+	require.Equal(t, 1, m.SessionCount())
+
+	// Closing sessions for non-existent user should be a no-op
+	err = m.CloseSessionsForUser("nonexistent")
+	require.NoError(t, err)
+	require.Equal(t, 1, m.SessionCount())
+
+	// Close bob's session
+	err = m.CloseSessionsForUser("bob")
+	require.NoError(t, err)
+	require.Equal(t, 0, m.SessionCount())
+}
