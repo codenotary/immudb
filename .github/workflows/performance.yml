@@ -43,7 +43,7 @@ jobs:
       INFLUX_HOST: ${{ secrets.INFLUX_HOST }}
       INFLUX_TOKEN: ${{ secrets.INFLUX_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
@@ -59,7 +59,7 @@ jobs:
         env:
           GOMEMLIMIT: 7680MiB
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
@@ -93,11 +93,11 @@ jobs:
     env:
       PERF_TEST_AWS_REGION: ${{ secrets.PERF_TEST_AWS_REGION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download test results
         if: "${{ env.PERF_TEST_AWS_REGION }}"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Performance Test Results (${{ matrix.target.name }})
 

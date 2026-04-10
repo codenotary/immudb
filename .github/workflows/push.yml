@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.MIN_SUPPORTED_GO_VERSION }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: make all
 
   gosec:
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run Gosec Security Scanner
         uses: securego/gosec@v2.17.0
         with:
@@ -54,14 +54,14 @@ jobs:
         - uses: actions/setup-go@v6
           with:
             go-version: ${{ env.GO_VERSION }}
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - name: Build binaries
           run: WEBCONSOLE=default SWAGGER=true make dist
         - id: list-binaries
           run: |
             echo "matrix=$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')" >> $GITHUB_OUTPUT
         - name: Upload binary artifacts
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@v7
           with:
             name: immudb-binaries
             path: dist
@@ -93,7 +93,7 @@ jobs:
           #   qemu-binfmt: true
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       with:
         name: immudb-binaries
         path: dist
@@ -108,7 +108,7 @@ jobs:
       if: runner.os != 'Windows'
 
     - name: Install qemu binaries
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@v4
       if: matrix.qemu-binfmt
 
     - name: Run immudb in the background
@@ -149,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download binary artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: immudb-binaries
         path: dist
@@ -160,7 +160,7 @@ jobs:
     - uses: actions/setup-go@v6
       with:
         go-version: ${{ env.GO_VERSION }}
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Run KV stress test
       run: |
         go run ./tools/testing/stress_tool_test_kv/ \
@@ -204,7 +204,7 @@ jobs:
         JOB_ID: ${{ github.run_id }}
       steps:
         - name: Download binary artifacts
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: immudb-binaries
             path: dist
@@ -229,7 +229,7 @@ jobs:
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - name: Build docker images
           shell: bash
           run: |
@@ -300,7 +300,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: |
           # Spawn minio docker container in the background
           docker run -d -t -p 9000:9000 --name minio \
