@@ -99,6 +99,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("grpc-reflection", options.GRPCReflectionServerEnabled, "GRPC reflection server enabled")
 	cmd.Flags().Bool("swaggerui", options.SwaggerUIEnabled, "Swagger UI enabled")
 	cmd.Flags().Bool("log-request-metadata", options.LogRequestMetadata, "log request information in transaction metadata")
+	cmd.Flags().Bool("audit-log", options.AuditLog, "enable structured audit logging of all operations to an immutable audit trail")
+	cmd.Flags().String("audit-log-events", options.AuditLogEvents, "audit event filter: all, write, admin")
 
 	flagNameMapping := map[string]string{
 		"replication-enabled":           "replication-is-replica",
@@ -129,6 +131,8 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("log-rotation-size", options.LogRotationSize)
 	viper.SetDefault("log-rotation-age", options.LogRotationAge)
 	viper.SetDefault("log-access", options.LogAccess)
+	viper.SetDefault("audit-log", options.AuditLog)
+	viper.SetDefault("audit-log-events", options.AuditLogEvents)
 	viper.SetDefault("mtls", false)
 	viper.SetDefault("auth", options.GetAuth())
 	viper.SetDefault("max-recv-msg-size", options.MaxRecvMsgSize)

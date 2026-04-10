@@ -44,6 +44,40 @@ When used as a relational data database, it supports both transactions and blobs
 
 ## Recent Changes
 
+### Structured Audit Logging
+
+immudb now supports immutable, structured audit logging of all server operations. When enabled, every gRPC operation is recorded as a JSON audit event stored in immudb's own tamper-proof KV store under the `audit:` key prefix.
+
+**Enable audit logging:**
+
+```bash
+# Log all operations
+./immudb --audit-log
+
+# Log only write, admin, auth, and system operations (exclude reads)
+./immudb --audit-log --audit-log-events=write
+
+# Log only admin, auth, and system operations
+./immudb --audit-log --audit-log-events=admin
+```
+
+Each audit event captures:
+
+| Field     | Description                                      |
+| --------- | ------------------------------------------------ |
+| `ts`      | Nanosecond timestamp                             |
+| `user`    | Authenticated username                           |
+| `ip`      | Client IP address                                |
+| `db`      | Target database                                  |
+| `method`  | gRPC method name                                 |
+| `type`    | Event category: AUTH, ADMIN, WRITE, READ, SYSTEM |
+| `ok`      | Whether the operation succeeded                  |
+| `err`     | Error message (if failed)                        |
+| `dur_ms`  | Operation duration in milliseconds               |
+| `sid`     | Session ID                                       |
+
+Audit events are written asynchronously to avoid impacting request latency. They can be queried using the standard `Scan` API with prefix `audit:` and verified with `VerifiableGet` for tamper-proof compliance evidence. Events are stored as JSON, ready for export to external SIEM systems (Splunk, ELK, etc.).
+
 ### DIFF OF SQL Query
 
 immudb now supports comparing table state between two points in time using the new `DIFF OF` SQL syntax:
@@ -65,6 +99,10 @@ The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, 
 
 - [immudb](#immudb)
   - [Contents](#contents)
+  - [Recent Changes](#recent-changes)
+    - [Structured Audit Logging](#structured-audit-logging)
+    - [DIFF OF SQL Query](#diff-of-sql-query)
+    - [Security Hardening](#security-hardening)
   - [Quickstart](#quickstart)
     - [Getting immudb running: executable](#getting-immudb-running-executable)
     - [Getting immudb running: docker](#getting-immudb-running-docker)

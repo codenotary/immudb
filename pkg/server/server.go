@@ -32,6 +32,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/codenotary/immudb/pkg/audit"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/codenotary/immudb/pkg/truncator"
 
@@ -145,6 +146,12 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "unable to load default database: %v", err)
 	}
 
+	if s.Options.AuditLog {
+		s.auditLogger = audit.NewLogger(s.sysDB, s.Options.AuditLogEvents, s.Logger)
+		s.auditLogger.Start()
+		s.Logger.Infof("structured audit logging enabled (events=%s)", s.Options.AuditLogEvents)
+	}
+
 	defaultDB, _ := s.dbList.GetByIndex(defaultDbIndex)
 
 	dbSize, _ := defaultDB.TxCount()
@@ -228,6 +235,7 @@ func (s *ImmuServer) Initialize() error {
 
 	uis := []grpc.UnaryServerInterceptor{
 		ErrorMapper, // converts errors in gRPC ones. Need to be the first
+		s.AuditLogInterceptor,
 		s.AccessLogInterceptor,
 		s.KeepAliveSessionInterceptor,
 		uuidContext.UUIDContextSetter,
@@ -238,6 +246,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
+		s.AuditLogStreamInterceptor,
 		s.AccessLogStreamInterceptor,
 		s.KeepALiveSessionStreamInterceptor,
 		uuidContext.UUIDStreamContextSetter,
@@ -762,6 +771,10 @@ func (s *ImmuServer) Stop() error {
 	}
 
 	s.SessManager.StopSessionsGuard()
+
+	if s.auditLogger != nil {
+		s.auditLogger.Stop()
+	}
 
 	s.stopReplication()
 

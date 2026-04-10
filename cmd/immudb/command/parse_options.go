@@ -92,6 +92,8 @@ func parseOptions() (options *server.Options, err error) {
 	grpcReflectionServerEnabled := viper.GetBool("grpc-reflection")
 	swaggerUIEnabled := viper.GetBool("swaggerui")
 	logRequestMetadata := viper.GetBool("log-request-metadata")
+	auditLog := viper.GetBool("audit-log")
+	auditLogEvents := viper.GetString("audit-log-events")
 
 	maxActiveDatabases := viper.GetInt("max-active-databases")
 
@@ -172,7 +174,9 @@ func parseOptions() (options *server.Options, err error) {
 		WithSwaggerUIEnabled(swaggerUIEnabled).
 		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled).
 		WithLogRequestMetadata(logRequestMetadata).
-		WithMaxActiveDatabases(maxActiveDatabases)
+		WithMaxActiveDatabases(maxActiveDatabases).
+		WithAuditLog(auditLog).
+		WithAuditLogEvents(auditLogEvents)
 
 	return options, nil
 }

@@ -23,6 +23,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/codenotary/immudb/pkg/audit"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/codenotary/immudb/pkg/truncator"
 
@@ -77,6 +78,7 @@ type ImmuServer struct {
 	multidbmode bool
 	//Cc                  CorruptionChecker
 	sysDB                database.DB
+	auditLogger          *audit.Logger
 	metricsServer        *http.Server
 	webServer            *http.Server
 	mux                  sync.Mutex

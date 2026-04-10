@@ -84,6 +84,8 @@ type Options struct {
 	SwaggerUIEnabled            bool
 	LogRequestMetadata          bool
 	MaxActiveDatabases          int
+	AuditLog                    bool
+	AuditLogEvents              string
 }
 
 type RemoteStorageOptions struct {
@@ -159,6 +161,8 @@ func DefaultOptions() *Options {
 		LogDir:                      "immulog",
 		LogAccess:                   false,
 		MaxActiveDatabases:          100,
+		AuditLog:                    false,
+		AuditLogEvents:              "all",
 	}
 }
 
@@ -546,6 +550,16 @@ func (o *Options) WithLogRequestMetadata(enabled bool) *Options {
 
 func (o *Options) WithMaxActiveDatabases(n int) *Options {
 	o.MaxActiveDatabases = n
+	return o
+}
+
+func (o *Options) WithAuditLog(enabled bool) *Options {
+	o.AuditLog = enabled
+	return o
+}
+
+func (o *Options) WithAuditLogEvents(events string) *Options {
+	o.AuditLogEvents = events
 	return o
 }
 
