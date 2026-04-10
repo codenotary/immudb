@@ -26,6 +26,16 @@ var (
 	set           = regexp.MustCompile(`(?i)set\s+.+`)
 	selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
 	dealloc       = regexp.MustCompile(`(?i)deallocate\s+\"([^\"]+)\"`)
+
+	// immudb verification functions exposed via PG wire protocol
+	immudbStateRe     = regexp.MustCompile(`(?i)select\s+immudb_state\(\s*\)`)
+	immudbVerifyRowRe = regexp.MustCompile(`(?i)select\s+immudb_verify_row\(\s*(.+)\s*\)`)
+	immudbVerifyTxRe  = regexp.MustCompile(`(?i)select\s+immudb_verify_tx\(\s*(.+)\s*\)`)
+	immudbHistoryRe   = regexp.MustCompile(`(?i)select\s+immudb_history\(\s*(.+)\s*\)`)
+	immudbTxRe        = regexp.MustCompile(`(?i)select\s+immudb_tx\(\s*(.+)\s*\)`)
+
+	// SHOW statement patterns for ORM compatibility
+	showRe = regexp.MustCompile(`(?i)^\s*show\s+(\w+)\s*;?\s*$`)
 )
 
 func (s *session) isInBlackList(statement string) bool {
@@ -50,6 +60,31 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 			return &deallocate{plan: matches[1]}
 		}
 	}
+
+	if immudbStateRe.MatchString(statement) {
+		return &immudbStateCmd{}
+	}
+
+	if m := immudbVerifyRowRe.FindStringSubmatch(statement); len(m) == 2 {
+		return &immudbVerifyRowCmd{args: m[1]}
+	}
+
+	if m := immudbVerifyTxRe.FindStringSubmatch(statement); len(m) == 2 {
+		return &immudbVerifyTxCmd{args: m[1]}
+	}
+
+	if m := immudbHistoryRe.FindStringSubmatch(statement); len(m) == 2 {
+		return &immudbHistoryCmd{args: m[1]}
+	}
+
+	if m := immudbTxRe.FindStringSubmatch(statement); len(m) == 2 {
+		return &immudbTxCmd{args: m[1]}
+	}
+
+	if m := showRe.FindStringSubmatch(statement); len(m) == 2 {
+		return &showCmd{param: m[1]}
+	}
+
 	return nil
 }
 
@@ -62,6 +97,18 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 	case *deallocate:
 		delete(s.statements, cmd.plan)
 		return nil
+	case *immudbStateCmd:
+		return s.immudbState()
+	case *immudbVerifyRowCmd:
+		return s.immudbVerifyRow(cmd.args)
+	case *immudbVerifyTxCmd:
+		return s.immudbVerifyTx(cmd.args)
+	case *immudbHistoryCmd:
+		return s.immudbHistory(cmd.args)
+	case *immudbTxCmd:
+		return s.immudbTxByID(cmd.args)
+	case *showCmd:
+		return s.handleShow(cmd.param)
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -72,4 +119,26 @@ type version struct{}
 
 type deallocate struct {
 	plan string
+}
+
+type immudbStateCmd struct{}
+
+type immudbVerifyRowCmd struct {
+	args string
+}
+
+type immudbVerifyTxCmd struct {
+	args string
+}
+
+type immudbHistoryCmd struct {
+	args string
+}
+
+type immudbTxCmd struct {
+	args string
+}
+
+type showCmd struct {
+	param string
 }

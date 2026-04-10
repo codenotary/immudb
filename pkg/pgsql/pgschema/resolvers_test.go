@@ -132,6 +132,236 @@ func TestQueryPgRolesTable(t *testing.T) {
 	require.False(t, roleSuper)
 }
 
+func TestQueryPgAttributeTable(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE mytable (id INTEGER, name VARCHAR[256], active BOOLEAN, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT attname, atttypid, attnum, attnotnull FROM pg_attribute WHERE attrelid > 0 ORDER BY attnum`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+	colName, _ := row.ValuesBySelector[sql.EncodeSelector("", "pg_attribute", "attname")].RawValue().(string)
+	require.Equal(t, "id", colName)
+
+	row, err = rows.Read(context.Background())
+	require.NoError(t, err)
+	colName, _ = row.ValuesBySelector[sql.EncodeSelector("", "pg_attribute", "attname")].RawValue().(string)
+	require.Equal(t, "name", colName)
+
+	row, err = rows.Read(context.Background())
+	require.NoError(t, err)
+	colName, _ = row.ValuesBySelector[sql.EncodeSelector("", "pg_attribute", "attname")].RawValue().(string)
+	require.Equal(t, "active", colName)
+}
+
+func TestQueryPgIndexTable(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE mytable (id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT indrelid, indisunique, indisprimary FROM pg_index`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+
+	isPrimary, _ := row.ValuesBySelector[sql.EncodeSelector("", "pg_index", "indisprimary")].RawValue().(bool)
+	require.True(t, isPrimary)
+}
+
+func TestQueryPgConstraintTable(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE mytable (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT conname, contype FROM pg_constraint`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+
+	conname, _ := row.ValuesBySelector[sql.EncodeSelector("", "pg_constraint", "conname")].RawValue().(string)
+	require.Equal(t, "mytable_pkey", conname)
+
+	contype, _ := row.ValuesBySelector[sql.EncodeSelector("", "pg_constraint", "contype")].RawValue().(string)
+	require.Equal(t, "p", contype)
+}
+
+func TestPgTypeResolverDirect(t *testing.T) {
+	// Test the pg_type resolver directly since ValuesRowReader with integer-typed
+	// columns triggers index scan in the engine, which is not applicable for virtual tables.
+	resolver := &pgTypeResolver{}
+	require.Equal(t, "pg_type", resolver.Table())
+
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE dummy (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	tx, err := engine.NewTx(context.Background(), sql.DefaultTxOptions())
+	require.NoError(t, err)
+	defer tx.Cancel()
+
+	rr, err := resolver.Resolve(context.Background(), tx, "pg_type")
+	require.NoError(t, err)
+	defer rr.Close()
+
+	cols, err := rr.Columns(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 7, len(cols))
+	require.Equal(t, "oid", cols[0].Column)
+	require.Equal(t, "typname", cols[1].Column)
+
+	row, err := rr.Read(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, row)
+}
+
+func TestQueryPgSettingsTable(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	// Create a table so catalog is initialized
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE dummy (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT name, setting FROM pg_settings`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+	setting, _ := row.ValuesBySelector[sql.EncodeSelector("", "pg_settings", "name")].RawValue().(string)
+	require.NotEmpty(t, setting)
+}
+
+func TestQueryInformationSchemaTables(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (id INTEGER, total FLOAT, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT table_name, table_schema, table_type FROM information_schema_tables`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+
+	tableName, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_tables", "table_name")].RawValue().(string)
+	require.Equal(t, "orders", tableName)
+
+	tableSchema, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_tables", "table_schema")].RawValue().(string)
+	require.Equal(t, "public", tableSchema)
+
+	tableType, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_tables", "table_type")].RawValue().(string)
+	require.Equal(t, "BASE TABLE", tableType)
+}
+
+func TestQueryInformationSchemaColumns(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (id INTEGER, name VARCHAR[100] NOT NULL, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT table_name, column_name, ordinal_position, is_nullable, data_type, udt_name
+		 FROM information_schema_columns ORDER BY ordinal_position`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	// First column: id
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+	colName, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_columns", "column_name")].RawValue().(string)
+	require.Equal(t, "id", colName)
+	dataType, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_columns", "data_type")].RawValue().(string)
+	require.Equal(t, "bigint", dataType)
+
+	// Second column: name
+	row, err = rows.Read(context.Background())
+	require.NoError(t, err)
+	colName, _ = row.ValuesBySelector[sql.EncodeSelector("", "information_schema_columns", "column_name")].RawValue().(string)
+	require.Equal(t, "name", colName)
+	nullable, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_columns", "is_nullable")].RawValue().(string)
+	require.Equal(t, "NO", nullable)
+	udtName, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_columns", "udt_name")].RawValue().(string)
+	require.Equal(t, "text", udtName)
+}
+
+func TestQueryInformationSchemaKeyColumnUsage(t *testing.T) {
+	engine := setupEngine(t, &mockMultiDBHandler{
+		users: []sql.User{
+			&user{username: "immudb", perm: sql.PermissionSysAdmin},
+		},
+	})
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	rows, err := engine.Query(context.Background(), nil,
+		`SELECT constraint_name, table_name, column_name FROM information_schema_key_column_usage`, nil)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	row, err := rows.Read(context.Background())
+	require.NoError(t, err)
+
+	constraintName, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_key_column_usage", "constraint_name")].RawValue().(string)
+	require.Equal(t, "orders_pkey", constraintName)
+
+	colName, _ := row.ValuesBySelector[sql.EncodeSelector("", "information_schema_key_column_usage", "column_name")].RawValue().(string)
+	require.Equal(t, "id", colName)
+}
+
 type mockMultiDBHandler struct {
 	sql.MultiDBHandler
 

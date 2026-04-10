@@ -307,7 +307,10 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 }
 
 func removePGCatalogReferences(sql string) string {
-	return strings.ReplaceAll(sql, "pg_catalog.", "")
+	s := strings.ReplaceAll(sql, "pg_catalog.", "")
+	s = strings.ReplaceAll(s, "information_schema.", "information_schema_")
+	s = strings.ReplaceAll(s, "public.", "")
+	return s
 }
 
 func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {

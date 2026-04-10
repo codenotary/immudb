@@ -42,9 +42,22 @@ const (
 	IndexesFnCall            string = "INDEXES"
 	GrantsFnCall             string = "GRANTS"
 	JSONTypeOfFnCall         string = "JSON_TYPEOF"
-	PGGetUserByIDFnCall      string = "PG_GET_USERBYID"
-	PgTableIsVisibleFnCall   string = "PG_TABLE_IS_VISIBLE"
-	PgShobjDescriptionFnCall string = "SHOBJ_DESCRIPTION"
+	PGGetUserByIDFnCall          string = "PG_GET_USERBYID"
+	PgTableIsVisibleFnCall       string = "PG_TABLE_IS_VISIBLE"
+	PgShobjDescriptionFnCall     string = "SHOBJ_DESCRIPTION"
+	CurrentDatabaseFnCall        string = "CURRENT_DATABASE"
+	CurrentSchemaFnCall          string = "CURRENT_SCHEMA"
+	CurrentUserFnCall            string = "CURRENT_USER"
+	FormatTypeFnCall             string = "FORMAT_TYPE"
+	PgGetExprFnCall              string = "PG_GET_EXPR"
+	PgGetConstraintDefFnCall     string = "PG_GET_CONSTRAINTDEF"
+	PgEncodingToCharFnCall       string = "PG_ENCODING_TO_CHAR"
+	ObjDescriptionFnCall         string = "OBJ_DESCRIPTION"
+	HasTablePrivilegeFnCall      string = "HAS_TABLE_PRIVILEGE"
+	HasSchemaPrivilegeFnCall     string = "HAS_SCHEMA_PRIVILEGE"
+	ArrayUpperFnCall             string = "ARRAY_UPPER"
+	PgGetSerialSequenceFnCall    string = "PG_GET_SERIAL_SEQUENCE"
+	ColDescriptionFnCall         string = "COL_DESCRIPTION"
 )
 
 var builtinFunctions = map[string]Function{
@@ -58,9 +71,22 @@ var builtinFunctions = map[string]Function{
 	NowFnCall:                &NowFn{},
 	UUIDFnCall:               &UUIDFn{},
 	JSONTypeOfFnCall:         &JsonTypeOfFn{},
-	PGGetUserByIDFnCall:      &pgGetUserByIDFunc{},
-	PgTableIsVisibleFnCall:   &pgTableIsVisible{},
-	PgShobjDescriptionFnCall: &pgShobjDescription{},
+	PGGetUserByIDFnCall:          &pgGetUserByIDFunc{},
+	PgTableIsVisibleFnCall:       &pgTableIsVisible{},
+	PgShobjDescriptionFnCall:     &pgShobjDescription{},
+	CurrentDatabaseFnCall:        &pgCurrentDatabase{},
+	CurrentSchemaFnCall:          &pgCurrentSchema{},
+	CurrentUserFnCall:            &pgCurrentUser{},
+	FormatTypeFnCall:             &pgFormatType{},
+	PgGetExprFnCall:              &pgVarcharStub{name: PgGetExprFnCall, nParams: -1},
+	PgGetConstraintDefFnCall:     &pgVarcharStub{name: PgGetConstraintDefFnCall, nParams: -1},
+	PgEncodingToCharFnCall:       &pgEncodingToChar{},
+	ObjDescriptionFnCall:         &pgVarcharStub{name: ObjDescriptionFnCall, nParams: -1},
+	HasTablePrivilegeFnCall:      &pgBoolStub{name: HasTablePrivilegeFnCall, nParams: -1},
+	HasSchemaPrivilegeFnCall:     &pgBoolStub{name: HasSchemaPrivilegeFnCall, nParams: -1},
+	ArrayUpperFnCall:             &pgNullIntStub{name: ArrayUpperFnCall},
+	PgGetSerialSequenceFnCall:    &pgVarcharStub{name: PgGetSerialSequenceFnCall, nParams: -1},
+	ColDescriptionFnCall:         &pgVarcharStub{name: ColDescriptionFnCall, nParams: -1},
 }
 
 type Function interface {
@@ -459,4 +485,218 @@ func (f *pgShobjDescription) Apply(tx *SQLTx, params []TypedValue) (TypedValue, 
 		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, PgShobjDescriptionFnCall, 2, len(params))
 	}
 	return NewVarchar(""), nil
+}
+
+// -------------------------------------
+// PostgreSQL Compatibility Functions
+// -------------------------------------
+
+// current_database() — returns "defaultdb" (immudb default database name)
+type pgCurrentDatabase struct{}
+
+func (f *pgCurrentDatabase) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentDatabase) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentDatabase) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) > 0 {
+		return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, CurrentDatabaseFnCall, len(params))
+	}
+	return NewVarchar("defaultdb"), nil
+}
+
+// current_schema() — returns "public"
+type pgCurrentSchema struct{}
+
+func (f *pgCurrentSchema) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentSchema) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentSchema) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) > 0 {
+		return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, CurrentSchemaFnCall, len(params))
+	}
+	return NewVarchar("public"), nil
+}
+
+// current_user — returns the logged-in username
+type pgCurrentUser struct{}
+
+func (f *pgCurrentUser) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentUser) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentUser) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) > 0 {
+		return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, CurrentUserFnCall, len(params))
+	}
+
+	users, err := tx.ListUsers(tx.tx.Context())
+	if err != nil {
+		return NewVarchar("immudb"), nil
+	}
+
+	idx := findSysAdmin(users)
+	if idx >= 0 {
+		return NewVarchar(users[idx].Username()), nil
+	}
+	return NewVarchar("immudb"), nil
+}
+
+// format_type(oid, typmod) — maps type OID to type name
+type pgFormatType struct{}
+
+func (f *pgFormatType) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgFormatType) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+var oidToTypeName = map[int64]string{
+	16:   "boolean",
+	17:   "bytea",
+	20:   "bigint",
+	25:   "text",
+	114:  "json",
+	701:  "double precision",
+	1114: "timestamp without time zone",
+	2950: "uuid",
+}
+
+func (f *pgFormatType) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, FormatTypeFnCall, 2, len(params))
+	}
+
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+
+	oid, ok := params[0].RawValue().(int64)
+	if !ok {
+		return NewVarchar("???"), nil
+	}
+
+	name, exists := oidToTypeName[oid]
+	if !exists {
+		return NewVarchar(fmt.Sprintf("unknown (OID=%d)", oid)), nil
+	}
+	return NewVarchar(name), nil
+}
+
+// pg_encoding_to_char(encoding_id) — returns encoding name
+type pgEncodingToChar struct{}
+
+func (f *pgEncodingToChar) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgEncodingToChar) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgEncodingToChar) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, PgEncodingToCharFnCall, 1, len(params))
+	}
+	return NewVarchar("UTF8"), nil
+}
+
+// pgVarcharStub — generic stub that returns empty string for any PG function.
+// nParams=-1 means accept any number of parameters.
+type pgVarcharStub struct {
+	name    string
+	nParams int
+}
+
+func (f *pgVarcharStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgVarcharStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgVarcharStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if f.nParams >= 0 && len(params) != f.nParams {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, f.name, f.nParams, len(params))
+	}
+	return NewVarchar(""), nil
+}
+
+// pgBoolStub — generic stub that returns true for any PG privilege-check function.
+// nParams=-1 means accept any number of parameters.
+type pgBoolStub struct {
+	name    string
+	nParams int
+}
+
+func (f *pgBoolStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return BooleanType, nil
+}
+
+func (f *pgBoolStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != BooleanType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return nil
+}
+
+func (f *pgBoolStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if f.nParams >= 0 && len(params) != f.nParams {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, f.name, f.nParams, len(params))
+	}
+	return NewBool(true), nil
+}
+
+// pgNullIntStub — returns NULL integer (for array_upper etc.)
+type pgNullIntStub struct {
+	name string
+}
+
+func (f *pgNullIntStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (f *pgNullIntStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+
+func (f *pgNullIntStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	return NewNull(IntegerType), nil
 }
