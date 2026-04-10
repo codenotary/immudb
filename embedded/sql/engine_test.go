@@ -7419,6 +7419,182 @@ func TestHistoricalQueries(t *testing.T) {
 	})
 }
 
+func TestDiffQueries(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	// Phase 1: Insert rows BEFORE the diff range
+	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(id, title, active) VALUES (1, 'alice', true)", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(id, title, active) VALUES (2, 'bob', true)", nil)
+	require.NoError(t, err)
+
+	_, txsBefore, err := engine.Exec(context.Background(), nil, "INSERT INTO table1(id, title, active) VALUES (3, 'carol', true)", nil)
+	require.NoError(t, err)
+	require.Len(t, txsBefore, 1)
+
+	startTxID := txsBefore[0].TxHeader().ID + 1 // diff range starts after inserts
+
+	// Phase 2: Make changes WITHIN the diff range
+	// UPDATE row 1
+	_, _, err = engine.Exec(context.Background(), nil, "UPDATE table1 SET title = 'alice_updated' WHERE id = 1", nil)
+	require.NoError(t, err)
+
+	// INSERT row 4
+	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1(id, title, active) VALUES (4, 'dave', true)", nil)
+	require.NoError(t, err)
+
+	// DELETE row 2
+	_, _, err = engine.Exec(context.Background(), nil, "DELETE FROM table1 WHERE id = 2", nil)
+	require.NoError(t, err)
+
+	// Row 3 is untouched — should NOT appear in diff
+
+	_, txsEnd, err := engine.Exec(context.Background(), nil, "UPDATE table1 SET active = false WHERE id = 4", nil)
+	require.NoError(t, err)
+	require.Len(t, txsEnd, 1)
+
+	endTxID := txsEnd[0].TxHeader().ID
+
+	t.Run("basic diff with TX range should detect INSERT, UPDATE, DELETE", func(t *testing.T) {
+		query := fmt.Sprintf("SELECT _diff_action, id, title, active FROM (DIFF OF table1) SINCE TX %d UNTIL TX %d", startTxID, endTxID)
+		r, err := engine.Query(context.Background(), nil, query, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		// Rows are in PK order (ascending). Expected:
+		// id=1: UPDATE (title changed)
+		// id=2: DELETE
+		// id=4: INSERT (and updated within range, but net effect is INSERT)
+
+		// Row 1: UPDATE
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "UPDATE", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, int64(1), row.ValuesByPosition[1].RawValue())
+		require.Equal(t, "alice_updated", row.ValuesByPosition[2].RawValue())
+
+		// Row 2: DELETE
+		row, err = r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "DELETE", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, int64(2), row.ValuesByPosition[1].RawValue())
+		require.Equal(t, "bob", row.ValuesByPosition[2].RawValue())
+
+		// Row 4: INSERT
+		row, err = r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "INSERT", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, int64(4), row.ValuesByPosition[1].RawValue())
+		require.Equal(t, "dave", row.ValuesByPosition[2].RawValue())
+		require.Equal(t, false, row.ValuesByPosition[3].RawValue())
+
+		// No more rows (row 3 unchanged)
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("diff with WHERE filter", func(t *testing.T) {
+		query := fmt.Sprintf("SELECT _diff_action, id FROM (DIFF OF table1) SINCE TX %d UNTIL TX %d WHERE id >= 2", startTxID, endTxID)
+		r, err := engine.Query(context.Background(), nil, query, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		// id=2: DELETE
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "DELETE", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, int64(2), row.ValuesByPosition[1].RawValue())
+
+		// id=4: INSERT
+		row, err = r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "INSERT", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, int64(4), row.ValuesByPosition[1].RawValue())
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("diff requires both start and end period", func(t *testing.T) {
+		_, err := engine.Query(context.Background(), nil, "SELECT * FROM (DIFF OF table1) SINCE TX 1", nil)
+		require.ErrorIs(t, err, ErrDiffRequiresPeriod)
+
+		_, err = engine.Query(context.Background(), nil, "SELECT * FROM (DIFF OF table1) UNTIL TX 100", nil)
+		require.ErrorIs(t, err, ErrDiffRequiresPeriod)
+
+		_, err = engine.Query(context.Background(), nil, "SELECT * FROM (DIFF OF table1)", nil)
+		require.ErrorIs(t, err, ErrDiffRequiresPeriod)
+	})
+
+	t.Run("diff over range with no changes returns no rows", func(t *testing.T) {
+		// Query a range after all changes — nothing happened
+		query := fmt.Sprintf("SELECT _diff_action, id FROM (DIFF OF table1) AFTER TX %d UNTIL TX %d", endTxID, endTxID)
+		r, err := engine.Query(context.Background(), nil, query, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("diff detects columns via Columns method", func(t *testing.T) {
+		query := fmt.Sprintf("SELECT * FROM (DIFF OF table1) SINCE TX %d UNTIL TX %d", startTxID, endTxID)
+		r, err := engine.Query(context.Background(), nil, query, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		cols, err := r.Columns(context.Background())
+		require.NoError(t, err)
+
+		// Should have _diff_action + id + title + active
+		require.Len(t, cols, 4)
+		require.Equal(t, diffActionCol, cols[0].Column)
+		require.Equal(t, VarcharType, cols[0].Type)
+		require.Equal(t, "id", cols[1].Column)
+		require.Equal(t, "title", cols[2].Column)
+		require.Equal(t, "active", cols[3].Column)
+	})
+}
+
+func TestDiffQueriesInsertAndDelete(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1(id INTEGER, name VARCHAR[50], PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+
+	// Insert a row then delete it within the same diff range — net effect is nothing
+	_, txsCreate, err := engine.Exec(context.Background(), nil, "INSERT INTO table1(id, name) VALUES (99, 'temp')", nil)
+	require.NoError(t, err)
+	startTx := txsCreate[0].TxHeader().ID
+
+	_, _, err = engine.Exec(context.Background(), nil, "DELETE FROM table1 WHERE id = 99", nil)
+	require.NoError(t, err)
+
+	_, txsEnd, err := engine.Exec(context.Background(), nil, "INSERT INTO table1(id, name) VALUES (100, 'keeper')", nil)
+	require.NoError(t, err)
+	endTx := txsEnd[0].TxHeader().ID
+
+	query := fmt.Sprintf("SELECT _diff_action, id, name FROM (DIFF OF table1) SINCE TX %d UNTIL TX %d", startTx, endTx)
+	r, err := engine.Query(context.Background(), nil, query, nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	// Row 99 was inserted and deleted within range — should NOT appear
+	// Row 100 was inserted — should appear as INSERT
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "INSERT", row.ValuesByPosition[0].RawValue())
+	require.Equal(t, int64(100), row.ValuesByPosition[1].RawValue())
+	require.Equal(t, "keeper", row.ValuesByPosition[2].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
 func TestUnionOperator(t *testing.T) {
 	engine := setupCommonTest(t)
 

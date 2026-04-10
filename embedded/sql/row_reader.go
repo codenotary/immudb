@@ -45,6 +45,7 @@ type ScanSpecs struct {
 	Index             *Index
 	rangesByColID     map[uint32]*typedValueRange
 	IncludeHistory    bool
+	IncludeDiff       bool
 	IncludeTxMetadata bool
 	DescOrder         bool
 	groupBySortExps   []*OrdExp
@@ -54,6 +55,10 @@ type ScanSpecs struct {
 func (s *ScanSpecs) extraCols() int {
 	n := 0
 	if s.IncludeHistory {
+		n++
+	}
+
+	if s.IncludeDiff {
 		n++
 	}
 

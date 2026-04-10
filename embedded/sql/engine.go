@@ -99,6 +99,7 @@ var (
 	ErrCannotIndexJson                        = errors.New("cannot index column of type JSON")
 	ErrInvalidTxMetadata                      = errors.New("invalid transaction metadata")
 	ErrAccessDenied                           = errors.New("access denied")
+	ErrDiffRequiresPeriod                     = errors.New("DIFF requires both SINCE/AFTER and UNTIL/BEFORE clauses")
 )
 
 var MaxKeyLen = 512

@@ -58,11 +58,13 @@ const (
 const (
 	revCol        = "_rev"
 	txMetadataCol = "_tx_metadata"
+	diffActionCol = "_diff_action"
 )
 
 var reservedColumns = map[string]struct{}{
 	revCol:        {},
 	txMetadataCol: {},
+	diffActionCol: {},
 }
 
 func isReservedCol(col string) bool {
@@ -3625,6 +3627,10 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		return nil, fmt.Errorf("%w: historical queries are supported over primary index", ErrIllegalArguments)
 	}
 
+	if tableRef.diff && !sortingIndex.IsPrimary() {
+		return nil, fmt.Errorf("%w: diff queries are supported over primary index", ErrIllegalArguments)
+	}
+
 	var descOrder bool
 	if len(groupByCols) > 0 && sortingIndex.coversOrdCols(groupByCols, rangesByColID) {
 		groupByCols = nil
@@ -3641,6 +3647,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		Index:             sortingIndex,
 		rangesByColID:     rangesByColID,
 		IncludeHistory:    tableRef.history,
+		IncludeDiff:       tableRef.diff,
 		IncludeTxMetadata: stmt.hasTxMetadata(),
 		DescOrder:         descOrder,
 		groupBySortExps:   groupByCols,
@@ -3778,6 +3785,7 @@ func NewTableRef(table string, as string) *tableRef {
 type tableRef struct {
 	table   string
 	history bool
+	diff    bool
 	period  period
 	as      string
 }
@@ -3917,6 +3925,9 @@ func (stmt *tableRef) Resolve(ctx context.Context, tx *SQLTx, params map[string]
 
 	table, err := stmt.referencedTable(tx)
 	if err == nil {
+		if stmt.diff {
+			return newDiffRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
+		}
 		return newRawRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 	}
 

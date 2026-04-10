@@ -78,7 +78,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     timestampField TimestampFieldType
 }
 
-%token <keyword> CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY SINCE AFTER BEFORE UNTIL TX OF
+%token <keyword> CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY DIFF SINCE AFTER BEFORE UNTIL TX OF
 %token <keyword> INTEGER_TYPE BOOLEAN_TYPE VARCHAR_TYPE UUID_TYPE BLOB_TYPE TIMESTAMP_TYPE FLOAT_TYPE JSON_TYPE
 %token <keyword> TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
@@ -990,6 +990,11 @@ ds:
     '(' HISTORY OF IDENTIFIER ')' opt_as
     {
         $$ = &tableRef{table: $4, history: true, as: $6}
+    }
+|
+    '(' DIFF OF IDENTIFIER ')' opt_period opt_as
+    {
+        $$ = &tableRef{table: $4, diff: true, period: $6, as: $7}
     }
 
 tableRef:
