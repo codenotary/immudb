@@ -35,6 +35,7 @@ var keywords = map[string]int{
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
 	"HISTORY":        HISTORY,
+	"DIFF":           DIFF,
 	"OF":             OF,
 	"SINCE":          SINCE,
 	"AFTER":          AFTER,
