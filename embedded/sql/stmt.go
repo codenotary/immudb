@@ -2746,6 +2746,75 @@ func (v *Float64) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
+// WindowFnExp represents a window function expression: fn(...) OVER (PARTITION BY ... ORDER BY ...)
+type WindowFnExp struct {
+	fnName      string
+	params      []ValueExp
+	partitionBy []ValueExp
+	orderBy     []*OrdExp
+	alias       string // column alias for the result
+}
+
+func (v *WindowFnExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return v.resultType(), nil
+}
+
+func (v *WindowFnExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+
+func (v *WindowFnExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *WindowFnExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	// Window function values are computed by windowRowReader, not during reduce.
+	// By the time reduce is called, the value should already be in the row.
+	sel := v.selectorName()
+	if val, ok := row.ValuesBySelector[sel]; ok {
+		return val, nil
+	}
+	return NewNull(v.resultType()), nil
+}
+
+func (v *WindowFnExp) selectors() []Selector {
+	return nil
+}
+
+func (v *WindowFnExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return v
+}
+
+func (v *WindowFnExp) isConstant() bool {
+	return false
+}
+
+func (v *WindowFnExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (v *WindowFnExp) String() string {
+	return v.selectorName()
+}
+
+func (v *WindowFnExp) selectorName() string {
+	if v.alias != "" {
+		return v.alias
+	}
+	return v.fnName + "_over"
+}
+
+func (v *WindowFnExp) resultType() SQLValueType {
+	switch v.fnName {
+	case "ROW_NUMBER", "RANK", "DENSE_RANK", "COUNT":
+		return IntegerType
+	case "SUM", "AVG":
+		return Float64Type
+	default:
+		return AnyType
+	}
+}
+
 type FnCall struct {
 	fn     string
 	params []ValueExp
@@ -3480,6 +3549,29 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			return nil, err
 		}
 		rowReader = sortRowReader
+	}
+
+	// Detect window functions in targets and wrap with windowRowReader
+	var windowFns []*WindowFnExp
+	for i, t := range stmt.targets {
+		if wfn, ok := t.Exp.(*WindowFnExp); ok {
+			if wfn.alias == "" {
+				if t.As != "" {
+					wfn.alias = t.As
+				} else {
+					wfn.alias = fmt.Sprintf("%s_%d", wfn.fnName, i)
+				}
+			}
+			windowFns = append(windowFns, wfn)
+		}
+	}
+
+	if len(windowFns) > 0 {
+		winReader, wErr := newWindowRowReader(ctx, rowReader, windowFns)
+		if wErr != nil {
+			return nil, wErr
+		}
+		rowReader = winReader
 	}
 
 	projectedRowReader, err := newProjectedRowReader(ctx, rowReader, stmt.as, stmt.targets)

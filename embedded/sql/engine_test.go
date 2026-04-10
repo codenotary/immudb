@@ -6049,6 +6049,120 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWindowFunctions(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE sales (id INTEGER, dept VARCHAR, amount INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO sales (id, dept, amount) VALUES (1, 'eng', 100);
+		INSERT INTO sales (id, dept, amount) VALUES (2, 'eng', 200);
+		INSERT INTO sales (id, dept, amount) VALUES (3, 'sales', 150);
+		INSERT INTO sales (id, dept, amount) VALUES (4, 'sales', 250);
+		INSERT INTO sales (id, dept, amount) VALUES (5, 'eng', 300);
+	`, nil)
+	require.NoError(t, err)
+
+	t.Run("row_number", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT id, row_number() OVER (ORDER BY id) rn FROM sales
+		`, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue()) // id=1
+		require.Equal(t, int64(1), row.ValuesByPosition[1].RawValue()) // rn=1
+
+		row, err = r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(2), row.ValuesByPosition[1].RawValue()) // rn=2
+
+		r.Close()
+	})
+
+	t.Run("row_number_with_partition", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT id, dept, row_number() OVER (PARTITION BY dept ORDER BY id) rn FROM sales
+		`, nil)
+		require.NoError(t, err)
+
+		// eng: id=1 rn=1, id=2 rn=2, id=5 rn=3
+		// sales: id=3 rn=1, id=4 rn=2
+		count := 0
+		for {
+			_, err := r.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			require.NoError(t, err)
+			count++
+		}
+		require.Equal(t, 5, count)
+		r.Close()
+	})
+
+	t.Run("rank_and_dense_rank", func(t *testing.T) {
+		// Insert duplicate amounts for rank testing
+		_, _, err := engine.Exec(context.Background(), nil,
+			`INSERT INTO sales (id, dept, amount) VALUES (6, 'eng', 200)`, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT id, amount,
+				rank() OVER (ORDER BY amount) r,
+				dense_rank() OVER (ORDER BY amount) dr
+			FROM sales
+		`, nil)
+		require.NoError(t, err)
+
+		count := 0
+		for {
+			_, err := r.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			require.NoError(t, err)
+			count++
+		}
+		require.Equal(t, 6, count)
+		r.Close()
+	})
+
+	t.Run("window_count", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT id, count(*) OVER () total_count FROM sales
+		`, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(6), row.ValuesByPosition[1].RawValue()) // total count
+		r.Close()
+	})
+
+	t.Run("window_sum_partition", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT id, dept, sum(amount) OVER (PARTITION BY dept) dept_total FROM sales
+		`, nil)
+		require.NoError(t, err)
+
+		count := 0
+		for {
+			_, err := r.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			require.NoError(t, err)
+			count++
+		}
+		require.Equal(t, 6, count)
+		r.Close()
+	})
+}
+
 func TestCTE(t *testing.T) {
 	engine := setupCommonTest(t)
 

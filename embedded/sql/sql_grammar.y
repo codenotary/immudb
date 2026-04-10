@@ -17,10 +17,30 @@ limitations under the License.
 %{
 package sql
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func setResult(l yyLexer, stmts []SQLStmt) {
     l.(*lexer).result = stmts
+}
+
+func aggFnName(fn AggregateFn) string {
+    switch fn {
+    case COUNT:
+        return "COUNT"
+    case SUM:
+        return "SUM"
+    case MAX:
+        return "MAX"
+    case MIN:
+        return "MIN"
+    case AVG:
+        return "AVG"
+    default:
+        return "UNKNOWN"
+    }
 }
 %}
 
@@ -87,7 +107,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
-%token <keyword> NOT LIKE IF EXISTS IN IS
+%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
 %token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
@@ -165,6 +185,7 @@ mulExp unaryExp primary
 %type <nullsOrder> opt_nulls_order
 %type <cteDef> cte_def
 %type <cteDefs> cte_defs
+%type <values> opt_partition
 %type <colNames> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
@@ -591,6 +612,16 @@ val:
         $$ = $1
     }
 |
+    AGGREGATE_FUNC '(' '*' ')' OVER '(' opt_partition opt_orderby ')'
+    {
+        $$ = &WindowFnExp{fnName: aggFnName($1), partitionBy: $7, orderBy: $8}
+    }
+|
+    AGGREGATE_FUNC '(' col ')' OVER '(' opt_partition opt_orderby ')'
+    {
+        $$ = &WindowFnExp{fnName: aggFnName($1), params: []ValueExp{&ColSelector{table: $3.table, col: $3.col}}, partitionBy: $7, orderBy: $8}
+    }
+|
     NPARAM
     {
         $$ = &Param{id: $1}
@@ -622,6 +653,11 @@ fnCall:
     IDENTIFIER '(' opt_values ')'
     {
         $$ = &FnCall{fn: $1, params: $3}
+    }
+|
+    IDENTIFIER '(' opt_values ')' OVER '(' opt_partition opt_orderby ')'
+    {
+        $$ = &WindowFnExp{fnName: strings.ToUpper($1), params: $3, partitionBy: $7, orderBy: $8}
     }
 
 tableElems:
@@ -1272,6 +1308,16 @@ opt_nulls_order:
     NULLS LAST
     {
         $$ = NullsLast
+    }
+
+opt_partition:
+    {
+        $$ = nil
+    }
+|
+    PARTITION BY values
+    {
+        $$ = $3
     }
 
 cte_defs:

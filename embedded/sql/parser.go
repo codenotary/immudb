@@ -78,6 +78,8 @@ var keywords = map[string]int{
 	"FIRST":          FIRST,
 	"LAST":           LAST,
 	"VIEW":           VIEW,
+	"OVER":           OVER,
+	"PARTITION":      PARTITION,
 	"TX":             TX,
 	"JOIN":           JOIN,
 	"HAVING":         HAVING,
