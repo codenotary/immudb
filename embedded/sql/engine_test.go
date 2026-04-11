@@ -6827,6 +6827,66 @@ func TestLimitAll(t *testing.T) {
 	r.Close()
 }
 
+func TestFetchFirstRowsOnly(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE fetch_test (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO fetch_test (id) VALUES (1);
+		INSERT INTO fetch_test (id) VALUES (2);
+		INSERT INTO fetch_test (id) VALUES (3);
+		INSERT INTO fetch_test (id) VALUES (4);
+		INSERT INTO fetch_test (id) VALUES (5);
+	`, nil)
+	require.NoError(t, err)
+
+	// FETCH FIRST 3 ROWS ONLY (SQL standard alternative to LIMIT)
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT id FROM fetch_test FETCH FIRST 3 ROWS ONLY`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 3, count)
+	r.Close()
+}
+
+func TestRandomFunction(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT RANDOM()`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	val, ok := row.ValuesByPosition[0].RawValue().(float64)
+	require.True(t, ok)
+	require.NotEqual(t, float64(0), val)
+	r.Close()
+}
+
+func TestGenRandomUUID(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT GEN_RANDOM_UUID()`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, row.ValuesByPosition[0].RawValue())
+	r.Close()
+}
+
 func TestSubstrAlias(t *testing.T) {
 	engine := setupCommonTest(t)
 

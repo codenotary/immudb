@@ -673,6 +673,57 @@ func TestPgsqlCompat_Explain(t *testing.T) {
 	require.Greater(t, planLines, 0)
 }
 
+func TestPgsqlCompat_FetchFirstRows(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE fetch_pg (id INTEGER, PRIMARY KEY id);
+		INSERT INTO fetch_pg (id) VALUES (1);
+		INSERT INTO fetch_pg (id) VALUES (2);
+		INSERT INTO fetch_pg (id) VALUES (3);
+		INSERT INTO fetch_pg (id) VALUES (4);
+		INSERT INTO fetch_pg (id) VALUES (5)
+	`)
+	require.NoError(t, err)
+
+	// FETCH FIRST N ROWS ONLY (SQL standard)
+	rows, err := conn.Query(context.Background(),
+		"SELECT id FROM fetch_pg FETCH FIRST 3 ROWS ONLY")
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 3, count)
+}
+
+func TestPgsqlCompat_UtilityFunctions(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	// RANDOM()
+	rows, err := conn.Query(context.Background(), "SELECT RANDOM()")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	rows.Close()
+
+	// GEN_RANDOM_UUID()
+	rows, err = conn.Query(context.Background(), "SELECT GEN_RANDOM_UUID()")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	rows.Close()
+}
+
 func TestPgsqlCompat_ForeignKeyConstraint(t *testing.T) {
 	_, port := setupTestServer(t)
 

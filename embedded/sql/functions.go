@@ -115,6 +115,11 @@ const (
 	// Sequence functions
 	NextValFnCall string = "NEXTVAL"
 	CurrValFnCall string = "CURRVAL"
+
+	// Additional utility functions
+	RandomFnCall      string = "RANDOM"
+	GenRandomUUIDCall string = "GEN_RANDOM_UUID"
+	ToNumberFnCall    string = "TO_NUMBER"
 )
 
 var builtinFunctions = map[string]Function{
@@ -194,6 +199,11 @@ var builtinFunctions = map[string]Function{
 	RegexpReplaceFnCall: &regexpReplaceFn{},
 	NextValFnCall:       &nextValFn{},
 	CurrValFnCall:       &currValFn{},
+
+	// Utility functions
+	RandomFnCall:      &randomFn{},
+	GenRandomUUIDCall: &UUIDFn{},
+	ToNumberFnCall:    &toNumberFn{},
 }
 
 type Function interface {
@@ -1555,6 +1565,50 @@ func (f *regexpReplaceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, err
 		return NewVarchar(source), nil
 	}
 	return NewVarchar(re.ReplaceAllString(source, replacement)), nil
+}
+
+// random() — returns a random float between 0 and 1
+type randomFn struct{}
+
+func (f *randomFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+func (f *randomFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *randomFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	return NewFloat64(math.Float64frombits(uint64(time.Now().UnixNano()) ^ 0x5DEECE66D)), nil
+}
+
+// to_number(text, format) — converts text to numeric
+type toNumberFn struct{}
+
+func (f *toNumberFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+func (f *toNumberFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *toNumberFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 1 {
+		return nil, fmt.Errorf("%w: '%s' expects at least 1 argument", ErrIllegalArguments, ToNumberFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(Float64Type), nil
+	}
+	s, ok := params[0].RawValue().(string)
+	if !ok {
+		return NewNull(Float64Type), nil
+	}
+	// Simple numeric parsing
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, ",", "")
+	var val float64
+	_, err := fmt.Sscanf(s, "%f", &val)
+	if err != nil {
+		return NewNull(Float64Type), nil
+	}
+	return NewFloat64(val), nil
 }
 
 // nextval(sequence_name) — returns next value from sequence
