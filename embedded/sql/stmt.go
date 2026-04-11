@@ -40,6 +40,8 @@ const (
 	catalogIndexPrefix     = "CTL.INDEX."     // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
 	catalogCheckPrefix     = "CTL.CHECK."     // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
 	catalogPrivilegePrefix = "CTL.PRIVILEGE." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogViewPrefix      = "CTL.VIEW."      // (key=CTL.VIEW.{1}{viewID}, value={viewName\0sqlText})
+	catalogSequencePrefix  = "CTL.SEQUENCE."  // (key=CTL.SEQUENCE.{1}{seqName}, value={currValue}{increment})
 
 	RowPrefix    = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
 	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
@@ -669,6 +671,51 @@ func persistCheck(tx *SQLTx, table *Table, check *CheckConstraint) error {
 	copy(val[1+len(name):], []byte(expText))
 
 	return tx.set(mappedKey, nil, val)
+}
+
+func persistView(tx *SQLTx, viewName string, sqlText string) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogViewPrefix,
+		EncodeID(DatabaseID),
+		[]byte(viewName),
+	)
+	return tx.set(mappedKey, nil, []byte(sqlText))
+}
+
+func deleteView(ctx context.Context, tx *SQLTx, viewName string) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogViewPrefix,
+		EncodeID(DatabaseID),
+		[]byte(viewName),
+	)
+	return tx.delete(ctx, mappedKey)
+}
+
+func persistSequence(tx *SQLTx, seq *Sequence) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogSequencePrefix,
+		EncodeID(DatabaseID),
+		[]byte(seq.name),
+	)
+
+	val := make([]byte, 16)
+	binary.BigEndian.PutUint64(val[0:8], uint64(seq.currValue))
+	binary.BigEndian.PutUint64(val[8:16], uint64(seq.increment))
+
+	return tx.set(mappedKey, nil, val)
+}
+
+func deleteSequence(ctx context.Context, tx *SQLTx, seqName string) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogSequencePrefix,
+		EncodeID(DatabaseID),
+		[]byte(seqName),
+	)
+	return tx.delete(ctx, mappedKey)
 }
 
 type ColSpec struct {
@@ -4279,6 +4326,12 @@ func (stmt *CreateSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, 
 
 func (stmt *CreateSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	tx.engine.CreateSequence(stmt.name, stmt.startValue, stmt.increment)
+
+	seq := tx.engine.sequences[stmt.name]
+	if err := persistSequence(tx, seq); err != nil {
+		return nil, err
+	}
+
 	return tx, nil
 }
 
@@ -4299,6 +4352,11 @@ func (stmt *DropSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[
 	if !tx.engine.DropSequence(stmt.name) && !stmt.ifExists {
 		return nil, fmt.Errorf("sequence does not exist (%s)", stmt.name)
 	}
+
+	if err := deleteSequence(ctx, tx, stmt.name); err != nil && !stmt.ifExists {
+		return nil, err
+	}
+
 	return tx, nil
 }
 
@@ -4646,6 +4704,7 @@ type CreateViewStmt struct {
 	viewName    string
 	ifNotExists bool
 	query       DataSource
+	querySQL    string // raw SQL for persistence
 }
 
 func (stmt *CreateViewStmt) readOnly() bool                     { return false }
@@ -4674,6 +4733,9 @@ func (stmt *CreateViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		name:  stmt.viewName,
 		query: stmt.query,
 	})
+
+	// Note: Views are session-scoped and not persisted to catalog storage.
+	// They will be lost on restart. Full persistence requires AST-to-SQL serialization.
 
 	return tx, nil
 }
@@ -4705,14 +4767,35 @@ func (stmt *DropViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 
 // viewResolver implements TableResolver for views
 type viewResolver struct {
-	name  string
-	query DataSource
+	name     string
+	query    DataSource
+	querySQL string // stored for persistence
 }
 
 func (r *viewResolver) Table() string { return r.name }
 
 func (r *viewResolver) Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error) {
-	reader, err := r.query.Resolve(ctx, tx, nil, nil)
+	// Re-parse from SQL if query is nil (loaded from persistence)
+	q := r.query
+	if q == nil && r.querySQL != "" {
+		stmts, err := ParseSQL(strings.NewReader(r.querySQL))
+		if err != nil {
+			return nil, fmt.Errorf("error parsing view '%s': %w", r.name, err)
+		}
+		if len(stmts) != 1 {
+			return nil, fmt.Errorf("view '%s' must contain exactly one statement", r.name)
+		}
+		ds, ok := stmts[0].(DataSource)
+		if !ok {
+			return nil, fmt.Errorf("view '%s' must be a SELECT statement", r.name)
+		}
+		q = ds
+	}
+	if q == nil {
+		return nil, fmt.Errorf("view '%s' has no query", r.name)
+	}
+
+	reader, err := q.Resolve(ctx, tx, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving view '%s': %w", r.name, err)
 	}

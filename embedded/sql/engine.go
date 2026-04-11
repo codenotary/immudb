@@ -182,6 +182,39 @@ func (e *Engine) CurrVal(name string) (int64, error) {
 	return seq.currValue, nil
 }
 
+func (e *Engine) loadSequences(ctx context.Context, tx *store.OngoingTx) error {
+	prefix := MapKey(e.prefix, catalogSequencePrefix, EncodeID(DatabaseID))
+
+	return iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		if deleted || len(value) < 16 {
+			return nil
+		}
+
+		// Extract name from key: prefix + DatabaseID + name
+		nameStart := len(prefix)
+		if nameStart >= len(key) {
+			return nil
+		}
+		name := string(key[nameStart:])
+
+		currValue := int64(binary.BigEndian.Uint64(value[0:8]))
+		increment := int64(binary.BigEndian.Uint64(value[8:16]))
+
+		if e.sequences == nil {
+			e.sequences = make(map[string]*Sequence)
+		}
+
+		e.sequences[name] = &Sequence{
+			name:      name,
+			currValue: currValue,
+			increment: increment,
+			started:   currValue != 0,
+		}
+
+		return nil
+	})
+}
+
 type MultiDBHandler interface {
 	ListDatabases(ctx context.Context) ([]string, error)
 	CreateDatabase(ctx context.Context, db string, ifNotExists bool) error
@@ -293,6 +326,14 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	err = catalog.load(ctx, tx)
 	if err != nil {
 		return nil, err
+	}
+
+	// Load persisted sequences (only once, on first tx)
+	if e.sequences == nil {
+		if err := e.loadSequences(ctx, tx); err != nil {
+			// Non-fatal: sequences are optional
+			_ = err
+		}
 	}
 
 	for _, table := range catalog.GetTables() {

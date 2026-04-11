@@ -1584,6 +1584,12 @@ func (f *nextValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Persist updated sequence state
+	if seq, exists := tx.engine.sequences[name]; exists {
+		persistSequence(tx, seq)
+	}
+
 	return NewInteger(val), nil
 }
 
