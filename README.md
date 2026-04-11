@@ -141,7 +141,7 @@ SELECT NEXTVAL('order_seq');
 | DML | INSERT...ON CONFLICT DO UPDATE, INSERT/UPDATE/DELETE...RETURNING |
 | DDL | CREATE/DROP VIEW, CREATE/DROP SEQUENCE, ALTER COLUMN, FOREIGN KEY |
 | Ordering | ORDER BY with NULLS FIRST/LAST, LIMIT ALL |
-| Pattern matching | LIKE, ILIKE (case-insensitive) |
+| Pattern matching | LIKE, ILIKE (case-insensitive) -- uses regex syntax (`.*` not `%`) |
 | Query analysis | EXPLAIN |
 | Type aliases | BIGINT, INT, SMALLINT, SERIAL, DOUBLE, REAL, NUMERIC, DECIMAL, BYTEA, JSONB, TIMESTAMPTZ, and more |
 

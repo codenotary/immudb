@@ -1639,9 +1639,11 @@ func (f *nextValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 		return nil, err
 	}
 
-	// Persist updated sequence state
+	// Best-effort persistence — sequence counter is always updated in-memory.
+	// Persistence may fail in read-only transactions (SELECT NEXTVAL),
+	// but succeeds when called within DML or explicit transactions.
 	if seq, exists := tx.engine.sequences[name]; exists {
-		persistSequence(tx, seq)
+		_ = persistSequence(tx, seq)
 	}
 
 	return NewInteger(val), nil

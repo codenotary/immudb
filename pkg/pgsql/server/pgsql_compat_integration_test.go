@@ -992,6 +992,138 @@ func TestPgsqlCompat_FullORMWorkflow(t *testing.T) {
 	require.Greater(t, count, int64(0))
 }
 
+func TestPgsqlCompat_FullOuterJoin(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE foj_l (id INTEGER, val VARCHAR, PRIMARY KEY id);
+		CREATE TABLE foj_r (id INTEGER, data VARCHAR, PRIMARY KEY id);
+		INSERT INTO foj_l (id, val) VALUES (1, 'a');
+		INSERT INTO foj_l (id, val) VALUES (2, 'b');
+		INSERT INTO foj_r (id, data) VALUES (2, 'x');
+		INSERT INTO foj_r (id, data) VALUES (3, 'y')
+	`)
+	require.NoError(t, err)
+
+	rows, err := conn.Query(context.Background(),
+		"SELECT l.id, r.id FROM foj_l l FULL JOIN foj_r r ON l.id = r.id")
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 3, count) // (1,null), (2,2), (null,3)
+}
+
+func TestPgsqlCompat_CorrelatedSubquery(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE cs_cust (id INTEGER, name VARCHAR, PRIMARY KEY id);
+		CREATE TABLE cs_ord (id INTEGER, cust_id INTEGER, PRIMARY KEY id);
+		INSERT INTO cs_cust (id, name) VALUES (1, 'Alice');
+		INSERT INTO cs_cust (id, name) VALUES (2, 'Bob');
+		INSERT INTO cs_cust (id, name) VALUES (3, 'Charlie');
+		INSERT INTO cs_ord (id, cust_id) VALUES (1, 1);
+		INSERT INTO cs_ord (id, cust_id) VALUES (2, 2)
+	`)
+	require.NoError(t, err)
+
+	// Correlated EXISTS — customers with orders
+	rows, err := conn.Query(context.Background(),
+		"SELECT c.name FROM cs_cust c WHERE EXISTS (SELECT 1 FROM cs_ord o WHERE o.cust_id = c.id)")
+	require.NoError(t, err)
+	var names []string
+	for rows.Next() {
+		var name string
+		rows.Scan(&name)
+		names = append(names, name)
+	}
+	rows.Close()
+	require.Equal(t, 2, len(names))
+	require.Contains(t, names, "Alice")
+	require.Contains(t, names, "Bob")
+
+	// Correlated NOT EXISTS — customers without orders
+	var name string
+	err = conn.QueryRow(context.Background(),
+		"SELECT c.name FROM cs_cust c WHERE NOT EXISTS (SELECT 1 FROM cs_ord o WHERE o.cust_id = c.id)").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "Charlie", name)
+}
+
+func TestPgsqlCompat_WindowFunctionsWithNulls(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE wfn (id INTEGER, score INTEGER, PRIMARY KEY id);
+		INSERT INTO wfn (id, score) VALUES (1, 90);
+		INSERT INTO wfn (id, score) VALUES (2, NULL);
+		INSERT INTO wfn (id, score) VALUES (3, 80);
+		INSERT INTO wfn (id, score) VALUES (4, NULL)
+	`)
+	require.NoError(t, err)
+
+	rows, err := conn.Query(context.Background(),
+		"SELECT id, row_number() OVER (ORDER BY id) rn FROM wfn")
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count) // all rows including NULLs
+}
+
+func TestPgsqlCompat_ForeignKeyNotEnforced(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE fk_parent (id INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE fk_child (
+			id INTEGER,
+			parent_id INTEGER,
+			PRIMARY KEY id,
+			FOREIGN KEY (parent_id) REFERENCES fk_parent (id)
+		)`)
+	require.NoError(t, err)
+
+	// FK should NOT be enforced — insert with nonexistent parent should succeed
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO fk_child (id, parent_id) VALUES (1, 999)")
+	require.NoError(t, err)
+
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM fk_child").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
 func TestPgsqlCompat_ForeignKeyConstraint(t *testing.T) {
 	_, port := setupTestServer(t)
 
