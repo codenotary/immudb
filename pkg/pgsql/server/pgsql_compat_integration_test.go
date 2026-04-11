@@ -1091,6 +1091,98 @@ func TestPgsqlCompat_WindowFunctionsWithNulls(t *testing.T) {
 	require.Equal(t, 4, count) // all rows including NULLs
 }
 
+func TestPgsqlCompat_InsertReturningLibPQ(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	// INSERT RETURNING works without index delay since it returns the just-inserted row
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE irs (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	var id int
+	var name string
+	err = db.QueryRow("INSERT INTO irs (name) VALUES ('test') RETURNING id, name").Scan(&id, &name)
+	require.NoError(t, err)
+	require.Greater(t, id, 0)
+	require.Equal(t, "test", name)
+}
+
+func TestPgsqlCompat_AdvancedWindowFunctions(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE awf (id INTEGER, dept VARCHAR, salary INTEGER, PRIMARY KEY id);
+		INSERT INTO awf (id, dept, salary) VALUES (1, 'eng', 100);
+		INSERT INTO awf (id, dept, salary) VALUES (2, 'eng', 100);
+		INSERT INTO awf (id, dept, salary) VALUES (3, 'eng', 200);
+		INSERT INTO awf (id, dept, salary) VALUES (4, 'sales', 150)
+	`)
+	require.NoError(t, err)
+
+	// RANK with ties
+	rows, err := conn.Query(context.Background(),
+		"SELECT id, rank() OVER (PARTITION BY dept ORDER BY salary) rk FROM awf")
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count)
+
+	// DENSE_RANK
+	rows, err = conn.Query(context.Background(),
+		"SELECT id, dense_rank() OVER (ORDER BY salary) dr FROM awf")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count)
+
+	// LAG/LEAD
+	rows, err = conn.Query(context.Background(),
+		"SELECT id, lag(salary) OVER (ORDER BY id) prev, lead(salary) OVER (ORDER BY id) next FROM awf")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count)
+
+	// NTILE
+	rows, err = conn.Query(context.Background(),
+		"SELECT id, ntile(2) OVER (ORDER BY id) bucket FROM awf")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count)
+
+	// FIRST_VALUE / LAST_VALUE
+	rows, err = conn.Query(context.Background(),
+		"SELECT id, first_value(salary) OVER (ORDER BY id) fv, last_value(salary) OVER (ORDER BY id) lv FROM awf")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count)
+}
+
 func TestPgsqlCompat_ForeignKeyNotEnforced(t *testing.T) {
 	_, port := setupTestServer(t)
 

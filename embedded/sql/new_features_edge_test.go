@@ -652,6 +652,98 @@ func TestFunctionEdgeCases(t *testing.T) {
 	})
 }
 
+// --- String Function Value Tests ---
+
+func TestStringFunctionValues(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	tests := []struct {
+		name     string
+		query    string
+		expected interface{}
+	}{
+		{"reverse", "SELECT REVERSE('hello')", "olleh"},
+		{"repeat", "SELECT REPEAT('ab', 3)", "ababab"},
+		{"initcap", "SELECT INITCAP('hello world')", "Hello World"},
+		{"chr", "SELECT CHR(65)", "A"},
+		{"ascii", "SELECT ASCII('Z')", int64(90)},
+		{"split_part", "SELECT SPLIT_PART('a-b-c', '-', 2)", "b"},
+		{"translate", "SELECT TRANSLATE('hello', 'el', 'ip')", "hippo"},
+		{"concat_ws", "SELECT CONCAT_WS('-', 'a', 'b', 'c')", "a-b-c"},
+		{"regexp_replace", "SELECT REGEXP_REPLACE('foo123bar', '[0-9]+', 'NUM')", "fooNUMbar"},
+		{"substr", "SELECT SUBSTR('hello', 2, 3)", "ell"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, tt.query, nil)
+			require.NoError(t, err)
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, row.ValuesByPosition[0].RawValue())
+			r.Close()
+		})
+	}
+}
+
+// --- Negative/Error Tests ---
+
+func TestNegativeErrorCases(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE neg_test (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	t.Run("drop_nonexistent_view", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`DROP VIEW nonexistent_view`, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("drop_view_if_exists", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`DROP VIEW IF EXISTS nonexistent_view`, nil)
+		require.NoError(t, err) // IF EXISTS should not error
+	})
+
+	t.Run("drop_nonexistent_sequence", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`DROP SEQUENCE nonexistent_seq`, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("drop_sequence_if_exists", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`DROP SEQUENCE IF EXISTS nonexistent_seq`, nil)
+		require.NoError(t, err) // IF EXISTS should not error
+	})
+
+	t.Run("create_view_conflict_with_table", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`CREATE VIEW neg_test AS SELECT id FROM neg_test`, nil)
+		require.Error(t, err) // view name conflicts with table name
+	})
+
+	t.Run("create_view_if_not_exists", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`CREATE VIEW test_view AS SELECT id FROM neg_test`, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`CREATE VIEW IF NOT EXISTS test_view AS SELECT id FROM neg_test`, nil)
+		require.NoError(t, err) // IF NOT EXISTS should not error
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`CREATE VIEW test_view AS SELECT id FROM neg_test`, nil)
+		require.Error(t, err) // duplicate without IF NOT EXISTS should error
+
+		_, _, err = engine.Exec(context.Background(), nil,
+			`DROP VIEW test_view`, nil)
+		require.NoError(t, err)
+	})
+}
+
 // --- EXPLAIN Edge Cases ---
 
 func TestExplainEdgeCases(t *testing.T) {
