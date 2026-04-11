@@ -724,6 +724,166 @@ func TestPgsqlCompat_UtilityFunctions(t *testing.T) {
 	rows.Close()
 }
 
+func TestPgsqlCompat_CastAndExpressions(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	// :: cast operator
+	var intVal int64
+	err = conn.QueryRow(context.Background(), "SELECT '42'::INTEGER").Scan(&intVal)
+	require.NoError(t, err)
+	require.Equal(t, int64(42), intVal)
+
+	// CAST with type aliases
+	err = conn.QueryRow(context.Background(), "SELECT CAST(100 AS BIGINT)").Scan(&intVal)
+	require.NoError(t, err)
+	require.Equal(t, int64(100), intVal)
+
+	// CASE expression — verify it executes without error
+	rows, err := conn.Query(context.Background(),
+		"SELECT CASE WHEN 1 > 0 THEN 'yes' ELSE 'no' END")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	rows.Close()
+
+	// COALESCE
+	rows, err = conn.Query(context.Background(),
+		"SELECT COALESCE(NULL, NULL, 'fallback')")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	rows.Close()
+
+	// Nested function calls
+	var result string
+	err = conn.QueryRow(context.Background(),
+		"SELECT UPPER(CONCAT('hello', ' ', 'world'))").Scan(&result)
+	require.NoError(t, err)
+	require.Equal(t, "HELLO WORLD", result)
+
+	// Math expressions — verify they execute
+	rows, err = conn.Query(context.Background(), "SELECT ABS(-42)")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	rows.Close()
+}
+
+func TestPgsqlCompat_ComplexQueries(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE products (id INTEGER, name VARCHAR, category VARCHAR, price INTEGER, PRIMARY KEY id);
+		INSERT INTO products (id, name, category, price) VALUES (1, 'Widget', 'tools', 100);
+		INSERT INTO products (id, name, category, price) VALUES (2, 'Gadget', 'tools', 200);
+		INSERT INTO products (id, name, category, price) VALUES (3, 'Gizmo', 'toys', 50);
+		INSERT INTO products (id, name, category, price) VALUES (4, 'Doohickey', 'toys', 75)
+	`)
+	require.NoError(t, err)
+
+	// Aggregation
+	var totalCount int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM products").Scan(&totalCount)
+	require.NoError(t, err)
+	require.Equal(t, 4, totalCount)
+
+	// Subquery with aggregation
+	var maxPrice int64
+	err = conn.QueryRow(context.Background(),
+		"SELECT MAX(price) FROM products WHERE category = 'tools'").Scan(&maxPrice)
+	require.NoError(t, err)
+	require.Equal(t, int64(200), maxPrice)
+
+	// BETWEEN
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM products WHERE price BETWEEN 50 AND 100").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+
+	// IN list
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM products WHERE category IN ('tools', 'toys')").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 4, count)
+
+	// LIKE
+	var name string
+	err = conn.QueryRow(context.Background(),
+		"SELECT name FROM products WHERE name LIKE 'Wid.*'").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "Widget", name)
+
+	// LIMIT
+	var limitCount int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM products LIMIT 2").Scan(&limitCount)
+	require.NoError(t, err)
+	require.Equal(t, 4, limitCount) // COUNT returns 1 row, LIMIT 2 doesn't affect it
+
+	// UPSERT
+	_, err = conn.Exec(context.Background(),
+		"UPSERT INTO products (id, name, category, price) VALUES (1, 'SuperWidget', 'tools', 150)")
+	require.NoError(t, err)
+
+	err = conn.QueryRow(context.Background(),
+		"SELECT name FROM products WHERE id = 1").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "SuperWidget", name)
+}
+
+func TestPgsqlCompat_Except(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE set_a (id INTEGER, PRIMARY KEY id);
+		CREATE TABLE set_b (id INTEGER, PRIMARY KEY id);
+		INSERT INTO set_a (id) VALUES (1);
+		INSERT INTO set_a (id) VALUES (2);
+		INSERT INTO set_a (id) VALUES (3);
+		INSERT INTO set_b (id) VALUES (2);
+		INSERT INTO set_b (id) VALUES (3);
+		INSERT INTO set_b (id) VALUES (4)
+	`)
+	require.NoError(t, err)
+
+	// EXCEPT
+	var count int
+	rows, err := conn.Query(context.Background(),
+		"SELECT id FROM set_a EXCEPT SELECT id FROM set_b")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 1, count) // only id=1
+
+	// INTERSECT
+	rows, err = conn.Query(context.Background(),
+		"SELECT id FROM set_a INTERSECT SELECT id FROM set_b")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 2, count) // id=2,3
+}
+
 func TestPgsqlCompat_ForeignKeyConstraint(t *testing.T) {
 	_, port := setupTestServer(t)
 
