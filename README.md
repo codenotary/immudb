@@ -164,6 +164,19 @@ SELECT immudb_history('mykey');                -- full history of a key
 
 **ORM introspection support** with `pg_catalog` tables (`pg_class`, `pg_attribute`, `pg_index`, `pg_constraint`, `pg_type`, `pg_namespace`, `pg_roles`, `pg_settings`, `pg_description`) and `information_schema` views (`tables`, `columns`, `schemata`, `key_column_usage`).
 
+**Known limitations** -- the following PostgreSQL features are not yet supported and require architectural changes:
+
+| Feature | Reason |
+|---------|--------|
+| `STRING_AGG` | Requires aggregate framework extension for 2-argument aggregates |
+| `COUNT(DISTINCT col)` | Same aggregate framework limitation |
+| Views persistence | Views are session-scoped; full persistence requires AST-to-SQL serialization |
+| `DEFAULT` / `ALTER COLUMN` persistence | Parsed but session-scoped; requires catalog format versioning |
+| `LATERAL` joins | Requires subquery-in-join context passing |
+| Generated columns (`GENERATED ALWAYS AS`) | Requires computed column infrastructure |
+| `COPY` command | Requires bulk import protocol implementation |
+| Stored procedures / PL/pgSQL | Requires a language interpreter |
+
 ### Security Hardening
 
 - **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
