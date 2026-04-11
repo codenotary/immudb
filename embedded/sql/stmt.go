@@ -5227,9 +5227,10 @@ func (bexp *NotBoolExp) String() string {
 }
 
 type LikeBoolExp struct {
-	val     ValueExp
-	notLike bool
-	pattern ValueExp
+	val             ValueExp
+	notLike         bool
+	caseInsensitive bool // ILIKE
+	pattern         ValueExp
 }
 
 func NewLikeBoolExp(val ValueExp, notLike bool, pattern ValueExp) *LikeBoolExp {
@@ -5320,7 +5321,12 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
 	}
 
-	matched, err := regexp.MatchString(rpattern.RawValue().(string), rvalStr)
+	patternStr := rpattern.RawValue().(string)
+	matchVal := rvalStr
+	if bexp.caseInsensitive {
+		patternStr = "(?i)" + patternStr
+	}
+	matched, err := regexp.MatchString(patternStr, matchVal)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
@@ -5345,11 +5351,14 @@ func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map
 }
 
 func (bexp *LikeBoolExp) String() string {
-	fmtStr := "(%s LIKE %s)"
-	if bexp.notLike {
-		fmtStr = "(%s NOT LIKE %s)"
+	op := "LIKE"
+	if bexp.caseInsensitive {
+		op = "ILIKE"
 	}
-	return fmt.Sprintf(fmtStr, bexp.val.String(), bexp.pattern.String())
+	if bexp.notLike {
+		op = "NOT " + op
+	}
+	return fmt.Sprintf("(%s %s %s)", bexp.val.String(), op, bexp.pattern.String())
 }
 
 type CmpBoolExp struct {

@@ -6460,6 +6460,61 @@ func TestCastTypeAliases(t *testing.T) {
 	}
 }
 
+func TestConcatWS(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT concat_ws(', ', 'hello', 'world', 'test')`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "hello, world, test", row.ValuesByPosition[0].RawValue())
+	r.Close()
+}
+
+func TestRegexpReplace(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT regexp_replace('hello 123 world', '[0-9]+', 'NUM')`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "hello NUM world", row.ValuesByPosition[0].RawValue())
+	r.Close()
+}
+
+func TestLimitAll(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE items (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO items (id) VALUES (1);
+		INSERT INTO items (id) VALUES (2);
+		INSERT INTO items (id) VALUES (3);
+	`, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT id FROM items LIMIT ALL`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 3, count) // LIMIT ALL means no limit
+	r.Close()
+}
+
 func TestSubstrAlias(t *testing.T) {
 	engine := setupCommonTest(t)
 

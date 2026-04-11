@@ -127,7 +127,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
-%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING
+%token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
 %token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
@@ -160,7 +160,7 @@ func aggFnName(fn AggregateFn) string {
 
 %right NOT
 
-%nonassoc CMPOP LIKE NOT_MATCHES_OP IS
+%nonassoc CMPOP LIKE ILIKE NOT_MATCHES_OP IS
 
 %left '+' '-'
 %left '*' '/' '%'
@@ -1307,6 +1307,11 @@ opt_limit:
     {
         $$ = $2
     }
+|
+    LIMIT ALL
+    {
+        $$ = nil
+    }
 
 opt_offset:
     {
@@ -1519,6 +1524,8 @@ cmpExp
         }
     }
     | addExp opt_not LIKE addExp    { $$ = &LikeBoolExp{val: $1, notLike: $2, pattern: $4} }
+    | addExp ILIKE addExp           { $$ = &LikeBoolExp{val: $1, caseInsensitive: true, pattern: $3} }
+    | addExp NOT ILIKE addExp       { $$ = &LikeBoolExp{val: $1, notLike: true, caseInsensitive: true, pattern: $4} }
     | addExp NOT_MATCHES_OP addExp  { $$ = &LikeBoolExp{val: $1, notLike: true, pattern: $3} }
     | primaryBool
     ;

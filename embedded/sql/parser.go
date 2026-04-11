@@ -84,6 +84,7 @@ var keywords = map[string]int{
 	"RECURSIVE":      RECURSIVE,
 	"NATURAL":        NATURAL,
 	"USING":          USING,
+	"ILIKE":          ILIKE,
 	"TX":             TX,
 	"JOIN":           JOIN,
 	"HAVING":         HAVING,

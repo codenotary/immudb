@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -106,8 +107,10 @@ const (
 	ClockTimestampFnCall string = "CLOCK_TIMESTAMP"
 
 	// Aliases
-	SubstrFnCall string = "SUBSTR"
-	StrposFnCall string = "STRPOS"
+	SubstrFnCall    string = "SUBSTR"
+	StrposFnCall    string = "STRPOS"
+	ConcatWSFnCall  string = "CONCAT_WS"
+	RegexpReplaceFnCall string = "REGEXP_REPLACE"
 )
 
 var builtinFunctions = map[string]Function{
@@ -181,8 +184,10 @@ var builtinFunctions = map[string]Function{
 	ClockTimestampFnCall: &NowFn{},
 
 	// Aliases
-	SubstrFnCall: &SubstringFn{},
-	StrposFnCall: &positionFn{},
+	SubstrFnCall:       &SubstringFn{},
+	StrposFnCall:       &positionFn{},
+	ConcatWSFnCall:     &concatWSFn{},
+	RegexpReplaceFnCall: &regexpReplaceFn{},
 }
 
 type Function interface {
@@ -1486,6 +1491,66 @@ func (f *ageFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, para
 	}
 	return nil
 }
+// concat_ws(separator, val1, val2, ...) — concatenate with separator
+type concatWSFn struct{}
+
+func (f *concatWSFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *concatWSFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *concatWSFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("%w: '%s' expects at least 2 arguments", ErrIllegalArguments, ConcatWSFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	sep, _ := params[0].RawValue().(string)
+	var parts []string
+	for _, p := range params[1:] {
+		if !p.IsNull() {
+			s, _ := p.RawValue().(string)
+			parts = append(parts, s)
+		}
+	}
+	return NewVarchar(strings.Join(parts, sep)), nil
+}
+
+// regexp_replace(source, pattern, replacement) — regex replacement
+type regexpReplaceFn struct{}
+
+func (f *regexpReplaceFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *regexpReplaceFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *regexpReplaceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("%w: '%s' expects at least 3 arguments", ErrIllegalArguments, RegexpReplaceFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	source, _ := params[0].RawValue().(string)
+	pattern, _ := params[1].RawValue().(string)
+	replacement, _ := params[2].RawValue().(string)
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return NewVarchar(source), nil
+	}
+	return NewVarchar(re.ReplaceAllString(source, replacement)), nil
+}
+
 func (f *ageFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	if len(params) < 1 || len(params) > 2 {
 		return nil, fmt.Errorf("%w: '%s' expects 1-2 arguments", ErrIllegalArguments, AgeFnCall)
