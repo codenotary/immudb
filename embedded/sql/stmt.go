@@ -1014,6 +1014,60 @@ func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	return tx.delete(ctx, mappedKey)
 }
 
+type AlterColumnAction int
+
+const (
+	AlterColumnSetNotNull  AlterColumnAction = iota
+	AlterColumnDropNotNull
+	AlterColumnSetType
+)
+
+type AlterColumnStmt struct {
+	table   string
+	colName string
+	action  AlterColumnAction
+	newType SQLValueType
+}
+
+func (stmt *AlterColumnStmt) readOnly() bool                     { return false }
+func (stmt *AlterColumnStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *AlterColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *AlterColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.GetColumnByName(stmt.colName)
+	if err != nil {
+		return nil, err
+	}
+
+	switch stmt.action {
+	case AlterColumnSetNotNull:
+		col.notNull = true
+	case AlterColumnDropNotNull:
+		// Cannot drop NOT NULL on PK columns
+		if table.primaryIndex != nil {
+			for _, pkCol := range table.primaryIndex.cols {
+				if pkCol.id == col.id {
+					return nil, fmt.Errorf("cannot drop NOT NULL constraint on primary key column %s", col.colName)
+				}
+			}
+		}
+		col.notNull = false
+	case AlterColumnSetType:
+		col.colType = stmt.newType
+	}
+
+	tx.mutatedCatalog = true
+	return tx, nil
+}
+
 type DropConstraintStmt struct {
 	table          string
 	constraintName string

@@ -6396,6 +6396,82 @@ func TestCTE(t *testing.T) {
 	r.Close()
 }
 
+func TestAlterColumn(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE alter_test (id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	t.Run("set_not_null", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`ALTER TABLE alter_test ALTER COLUMN name SET NOT NULL`, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("drop_not_null", func(t *testing.T) {
+		_, _, err := engine.Exec(context.Background(), nil,
+			`ALTER TABLE alter_test ALTER COLUMN name DROP NOT NULL`, nil)
+		require.NoError(t, err)
+
+		// Should now allow NULL
+		_, _, err = engine.Exec(context.Background(), nil,
+			`INSERT INTO alter_test (id, name) VALUES (2, NULL)`, nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestCastTypeAliases(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE types_test (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	// Test various PG type aliases work in CAST
+	testCases := []struct {
+		name string
+		sql  string
+	}{
+		{"bigint", "SELECT CAST(1 AS BIGINT)"},
+		{"int", "SELECT CAST(1 AS INT)"},
+		{"int4", "SELECT CAST(1 AS INT4)"},
+		{"int8", "SELECT CAST(1 AS INT8)"},
+		{"smallint", "SELECT CAST(1 AS SMALLINT)"},
+		{"float8", "SELECT CAST(1 AS FLOAT8)"},
+		{"double", "SELECT CAST(1 AS DOUBLE)"},
+		{"real", "SELECT CAST(1 AS REAL)"},
+		{"bytea", "SELECT CAST('hello' AS BYTEA)"},
+		{"jsonb", "SELECT CAST('{}' AS JSONB)"},
+		{"numeric", "SELECT CAST(1 AS NUMERIC)"},
+		{"decimal", "SELECT CAST(1 AS DECIMAL)"},
+		{"varchar_scast", "SELECT '1'::INTEGER"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil, tc.sql, nil)
+			require.NoError(t, err)
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			r.Close()
+		})
+	}
+}
+
+func TestSubstrAlias(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT substr('hello world', 1, 5)`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "hello", row.ValuesByPosition[0].RawValue())
+	r.Close()
+}
+
 func TestCorrelatedSubqueries(t *testing.T) {
 	engine := setupCommonTest(t)
 

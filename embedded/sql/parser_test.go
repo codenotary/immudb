@@ -436,7 +436,7 @@ func TestAlterTable(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting DROP or ADD or RENAME at position 25"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting DROP or ALTER or ADD or RENAME at position 25"),
 		},
 		{
 			input: "ALTER TABLE table1 RENAME COLUMN title TO newtitle",

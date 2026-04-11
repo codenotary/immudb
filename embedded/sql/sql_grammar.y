@@ -371,6 +371,25 @@ ddlstmt:
         $$ = &DropConstraintStmt{table: $3, constraintName: $6}
     }
 |
+    ALTER TABLE tableName ALTER COLUMN col_name SET NOT NULL
+    {
+        $$ = &AlterColumnStmt{table: $3, colName: $6, action: AlterColumnSetNotNull}
+    }
+|
+    ALTER TABLE tableName ALTER COLUMN col_name DROP NOT NULL
+    {
+        $$ = &AlterColumnStmt{table: $3, colName: $6, action: AlterColumnDropNotNull}
+    }
+|
+    ALTER TABLE tableName ALTER COLUMN col_name IDENTIFIER sql_type
+    {
+        if strings.ToUpper($7) != "TYPE" {
+            yylex.Error("expected TYPE keyword")
+            goto ret1
+        }
+        $$ = &AlterColumnStmt{table: $3, colName: $6, action: AlterColumnSetType, newType: $8}
+    }
+|
     CREATE USER IDENTIFIER WITH PASSWORD VARCHAR_LIT permission
     {
         $$ = &CreateUserStmt{username: $3, password: $6, permission: $7}

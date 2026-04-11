@@ -104,6 +104,10 @@ const (
 	DatePartFnCall   string = "DATE_PART"
 	AgeFnCall        string = "AGE"
 	ClockTimestampFnCall string = "CLOCK_TIMESTAMP"
+
+	// Aliases
+	SubstrFnCall string = "SUBSTR"
+	StrposFnCall string = "STRPOS"
 )
 
 var builtinFunctions = map[string]Function{
@@ -175,6 +179,10 @@ var builtinFunctions = map[string]Function{
 	DatePartFnCall:       &datePartFn{},
 	AgeFnCall:            &ageFn{},
 	ClockTimestampFnCall: &NowFn{},
+
+	// Aliases
+	SubstrFnCall: &SubstringFn{},
+	StrposFnCall: &positionFn{},
 }
 
 type Function interface {
