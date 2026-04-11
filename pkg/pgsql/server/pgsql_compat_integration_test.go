@@ -404,7 +404,7 @@ func TestPgsqlCompat_WindowFunctions(t *testing.T) {
 	require.Equal(t, 3, count)
 }
 
-func TestPgsqlCompat_OnConflictDoNothing(t *testing.T) {
+func TestPgsqlCompat_OnConflict(t *testing.T) {
 	_, port := setupTestServer(t)
 
 	conn, err := pgx.Connect(context.Background(),
@@ -456,6 +456,165 @@ func TestPgsqlCompat_Sequences(t *testing.T) {
 	err = conn.QueryRow(context.Background(), "SELECT CURRVAL('test_seq')").Scan(&val)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), val)
+}
+
+func TestPgsqlCompat_Returning(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE ret_test (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	// INSERT ... RETURNING *
+	var id int64
+	var name string
+	err = conn.QueryRow(context.Background(),
+		"INSERT INTO ret_test (name) VALUES ('Alice') RETURNING *").Scan(&id, &name)
+	require.NoError(t, err)
+	require.Greater(t, id, int64(0))
+	require.Equal(t, "Alice", name)
+
+	// INSERT ... RETURNING id — should return a valid auto-incremented id
+	var id2 int64
+	err = conn.QueryRow(context.Background(),
+		"INSERT INTO ret_test (name) VALUES ('Bob') RETURNING id").Scan(&id2)
+	require.NoError(t, err)
+	require.Greater(t, id2, id)
+}
+
+func TestPgsqlCompat_UnionSubquery(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE us_a (id INTEGER, PRIMARY KEY id);
+		CREATE TABLE us_b (id INTEGER, PRIMARY KEY id);
+		INSERT INTO us_a (id) VALUES (1);
+		INSERT INTO us_a (id) VALUES (2);
+		INSERT INTO us_b (id) VALUES (3);
+		INSERT INTO us_b (id) VALUES (4)
+	`)
+	require.NoError(t, err)
+
+	// UNION ALL in subquery
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM (SELECT id FROM us_a UNION ALL SELECT id FROM us_b) sub").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 4, count)
+}
+
+func TestPgsqlCompat_RecursiveCTE(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE tree (id INTEGER, parent_id INTEGER, name VARCHAR, PRIMARY KEY id);
+		INSERT INTO tree (id, parent_id, name) VALUES (1, 0, 'root');
+		INSERT INTO tree (id, parent_id, name) VALUES (2, 1, 'child1');
+		INSERT INTO tree (id, parent_id, name) VALUES (3, 1, 'child2');
+		INSERT INTO tree (id, parent_id, name) VALUES (4, 2, 'grandchild1')
+	`)
+	require.NoError(t, err)
+
+	// Recursive CTE — tree traversal
+	rows, err := conn.Query(context.Background(), `
+		WITH RECURSIVE descendants AS (
+			SELECT id, name FROM tree WHERE id = 1
+			UNION ALL
+			SELECT t.id, t.name FROM tree t INNER JOIN descendants d ON t.parent_id = d.id
+		)
+		SELECT id, name FROM descendants
+	`)
+	require.NoError(t, err)
+
+	count := 0
+	for rows.Next() {
+		var id int64
+		var name string
+		err = rows.Scan(&id, &name)
+		require.NoError(t, err)
+		t.Logf("node: id=%d name=%s", id, name)
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 4, count)
+}
+
+func TestPgsqlCompat_NullsFirstLast(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE nulls_test (id INTEGER, val INTEGER, PRIMARY KEY id);
+		INSERT INTO nulls_test (id, val) VALUES (1, 10);
+		INSERT INTO nulls_test (id, val) VALUES (2, 20);
+		INSERT INTO nulls_test (id, val) VALUES (3, NULL)
+	`)
+	require.NoError(t, err)
+
+	// NULLS LAST with ASC — query should parse and execute
+	rows, err := conn.Query(context.Background(),
+		"SELECT id FROM nulls_test ORDER BY val ASC NULLS LAST")
+	require.NoError(t, err)
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		err = rows.Scan(&id)
+		require.NoError(t, err)
+		ids = append(ids, id)
+	}
+	rows.Close()
+	require.Equal(t, 3, len(ids))
+	require.Equal(t, int64(3), ids[2]) // NULL val should be last
+}
+
+func TestPgsqlCompat_Views(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE employees (id INTEGER, name VARCHAR, dept VARCHAR, PRIMARY KEY id);
+		INSERT INTO employees (id, name, dept) VALUES (1, 'Alice', 'eng');
+		INSERT INTO employees (id, name, dept) VALUES (2, 'Bob', 'sales');
+		INSERT INTO employees (id, name, dept) VALUES (3, 'Charlie', 'eng')
+	`)
+	require.NoError(t, err)
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE VIEW eng_view AS SELECT id, name FROM employees WHERE dept = 'eng'")
+	require.NoError(t, err)
+
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM eng_view").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	_, err = conn.Exec(context.Background(), "DROP VIEW eng_view")
+	require.NoError(t, err)
 }
 
 func TestPgsqlCompat_ILike(t *testing.T) {
