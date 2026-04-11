@@ -1178,7 +1178,9 @@ ds:
 |
     '(' dqlstmt ')' opt_as
     {
-        $2.(*SelectStmt).as = $4
+        if sel, ok := $2.(*SelectStmt); ok {
+            sel.as = $4
+        }
         $$ = $2.(DataSource)
     }
 |
@@ -1599,7 +1601,19 @@ cmpExp
 
 primaryBool
     : EXISTS '(' dqlstmt ')'            { $$ = &ExistsBoolExp{q: ($3).(DataSource)} }
-    | addExp opt_not IN '(' dqlstmt ')' { $$ = &InSubQueryExp{val: $1, notIn: $2, q: $5.(*SelectStmt)} }
+    | addExp opt_not IN '(' dqlstmt ')' {
+        ds, ok := $5.(DataSource)
+        if !ok {
+            yylex.Error("IN subquery must be a SELECT statement")
+            goto ret1
+        }
+        sel, isSel := ds.(*SelectStmt)
+        if !isSel {
+            // Wrap non-SelectStmt DataSource in a SelectStmt for compatibility
+            sel = &SelectStmt{ds: ds}
+        }
+        $$ = &InSubQueryExp{val: $1, notIn: $2, q: sel}
+    }
     | addExp opt_not IN '(' values ')'  { $$ = &InListExp{val: $1, notIn: $2, values: $5} }
     | case_when_exp                     { $$ = $1 }
     | addExp

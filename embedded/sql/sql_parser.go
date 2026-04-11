@@ -2240,7 +2240,9 @@ yydefault:
 	case 215:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyDollar[2].stmt.(*SelectStmt).as = yyDollar[4].id
+			if sel, ok := yyDollar[2].stmt.(*SelectStmt); ok {
+				sel.as = yyDollar[4].id
+			}
 			yyVAL.ds = yyDollar[2].stmt.(DataSource)
 		}
 	case 216:
@@ -2675,7 +2677,17 @@ yydefault:
 	case 301:
 		yyDollar = yyS[yypt-6 : yypt+1]
 		{
-			yyVAL.exp = &InSubQueryExp{val: yyDollar[1].exp, notIn: yyDollar[2].boolean, q: yyDollar[5].stmt.(*SelectStmt)}
+			ds, ok := yyDollar[5].stmt.(DataSource)
+			if !ok {
+				yylex.Error("IN subquery must be a SELECT statement")
+				goto ret1
+			}
+			sel, isSel := ds.(*SelectStmt)
+			if !isSel {
+				// Wrap non-SelectStmt DataSource in a SelectStmt for compatibility
+				sel = &SelectStmt{ds: ds}
+			}
+			yyVAL.exp = &InSubQueryExp{val: yyDollar[1].exp, notIn: yyDollar[2].boolean, q: sel}
 		}
 	case 302:
 		yyDollar = yyS[yypt-6 : yypt+1]

@@ -5573,9 +5573,10 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 	}
 
 	return &LikeBoolExp{
-		val:     val,
-		notLike: bexp.notLike,
-		pattern: pattern,
+		val:             val,
+		notLike:         bexp.notLike,
+		caseInsensitive: bexp.caseInsensitive,
+		pattern:         pattern,
 	}, nil
 }
 
@@ -5608,11 +5609,10 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 	}
 
 	patternStr := rpattern.RawValue().(string)
-	matchVal := rvalStr
 	if bexp.caseInsensitive {
 		patternStr = "(?i)" + patternStr
 	}
-	matched, err := regexp.MatchString(patternStr, matchVal)
+	matched, err := regexp.MatchString(patternStr, rvalStr)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}

@@ -6682,6 +6682,90 @@ func TestCastTypeAliases(t *testing.T) {
 	}
 }
 
+func TestILike(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE names (id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO names (id, name) VALUES (1, 'Alice');
+		INSERT INTO names (id, name) VALUES (2, 'BOB');
+		INSERT INTO names (id, name) VALUES (3, 'charlie');
+	`, nil)
+	require.NoError(t, err)
+
+	// ILIKE matches case-insensitively
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT name FROM names WHERE name ILIKE 'alice'`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Alice", row.ValuesByPosition[0].RawValue())
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+
+	// NOT ILIKE
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT name FROM names WHERE name NOT ILIKE 'alice'`, nil)
+	require.NoError(t, err)
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 2, count)
+	r.Close()
+}
+
+func TestUnionInSubqueryNoPanic(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, `
+		CREATE TABLE t1 (id INTEGER, PRIMARY KEY id);
+		CREATE TABLE t2 (id INTEGER, PRIMARY KEY id);
+		INSERT INTO t1 (id) VALUES (1);
+		INSERT INTO t1 (id) VALUES (2);
+		INSERT INTO t2 (id) VALUES (3);
+		INSERT INTO t2 (id) VALUES (4);
+	`, nil)
+	require.NoError(t, err)
+
+	// UNION ALL in subquery FROM clause — should not panic (was a grammar bug)
+	// Note: column resolution in UNION subqueries is limited
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT id FROM (SELECT id FROM t1 UNION ALL SELECT id FROM t2) sub`, nil)
+	// May return an error for column resolution, but must NOT panic
+	if err != nil {
+		t.Logf("Expected limitation: %v", err)
+	} else {
+		r.Close()
+	}
+
+	// Direct UNION works
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT id FROM t1 UNION ALL SELECT id FROM t2`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 4, count)
+	r.Close()
+}
+
 func TestConcatWS(t *testing.T) {
 	engine := setupCommonTest(t)
 
