@@ -88,6 +88,82 @@ SELECT _diff_action, id, title, active FROM (DIFF OF mytable) SINCE TX 100 UNTIL
 
 The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, or `DELETE` within the specified transaction range. Both `SINCE`/`AFTER` and `UNTIL`/`BEFORE` period specifiers are supported. Standard `WHERE` clauses can be applied to filter results.
 
+### PostgreSQL SQL Compatibility
+
+immudb's PostgreSQL wire protocol server now supports a comprehensive set of SQL features for ORM and tool compatibility. Connect with any PostgreSQL client (`psql`, pgAdmin, JDBC, SQLAlchemy, Django, GORM, ActiveRecord) and use standard SQL.
+
+**RETURNING clause** for INSERT, UPDATE, and DELETE:
+
+```sql
+INSERT INTO users (name) VALUES ('Alice') RETURNING id, name;
+UPDATE users SET name = 'Bob' WHERE id = 1 RETURNING *;
+DELETE FROM users WHERE id = 1 RETURNING *;
+```
+
+**Common Table Expressions (WITH / WITH RECURSIVE)**:
+
+```sql
+WITH RECURSIVE tree AS (
+    SELECT id, name FROM nodes WHERE parent_id = 0
+    UNION ALL
+    SELECT n.id, n.name FROM nodes n INNER JOIN tree t ON n.parent_id = t.id
+)
+SELECT * FROM tree;
+```
+
+**Window functions**:
+
+```sql
+SELECT name, dept,
+    ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) rank,
+    SUM(salary) OVER (PARTITION BY dept) dept_total,
+    LAG(salary) OVER (ORDER BY salary) prev_salary
+FROM employees;
+```
+
+Supported window functions: `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `LAG`, `LEAD`, `FIRST_VALUE`, `LAST_VALUE`, `NTILE`, and window aggregates (`COUNT`, `SUM`, `MIN`, `MAX`, `AVG`).
+
+**Views and Sequences**:
+
+```sql
+CREATE VIEW active_users AS SELECT * FROM users WHERE active = true;
+CREATE SEQUENCE order_seq;
+SELECT NEXTVAL('order_seq');
+```
+
+**Full SQL feature set**:
+
+| Category | Features |
+|----------|----------|
+| Joins | INNER, LEFT, RIGHT, CROSS, FULL OUTER, NATURAL, USING |
+| Subqueries | EXISTS, IN, NOT EXISTS, NOT IN (correlated and non-correlated) |
+| Set operations | UNION, UNION ALL, EXCEPT, INTERSECT |
+| DML | INSERT...ON CONFLICT DO UPDATE, INSERT/UPDATE/DELETE...RETURNING |
+| DDL | CREATE/DROP VIEW, CREATE/DROP SEQUENCE, ALTER COLUMN, FOREIGN KEY |
+| Ordering | ORDER BY with NULLS FIRST/LAST, LIMIT ALL |
+| Pattern matching | LIKE, ILIKE (case-insensitive) |
+| Query analysis | EXPLAIN |
+| Type aliases | BIGINT, INT, SMALLINT, SERIAL, DOUBLE, REAL, NUMERIC, DECIMAL, BYTEA, JSONB, TIMESTAMPTZ, and more |
+
+**75+ built-in functions** including:
+
+- Math: `ABS`, `CEIL`, `FLOOR`, `ROUND`, `POWER`, `SQRT`, `MOD`, `SIGN`
+- String: `CONCAT`, `CONCAT_WS`, `REPLACE`, `REVERSE`, `LEFT`, `RIGHT`, `LPAD`, `RPAD`, `SPLIT_PART`, `INITCAP`, `REPEAT`, `POSITION`, `MD5`, `REGEXP_REPLACE`, `TRANSLATE`
+- Date/Time: `NOW`, `DATE_TRUNC`, `TO_CHAR`, `DATE_PART`, `AGE`, `EXTRACT`
+- Conditional: `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `CASE`
+- PG compatibility: `current_database()`, `current_schema()`, `current_user`, `format_type()`, `pg_encoding_to_char()`
+
+**Immutable verification via SQL** -- query immudb's cryptographic proof system directly:
+
+```sql
+SELECT immudb_state();                         -- current database state and tx hash
+SELECT immudb_verify_row('mytable', 1);        -- cryptographically verify a row
+SELECT immudb_verify_tx(42);                   -- verify a transaction with proof
+SELECT immudb_history('mykey');                -- full history of a key
+```
+
+**ORM introspection support** with `pg_catalog` tables (`pg_class`, `pg_attribute`, `pg_index`, `pg_constraint`, `pg_type`, `pg_namespace`, `pg_roles`, `pg_settings`, `pg_description`) and `information_schema` views (`tables`, `columns`, `schemata`, `key_column_usage`).
+
 ### Security Hardening
 
 - **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
@@ -102,6 +178,7 @@ The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, 
   - [Recent Changes](#recent-changes)
     - [Structured Audit Logging](#structured-audit-logging)
     - [DIFF OF SQL Query](#diff-of-sql-query)
+    - [PostgreSQL SQL Compatibility](#postgresql-sql-compatibility)
     - [Security Hardening](#security-hardening)
   - [Quickstart](#quickstart)
     - [Getting immudb running: executable](#getting-immudb-running-executable)
@@ -362,7 +439,7 @@ Click here to try out the immudb web console access in an [online demo environme
 | Implementation language | Go                                                  |
 | Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS        |
 | Embeddable              | Yes, optionally                                     |
-| Server APIs             | gRPC                                                |
+| Server APIs             | gRPC, PostgreSQL wire protocol (v3)                 |
 | Partition methods       | Sharding                                            |
 | Consistency concepts    | Immediate Consistency                               |
 | Transaction concepts    | ACID with Snapshot Isolation (SSI)                  |
