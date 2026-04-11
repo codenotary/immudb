@@ -6800,6 +6800,105 @@ func TestNullsFirstLast(t *testing.T) {
 	r.Close()
 }
 
+func TestJoinUsing(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, `
+		CREATE TABLE t1 (id INTEGER, name VARCHAR, PRIMARY KEY id);
+		CREATE TABLE t2 (id INTEGER, value VARCHAR, PRIMARY KEY id);
+		INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+		INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+		INSERT INTO t2 (id, value) VALUES (1, 'x');
+		INSERT INTO t2 (id, value) VALUES (3, 'z');
+	`, nil)
+	require.NoError(t, err)
+
+	// JOIN USING(id) — parses successfully and executes
+	r, err := engine.Query(context.Background(), nil, `
+		SELECT t1.name, t2.value FROM t1 JOIN t2 USING (id)
+	`, nil)
+	require.NoError(t, err)
+
+	// Should return at least the matching row
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Alice", row.ValuesByPosition[0].RawValue())
+	require.Equal(t, "x", row.ValuesByPosition[1].RawValue())
+
+	r.Close()
+}
+
+func TestDateTimeFunctions(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE events (id INTEGER, ts TIMESTAMP, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	t.Run("date_trunc", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT date_trunc('year', NOW()) FROM events`, nil)
+		require.NoError(t, err)
+		// No rows since table is empty, but query should parse and resolve
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+		r.Close()
+	})
+
+	t.Run("md5", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT md5('hello')`, nil)
+		require.NoError(t, err)
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		hash, _ := row.ValuesByPosition[0].RawValue().(string)
+		require.Equal(t, "5d41402abc4b2a76b9719d911017c592", hash)
+		r.Close()
+	})
+
+	t.Run("initcap", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT initcap('hello world')`, nil)
+		require.NoError(t, err)
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "Hello World", row.ValuesByPosition[0].RawValue())
+		r.Close()
+	})
+
+	t.Run("lpad_rpad", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT lpad('hi', 5, '0'), rpad('hi', 5, '.')`, nil)
+		require.NoError(t, err)
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "000hi", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, "hi...", row.ValuesByPosition[1].RawValue())
+		r.Close()
+	})
+
+	t.Run("split_part", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT split_part('a.b.c', '.', 2)`, nil)
+		require.NoError(t, err)
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "b", row.ValuesByPosition[0].RawValue())
+		r.Close()
+	})
+
+	t.Run("chr_ascii", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT chr(65), ascii('A')`, nil)
+		require.NoError(t, err)
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "A", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, int64(65), row.ValuesByPosition[1].RawValue())
+		r.Close()
+	})
+}
+
 func TestFullOuterJoin(t *testing.T) {
 	engine := setupCommonTest(t)
 

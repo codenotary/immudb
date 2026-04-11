@@ -26,6 +26,26 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     l.(*lexer).result = stmts
 }
 
+func buildUsingCond(cols []string) ValueExp {
+    if len(cols) == 0 {
+        return &Bool{val: true}
+    }
+    var cond ValueExp
+    for _, col := range cols {
+        eq := &CmpBoolExp{
+            op:    EQ,
+            left:  &ColSelector{col: col},
+            right: &ColSelector{col: col},
+        }
+        if cond == nil {
+            cond = eq
+        } else {
+            cond = &BinBoolExp{op: AND, left: cond, right: eq}
+        }
+    }
+    return cond
+}
+
 func aggFnName(fn AggregateFn) string {
     switch fn {
     case COUNT:
@@ -107,7 +127,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
-%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE
+%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
 %token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
@@ -1197,6 +1217,16 @@ join:
             cond = &Bool{val: true}
         }
         $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: cond.(ValueExp)}
+    }
+|
+    opt_join_type JOIN ds USING '(' col_names ')'
+    {
+        $$ = &JoinSpec{joinType: $1, ds: $3, cond: buildUsingCond($6)}
+    }
+|
+    NATURAL opt_join_type JOIN ds
+    {
+        $$ = &JoinSpec{joinType: $2, ds: $4, natural: true, cond: &Bool{val: true}}
     }
 
 opt_join_type:

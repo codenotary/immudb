@@ -17,10 +17,13 @@ limitations under the License.
 package sql
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -84,6 +87,23 @@ const (
 	NullIfFnCall   string = "NULLIF"
 	GreatestFnCall string = "GREATEST"
 	LeastFnCall    string = "LEAST"
+
+	// Additional string functions
+	LpadFnCall      string = "LPAD"
+	RpadFnCall      string = "RPAD"
+	SplitPartFnCall string = "SPLIT_PART"
+	InitcapFnCall   string = "INITCAP"
+	ChrFnCall       string = "CHR"
+	AsciiFnCall     string = "ASCII"
+	MD5FnCall       string = "MD5"
+	TranslateFnCall string = "TRANSLATE"
+
+	// Date/time functions
+	DateTruncFnCall  string = "DATE_TRUNC"
+	ToCharFnCall     string = "TO_CHAR"
+	DatePartFnCall   string = "DATE_PART"
+	AgeFnCall        string = "AGE"
+	ClockTimestampFnCall string = "CLOCK_TIMESTAMP"
 )
 
 var builtinFunctions = map[string]Function{
@@ -138,6 +158,23 @@ var builtinFunctions = map[string]Function{
 	NullIfFnCall:   &nullIfFn{},
 	GreatestFnCall: &greatestLeastFn{isGreatest: true},
 	LeastFnCall:    &greatestLeastFn{isGreatest: false},
+
+	// Additional string functions
+	LpadFnCall:      &padFn{isRight: false},
+	RpadFnCall:      &padFn{isRight: true},
+	SplitPartFnCall: &splitPartFn{},
+	InitcapFnCall:   &initcapFn{},
+	ChrFnCall:       &chrFn{},
+	AsciiFnCall:     &asciiFn{},
+	MD5FnCall:       &md5Fn{},
+	TranslateFnCall: &translateFn{},
+
+	// Date/time functions
+	DateTruncFnCall:      &dateTruncFn{},
+	ToCharFnCall:         &toCharFn{},
+	DatePartFnCall:       &datePartFn{},
+	AgeFnCall:            &ageFn{},
+	ClockTimestampFnCall: &NowFn{},
 }
 
 type Function interface {
@@ -1067,4 +1104,414 @@ func (f *greatestLeastFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, err
 		}
 	}
 	return result, nil
+}
+
+// -------------------------------------
+// Additional String Functions
+// -------------------------------------
+
+type padFn struct {
+	isRight bool
+}
+
+func (f *padFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *padFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *padFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 2 || len(params) > 3 {
+		return nil, fmt.Errorf("%w: LPAD/RPAD expects 2-3 arguments", ErrIllegalArguments)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	length, _ := params[1].RawValue().(int64)
+	fill := " "
+	if len(params) == 3 {
+		fill, _ = params[2].RawValue().(string)
+	}
+	if fill == "" {
+		fill = " "
+	}
+	for int64(len(s)) < length {
+		if f.isRight {
+			s = s + fill
+		} else {
+			s = fill + s
+		}
+	}
+	if int64(len(s)) > length {
+		s = s[:length]
+	}
+	return NewVarchar(s), nil
+}
+
+type splitPartFn struct{}
+
+func (f *splitPartFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *splitPartFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *splitPartFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 3 {
+		return nil, fmt.Errorf("%w: '%s' expects 3 arguments", ErrIllegalArguments, SplitPartFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	delim, _ := params[1].RawValue().(string)
+	n, _ := params[2].RawValue().(int64)
+	parts := strings.Split(s, delim)
+	if n < 1 || int(n) > len(parts) {
+		return NewVarchar(""), nil
+	}
+	return NewVarchar(parts[n-1]), nil
+}
+
+type initcapFn struct{}
+
+func (f *initcapFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *initcapFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *initcapFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, InitcapFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	runes := []rune(strings.ToLower(s))
+	inWord := false
+	for i, r := range runes {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if !inWord {
+				runes[i] = unicode.ToUpper(r)
+				inWord = true
+			}
+		} else {
+			inWord = false
+		}
+	}
+	return NewVarchar(string(runes)), nil
+}
+
+type chrFn struct{}
+
+func (f *chrFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *chrFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *chrFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, ChrFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	code, _ := params[0].RawValue().(int64)
+	return NewVarchar(string(rune(code))), nil
+}
+
+type asciiFn struct{}
+
+func (f *asciiFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *asciiFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *asciiFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, AsciiFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	if len(s) == 0 {
+		return NewInteger(0), nil
+	}
+	return NewInteger(int64(s[0])), nil
+}
+
+type md5Fn struct{}
+
+func (f *md5Fn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *md5Fn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *md5Fn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, MD5FnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	hash := md5.Sum([]byte(s))
+	return NewVarchar(hex.EncodeToString(hash[:])), nil
+}
+
+type translateFn struct{}
+
+func (f *translateFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *translateFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *translateFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 3 {
+		return nil, fmt.Errorf("%w: '%s' expects 3 arguments", ErrIllegalArguments, TranslateFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	from, _ := params[1].RawValue().(string)
+	to, _ := params[2].RawValue().(string)
+	fromRunes := []rune(from)
+	toRunes := []rune(to)
+	mapping := make(map[rune]rune)
+	for i, r := range fromRunes {
+		if i < len(toRunes) {
+			mapping[r] = toRunes[i]
+		} else {
+			mapping[r] = -1 // delete
+		}
+	}
+	var result []rune
+	for _, r := range s {
+		if repl, ok := mapping[r]; ok {
+			if repl != -1 {
+				result = append(result, repl)
+			}
+		} else {
+			result = append(result, r)
+		}
+	}
+	return NewVarchar(string(result)), nil
+}
+
+// -------------------------------------
+// Date/Time Functions
+// -------------------------------------
+
+type dateTruncFn struct{}
+
+func (f *dateTruncFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return TimestampType, nil
+}
+func (f *dateTruncFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != TimestampType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, TimestampType, t)
+	}
+	return nil
+}
+func (f *dateTruncFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, DateTruncFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(TimestampType), nil
+	}
+	field, _ := params[0].RawValue().(string)
+	ts, ok := params[1].RawValue().(time.Time)
+	if !ok {
+		return NewNull(TimestampType), nil
+	}
+	ts = ts.UTC()
+	switch strings.ToLower(field) {
+	case "year":
+		ts = time.Date(ts.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	case "month":
+		ts = time.Date(ts.Year(), ts.Month(), 1, 0, 0, 0, 0, time.UTC)
+	case "day":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
+	case "hour":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), 0, 0, 0, time.UTC)
+	case "minute":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), ts.Minute(), 0, 0, time.UTC)
+	case "second":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), ts.Minute(), ts.Second(), 0, time.UTC)
+	}
+	return &Timestamp{val: ts}, nil
+}
+
+type toCharFn struct{}
+
+func (f *toCharFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *toCharFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *toCharFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, ToCharFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	ts, ok := params[0].RawValue().(time.Time)
+	if !ok {
+		// For non-timestamp values, just return string representation
+		return NewVarchar(fmt.Sprintf("%v", params[0].RawValue())), nil
+	}
+	format, _ := params[1].RawValue().(string)
+	// Convert PG format to Go format
+	result := pgFormatToGo(format, ts)
+	return NewVarchar(result), nil
+}
+
+func pgFormatToGo(pgFmt string, ts time.Time) string {
+	r := strings.NewReplacer(
+		"YYYY", fmt.Sprintf("%04d", ts.Year()),
+		"YY", fmt.Sprintf("%02d", ts.Year()%100),
+		"MM", fmt.Sprintf("%02d", ts.Month()),
+		"DD", fmt.Sprintf("%02d", ts.Day()),
+		"HH24", fmt.Sprintf("%02d", ts.Hour()),
+		"HH12", fmt.Sprintf("%02d", (ts.Hour()+11)%12+1),
+		"HH", fmt.Sprintf("%02d", ts.Hour()),
+		"MI", fmt.Sprintf("%02d", ts.Minute()),
+		"SS", fmt.Sprintf("%02d", ts.Second()),
+		"Month", ts.Month().String(),
+		"Day", ts.Weekday().String(),
+	)
+	return r.Replace(pgFmt)
+}
+
+type datePartFn struct{}
+
+func (f *datePartFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+func (f *datePartFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != Float64Type && t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as numeric type", ErrInvalidTypes, t)
+	}
+	return nil
+}
+func (f *datePartFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, DatePartFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(Float64Type), nil
+	}
+	field, _ := params[0].RawValue().(string)
+	ts, ok := params[1].RawValue().(time.Time)
+	if !ok {
+		return NewNull(Float64Type), nil
+	}
+	ts = ts.UTC()
+	var val float64
+	switch strings.ToLower(field) {
+	case "year":
+		val = float64(ts.Year())
+	case "month":
+		val = float64(ts.Month())
+	case "day":
+		val = float64(ts.Day())
+	case "hour":
+		val = float64(ts.Hour())
+	case "minute":
+		val = float64(ts.Minute())
+	case "second":
+		val = float64(ts.Second())
+	case "dow", "dayofweek":
+		val = float64(ts.Weekday())
+	case "doy", "dayofyear":
+		val = float64(ts.YearDay())
+	case "epoch":
+		val = float64(ts.Unix())
+	}
+	return NewFloat64(val), nil
+}
+
+type ageFn struct{}
+
+func (f *ageFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *ageFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *ageFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 1 || len(params) > 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 1-2 arguments", ErrIllegalArguments, AgeFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+
+	var from, to time.Time
+	if len(params) == 2 {
+		var ok bool
+		from, ok = params[1].RawValue().(time.Time)
+		if !ok {
+			return NewNull(VarcharType), nil
+		}
+		to, ok = params[0].RawValue().(time.Time)
+		if !ok {
+			return NewNull(VarcharType), nil
+		}
+	} else {
+		var ok bool
+		from, ok = params[0].RawValue().(time.Time)
+		if !ok {
+			return NewNull(VarcharType), nil
+		}
+		to = tx.Timestamp().UTC()
+	}
+
+	diff := to.Sub(from)
+	days := int(diff.Hours() / 24)
+	years := days / 365
+	remainDays := days % 365
+	months := remainDays / 30
+	d := remainDays % 30
+
+	return NewVarchar(fmt.Sprintf("%d years %d mons %d days", years, months, d)), nil
 }

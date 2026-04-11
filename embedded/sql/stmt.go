@@ -4713,6 +4713,7 @@ type JoinSpec struct {
 	ds       DataSource
 	cond     ValueExp
 	indexOn  []string
+	natural  bool // NATURAL JOIN — condition is built at resolve time from matching column names
 }
 
 type NullsOrder int
