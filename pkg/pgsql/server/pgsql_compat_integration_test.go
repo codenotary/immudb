@@ -458,6 +458,34 @@ func TestPgsqlCompat_Sequences(t *testing.T) {
 	require.Equal(t, int64(2), val)
 }
 
+func TestPgsqlCompat_ILike(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE ilike_test (id INTEGER, name VARCHAR, PRIMARY KEY id);
+		INSERT INTO ilike_test (id, name) VALUES (1, 'Alice');
+		INSERT INTO ilike_test (id, name) VALUES (2, 'BOB')
+	`)
+	require.NoError(t, err)
+
+	// ILIKE case-insensitive match
+	var name string
+	err = conn.QueryRow(context.Background(),
+		"SELECT name FROM ilike_test WHERE name ILIKE 'alice'").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "Alice", name)
+
+	err = conn.QueryRow(context.Background(),
+		"SELECT name FROM ilike_test WHERE name ILIKE 'bob'").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "BOB", name)
+}
+
 func TestPgsqlCompat_Explain(t *testing.T) {
 	_, port := setupTestServer(t)
 
