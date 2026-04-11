@@ -122,6 +122,64 @@ type Engine struct {
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
 	multidbHandler                MultiDBHandler
 	tableResolvers                map[string]TableResolver
+	sequences                     map[string]*Sequence
+}
+
+// Sequence represents a named auto-incrementing counter
+type Sequence struct {
+	name      string
+	currValue int64
+	increment int64
+	started   bool
+}
+
+func (e *Engine) CreateSequence(name string, startValue, increment int64) {
+	if e.sequences == nil {
+		e.sequences = make(map[string]*Sequence)
+	}
+	e.sequences[name] = &Sequence{
+		name:      name,
+		currValue: startValue - increment, // first NEXTVAL will return startValue
+		increment: increment,
+	}
+}
+
+func (e *Engine) DropSequence(name string) bool {
+	if e.sequences == nil {
+		return false
+	}
+	_, exists := e.sequences[name]
+	if exists {
+		delete(e.sequences, name)
+	}
+	return exists
+}
+
+func (e *Engine) NextVal(name string) (int64, error) {
+	if e.sequences == nil {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	seq, exists := e.sequences[name]
+	if !exists {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	seq.currValue += seq.increment
+	seq.started = true
+	return seq.currValue, nil
+}
+
+func (e *Engine) CurrVal(name string) (int64, error) {
+	if e.sequences == nil {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	seq, exists := e.sequences[name]
+	if !exists {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	if !seq.started {
+		return 0, fmt.Errorf("sequence '%s' has not been used yet", name)
+	}
+	return seq.currValue, nil
 }
 
 type MultiDBHandler interface {
@@ -611,7 +669,8 @@ func (e *Engine) QueryPreparedStmt(ctx context.Context, tx *SQLTx, stmt DataSour
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
+		readOnly := stmt.readOnly()
+		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(readOnly))
 		if err != nil {
 			return nil, err
 		}
@@ -644,9 +703,16 @@ func (e *Engine) QueryPreparedStmt(ctx context.Context, tx *SQLTx, stmt DataSour
 	}
 
 	if tx == nil {
-		r.onClose(func() {
-			qtx.Cancel()
-		})
+		if stmt.readOnly() {
+			r.onClose(func() {
+				qtx.Cancel()
+			})
+		} else {
+			// DML with RETURNING: commit the transaction on close
+			r.onClose(func() {
+				qtx.Commit(ctx)
+			})
+		}
 	}
 
 	return r, nil

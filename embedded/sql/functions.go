@@ -107,10 +107,14 @@ const (
 	ClockTimestampFnCall string = "CLOCK_TIMESTAMP"
 
 	// Aliases
-	SubstrFnCall    string = "SUBSTR"
-	StrposFnCall    string = "STRPOS"
-	ConcatWSFnCall  string = "CONCAT_WS"
+	SubstrFnCall        string = "SUBSTR"
+	StrposFnCall        string = "STRPOS"
+	ConcatWSFnCall      string = "CONCAT_WS"
 	RegexpReplaceFnCall string = "REGEXP_REPLACE"
+
+	// Sequence functions
+	NextValFnCall string = "NEXTVAL"
+	CurrValFnCall string = "CURRVAL"
 )
 
 var builtinFunctions = map[string]Function{
@@ -184,10 +188,12 @@ var builtinFunctions = map[string]Function{
 	ClockTimestampFnCall: &NowFn{},
 
 	// Aliases
-	SubstrFnCall:       &SubstringFn{},
-	StrposFnCall:       &positionFn{},
-	ConcatWSFnCall:     &concatWSFn{},
+	SubstrFnCall:        &SubstringFn{},
+	StrposFnCall:        &positionFn{},
+	ConcatWSFnCall:      &concatWSFn{},
 	RegexpReplaceFnCall: &regexpReplaceFn{},
+	NextValFnCall:       &nextValFn{},
+	CurrValFnCall:       &currValFn{},
 }
 
 type Function interface {
@@ -1549,6 +1555,66 @@ func (f *regexpReplaceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, err
 		return NewVarchar(source), nil
 	}
 	return NewVarchar(re.ReplaceAllString(source, replacement)), nil
+}
+
+// nextval(sequence_name) — returns next value from sequence
+type nextValFn struct{}
+
+func (f *nextValFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *nextValFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *nextValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, NextValFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	name, ok := params[0].RawValue().(string)
+	if !ok {
+		return nil, fmt.Errorf("%w: '%s' expects a string argument", ErrIllegalArguments, NextValFnCall)
+	}
+	val, err := tx.engine.NextVal(name)
+	if err != nil {
+		return nil, err
+	}
+	return NewInteger(val), nil
+}
+
+// currval(sequence_name) — returns current value of sequence
+type currValFn struct{}
+
+func (f *currValFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *currValFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *currValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, CurrValFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	name, ok := params[0].RawValue().(string)
+	if !ok {
+		return nil, fmt.Errorf("%w: '%s' expects a string argument", ErrIllegalArguments, CurrValFnCall)
+	}
+	val, err := tx.engine.CurrVal(name)
+	if err != nil {
+		return nil, err
+	}
+	return NewInteger(val), nil
 }
 
 func (f *ageFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {

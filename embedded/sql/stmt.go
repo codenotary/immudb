@@ -1116,11 +1116,12 @@ func (stmt *DropConstraintStmt) inferParameters(ctx context.Context, tx *SQLTx, 
 }
 
 type UpsertIntoStmt struct {
-	isInsert   bool
-	tableRef   *tableRef
-	cols       []string
-	ds         DataSource
-	onConflict *OnConflictDo
+	isInsert     bool
+	tableRef     *tableRef
+	cols         []string
+	ds           DataSource
+	onConflict   *OnConflictDo
+	returnedRows []*Row // populated during execAt for RETURNING
 }
 
 func (stmt *UpsertIntoStmt) readOnly() bool {
@@ -1420,6 +1421,17 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		if err != nil {
 			return nil, err
 		}
+
+		// Capture row for RETURNING clause
+		capturedRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(r.ValuesByPosition)),
+			ValuesBySelector: make(map[string]TypedValue, len(r.ValuesBySelector)),
+		}
+		copy(capturedRow.ValuesByPosition, r.ValuesByPosition)
+		for k, v := range r.ValuesBySelector {
+			capturedRow.ValuesBySelector[k] = v
+		}
+		stmt.returnedRows = append(stmt.returnedRows, capturedRow)
 	}
 	return tx, nil
 }
@@ -1721,12 +1733,13 @@ func (tx *SQLTx) deprecateIndexEntries(
 }
 
 type UpdateStmt struct {
-	tableRef *tableRef
-	where    ValueExp
-	updates  []*colUpdate
-	indexOn  []string
-	limit    ValueExp
-	offset   ValueExp
+	tableRef     *tableRef
+	where        ValueExp
+	updates      []*colUpdate
+	indexOn      []string
+	limit        ValueExp
+	offset       ValueExp
+	returnedRows []*Row
 }
 
 type colUpdate struct {
@@ -1897,18 +1910,30 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		if err != nil {
 			return nil, err
 		}
+
+		// Capture row for RETURNING clause
+		capturedRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(row.ValuesByPosition)),
+			ValuesBySelector: make(map[string]TypedValue, len(row.ValuesBySelector)),
+		}
+		copy(capturedRow.ValuesByPosition, row.ValuesByPosition)
+		for k, v := range row.ValuesBySelector {
+			capturedRow.ValuesBySelector[k] = v
+		}
+		stmt.returnedRows = append(stmt.returnedRows, capturedRow)
 	}
 
 	return tx, nil
 }
 
 type DeleteFromStmt struct {
-	tableRef *tableRef
-	where    ValueExp
-	indexOn  []string
-	orderBy  []*OrdExp
-	limit    ValueExp
-	offset   ValueExp
+	tableRef     *tableRef
+	where        ValueExp
+	indexOn      []string
+	orderBy      []*OrdExp
+	limit        ValueExp
+	offset       ValueExp
+	returnedRows []*Row
 }
 
 func NewDeleteFromStmt(table string, where ValueExp, orderBy []*OrdExp, limit ValueExp) *DeleteFromStmt {
@@ -1975,6 +2000,17 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		if err != nil {
 			return nil, err
 		}
+
+		// Capture row for RETURNING clause (before deletion)
+		capturedRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(row.ValuesByPosition)),
+			ValuesBySelector: make(map[string]TypedValue, len(row.ValuesBySelector)),
+		}
+		copy(capturedRow.ValuesByPosition, row.ValuesByPosition)
+		for k, v := range row.ValuesBySelector {
+			capturedRow.ValuesBySelector[k] = v
+		}
+		stmt.returnedRows = append(stmt.returnedRows, capturedRow)
 
 		err = tx.deleteIndexEntries(pkEncVals, valuesByColID, table)
 		if err != nil {
@@ -4225,6 +4261,161 @@ func (stmt *ExplainStmt) describePlan(ds DataSource, indent int) []string {
 	}
 
 	return lines
+}
+
+// CreateSequenceStmt creates a named sequence for auto-incrementing values
+type CreateSequenceStmt struct {
+	name       string
+	startValue int64
+	increment  int64
+}
+
+func (stmt *CreateSequenceStmt) readOnly() bool                     { return false }
+func (stmt *CreateSequenceStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *CreateSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CreateSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	tx.engine.CreateSequence(stmt.name, stmt.startValue, stmt.increment)
+	return tx, nil
+}
+
+// DropSequenceStmt removes a named sequence
+type DropSequenceStmt struct {
+	name     string
+	ifExists bool
+}
+
+func (stmt *DropSequenceStmt) readOnly() bool                     { return false }
+func (stmt *DropSequenceStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeDrop} }
+
+func (stmt *DropSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *DropSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.engine.DropSequence(stmt.name) && !stmt.ifExists {
+		return nil, fmt.Errorf("sequence does not exist (%s)", stmt.name)
+	}
+	return tx, nil
+}
+
+// ReturningStmt wraps a DML statement (INSERT/UPDATE/DELETE) with a RETURNING clause,
+// making it behave as a DataSource that returns the affected rows.
+type ReturningStmt struct {
+	dml       SQLStmt
+	returning []TargetEntry
+	tableName string
+}
+
+func (stmt *ReturningStmt) readOnly() bool                     { return false }
+func (stmt *ReturningStmt) requiredPrivileges() []SQLPrivilege  { return stmt.dml.requiredPrivileges() }
+func (stmt *ReturningStmt) Alias() string                      { return "" }
+
+func (stmt *ReturningStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return stmt.dml.inferParameters(ctx, tx, params)
+}
+
+func (stmt *ReturningStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	// DML execution happens in Resolve to avoid double execution
+	// (QueryPreparedStmt calls execAt then Resolve)
+	return tx, nil
+}
+
+func (stmt *ReturningStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+	// Execute the DML
+	_, err := stmt.dml.execAt(ctx, tx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the captured rows from the DML statement
+	var capturedRows []*Row
+	switch s := stmt.dml.(type) {
+	case *UpsertIntoStmt:
+		capturedRows = s.returnedRows
+	case *UpdateStmt:
+		capturedRows = s.returnedRows
+	case *DeleteFromStmt:
+		capturedRows = s.returnedRows
+	}
+
+	if len(capturedRows) == 0 {
+		// Return empty result with correct columns
+		table, tErr := stmt.resolveTable(tx)
+		if tErr != nil {
+			return nil, tErr
+		}
+		cols := stmt.buildReturnCols(table)
+		return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, nil)
+	}
+
+	// Build column descriptors from captured rows and returning targets
+	table, err := stmt.resolveTable(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	cols := stmt.buildReturnCols(table)
+
+	// Filter captured rows to only include returning columns
+	rows := make([][]ValueExp, len(capturedRows))
+	for i, r := range capturedRows {
+		rowVals := make([]ValueExp, len(cols))
+		for j, col := range cols {
+			sel := EncodeSelector("", stmt.tableName, col.Column)
+			if v, ok := r.ValuesBySelector[sel]; ok {
+				rowVals[j] = v.(ValueExp)
+			} else {
+				rowVals[j] = NewNull(col.Type)
+			}
+		}
+		rows[i] = rowVals
+	}
+
+	return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, rows)
+}
+
+func (stmt *ReturningStmt) resolveTable(tx *SQLTx) (*Table, error) {
+	return tx.catalog.GetTableByName(stmt.tableName)
+}
+
+func (stmt *ReturningStmt) buildReturnCols(table *Table) []ColDescriptor {
+	// Check for RETURNING * (star)
+	if len(stmt.returning) == 1 {
+		if _, isStar := stmt.returning[0].Exp.(*ColSelector); isStar {
+			sel := stmt.returning[0].Exp.(*ColSelector)
+			if sel.col == "*" {
+				cols := make([]ColDescriptor, len(table.Cols()))
+				for i, c := range table.Cols() {
+					cols[i] = ColDescriptor{Column: c.Name(), Type: c.Type()}
+				}
+				return cols
+			}
+		}
+	}
+
+	cols := make([]ColDescriptor, len(stmt.returning))
+	for i, t := range stmt.returning {
+		colName := t.As
+		if colName == "" {
+			if sel, ok := t.Exp.(*ColSelector); ok {
+				colName = sel.col
+			} else {
+				colName = fmt.Sprintf("col%d", i)
+			}
+		}
+
+		colType := AnyType
+		if col, err := table.GetColumnByName(colName); err == nil {
+			colType = col.Type()
+		}
+
+		cols[i] = ColDescriptor{Column: colName, Type: colType}
+	}
+	return cols
 }
 
 // CTEDef holds a single CTE definition (name + query)

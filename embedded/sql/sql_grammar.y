@@ -129,7 +129,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
 %token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST DEFAULT
-%token <keyword> SHOW DATABASES TABLES USERS VIEW
+%token <keyword> SHOW DATABASES TABLES USERS VIEW FOREIGN REFERENCES SEQUENCE
 %token <keyword> BETWEEN
 %token <keyword> EXTRACT YEAR MONTH DAY HOUR MINUTE SECOND
 
@@ -197,7 +197,7 @@ func aggFnName(fn AggregateFn) string {
 mulExp unaryExp primary
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset case_when_exp
-%type <targets> opt_targets targets
+%type <targets> opt_targets targets opt_returning
 %type <integer> opt_max_len
 %type <id> opt_as
 %type <ordexps> ordexps opt_orderby
@@ -325,6 +325,21 @@ ddlstmt:
     DROP VIEW IDENTIFIER
     {
         $$ = &DropViewStmt{viewName: $3}
+    }
+|
+    CREATE SEQUENCE IDENTIFIER
+    {
+        $$ = &CreateSequenceStmt{name: $3, startValue: 1, increment: 1}
+    }
+|
+    DROP SEQUENCE IDENTIFIER
+    {
+        $$ = &DropSequenceStmt{name: $3}
+    }
+|
+    DROP SEQUENCE IF EXISTS IDENTIFIER
+    {
+        $$ = &DropSequenceStmt{name: $5, ifExists: true}
     }
 |
     CREATE INDEX opt_if_not_exists ON tableName '(' col_names ')'
@@ -503,24 +518,44 @@ opt_if_not_exists:
 ;
 
 dmlstmt:
-    INSERT INTO tableRef insert_cols values_or_query opt_on_conflict
+    INSERT INTO tableRef insert_cols values_or_query opt_on_conflict opt_returning
     {
-        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $4, ds: $5, onConflict: $6}
+        stmt := &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $4, ds: $5, onConflict: $6}
+        if $7 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $7, tableName: $3.table}
+        } else {
+            $$ = stmt
+        }
     }
 |
-    UPSERT INTO tableRef insert_cols values_or_query
+    UPSERT INTO tableRef insert_cols values_or_query opt_returning
     {
-        $$ = &UpsertIntoStmt{tableRef: $3, cols: $4, ds: $5}
+        stmt := &UpsertIntoStmt{tableRef: $3, cols: $4, ds: $5}
+        if $6 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $6, tableName: $3.table}
+        } else {
+            $$ = stmt
+        }
     }
 |
-    DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset
+    DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset opt_returning
     {
-        $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: $6, offset: $7}
+        stmt := &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: $6, offset: $7}
+        if $8 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $8, tableName: $3.table}
+        } else {
+            $$ = stmt
+        }
     }
 |
-    UPDATE tableRef SET updates opt_where opt_indexon opt_limit opt_offset
+    UPDATE tableRef SET updates opt_where opt_indexon opt_limit opt_offset opt_returning
     {
-        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: $7, offset: $8}
+        stmt := &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: $7, offset: $8}
+        if $9 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $9, tableName: $2.table}
+        } else {
+            $$ = stmt
+        }
     }
 
 values_or_query:
@@ -548,6 +583,21 @@ opt_on_conflict:
     ON CONFLICT DO UPDATE SET updates
     {
         $$ = &OnConflictDo{updates: $6}
+    }
+
+opt_returning:
+    {
+        $$ = nil
+    }
+|
+    RETURNING '*'
+    {
+        $$ = []TargetEntry{{Exp: &ColSelector{col: "*"}}}
+    }
+|
+    RETURNING targets
+    {
+        $$ = $2
     }
 
 updates:
@@ -725,6 +775,11 @@ tableElem:
     PRIMARY KEY one_or_more_col_names
     {
         $$ = PrimaryKeyConstraint($3)
+    }
+|
+    FOREIGN KEY '(' col_names ')' REFERENCES tableName '(' col_names ')'
+    {
+        $$ = &ForeignKeyConstraint{cols: $4, refTable: $7, refCols: $9}
     }
 ;
 

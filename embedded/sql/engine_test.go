@@ -6396,6 +6396,197 @@ func TestCTE(t *testing.T) {
 	r.Close()
 }
 
+func TestInsertReturning(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE users (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	// INSERT ... RETURNING *
+	r, err := engine.Query(context.Background(), nil,
+		`INSERT INTO users (name) VALUES ('Alice') RETURNING *`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue()) // auto-inc id
+	require.Equal(t, "Alice", row.ValuesByPosition[1].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+
+	// INSERT ... RETURNING specific columns
+	r, err = engine.Query(context.Background(), nil,
+		`INSERT INTO users (name) VALUES ('Bob') RETURNING id`, nil)
+	require.NoError(t, err)
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+
+	// Multiple inserts with RETURNING
+	r, err = engine.Query(context.Background(), nil,
+		`INSERT INTO users (name) VALUES ('Charlie') RETURNING id, name`, nil)
+	require.NoError(t, err)
+
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(3), row.ValuesByPosition[0].RawValue())
+	require.Equal(t, "Charlie", row.ValuesByPosition[1].RawValue())
+	r.Close()
+}
+
+func TestUpdateReturning(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE items (id INTEGER, name VARCHAR, qty INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO items (id, name, qty) VALUES (1, 'Widget', 10);
+		INSERT INTO items (id, name, qty) VALUES (2, 'Gadget', 20);
+	`, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil,
+		`UPDATE items SET qty = 99 WHERE id = 1 RETURNING id, name, qty`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue())
+	require.Equal(t, "Widget", row.ValuesByPosition[1].RawValue())
+	require.Equal(t, int64(99), row.ValuesByPosition[2].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+}
+
+func TestDeleteReturning(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE logs (id INTEGER, msg VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO logs (id, msg) VALUES (1, 'hello');
+		INSERT INTO logs (id, msg) VALUES (2, 'world');
+	`, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil,
+		`DELETE FROM logs WHERE id = 1 RETURNING *`, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue())
+	require.Equal(t, "hello", row.ValuesByPosition[1].RawValue())
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+
+	// Verify the row was actually deleted
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT id FROM logs`, nil)
+	require.NoError(t, err)
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue())
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+	r.Close()
+}
+
+func TestForeignKeyConstraint(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE customers (id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	// Table with FOREIGN KEY constraint (parsed but not enforced)
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (
+			id INTEGER,
+			customer_id INTEGER,
+			PRIMARY KEY id,
+			FOREIGN KEY (customer_id) REFERENCES customers (id)
+		)`, nil)
+	require.NoError(t, err)
+
+	// Should be able to insert without FK enforcement
+	_, _, err = engine.Exec(context.Background(), nil,
+		`INSERT INTO orders (id, customer_id) VALUES (1, 999)`, nil) // non-existent customer
+	require.NoError(t, err)
+}
+
+func TestSequences(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	// Create a table for context
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE dummy (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	// Create sequence
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE SEQUENCE order_seq`, nil)
+	require.NoError(t, err)
+
+	// NEXTVAL
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT NEXTVAL('order_seq')`, nil)
+	require.NoError(t, err)
+	row, err := r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue())
+	r.Close()
+
+	// NEXTVAL again
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT NEXTVAL('order_seq')`, nil)
+	require.NoError(t, err)
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue())
+	r.Close()
+
+	// CURRVAL
+	r, err = engine.Query(context.Background(), nil,
+		`SELECT CURRVAL('order_seq')`, nil)
+	require.NoError(t, err)
+	row, err = r.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), row.ValuesByPosition[0].RawValue())
+	r.Close()
+
+	// DROP SEQUENCE
+	_, _, err = engine.Exec(context.Background(), nil,
+		`DROP SEQUENCE order_seq`, nil)
+	require.NoError(t, err)
+
+	// DROP SEQUENCE IF EXISTS (no error for non-existent)
+	_, _, err = engine.Exec(context.Background(), nil,
+		`DROP SEQUENCE IF EXISTS order_seq`, nil)
+	require.NoError(t, err)
+
+	// DROP SEQUENCE non-existent (should error)
+	_, _, err = engine.Exec(context.Background(), nil,
+		`DROP SEQUENCE nonexistent`, nil)
+	require.Error(t, err)
+}
+
 func TestDefaultValueParsing(t *testing.T) {
 	// Verify DEFAULT syntax is parsed correctly (defaults are in-memory only,
 	// not yet persisted to catalog storage)

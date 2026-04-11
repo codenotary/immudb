@@ -287,7 +287,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 			{
 				return pserr.ErrUseDBStatementNotSupported
 			}
-		case *sql.SelectStmt:
+		case sql.DataSource:
 			if err = s.query(st, parameters, resultColumnFormatCodes, extQueryMode); err != nil {
 				return err
 			}
@@ -313,7 +313,7 @@ func removePGCatalogReferences(sql string) string {
 	return s
 }
 
-func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) query(st sql.DataSource, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
 	tx, err := s.sqlTx()
 	if err != nil {
 		return err
@@ -378,9 +378,9 @@ type statement struct {
 func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]sql.ColDescriptor, []sql.ColDescriptor, error) {
 	var resCols []sql.ColDescriptor
 
-	sel, ok := stmt.(*sql.SelectStmt)
+	ds, ok := stmt.(sql.DataSource)
 	if ok {
-		rr, err := s.db.SQLQueryPrepared(s.ctx, s.tx, sel, nil)
+		rr, err := s.db.SQLQueryPrepared(s.ctx, s.tx, ds, nil)
 		if err != nil {
 			return nil, nil, err
 		}

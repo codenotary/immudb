@@ -46,6 +46,13 @@ type Constraint interface{}
 
 type PrimaryKeyConstraint []string
 
+// ForeignKeyConstraint is parsed but not enforced — stored for ORM migration compatibility
+type ForeignKeyConstraint struct {
+	cols     []string
+	refTable string
+	refCols  []string
+}
+
 type CheckConstraint struct {
 	id   uint32
 	name string
