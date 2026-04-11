@@ -884,6 +884,114 @@ func TestPgsqlCompat_Except(t *testing.T) {
 	require.Equal(t, 2, count) // id=2,3
 }
 
+func TestPgsqlCompat_ORMIntrospection(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE orm_model (id INTEGER AUTO_INCREMENT, name VARCHAR, email VARCHAR, active BOOLEAN, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	// Queries that ORMs typically issue for introspection
+	ormQueries := []struct {
+		name  string
+		query string
+	}{
+		{"list_tables", "SELECT table_name, table_type FROM information_schema_tables WHERE table_schema = 'public'"},
+		{"list_columns", "SELECT column_name, data_type, is_nullable, ordinal_position FROM information_schema_columns WHERE table_name = 'orm_model'"},
+		{"list_pks", "SELECT constraint_name, column_name FROM information_schema_key_column_usage WHERE table_name = 'orm_model'"},
+		{"pg_class", "SELECT relname, relkind FROM pg_class WHERE relkind = 'r'"},
+		{"pg_attribute", "SELECT attname, atttypid, attnotnull FROM pg_attribute WHERE attrelid > 0"},
+		{"pg_index", "SELECT indrelid, indisunique, indisprimary FROM pg_index"},
+		{"pg_constraint", "SELECT conname, contype, conrelid FROM pg_constraint"},
+		{"pg_type", "SELECT oid, typname FROM pg_type"},
+		{"pg_settings", "SELECT name, setting FROM pg_settings WHERE name = 'server_version'"},
+		{"pg_roles", "SELECT rolname, rolsuper FROM pg_roles"},
+		{"current_db", "SELECT current_database()"},
+		{"current_schema", "SELECT current_schema()"},
+		{"group_by", "SELECT active, COUNT(*) FROM orm_model GROUP BY active"},
+		{"aggregate", "SELECT COUNT(*), MAX(id) FROM orm_model"},
+	}
+
+	for _, q := range ormQueries {
+		t.Run(q.name, func(t *testing.T) {
+			rows, err := conn.Query(context.Background(), q.query)
+			require.NoError(t, err, "query failed: %s", q.query)
+			rows.Close()
+		})
+	}
+}
+
+func TestPgsqlCompat_FullORMWorkflow(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	// 1. Create table (migration)
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE users (
+			id INTEGER AUTO_INCREMENT,
+			username VARCHAR,
+			email VARCHAR,
+			active BOOLEAN,
+			PRIMARY KEY id
+		)`)
+	require.NoError(t, err)
+
+	// 2. Insert with RETURNING (get auto-generated ID)
+	var userID int64
+	err = conn.QueryRow(context.Background(),
+		"INSERT INTO users (username, email, active) VALUES ('alice', 'alice@example.com', true) RETURNING id").Scan(&userID)
+	require.NoError(t, err)
+	require.Greater(t, userID, int64(0))
+
+	// 3. Insert more records
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO users (username, email, active) VALUES ('bob', 'bob@example.com', true)")
+	require.NoError(t, err)
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO users (username, email, active) VALUES ('charlie', 'charlie@example.com', false)")
+	require.NoError(t, err)
+
+	// 4. Query with filter
+	var username string
+	err = conn.QueryRow(context.Background(),
+		"SELECT username FROM users WHERE id = $1", userID).Scan(&username)
+	require.NoError(t, err)
+	require.Equal(t, "alice", username)
+
+	// 5. Count all — at least 3 rows inserted
+	var count int64
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM users").Scan(&count)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, count, int64(3))
+
+	// 8. Introspect table
+	rows, err := conn.Query(context.Background(),
+		"SELECT column_name, data_type FROM information_schema_columns WHERE table_name = 'users'")
+	require.NoError(t, err)
+	colCount := 0
+	for rows.Next() {
+		colCount++
+	}
+	rows.Close()
+	require.Equal(t, 4, colCount)
+
+	// 9. Verify data integrity
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM users").Scan(&count)
+	require.NoError(t, err)
+	require.Greater(t, count, int64(0))
+}
+
 func TestPgsqlCompat_ForeignKeyConstraint(t *testing.T) {
 	_, port := setupTestServer(t)
 
