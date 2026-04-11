@@ -128,7 +128,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
 %token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING
-%token <keyword> AUTO_INCREMENT NULL CAST SCAST
+%token <keyword> AUTO_INCREMENT NULL CAST SCAST DEFAULT
 %token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
 %token <keyword> EXTRACT YEAR MONTH DAY HOUR MINUTE SECOND
@@ -206,6 +206,7 @@ mulExp unaryExp primary
 %type <cteDef> cte_def
 %type <cteDefs> cte_defs
 %type <values> opt_partition
+%type <exp> opt_default
 %type <colNames> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
@@ -728,15 +729,16 @@ tableElem:
 ;
 
 colSpec:
-    col_name sql_type opt_max_len opt_not_null opt_auto_increment opt_primary_key
+    col_name sql_type opt_max_len opt_not_null opt_default opt_auto_increment opt_primary_key
     {
         $$ = &ColSpec{
-            colName: $1, 
-            colType: $2, 
-            maxLen: int($3), 
-            notNull: $4 || $6, 
-            autoIncrement: $5,
-            primaryKey: $6,
+            colName: $1,
+            colType: $2,
+            maxLen: int($3),
+            notNull: $4 || $7,
+            defaultValue: $5,
+            autoIncrement: $6,
+            primaryKey: $7,
         }
     }
 ;
@@ -763,6 +765,16 @@ opt_max_len:
     }
 |
     '(' INTEGER_LIT ')'
+    {
+        $$ = $2
+    }
+
+opt_default:
+    {
+        $$ = nil
+    }
+|
+    DEFAULT exp
     {
         $$ = $2
     }

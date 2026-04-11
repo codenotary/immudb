@@ -87,6 +87,7 @@ type Column struct {
 	maxLen        int
 	autoIncrement bool
 	notNull       bool
+	defaultValue  ValueExp
 }
 
 func newCatalog(enginePrefix []byte) *Catalog {
@@ -454,6 +455,7 @@ func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, checkC
 			maxLen:        cs.maxLen,
 			autoIncrement: cs.autoIncrement,
 			notNull:       cs.notNull,
+			defaultValue:  cs.defaultValue,
 		}
 
 		table.cols = append(table.cols, col)
@@ -584,6 +586,7 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 		maxLen:        spec.maxLen,
 		autoIncrement: spec.autoIncrement,
 		notNull:       spec.notNull,
+		defaultValue:  spec.defaultValue,
 	}
 
 	t.cols = append(t.cols, col)
@@ -733,6 +736,14 @@ func (c *Column) IsNullable() bool {
 
 func (c *Column) IsAutoIncremental() bool {
 	return c.autoIncrement
+}
+
+func (c *Column) HasDefault() bool {
+	return c.defaultValue != nil
+}
+
+func (c *Column) DefaultValue() ValueExp {
+	return c.defaultValue
 }
 
 func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {

@@ -678,6 +678,7 @@ type ColSpec struct {
 	autoIncrement bool
 	notNull       bool
 	primaryKey    bool
+	defaultValue  ValueExp
 }
 
 func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement bool, notNull bool) *ColSpec {
@@ -1259,7 +1260,18 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		for colID, col := range table.colsByID {
 			colPos, specified := selPosByColID[colID]
 			if !specified {
-				// TODO: Default values
+				// Use default value if defined
+				if col.HasDefault() {
+					defVal, err := col.DefaultValue().reduce(tx, nil, table.name)
+					if err != nil {
+						return nil, fmt.Errorf("error evaluating default for column '%s': %w", col.colName, err)
+					}
+					if !defVal.IsNull() {
+						valuesByColID[colID] = defVal
+					}
+					continue
+				}
+
 				if col.notNull && !col.autoIncrement {
 					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}

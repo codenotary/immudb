@@ -85,6 +85,7 @@ var keywords = map[string]int{
 	"NATURAL":        NATURAL,
 	"USING":          USING,
 	"ILIKE":          ILIKE,
+	"DEFAULT":        DEFAULT,
 	"TX":             TX,
 	"JOIN":           JOIN,
 	"HAVING":         HAVING,

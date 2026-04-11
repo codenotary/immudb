@@ -6396,6 +6396,37 @@ func TestCTE(t *testing.T) {
 	r.Close()
 }
 
+func TestDefaultValueParsing(t *testing.T) {
+	// Verify DEFAULT syntax is parsed correctly (defaults are in-memory only,
+	// not yet persisted to catalog storage)
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE defaults_test (
+			id INTEGER,
+			qty INTEGER DEFAULT 42,
+			status VARCHAR DEFAULT 'active',
+			PRIMARY KEY id
+		)`, nil)
+	require.NoError(t, err)
+
+	// Table should be created successfully with DEFAULT clauses
+	r, err := engine.Query(context.Background(), nil,
+		`SELECT column_name FROM table(defaults_test)`, nil)
+	require.NoError(t, err)
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 3, count) // id, qty, status
+	r.Close()
+}
+
 func TestAlterColumn(t *testing.T) {
 	engine := setupCommonTest(t)
 
