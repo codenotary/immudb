@@ -107,7 +107,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
-%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION EXPLAIN
+%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
 %token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
@@ -767,6 +767,22 @@ dqlstmt:
     WITH cte_defs select_stmt UNION opt_all dqlstmt
     {
         $$ = &CTEStmt{ctes: $2, query: &UnionStmt{distinct: $5, left: $3.(DataSource), right: $6.(DataSource)}}
+    }
+|
+    WITH RECURSIVE cte_defs select_stmt
+    {
+        for _, c := range $3 {
+            c.recursive = true
+        }
+        $$ = &CTEStmt{ctes: $3, query: $4.(DataSource)}
+    }
+|
+    WITH RECURSIVE cte_defs select_stmt UNION opt_all dqlstmt
+    {
+        for _, c := range $3 {
+            c.recursive = true
+        }
+        $$ = &CTEStmt{ctes: $3, query: &UnionStmt{distinct: $6, left: $4.(DataSource), right: $7.(DataSource)}}
     }
 |
     select_stmt UNION opt_all dqlstmt

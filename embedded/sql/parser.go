@@ -81,6 +81,7 @@ var keywords = map[string]int{
 	"OVER":           OVER,
 	"PARTITION":      PARTITION,
 	"EXPLAIN":        EXPLAIN,
+	"RECURSIVE":      RECURSIVE,
 	"TX":             TX,
 	"JOIN":           JOIN,
 	"HAVING":         HAVING,

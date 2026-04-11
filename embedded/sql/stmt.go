@@ -4163,8 +4163,9 @@ func (stmt *ExplainStmt) describePlan(ds DataSource, indent int) []string {
 
 // CTEDef holds a single CTE definition (name + query)
 type CTEDef struct {
-	name  string
-	query DataSource
+	name      string
+	query     DataSource
+	recursive bool
 }
 
 // CTEStmt wraps a query with Common Table Expressions (WITH clause)
@@ -4201,47 +4202,26 @@ func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]i
 	}
 
 	for _, cte := range stmt.ctes {
-		reader, err := cte.query.Resolve(ctx, tx, params, nil)
-		if err != nil {
-			cleanup()
-			return nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
-		}
-
-		rawCols, err := reader.Columns(ctx)
-		if err != nil {
-			reader.Close()
-			cleanup()
-			return nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
-		}
-
-		// Strip table qualifiers — ValuesRowReader requires plain column names
-		cols := make([]ColDescriptor, len(rawCols))
-		for i, c := range rawCols {
-			cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
-		}
-
-		// Materialize all rows
-		var rows [][]ValueExp
-		for {
-			row, err := reader.Read(ctx)
-			if err == ErrNoMoreRows {
-				break
-			}
+		if cte.recursive {
+			cols, rows, err := materializeRecursiveCTE(ctx, tx, cte, params)
 			if err != nil {
-				reader.Close()
 				cleanup()
-				return nil, fmt.Errorf("error materializing CTE '%s': %w", cte.name, err)
+				return nil, err
 			}
-
-			rowValues := make([]ValueExp, len(row.ValuesByPosition))
-			for i, v := range row.ValuesByPosition {
-				rowValues[i] = v.(ValueExp)
-			}
-			rows = append(rows, rowValues)
+			tx.engine.registerTableResolver(cte.name, &cteResolver{
+				name: cte.name,
+				cols: cols,
+				rows: rows,
+			})
+			registeredCTEs = append(registeredCTEs, cte.name)
+			continue
 		}
-		reader.Close()
 
-		// Register as a temporary table resolver
+		cols, rows, err := materializeCTE(ctx, tx, cte, params)
+		if err != nil {
+			cleanup()
+			return nil, err
+		}
 		tx.engine.registerTableResolver(cte.name, &cteResolver{
 			name: cte.name,
 			cols: cols,
@@ -4261,6 +4241,131 @@ func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]i
 	mainReader.onClose(cleanup)
 
 	return mainReader, nil
+}
+
+func materializeCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params map[string]interface{}) ([]ColDescriptor, [][]ValueExp, error) {
+	reader, err := cte.query.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
+	}
+	defer reader.Close()
+
+	rawCols, err := reader.Columns(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
+	}
+
+	cols := make([]ColDescriptor, len(rawCols))
+	for i, c := range rawCols {
+		cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
+	}
+
+	var rows [][]ValueExp
+	for {
+		row, err := reader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("error materializing CTE '%s': %w", cte.name, err)
+		}
+		rowValues := make([]ValueExp, len(row.ValuesByPosition))
+		for i, v := range row.ValuesByPosition {
+			rowValues[i] = v.(ValueExp)
+		}
+		rows = append(rows, rowValues)
+	}
+
+	return cols, rows, nil
+}
+
+const maxRecursiveCTEIterations = 1000
+
+func materializeRecursiveCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params map[string]interface{}) ([]ColDescriptor, [][]ValueExp, error) {
+	// A recursive CTE query must be a UNION (base UNION ALL recursive)
+	unionStmt, isUnion := cte.query.(*UnionStmt)
+	if !isUnion {
+		// Non-union recursive CTE — just materialize normally
+		return materializeCTE(ctx, tx, cte, params)
+	}
+
+	// Step 1: Execute the base (non-recursive) term
+	baseReader, err := unionStmt.left.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error resolving recursive CTE '%s' base: %w", cte.name, err)
+	}
+
+	rawCols, err := baseReader.Columns(ctx)
+	if err != nil {
+		baseReader.Close()
+		return nil, nil, fmt.Errorf("error resolving recursive CTE '%s': %w", cte.name, err)
+	}
+
+	cols := make([]ColDescriptor, len(rawCols))
+	for i, c := range rawCols {
+		cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
+	}
+
+	var allRows [][]ValueExp
+	var newRows [][]ValueExp
+
+	for {
+		row, err := baseReader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			baseReader.Close()
+			return nil, nil, fmt.Errorf("error materializing recursive CTE '%s': %w", cte.name, err)
+		}
+		rowValues := make([]ValueExp, len(row.ValuesByPosition))
+		for i, v := range row.ValuesByPosition {
+			rowValues[i] = v.(ValueExp)
+		}
+		allRows = append(allRows, rowValues)
+		newRows = append(newRows, rowValues)
+	}
+	baseReader.Close()
+
+	// Step 2: Iteratively execute the recursive term
+	for iteration := 0; iteration < maxRecursiveCTEIterations; iteration++ {
+		if len(newRows) == 0 {
+			break
+		}
+
+		// Register current results as the CTE resolver (so recursive term can reference it)
+		tx.engine.registerTableResolver(cte.name, &cteResolver{
+			name: cte.name,
+			cols: cols,
+			rows: newRows, // Only new rows from the previous iteration
+		})
+
+		recReader, err := unionStmt.right.Resolve(ctx, tx, params, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error in recursive CTE '%s' iteration %d: %w", cte.name, iteration, err)
+		}
+
+		newRows = nil
+		for {
+			row, err := recReader.Read(ctx)
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				recReader.Close()
+				return nil, nil, fmt.Errorf("error in recursive CTE '%s' iteration %d: %w", cte.name, iteration, err)
+			}
+			rowValues := make([]ValueExp, len(row.ValuesByPosition))
+			for i, v := range row.ValuesByPosition {
+				rowValues[i] = v.(ValueExp)
+			}
+			allRows = append(allRows, rowValues)
+			newRows = append(newRows, rowValues)
+		}
+		recReader.Close()
+	}
+
+	return cols, allRows, nil
 }
 
 // cteResolver implements TableResolver for materialized CTEs
@@ -5772,7 +5877,21 @@ func (bexp *ExistsBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Ty
 		return nil, fmt.Errorf("'EXISTS' clause: %w", ErrNoSupported)
 	}
 
-	reader, err := bexp.q.Resolve(tx.tx.Context(), tx, nil, nil)
+	// For correlated subqueries, reduce the inner query's selectors using the outer row
+	ds := bexp.q
+	if row != nil {
+		if sel, ok := ds.(*SelectStmt); ok && sel.where != nil {
+			ds = &SelectStmt{
+				ds:      sel.ds,
+				targets: sel.targets,
+				where:   sel.where.reduceSelectors(row, implicitTable),
+				joins:   sel.joins,
+				indexOn: sel.indexOn,
+			}
+		}
+	}
+
+	reader, err := ds.Resolve(tx.tx.Context(), tx, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'EXISTS' clause: %w", err)
 	}
@@ -5840,7 +5959,19 @@ func (bexp *InSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Ty
 		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
 	}
 
-	reader, err := bexp.q.Resolve(tx.tx.Context(), tx, nil, nil)
+	// For correlated subqueries, reduce the inner query's selectors using the outer row
+	q := bexp.q
+	if row != nil && q.where != nil {
+		q = &SelectStmt{
+			ds:      q.ds,
+			targets: q.targets,
+			where:   q.where.reduceSelectors(row, implicitTable),
+			joins:   q.joins,
+			indexOn: q.indexOn,
+		}
+	}
+
+	reader, err := q.Resolve(tx.tx.Context(), tx, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
 	}

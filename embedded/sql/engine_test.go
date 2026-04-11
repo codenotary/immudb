@@ -6396,6 +6396,181 @@ func TestCTE(t *testing.T) {
 	r.Close()
 }
 
+func TestCorrelatedSubqueries(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE customers (id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (id INTEGER, customer_id INTEGER, amount INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO customers (id, name) VALUES (1, 'Alice');
+		INSERT INTO customers (id, name) VALUES (2, 'Bob');
+		INSERT INTO customers (id, name) VALUES (3, 'Charlie');
+		INSERT INTO orders (id, customer_id, amount) VALUES (1, 1, 100);
+		INSERT INTO orders (id, customer_id, amount) VALUES (2, 1, 200);
+		INSERT INTO orders (id, customer_id, amount) VALUES (3, 2, 150);
+	`, nil)
+	require.NoError(t, err)
+
+	t.Run("correlated_exists", func(t *testing.T) {
+		// Customers who have orders
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT c.id, c.name FROM customers c
+			WHERE EXISTS (SELECT o.id FROM orders o WHERE o.customer_id = c.id)
+		`, nil)
+		require.NoError(t, err)
+
+		var ids []int64
+		for {
+			row, err := r.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			require.NoError(t, err)
+			id, _ := row.ValuesByPosition[0].RawValue().(int64)
+			ids = append(ids, id)
+		}
+		r.Close()
+
+		require.Equal(t, 2, len(ids))
+		require.Contains(t, ids, int64(1)) // Alice
+		require.Contains(t, ids, int64(2)) // Bob
+		// Charlie (id=3) has no orders, should not appear
+	})
+
+	t.Run("correlated_not_exists", func(t *testing.T) {
+		// Customers without orders
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT c.id, c.name FROM customers c
+			WHERE NOT EXISTS (SELECT o.id FROM orders o WHERE o.customer_id = c.id)
+		`, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(3), row.ValuesByPosition[0].RawValue()) // Charlie
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+		r.Close()
+	})
+
+	t.Run("correlated_in_subquery", func(t *testing.T) {
+		// Customers with orders over 100
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT c.id, c.name FROM customers c
+			WHERE c.id IN (SELECT o.customer_id FROM orders o WHERE o.amount > 100)
+		`, nil)
+		require.NoError(t, err)
+
+		var ids []int64
+		for {
+			row, err := r.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			require.NoError(t, err)
+			id, _ := row.ValuesByPosition[0].RawValue().(int64)
+			ids = append(ids, id)
+		}
+		r.Close()
+
+		require.Equal(t, 2, len(ids))
+		require.Contains(t, ids, int64(1)) // Alice (has order of 200)
+		require.Contains(t, ids, int64(2)) // Bob (has order of 150)
+	})
+}
+
+func TestRecursiveCTE(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE tree (id INTEGER, parent_id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO tree (id, parent_id, name) VALUES (1, 0, 'root');
+		INSERT INTO tree (id, parent_id, name) VALUES (2, 1, 'child1');
+		INSERT INTO tree (id, parent_id, name) VALUES (3, 1, 'child2');
+		INSERT INTO tree (id, parent_id, name) VALUES (4, 2, 'grandchild1');
+		INSERT INTO tree (id, parent_id, name) VALUES (5, 3, 'grandchild2');
+	`, nil)
+	require.NoError(t, err)
+
+	// Recursive CTE to traverse tree from root
+	r, err := engine.Query(context.Background(), nil, `
+		WITH RECURSIVE descendants AS (
+			SELECT id, name FROM tree WHERE id = 1
+			UNION ALL
+			SELECT t.id, t.name FROM tree t INNER JOIN descendants d ON t.parent_id = d.id
+		)
+		SELECT id, name FROM descendants
+	`, nil)
+	require.NoError(t, err)
+
+	var ids []int64
+	for {
+		row, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		id, _ := row.ValuesByPosition[0].RawValue().(int64)
+		ids = append(ids, id)
+	}
+	r.Close()
+
+	// Should find all 5 nodes: root + 2 children + 2 grandchildren
+	require.Equal(t, 5, len(ids))
+	require.Contains(t, ids, int64(1)) // root
+	require.Contains(t, ids, int64(2)) // child1
+	require.Contains(t, ids, int64(3)) // child2
+	require.Contains(t, ids, int64(4)) // grandchild1
+	require.Contains(t, ids, int64(5)) // grandchild2
+}
+
+func TestRecursiveCTENumericSequence(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	// Need a dummy table for the engine to initialize
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE dummy (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	// Generate numbers 1-10 using recursive CTE
+	r, err := engine.Query(context.Background(), nil, `
+		WITH RECURSIVE nums AS (
+			SELECT 1 AS n
+			UNION ALL
+			SELECT n + 1 FROM nums WHERE n < 10
+		)
+		SELECT n FROM nums
+	`, nil)
+	require.NoError(t, err)
+
+	var numbers []int64
+	for {
+		row, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		n, _ := row.ValuesByPosition[0].RawValue().(int64)
+		numbers = append(numbers, n)
+	}
+	r.Close()
+
+	require.Equal(t, 10, len(numbers))
+	for i, n := range numbers {
+		require.Equal(t, int64(i+1), n)
+	}
+}
+
 func TestCreateAndDropView(t *testing.T) {
 	engine := setupCommonTest(t)
 
