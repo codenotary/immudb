@@ -6049,6 +6049,145 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestExplain(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE items (id INTEGER, name VARCHAR, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(context.Background(), nil,
+		`EXPLAIN SELECT id, name FROM items WHERE id > 5 ORDER BY name LIMIT 10`, nil)
+	require.NoError(t, err)
+
+	count := 0
+	for {
+		row, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		plan, _ := row.ValuesByPosition[0].RawValue().(string)
+		require.NotEmpty(t, plan)
+		count++
+	}
+	require.Greater(t, count, 0)
+	r.Close()
+
+	// EXPLAIN with JOIN
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE orders (id INTEGER, item_id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	r, err = engine.Query(context.Background(), nil,
+		`EXPLAIN SELECT i.name FROM items i INNER JOIN orders o ON i.id = o.item_id`, nil)
+	require.NoError(t, err)
+
+	count = 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Greater(t, count, 1) // Should have multiple plan lines
+	r.Close()
+}
+
+func TestWindowFunctionsAdvanced(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE scores (id INTEGER, name VARCHAR, score INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, `
+		INSERT INTO scores (id, name, score) VALUES (1, 'Alice', 90);
+		INSERT INTO scores (id, name, score) VALUES (2, 'Bob', 80);
+		INSERT INTO scores (id, name, score) VALUES (3, 'Charlie', 70);
+		INSERT INTO scores (id, name, score) VALUES (4, 'Diana', 85);
+	`, nil)
+	require.NoError(t, err)
+
+	t.Run("lag", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT name, score, lag(score) OVER (ORDER BY score) prev_score FROM scores
+		`, nil)
+		require.NoError(t, err)
+
+		// First row (score=70) should have NULL for lag
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.True(t, row.ValuesByPosition[2].IsNull())
+
+		// Second row (score=80) should have 70 for lag
+		row, err = r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(70), row.ValuesByPosition[2].RawValue())
+
+		r.Close()
+	})
+
+	t.Run("lead", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT name, score, lead(score) OVER (ORDER BY score) next_score FROM scores
+		`, nil)
+		require.NoError(t, err)
+
+		// First row (score=70) should have 80 for lead
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(80), row.ValuesByPosition[2].RawValue())
+
+		r.Close()
+	})
+
+	t.Run("first_value_last_value", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT name,
+				first_value(score) OVER (ORDER BY score) fv,
+				last_value(score) OVER (ORDER BY score) lv
+			FROM scores
+		`, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int64(70), row.ValuesByPosition[1].RawValue())  // first_value = min
+		require.Equal(t, int64(90), row.ValuesByPosition[2].RawValue())  // last_value = max
+
+		r.Close()
+	})
+
+	t.Run("ntile", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, `
+			SELECT name, ntile(2) OVER (ORDER BY score) bucket FROM scores
+		`, nil)
+		require.NoError(t, err)
+
+		buckets := make([]int64, 0)
+		for {
+			row, err := r.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			require.NoError(t, err)
+			b, _ := row.ValuesByPosition[1].RawValue().(int64)
+			buckets = append(buckets, b)
+		}
+		require.Equal(t, 4, len(buckets))
+		// First 2 in bucket 1, last 2 in bucket 2
+		require.Equal(t, int64(1), buckets[0])
+		require.Equal(t, int64(1), buckets[1])
+		require.Equal(t, int64(2), buckets[2])
+		require.Equal(t, int64(2), buckets[3])
+
+		r.Close()
+	})
+}
+
 func TestWindowFunctions(t *testing.T) {
 	engine := setupCommonTest(t)
 

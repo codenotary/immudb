@@ -107,7 +107,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
-%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION
+%token <keyword> NOT LIKE IF EXISTS IN IS OVER PARTITION EXPLAIN
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST
 %token <keyword> SHOW DATABASES TABLES USERS VIEW
 %token <keyword> BETWEEN
@@ -834,6 +834,11 @@ dqlstmt:
          $$ = &SelectStmt{
             ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "grants", params: []ValueExp{&Varchar{val: $4}}}},
         }
+    }
+|
+    EXPLAIN dqlstmt
+    {
+        $$ = &ExplainStmt{query: $2.(DataSource)}
     }
 
 select_stmt: SELECT opt_distinct opt_targets FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset

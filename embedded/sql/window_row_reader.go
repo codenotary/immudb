@@ -263,6 +263,79 @@ func (wr *windowRowReader) computeWindowValues(partition []*Row, wfn *WindowFnEx
 			}
 		}
 
+	case "LAG":
+		for i, row := range partition {
+			offset := 1
+			if len(wfn.params) > 1 {
+				if ov, ok := wfn.params[1].(*Integer); ok {
+					offset = int(ov.val)
+				}
+			}
+			prev := i - offset
+			if prev >= 0 && prev < len(partition) && len(wfn.params) > 0 {
+				val, err := wfn.params[0].reduce(tx, partition[prev], tableAlias)
+				if err == nil {
+					appendWindowValue(row, colSel, val)
+					continue
+				}
+			}
+			appendWindowValue(row, colSel, NewNull(AnyType))
+		}
+
+	case "LEAD":
+		for i, row := range partition {
+			offset := 1
+			if len(wfn.params) > 1 {
+				if ov, ok := wfn.params[1].(*Integer); ok {
+					offset = int(ov.val)
+				}
+			}
+			next := i + offset
+			if next >= 0 && next < len(partition) && len(wfn.params) > 0 {
+				val, err := wfn.params[0].reduce(tx, partition[next], tableAlias)
+				if err == nil {
+					appendWindowValue(row, colSel, val)
+					continue
+				}
+			}
+			appendWindowValue(row, colSel, NewNull(AnyType))
+		}
+
+	case "FIRST_VALUE":
+		if len(partition) > 0 && len(wfn.params) > 0 {
+			firstVal, err := wfn.params[0].reduce(tx, partition[0], tableAlias)
+			if err != nil {
+				firstVal = NewNull(AnyType)
+			}
+			for _, row := range partition {
+				appendWindowValue(row, colSel, firstVal)
+			}
+		}
+
+	case "LAST_VALUE":
+		if len(partition) > 0 && len(wfn.params) > 0 {
+			lastVal, err := wfn.params[0].reduce(tx, partition[len(partition)-1], tableAlias)
+			if err != nil {
+				lastVal = NewNull(AnyType)
+			}
+			for _, row := range partition {
+				appendWindowValue(row, colSel, lastVal)
+			}
+		}
+
+	case "NTILE":
+		buckets := int64(1)
+		if len(wfn.params) > 0 {
+			if bv, ok := wfn.params[0].(*Integer); ok && bv.val > 0 {
+				buckets = bv.val
+			}
+		}
+		n := int64(len(partition))
+		for i, row := range partition {
+			bucket := (int64(i) * buckets / n) + 1
+			appendWindowValue(row, colSel, NewInteger(bucket))
+		}
+
 	default:
 		// Unknown window function — append NULL
 		for _, row := range partition {

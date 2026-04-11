@@ -2806,7 +2806,7 @@ func (v *WindowFnExp) selectorName() string {
 
 func (v *WindowFnExp) resultType() SQLValueType {
 	switch v.fnName {
-	case "ROW_NUMBER", "RANK", "DENSE_RANK", "COUNT":
+	case "ROW_NUMBER", "RANK", "DENSE_RANK", "COUNT", "NTILE":
 		return IntegerType
 	case "SUM", "AVG":
 		return Float64Type
@@ -4020,6 +4020,145 @@ func (stmt *IntersectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[st
 	}()
 
 	return newSetOpRowReader(ctx, leftReader, rightReader, setOpIntersect)
+}
+
+// ExplainStmt returns the query plan as text rows
+type ExplainStmt struct {
+	query DataSource
+}
+
+func (stmt *ExplainStmt) readOnly() bool                     { return true }
+func (stmt *ExplainStmt) requiredPrivileges() []SQLPrivilege  { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *ExplainStmt) Alias() string                      { return "" }
+
+func (stmt *ExplainStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return stmt.query.inferParameters(ctx, tx, params)
+}
+
+func (stmt *ExplainStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ExplainStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+	// Build a description of the query plan
+	lines := stmt.describePlan(stmt.query, 0)
+
+	cols := []ColDescriptor{{Column: "plan", Type: VarcharType}}
+	rows := make([][]ValueExp, len(lines))
+	for i, line := range lines {
+		rows[i] = []ValueExp{NewVarchar(line)}
+	}
+
+	return NewValuesRowReader(tx, nil, cols, true, "explain", rows)
+}
+
+func (stmt *ExplainStmt) describePlan(ds DataSource, indent int) []string {
+	prefix := ""
+	for i := 0; i < indent; i++ {
+		prefix += "  "
+	}
+
+	var lines []string
+
+	switch s := ds.(type) {
+	case *SelectStmt:
+		scanType := "Seq Scan"
+		tableName := ""
+
+		if tr, ok := s.ds.(*tableRef); ok {
+			tableName = tr.table
+			if tr.as != "" {
+				tableName = tr.table + " " + tr.as
+			}
+		}
+
+		if s.indexOn != nil && len(s.indexOn) > 0 {
+			scanType = fmt.Sprintf("Index Scan using (%s)", strings.Join(s.indexOn, ", "))
+		}
+
+		line := fmt.Sprintf("%s-> %s on %s", prefix, scanType, tableName)
+		lines = append(lines, line)
+
+		if s.where != nil {
+			lines = append(lines, fmt.Sprintf("%s  Filter: %s", prefix, s.where.String()))
+		}
+
+		if s.joins != nil {
+			for _, j := range s.joins {
+				joinName := "Inner Join"
+				switch j.joinType {
+				case LeftJoin:
+					joinName = "Left Join"
+				case RightJoin:
+					joinName = "Right Join"
+				case CrossJoin:
+					joinName = "Cross Join"
+				case FullOuterJoin:
+					joinName = "Full Outer Join"
+				}
+				lines = append(lines, fmt.Sprintf("%s  -> %s", prefix, joinName))
+				if j.cond != nil {
+					lines = append(lines, fmt.Sprintf("%s    Cond: %s", prefix, j.cond.String()))
+				}
+				lines = append(lines, stmt.describePlan(j.ds, indent+2)...)
+			}
+		}
+
+		if s.groupBy != nil {
+			cols := make([]string, len(s.groupBy))
+			for i, g := range s.groupBy {
+				cols[i] = g.String()
+			}
+			lines = append(lines, fmt.Sprintf("%s  Group By: %s", prefix, strings.Join(cols, ", ")))
+		}
+
+		if s.orderBy != nil {
+			cols := make([]string, len(s.orderBy))
+			for i, o := range s.orderBy {
+				dir := "ASC"
+				if o.descOrder {
+					dir = "DESC"
+				}
+				cols[i] = fmt.Sprintf("%s %s", o.exp.String(), dir)
+			}
+			lines = append(lines, fmt.Sprintf("%s  Order By: %s", prefix, strings.Join(cols, ", ")))
+		}
+
+		if s.limit != nil {
+			lines = append(lines, fmt.Sprintf("%s  Limit: %s", prefix, s.limit.String()))
+		}
+
+	case *UnionStmt:
+		lines = append(lines, fmt.Sprintf("%s-> Union", prefix))
+		lines = append(lines, stmt.describePlan(s.left, indent+1)...)
+		lines = append(lines, stmt.describePlan(s.right, indent+1)...)
+
+	case *ExceptStmt:
+		lines = append(lines, fmt.Sprintf("%s-> Except", prefix))
+		lines = append(lines, stmt.describePlan(s.left, indent+1)...)
+		lines = append(lines, stmt.describePlan(s.right, indent+1)...)
+
+	case *IntersectStmt:
+		lines = append(lines, fmt.Sprintf("%s-> Intersect", prefix))
+		lines = append(lines, stmt.describePlan(s.left, indent+1)...)
+		lines = append(lines, stmt.describePlan(s.right, indent+1)...)
+
+	case *CTEStmt:
+		lines = append(lines, fmt.Sprintf("%s-> CTE", prefix))
+		for _, cte := range s.ctes {
+			lines = append(lines, fmt.Sprintf("%s  CTE %s:", prefix, cte.name))
+			lines = append(lines, stmt.describePlan(cte.query, indent+2)...)
+		}
+		lines = append(lines, stmt.describePlan(s.query, indent+1)...)
+
+	case *tableRef:
+		lines = append(lines, fmt.Sprintf("%s-> Seq Scan on %s", prefix, s.table))
+
+	default:
+		lines = append(lines, fmt.Sprintf("%s-> Scan", prefix))
+	}
+
+	return lines
 }
 
 // CTEDef holds a single CTE definition (name + query)
