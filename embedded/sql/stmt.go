@@ -4001,6 +4001,7 @@ func (stmt *SelectStmt) getPreferredIndex(table *Table) (*Index, error) {
 type UnionStmt struct {
 	distinct    bool
 	left, right DataSource
+	as          string
 }
 
 func (stmt *UnionStmt) readOnly() bool {
@@ -4054,6 +4055,10 @@ func (stmt *UnionStmt) resolveUnionAll(ctx context.Context, tx *SQLTx, params ma
 		return nil, err
 	}
 
+	if stmt.as != "" {
+		rowReader.alias = stmt.as
+	}
+
 	return rowReader, nil
 }
 
@@ -4080,17 +4085,18 @@ func (stmt *UnionStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string
 }
 
 func (stmt *UnionStmt) Alias() string {
-	return ""
+	return stmt.as
 }
 
 // ExceptStmt implements EXCEPT set operation (rows in left but not in right)
 type ExceptStmt struct {
 	left, right DataSource
+	as          string
 }
 
 func (stmt *ExceptStmt) readOnly() bool                            { return true }
 func (stmt *ExceptStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
-func (stmt *ExceptStmt) Alias() string                             { return "" }
+func (stmt *ExceptStmt) Alias() string                             { return stmt.as }
 
 func (stmt *ExceptStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
@@ -4130,11 +4136,12 @@ func (stmt *ExceptStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 // IntersectStmt implements INTERSECT set operation (rows in both left and right)
 type IntersectStmt struct {
 	left, right DataSource
+	as          string
 }
 
 func (stmt *IntersectStmt) readOnly() bool                            { return true }
 func (stmt *IntersectStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
-func (stmt *IntersectStmt) Alias() string                             { return "" }
+func (stmt *IntersectStmt) Alias() string                             { return stmt.as }
 
 func (stmt *IntersectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {

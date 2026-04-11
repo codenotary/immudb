@@ -6724,7 +6724,7 @@ func TestILike(t *testing.T) {
 	r.Close()
 }
 
-func TestUnionInSubqueryNoPanic(t *testing.T) {
+func TestUnionInSubquery(t *testing.T) {
 	engine := setupCommonTest(t)
 
 	_, _, err := engine.Exec(context.Background(), nil, `
@@ -6737,23 +6737,29 @@ func TestUnionInSubqueryNoPanic(t *testing.T) {
 	`, nil)
 	require.NoError(t, err)
 
-	// UNION ALL in subquery FROM clause — should not panic (was a grammar bug)
-	// Note: column resolution in UNION subqueries is limited
+	// UNION ALL in subquery FROM clause with alias
 	r, err := engine.Query(context.Background(), nil,
 		`SELECT id FROM (SELECT id FROM t1 UNION ALL SELECT id FROM t2) sub`, nil)
-	// May return an error for column resolution, but must NOT panic
-	if err != nil {
-		t.Logf("Expected limitation: %v", err)
-	} else {
-		r.Close()
-	}
+	require.NoError(t, err)
 
-	// Direct UNION works
+	count := 0
+	for {
+		_, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		count++
+	}
+	require.Equal(t, 4, count)
+	r.Close()
+
+	// Direct UNION also works
 	r, err = engine.Query(context.Background(), nil,
 		`SELECT id FROM t1 UNION ALL SELECT id FROM t2`, nil)
 	require.NoError(t, err)
 
-	count := 0
+	count = 0
 	for {
 		_, err := r.Read(context.Background())
 		if err == ErrNoMoreRows {

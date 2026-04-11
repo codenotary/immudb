@@ -2240,8 +2240,15 @@ yydefault:
 	case 215:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			if sel, ok := yyDollar[2].stmt.(*SelectStmt); ok {
-				sel.as = yyDollar[4].id
+			switch s := yyDollar[2].stmt.(type) {
+			case *SelectStmt:
+				s.as = yyDollar[4].id
+			case *UnionStmt:
+				s.as = yyDollar[4].id
+			case *ExceptStmt:
+				s.as = yyDollar[4].id
+			case *IntersectStmt:
+				s.as = yyDollar[4].id
 			}
 			yyVAL.ds = yyDollar[2].stmt.(DataSource)
 		}

@@ -1178,8 +1178,15 @@ ds:
 |
     '(' dqlstmt ')' opt_as
     {
-        if sel, ok := $2.(*SelectStmt); ok {
-            sel.as = $4
+        switch s := $2.(type) {
+        case *SelectStmt:
+            s.as = $4
+        case *UnionStmt:
+            s.as = $4
+        case *ExceptStmt:
+            s.as = $4
+        case *IntersectStmt:
+            s.as = $4
         }
         $$ = $2.(DataSource)
     }
