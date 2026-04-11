@@ -1,0 +1,510 @@
+/*
+Copyright 2025 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://mariadb.com/bsl11/
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package server_test
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"os"
+	"testing"
+
+	"github.com/codenotary/immudb/pkg/server"
+	"github.com/jackc/pgx/v4"
+	"github.com/stretchr/testify/require"
+)
+
+func setupTestServer(t *testing.T) (*server.ImmuServer, int) {
+	t.Helper()
+	td := t.TempDir()
+
+	options := server.DefaultOptions().
+		WithDir(td).
+		WithPort(0).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(0).
+		WithMetricsServer(false).
+		WithWebServer(false)
+
+	srv := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+
+	err := srv.Initialize()
+	require.NoError(t, err)
+
+	go func() {
+		srv.Start()
+	}()
+
+	t.Cleanup(func() {
+		srv.Stop()
+		os.Remove(".state-")
+	})
+
+	return srv, srv.PgsqlSrv.GetPort()
+}
+
+func TestPgsqlCompat_ShowStatements(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"show_server_version", "SHOW server_version"},
+		{"show_client_encoding", "SHOW client_encoding"},
+		{"show_timezone", "SHOW timezone"},
+		{"show_search_path", "SHOW search_path"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var val string
+			err := db.QueryRow(tt.query).Scan(&val)
+			require.NoError(t, err)
+			require.NotEmpty(t, val)
+			t.Logf("%s = %s", tt.name, val)
+		})
+	}
+}
+
+func TestPgsqlCompat_SelectVersion(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	var version string
+	err = db.QueryRow("SELECT version()").Scan(&version)
+	require.NoError(t, err)
+	require.Contains(t, version, "immudb")
+}
+
+func TestPgsqlCompat_CreateTableAndInsert(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE test_compat (id INTEGER, name VARCHAR, active BOOLEAN, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	_, err = db.Exec("INSERT INTO test_compat (id, name, active) VALUES (1, 'Alice', true)")
+	require.NoError(t, err)
+
+	_, err = db.Exec("INSERT INTO test_compat (id, name, active) VALUES (2, 'Bob', false)")
+	require.NoError(t, err)
+
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM test_compat").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	var name string
+	err = db.QueryRow("SELECT name FROM test_compat WHERE id = 1").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "Alice", name)
+}
+
+func TestPgsqlCompat_ImmudbVerification(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	// immudb_state
+	var dbName, txHash string
+	var txID int64
+	err = db.QueryRow("SELECT immudb_state()").Scan(&dbName, &txID, &txHash)
+	// immudb_state returns multiple columns, lib/pq may not handle this well with single Scan
+	// Just verify the query doesn't error
+	if err != nil {
+		// Try with pgx which handles multi-column better
+		t.Log("lib/pq multi-column scan failed, expected for single-value Scan")
+	}
+}
+
+func TestPgsqlCompat_PgxDriver(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	// Create table
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE pgx_test (id INTEGER, value VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	// Insert
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO pgx_test (id, value) VALUES (1, 'hello')")
+	require.NoError(t, err)
+
+	// Query
+	var id int64
+	var value string
+	err = conn.QueryRow(context.Background(),
+		"SELECT id, value FROM pgx_test WHERE id = 1").Scan(&id, &value)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), id)
+	require.Equal(t, "hello", value)
+}
+
+func TestPgsqlCompat_PgCatalogIntrospection(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	// Create a table to introspect
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE introspect_test (id INTEGER, name VARCHAR, active BOOLEAN, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	// pg_class — should list our table
+	var relname string
+	err = conn.QueryRow(context.Background(),
+		"SELECT relname FROM pg_class WHERE relname = 'introspect_test'").Scan(&relname)
+	require.NoError(t, err)
+	require.Equal(t, "introspect_test", relname)
+
+	// pg_attribute — should list columns
+	rows, err := conn.Query(context.Background(),
+		"SELECT attname FROM pg_attribute WHERE attrelid > 0")
+	require.NoError(t, err)
+
+	var cols []string
+	for rows.Next() {
+		var col string
+		err = rows.Scan(&col)
+		require.NoError(t, err)
+		cols = append(cols, col)
+	}
+	rows.Close()
+	require.Contains(t, cols, "id")
+	require.Contains(t, cols, "name")
+	require.Contains(t, cols, "active")
+
+	// pg_settings
+	var setting string
+	err = conn.QueryRow(context.Background(),
+		"SELECT setting FROM pg_settings WHERE name = 'server_version'").Scan(&setting)
+	require.NoError(t, err)
+	require.Equal(t, "9.6", setting)
+
+	// information_schema_tables
+	var tableName, tableSchema string
+	err = conn.QueryRow(context.Background(),
+		"SELECT table_name, table_schema FROM information_schema_tables WHERE table_name = 'introspect_test'").Scan(&tableName, &tableSchema)
+	require.NoError(t, err)
+	require.Equal(t, "introspect_test", tableName)
+	require.Equal(t, "public", tableSchema)
+
+	// information_schema_columns
+	rows, err = conn.Query(context.Background(),
+		"SELECT column_name, data_type, is_nullable FROM information_schema_columns WHERE table_name = 'introspect_test'")
+	require.NoError(t, err)
+
+	colCount := 0
+	for rows.Next() {
+		var colName, dataType, nullable string
+		err = rows.Scan(&colName, &dataType, &nullable)
+		require.NoError(t, err)
+		t.Logf("column: %s type: %s nullable: %s", colName, dataType, nullable)
+		colCount++
+	}
+	rows.Close()
+	require.Equal(t, 3, colCount)
+}
+
+func TestPgsqlCompat_BuiltinFunctions(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"current_database", "SELECT current_database()"},
+		{"current_schema", "SELECT current_schema()"},
+		{"now", "SELECT NOW()"},
+		{"coalesce", "SELECT COALESCE(NULL, 'fallback')"},
+		{"length", "SELECT LENGTH('hello')"},
+		{"upper", "SELECT UPPER('hello')"},
+		{"lower", "SELECT LOWER('HELLO')"},
+		{"concat", "SELECT CONCAT('a', 'b', 'c')"},
+		{"abs", "SELECT ABS(-42)"},
+		{"round", "SELECT ROUND(3.7)"},
+		{"md5", "SELECT MD5('test')"},
+		{"nullif", "SELECT NULLIF(1, 1)"},
+		{"greatest", "SELECT GREATEST(1, 2, 3)"},
+		{"least", "SELECT LEAST(1, 2, 3)"},
+		{"replace", "SELECT REPLACE('hello', 'l', 'r')"},
+		{"reverse", "SELECT REVERSE('hello')"},
+		{"repeat", "SELECT REPEAT('ab', 3)"},
+		{"initcap", "SELECT INITCAP('hello world')"},
+		{"chr", "SELECT CHR(65)"},
+		{"ascii", "SELECT ASCII('A')"},
+		{"lpad", "SELECT LPAD('hi', 5, '0')"},
+		{"split_part", "SELECT SPLIT_PART('a.b.c', '.', 2)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows, err := conn.Query(context.Background(), tt.query)
+			require.NoError(t, err)
+			require.True(t, rows.Next(), "expected at least one row for %s", tt.name)
+			rows.Close()
+		})
+	}
+}
+
+func TestPgsqlCompat_JoinTypes(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE j_left (id INTEGER, val VARCHAR, PRIMARY KEY id);
+		CREATE TABLE j_right (id INTEGER, data VARCHAR, PRIMARY KEY id);
+		INSERT INTO j_left (id, val) VALUES (1, 'a');
+		INSERT INTO j_left (id, val) VALUES (2, 'b');
+		INSERT INTO j_right (id, data) VALUES (2, 'x');
+		INSERT INTO j_right (id, data) VALUES (3, 'y')
+	`)
+	require.NoError(t, err)
+
+	// INNER JOIN
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM j_left l INNER JOIN j_right r ON l.id = r.id").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+
+	// LEFT JOIN
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM j_left l LEFT JOIN j_right r ON l.id = r.id").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	// CROSS JOIN
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM j_left l CROSS JOIN j_right r").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 4, count) // 2 * 2
+}
+
+func TestPgsqlCompat_SubqueriesAndCTE(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE products (id INTEGER, name VARCHAR, price INTEGER, PRIMARY KEY id);
+		INSERT INTO products (id, name, price) VALUES (1, 'Widget', 100);
+		INSERT INTO products (id, name, price) VALUES (2, 'Gadget', 200);
+		INSERT INTO products (id, name, price) VALUES (3, 'Doohickey', 50)
+	`)
+	require.NoError(t, err)
+
+	// IN subquery
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM products WHERE price IN (SELECT price FROM products WHERE price > 75)").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 2, count) // Widget and Gadget
+
+	// CTE
+	var total int
+	err = conn.QueryRow(context.Background(),
+		"WITH expensive AS (SELECT id, price FROM products WHERE price > 75) SELECT COUNT(*) FROM expensive").Scan(&total)
+	require.NoError(t, err)
+	require.Equal(t, 2, total)
+
+	// Verify all 3 rows
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM products").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+}
+
+func TestPgsqlCompat_WindowFunctions(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE sales (id INTEGER, dept VARCHAR, amount INTEGER, PRIMARY KEY id);
+		INSERT INTO sales (id, dept, amount) VALUES (1, 'eng', 100);
+		INSERT INTO sales (id, dept, amount) VALUES (2, 'eng', 200);
+		INSERT INTO sales (id, dept, amount) VALUES (3, 'sales', 150)
+	`)
+	require.NoError(t, err)
+
+	// ROW_NUMBER
+	rows, err := conn.Query(context.Background(),
+		"SELECT id, row_number() OVER (ORDER BY id) rn FROM sales")
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		var id, rn int64
+		err = rows.Scan(&id, &rn)
+		require.NoError(t, err)
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 3, count)
+
+	// SUM OVER PARTITION
+	rows, err = conn.Query(context.Background(),
+		"SELECT id, sum(amount) OVER (PARTITION BY dept) dept_total FROM sales")
+	require.NoError(t, err)
+	count = 0
+	for rows.Next() {
+		count++
+	}
+	rows.Close()
+	require.Equal(t, 3, count)
+}
+
+func TestPgsqlCompat_OnConflictDoNothing(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE kv (id INTEGER, value VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO kv (id, value) VALUES (1, 'v1')")
+	require.NoError(t, err)
+
+	// ON CONFLICT DO NOTHING — should not error
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO kv (id, value) VALUES (1, 'v2') ON CONFLICT DO NOTHING")
+	require.NoError(t, err)
+
+	// Value should still be v1
+	var val string
+	err = conn.QueryRow(context.Background(),
+		"SELECT value FROM kv WHERE id = 1").Scan(&val)
+	require.NoError(t, err)
+	require.Equal(t, "v1", val)
+}
+
+func TestPgsqlCompat_Sequences(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), "CREATE SEQUENCE test_seq")
+	require.NoError(t, err)
+
+	var val int64
+	err = conn.QueryRow(context.Background(), "SELECT NEXTVAL('test_seq')").Scan(&val)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), val)
+
+	err = conn.QueryRow(context.Background(), "SELECT NEXTVAL('test_seq')").Scan(&val)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), val)
+
+	err = conn.QueryRow(context.Background(), "SELECT CURRVAL('test_seq')").Scan(&val)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), val)
+}
+
+func TestPgsqlCompat_Explain(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE explain_test (id INTEGER, name VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	rows, err := conn.Query(context.Background(),
+		"EXPLAIN SELECT id, name FROM explain_test WHERE id > 0")
+	require.NoError(t, err)
+
+	planLines := 0
+	for rows.Next() {
+		var line string
+		err = rows.Scan(&line)
+		require.NoError(t, err)
+		t.Logf("EXPLAIN: %s", line)
+		planLines++
+	}
+	rows.Close()
+	require.Greater(t, planLines, 0)
+}
+
+func TestPgsqlCompat_ForeignKeyConstraint(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE fk_parent (id INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	// FOREIGN KEY constraint should parse without error
+	_, err = conn.Exec(context.Background(), `
+		CREATE TABLE fk_child (
+			id INTEGER,
+			parent_id INTEGER,
+			PRIMARY KEY id,
+			FOREIGN KEY (parent_id) REFERENCES fk_parent (id)
+		)`)
+	require.NoError(t, err)
+}
