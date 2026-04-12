@@ -26,8 +26,10 @@ type AggregatedValue interface {
 }
 
 type CountValue struct {
-	c   int64
-	sel string
+	c        int64
+	sel      string
+	distinct bool
+	seen     map[string]bool // for DISTINCT tracking
 }
 
 func (v *CountValue) Selector() string {
@@ -35,7 +37,7 @@ func (v *CountValue) Selector() string {
 }
 
 func (v *CountValue) ColBounded() bool {
-	return false
+	return v.distinct
 }
 
 func (v *CountValue) Type() SQLValueType {
@@ -73,6 +75,16 @@ func (v *CountValue) Compare(val TypedValue) (int, error) {
 }
 
 func (v *CountValue) updateWith(val TypedValue) error {
+	if v.distinct {
+		if val == nil || val.IsNull() {
+			return nil // NULL values are not counted in DISTINCT
+		}
+		key := val.String()
+		if v.seen[key] {
+			return nil // already seen this value
+		}
+		v.seen[key] = true
+	}
 	v.c++
 	return nil
 }

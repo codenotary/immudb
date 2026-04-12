@@ -2760,7 +2760,7 @@ func TestQuery(t *testing.T) {
 		fmt.Sprintf(`
 		SELECT id, title, active
 		FROM table1
-		WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't'`, encPayloadPrefix), params)
+		WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't%%'`, encPayloadPrefix), params)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i += 2 {
@@ -3391,7 +3391,7 @@ func TestJSON(t *testing.T) {
 				`
 					SELECT json_data->'usr'->'name'
 					FROM tbl_with_json
-					WHERE json_data->'usr'->'name' LIKE '^name.*' AND json_data->'usr'->'perms'->'0' = 'r'
+					WHERE json_data->'usr'->'name' LIKE 'name%' AND json_data->'usr'->'perms'->'0' = 'r'
 				`,
 				nil,
 			)
@@ -9571,7 +9571,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
 
 		t.Run("unconditional database query", func(t *testing.T) {
-			r, err := engine.Query(context.Background(), nil, "SELECT * FROM DATABASES() WHERE name LIKE 'db*'", nil)
+			r, err := engine.Query(context.Background(), nil, "SELECT * FROM DATABASES() WHERE name LIKE 'db%'", nil)
 			require.NoError(t, err)
 
 			for _, db := range dbs {
@@ -9625,7 +9625,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		})
 
 		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
-			r, err := engine.Query(context.Background(), nil, "SELECT dbs.name as dbname FROM DATABASES() as dbs WHERE name LIKE 'db*'", nil)
+			r, err := engine.Query(context.Background(), nil, "SELECT dbs.name as dbname FROM DATABASES() as dbs WHERE name LIKE 'db%'", nil)
 			require.NoError(t, err)
 
 			for _, db := range dbs {
@@ -10776,7 +10776,7 @@ func TestLikeWithNullableColumns(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO mytable(title) VALUES (NULL), ('title1')", nil)
 	require.NoError(t, err)
 
-	r, err := engine.Query(context.Background(), nil, "SELECT id, title FROM mytable WHERE title LIKE '.*'", nil)
+	r, err := engine.Query(context.Background(), nil, "SELECT id, title FROM mytable WHERE title LIKE '%'", nil)
 	require.NoError(t, err)
 	defer r.Close()
 
@@ -10990,7 +10990,7 @@ func TestCheckConstraints(t *testing.T) {
 			metadata JSON,
 
 			CONSTRAINT metadata_check CHECK metadata->'usr' IS NOT NULL,
-			CHECK (account IS NULL) OR (account LIKE '^account_.*'),
+			CHECK (account IS NULL) OR (account LIKE 'account\_%'),
 			CONSTRAINT in_out_balance_sum CHECK (in_balance + out_balance = balance),
 			CHECK (in_balance >= 0),
 			CHECK (out_balance <= 0),

@@ -3544,6 +3544,9 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	}
 
 	if len(stmt.orderBy) > 0 {
+		// Resolve ORDER BY aliases (e.g. "ORDER BY total" → actual expression)
+		stmt.resolveOrderByAliases()
+
 		for _, col := range stmt.orderBy {
 			for _, sel := range col.exp.selectors() {
 				_, isAgg := sel.(*AggColSelector)
@@ -3572,6 +3575,37 @@ func (stmt *SelectStmt) selectorAppearsInTargets(s Selector) bool {
 		}
 	}
 	return false
+}
+
+// resolveOrderByAliases replaces ORDER BY expressions that reference
+// SELECT aliases with the actual target expressions. This enables
+// "SELECT col AS alias ... ORDER BY alias" syntax.
+func (stmt *SelectStmt) resolveOrderByAliases() {
+	for i, ordExp := range stmt.orderBy {
+		// Check if the ORDER BY expression is a simple column selector
+		sel := ordExp.AsSelector()
+		if sel == nil {
+			continue
+		}
+
+		colSel, ok := sel.(*ColSelector)
+		if !ok {
+			continue
+		}
+
+		// Check if this selector name matches a target alias
+		for _, target := range stmt.targets {
+			if target.As != "" && strings.EqualFold(target.As, colSel.col) {
+				// Replace the ORDER BY expression with the target expression
+				stmt.orderBy[i] = &OrdExp{
+					exp:        target.Exp,
+					descOrder:  ordExp.descOrder,
+					nullsOrder: ordExp.nullsOrder,
+				}
+				break
+			}
+		}
+	}
 }
 
 func (stmt *SelectStmt) groupByContains(sel Selector) bool {
@@ -5190,9 +5224,10 @@ func (sel *ColSelector) String() string {
 }
 
 type AggColSelector struct {
-	aggFn AggregateFn
-	table string
-	col   string
+	aggFn    AggregateFn
+	table    string
+	col      string
+	distinct bool
 }
 
 func NewAggColSelector(aggFn AggregateFn, table, col string) *AggColSelector {
@@ -5616,15 +5651,55 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 	}
 
 	patternStr := rpattern.RawValue().(string)
+
+	// Convert SQL LIKE wildcards to regex:
+	// % -> .* (match any sequence)
+	// _ -> .  (match single char)
+	// Escape all other regex metacharacters
+	regexPattern := sqlLikeToRegex(patternStr)
+
 	if bexp.caseInsensitive {
-		patternStr = "(?i)" + patternStr
+		regexPattern = "(?i)" + regexPattern
 	}
-	matched, err := regexp.MatchString(patternStr, rvalStr)
+	matched, err := regexp.MatchString(regexPattern, rvalStr)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
 	return &Bool{val: matched != bexp.notLike}, nil
+}
+
+// sqlLikeToRegex converts a SQL LIKE pattern to a Go regex pattern.
+// SQL LIKE uses % for any sequence and _ for single char.
+// All regex metacharacters in the literal parts are escaped.
+// Backslash escapes in the pattern (\% and \_) are honored.
+func sqlLikeToRegex(pattern string) string {
+	var b strings.Builder
+	b.WriteString("^")
+
+	i := 0
+	for i < len(pattern) {
+		ch := pattern[i]
+		switch {
+		case ch == '\\' && i+1 < len(pattern):
+			// Escaped character — treat next char as literal
+			next := pattern[i+1]
+			b.WriteString(regexp.QuoteMeta(string(next)))
+			i += 2
+		case ch == '%':
+			b.WriteString(".*")
+			i++
+		case ch == '_':
+			b.WriteString(".")
+			i++
+		default:
+			b.WriteString(regexp.QuoteMeta(string(ch)))
+			i++
+		}
+	}
+
+	b.WriteString("$")
+	return b.String()
 }
 
 func (bexp *LikeBoolExp) selectors() []Selector {

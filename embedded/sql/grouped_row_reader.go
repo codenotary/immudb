@@ -125,7 +125,18 @@ func (gr *groupedRowReader) colsBySelector(ctx context.Context) (map[string]ColD
 
 		encSel := des.Selector()
 
-		if aggFn == COUNT {
+		if aggFn == COUNT && !sel.distinct {
+			colDescriptors[encSel] = des
+			continue
+		}
+
+		if aggFn == COUNT && sel.distinct {
+			// COUNT(DISTINCT col) needs the column type for selector resolution
+			colDesc, ok := colDescriptors[EncodeSelector("", table, col)]
+			if !ok {
+				return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+			}
+			des.Type = colDesc.Type
 			colDescriptors[encSel] = des
 			continue
 		}
@@ -309,7 +320,8 @@ func (gr *groupedRowReader) initAggregations(row *Row) error {
 	// augment row with aggregated values
 	for _, sel := range gr.selectors {
 		aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
-		v, err := initAggValue(aggFn, table, col)
+
+		v, err := initAggValue(aggFn, table, col, sel.distinct)
 		if err != nil {
 			return err
 		}
@@ -335,16 +347,22 @@ func (gr *groupedRowReader) initAggregations(row *Row) error {
 	return updateRow(row, row)
 }
 
-func initAggValue(aggFn, table, col string) (TypedValue, error) {
+func initAggValue(aggFn, table, col string, distinct ...bool) (TypedValue, error) {
+	isDistinct := len(distinct) > 0 && distinct[0]
+
 	var v TypedValue
 	switch aggFn {
 	case COUNT:
 		{
-			if col != "*" {
+			if col != "*" && !isDistinct {
 				return nil, ErrLimitedCount
 			}
 
-			v = &CountValue{sel: EncodeSelector("", table, col)}
+			cv := &CountValue{sel: EncodeSelector("", table, col), distinct: isDistinct}
+			if isDistinct {
+				cv.seen = make(map[string]bool)
+			}
+			v = cv
 		}
 	case SUM:
 		{
