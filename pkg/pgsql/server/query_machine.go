@@ -359,7 +359,11 @@ var pgTypeReplacements = []struct {
 	re   *regexp.Regexp
 	repl string
 }{
-	// Strip double quotes from identifiers — immudb's parser doesn't use them
+	// Strip double quotes from identifiers, but keep them if the identifier
+	// starts with a digit. SQL reserved words get prefixed with underscore.
+	// Quoted identifiers: prefix digit-start names with t_, prefix reserved words with _
+	{regexp.MustCompile(`"(\d\w*)"`), "t_$1"},
+	{regexp.MustCompile(`"((?i:group|order|key|index|table|column|type|year|date|time|check|default|desc|asc|select|from|where|set|grant|user|role|limit|offset|values|primary|foreign|create|drop|alter|insert|update|delete|begin|commit|rollback|having|between|like|in|is|not|null|and|or|cast|case|when|then|else|end|join|on|as|distinct|all|any|exists|union|except|intersect|natural|cross|full|outer|inner|left|right|using|returning|with|recursive))"`), "_$1"},
 	{regexp.MustCompile(`"(\w+)"`), "$1"},
 
 	// Strip ::type casts FIRST — before type name translation
