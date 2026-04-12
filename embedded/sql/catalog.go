@@ -883,12 +883,45 @@ func loadColSpec(sqlPrefix, key, value []byte, tableID uint32) (*ColSpec, uint32
 		return nil, 0, ErrCorruptedData
 	}
 
+	flags := value[0]
+	maxLen := int(binary.BigEndian.Uint32(value[1:]))
+
+	var colName string
+	var defaultValue ValueExp
+
+	if flags&hasDefaultFlag != 0 && len(value) >= 7 {
+		// New format: {flags(1)}{maxLen(4)}{colNameLen(2)}{colName}{defaultSQL}
+		colNameLen := int(binary.BigEndian.Uint16(value[5:]))
+		if len(value) < 7+colNameLen {
+			return nil, 0, ErrCorruptedData
+		}
+		colName = string(value[7 : 7+colNameLen])
+
+		// Parse default value SQL if present
+		if defaultStart := 7 + colNameLen; defaultStart < len(value) {
+			defaultSQL := string(value[defaultStart:])
+			if defaultSQL != "" {
+				// Parse the default expression
+				stmts, err := ParseSQL(strings.NewReader("SELECT " + defaultSQL))
+				if err == nil && len(stmts) > 0 {
+					if sel, ok := stmts[0].(*SelectStmt); ok && len(sel.targets) > 0 {
+						defaultValue = sel.targets[0].Exp
+					}
+				}
+			}
+		}
+	} else {
+		// Old format: {flags(1)}{maxLen(4)}{colName}
+		colName = string(value[5:])
+	}
+
 	return &ColSpec{
-		colName:       string(value[5:]),
+		colName:       colName,
 		colType:       colType,
-		maxLen:        int(binary.BigEndian.Uint32(value[1:])),
-		autoIncrement: value[0]&autoIncrementFlag != 0,
-		notNull:       value[0]&nullableFlag != 0,
+		maxLen:        maxLen,
+		autoIncrement: flags&autoIncrementFlag != 0,
+		notNull:       flags&nullableFlag != 0,
+		defaultValue:  defaultValue,
 	}, colID, nil
 }
 

@@ -55,6 +55,7 @@ const (
 const (
 	nullableFlag      byte = 1 << iota
 	autoIncrementFlag byte = 1 << iota
+	hasDefaultFlag    byte = 1 << iota
 )
 
 const (
@@ -620,8 +621,26 @@ func (stmt *CreateTableStmt) primaryKeyCols() []string {
 }
 
 func persistColumn(tx *SQLTx, col *Column) error {
-	//{auto_incremental | nullable}{maxLen}{colNAME})
-	v := make([]byte, 1+4+len(col.colName))
+	var defaultSQL string
+	hasDefault := col.defaultValue != nil
+	if hasDefault {
+		defaultSQL = col.defaultValue.String()
+	}
+
+	colNameBytes := []byte(col.Name())
+
+	var v []byte
+	if hasDefault {
+		// New format: {flags(1)}{maxLen(4)}{colNameLen(2)}{colName}{defaultSQL}
+		v = make([]byte, 1+4+2+len(colNameBytes)+len(defaultSQL))
+		binary.BigEndian.PutUint16(v[5:], uint16(len(colNameBytes)))
+		copy(v[7:], colNameBytes)
+		copy(v[7+len(colNameBytes):], []byte(defaultSQL))
+	} else {
+		// Old format: {flags(1)}{maxLen(4)}{colName}
+		v = make([]byte, 1+4+len(colNameBytes))
+		copy(v[5:], colNameBytes)
+	}
 
 	if col.autoIncrement {
 		v[0] = v[0] | autoIncrementFlag
@@ -631,9 +650,11 @@ func persistColumn(tx *SQLTx, col *Column) error {
 		v[0] = v[0] | nullableFlag
 	}
 
-	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
+	if hasDefault {
+		v[0] = v[0] | hasDefaultFlag
+	}
 
-	copy(v[5:], []byte(col.Name()))
+	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
 
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
@@ -4775,8 +4796,12 @@ func (stmt *CreateViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		query: stmt.query,
 	})
 
-	// Note: Views are session-scoped and not persisted to catalog storage.
-	// They will be lost on restart. Full persistence requires AST-to-SQL serialization.
+	// Persist view to catalog storage so it survives restart
+	if stmt.querySQL != "" {
+		if err := persistView(tx, stmt.viewName, stmt.querySQL); err != nil {
+			return nil, fmt.Errorf("failed to persist view %s: %w", stmt.viewName, err)
+		}
+	}
 
 	return tx, nil
 }
@@ -4803,6 +4828,10 @@ func (stmt *DropViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 	}
 
 	delete(tx.engine.tableResolvers, stmt.viewName)
+
+	// Remove from persistent storage (ignore errors for legacy session-scoped views)
+	_ = deleteView(ctx, tx, stmt.viewName)
+
 	return tx, nil
 }
 

@@ -182,6 +182,42 @@ func (e *Engine) CurrVal(name string) (int64, error) {
 	return seq.currValue, nil
 }
 
+func (e *Engine) loadViews(ctx context.Context, tx *store.OngoingTx) {
+	prefix := MapKey(e.prefix, catalogViewPrefix, EncodeID(DatabaseID))
+
+	_ = iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		if deleted || len(value) == 0 {
+			return nil
+		}
+
+		// Extract view name from key
+		nameStart := len(prefix)
+		if nameStart >= len(key) {
+			return nil
+		}
+		viewName := string(key[nameStart:])
+		sqlText := string(value)
+
+		// Parse the view query and register it
+		stmts, err := ParseSQL(strings.NewReader(sqlText))
+		if err != nil {
+			return nil // skip unparseable views
+		}
+
+		for _, stmt := range stmts {
+			if ds, ok := stmt.(DataSource); ok {
+				e.registerTableResolver(viewName, &viewResolver{
+					name:  viewName,
+					query: ds,
+				})
+				break
+			}
+		}
+
+		return nil
+	})
+}
+
 func (e *Engine) loadSequences(ctx context.Context, tx *store.OngoingTx) error {
 	prefix := MapKey(e.prefix, catalogSequencePrefix, EncodeID(DatabaseID))
 
@@ -334,6 +370,11 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 			// Non-fatal: sequences are optional
 			_ = err
 		}
+	}
+
+	// Load persisted views (only once, on first tx open)
+	if len(e.tableResolvers) == 0 {
+		e.loadViews(ctx, tx)
 	}
 
 	for _, table := range catalog.GetTables() {
