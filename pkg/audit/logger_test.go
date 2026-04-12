@@ -71,6 +71,7 @@ func TestLog_Enqueue(t *testing.T) {
 	l := &Logger{
 		eventFilter: "all",
 		ch:          make(chan *AuditEvent, 1),
+		stopCh:      make(chan struct{}),
 	}
 	l.Log(&AuditEvent{EventType: EventWrite, Method: "Set"})
 	assert.Equal(t, 1, len(l.ch))
@@ -80,15 +81,28 @@ func TestLog_DropOnFull(t *testing.T) {
 	l := &Logger{
 		eventFilter: "all",
 		ch:          make(chan *AuditEvent, 1),
+		stopCh:      make(chan struct{}),
+		log:         &noopLogger{},
 	}
 	// Fill the channel
 	l.Log(&AuditEvent{EventType: EventWrite, Method: "Set"})
-	// This one should be dropped
+
+	// Second event should block then drop after timeout.
+	// To test quickly, close stopCh so it takes the shutdown path.
+	close(l.stopCh)
 	l.Log(&AuditEvent{EventType: EventWrite, Method: "Set"})
 
 	assert.Equal(t, int64(1), l.Dropped())
 	assert.Equal(t, 1, len(l.ch))
 }
+
+type noopLogger struct{}
+
+func (n *noopLogger) Errorf(string, ...interface{})   {}
+func (n *noopLogger) Warningf(string, ...interface{}) {}
+func (n *noopLogger) Infof(string, ...interface{})    {}
+func (n *noopLogger) Debugf(string, ...interface{})   {}
+func (n *noopLogger) Close() error                    { return nil }
 
 func TestLog_DefaultFilter(t *testing.T) {
 	l := &Logger{

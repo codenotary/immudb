@@ -21,10 +21,17 @@ import (
 	"encoding/json"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
+)
+
+const (
+	logEnqueueTimeout = 5 * time.Second
+	writeRetryCount   = 3
+	writeRetryDelay   = 100 * time.Millisecond
 )
 
 const (
@@ -73,7 +80,9 @@ func (l *Logger) Stop() {
 	}
 }
 
-// Log enqueues an audit event for asynchronous writing. Non-blocking.
+// Log enqueues an audit event for asynchronous writing.
+// Blocks for up to logEnqueueTimeout if the channel is full to avoid
+// silently dropping compliance-critical events. Only drops after timeout.
 func (l *Logger) Log(event *AuditEvent) {
 	if event == nil || !l.shouldLog(event.EventType) {
 		return
@@ -81,8 +90,27 @@ func (l *Logger) Log(event *AuditEvent) {
 
 	select {
 	case l.ch <- event:
+		return
 	default:
-		l.dropped.Add(1)
+	}
+
+	// Channel full — wait with timeout before dropping
+	timer := time.NewTimer(logEnqueueTimeout)
+	defer timer.Stop()
+
+	select {
+	case l.ch <- event:
+	case <-timer.C:
+		dropped := l.dropped.Add(1)
+		l.log.Errorf("audit: DROPPED event (buffer full for %v, total dropped: %d) method=%s user=%s",
+			logEnqueueTimeout, dropped, event.Method, event.Username)
+	case <-l.stopCh:
+		// Logger is shutting down — try one more time
+		select {
+		case l.ch <- event:
+		default:
+			l.dropped.Add(1)
+		}
 	}
 }
 
@@ -126,11 +154,11 @@ func (l *Logger) drain() {
 func (l *Logger) writeEvent(event *AuditEvent) {
 	value, err := json.Marshal(event)
 	if err != nil {
-		l.log.Warningf("audit: failed to marshal event: %v", err)
+		l.log.Errorf("audit: failed to marshal event: %v", err)
 		return
 	}
 
-	_, err = l.db.Set(context.Background(), &schema.SetRequest{
+	req := &schema.SetRequest{
 		KVs: []*schema.KeyValue{
 			{
 				Key:   event.Key(),
@@ -138,8 +166,23 @@ func (l *Logger) writeEvent(event *AuditEvent) {
 			},
 		},
 		NoWait: true,
-	})
-	if err != nil {
-		l.log.Warningf("audit: failed to write event: %v", err)
 	}
+
+	// Retry on transient write failures (disk pressure, replication lag)
+	for attempt := 0; attempt < writeRetryCount; attempt++ {
+		_, err = l.db.Set(context.Background(), req)
+		if err == nil {
+			return
+		}
+
+		l.log.Warningf("audit: write attempt %d/%d failed: %v (method=%s user=%s)",
+			attempt+1, writeRetryCount, err, event.Method, event.Username)
+
+		if attempt < writeRetryCount-1 {
+			time.Sleep(writeRetryDelay * time.Duration(attempt+1))
+		}
+	}
+
+	l.log.Errorf("audit: PERMANENTLY FAILED to write event after %d attempts: %v (method=%s user=%s)",
+		writeRetryCount, err, event.Method, event.Username)
 }
