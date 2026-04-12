@@ -171,6 +171,11 @@ func (s *session) executeCopyInserts(table string, cols []string, rows [][]strin
 			for j, v := range row {
 				if v == "NULL" {
 					vals[j] = "NULL"
+				} else if isTimestampValue(v) {
+					// immudb requires CAST for timestamp string literals
+					vals[j] = "CAST('" + strings.ReplaceAll(v, "'", "''") + "' AS TIMESTAMP)"
+				} else if isBoolValue(v) {
+					vals[j] = normalizeBool(v)
 				} else {
 					vals[j] = "'" + strings.ReplaceAll(v, "'", "''") + "'"
 				}
@@ -240,6 +245,26 @@ func unescapeCopyValue(s string) string {
 		}
 	}
 	return b.String()
+}
+
+var timestampRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
+
+func isTimestampValue(v string) bool {
+	return timestampRe.MatchString(v)
+}
+
+func isBoolValue(v string) bool {
+	return v == "t" || v == "f" || v == "true" || v == "false" || v == "TRUE" || v == "FALSE"
+}
+
+func normalizeBool(v string) string {
+	if v == "t" {
+		return "true"
+	}
+	if v == "f" {
+		return "false"
+	}
+	return v
 }
 
 func indexOf(data []byte, b byte) int {

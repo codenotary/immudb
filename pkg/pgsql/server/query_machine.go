@@ -360,6 +360,15 @@ var pgTypeReplacements = []struct {
 	// Strip double quotes from identifiers — immudb's parser doesn't use them
 	{regexp.MustCompile(`"(\w+)"`), "$1"},
 
+	// Strip ::type casts FIRST — before type name translation
+	// (prevents ::text from being converted to ::VARCHAR[256])
+	{regexp.MustCompile(`::[\w]+`), ""},
+
+	// DEFAULT nextval('...'::regclass) → strip (AUTO_INCREMENT handles it)
+	{regexp.MustCompile(`(?i)\s*DEFAULT\s+nextval\s*\([^)]+\)`), ""},
+	// DEFAULT ('now'...) → DEFAULT NOW()
+	{regexp.MustCompile(`(?i)\s*DEFAULT\s+\(\s*'now'\s*\)\s*`), " DEFAULT NOW() "},
+
 	// Type aliases — order matters (longer matches first)
 	{regexp.MustCompile(`(?i)\btimestamp\s+without\s+time\s+zone\b`), "TIMESTAMP"},
 	{regexp.MustCompile(`(?i)\btimestamp\s+with\s+time\s+zone\b`), "TIMESTAMP"},
@@ -374,18 +383,19 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)\bnumeric\s*\([^)]*\)`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bnumeric\b`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bdecimal\s*\([^)]*\)`), "FLOAT"},
+	// PG array types → just use VARCHAR (must come BEFORE text→VARCHAR[256])
+	{regexp.MustCompile(`(?i)\w+\[\]`), "VARCHAR[256]"},
 	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[256]"},
 	{regexp.MustCompile(`(?i)\bbytea\b`), "BLOB"},
 	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[256]"},
 	{regexp.MustCompile(`(?i)\bmpaa_rating\b`), "VARCHAR[10]"},
+	// PG custom domain types from dvdrental
+	{regexp.MustCompile(`(?i)\byear\b`), "INTEGER"},
 
-	// DEFAULT nextval('...'::regclass) → strip (AUTO_INCREMENT handles it)
-	{regexp.MustCompile(`(?i)\s*DEFAULT\s+nextval\s*\([^)]+\)`), ""},
-	// DEFAULT ('now'::text)::date → DEFAULT NOW()
-	{regexp.MustCompile(`(?i)\s*DEFAULT\s+\('now'\s*\)\s*`), " DEFAULT NOW() "},
+	// (DEFAULT nextval and ::casts already handled above)
 
-	// Strip ::type casts (must come after DEFAULT nextval handling)
-	{regexp.MustCompile(`::\w+`), ""},
+	// immudb doesn't support DEFAULT expr NOT NULL together — strip NOT NULL after DEFAULT
+	{regexp.MustCompile(`(?i)(DEFAULT\s+\S+(?:\([^)]*\))?)\s+NOT\s+NULL`), "$1"},
 
 	// Strip CHECK constraints (may be nested parens)
 	{regexp.MustCompile(`(?i)\bCHECK\s*\([^)]*\)`), ""},
