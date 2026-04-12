@@ -150,6 +150,7 @@ func (s *session) handleCopyFromStdin(table string, cols []string) error {
 
 // executeCopyInserts converts COPY rows to INSERT statements and executes them.
 func (s *session) executeCopyInserts(table string, cols []string, rows [][]string) (int, error) {
+	s.log.Infof("COPY %s: executing %d rows into %d columns", table, len(rows), len(cols))
 	if len(rows) == 0 {
 		return 0, nil
 	}
@@ -201,7 +202,11 @@ func (s *session) executeCopyInserts(table string, cols []string, rows [][]strin
 		}
 	}
 
-	s.log.Infof("COPY %s: inserted %d/%d rows", table, totalInserted, len(rows))
+	if totalInserted < len(rows) && len(rows) > 0 {
+		s.log.Warningf("COPY %s: only %d/%d rows inserted (some failed)", table, totalInserted, len(rows))
+	} else {
+		s.log.Infof("COPY %s: inserted %d/%d rows", table, totalInserted, len(rows))
+	}
 	return totalInserted, nil
 }
 

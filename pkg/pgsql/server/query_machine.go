@@ -84,9 +84,11 @@ func (s *session) QueryMachine() error {
 			}
 
 			// Handle COPY ... FROM stdin
-			s.log.Infof("pgcompat: QueryMsg statements (first 100): %.100q", statements)
+			if strings.Contains(strings.ToUpper(statements), "COPY") {
+				s.log.Infof("pgcompat: found COPY in statement (first 200): %.200q", statements)
+			}
 			if table, cols, ok := parseCopyStatement(statements); ok {
-				s.log.Infof("pgcompat: COPY detected for table=%s cols=%v", table, cols)
+				s.log.Infof("pgcompat: COPY detected for table=%s cols=%d", table, len(cols))
 				if err := s.handleCopyFromStdin(table, cols); err != nil {
 					s.HandleError(err)
 				}
