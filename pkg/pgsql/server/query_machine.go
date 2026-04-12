@@ -363,11 +363,11 @@ var pgTypeReplacements = []struct {
 	// starts with a digit. SQL reserved words get prefixed with underscore.
 	// Quoted identifiers: prefix digit-start names with t_, prefix reserved words with _
 	{regexp.MustCompile(`"(\d\w*)"`), "t_$1"},
-	{regexp.MustCompile(`"((?i:group|order|key|index|table|column|type|year|date|time|check|default|desc|asc|select|from|where|set|grant|user|role|limit|offset|values|primary|foreign|create|drop|alter|insert|update|delete|begin|commit|rollback|having|between|like|in|is|not|null|and|or|cast|case|when|then|else|end|join|on|as|distinct|all|any|exists|union|except|intersect|natural|cross|full|outer|inner|left|right|using|returning|with|recursive))"`), "_$1"},
+	{regexp.MustCompile(`"((?i:group|order|key|index|table|column|type|year|date|time|check|default|desc|asc|select|from|where|set|grant|user|role|limit|offset|values|primary|foreign|create|drop|alter|insert|update|delete|begin|commit|rollback|having|between|like|in|is|not|null|and|or|cast|case|when|then|else|end|join|on|as|distinct|all|any|exists|union|except|intersect|natural|cross|full|outer|inner|left|right|using|returning|with|recursive|password|database|transaction))"`), "_$1"},
 	{regexp.MustCompile(`"(\w+)"`), "$1"},
 
 	// Strip ::type casts FIRST — before type name translation
-	// (prevents ::text from being converted to ::VARCHAR[256])
+	// (prevents ::text from being converted to ::VARCHAR[4096])
 	{regexp.MustCompile(`::[\w]+`), ""},
 
 	// DEFAULT nextval('...'::regclass) → strip (AUTO_INCREMENT handles it)
@@ -389,16 +389,21 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)\bnumeric\s*\([^)]*\)`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bnumeric\b`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bdecimal\s*\([^)]*\)`), "FLOAT"},
-	// PG array types → just use VARCHAR (must come BEFORE text→VARCHAR[256])
-	{regexp.MustCompile(`(?i)\w+\[\]`), "VARCHAR[256]"},
-	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[256]"},
+	// PG array types → just use VARCHAR (must come BEFORE text→VARCHAR[4096])
+	{regexp.MustCompile(`(?i)\w+\[\]`), "VARCHAR[4096]"},
+	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\bbytea\b`), "BLOB"},
-	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[256]"},
+	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\bmpaa_rating\b`), "VARCHAR[10]"},
 	// PG custom domain types from dvdrental
 	{regexp.MustCompile(`(?i)\byear\b`), "INTEGER"},
 
 	// (DEFAULT nextval and ::casts already handled above)
+
+	// Rename bare reserved words used as column names (detected by following type keyword)
+	{regexp.MustCompile(`(?i)\bpassword\s+(VARCHAR|INTEGER|BOOLEAN|TIMESTAMP|BLOB|FLOAT)`), "_password $1"},
+	{regexp.MustCompile(`(?i)\bdatabase\s+(VARCHAR|INTEGER|BOOLEAN|TIMESTAMP|BLOB|FLOAT)`), "_database $1"},
+	{regexp.MustCompile(`(?i)\btransaction\s+(VARCHAR|INTEGER|BOOLEAN|TIMESTAMP|BLOB|FLOAT)`), "_transaction $1"},
 
 	// immudb doesn't support DEFAULT expr NOT NULL together — strip NOT NULL after DEFAULT
 	{regexp.MustCompile(`(?i)(DEFAULT\s+\S+(?:\([^)]*\))?)\s+NOT\s+NULL`), "$1"},

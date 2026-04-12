@@ -48,9 +48,10 @@ func parseCopyStatement(sql string) (string, []string, bool) {
 	cols := make([]string, 0, len(parts))
 	for _, p := range parts {
 		col := strings.TrimSpace(p)
-		// Strip double quotes from column names
+		// Strip double quotes from column names and handle reserved words
 		col = strings.Trim(col, "\"")
 		if col != "" {
+			col = sanitizeColumnName(col)
 			cols = append(cols, col)
 		}
 	}
@@ -183,7 +184,9 @@ func (s *session) executeCopyInserts(table string, cols []string, rows [][]strin
 					vals[j] = "NULL"
 				} else if isTimestampValue(v) {
 					// immudb requires CAST for timestamp string literals
-					vals[j] = "CAST('" + strings.ReplaceAll(v, "'", "''") + "' AS TIMESTAMP)"
+					// Strip timezone offset (+00, -05:00) that immudb can't parse
+					tsVal := stripTimestampTz(v)
+					vals[j] = "CAST('" + strings.ReplaceAll(tsVal, "'", "''") + "' AS TIMESTAMP)"
 				} else if isBoolValue(v) {
 					vals[j] = normalizeBool(v)
 				} else {
@@ -262,9 +265,41 @@ func unescapeCopyValue(s string) string {
 }
 
 var timestampRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
+var timestampTzStripRe = regexp.MustCompile(`[+-]\d{2}(:\d{2})?$`)
 
 func isTimestampValue(v string) bool {
 	return timestampRe.MatchString(v)
+}
+
+// stripTimestampTz removes timezone offset (+00, +00:00, -05:00) from timestamp strings
+func stripTimestampTz(v string) string {
+	return timestampTzStripRe.ReplaceAllString(v, "")
+}
+
+// SQL reserved words that need _ prefix when used as column names
+var sqlReservedWords = map[string]bool{
+	"group": true, "order": true, "key": true, "index": true, "table": true,
+	"column": true, "type": true, "year": true, "date": true, "time": true,
+	"check": true, "default": true, "desc": true, "asc": true, "select": true,
+	"from": true, "where": true, "set": true, "grant": true, "user": true,
+	"role": true, "limit": true, "offset": true, "values": true, "primary": true,
+	"foreign": true, "create": true, "drop": true, "alter": true, "insert": true,
+	"update": true, "delete": true, "begin": true, "commit": true, "rollback": true,
+	"having": true, "between": true, "like": true, "in": true, "is": true,
+	"not": true, "null": true, "and": true, "or": true, "cast": true,
+	"case": true, "when": true, "then": true, "else": true, "end": true,
+	"join": true, "on": true, "as": true, "distinct": true, "all": true,
+	"any": true, "exists": true, "union": true, "except": true, "intersect": true,
+	"natural": true, "cross": true, "full": true, "outer": true, "inner": true,
+	"left": true, "right": true, "using": true, "returning": true, "with": true,
+	"recursive": true, "password": true, "database": true, "transaction": true,
+}
+
+func sanitizeColumnName(col string) string {
+	if sqlReservedWords[strings.ToLower(col)] {
+		return "_" + col
+	}
+	return col
 }
 
 func isBoolValue(v string) bool {
