@@ -21,6 +21,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 )
 
 type Option func(s *pgsrv)
@@ -64,5 +65,11 @@ func LogRequestMetadata(enabled bool) Option {
 func DatabaseList(dbList database.DatabaseList) Option {
 	return func(args *pgsrv) {
 		args.dbList = dbList
+	}
+}
+
+func SessManager(sm sessions.Manager) Option {
+	return func(args *pgsrv) {
+		args.sessManager = sm
 	}
 }

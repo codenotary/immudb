@@ -27,6 +27,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"golang.org/x/net/netutil"
 )
 
@@ -41,6 +42,7 @@ type pgsrv struct {
 	port               int
 	immudbPort         int
 	dbList             database.DatabaseList
+	sessManager        sessions.Manager
 	listener           net.Listener
 }
 
@@ -112,7 +114,7 @@ func (s *pgsrv) Serve() (err error) {
 }
 
 func (s *pgsrv) newSession(conn net.Conn) Session {
-	return newSession(conn, s.host, s.immudbPort, s.logger, s.tlsConfig, s.logRequestMetadata, s.dbList)
+	return newSession(conn, s.host, s.immudbPort, s.logger, s.tlsConfig, s.logRequestMetadata, s.dbList, s.sessManager)
 }
 
 func (s *pgsrv) Stop() (err error) {

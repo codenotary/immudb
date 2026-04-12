@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
@@ -79,8 +80,10 @@ func (s *session) handleCopyFromStdin(table string, cols []string) error {
 	for {
 		msg, _, err := s.nextMessage()
 		if err != nil {
+			s.log.Warningf("COPY %s: error reading message: %v", table, err)
 			return err
 		}
+		s.log.Infof("COPY %s: received message type %T", table, msg)
 
 		switch v := msg.(type) {
 		case fm.CopyDataMsg:
@@ -158,8 +161,14 @@ func (s *session) executeCopyInserts(table string, cols []string, rows [][]strin
 	colList := strings.Join(cols, ", ")
 	batchSize := 100
 	totalInserted := 0
+	lastKeepAlive := time.Now()
 
 	for i := 0; i < len(rows); i += batchSize {
+		// Refresh session activity to prevent session timeout during bulk inserts
+		if time.Since(lastKeepAlive) > 10*time.Second {
+			s.refreshSessionActivity()
+			lastKeepAlive = time.Now()
+		}
 		end := i + batchSize
 		if end > len(rows) {
 			end = len(rows)

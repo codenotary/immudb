@@ -281,6 +281,7 @@ func (s *ImmuServer) Initialize() error {
 			pgsqlsrv.Logger(s.Logger),
 			pgsqlsrv.DatabaseList(s.dbList),
 			pgsqlsrv.LogRequestMetadata(s.Options.LogRequestMetadata),
+			pgsqlsrv.SessManager(s.SessManager),
 		)
 
 		if err = s.PgsqlSrv.Initialize(); err != nil {

@@ -29,6 +29,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
@@ -40,7 +41,8 @@ type session struct {
 	log                logger.Logger
 	logRequestMetadata bool
 
-	dbList database.DatabaseList
+	dbList      database.DatabaseList
+	sessManager sessions.Manager
 
 	client client.ImmuClient
 
@@ -75,6 +77,7 @@ func newSession(
 	tlsConfig *tls.Config,
 	logRequestMetadata bool,
 	dbList database.DatabaseList,
+	sessManager sessions.Manager,
 ) *session {
 	addr := c.RemoteAddr().String()
 	i := strings.Index(addr, ":")
@@ -89,6 +92,7 @@ func newSession(
 		log:                log,
 		logRequestMetadata: logRequestMetadata,
 		dbList:             dbList,
+		sessManager:        sessManager,
 		ipAddr:             addr,
 		mr:                 NewMessageReader(c),
 		statements:         make(map[string]*statement),
@@ -164,6 +168,20 @@ func (s *session) writeMessage(msg []byte) (int, error) {
 	}
 
 	return s.mr.Write(msg)
+}
+
+// refreshSessionActivity updates the server-side session activity timestamp
+// to prevent the session guard from killing long-running operations like COPY.
+func (s *session) refreshSessionActivity() {
+	if s.sessManager != nil && s.client != nil {
+		sessionID := s.client.GetSessionID()
+		if sessionID != "" {
+			s.sessManager.UpdateSessionActivityTime(sessionID)
+			s.log.Infof("pgcompat: refreshed session activity for %s", sessionID)
+		}
+	} else {
+		s.log.Warningf("pgcompat: cannot refresh session: sessManager=%v client=%v", s.sessManager != nil, s.client != nil)
+	}
 }
 
 func (s *session) sqlTx() (*sql.SQLTx, error) {
