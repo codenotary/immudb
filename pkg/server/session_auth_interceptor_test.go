@@ -29,6 +29,8 @@ import (
 func TestSessionAuthInterceptor(t *testing.T) {
 	opts := DefaultOptions().
 		WithDir(t.TempDir()).
+		WithPort(0).
+		WithPgsqlServer(false).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 

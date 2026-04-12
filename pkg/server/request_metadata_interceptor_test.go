@@ -36,6 +36,8 @@ func TestInjectRequestMetadataUnaryInterceptor(t *testing.T) {
 	t.Run("disabled passes through", func(t *testing.T) {
 		opts := DefaultOptions().
 			WithDir(t.TempDir()).
+			WithPort(0).
+			WithPgsqlServer(false).
 			WithMetricsServer(false).
 			WithAdminPassword(auth.SysAdminPassword)
 		opts.LogRequestMetadata = false
@@ -53,6 +55,8 @@ func TestInjectRequestMetadataUnaryInterceptor(t *testing.T) {
 	t.Run("enabled injects metadata", func(t *testing.T) {
 		opts := DefaultOptions().
 			WithDir(t.TempDir()).
+			WithPort(0).
+			WithPgsqlServer(false).
 			WithMetricsServer(false).
 			WithAdminPassword(auth.SysAdminPassword)
 		opts.LogRequestMetadata = true
@@ -73,6 +77,8 @@ func TestInjectRequestMetadataStreamInterceptor(t *testing.T) {
 	t.Run("disabled passes through", func(t *testing.T) {
 		opts := DefaultOptions().
 			WithDir(t.TempDir()).
+			WithPort(0).
+			WithPgsqlServer(false).
 			WithMetricsServer(false).
 			WithAdminPassword(auth.SysAdminPassword)
 		opts.LogRequestMetadata = false
@@ -94,6 +100,8 @@ func TestInjectRequestMetadataStreamInterceptor(t *testing.T) {
 	t.Run("enabled wraps stream context", func(t *testing.T) {
 		opts := DefaultOptions().
 			WithDir(t.TempDir()).
+			WithPort(0).
+			WithPgsqlServer(false).
 			WithMetricsServer(false).
 			WithAdminPassword(auth.SysAdminPassword)
 		opts.LogRequestMetadata = true

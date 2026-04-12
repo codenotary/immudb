@@ -29,6 +29,8 @@ import (
 func TestKeepAliveSessionInterceptor(t *testing.T) {
 	opts := DefaultOptions().
 		WithDir(t.TempDir()).
+		WithPort(0).
+		WithPgsqlServer(false).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
@@ -74,6 +76,8 @@ func TestKeepAliveSessionInterceptor(t *testing.T) {
 func TestKeepAliveSessionStreamInterceptor(t *testing.T) {
 	opts := DefaultOptions().
 		WithDir(t.TempDir()).
+		WithPort(0).
+		WithPgsqlServer(false).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
