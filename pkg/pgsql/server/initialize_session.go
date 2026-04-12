@@ -60,20 +60,22 @@ func (s *session) InitializeSession() (err error) {
 	// SSL Request packet
 	if s.protocolVersion == pgmeta.PgsqlSSLRequestProtocolVersion {
 		if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
+			// Respond with 'N' (no SSL) and continue — the client will
+			// retry with a plaintext startup message per PG protocol spec.
 			if _, err = s.writeMessage([]byte(`N`)); err != nil {
 				return err
 			}
-			return pserr.ErrSSLNotSupported
+		} else {
+			if _, err = s.writeMessage([]byte(`S`)); err != nil {
+				return err
+			}
+
+			if err = s.handshake(); err != nil {
+				return err
+			}
 		}
 
-		if _, err = s.writeMessage([]byte(`S`)); err != nil {
-			return err
-		}
-
-		if err = s.handshake(); err != nil {
-			return err
-		}
-
+		// Read the next startup message (plaintext retry or post-TLS startup)
 		lb = make([]byte, 4)
 		if _, err := s.mr.Read(lb); err != nil {
 			return err
@@ -226,8 +228,25 @@ func (s *session) HandleStartup(ctx context.Context) (err error) {
 		return err
 	}
 
-	// todo this is needed by jdbc driver. Here is added the minor supported version at the moment
+	// server_version is needed by jdbc driver and pgAdmin
 	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte(pgmeta.PgsqlServerVersion))); err != nil {
+		return err
+	}
+
+	// server_version_num is required by pgAdmin to determine feature support
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version_num"), []byte(pgmeta.PgsqlServerVersionNum))); err != nil {
+		return err
+	}
+
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_encoding"), []byte("UTF8"))); err != nil {
+		return err
+	}
+
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("integer_datetimes"), []byte("on"))); err != nil {
+		return err
+	}
+
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("DateStyle"), []byte("ISO, MDY"))); err != nil {
 		return err
 	}
 

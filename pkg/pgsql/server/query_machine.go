@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -82,6 +83,19 @@ func (s *session) QueryMachine() error {
 				statements = fmt.Sprintf("select column_name as tq, column_name as tow, column_name as tn, column_name as COLUMN_NAME, type_name as DATA_TYPE, type_name as TYPE_NAME, type_name as p, type_name as l, type_name as s, type_name as r, is_nullable as NULLABLE, column_name as rk, column_name as cd, type_name as SQL_DATA_TYPE, type_name as sts, column_name as coll, type_name as orp, is_nullable as IS_NULLABLE, type_name as dz, type_name as ft, type_name as iau, type_name as pn, column_name as toi, column_name as btd, column_name as tmo, column_name as tin from table(%s)", tableName)
 			}
 
+			// Handle COPY ... FROM stdin
+			s.log.Infof("pgcompat: QueryMsg statements (first 100): %.100q", statements)
+			if table, cols, ok := parseCopyStatement(statements); ok {
+				s.log.Infof("pgcompat: COPY detected for table=%s cols=%v", table, cols)
+				if err := s.handleCopyFromStdin(table, cols); err != nil {
+					s.HandleError(err)
+				}
+				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
+					waitForSync = extQueryMode
+				}
+				continue
+			}
+
 			err := s.fetchAndWriteResults(statements, nil, nil, extQueryMode)
 			if err != nil {
 				waitForSync = extQueryMode
@@ -104,7 +118,15 @@ func (s *session) QueryMachine() error {
 			var resCols []sql.ColDescriptor
 			var stmt sql.SQLStmt
 
-			if !s.isInBlackList(v.Statements) {
+			emulableCmd := s.isEmulableInternally(v.Statements)
+			if s.isInBlackList(v.Statements) {
+				// blacklisted — skip parsing
+			} else if emulableCmd != nil {
+				// Emulable (pg_catalog etc) — precompute result columns
+				if probe, ok := emulableCmd.(*pgAdminProbe); ok {
+					resCols = extractResultCols(probe.sql)
+				}
+			} else if true {
 				stmts, err := sql.ParseSQL(strings.NewReader(v.Statements))
 				if err != nil {
 					waitForSync = extQueryMode
@@ -167,9 +189,17 @@ func (s *session) QueryMachine() error {
 					continue
 				}
 
-				if _, err := s.writeMessage(bm.RowDescription(st.Results, nil)); err != nil {
-					waitForSync = extQueryMode
-					continue
+				if s.isEmulableInternally(st.SQLStatement) != nil && st.Results != nil {
+					// Use plain column names for emulable queries
+					if _, err := s.writeMessage(buildMultiColRowDescription(st.Results)); err != nil {
+						waitForSync = extQueryMode
+						continue
+					}
+				} else {
+					if _, err := s.writeMessage(bm.RowDescription(st.Results, nil)); err != nil {
+						waitForSync = extQueryMode
+						continue
+					}
 				}
 			}
 			// The Describe message (portal variant) specifies the name of an existing portal (or an empty string
@@ -184,9 +214,16 @@ func (s *session) QueryMachine() error {
 					continue
 				}
 
-				if _, err = s.writeMessage(bm.RowDescription(portal.Statement.Results, portal.ResultColumnFormatCodes)); err != nil {
-					waitForSync = extQueryMode
-					continue
+				if s.isEmulableInternally(portal.Statement.SQLStatement) != nil && portal.Statement.Results != nil {
+					if _, err = s.writeMessage(buildMultiColRowDescription(portal.Statement.Results)); err != nil {
+						waitForSync = extQueryMode
+						continue
+					}
+				} else {
+					if _, err = s.writeMessage(bm.RowDescription(portal.Statement.Results, portal.ResultColumnFormatCodes)); err != nil {
+						waitForSync = extQueryMode
+						continue
+					}
 				}
 			}
 		case fm.SyncMsg:
@@ -264,6 +301,15 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	}
 
 	if i := s.isEmulableInternally(statements); i != nil {
+		s.log.Infof("pgcompat: emulating query internally (extQueryMode=%v)", extQueryMode)
+		if probe, ok := i.(*pgAdminProbe); ok && extQueryMode {
+			// Extended protocol: Describe already sent RowDescription, only send DataRow
+			if err := s.handlePgSystemQueryDataOnly(probe.sql); err != nil {
+				return err
+			}
+			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+			return err
+		}
 		if err := s.tryToHandleInternally(i); err != nil && err != pserr.ErrMessageCannotBeHandledInternally {
 			return err
 		}
@@ -272,6 +318,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return err
 	}
 
+	s.log.Infof("pgcompat: executing query via SQL engine: %.100s", statements)
 	stmts, err := sql.ParseSQL(
 		strings.NewReader(
 			removePGCatalogReferences(statements),
@@ -306,11 +353,155 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	return nil
 }
 
-func removePGCatalogReferences(sql string) string {
-	s := strings.ReplaceAll(sql, "pg_catalog.", "")
+var pgTypeReplacements = []struct {
+	re   *regexp.Regexp
+	repl string
+}{
+	// Strip double quotes from identifiers — immudb's parser doesn't use them
+	{regexp.MustCompile(`"(\w+)"`), "$1"},
+
+	// Type aliases — order matters (longer matches first)
+	{regexp.MustCompile(`(?i)\btimestamp\s+without\s+time\s+zone\b`), "TIMESTAMP"},
+	{regexp.MustCompile(`(?i)\btimestamp\s+with\s+time\s+zone\b`), "TIMESTAMP"},
+	{regexp.MustCompile(`(?i)\bcharacter\s+varying\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
+	{regexp.MustCompile(`(?i)\bcharacter\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
+	{regexp.MustCompile(`(?i)\bdouble\s+precision\b`), "FLOAT"},
+	{regexp.MustCompile(`(?i)\bbigserial\b`), "INTEGER AUTO_INCREMENT"},
+	{regexp.MustCompile(`(?i)\bserial\b`), "INTEGER AUTO_INCREMENT"},
+	{regexp.MustCompile(`(?i)\bsmallint\b`), "INTEGER"},
+	{regexp.MustCompile(`(?i)\bbigint\b`), "INTEGER"},
+	{regexp.MustCompile(`(?i)\breal\b`), "FLOAT"},
+	{regexp.MustCompile(`(?i)\bnumeric\s*\([^)]*\)`), "FLOAT"},
+	{regexp.MustCompile(`(?i)\bnumeric\b`), "FLOAT"},
+	{regexp.MustCompile(`(?i)\bdecimal\s*\([^)]*\)`), "FLOAT"},
+	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[256]"},
+	{regexp.MustCompile(`(?i)\bbytea\b`), "BLOB"},
+	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[256]"},
+	{regexp.MustCompile(`(?i)\bmpaa_rating\b`), "VARCHAR[10]"},
+
+	// DEFAULT nextval('...'::regclass) → strip (AUTO_INCREMENT handles it)
+	{regexp.MustCompile(`(?i)\s*DEFAULT\s+nextval\s*\([^)]+\)`), ""},
+	// DEFAULT ('now'::text)::date → DEFAULT NOW()
+	{regexp.MustCompile(`(?i)\s*DEFAULT\s+\('now'\s*\)\s*`), " DEFAULT NOW() "},
+
+	// Strip ::type casts (must come after DEFAULT nextval handling)
+	{regexp.MustCompile(`::\w+`), ""},
+
+	// Strip CHECK constraints (may be nested parens)
+	{regexp.MustCompile(`(?i)\bCHECK\s*\([^)]*\)`), ""},
+
+	// Strip CONSTRAINT keyword with name
+	{regexp.MustCompile(`(?i)\bCONSTRAINT\s+\w+\s+`), ""},
+
+	// Strip REFERENCES (foreign keys) with optional ON DELETE/UPDATE
+	{regexp.MustCompile(`(?i)\bREFERENCES\s+\S+\s*\([^)]*\)(\s+ON\s+(DELETE|UPDATE)\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))*`), ""},
+
+	// Strip UNIQUE keyword on columns (immudb handles unique via index)
+	{regexp.MustCompile(`(?i)\bUNIQUE\b`), ""},
+
+	// date type — must come after timestamp replacements
+	// Only match standalone 'date' as a type (after a column name, not in other contexts)
+	{regexp.MustCompile(`(?i)\bdate\b`), "TIMESTAMP"},
+}
+
+var createTableRe = regexp.MustCompile(`(?i)^\s*CREATE\s+TABLE\s+`)
+var primaryKeyInlineRe = regexp.MustCompile(`(?i)PRIMARY\s+KEY`)
+
+func removePGCatalogReferences(sqlStr string) string {
+	s := strings.ReplaceAll(sqlStr, "pg_catalog.", "")
 	s = strings.ReplaceAll(s, "information_schema.", "information_schema_")
 	s = strings.ReplaceAll(s, "public.", "")
+
+	// Apply PG type translations
+	for _, r := range pgTypeReplacements {
+		s = r.re.ReplaceAllString(s, r.repl)
+	}
+
+	// Auto-add PRIMARY KEY for CREATE TABLE without one
+	if createTableRe.MatchString(s) && !primaryKeyInlineRe.MatchString(s) {
+		s = addPrimaryKeyToCreateTable(s)
+	}
+
+	// Clean up double spaces and empty lines
+	s = regexp.MustCompile(`  +`).ReplaceAllString(s, " ")
+	s = regexp.MustCompile(`(?m)^\s*,\s*,`).ReplaceAllString(s, ",")
+	// Remove trailing commas before closing paren
+	s = regexp.MustCompile(`,\s*\)`).ReplaceAllString(s, "\n)")
+
 	return s
+}
+
+// addPrimaryKeyToCreateTable adds a PRIMARY KEY clause to a CREATE TABLE
+// that doesn't have one. Picks the first NOT NULL column, or an id/ID column,
+// or the first column.
+func addPrimaryKeyToCreateTable(sql string) string {
+	// Find the closing paren of the CREATE TABLE
+	lastParen := strings.LastIndex(sql, ")")
+	if lastParen < 0 {
+		return sql
+	}
+
+	// Extract column definitions between first ( and last )
+	firstParen := strings.Index(sql, "(")
+	if firstParen < 0 || firstParen >= lastParen {
+		return sql
+	}
+
+	colSection := sql[firstParen+1 : lastParen]
+	lines := strings.Split(colSection, ",")
+
+	var firstCol, notNullCol, idCol string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		words := strings.Fields(line)
+		if len(words) < 2 {
+			continue
+		}
+		colName := words[0]
+		// Skip if it looks like a constraint, not a column
+		upper := strings.ToUpper(colName)
+		if upper == "CONSTRAINT" || upper == "PRIMARY" || upper == "FOREIGN" || upper == "CHECK" || upper == "UNIQUE" {
+			continue
+		}
+
+		if firstCol == "" {
+			firstCol = colName
+		}
+
+		if strings.Contains(strings.ToUpper(line), "NOT NULL") && notNullCol == "" {
+			notNullCol = colName
+		}
+
+		lowerCol := strings.ToLower(colName)
+		if (lowerCol == "id" || strings.HasSuffix(lowerCol, "_id") || strings.HasSuffix(lowerCol, "id")) && idCol == "" {
+			idCol = colName
+		}
+	}
+
+	// Pick the best PK column
+	pkCol := notNullCol
+	if pkCol == "" {
+		pkCol = idCol
+	}
+	if pkCol == "" {
+		pkCol = firstCol
+	}
+	if pkCol == "" {
+		return sql
+	}
+
+	// Insert PRIMARY KEY before the closing paren
+	before := sql[:lastParen]
+	after := sql[lastParen:]
+
+	// Remove trailing comma/whitespace from before
+	before = strings.TrimRight(before, " \t\n,")
+
+	return before + ",\n    PRIMARY KEY (" + pkCol + ")\n" + after
 }
 
 func (s *session) query(st sql.DataSource, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {

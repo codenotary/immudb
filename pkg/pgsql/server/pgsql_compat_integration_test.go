@@ -214,7 +214,7 @@ func TestPgsqlCompat_PgCatalogIntrospection(t *testing.T) {
 	err = conn.QueryRow(context.Background(),
 		"SELECT setting FROM pg_settings WHERE name = 'server_version'").Scan(&setting)
 	require.NoError(t, err)
-	require.Equal(t, "9.6", setting)
+	require.Equal(t, "14.0", setting)
 
 	// information_schema_tables
 	var tableName, tableSchema string

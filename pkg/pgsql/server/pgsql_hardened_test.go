@@ -494,7 +494,7 @@ func TestHardened_IntrospectionValues(t *testing.T) {
 		err := conn.QueryRow(context.Background(),
 			"SELECT setting FROM pg_settings WHERE name = 'server_version'").Scan(&version)
 		require.NoError(t, err)
-		require.Equal(t, "9.6", version)
+		require.Equal(t, "14.0", version)
 	})
 }
 

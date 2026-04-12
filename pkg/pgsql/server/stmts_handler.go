@@ -36,7 +36,14 @@ var (
 
 	// SHOW statement patterns for ORM compatibility
 	showRe = regexp.MustCompile(`(?i)^\s*show\s+(\w+)\s*;?\s*$`)
+
+	// Blanket intercept for all PostgreSQL system catalog queries.
+	// pgAdmin, DBeaver, ORMs etc. send dozens of these after connecting.
+	// immudb can't execute them, so we return canned responses.
+	pgSystemQueryRe = regexp.MustCompile(`(?i)pg_catalog\.|information_schema\.|pg_roles\b|pg_database\b|pg_settings\b|pg_extension\b|pg_tablespace\b|pg_replication_slots\b|pg_stat_activity\b|pg_authid\b|pg_shdescription\b|pg_description\b|pg_am\b|pg_stat_replication\b|pg_auth_members\b|pg_namespace\b|pg_class\b|pg_attribute\b|pg_type\b|pg_proc\b|pg_constraint\b|pg_index\b|pg_depend\b|pg_stat_user_tables\b|pg_statio_user_tables\b|pg_locks\b|pg_shadow\b|pg_user\b|current_setting\s*\(|has_database_privilege\s*\(|has_table_privilege\s*\(|has_schema_privilege\s*\(|pg_encoding_to_char\s*\(|pg_get_userbyid\s*\(`)
 )
+
+var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+SEQUENCE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval)`)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
@@ -46,6 +53,12 @@ func (s *session) isInBlackList(statement string) bool {
 	if statement == ";" {
 		return true
 	}
+
+	// Silently ignore unsupported PostgreSQL DDL statements
+	if pgUnsupportedDDL.MatchString(statement) {
+		return true
+	}
+
 	return false
 }
 
@@ -85,6 +98,12 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &showCmd{param: m[1]}
 	}
 
+	// Blanket catch for ALL pg_catalog/information_schema/system queries.
+	// Returns canned responses with column names extracted from the query.
+	if pgSystemQueryRe.MatchString(statement) {
+		return &pgAdminProbe{sql: statement}
+	}
+
 	return nil
 }
 
@@ -109,6 +128,8 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 		return s.immudbTxByID(cmd.args)
 	case *showCmd:
 		return s.handleShow(cmd.param)
+	case *pgAdminProbe:
+		return s.handlePgSystemQuery(cmd.sql)
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -141,4 +162,8 @@ type immudbTxCmd struct {
 
 type showCmd struct {
 	param string
+}
+
+type pgAdminProbe struct {
+	sql string
 }

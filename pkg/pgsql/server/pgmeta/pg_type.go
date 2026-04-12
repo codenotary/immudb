@@ -29,10 +29,11 @@ const (
 
 	PgsqlProtocolVersion           = "3.0"
 	PgsqlSSLRequestProtocolVersion = "1234.5679"
-	PgsqlServerVersion             = "9.6"
+	PgsqlServerVersion             = "14.0"
+	PgsqlServerVersionNum          = "140000"
 )
 
-var PgsqlServerVersionMessage = fmt.Sprintf("pgsql server %s or greater version implemented by immudb", PgsqlServerVersion)
+var PgsqlServerVersionMessage = fmt.Sprintf("PostgreSQL %s (immudb compatible)", PgsqlServerVersion)
 var ErrInvalidPgsqlProtocolVersion = errors.New("invalid pgsql protocol version")
 
 // PgTypeMap maps the immudb type descriptor with pgsql pgtype map.
@@ -82,6 +83,9 @@ var MTypes = map[byte]string{
 	't': "parameterDesctiption",
 	'B': "bind",
 	'H': "flush",
+	'd': "copyData",
+	'c': "copyDone",
+	'f': "copyFail",
 }
 
 var MaxMsgSize = 32 << 20 // 32MB

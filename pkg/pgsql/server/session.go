@@ -147,6 +147,12 @@ func (s *session) parseRawMessage(msg *rawMessage) (interface{}, error) {
 		return fm.ParseExecuteMsg(msg.payload)
 	case 'H':
 		return fm.ParseFlushMsg(msg.payload)
+	case 'd':
+		return fm.ParseCopyDataMsg(msg.payload)
+	case 'c':
+		return fm.ParseCopyDoneMsg(msg.payload)
+	case 'f':
+		return fm.ParseCopyFailMsg(msg.payload)
 	default:
 		return nil, errors.ErrUnknowMessageType
 	}

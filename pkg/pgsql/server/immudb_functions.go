@@ -410,7 +410,8 @@ func parseVerifyArgs(args string) (string, []*schema.SQLValue, error) {
 
 // showSettings maps SHOW parameter names to their values for ORM compatibility.
 var showSettings = map[string]string{
-	"server_version":              "9.6",
+	"server_version":              "14.0",
+	"server_version_num":          "140000",
 	"standard_conforming_strings": "on",
 	"client_encoding":             "UTF8",
 	"server_encoding":             "UTF8",
