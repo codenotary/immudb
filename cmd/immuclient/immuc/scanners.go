@@ -61,7 +61,10 @@ func (i *immuc) ZScan(args []string) (string, error) {
 }
 
 func (i *immuc) Scan(args []string) (res string, err error) {
-	prefix := []byte(args[0])
+	var prefix []byte
+	if len(args) > 0 && args[0] != "" {
+		prefix = []byte(args[0])
+	}
 
 	ctx := context.Background()
 

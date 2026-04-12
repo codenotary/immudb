@@ -54,6 +54,28 @@ func TestScan(t *testing.T) {
 	require.Contains(t, msg, "value", "Scan failed")
 }
 
+func TestScanAllKeys(t *testing.T) {
+	ic := setupTest(t)
+
+	_, err := ic.Imc.Set([]string{"alpha", "val1"})
+	require.NoError(t, err, "Set fail")
+
+	_, err = ic.Imc.Set([]string{"beta", "val2"})
+	require.NoError(t, err, "Set fail")
+
+	// scan with no args should return all keys
+	msg, err := ic.Imc.Scan([]string{})
+	require.NoError(t, err, "Scan all fail")
+	require.Contains(t, msg, "alpha", "Scan all should contain alpha")
+	require.Contains(t, msg, "beta", "Scan all should contain beta")
+
+	// scan with empty string should also return all keys
+	msg, err = ic.Imc.Scan([]string{""})
+	require.NoError(t, err, "Scan empty prefix fail")
+	require.Contains(t, msg, "alpha", "Scan empty should contain alpha")
+	require.Contains(t, msg, "beta", "Scan empty should contain beta")
+}
+
 func TestCount(t *testing.T) {
 	t.SkipNow()
 
