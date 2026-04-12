@@ -19,7 +19,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/document"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -28,15 +31,67 @@ func TestVerifyDocument(t *testing.T) {
 	_, err := VerifyDocument(context.Background(), nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	t.Run("", func(t *testing.T) {
+	t.Run("missing doc id field", func(t *testing.T) {
 		doc := &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"pincode": structpb.NewNumberValue(321),
 			},
 		}
 
-		_, err = VerifyDocument(context.Background(), &protomodel.ProofDocumentResponse{}, doc, nil, nil)
+		_, err = VerifyDocument(context.Background(), &protomodel.ProofDocumentResponse{
+			DocumentIdFieldName: "_id",
+		}, doc, nil, nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
+	t.Run("invalid doc id hex", func(t *testing.T) {
+		doc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"_id": structpb.NewStringValue("not-valid-hex!!"),
+			},
+		}
+		proof := &protomodel.ProofDocumentResponse{
+			DocumentIdFieldName: "_id",
+			CollectionId:        1,
+		}
+
+		_, err = VerifyDocument(context.Background(), proof, doc, nil, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("no matching entry in proof", func(t *testing.T) {
+		docID := document.NewDocumentIDFromTx(1)
+		doc := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"_id": structpb.NewStringValue(docID.EncodeToHexString()),
+			},
+		}
+		proof := &protomodel.ProofDocumentResponse{
+			DocumentIdFieldName: "_id",
+			CollectionId:        1,
+			VerifiableTx: &schema.VerifiableTxV2{
+				Tx: &schema.Tx{
+					Entries: []*schema.TxEntry{},
+				},
+			},
+		}
+
+		_, err = VerifyDocument(context.Background(), proof, doc, nil, nil)
+		require.ErrorIs(t, err, store.ErrInvalidProof)
+		require.Contains(t, err.Error(), "document entry was not found")
+	})
+}
+
+func TestEncodedKeyForDocument(t *testing.T) {
+	t.Run("invalid hex", func(t *testing.T) {
+		_, err := encodedKeyForDocument(1, "not-valid-hex!!")
+		require.Error(t, err)
+	})
+
+	t.Run("valid document id", func(t *testing.T) {
+		docID := document.NewDocumentIDFromTx(1)
+		key, err := encodedKeyForDocument(1, docID.EncodeToHexString())
+		require.NoError(t, err)
+		require.NotEmpty(t, key)
+	})
 }
