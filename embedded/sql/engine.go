@@ -82,6 +82,7 @@ var (
 	ErrMaxLengthExceeded                      = errors.New("max length exceeded")
 	ErrColumnIsNotAnAggregation               = errors.New("column is not an aggregation")
 	ErrLimitedCount                           = errors.New("only unbounded counting is supported i.e. COUNT(*)")
+	ErrWindowRowsLimitExceeded                = errors.New("window function result exceeds max_window_rows limit")
 	ErrTxDoesNotExist                         = errors.New("tx does not exist")
 	ErrNestedTxNotSupported                   = errors.New("nested tx are not supported")
 	ErrNoOngoingTx                            = errors.New("no ongoing transaction")
@@ -117,6 +118,7 @@ type Engine struct {
 	prefix                        []byte
 	distinctLimit                 int
 	sortBufferSize                int
+	maxWindowRows                 int // max rows materialized for window functions (0 = unlimited)
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
@@ -295,6 +297,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		prefix:                        make([]byte, len(opts.prefix)),
 		distinctLimit:                 opts.distinctLimit,
 		sortBufferSize:                opts.sortBufferSize,
+		maxWindowRows:                 opts.maxWindowRows,
 		autocommit:                    opts.autocommit,
 		lazyIndexConstraintValidation: opts.lazyIndexConstraintValidation,
 		parseTxMetadata:               opts.parseTxMetadata,

@@ -30,13 +30,14 @@ type windowRowReader struct {
 
 	windowFns   []*WindowFnExp
 	innerCols   []ColDescriptor
+	maxRows     int // 0 = unlimited
 
 	loaded    bool
 	rows      []*Row
 	rowIdx    int
 }
 
-func newWindowRowReader(ctx context.Context, inner RowReader, windowFns []*WindowFnExp) (*windowRowReader, error) {
+func newWindowRowReader(ctx context.Context, inner RowReader, windowFns []*WindowFnExp, maxRows int) (*windowRowReader, error) {
 	innerCols, err := inner.Columns(ctx)
 	if err != nil {
 		return nil, err
@@ -46,6 +47,7 @@ func newWindowRowReader(ctx context.Context, inner RowReader, windowFns []*Windo
 		inner:     inner,
 		windowFns: windowFns,
 		innerCols: innerCols,
+		maxRows:   maxRows,
 	}, nil
 }
 
@@ -55,7 +57,7 @@ func (wr *windowRowReader) materialize(ctx context.Context) error {
 	}
 	wr.loaded = true
 
-	// Read all rows
+	// Read all rows (with optional limit to prevent OOM)
 	var allRows []*Row
 	for {
 		row, err := wr.inner.Read(ctx)
@@ -66,6 +68,11 @@ func (wr *windowRowReader) materialize(ctx context.Context) error {
 			return err
 		}
 		allRows = append(allRows, row)
+
+		if wr.maxRows > 0 && len(allRows) > wr.maxRows {
+			return fmt.Errorf("%w: %d rows exceed limit of %d",
+				ErrWindowRowsLimitExceeded, len(allRows), wr.maxRows)
+		}
 	}
 
 	if len(allRows) == 0 {

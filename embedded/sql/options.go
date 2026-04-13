@@ -31,6 +31,7 @@ type Options struct {
 	prefix                        []byte
 	sortBufferSize                int
 	distinctLimit                 int
+	maxWindowRows                 int // 0 = unlimited
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
@@ -92,6 +93,11 @@ func (opts *Options) WithMultiDBHandler(multidbHandler MultiDBHandler) *Options 
 // Increasing this value improves sorting speed at the expense of higher memory usage.
 func (opts *Options) WithSortBufferSize(size int) *Options {
 	opts.sortBufferSize = size
+	return opts
+}
+
+func (opts *Options) WithMaxWindowRows(maxRows int) *Options {
+	opts.maxWindowRows = maxRows
 	return opts
 }
 

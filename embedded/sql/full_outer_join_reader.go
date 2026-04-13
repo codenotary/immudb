@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/multierr"
 )
@@ -70,6 +71,11 @@ func (r *fullOuterJoinRowReader) materialize(ctx context.Context) error {
 	}
 	r.loaded = true
 
+	maxRows := 0
+	if r.tx != nil && r.tx.engine != nil {
+		maxRows = r.tx.engine.maxWindowRows
+	}
+
 	// Read all left rows
 	var leftRows []*Row
 	for {
@@ -94,6 +100,12 @@ func (r *fullOuterJoinRowReader) materialize(ctx context.Context) error {
 			return err
 		}
 		rightRows = append(rightRows, row)
+	}
+
+	totalRows := len(leftRows) + len(rightRows)
+	if maxRows > 0 && totalRows > maxRows {
+		return fmt.Errorf("%w: %d rows exceed limit of %d",
+			ErrWindowRowsLimitExceeded, totalRows, maxRows)
 	}
 
 	rightMatched := make([]bool, len(rightRows))

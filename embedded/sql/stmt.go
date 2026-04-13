@@ -3772,7 +3772,11 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	if len(windowFns) > 0 {
-		winReader, wErr := newWindowRowReader(ctx, rowReader, windowFns)
+		maxRows := 0
+		if tx != nil && tx.engine != nil {
+			maxRows = tx.engine.maxWindowRows
+		}
+		winReader, wErr := newWindowRowReader(ctx, rowReader, windowFns, maxRows)
 		if wErr != nil {
 			return nil, wErr
 		}
