@@ -265,27 +265,42 @@ func unescapeCopyValue(s string) string {
 }
 
 var timestampRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
-var timestampTzStripRe = regexp.MustCompile(`[+-]\d{2}(:\d{2})?$`)
+
+// timestampTzStripRe matches the trailing TZ offset (+HH, +HH:MM, -HH, -HH:MM)
+// only when it follows a time component (HH:MM or HH:MM:SS[.fff]). The leading
+// `\d{2}:\d{2}(...)?` capture is required so that bare DATE values like
+// `2021-09-25` are not mistaken for `... -25` timezone offsets.
+var timestampTzStripRe = regexp.MustCompile(`(\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)[+-]\d{2}(?::\d{2})?$`)
 
 func isTimestampValue(v string) bool {
 	return timestampRe.MatchString(v)
 }
 
-// stripTimestampTz removes timezone offset (+00, +00:00, -05:00) from timestamp strings
+// stripTimestampTz removes a trailing timezone offset (+00, +00:00, -05:00)
+// from timestamptz strings. Plain dates and timestamps without a TZ offset
+// are returned unchanged.
 func stripTimestampTz(v string) string {
-	return timestampTzStripRe.ReplaceAllString(v, "")
+	return timestampTzStripRe.ReplaceAllString(v, "$1")
 }
 
-// SQL reserved words that need _ prefix when used as column names
+// sqlReservedWords lists tokens that immudb's SQL parser
+// (embedded/sql/sql_grammar.y) refuses as bare identifiers in DDL/DML
+// contexts. When a COPY column list mentions one of these, sanitizeColumnName
+// rewrites it to `_<word>` so the generated INSERT parses.
+//
+// Words that *look* reserved in PostgreSQL but are accepted as identifiers
+// by immudb (verified live with `CREATE TABLE t(id INT NOT NULL, <word>
+// VARCHAR(8), PRIMARY KEY(id))`) are intentionally absent — listing them
+// forces an unnecessary rename of perfectly valid column names like
+// `type`, `date`, `year`, etc., which broke loading the netflix sample
+// dump.
 var sqlReservedWords = map[string]bool{
-	"group": true, "order": true, "key": true, "index": true, "table": true,
-	"column": true, "type": true, "year": true, "date": true, "time": true,
 	"check": true, "default": true, "desc": true, "asc": true, "select": true,
-	"from": true, "where": true, "set": true, "grant": true, "user": true,
-	"role": true, "limit": true, "offset": true, "values": true, "primary": true,
+	"from": true, "where": true, "grant": true, "user": true,
+	"limit": true, "primary": true,
 	"foreign": true, "create": true, "drop": true, "alter": true, "insert": true,
-	"update": true, "delete": true, "begin": true, "commit": true, "rollback": true,
-	"having": true, "between": true, "like": true, "in": true, "is": true,
+	"update": true, "delete": true,
+	"having": true, "like": true, "in": true, "is": true,
 	"not": true, "null": true, "and": true, "or": true, "cast": true,
 	"case": true, "when": true, "then": true, "else": true, "end": true,
 	"join": true, "on": true, "as": true, "distinct": true, "all": true,
@@ -293,6 +308,7 @@ var sqlReservedWords = map[string]bool{
 	"natural": true, "cross": true, "full": true, "outer": true, "inner": true,
 	"left": true, "right": true, "using": true, "returning": true, "with": true,
 	"recursive": true, "password": true, "database": true, "transaction": true,
+	"column": true, "table": true,
 }
 
 func sanitizeColumnName(col string) string {
