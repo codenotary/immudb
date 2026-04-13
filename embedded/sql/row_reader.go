@@ -50,6 +50,10 @@ type ScanSpecs struct {
 	DescOrder         bool
 	groupBySortExps   []*OrdExp
 	orderBySortExps   []*OrdExp
+	// neededColIDs, when non-nil, restricts column decoding to the listed IDs.
+	// Columns absent from the map are skipped (offset advanced, no allocation).
+	// nil means decode all columns (backward-compatible default).
+	neededColIDs map[uint32]bool
 }
 
 func (s *ScanSpecs) extraCols() int {
@@ -520,6 +524,19 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 		}
 		if err != nil {
 			return nil, ErrCorruptedData
+		}
+
+		// Projection pushdown: skip columns not needed by the query.
+		// We still advance voff so the byte stream stays in sync.
+		// pos advancement is handled by the loop at the decode site below,
+		// since that same loop also advances pos past any skipped entries.
+		if r.scanSpecs.neededColIDs != nil && !r.scanSpecs.neededColIDs[colID] {
+			vlen, n, err := DecodeValueLength(v[voff:])
+			if err != nil {
+				return nil, err
+			}
+			voff += n + vlen
+			continue
 		}
 
 		val, n, err := DecodeValue(v[voff:], col.colType)

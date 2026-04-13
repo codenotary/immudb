@@ -3972,6 +3972,123 @@ func (stmt *SelectStmt) containsAggregations() bool {
 	return false
 }
 
+// expContainsSubquery reports whether exp contains any correlated subquery
+// expression (EXISTS, IN-subquery).  Those expressions reference outer-scope
+// columns through their inner SELECT rather than through the Selector graph,
+// so selectors() cannot enumerate them.  When present, projection pushdown
+// must be disabled for safety.
+func expContainsSubquery(exp ValueExp) bool {
+	switch e := exp.(type) {
+	case *ExistsBoolExp:
+		return true
+	case *InSubQueryExp:
+		return true
+	case *BinBoolExp:
+		return expContainsSubquery(e.left) || expContainsSubquery(e.right)
+	case *NotBoolExp:
+		return expContainsSubquery(e.exp)
+	case *CmpBoolExp:
+		return expContainsSubquery(e.left) || expContainsSubquery(e.right)
+	case *CaseWhenExp:
+		if e.exp != nil && expContainsSubquery(e.exp) {
+			return true
+		}
+		for _, wt := range e.whenThen {
+			if expContainsSubquery(wt.when) || expContainsSubquery(wt.then) {
+				return true
+			}
+		}
+		if e.elseExp != nil {
+			return expContainsSubquery(e.elseExp)
+		}
+		return false
+	}
+	return false
+}
+
+// collectNeededColIDs walks all expressions in the statement and returns the
+// set of column IDs from table that must be decoded.  The second return value
+// is true when all columns are required (wildcard SELECT or unresolvable ref),
+// in which case projection pushdown must not be applied.
+//
+// Conservative by design: any doubt → returns (nil, true) → decode all.
+func (stmt *SelectStmt) collectNeededColIDs(table *Table, tableAlias string) (map[uint32]bool, bool) {
+	// SELECT * is represented as an empty targets slice; the expansion to
+	// individual columns happens later in newProjectedRowReader.  Skip pushdown.
+	if len(stmt.targets) == 0 {
+		return nil, true
+	}
+
+	// Window functions do not expose inner column references through selectors().
+	// Disable pushdown for any query that has them.
+	for _, t := range stmt.targets {
+		if _, isWin := t.Exp.(*WindowFnExp); isWin {
+			return nil, true
+		}
+	}
+
+	// Correlated subqueries reference outer columns through the inner SELECT,
+	// which is invisible to selectors().  Disable pushdown when present.
+	for _, exp := range []ValueExp{stmt.where, stmt.having} {
+		if exp != nil && expContainsSubquery(exp) {
+			return nil, true
+		}
+	}
+
+	// Gather all ValueExp nodes whose column references must be decoded.
+	allExps := make([]ValueExp, 0, len(stmt.targets)+4)
+	for _, t := range stmt.targets {
+		allExps = append(allExps, t.Exp)
+	}
+	if stmt.where != nil {
+		allExps = append(allExps, stmt.where)
+	}
+	for _, gb := range stmt.groupBy {
+		allExps = append(allExps, gb)
+	}
+	for _, ob := range stmt.orderBy {
+		allExps = append(allExps, ob.exp)
+	}
+	if stmt.having != nil {
+		allExps = append(allExps, stmt.having)
+	}
+	for _, j := range stmt.joins {
+		if j.cond != nil {
+			allExps = append(allExps, j.cond)
+		}
+	}
+
+	needed := make(map[uint32]bool)
+	for _, exp := range allExps {
+		for _, sel := range exp.selectors() {
+			var colName, colTable string
+			switch s := sel.(type) {
+			case *ColSelector:
+				if s.col == "*" {
+					return nil, true // SELECT * — decode everything
+				}
+				colName, colTable = s.col, s.table
+			case *AggColSelector:
+				if s.col == "*" {
+					continue // COUNT(*) needs no specific column
+				}
+				colName, colTable = s.col, s.table
+			default:
+				return nil, true // unknown selector type, be safe
+			}
+			if colTable != "" && colTable != tableAlias {
+				continue // column belongs to a joined table, not this scan
+			}
+			col, err := table.GetColumnByName(colName)
+			if err != nil {
+				return nil, true // unresolvable, decode all
+			}
+			needed[col.id] = true
+		}
+	}
+	return needed, false
+}
+
 // isBareCountStar reports whether the statement is exactly
 // SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or HAVING.
 // Such queries can be answered by counting index keys without decoding values.
@@ -4114,6 +4231,17 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 
 	groupByCols, orderByCols = stmt.rearrangeOrdExps(groupByCols, orderByCols)
 
+	// Projection pushdown: compute the set of column IDs that need to be
+	// decoded for this query.  nil means decode all (history/diff/metadata
+	// scans always decode everything; wildcard SELECT does too).
+	var neededColIDs map[uint32]bool
+	if !tableRef.history && !tableRef.diff && !stmt.hasTxMetadata() {
+		ids, wildcard := stmt.collectNeededColIDs(table, tableRef.Alias())
+		if !wildcard {
+			neededColIDs = ids
+		}
+	}
+
 	return &ScanSpecs{
 		Index:             sortingIndex,
 		rangesByColID:     rangesByColID,
@@ -4123,6 +4251,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		DescOrder:         descOrder,
 		groupBySortExps:   groupByCols,
 		orderBySortExps:   orderByCols,
+		neededColIDs:      neededColIDs,
 	}, nil
 }
 
