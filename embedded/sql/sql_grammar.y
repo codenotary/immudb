@@ -1057,6 +1057,11 @@ selector:
     {
         $$ = &AggColSelector{aggFn: $1, table: $4.table, col: $4.col, distinct: true}
     }
+|
+    AGGREGATE_FUNC '(' col ',' VARCHAR_LIT ')'
+    {
+        $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col, separator: $5}
+    }
 
 jsonFields:
     ARROW VARCHAR_LIT

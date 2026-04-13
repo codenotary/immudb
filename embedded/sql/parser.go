@@ -182,11 +182,12 @@ var joinTypes = map[string]JoinType{
 }
 
 var aggregateFns = map[string]AggregateFn{
-	"COUNT": COUNT,
-	"SUM":   SUM,
-	"MAX":   MAX,
-	"MIN":   MIN,
-	"AVG":   AVG,
+	"COUNT":      COUNT,
+	"SUM":        SUM,
+	"MAX":        MAX,
+	"MIN":        MIN,
+	"AVG":        AVG,
+	"STRING_AGG": STRING_AGG,
 }
 
 var boolValues = map[string]bool{

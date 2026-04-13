@@ -123,11 +123,12 @@ func PermissionFromCode(code uint32) Permission {
 type AggregateFn = string
 
 const (
-	COUNT AggregateFn = "COUNT"
-	SUM   AggregateFn = "SUM"
-	MAX   AggregateFn = "MAX"
-	MIN   AggregateFn = "MIN"
-	AVG   AggregateFn = "AVG"
+	COUNT      AggregateFn = "COUNT"
+	SUM        AggregateFn = "SUM"
+	MAX        AggregateFn = "MAX"
+	MIN        AggregateFn = "MIN"
+	AVG        AggregateFn = "AVG"
+	STRING_AGG AggregateFn = "STRING_AGG"
 )
 
 type CmpOperator = int
@@ -5253,10 +5254,11 @@ func (sel *ColSelector) String() string {
 }
 
 type AggColSelector struct {
-	aggFn    AggregateFn
-	table    string
-	col      string
-	distinct bool
+	aggFn     AggregateFn
+	table     string
+	col       string
+	distinct  bool
+	separator string // for STRING_AGG(col, separator)
 }
 
 func NewAggColSelector(aggFn AggregateFn, table, col string) *AggColSelector {

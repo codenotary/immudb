@@ -321,7 +321,7 @@ func (gr *groupedRowReader) initAggregations(row *Row) error {
 	for _, sel := range gr.selectors {
 		aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
 
-		v, err := initAggValue(aggFn, table, col, sel.distinct)
+		v, err := initAggValue(aggFn, table, col, sel.distinct, sel.separator)
 		if err != nil {
 			return err
 		}
@@ -347,8 +347,17 @@ func (gr *groupedRowReader) initAggregations(row *Row) error {
 	return updateRow(row, row)
 }
 
-func initAggValue(aggFn, table, col string, distinct ...bool) (TypedValue, error) {
-	isDistinct := len(distinct) > 0 && distinct[0]
+func initAggValue(aggFn, table, col string, opts ...interface{}) (TypedValue, error) {
+	isDistinct := false
+	separator := ", "
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case bool:
+			isDistinct = v
+		case string:
+			separator = v
+		}
+	}
 
 	var v TypedValue
 	switch aggFn {
@@ -389,6 +398,13 @@ func initAggValue(aggFn, table, col string, distinct ...bool) (TypedValue, error
 		{
 			v = &AVGValue{
 				s:   &NullValue{t: AnyType},
+				sel: EncodeSelector("", table, col),
+			}
+		}
+	case STRING_AGG:
+		{
+			v = &StringAggValue{
+				sep: separator,
 				sel: EncodeSelector("", table, col),
 			}
 		}
