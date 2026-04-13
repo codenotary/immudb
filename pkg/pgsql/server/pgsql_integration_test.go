@@ -33,7 +33,7 @@ import (
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	pq "github.com/lib/pq"
 
 	"github.com/stretchr/testify/require"

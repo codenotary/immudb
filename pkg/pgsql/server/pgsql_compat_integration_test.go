@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 )
 
