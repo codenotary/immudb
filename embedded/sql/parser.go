@@ -31,6 +31,7 @@ import (
 var keywords = map[string]int{
 	"CREATE":         CREATE,
 	"DROP":           DROP,
+	"TRUNCATE":       TRUNCATE,
 	"USE":            USE,
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,

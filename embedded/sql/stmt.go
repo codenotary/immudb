@@ -7282,6 +7282,119 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	return tx, nil
 }
 
+// TruncateTableStmt empties a table by dropping its catalog metadata and
+// recreating it with the same schema under a fresh table ID. Old row keys
+// remain on disk but are no longer reachable through the catalog, so the
+// table appears empty. Unlike row-by-row DELETE this is O(schema), so it
+// never hits the per-transaction entry limit.
+type TruncateTableStmt struct {
+	table string
+}
+
+func NewTruncateTableStmt(table string) *TruncateTableStmt {
+	return &TruncateTableStmt{table: table}
+}
+
+func (stmt *TruncateTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *TruncateTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop, SQLPrivilegeCreate}
+}
+
+func (stmt *TruncateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *TruncateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.catalog.ExistTable(stmt.table) {
+		return nil, ErrTableDoesNotExist
+	}
+
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	// Capture schema before the drop mutates the in-memory catalog.
+	origCols := table.ColumnsByID()
+	colsSpec := make([]*ColSpec, 0, len(origCols))
+	for _, c := range origCols {
+		colsSpec = append(colsSpec, &ColSpec{
+			colName:       c.colName,
+			colType:       c.colType,
+			maxLen:        c.maxLen,
+			autoIncrement: c.autoIncrement,
+			notNull:       c.notNull,
+			defaultValue:  c.defaultValue,
+		})
+	}
+
+	var pkColNames PrimaryKeyConstraint
+	if table.primaryIndex != nil {
+		for _, c := range table.primaryIndex.cols {
+			pkColNames = append(pkColNames, c.colName)
+		}
+	}
+
+	// Capture checks; we re-assign IDs via the create path.
+	checks := make([]CheckConstraint, 0, len(table.checkConstraints))
+	for _, cc := range table.checkConstraints {
+		checks = append(checks, CheckConstraint{name: cc.name, exp: cc.exp})
+	}
+
+	// Capture non-primary indexes to recreate after the table exists again.
+	type savedIndex struct {
+		unique    bool
+		colNames  []string
+		predicate ValueExp
+	}
+	var savedIndexes []savedIndex
+	for _, idx := range table.indexes {
+		if idx == table.primaryIndex {
+			continue
+		}
+		colNames := make([]string, 0, len(idx.cols))
+		for _, c := range idx.cols {
+			colNames = append(colNames, c.colName)
+		}
+		savedIndexes = append(savedIndexes, savedIndex{unique: idx.unique, colNames: colNames, predicate: idx.predicate})
+	}
+
+	// Drop the existing table (metadata-only, bounded work).
+	drop := &DropTableStmt{table: stmt.table}
+	if _, err := drop.execAt(ctx, tx, params); err != nil {
+		return nil, err
+	}
+
+	// Recreate the table with the captured schema.
+	create := &CreateTableStmt{
+		table:      stmt.table,
+		colsSpec:   colsSpec,
+		checks:     checks,
+		pkColNames: pkColNames,
+	}
+	if _, err := create.execAt(ctx, tx, params); err != nil {
+		return nil, err
+	}
+
+	// Recreate secondary indexes.
+	for _, si := range savedIndexes {
+		idxStmt := &CreateIndexStmt{
+			unique:    si.unique,
+			table:     stmt.table,
+			cols:      si.colNames,
+			predicate: si.predicate,
+		}
+		if _, err := idxStmt.execAt(ctx, tx, params); err != nil {
+			return nil, err
+		}
+	}
+
+	return tx, nil
+}
+
 // DropIndexStmt represents a statement to delete a table.
 type DropIndexStmt struct {
 	table string

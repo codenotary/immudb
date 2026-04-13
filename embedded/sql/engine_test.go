@@ -1086,6 +1086,61 @@ func TestNumericCasts(t *testing.T) {
 	}
 }
 
+func TestTruncateTable(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil,
+		`CREATE TABLE trunc_t(id INTEGER PRIMARY KEY, name VARCHAR[100], tag VARCHAR)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(ctx, nil,
+		`CREATE INDEX ON trunc_t(name)`, nil)
+	require.NoError(t, err)
+
+	// Load more rows than DefaultMaxTxEntries (1024) would allow a DELETE to
+	// handle in a single tx, so truncation is the only viable clear path.
+	const rows = 1200
+	for i := 1; i <= rows; i++ {
+		_, _, err := engine.Exec(ctx, nil,
+			fmt.Sprintf("INSERT INTO trunc_t(id, name, tag) VALUES (%d, 'n%d', 't')", i, i), nil)
+		require.NoError(t, err)
+	}
+
+	r, err := engine.Query(ctx, nil, "SELECT COUNT(*) FROM trunc_t", nil)
+	require.NoError(t, err)
+	row, err := r.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(rows), row.ValuesByPosition[0].RawValue())
+	r.Close()
+
+	_, _, err = engine.Exec(ctx, nil, "TRUNCATE TABLE trunc_t", nil)
+	require.NoError(t, err)
+
+	r, err = engine.Query(ctx, nil, "SELECT COUNT(*) FROM trunc_t", nil)
+	require.NoError(t, err)
+	row, err = r.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), row.ValuesByPosition[0].RawValue())
+	r.Close()
+
+	// Schema survived: table, columns, and secondary index are still there.
+	_, _, err = engine.Exec(ctx, nil,
+		"INSERT INTO trunc_t(id, name, tag) VALUES (1, 'after', 't')", nil)
+	require.NoError(t, err)
+
+	r, err = engine.Query(ctx, nil, "SELECT id, name FROM trunc_t USE INDEX ON(name) WHERE name = 'after'", nil)
+	require.NoError(t, err)
+	row, err = r.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), row.ValuesByPosition[0].RawValue())
+	r.Close()
+
+	// Truncating a missing table fails cleanly.
+	_, _, err = engine.Exec(ctx, nil, "TRUNCATE TABLE nope", nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+}
+
 func TestImplicitVarcharCoercionAndISO8601Timestamps(t *testing.T) {
 	engine := setupCommonTest(t)
 	ctx := context.Background()
