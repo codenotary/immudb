@@ -3798,21 +3798,39 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 	}
 
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
-		if len(scanSpecs.groupBySortExps) > 0 {
-			var sortRowReader *sortRowReader
-			sortRowReader, err = newSortRowReader(rowReader, scanSpecs.groupBySortExps)
+		// Hash aggregate: replace sort(GROUP BY) + stream-group with a single
+		// hash-map pass when the query already requires a separate ORDER BY sort
+		// (orderBySortExps != nil).  In that case the final ORDER BY sort
+		// provides the correct output order; we save one full sort pass.
+		//
+		// When orderBySortExps is nil, rearrangeOrdExps has merged GROUP BY and
+		// ORDER BY into a single sort — we must keep the sort-based path to
+		// preserve the implicit "GROUP BY implies sorted output" guarantee.
+		useHashAgg := len(scanSpecs.groupBySortExps) > 0 && len(scanSpecs.orderBySortExps) > 0
+
+		if useHashAgg {
+			hashGrpRdr, hErr := newHashGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
+			if hErr != nil {
+				return nil, hErr
+			}
+			rowReader = hashGrpRdr
+		} else {
+			if len(scanSpecs.groupBySortExps) > 0 {
+				var sortRowReader *sortRowReader
+				sortRowReader, err = newSortRowReader(rowReader, scanSpecs.groupBySortExps)
+				if err != nil {
+					return nil, err
+				}
+				rowReader = sortRowReader
+			}
+
+			var groupedRowReader *groupedRowReader
+			groupedRowReader, err = newGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
 			if err != nil {
 				return nil, err
 			}
-			rowReader = sortRowReader
+			rowReader = groupedRowReader
 		}
-
-		var groupedRowReader *groupedRowReader
-		groupedRowReader, err = newGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
-		if err != nil {
-			return nil, err
-		}
-		rowReader = groupedRowReader
 
 		if stmt.having != nil {
 			rowReader = newConditionalRowReader(rowReader, stmt.having)
