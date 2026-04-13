@@ -35,6 +35,12 @@ type sortRowReader struct {
 	sorter             fileSorter
 
 	resultReader resultReader
+
+	// onCloseCallback fires from this reader's own Close (not from inner
+	// readers'). Stored locally rather than propagated so that the join
+	// machinery's mid-iteration Close on inner readers does not trigger
+	// qtx.Cancel before sortRowReader.finalize finishes merging temp files.
+	onCloseCallback func()
 }
 
 func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, error) {
@@ -222,8 +228,14 @@ func getColPositionsBySelector(desc []ColDescriptor) (map[string]int, error) {
 	return colPositionsBySelector, nil
 }
 
+// onClose registers a callback that fires exactly once when this reader's
+// own Close runs. We deliberately do NOT propagate the callback down to
+// sr.rowReader because inner readers (notably jointRowReader) Close
+// nested sub-readers mid-iteration; propagating would let qtx.Cancel
+// fire while sortRowReader.finalize is still merging temp files. See
+// joint_row_reader.go:198 and the JOIN+GROUP+ORDER regression test.
 func (sr *sortRowReader) onClose(callback func()) {
-	sr.rowReader.onClose(callback)
+	sr.onCloseCallback = callback
 }
 
 func (sr *sortRowReader) Tx() *SQLTx {
@@ -296,5 +308,19 @@ func (sr *sortRowReader) readAll(ctx context.Context) error {
 }
 
 func (sr *sortRowReader) Close() error {
-	return sr.rowReader.Close()
+	if cb := sr.onCloseCallback; cb != nil {
+		// Fire after inner Close so the tx that owns any underlying
+		// resources stays alive until everyone downstream is done.
+		defer cb()
+		sr.onCloseCallback = nil
+	}
+	var resultErr error
+	if sr.resultReader != nil {
+		resultErr = sr.resultReader.Close()
+		sr.resultReader = nil
+	}
+	if err := sr.rowReader.Close(); err != nil {
+		return err
+	}
+	return resultErr
 }

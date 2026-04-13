@@ -234,6 +234,14 @@ func (sqlTx *SQLTx) addOnCommittedCallback(callback onCommittedCallback) error {
 	return nil
 }
 
+// createTempFile returns an os.CreateTemp("", "immudb") file and registers
+// it with the SQLTx for observability + defensive cleanup. Ownership of
+// the close/remove sits with the caller (e.g. fileSorter.Close), which
+// must call deregisterTempFile to drop the registration before the
+// surrounding tx Cancel/Commit closes it. This split avoids a race where
+// the tx's deferred removeTempFiles would force-close a file the caller's
+// row reader is still consuming — see embedded/sql/file_sort.go and the
+// JOIN+GROUP+ORDER regression in joint_row_reader.go:198.
 func (sqlTx *SQLTx) createTempFile() (*os.File, error) {
 	tempFile, err := os.CreateTemp("", "immudb")
 	if err == nil {
@@ -242,6 +250,22 @@ func (sqlTx *SQLTx) createTempFile() (*os.File, error) {
 	return tempFile, err
 }
 
+// deregisterTempFile removes f from sqlTx.tempFiles so the deferred
+// removeTempFiles in Cancel/Commit will not touch it. The caller is then
+// responsible for closing and removing the file. Safe to call with a file
+// that was never registered.
+func (sqlTx *SQLTx) deregisterTempFile(f *os.File) {
+	for i, tf := range sqlTx.tempFiles {
+		if tf == f {
+			sqlTx.tempFiles = append(sqlTx.tempFiles[:i], sqlTx.tempFiles[i+1:]...)
+			return
+		}
+	}
+}
+
+// removeTempFiles closes and removes any temp files still registered with
+// the tx. Run from Cancel/Commit as a defensive safety net for files the
+// caller never explicitly closed.
 func (sqlTx *SQLTx) removeTempFiles() error {
 	for _, file := range sqlTx.tempFiles {
 		err := file.Close()
@@ -254,6 +278,7 @@ func (sqlTx *SQLTx) removeTempFiles() error {
 			return err
 		}
 	}
+	sqlTx.tempFiles = nil
 	return nil
 }
 
