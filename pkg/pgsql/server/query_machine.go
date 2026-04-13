@@ -321,13 +321,27 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	}
 
 	s.log.Infof("pgcompat: executing query via SQL engine: %.100s", statements)
-	stmts, err := sql.ParseSQL(
-		strings.NewReader(
-			removePGCatalogReferences(statements),
-		),
-	)
-	if err != nil {
-		return err
+	var err error
+	cacheKey := removePGCatalogReferences(statements)
+	var stmts []sql.SQLStmt
+	if s.stmtCache != nil {
+		stmts = s.stmtCache[cacheKey]
+	}
+	if stmts == nil {
+		stmts, err = sql.ParseSQL(strings.NewReader(cacheKey))
+		if err != nil {
+			return err
+		}
+		if s.stmtCache != nil {
+			// Evict the oldest entry when the cache is full (FIFO).
+			if len(s.stmtCache) >= stmtCacheSize {
+				oldest := s.stmtCacheKeys[0]
+				s.stmtCacheKeys = s.stmtCacheKeys[1:]
+				delete(s.stmtCache, oldest)
+			}
+			s.stmtCache[cacheKey] = stmts
+			s.stmtCacheKeys = append(s.stmtCacheKeys, cacheKey)
+		}
 	}
 
 	for _, stmt := range stmts {

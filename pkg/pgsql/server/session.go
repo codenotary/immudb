@@ -34,6 +34,10 @@ import (
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
+// stmtCacheSize is the maximum number of parsed statement lists cached
+// per session. When the cache is full the oldest entry is evicted (FIFO).
+const stmtCacheSize = 64
+
 type session struct {
 	immudbHost         string
 	immudbPort         int
@@ -59,6 +63,13 @@ type session struct {
 
 	statements map[string]*statement
 	portals    map[string]*portal
+
+	// stmtCache is a bounded per-session cache of parsed SQL statement lists,
+	// keyed on the post-normalization SQL string (after removePGCatalogReferences).
+	// Avoids repeated lex+parse overhead for queries repeated by dashboards or ORMs.
+	// Eviction is FIFO; stmtCacheKeys tracks insertion order for eviction.
+	stmtCache     map[string][]sql.SQLStmt
+	stmtCacheKeys []string
 }
 
 type Session interface {
@@ -97,6 +108,8 @@ func newSession(
 		mr:                 NewMessageReader(c),
 		statements:         make(map[string]*statement),
 		portals:            make(map[string]*portal),
+		stmtCache:          make(map[string][]sql.SQLStmt, stmtCacheSize),
+		stmtCacheKeys:      make([]string, 0, stmtCacheSize),
 	}
 }
 
