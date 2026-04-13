@@ -32,6 +32,7 @@ type Options struct {
 	sortBufferSize                int
 	distinctLimit                 int
 	maxWindowRows                 int // 0 = unlimited
+	maxKeyLen                     int // 0 = leave package default in place
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
@@ -58,6 +59,13 @@ func (opts *Options) Validate() error {
 
 	if opts.sortBufferSize <= 0 {
 		return fmt.Errorf("%w: invalid SortBufferSize value", store.ErrInvalidOptions)
+	}
+
+	// 0 means "leave the package default" (no override). Anything explicit
+	// must fit a uint16 length-prefix (the on-disk encoding ceiling) and
+	// be at least wide enough for the small system PKs.
+	if opts.maxKeyLen != 0 && (opts.maxKeyLen < 64 || opts.maxKeyLen > 65535) {
+		return fmt.Errorf("%w: MaxKeyLen must be in [64, 65535]", store.ErrInvalidOptions)
 	}
 
 	return nil
@@ -108,5 +116,18 @@ func (opts *Options) WithParseTxMetadataFunc(parseFunc func([]byte) (map[string]
 
 func (opts *Options) WithTableResolvers(resolvers ...TableResolver) *Options {
 	opts.tableResolvers = append(opts.tableResolvers, resolvers...)
+	return opts
+}
+
+// WithMaxKeyLen overrides the engine-side maximum length (in bytes) for
+// indexed VARCHAR columns. The value is clamped to [64, 65535] by Validate.
+// When set, NewEngine assigns it to the package-level MaxKeyLen so that
+// EncodeRawValueAsKey (and every other site that consults MaxKeyLen) sees
+// the new ceiling. Note that the underlying store layer still enforces
+// its own composite-key limit (embedded/store.MaxKeyLen, default 1024 B),
+// which is the practical ceiling at insert time. Pass 0 (or omit the
+// call) to leave the package default in place — the value is unchanged.
+func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
+	opts.maxKeyLen = maxKeyLen
 	return opts
 }

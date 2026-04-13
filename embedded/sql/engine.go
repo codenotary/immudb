@@ -103,7 +103,15 @@ var (
 	ErrDiffRequiresPeriod                     = errors.New("DIFF requires both SINCE/AFTER and UNTIL/BEFORE clauses")
 )
 
-var MaxKeyLen = 512
+// MaxKeyLen caps the length of variable-width indexed columns (the
+// real on-disk constraint is in the store/btree layer, currently 1024
+// bytes — see embedded/store/immustore.go MaxKeyLen and the btree
+// DefaultMaxKeySize). Engine code historically used 512 bytes, which
+// is well under the storage cap; raising it to 1024 unblocks dumps
+// that declare longer text PKs (e.g. netflix's `show_id text`) without
+// any on-disk format change. The variable stays mutable so that
+// embedded/sql.Options can override it at engine init time.
+var MaxKeyLen = 1024
 
 const (
 	EncIDLen  = 4
@@ -290,6 +298,15 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
+	}
+
+	// Apply the engine-side variable-key cap override, if requested.
+	// This mutates a package-level variable that other call sites
+	// (EncodeRawValueAsKey, the document layer, etc.) consult — the
+	// global is intentional, matching the existing MaxKeyLen design.
+	// Zero leaves the package default in place.
+	if opts.maxKeyLen != 0 {
+		MaxKeyLen = opts.maxKeyLen
 	}
 
 	e := &Engine{

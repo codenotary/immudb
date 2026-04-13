@@ -45,6 +45,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("replication-skip-integrity-check", options.ReplicationOptions.SkipIntegrityCheck, "disable integrity check when reading data during replication")
 	cmd.Flags().Bool("replication-wait-for-indexing", options.ReplicationOptions.WaitForIndexing, "wait for indexing to be up to date during replication")
 	cmd.Flags().Int("max-active-databases", options.MaxActiveDatabases, "the maximum number of databases that can be active simultaneously")
+	cmd.Flags().Int("max-key-length", options.MaxKeyLen, "engine-side max length (bytes) for indexed VARCHAR columns; 0 keeps the embedded/sql default (1024). Allowed range: [64, 65535]. The store-layer composite-key cap (default 1024 B) is the practical insert ceiling.")
 	cmd.Flags().String("config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
@@ -170,6 +171,7 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("max-session-inactivity-time", 3*time.Minute)
 	viper.SetDefault("max-session-age-time", 0)
 	viper.SetDefault("max-active-databases", options.MaxActiveDatabases)
+	viper.SetDefault("max-key-length", options.MaxKeyLen)
 	viper.SetDefault("session-timeout", 2*time.Minute)
 	viper.SetDefault("sessions-guard-check-interval", 1*time.Minute)
 	viper.SetDefault("logformat", logger.LogFormatText)

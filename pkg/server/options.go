@@ -86,6 +86,7 @@ type Options struct {
 	MaxActiveDatabases          int
 	AuditLog                    bool
 	AuditLogEvents              string
+	MaxKeyLen                   int
 }
 
 type RemoteStorageOptions struct {
@@ -163,6 +164,7 @@ func DefaultOptions() *Options {
 		MaxActiveDatabases:          100,
 		AuditLog:                    false,
 		AuditLogEvents:              "all",
+		MaxKeyLen:                   0, // 0 = use embedded/sql package default
 	}
 }
 
@@ -550,6 +552,17 @@ func (o *Options) WithLogRequestMetadata(enabled bool) *Options {
 
 func (o *Options) WithMaxActiveDatabases(n int) *Options {
 	o.MaxActiveDatabases = n
+	return o
+}
+
+// WithMaxKeyLen sets the engine-side maximum length (in bytes) for
+// indexed VARCHAR columns. 0 leaves the embedded/sql package default
+// in place; positive values must be in [64, 65535] (validated in
+// embedded/sql.Options.Validate). The store-layer composite-key cap
+// is still the practical insert ceiling — see embedded/sql/options.go
+// WithMaxKeyLen for details.
+func (o *Options) WithMaxKeyLen(n int) *Options {
+	o.MaxKeyLen = n
 	return o
 }
 

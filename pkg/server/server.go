@@ -37,6 +37,7 @@ import (
 	"github.com/codenotary/immudb/pkg/truncator"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/replication"
@@ -137,6 +138,17 @@ func (s *ImmuServer) Initialize() error {
 
 	// NOTE: MaxActiveDatabases might have changed since the server instance was created
 	s.dbList.Resize(s.Options.MaxActiveDatabases)
+
+	// Apply the engine-side variable-key length override (if any) before
+	// any database is opened, because every per-db sql engine reads the
+	// embedded/sql package-level MaxKeyLen at construction. Validation
+	// of the value (range / store-cap fit) happens inside
+	// embedded/sql.Options.Validate when the first engine is created.
+	if s.Options.MaxKeyLen > 0 {
+		s.Logger.Infof("applying SQL engine MaxKeyLen override: %d (default %d)",
+			s.Options.MaxKeyLen, sql.MaxKeyLen)
+		sql.MaxKeyLen = s.Options.MaxKeyLen
+	}
 
 	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword, s.Options.ForceAdminPassword); err != nil {
 		return logErr(s.Logger, "unable to load system database: %v", err)

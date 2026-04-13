@@ -96,6 +96,7 @@ func parseOptions() (options *server.Options, err error) {
 	auditLogEvents := viper.GetString("audit-log-events")
 
 	maxActiveDatabases := viper.GetInt("max-active-databases")
+	maxKeyLen := viper.GetInt("max-key-length")
 
 	s3Storage := viper.GetBool("s3-storage")
 	s3RoleEnabled := viper.GetBool("s3-role-enabled")
@@ -175,6 +176,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled).
 		WithLogRequestMetadata(logRequestMetadata).
 		WithMaxActiveDatabases(maxActiveDatabases).
+		WithMaxKeyLen(maxKeyLen).
 		WithAuditLog(auditLog).
 		WithAuditLogEvents(auditLogEvents)
 
