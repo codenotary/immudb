@@ -141,9 +141,14 @@ SELECT NEXTVAL('order_seq');
 | DML | INSERT...ON CONFLICT DO UPDATE, INSERT/UPDATE/DELETE...RETURNING |
 | DDL | CREATE/DROP VIEW, CREATE/DROP SEQUENCE, ALTER COLUMN, FOREIGN KEY |
 | Ordering | ORDER BY with NULLS FIRST/LAST, LIMIT ALL |
-| Pattern matching | LIKE, ILIKE (case-insensitive) -- uses regex syntax (`.*` not `%`) |
+| Pattern matching | LIKE, ILIKE (case-insensitive) -- standard SQL wildcards (`%` and `_`) |
 | Query analysis | EXPLAIN |
+| Aggregates | COUNT, SUM, MIN, MAX, AVG, COUNT(DISTINCT col), STRING_AGG(col, separator) |
 | Type aliases | BIGINT, INT, SMALLINT, SERIAL, DOUBLE, REAL, NUMERIC, DECIMAL, BYTEA, JSONB, TIMESTAMPTZ, and more |
+| Transactions | BEGIN, COMMIT, ROLLBACK, SAVEPOINT, ROLLBACK TO SAVEPOINT, RELEASE SAVEPOINT |
+| Data import | COPY FROM stdin (bulk import via psql / pg_dump) |
+| LATERAL joins | Correlated subqueries in FROM clause |
+| Partial indexes | CREATE INDEX ... WHERE condition |
 
 **75+ built-in functions** including:
 
@@ -151,6 +156,7 @@ SELECT NEXTVAL('order_seq');
 - String: `CONCAT`, `CONCAT_WS`, `REPLACE`, `REVERSE`, `LEFT`, `RIGHT`, `LPAD`, `RPAD`, `SPLIT_PART`, `INITCAP`, `REPEAT`, `POSITION`, `MD5`, `REGEXP_REPLACE`, `TRANSLATE`
 - Date/Time: `NOW`, `DATE_TRUNC`, `TO_CHAR`, `DATE_PART`, `AGE`, `EXTRACT`
 - Conditional: `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `CASE`
+- Aggregate: `STRING_AGG`, `COUNT(DISTINCT col)`
 - PG compatibility: `current_database()`, `current_schema()`, `current_user`, `format_type()`, `pg_encoding_to_char()`
 
 **Immutable verification via SQL** -- query immudb's cryptographic proof system directly:
@@ -164,18 +170,15 @@ SELECT immudb_history('mykey');                -- full history of a key
 
 **ORM introspection support** with `pg_catalog` tables (`pg_class`, `pg_attribute`, `pg_index`, `pg_constraint`, `pg_type`, `pg_namespace`, `pg_roles`, `pg_settings`, `pg_description`) and `information_schema` views (`tables`, `columns`, `schemata`, `key_column_usage`).
 
-**Known limitations** -- the following PostgreSQL features are not yet supported and require architectural changes:
+**Known limitations** -- the following PostgreSQL features are not yet supported:
 
 | Feature | Reason |
 |---------|--------|
-| `STRING_AGG` | Requires aggregate framework extension for 2-argument aggregates |
-| `COUNT(DISTINCT col)` | Same aggregate framework limitation |
-| Views persistence | Views are session-scoped; full persistence requires AST-to-SQL serialization |
-| `DEFAULT` / `ALTER COLUMN` persistence | Parsed but session-scoped; requires catalog format versioning |
-| `LATERAL` joins | Requires subquery-in-join context passing |
 | Generated columns (`GENERATED ALWAYS AS`) | Requires computed column infrastructure |
-| `COPY` command | Requires bulk import protocol implementation |
 | Stored procedures / PL/pgSQL | Requires a language interpreter |
+| GIN/GiST indexes | Only B-tree indexes currently supported |
+| ARRAY, ENUM, composite types | Limited to 9 base types with aliases |
+| `SUM(a * b)` expressions inside aggregates | Arithmetic not supported inside aggregate functions |
 
 ### Security Hardening
 
