@@ -42,171 +42,18 @@ Data stored in immudb is cryptographically coherent and verifiable. Unlike block
 
 When used as a relational data database, it supports both transactions and blobs, so there are no limits to the use cases. Developers and organizations use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, artifacts and even video streams. [Examples of organizations using immudb today.](https://www.immudb.io)
 
-## Recent Changes
-
-### Structured Audit Logging
-
-immudb now supports immutable, structured audit logging of all server operations. When enabled, every gRPC operation is recorded as a JSON audit event stored in immudb's own tamper-proof KV store under the `audit:` key prefix.
-
-**Enable audit logging:**
-
-```bash
-# Log all operations
-./immudb --audit-log
-
-# Log only write, admin, auth, and system operations (exclude reads)
-./immudb --audit-log --audit-log-events=write
-
-# Log only admin, auth, and system operations
-./immudb --audit-log --audit-log-events=admin
-```
-
-Each audit event captures:
-
-| Field     | Description                                      |
-| --------- | ------------------------------------------------ |
-| `ts`      | Nanosecond timestamp                             |
-| `user`    | Authenticated username                           |
-| `ip`      | Client IP address                                |
-| `db`      | Target database                                  |
-| `method`  | gRPC method name                                 |
-| `type`    | Event category: AUTH, ADMIN, WRITE, READ, SYSTEM |
-| `ok`      | Whether the operation succeeded                  |
-| `err`     | Error message (if failed)                        |
-| `dur_ms`  | Operation duration in milliseconds               |
-| `sid`     | Session ID                                       |
-
-Audit events are written asynchronously to avoid impacting request latency. They can be queried using the standard `Scan` API with prefix `audit:` and verified with `VerifiableGet` for tamper-proof compliance evidence. Events are stored as JSON, ready for export to external SIEM systems (Splunk, ELK, etc.).
-
-### DIFF OF SQL Query
-
-immudb now supports comparing table state between two points in time using the new `DIFF OF` SQL syntax:
-
-```sql
-SELECT _diff_action, id, title, active FROM (DIFF OF mytable) SINCE TX 100 UNTIL TX 200
-```
-
-The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, or `DELETE` within the specified transaction range. Both `SINCE`/`AFTER` and `UNTIL`/`BEFORE` period specifiers are supported. Standard `WHERE` clauses can be applied to filter results.
-
-### PostgreSQL SQL Compatibility
-
-immudb's PostgreSQL wire protocol server now supports a comprehensive set of SQL features for ORM and tool compatibility. Connect with any PostgreSQL client (`psql`, pgAdmin, JDBC, SQLAlchemy, Django, GORM, ActiveRecord) and use standard SQL.
-
-**RETURNING clause** for INSERT, UPDATE, and DELETE:
-
-```sql
-INSERT INTO users (name) VALUES ('Alice') RETURNING id, name;
-UPDATE users SET name = 'Bob' WHERE id = 1 RETURNING *;
-DELETE FROM users WHERE id = 1 RETURNING *;
-```
-
-**Common Table Expressions (WITH / WITH RECURSIVE)**:
-
-```sql
-WITH RECURSIVE tree AS (
-    SELECT id, name FROM nodes WHERE parent_id = 0
-    UNION ALL
-    SELECT n.id, n.name FROM nodes n INNER JOIN tree t ON n.parent_id = t.id
-)
-SELECT * FROM tree;
-```
-
-**Window functions**:
-
-```sql
-SELECT name, dept,
-    ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) rank,
-    SUM(salary) OVER (PARTITION BY dept) dept_total,
-    LAG(salary) OVER (ORDER BY salary) prev_salary
-FROM employees;
-```
-
-Supported window functions: `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `LAG`, `LEAD`, `FIRST_VALUE`, `LAST_VALUE`, `NTILE`, and window aggregates (`COUNT`, `SUM`, `MIN`, `MAX`, `AVG`).
-
-**Views and Sequences**:
-
-```sql
-CREATE VIEW active_users AS SELECT * FROM users WHERE active = true;
-CREATE SEQUENCE order_seq;
-SELECT NEXTVAL('order_seq');
-```
-
-**Full SQL feature set**:
-
-| Category | Features |
-|----------|----------|
-| Joins | INNER, LEFT, RIGHT, CROSS, FULL OUTER, NATURAL, USING |
-| Subqueries | EXISTS, IN, NOT EXISTS, NOT IN (correlated and non-correlated) |
-| Set operations | UNION, UNION ALL, EXCEPT, INTERSECT |
-| DML | INSERT...ON CONFLICT DO UPDATE, INSERT/UPDATE/DELETE...RETURNING |
-| DDL | CREATE/DROP VIEW, CREATE/DROP SEQUENCE, ALTER COLUMN, FOREIGN KEY |
-| Ordering | ORDER BY with NULLS FIRST/LAST, LIMIT ALL |
-| Pattern matching | LIKE, ILIKE (case-insensitive) -- standard SQL wildcards (`%` and `_`) |
-| Query analysis | EXPLAIN |
-| Aggregates | COUNT, SUM, MIN, MAX, AVG, COUNT(DISTINCT col), STRING_AGG(col, separator) |
-| Type aliases | BIGINT, INT, SMALLINT, SERIAL, DOUBLE, REAL, NUMERIC, DECIMAL, BYTEA, JSONB, TIMESTAMPTZ, and more |
-| Transactions | BEGIN, COMMIT, ROLLBACK, SAVEPOINT, ROLLBACK TO SAVEPOINT, RELEASE SAVEPOINT |
-| Data import | COPY FROM stdin (bulk import via psql / pg_dump) |
-| LATERAL joins | Correlated subqueries in FROM clause |
-| Partial indexes | CREATE INDEX ... WHERE condition |
-
-**75+ built-in functions** including:
-
-- Math: `ABS`, `CEIL`, `FLOOR`, `ROUND`, `POWER`, `SQRT`, `MOD`, `SIGN`
-- String: `CONCAT`, `CONCAT_WS`, `REPLACE`, `REVERSE`, `LEFT`, `RIGHT`, `LPAD`, `RPAD`, `SPLIT_PART`, `INITCAP`, `REPEAT`, `POSITION`, `MD5`, `REGEXP_REPLACE`, `TRANSLATE`
-- Date/Time: `NOW`, `DATE_TRUNC`, `TO_CHAR`, `DATE_PART`, `AGE`, `EXTRACT`
-- Conditional: `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `CASE`
-- Aggregate: `STRING_AGG`, `COUNT(DISTINCT col)`
-- PG compatibility: `current_database()`, `current_schema()`, `current_user`, `format_type()`, `pg_encoding_to_char()`
-
-**Immutable verification via SQL** -- query immudb's cryptographic proof system directly:
-
-```sql
-SELECT immudb_state();                         -- current database state and tx hash
-SELECT immudb_verify_row('mytable', 1);        -- cryptographically verify a row
-SELECT immudb_verify_tx(42);                   -- verify a transaction with proof
-SELECT immudb_history('mykey');                -- full history of a key
-```
-
-**ORM introspection support** with `pg_catalog` tables (`pg_class`, `pg_attribute`, `pg_index`, `pg_constraint`, `pg_type`, `pg_namespace`, `pg_roles`, `pg_settings`, `pg_description`) and `information_schema` views (`tables`, `columns`, `schemata`, `key_column_usage`).
-
-**Known limitations** -- the following PostgreSQL features are not yet supported:
-
-| Feature | Reason |
-|---------|--------|
-| Generated columns (`GENERATED ALWAYS AS`) | Requires computed column infrastructure |
-| Stored procedures / PL/pgSQL | Requires a language interpreter |
-| GIN/GiST indexes | Only B-tree indexes currently supported |
-| ARRAY, ENUM, composite types | Limited to 9 base types with aliases |
-| `SUM(a * b)` expressions inside aggregates | Arithmetic not supported inside aggregate functions |
-
-### Security Hardening
-
-- **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
-- **Session invalidation**: User deactivation, password changes, permission changes, and SQL privilege changes now immediately terminate all active sessions for the affected user.
-- **Token file permissions**: Client authentication tokens are now written with `0600` permissions (owner-only) instead of `0644`.
-- **PgSQL TLS warning**: The PostgreSQL-compatible server now logs a warning at startup when running without TLS, as cleartext password authentication is used.
 
 ## Contents
 
 - [immudb](#immudb)
   - [Contents](#contents)
+  - [Quickstart](#quickstart)
   - [Recent Changes](#recent-changes)
     - [Structured Audit Logging](#structured-audit-logging)
     - [DIFF OF SQL Query](#diff-of-sql-query)
     - [PostgreSQL SQL Compatibility](#postgresql-sql-compatibility)
     - [Security Hardening](#security-hardening)
-  - [Quickstart](#quickstart)
-    - [Getting immudb running: executable](#getting-immudb-running-executable)
-    - [Getting immudb running: docker](#getting-immudb-running-docker)
-    - [Getting immudb running: kubernetes](#getting-immudb-running-kubernetes)
-    - [Using subfolders](#using-subfolders)
-    - [Enabling Amazon S3 storage](#enabling-amazon-s3-storage)
-    - [Connecting with immuclient](#connecting-with-immuclient)
-    - [Using immudb](#using-immudb)
-      - [Real world examples](#real-world-examples)
-      - [How to integrate immudb in your application](#how-to-integrate-immudb-in-your-application)
-      - [Online demo environment](#online-demo-environment)
+  - [Using immudb](#using-immudb)
   - [Tech specs](#tech-specs)
   - [Performance figures](#performance-figures)
   - [Roadmap](#roadmap)
@@ -393,6 +240,153 @@ Or just use Docker to run immuclient in a ready-to-use container. Nice and simpl
 ```bash
 docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 ```
+
+
+## Recent Changes
+
+### Structured Audit Logging
+
+immudb now supports immutable, structured audit logging of all server operations. When enabled, every gRPC operation is recorded as a JSON audit event stored in immudb's own tamper-proof KV store under the `audit:` key prefix.
+
+**Enable audit logging:**
+
+```bash
+# Log all operations
+./immudb --audit-log
+
+# Log only write, admin, auth, and system operations (exclude reads)
+./immudb --audit-log --audit-log-events=write
+
+# Log only admin, auth, and system operations
+./immudb --audit-log --audit-log-events=admin
+```
+
+Each audit event captures:
+
+| Field     | Description                                      |
+| --------- | ------------------------------------------------ |
+| `ts`      | Nanosecond timestamp                             |
+| `user`    | Authenticated username                           |
+| `ip`      | Client IP address                                |
+| `db`      | Target database                                  |
+| `method`  | gRPC method name                                 |
+| `type`    | Event category: AUTH, ADMIN, WRITE, READ, SYSTEM |
+| `ok`      | Whether the operation succeeded                  |
+| `err`     | Error message (if failed)                        |
+| `dur_ms`  | Operation duration in milliseconds               |
+| `sid`     | Session ID                                       |
+
+Audit events are written asynchronously to avoid impacting request latency. They can be queried using the standard `Scan` API with prefix `audit:` and verified with `VerifiableGet` for tamper-proof compliance evidence. Events are stored as JSON, ready for export to external SIEM systems (Splunk, ELK, etc.).
+
+### DIFF OF SQL Query
+
+immudb now supports comparing table state between two points in time using the new `DIFF OF` SQL syntax:
+
+```sql
+SELECT _diff_action, id, title, active FROM (DIFF OF mytable) SINCE TX 100 UNTIL TX 200
+```
+
+The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, or `DELETE` within the specified transaction range. Both `SINCE`/`AFTER` and `UNTIL`/`BEFORE` period specifiers are supported. Standard `WHERE` clauses can be applied to filter results.
+
+### PostgreSQL SQL Compatibility
+
+immudb's PostgreSQL wire protocol server now supports a comprehensive set of SQL features for ORM and tool compatibility. Connect with any PostgreSQL client (`psql`, pgAdmin, JDBC, SQLAlchemy, Django, GORM, ActiveRecord) and use standard SQL.
+
+**RETURNING clause** for INSERT, UPDATE, and DELETE:
+
+```sql
+INSERT INTO users (name) VALUES ('Alice') RETURNING id, name;
+UPDATE users SET name = 'Bob' WHERE id = 1 RETURNING *;
+DELETE FROM users WHERE id = 1 RETURNING *;
+```
+
+**Common Table Expressions (WITH / WITH RECURSIVE)**:
+
+```sql
+WITH RECURSIVE tree AS (
+    SELECT id, name FROM nodes WHERE parent_id = 0
+    UNION ALL
+    SELECT n.id, n.name FROM nodes n INNER JOIN tree t ON n.parent_id = t.id
+)
+SELECT * FROM tree;
+```
+
+**Window functions**:
+
+```sql
+SELECT name, dept,
+    ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) rank,
+    SUM(salary) OVER (PARTITION BY dept) dept_total,
+    LAG(salary) OVER (ORDER BY salary) prev_salary
+FROM employees;
+```
+
+Supported window functions: `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `LAG`, `LEAD`, `FIRST_VALUE`, `LAST_VALUE`, `NTILE`, and window aggregates (`COUNT`, `SUM`, `MIN`, `MAX`, `AVG`).
+
+**Views and Sequences**:
+
+```sql
+CREATE VIEW active_users AS SELECT * FROM users WHERE active = true;
+CREATE SEQUENCE order_seq;
+SELECT NEXTVAL('order_seq');
+```
+
+**Full SQL feature set**:
+
+| Category | Features |
+|----------|----------|
+| Joins | INNER, LEFT, RIGHT, CROSS, FULL OUTER, NATURAL, USING |
+| Subqueries | EXISTS, IN, NOT EXISTS, NOT IN (correlated and non-correlated) |
+| Set operations | UNION, UNION ALL, EXCEPT, INTERSECT |
+| DML | INSERT...ON CONFLICT DO UPDATE, INSERT/UPDATE/DELETE...RETURNING |
+| DDL | CREATE/DROP VIEW, CREATE/DROP SEQUENCE, ALTER COLUMN, FOREIGN KEY |
+| Ordering | ORDER BY with NULLS FIRST/LAST, LIMIT ALL |
+| Pattern matching | LIKE, ILIKE (case-insensitive) -- standard SQL wildcards (`%` and `_`) |
+| Query analysis | EXPLAIN |
+| Aggregates | COUNT, SUM, MIN, MAX, AVG, COUNT(DISTINCT col), STRING_AGG(col, separator) |
+| Type aliases | BIGINT, INT, SMALLINT, SERIAL, DOUBLE, REAL, NUMERIC, DECIMAL, BYTEA, JSONB, TIMESTAMPTZ, and more |
+| Transactions | BEGIN, COMMIT, ROLLBACK, SAVEPOINT, ROLLBACK TO SAVEPOINT, RELEASE SAVEPOINT |
+| Data import | COPY FROM stdin (bulk import via psql / pg_dump) |
+| LATERAL joins | Correlated subqueries in FROM clause |
+| Partial indexes | CREATE INDEX ... WHERE condition |
+
+**75+ built-in functions** including:
+
+- Math: `ABS`, `CEIL`, `FLOOR`, `ROUND`, `POWER`, `SQRT`, `MOD`, `SIGN`
+- String: `CONCAT`, `CONCAT_WS`, `REPLACE`, `REVERSE`, `LEFT`, `RIGHT`, `LPAD`, `RPAD`, `SPLIT_PART`, `INITCAP`, `REPEAT`, `POSITION`, `MD5`, `REGEXP_REPLACE`, `TRANSLATE`
+- Date/Time: `NOW`, `DATE_TRUNC`, `TO_CHAR`, `DATE_PART`, `AGE`, `EXTRACT`
+- Conditional: `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `CASE`
+- Aggregate: `STRING_AGG`, `COUNT(DISTINCT col)`
+- PG compatibility: `current_database()`, `current_schema()`, `current_user`, `format_type()`, `pg_encoding_to_char()`
+
+**Immutable verification via SQL** -- query immudb's cryptographic proof system directly:
+
+```sql
+SELECT immudb_state();                         -- current database state and tx hash
+SELECT immudb_verify_row('mytable', 1);        -- cryptographically verify a row
+SELECT immudb_verify_tx(42);                   -- verify a transaction with proof
+SELECT immudb_history('mykey');                -- full history of a key
+```
+
+**ORM introspection support** with `pg_catalog` tables (`pg_class`, `pg_attribute`, `pg_index`, `pg_constraint`, `pg_type`, `pg_namespace`, `pg_roles`, `pg_settings`, `pg_description`) and `information_schema` views (`tables`, `columns`, `schemata`, `key_column_usage`).
+
+**Known limitations** -- the following PostgreSQL features are not yet supported:
+
+| Feature | Reason |
+|---------|--------|
+| Generated columns (`GENERATED ALWAYS AS`) | Requires computed column infrastructure |
+| Stored procedures / PL/pgSQL | Requires a language interpreter |
+| GIN/GiST indexes | Only B-tree indexes currently supported |
+| ARRAY, ENUM, composite types | Limited to 9 base types with aliases |
+| `SUM(a * b)` expressions inside aggregates | Arithmetic not supported inside aggregate functions |
+
+### Security Hardening
+
+- **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
+- **Session invalidation**: User deactivation, password changes, permission changes, and SQL privilege changes now immediately terminate all active sessions for the affected user.
+- **Token file permissions**: Client authentication tokens are now written with `0600` permissions (owner-only) instead of `0644`.
+- **PgSQL TLS warning**: The PostgreSQL-compatible server now logs a warning at startup when running without TLS, as cleartext password authentication is used.
+
 
 ## Using immudb
 
