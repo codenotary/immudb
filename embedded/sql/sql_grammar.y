@@ -127,7 +127,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK SAVEPOINT RELEASE
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
-%token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING FETCH ROWS ONLY
+%token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING FETCH ROWS ONLY LATERAL
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST DEFAULT
 %token <keyword> SHOW DATABASES TABLES USERS VIEW FOREIGN REFERENCES SEQUENCE
 %token <keyword> BETWEEN
@@ -367,9 +367,19 @@ ddlstmt:
         $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7}
     }
 |
+    CREATE INDEX opt_if_not_exists ON tableName '(' col_names ')' WHERE exp
+    {
+        $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7, predicate: $10}
+    }
+|
     CREATE UNIQUE INDEX opt_if_not_exists ON tableName '(' col_names ')'
     {
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
+    }
+|
+    CREATE UNIQUE INDEX opt_if_not_exists ON tableName '(' col_names ')' WHERE exp
+    {
+        $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8, predicate: $11}
     }
 |
     DROP INDEX ON tableName '(' col_names ')'
@@ -1352,6 +1362,20 @@ join:
     NATURAL opt_join_type JOIN ds
     {
         $$ = &JoinSpec{joinType: $2, ds: $4, natural: true, cond: &Bool{val: true}}
+    }
+|
+    ',' LATERAL ds
+    {
+        $$ = &JoinSpec{joinType: InnerJoin, ds: $3, lateral: true, cond: &Bool{val: true}}
+    }
+|
+    opt_join_type JOIN LATERAL ds opt_indexon opt_join_cond
+    {
+        cond := $6
+        if cond == nil {
+            cond = &Bool{val: true}
+        }
+        $$ = &JoinSpec{joinType: $1, ds: $4, indexOn: $5, cond: cond.(ValueExp), lateral: true}
     }
 
 opt_join_type:

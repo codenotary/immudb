@@ -79,11 +79,12 @@ type Table struct {
 }
 
 type Index struct {
-	table    *Table
-	id       uint32
-	unique   bool
-	cols     []*Column
-	colsByID map[uint32]*Column
+	table     *Table
+	id        uint32
+	unique    bool
+	cols      []*Column
+	colsByID  map[uint32]*Column
+	predicate ValueExp // WHERE clause for partial indexes (nil = full index)
 }
 
 type Column struct {

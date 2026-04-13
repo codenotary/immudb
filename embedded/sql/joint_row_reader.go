@@ -231,9 +231,23 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 		for i := len(jointr.rowReaders) - 1; i < len(jointr.joins); i++ {
 			jspec := jointr.joins[i]
 
+			ds := jspec.ds
+			where := jspec.cond.reduceSelectors(row, jointr.TableAlias())
+
+			// For LATERAL joins, reduce the subquery's internal WHERE with outer row values
+			if jspec.lateral {
+				if selStmt, ok := ds.(*SelectStmt); ok {
+					lateralDS := *selStmt
+					if lateralDS.where != nil {
+						lateralDS.where = lateralDS.where.reduceSelectors(row, jointr.TableAlias())
+					}
+					ds = &lateralDS
+				}
+			}
+
 			jointq := &SelectStmt{
-				ds:      jspec.ds,
-				where:   jspec.cond.reduceSelectors(row, jointr.TableAlias()),
+				ds:      ds,
+				where:   where,
 				indexOn: jspec.indexOn,
 			}
 

@@ -817,6 +817,7 @@ type CreateIndexStmt struct {
 	ifNotExists bool
 	table       string
 	cols        []string
+	predicate   ValueExp // WHERE clause for partial indexes (nil = full index)
 }
 
 func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndexStmt {
@@ -896,6 +897,11 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	// Set predicate for partial indexes
+	if stmt.predicate != nil {
+		index.predicate = stmt.predicate
 	}
 
 	// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
@@ -5181,6 +5187,7 @@ type JoinSpec struct {
 	cond     ValueExp
 	indexOn  []string
 	natural  bool // NATURAL JOIN — condition is built at resolve time from matching column names
+	lateral  bool // LATERAL — subquery can reference columns from preceding FROM items
 }
 
 type NullsOrder int

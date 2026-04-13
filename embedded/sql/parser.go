@@ -69,6 +69,7 @@ var keywords = map[string]int{
 	"ROLLBACK":       ROLLBACK,
 	"SAVEPOINT":      SAVEPOINT,
 	"RELEASE":        RELEASE,
+	"LATERAL":        LATERAL,
 	"SELECT":         SELECT,
 	"DISTINCT":       DISTINCT,
 	"FROM":           FROM,
