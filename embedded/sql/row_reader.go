@@ -473,7 +473,24 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	valuesByPosition := make([]TypedValue, len(r.colsByPos))
 	valuesBySelector := make(map[string]TypedValue, len(r.colsBySel))
 
+	// extraCols is the number of synthetic leading columns (rev, txMetadata).
+	// Table columns occupy r.colsByPos[extraCols:], corresponding 1-to-1 with
+	// r.table.cols. Moved up so the pre-fill loop can use it for the skip check.
+	extraCols := r.scanSpecs.extraCols()
+
 	for i, col := range r.colsByPos {
+		// Skip NullValue pre-fill for table columns that the query does not
+		// need. The nil zero-value is semantically NULL and is never accessed
+		// for columns excluded by neededColIDs. Extra synthetic columns (rev,
+		// txMetadata) are always included regardless of neededColIDs.
+		if r.scanSpecs.neededColIDs != nil {
+			if tableIdx := i - extraCols; tableIdx >= 0 && tableIdx < len(r.table.cols) {
+				if !r.scanSpecs.neededColIDs[r.table.cols[tableIdx].id] {
+					continue
+				}
+			}
+		}
+
 		var val TypedValue
 
 		switch col.Column {
@@ -496,7 +513,6 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 		return nil, ErrCorruptedData
 	}
 
-	extraCols := r.scanSpecs.extraCols()
 
 	voff := 0
 

@@ -3799,14 +3799,18 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
 		// Hash aggregate: replace sort(GROUP BY) + stream-group with a single
-		// hash-map pass when the query already requires a separate ORDER BY sort
-		// (orderBySortExps != nil).  In that case the final ORDER BY sort
-		// provides the correct output order; we save one full sort pass.
+		// hash-map pass whenever the GROUP BY columns are not already provided
+		// in order by the index scan (groupBySortExps != nil).
 		//
-		// When orderBySortExps is nil, rearrangeOrdExps has merged GROUP BY and
-		// ORDER BY into a single sort — we must keep the sort-based path to
-		// preserve the implicit "GROUP BY implies sorted output" guarantee.
-		useHashAgg := len(scanSpecs.groupBySortExps) > 0 && len(scanSpecs.orderBySortExps) > 0
+		// Three sub-cases after hash agg:
+		//   a) stmt.orderBy == nil: no ORDER BY — output order is undefined,
+		//      which is correct per SQL standard.
+		//   b) orderBySortExps != nil: a separate ORDER BY sort is needed;
+		//      the applyOrderBy block below adds it.
+		//   c) orderBySortExps == nil && stmt.orderBy != nil: rearrangeOrdExps
+		//      merged ORDER BY into the GROUP BY sort, which hash agg bypassed.
+		//      Re-add the sort here using the original ORDER BY expressions.
+		useHashAgg := len(scanSpecs.groupBySortExps) > 0
 
 		if useHashAgg {
 			hashGrpRdr, hErr := newHashGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
@@ -3814,16 +3818,22 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 				return nil, hErr
 			}
 			rowReader = hashGrpRdr
-		} else {
-			if len(scanSpecs.groupBySortExps) > 0 {
-				var sortRowReader *sortRowReader
-				sortRowReader, err = newSortRowReader(rowReader, scanSpecs.groupBySortExps)
-				if err != nil {
-					return nil, err
-				}
-				rowReader = sortRowReader
-			}
 
+			// Case (c): ORDER BY was merged into the GROUP BY sort by
+			// rearrangeOrdExps (stmt.orderBy set but orderBySortExps nil).
+			// Hash agg bypassed that sort, so re-add it using the merged
+			// groupBySortExps key, which covers the ORDER BY prefix and
+			// produces more deterministic within-group ordering.
+			if stmt.orderBy != nil && len(scanSpecs.orderBySortExps) == 0 {
+				sortRdr, sErr := newSortRowReader(rowReader, scanSpecs.groupBySortExps)
+				if sErr != nil {
+					return nil, sErr
+				}
+				rowReader = sortRdr
+			}
+		} else {
+			// groupBySortExps == 0: the index already provides GROUP BY order;
+			// stream-aggregate directly without an explicit sort.
 			var groupedRowReader *groupedRowReader
 			groupedRowReader, err = newGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
 			if err != nil {

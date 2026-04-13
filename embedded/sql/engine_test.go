@@ -5582,7 +5582,7 @@ func TestGroupBy(t *testing.T) {
 		require.Len(t, rows, 1)
 		require.Equal(t, rows[0].ValuesByPosition[0].RawValue(), int64(rowCount*(rowCount+1)/2))
 
-		reader, err := engine.Query(context.Background(), nil, "SELECT title, COUNT(*), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 GROUP BY title", nil)
+		reader, err := engine.Query(context.Background(), nil, "SELECT title, COUNT(*), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 GROUP BY title ORDER BY title", nil)
 		require.NoError(t, err)
 
 		specs := reader.ScanSpecs()
@@ -5621,7 +5621,7 @@ func TestGroupBy(t *testing.T) {
 	})
 
 	t.Run("group by with no aggregations should select distinct values", func(t *testing.T) {
-		rows, err := engine.queryAll(context.Background(), nil, "SELECT age FROM table1 GROUP BY age", nil)
+		rows, err := engine.queryAll(context.Background(), nil, "SELECT age FROM table1 GROUP BY age ORDER BY age", nil)
 		require.NoError(t, err)
 		require.Len(t, rows, rowCount)
 
