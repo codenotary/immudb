@@ -77,6 +77,10 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 					"2006-01-02 15:04:05",
 					"2006-01-02 15:04",
 					"2006-01-02",
+					time.RFC3339Nano,                // 2006-01-02T15:04:05.999999999Z07:00
+					time.RFC3339,                    // 2006-01-02T15:04:05Z07:00
+					"2006-01-02T15:04:05.999999999", // ISO-8601, no timezone
+					"2006-01-02T15:04:05",           // ISO-8601, no fractional seconds, no timezone
 				}
 
 				for _, layout := range supportedTimeFormats {
@@ -319,9 +323,37 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			return jsonConverted(dst), nil
 		}
 
+		if src == IntegerType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+				return &Varchar{val: strconv.FormatInt(val.RawValue().(int64), 10)}, nil
+			}, nil
+		}
+
+		if src == Float64Type {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+				return &Varchar{val: strconv.FormatFloat(val.RawValue().(float64), 'g', -1, 64)}, nil
+			}, nil
+		}
+
+		if src == BooleanType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+				return &Varchar{val: strconv.FormatBool(val.RawValue().(bool))}, nil
+			}, nil
+		}
+
 		return nil, fmt.Errorf(
-			"%w: only UUID type can be cast as VARCHAR",
+			"%w: cannot cast %s to VARCHAR",
 			ErrUnsupportedCast,
+			src,
 		)
 	}
 

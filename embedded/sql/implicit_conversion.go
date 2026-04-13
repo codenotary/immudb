@@ -16,7 +16,11 @@ limitations under the License.
 
 package sql
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // mayApplyImplicitConversion may do an implicit type conversion
 // implicit conversion is currently done in a subset of possible explicit conversions i.e. CAST
@@ -93,6 +97,51 @@ func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType
 			}
 
 			typedVal = &Blob{val: value}
+		}
+	case TimestampType:
+		switch value := val.(type) {
+		case time.Time:
+			return val, nil
+		case string:
+			converter, err = getConverter(VarcharType, TimestampType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Varchar{val: value}
+		}
+	case VarcharType:
+		switch value := val.(type) {
+		case string:
+			return val, nil
+		case int64:
+			converter, err = getConverter(IntegerType, VarcharType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Integer{val: value}
+		case int:
+			converter, err = getConverter(IntegerType, VarcharType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Integer{val: int64(value)}
+		case float64:
+			converter, err = getConverter(Float64Type, VarcharType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Float64{val: value}
+		case bool:
+			converter, err = getConverter(BooleanType, VarcharType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Bool{val: value}
 		}
 	default:
 		// No implicit conversion rule found, do not convert at all

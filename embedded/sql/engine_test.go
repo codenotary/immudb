@@ -1086,6 +1086,83 @@ func TestNumericCasts(t *testing.T) {
 	}
 }
 
+func TestImplicitVarcharCoercionAndISO8601Timestamps(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil,
+		`CREATE TABLE pg_import(
+			id INTEGER PRIMARY KEY,
+			created_at TIMESTAMP,
+			code VARCHAR,
+			price VARCHAR,
+			flag VARCHAR
+		)`, nil)
+	require.NoError(t, err)
+
+	t.Run("implicit int and float coercion to VARCHAR on INSERT", func(t *testing.T) {
+		_, _, err := engine.Exec(ctx, nil,
+			`INSERT INTO pg_import(id, created_at, code, price, flag)
+			 VALUES (1, '2017-07-19 19:44:56', 1018947080336, 29.4632611, true)`, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(ctx, nil,
+			"SELECT code, price, flag FROM pg_import WHERE id = 1", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "1018947080336", row.ValuesByPosition[0].RawValue())
+		require.Equal(t, "29.4632611", row.ValuesByPosition[1].RawValue())
+		require.Equal(t, "true", row.ValuesByPosition[2].RawValue())
+	})
+
+	t.Run("ISO-8601 timestamp literal with T and Z", func(t *testing.T) {
+		_, _, err := engine.Exec(ctx, nil,
+			`INSERT INTO pg_import(id, created_at, code)
+			 VALUES (2, '2017-07-19T19:44:56.582Z', 'a')`, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(ctx, nil,
+			"SELECT created_at FROM pg_import WHERE id = 2", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(ctx)
+		require.NoError(t, err)
+		ts := row.ValuesByPosition[0].RawValue().(time.Time)
+		require.Equal(t, time.Date(2017, 7, 19, 19, 44, 56, 582000000, time.UTC), ts)
+	})
+
+	t.Run("ISO-8601 timestamp literal with offset", func(t *testing.T) {
+		_, _, err := engine.Exec(ctx, nil,
+			`INSERT INTO pg_import(id, created_at, code)
+			 VALUES (3, '2017-07-19T21:44:56.582+02:00', 'b')`, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(ctx, nil,
+			"SELECT created_at FROM pg_import WHERE id = 3", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(ctx)
+		require.NoError(t, err)
+		ts := row.ValuesByPosition[0].RawValue().(time.Time)
+		require.Equal(t, time.Date(2017, 7, 19, 19, 44, 56, 582000000, time.UTC), ts.UTC())
+	})
+
+	t.Run("explicit CAST integer to VARCHAR", func(t *testing.T) {
+		r, err := engine.Query(ctx, nil, "SELECT CAST(42 AS VARCHAR)", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "42", row.ValuesByPosition[0].RawValue())
+	})
+}
+
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	engine := setupCommonTest(t)
 
@@ -1660,11 +1737,11 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, title, active) VALUES (1, @title, false)", nil)
 	require.ErrorIs(t, err, ErrMissingParameter)
 
+	// Numeric params for a VARCHAR column are now implicitly coerced to strings.
 	params = make(map[string]interface{}, 1)
 	params["title"] = uint64(1)
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params)
-	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Contains(t, err.Error(), "is not a string")
+	require.NoError(t, err)
 
 	params = make(map[string]interface{}, 1)
 	params["title"] = uint64(1)
@@ -2358,9 +2435,10 @@ func TestEncodeValue(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
+	// Integer → VARCHAR is now an allowed implicit coercion.
 	b, err = EncodeValue(&Integer{val: int64(1)}, VarcharType, 0)
-	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Nil(t, b)
+	require.NoError(t, err)
+	require.NotNil(t, b)
 
 	b, err = EncodeValue(&Integer{val: int64(1)}, BLOBType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
@@ -2440,9 +2518,10 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
+	// Integer → VARCHAR is now an allowed implicit coercion.
 	b, err = EncodeValue((&Integer{val: 1}), VarcharType, 0)
-	require.ErrorIs(t, err, ErrInvalidValue)
-	require.Nil(t, b)
+	require.NoError(t, err)
+	require.NotNil(t, b)
 
 	b, err = EncodeValue((&Blob{val: []byte{}}), BLOBType, 50)
 	require.NoError(t, err)
@@ -8568,8 +8647,9 @@ func TestEncodeAsKeyEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidValue)
 
 	t.Run("varchar cases", func(t *testing.T) {
+		// Implicit coercion to VARCHAR is allowed for booleans, ints and floats.
 		_, _, err = EncodeValueAsKey(&Bool{val: true}, VarcharType, 10)
-		require.ErrorIs(t, err, ErrInvalidValue)
+		require.NoError(t, err)
 
 		_, _, err = EncodeValueAsKey(&Varchar{val: "abc"}, VarcharType, 1)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
