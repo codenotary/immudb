@@ -3723,6 +3723,11 @@ func (stmt *SelectStmt) extractSelectors() []Selector {
 }
 
 func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	// resolveOrderByAliases is normally called via execAt→validateQuery, but
+	// CTEStmt.Resolve() calls this method directly (bypassing execAt). Calling
+	// here ensures "ORDER BY alias" always works regardless of entry point.
+	stmt.resolveOrderByAliases()
+
 	scanSpecs, err := stmt.genScanSpecs(tx, params)
 	if err != nil {
 		return nil, err
@@ -3783,6 +3788,15 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		rowReader = newConditionalRowReader(rowReader, stmt.where)
 	}
 
+	// Fast-path: SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or
+	// HAVING.  Count index keys directly without decoding any column values.
+	if stmt.isBareCountStar() {
+		if rawRdr, ok := rowReader.(*rawRowReader); ok {
+			rowReader = newCountingRowReader(rawRdr, stmt.targets[0].Exp.(*AggColSelector))
+			goto applyOrderBy
+		}
+	}
+
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
 		if len(scanSpecs.groupBySortExps) > 0 {
 			var sortRowReader *sortRowReader
@@ -3805,13 +3819,22 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}
 
+applyOrderBy:
 	if len(scanSpecs.orderBySortExps) > 0 {
-		var sortRowReader *sortRowReader
-		sortRowReader, err = newSortRowReader(rowReader, stmt.orderBy)
+		var sortRdr *sortRowReader
+		sortRdr, err = newSortRowReader(rowReader, stmt.orderBy)
 		if err != nil {
 			return nil, err
 		}
-		rowReader = sortRowReader
+		// Top-N heap optimisation: when ORDER BY is paired with a small
+		// constant LIMIT and no OFFSET, use a bounded heap instead of a
+		// full sort so that only N rows are kept in memory.
+		if stmt.limit != nil && stmt.offset == nil {
+			if lv, lErr := evalExpAsInt(tx, stmt.limit, params); lErr == nil && lv > 0 && lv <= topNSortThreshold {
+				sortRdr.topNLimit = lv
+			}
+		}
+		rowReader = sortRdr
 	}
 
 	// Detect window functions in targets and wrap with windowRowReader
@@ -3949,6 +3972,18 @@ func (stmt *SelectStmt) containsAggregations() bool {
 	return false
 }
 
+// isBareCountStar reports whether the statement is exactly
+// SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or HAVING.
+// Such queries can be answered by counting index keys without decoding values.
+func (stmt *SelectStmt) isBareCountStar() bool {
+	if len(stmt.targets) != 1 || stmt.where != nil ||
+		len(stmt.groupBy) > 0 || stmt.having != nil || len(stmt.joins) > 0 {
+		return false
+	}
+	agg, ok := stmt.targets[0].Exp.(*AggColSelector)
+	return ok && agg.aggFn == COUNT && agg.col == "*" && !agg.distinct
+}
+
 func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, error) {
 	offset, err := exp.substitute(params)
 	if err != nil {
@@ -4057,6 +4092,16 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		return nil, fmt.Errorf("%w: diff queries are supported over primary index", ErrIllegalArguments)
 	}
 
+	// INLJ fallback: when no sort-based index was found and this is not a
+	// history/diff scan, look for a secondary index whose leading columns are
+	// fully covered by equality ranges. This turns O(N×M) nested-loop join
+	// inner scans into O(N+M) index seeks without touching history/diff paths.
+	if sortingIndex == table.primaryIndex && !tableRef.history && !tableRef.diff {
+		if idx := stmt.selectINLJIndex(table, rangesByColID); idx != nil {
+			sortingIndex = idx
+		}
+	}
+
 	var descOrder bool
 	if len(groupByCols) > 0 && sortingIndex.coversOrdCols(groupByCols, rangesByColID) {
 		groupByCols = nil
@@ -4097,6 +4142,28 @@ func (stmt *SelectStmt) selectSortingIndex(groupByCols, orderByCols []*OrdExp, t
 		}
 	}
 	return nil
+}
+
+// selectINLJIndex picks the most selective secondary index for an index-nested-
+// loop join (INLJ) fallback. It counts how many consecutive leading columns of
+// each non-primary index are covered by point-equality ranges and returns the
+// index with the highest count (ties broken by iteration order).
+//
+// Only called from genScanSpecs when there are no sort columns and the scan is
+// not a history/diff read (those require the primary index).
+func (stmt *SelectStmt) selectINLJIndex(table *Table, rangesByColID map[uint32]*typedValueRange) *Index {
+	var best *Index
+	var bestCovered int
+	for _, idx := range table.indexes {
+		if idx.IsPrimary() {
+			continue
+		}
+		if n := idx.countEqualityCoveredCols(rangesByColID); n > bestCovered {
+			best = idx
+			bestCovered = n
+		}
+	}
+	return best
 }
 
 func (stmt *SelectStmt) getPreferredIndex(table *Table) (*Index, error) {
@@ -5314,6 +5381,13 @@ func (sel *ColSelector) selectorRanges(table *Table, asTable string, params map[
 
 func (sel *ColSelector) String() string {
 	return sel.col
+}
+
+// Selector returns the encoded form "aggFn(table.col)" used as keys in
+// Row.ValuesBySelector. Only meaningful when the table alias is explicit
+// (e.g. in a JOIN condition like "r.customer_id = c.customer_id").
+func (sel *ColSelector) Selector() string {
+	return EncodeSelector("", sel.table, sel.col)
 }
 
 type AggColSelector struct {

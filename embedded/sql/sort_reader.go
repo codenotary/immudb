@@ -17,9 +17,14 @@ limitations under the License.
 package sql
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 )
+
+// topNSortThreshold is the maximum LIMIT value for which the top-N heap
+// optimisation is applied. For larger limits the full file-sort path is used.
+const topNSortThreshold = 1000
 
 type sortDirection int8
 
@@ -35,6 +40,11 @@ type sortRowReader struct {
 	sorter             fileSorter
 
 	resultReader resultReader
+
+	// topNLimit, when > 0, activates the bounded heap optimisation: only the
+	// top-N rows (in sort order) are retained in memory instead of sorting
+	// the full result set. Set from the query LIMIT when applicable.
+	topNLimit int
 
 	// onCloseCallback fires from this reader's own Close (not from inner
 	// readers'). Stored locally rather than propagated so that the join
@@ -282,11 +292,95 @@ func (sr *sortRowReader) Read(ctx context.Context) (*Row, error) {
 }
 
 func (sr *sortRowReader) readAndSort(ctx context.Context) (resultReader, error) {
+	if sr.topNLimit > 0 {
+		return sr.readAndSortTopN(ctx)
+	}
 	err := sr.readAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return sr.sorter.finalize()
+}
+
+// topNHeap is a max-heap of *Row values used by the top-N sort optimisation.
+// It retains only the N rows with the smallest sort key (the rows that appear
+// first in the final ORDER BY output). A max-heap lets us cheaply compare and
+// evict the current worst candidate without touching the other rows.
+type topNHeap struct {
+	rows []*Row
+	cmp  func(r1, r2 *Row) (int, error)
+	err  error // first comparison error, if any
+}
+
+func (h *topNHeap) Len() int { return len(h.rows) }
+
+// Less makes this a max-heap: the root holds the row that sorts LAST (worst).
+func (h *topNHeap) Less(i, j int) bool {
+	res, err := h.cmp(h.rows[i], h.rows[j])
+	if err != nil && h.err == nil {
+		h.err = err
+	}
+	return res > 0
+}
+
+func (h *topNHeap) Swap(i, j int) { h.rows[i], h.rows[j] = h.rows[j], h.rows[i] }
+
+func (h *topNHeap) Push(x interface{}) { h.rows = append(h.rows, x.(*Row)) }
+
+func (h *topNHeap) Pop() interface{} {
+	old := h.rows
+	n := len(old)
+	x := old[n-1]
+	old[n-1] = nil
+	h.rows = old[:n-1]
+	return x
+}
+
+// readAndSortTopN reads all inner rows into a bounded max-heap of size
+// topNLimit, then extracts them in ascending sort order. This avoids the
+// disk-spill path for queries like ORDER BY col LIMIT 10.
+func (sr *sortRowReader) readAndSortTopN(ctx context.Context) (resultReader, error) {
+	h := &topNHeap{
+		cmp:  sr.sorter.cmp,
+		rows: make([]*Row, 0, sr.topNLimit+1),
+	}
+	heap.Init(h)
+
+	for {
+		row, err := sr.rowReader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		if h.Len() < sr.topNLimit {
+			heap.Push(h, row)
+		} else {
+			// Evict the current worst row if this one is better.
+			res, cmpErr := sr.sorter.cmp(row, h.rows[0])
+			if cmpErr != nil {
+				return nil, cmpErr
+			}
+			if res < 0 { // row sorts before the heap root (current worst)
+				heap.Pop(h)
+				heap.Push(h, row)
+			}
+		}
+		if h.err != nil {
+			return nil, h.err
+		}
+	}
+
+	// Pop from max-heap: elements come out largest-first.  Reverse to get
+	// ascending (correct final) order.
+	n := h.Len()
+	rows := make([]*Row, n)
+	for i := n - 1; i >= 0; i-- {
+		rows[i] = heap.Pop(h).(*Row)
+	}
+	return &bufferResultReader{sortBuf: rows}, nil
 }
 
 func (sr *sortRowReader) readAll(ctx context.Context) error {

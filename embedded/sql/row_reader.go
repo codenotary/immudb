@@ -552,6 +552,35 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	return &Row{ValuesByPosition: valuesByPosition, ValuesBySelector: valuesBySelector}, nil
 }
 
+// CountAll iterates the scan without decoding column values, returning the
+// number of matching index entries. Used by the COUNT(*) fast-path.
+func (r *rawRowReader) CountAll(ctx context.Context) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if err := r.reduceTxRange(); errors.Is(err, store.ErrTxNotFound) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+	var n int64
+	for {
+		var err error
+		if r.txRange == nil {
+			_, _, err = r.reader.Read(ctx)
+		} else {
+			_, _, err = r.reader.ReadBetween(ctx, r.txRange.initialTxID, r.txRange.finalTxID)
+		}
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			return n, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		n++
+	}
+}
+
 func (r *rawRowReader) parseTxMetadata(txmd *store.TxMetadata) (TypedValue, error) {
 	if txmd == nil {
 		return &NullValue{t: JSONType}, nil
