@@ -19,12 +19,21 @@ package sql
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/store"
 )
+
+// savepointState captures SQLTx state at a SAVEPOINT for later rollback.
+type savepointState struct {
+	updatedRows      int
+	lastInsertedPKs  map[string]int64
+	firstInsertedPKs map[string]int64
+	mutatedCatalog   bool
+}
 
 // SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
@@ -46,6 +55,8 @@ type SQLTx struct {
 	txHeader *store.TxHeader // header is set once tx is committed
 
 	onCommittedCallbacks []onCommittedCallback
+
+	savepoints map[string]*savepointState
 }
 
 type onCommittedCallback = func(sqlTx *SQLTx) error
@@ -114,6 +125,65 @@ func (sqlTx *SQLTx) setTransient(key []byte, metadata *store.KVMetadata, value [
 
 func (sqlTx *SQLTx) getWithPrefix(ctx context.Context, prefix, neq []byte) (key []byte, valRef store.ValueRef, err error) {
 	return sqlTx.tx.GetWithPrefix(ctx, prefix, neq)
+}
+
+func (sqlTx *SQLTx) Savepoint(name string) {
+	if sqlTx.savepoints == nil {
+		sqlTx.savepoints = make(map[string]*savepointState)
+	}
+
+	// Copy current state
+	lastPKs := make(map[string]int64)
+	for k, v := range sqlTx.lastInsertedPKs {
+		lastPKs[k] = v
+	}
+	firstPKs := make(map[string]int64)
+	for k, v := range sqlTx.firstInsertedPKs {
+		firstPKs[k] = v
+	}
+
+	sqlTx.savepoints[name] = &savepointState{
+		updatedRows:      sqlTx.updatedRows,
+		lastInsertedPKs:  lastPKs,
+		firstInsertedPKs: firstPKs,
+		mutatedCatalog:   sqlTx.mutatedCatalog,
+	}
+}
+
+func (sqlTx *SQLTx) RollbackToSavepoint(name string) error {
+	if sqlTx.savepoints == nil {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	sp, ok := sqlTx.savepoints[name]
+	if !ok {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	// Restore state
+	sqlTx.updatedRows = sp.updatedRows
+	sqlTx.lastInsertedPKs = sp.lastInsertedPKs
+	sqlTx.firstInsertedPKs = sp.firstInsertedPKs
+	sqlTx.mutatedCatalog = sp.mutatedCatalog
+
+	// Remove this savepoint and any created after it
+	// (PostgreSQL behavior: ROLLBACK TO destroys savepoints created after the named one)
+	delete(sqlTx.savepoints, name)
+
+	return nil
+}
+
+func (sqlTx *SQLTx) ReleaseSavepoint(name string) error {
+	if sqlTx.savepoints == nil {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	if _, ok := sqlTx.savepoints[name]; !ok {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	delete(sqlTx.savepoints, name)
+	return nil
 }
 
 func (sqlTx *SQLTx) Cancel() error {

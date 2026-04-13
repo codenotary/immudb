@@ -299,6 +299,58 @@ func (stmt *RollbackStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 	return nil, tx.Cancel()
 }
 
+type SavepointStmt struct {
+	name string
+}
+
+func (stmt *SavepointStmt) readOnly() bool                     { return true }
+func (stmt *SavepointStmt) requiredPrivileges() []SQLPrivilege { return nil }
+func (stmt *SavepointStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *SavepointStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.IsExplicitCloseRequired() {
+		return nil, ErrNoOngoingTx
+	}
+	tx.Savepoint(stmt.name)
+	return tx, nil
+}
+
+type ReleaseSavepointStmt struct {
+	name string
+}
+
+func (stmt *ReleaseSavepointStmt) readOnly() bool                     { return true }
+func (stmt *ReleaseSavepointStmt) requiredPrivileges() []SQLPrivilege { return nil }
+func (stmt *ReleaseSavepointStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *ReleaseSavepointStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.IsExplicitCloseRequired() {
+		return nil, ErrNoOngoingTx
+	}
+	return tx, tx.ReleaseSavepoint(stmt.name)
+}
+
+type RollbackToSavepointStmt struct {
+	name string
+}
+
+func (stmt *RollbackToSavepointStmt) readOnly() bool                     { return true }
+func (stmt *RollbackToSavepointStmt) requiredPrivileges() []SQLPrivilege { return nil }
+func (stmt *RollbackToSavepointStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *RollbackToSavepointStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.IsExplicitCloseRequired() {
+		return nil, ErrNoOngoingTx
+	}
+	return tx, tx.RollbackToSavepoint(stmt.name)
+}
+
 type CreateDatabaseStmt struct {
 	DB          string
 	ifNotExists bool

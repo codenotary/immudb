@@ -67,6 +67,8 @@ var keywords = map[string]int{
 	"TRANSACTION":    TRANSACTION,
 	"COMMIT":         COMMIT,
 	"ROLLBACK":       ROLLBACK,
+	"SAVEPOINT":      SAVEPOINT,
+	"RELEASE":        RELEASE,
 	"SELECT":         SELECT,
 	"DISTINCT":       DISTINCT,
 	"FROM":           FROM,
