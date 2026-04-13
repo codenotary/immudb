@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -133,6 +134,13 @@ type Engine struct {
 	multidbHandler                MultiDBHandler
 	tableResolvers                map[string]TableResolver
 	sequences                     map[string]*Sequence
+
+	// catalogMu guards cachedCatalog. The cached catalog is built once from the
+	// store and reused across read-only transactions to avoid redundant B-tree
+	// scans on every autocommit SELECT. It is invalidated whenever a DDL
+	// statement commits (mutatedCatalog == true).
+	catalogMu     sync.RWMutex
+	cachedCatalog *Catalog
 }
 
 // Sequence represents a named auto-incrementing counter
@@ -377,6 +385,28 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		tx.WithMetadata(txmd)
 	}
 
+	// For read-only transactions, try to reuse the engine-level catalog cache.
+	// catalog.load() scans all table/column/index metadata from the B-tree on
+	// every transaction open — skipping it on reads eliminates the dominant
+	// per-query overhead for autocommit SELECT workloads.
+	if opts.ReadOnly {
+		e.catalogMu.RLock()
+		cached := e.cachedCatalog
+		e.catalogMu.RUnlock()
+
+		if cached != nil {
+			// Sequences and views are already loaded in engine fields.
+			return &SQLTx{
+				engine:           e,
+				opts:             opts,
+				tx:               tx,
+				catalog:          cached,
+				lastInsertedPKs:  make(map[string]int64),
+				firstInsertedPKs: make(map[string]int64),
+			}, nil
+		}
+	}
+
 	catalog := newCatalog(e.prefix)
 
 	err = catalog.load(ctx, tx)
@@ -479,6 +509,17 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		}
 	}
 
+	// Populate the read-only catalog cache so subsequent autocommit SELECTs
+	// bypass catalog.load() entirely. Only cache when the caller did not
+	// mutate the schema (write transactions are never cached).
+	if opts.ReadOnly {
+		e.catalogMu.Lock()
+		if e.cachedCatalog == nil {
+			e.cachedCatalog = catalog
+		}
+		e.catalogMu.Unlock()
+	}
+
 	return &SQLTx{
 		engine:           e,
 		opts:             opts,
@@ -487,6 +528,14 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		lastInsertedPKs:  make(map[string]int64),
 		firstInsertedPKs: make(map[string]int64),
 	}, nil
+}
+
+// invalidateCatalogCache clears the engine-level catalog cache. Called after
+// any DDL transaction commits so the next read-only tx reloads from the store.
+func (e *Engine) invalidateCatalogCache() {
+	e.catalogMu.Lock()
+	e.cachedCatalog = nil
+	e.catalogMu.Unlock()
 }
 
 func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {

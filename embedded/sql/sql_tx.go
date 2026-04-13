@@ -206,6 +206,12 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 		return err
 	}
 
+	// DDL committed: the cached catalog is now stale; clear it so the next
+	// read-only transaction reloads the schema from the store.
+	if sqlTx.mutatedCatalog {
+		sqlTx.engine.invalidateCatalogCache()
+	}
+
 	merr := multierr.NewMultiErr()
 
 	for _, onCommitCallback := range sqlTx.onCommittedCallbacks {
