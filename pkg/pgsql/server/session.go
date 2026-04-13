@@ -198,3 +198,41 @@ func (s *session) sqlTx() (*sql.SQLTx, error) {
 	ctx := schema.ContextWithMetadata(s.ctx, md)
 	return s.db.NewSQLTx(ctx, sql.DefaultTxOptions())
 }
+
+// useDatabase rebinds this pgsql session to a different immudb database
+// without forcing the client to reconnect. Permission enforcement is
+// delegated to the embedded gRPC client (s.client.UseDatabase), which
+// runs the same checks as the initial connect: the logged-in user must
+// have Admin / R / RW on the target database, otherwise the gRPC layer
+// returns PermissionDenied and we surface that to the pgsql client.
+//
+// Any in-flight SQL transaction is rolled back, and prepared statements
+// and portals are dropped, since their plans reference the old catalog
+// and would silently bind to wrong tables on the new database.
+func (s *session) useDatabase(name string) error {
+	dbHandle, err := s.dbList.GetByName(name)
+	if err != nil {
+		return err
+	}
+
+	if s.client != nil {
+		if _, err := s.client.UseDatabase(s.ctx, &schema.Database{DatabaseName: name}); err != nil {
+			return err
+		}
+	}
+
+	if s.tx != nil {
+		_ = s.tx.Cancel()
+		s.tx = nil
+	}
+	for k := range s.statements {
+		delete(s.statements, k)
+	}
+	for k := range s.portals {
+		delete(s.portals, k)
+	}
+
+	s.db = dbHandle
+	s.log.Infof("pgcompat: session for user %q switched to database %q", s.user, name)
+	return nil
+}

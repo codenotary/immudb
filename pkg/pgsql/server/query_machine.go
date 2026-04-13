@@ -333,9 +333,10 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	for _, stmt := range stmts {
 		switch st := stmt.(type) {
 		case *sql.UseDatabaseStmt:
-			{
-				return pserr.ErrUseDBStatementNotSupported
+			if err := s.useDatabase(st.DB); err != nil {
+				return err
 			}
+			continue
 		case sql.DataSource:
 			if err = s.query(st, parameters, resultColumnFormatCodes, extQueryMode); err != nil {
 				return err

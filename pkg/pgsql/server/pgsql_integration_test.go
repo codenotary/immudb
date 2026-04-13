@@ -524,7 +524,7 @@ func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.T) {
+func TestPgsqlServer_UseDatabaseSwitchesSession(t *testing.T) {
 	td := t.TempDir()
 
 	options := server.DefaultOptions().
@@ -555,12 +555,37 @@ func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	_, err = db.Exec("CREATE DATABASE db")
+	_, err = db.Exec("CREATE DATABASE seconddb")
 	require.NoError(t, err)
 
-	_, err = db.Exec("USE DATABASE db")
-	require.ErrorContains(t, err, errors.ErrUseDBStatementNotSupported.Error())
+	// USE DATABASE used to be rejected with ErrUseDBStatementNotSupported.
+	// It now succeeds and rebinds the session to the target database without
+	// requiring the client to reconnect.
+	_, err = db.Exec("USE DATABASE seconddb")
+	require.NoError(t, err)
 
+	// A table created after USE must land in seconddb. We prove this by
+	// switching back to defaultdb and confirming the table is no longer
+	// visible there.
+	_, err = db.Exec("CREATE TABLE post_use (id INTEGER, val VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+	_, err = db.Exec("UPSERT INTO post_use (id, val) VALUES (1, 'in-second-db')")
+	require.NoError(t, err)
+
+	_, err = db.Exec("USE DATABASE defaultdb")
+	require.NoError(t, err)
+
+	_, err = db.Exec("SELECT * FROM post_use")
+	require.Error(t, err) // table doesn't exist in defaultdb
+
+	// Switching to a database that does not exist must surface an error
+	// without leaving the session in a half-bound state.
+	_, err = db.Exec("USE DATABASE no_such_db")
+	require.Error(t, err)
+
+	// Sanity: defaultdb is still usable after the failed switch.
+	_, err = db.Exec("CREATE TABLE in_defaultdb (id INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
 }
 
 func TestPgsqlServer_SimpleQueryQueryExecError(t *testing.T) {
