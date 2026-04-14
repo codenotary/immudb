@@ -2026,8 +2026,19 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	})
 
 	t.Run("boolean key cases", func(t *testing.T) {
-		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', 'true', x'00A1')", nil)
-		require.ErrorIs(t, err, ErrInvalidValue)
+		// Varchar → Boolean is now an accepted coercion: 'true'/'t'/
+		// 'false'/'f' (and the other PG text-format synonyms) target a
+		// BOOLEAN column without a "value is not a boolean" rejection.
+		// See implicit_conversion.go's VarcharType→BooleanType branch.
+		// Use ids/titles outside the range the surrounding subtests
+		// touch so we don't introduce ordering coupling.
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, active, payload) VALUES (20, 'titleB1', 'true', x'00A1')", nil)
+		require.NoError(t, err)
+
+		// Garbage strings still fail — silent coercion to false would
+		// hide a real client bug, so the conversion is strict.
+		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, active, payload) VALUES (21, 'titleB2', 'maybe', x'00A1')", nil)
+		require.Error(t, err)
 	})
 
 	t.Run("blob key cases", func(t *testing.T) {

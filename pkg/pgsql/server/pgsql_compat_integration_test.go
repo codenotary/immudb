@@ -1238,3 +1238,126 @@ func TestPgsqlCompat_ForeignKeyConstraint(t *testing.T) {
 		)`)
 	require.NoError(t, err)
 }
+
+// TestPgsqlCompat_UpdatePersistsThroughWire pins the fix for the SET
+// blacklist regression: prior to it, every UPDATE … SET … WHERE … was
+// matched by the `set\s+.+` blacklist and silently dropped, so UPDATEs
+// "succeeded" but never wrote anything. End-to-end test through pgx so
+// the regression has to come back through the entire wire stack.
+func TestPgsqlCompat_UpdatePersistsThroughWire(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE upd_test (id INTEGER, name VARCHAR[64], PRIMARY KEY id)")
+	require.NoError(t, err)
+	_, err = conn.Exec(context.Background(),
+		"INSERT INTO upd_test (id, name) VALUES (1, 'before')")
+	require.NoError(t, err)
+
+	_, err = conn.Exec(context.Background(),
+		"UPDATE upd_test SET name = 'after' WHERE id = 1")
+	require.NoError(t, err)
+
+	// The persisted value is the load-bearing assertion. Don't gate on
+	// pgx's RowsAffected — the wire's CommandComplete tag may not carry
+	// the count, but the row must reflect the new value.
+	var name string
+	err = conn.QueryRow(context.Background(),
+		"SELECT name FROM upd_test WHERE id = 1").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, "after", name,
+		"UPDATE silently dropped on the wire if this still reads 'before' — SET-eating blacklist is back")
+}
+
+// (Bool / timestamp text-bind paths are exercised by the unit tests in
+// types_test.go — Test_buildNamedParams_BooleanText,
+// Test_buildNamedParams_TimestampText. A pgx round-trip test is not added
+// here because pgx's default encoder uses binary format for these types,
+// which exercises a different code branch than the fix.)
+
+// TestPgsqlCompat_BoolFromTextLiteral pins the engine-level Varchar →
+// Boolean coercion: a SQL literal `'t'` / `'true'` / `'f'` / etc. used
+// as the value for a BOOLEAN column must round-trip correctly. Before
+// the fix the engine returned "value is not a boolean" at encoding,
+// because no implicit converter existed and the raw Go string couldn't
+// be type-asserted to bool.
+func TestPgsqlCompat_BoolFromTextLiteral(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE bool_lit (id INTEGER, flag BOOLEAN, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	cases := []struct {
+		id   int
+		lit  string
+		want bool
+	}{
+		{1, "'t'", true},
+		{2, "'true'", true},
+		{3, "'f'", false},
+		{4, "'false'", false},
+		{5, "'1'", true},
+		{6, "'0'", false},
+	}
+	for _, c := range cases {
+		_, err := conn.Exec(context.Background(),
+			fmt.Sprintf("INSERT INTO bool_lit (id, flag) VALUES (%d, %s)", c.id, c.lit))
+		require.NoError(t, err, "literal %s rejected", c.lit)
+	}
+	for _, c := range cases {
+		var got bool
+		err := conn.QueryRow(context.Background(),
+			fmt.Sprintf("SELECT flag FROM bool_lit WHERE id = %d", c.id)).Scan(&got)
+		require.NoError(t, err)
+		require.Equal(t, c.want, got, "round-trip wrong for literal %s", c.lit)
+	}
+}
+
+// TestPgsqlCompat_JSONLiteralWithDoubleQuotes pins B.1: a SQL string
+// literal containing JSON syntax must not be mangled by the
+// identifier-rewrite regexes in pgTypeReplacements. Before the fix the
+// `"k"` inside `'{"k":1}'` was unwrapped to `{k:1}`, which the engine
+// then rejected as invalid JSON.
+func TestPgsqlCompat_JSONLiteralWithDoubleQuotes(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		"CREATE TABLE jl_test (id INTEGER, d JSON, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	for i, lit := range []string{
+		`{}`,
+		`{"k":1}`,
+		`{"users":[{"name":"bob"}]}`,
+		`[1,2,3]`,
+		`"plain"`,
+	} {
+		// SQL literal — no bind, no extended-query path. This was the
+		// previously-failing case.
+		_, err := conn.Exec(context.Background(),
+			fmt.Sprintf(`INSERT INTO jl_test (id, d) VALUES (%d, '%s')`, i+1, lit))
+		require.NoError(t, err, "literal INSERT failed for value %q", lit)
+	}
+
+	var count int
+	err = conn.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM jl_test").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 5, count)
+}

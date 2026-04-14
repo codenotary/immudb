@@ -46,3 +46,43 @@ func TestApplyImplicitConversion(t *testing.T) {
 		})
 	}
 }
+
+// TestApplyImplicitConversion_VarcharToBoolean covers the engine-level
+// VARCHAR → BOOLEAN coercion that lets `INSERT … VALUES (1, 't')` and
+// any string-formatted bool param target a BOOLEAN column. Without it,
+// the engine returned "value is not a boolean" and any client that
+// interpolated bool values as text — or whose driver bound them as
+// VARCHAR — was rejected at the type-check step.
+func TestApplyImplicitConversion_VarcharToBoolean(t *testing.T) {
+	for _, s := range []string{"t", "true", "TRUE", "y", "yes", "on", "1", "  T  "} {
+		got, err := mayApplyImplicitConversion(s, BooleanType)
+		require.NoError(t, err, "input %q", s)
+		require.Equal(t, true, got, "input %q", s)
+	}
+	for _, s := range []string{"f", "false", "FALSE", "n", "no", "off", "0"} {
+		got, err := mayApplyImplicitConversion(s, BooleanType)
+		require.NoError(t, err, "input %q", s)
+		require.Equal(t, false, got, "input %q", s)
+	}
+	for _, s := range []string{"", "maybe", "tt", "2"} {
+		_, err := mayApplyImplicitConversion(s, BooleanType)
+		require.Error(t, err, "input %q should be rejected", s)
+	}
+}
+
+func TestParsePGTextBool(t *testing.T) {
+	for _, s := range []string{"t", "T", "true", "TRUE", "y", "yes", "on", "1"} {
+		v, ok := parsePGTextBool(s)
+		require.True(t, ok)
+		require.True(t, v)
+	}
+	for _, s := range []string{"f", "F", "false", "FALSE", "n", "no", "off", "0"} {
+		v, ok := parsePGTextBool(s)
+		require.True(t, ok)
+		require.False(t, v)
+	}
+	for _, s := range []string{"", "maybe", "tt", "2", " "} {
+		_, ok := parsePGTextBool(s)
+		require.False(t, ok, "should reject %q", s)
+	}
+}

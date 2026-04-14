@@ -110,6 +110,21 @@ func mayApplyImplicitConversion(val interface{}, requiredColumnType SQLValueType
 
 			typedVal = &Varchar{val: value}
 		}
+	case BooleanType:
+		switch value := val.(type) {
+		case bool:
+			return val, nil
+		case string:
+			// Coerce text-format booleans (`t`, `f`, `true`, …) — a
+			// SQL literal `'t'` inserted into a BOOLEAN column or a
+			// VARCHAR-typed bind whose target is BOOLEAN.
+			converter, err = getConverter(VarcharType, BooleanType)
+			if err != nil {
+				return nil, err
+			}
+
+			typedVal = &Varchar{val: value}
+		}
 	case VarcharType:
 		switch value := val.(type) {
 		case string:
