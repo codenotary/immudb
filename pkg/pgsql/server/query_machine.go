@@ -453,6 +453,14 @@ var pgTypeReplacements = []struct {
 	// immudb doesn't support DEFAULT expr NOT NULL together — strip NOT NULL after DEFAULT
 	{regexp.MustCompile(`(?i)(DEFAULT\s+\S+(?:\([^)]*\))?)\s+NOT\s+NULL`), "$1"},
 
+	// Rails emits `SELECT "table_name".* FROM "table_name" WHERE ...` as
+	// its standard all-columns projection on ActiveRecord models. immudb
+	// grammar has no `identifier.*` production (only bare `*`), so strip
+	// the table prefix. Works for single-table queries (~99 % of AR);
+	// JOIN queries with multiple `t1.*, t2.*` become `*, *` which is
+	// technically different but returns the same union of columns.
+	{regexp.MustCompile(`(?i)\b[A-Za-z_][A-Za-z0-9_]*\s*\.\s*\*`), "*"},
+
 	// Rails emits Postgres-style `ON CONFLICT (col_list) DO ...` for
 	// `create_or_find_by!`, `upsert_all`, etc. immudb's grammar accepts
 	// only the column-less form (`ON CONFLICT DO NOTHING` / `ON CONFLICT

@@ -533,6 +533,129 @@ func (s *session) handleRegtypeOid(typeName string) error {
 	return nil
 }
 
+// immudbToPGType maps an immudb SQLValueType to a Postgres-style type name
+// and OID. Rails uses both to build its internal column descriptor; the OID
+// decides which OID::Type subclass handles (de)serialisation for the column.
+func immudbToPGType(t sql.SQLValueType) (string, int64) {
+	switch t {
+	case sql.IntegerType:
+		return "bigint", 20
+	case sql.Float64Type:
+		return "double precision", 701
+	case sql.BooleanType:
+		return "boolean", 16
+	case sql.VarcharType:
+		return "character varying", 1043
+	case sql.UUIDType:
+		return "uuid", 2950
+	case sql.BLOBType:
+		return "bytea", 17
+	case sql.JSONType:
+		return "jsonb", 3802
+	case sql.TimestampType:
+		return "timestamp without time zone", 1114
+	}
+	return "text", 25
+}
+
+// handlePgAttributeForTable answers Rails's pg_attribute introspection query
+// with real column data sourced from immudb's catalog. Without this, Rails
+// cannot resolve column types for ActiveRecord `enum :col, ...` declarations
+// (which require a backing database column) and every model with an enum
+// raises "Undeclared attribute type for enum 'col'".
+//
+// Rails expects exactly these columns in order:
+//
+//	attname, format_type, pg_get_expr, attnotnull,
+//	atttypid, atttypmod, collname, comment, identity, attgenerated
+func (s *session) handlePgAttributeForTable(tableName string) error {
+	cols := []sql.ColDescriptor{
+		{Column: "attname", Type: sql.VarcharType},
+		{Column: "format_type", Type: sql.VarcharType},
+		{Column: "pg_get_expr", Type: sql.VarcharType},
+		{Column: "attnotnull", Type: sql.BooleanType},
+		{Column: "atttypid", Type: sql.IntegerType},
+		{Column: "atttypmod", Type: sql.IntegerType},
+		{Column: "collname", Type: sql.VarcharType},
+		{Column: "comment", Type: sql.VarcharType},
+		{Column: "identity", Type: sql.VarcharType},
+		{Column: "attgenerated", Type: sql.VarcharType},
+	}
+	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
+		return err
+	}
+
+	tx, err := s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		s.log.Infof("pgcompat: pg_attribute intercept: begin tx: %v", err)
+		return nil // empty rows — Rails falls back, not strictly an error
+	}
+	defer tx.Cancel()
+
+	catalog := tx.Catalog()
+	table, err := catalog.GetTableByName(tableName)
+	if err != nil {
+		s.log.Infof("pgcompat: pg_attribute intercept: table %q absent (%v); returning 0 rows", tableName, err)
+		return nil
+	}
+
+	rows := make([]*sql.Row, 0, len(table.Cols()))
+	for _, c := range table.Cols() {
+		pgName, pgOID := immudbToPGType(c.Type())
+
+		// format_type mimics Postgres' pretty-printed column type. For
+		// VARCHAR we include the length; others stay bare.
+		formatted := pgName
+		typmod := int64(-1)
+		if c.Type() == sql.VarcharType && c.MaxLen() > 0 {
+			formatted = fmt.Sprintf("character varying(%d)", c.MaxLen())
+			typmod = int64(c.MaxLen() + 4) // PG stores varchar typmod as len + 4
+		}
+
+		var defaultExpr sql.TypedValue = sql.NewNull(sql.VarcharType)
+		if c.HasDefault() {
+			defaultExpr = sql.NewVarchar(c.DefaultValue().String())
+		}
+
+		rowVals := []sql.TypedValue{
+			sql.NewVarchar(c.Name()),
+			sql.NewVarchar(formatted),
+			defaultExpr,
+			sql.NewBool(!c.IsNullable()),
+			sql.NewInteger(pgOID),
+			sql.NewInteger(typmod),
+			sql.NewNull(sql.VarcharType), // collname
+			sql.NewNull(sql.VarcharType), // comment
+			sql.NewVarchar(""),           // identity
+			sql.NewVarchar(""),           // attgenerated
+		}
+		rows = append(rows, &sql.Row{ValuesByPosition: rowVals})
+	}
+
+	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// handlePgAdvisoryLock answers Rails's migration-lock queries
+// (SELECT pg_try_advisory_lock / pg_advisory_unlock) with a single TRUE row.
+// immudb has no advisory-lock subsystem, and a single-Rails-container
+// deployment does not need one. Returning true is the documented Postgres
+// response for "lock acquired", which lets Rails's migration logic proceed.
+func (s *session) handlePgAdvisoryLock() error {
+	cols := []sql.ColDescriptor{{Column: "result", Type: sql.BooleanType}}
+	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
+		return err
+	}
+	v := sql.NewBool(true)
+	rows := []*sql.Row{{ValuesByPosition: []sql.TypedValue{v}}}
+	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // trimQuotes removes surrounding single or double quotes from a string.
 func trimQuotes(s string) string {
 	if len(s) >= 2 {

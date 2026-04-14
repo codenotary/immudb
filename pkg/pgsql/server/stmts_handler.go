@@ -46,6 +46,19 @@ var (
 	// bind a Hash parameter against a column typed by that non-integer OID.
 	regtypeOidRe = regexp.MustCompile(`(?i)^\s*select\s+'([^']+)'::regtype::oid\s*;?\s*$`)
 
+	// Rails column introspection: drives ActiveRecord's knowledge of each
+	// table's columns. Without real data here, models that declare
+	// `enum :role, ...` fail with "Undeclared attribute type for enum 'role'".
+	// Match the canonical Rails 7 form of this query (multi-line, joins on
+	// pg_attrdef / pg_type / pg_collation, filter on attrelid = '"t"'::regclass).
+	pgAttributeForTableRe = regexp.MustCompile(`(?is)SELECT\s+a\.attname\s*,\s*format_type\s*\([^)]*\).*?FROM\s+pg_attribute\s+a.*?WHERE\s+a\.attrelid\s*=\s*'"?([^"']+)"?'::regclass`)
+
+	// Rails's db:migrate takes a Postgres advisory lock to serialise
+	// concurrent migrations. immudb has no advisory-lock subsystem; return
+	// true unconditionally to let the single Rails container proceed.
+	// Matches: SELECT pg_try_advisory_lock(...), pg_advisory_unlock(...)
+	pgAdvisoryLockRe = regexp.MustCompile(`(?i)^\s*select\s+pg_(?:try_)?advisory_(?:lock|unlock)\s*\(`)
+
 	// Blanket intercept for all PostgreSQL system catalog queries.
 	// pgAdmin, DBeaver, ORMs etc. send dozens of these after connecting.
 	// immudb can't execute them, so we return canned responses.
@@ -111,6 +124,15 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &regtypeOidCmd{typeName: m[1]}
 	}
 
+	if m := pgAttributeForTableRe.FindStringSubmatch(statement); len(m) == 2 {
+		s.log.Infof("pgcompat: pg_attribute intercept for table %q", m[1])
+		return &pgAttributeForTableCmd{tableName: m[1]}
+	}
+
+	if pgAdvisoryLockRe.MatchString(statement) {
+		return &pgAdvisoryLockCmd{}
+	}
+
 	// Blanket catch for ALL pg_catalog/information_schema/system queries.
 	// Returns canned responses with column names extracted from the query.
 	if pgSystemQueryRe.MatchString(statement) {
@@ -143,6 +165,10 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 		return s.handleShow(cmd.param)
 	case *regtypeOidCmd:
 		return s.handleRegtypeOid(cmd.typeName)
+	case *pgAttributeForTableCmd:
+		return s.handlePgAttributeForTable(cmd.tableName)
+	case *pgAdvisoryLockCmd:
+		return s.handlePgAdvisoryLock()
 	case *pgAdminProbe:
 		return s.handlePgSystemQuery(cmd.sql)
 	default:
@@ -178,6 +204,12 @@ type immudbTxCmd struct {
 type regtypeOidCmd struct {
 	typeName string
 }
+
+type pgAttributeForTableCmd struct {
+	tableName string
+}
+
+type pgAdvisoryLockCmd struct{}
 
 type showCmd struct {
 	param string

@@ -3611,7 +3611,25 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 	}
 	defer rowReader.Close()
 
-	return rowReader.InferParameters(ctx, params)
+	if err := rowReader.InferParameters(ctx, params); err != nil {
+		return err
+	}
+
+	// LIMIT / OFFSET expressions are evaluated eagerly in Resolve; when they
+	// are bind parameters, the Resolve-during-inference pass swallows the
+	// missing-parameter error. Walk them here so the parameter type
+	// (INTEGER) gets registered for the client's Bind message.
+	if stmt.limit != nil {
+		if terr := stmt.limit.requiresType(IntegerType, nil, params, ""); terr != nil {
+			return terr
+		}
+	}
+	if stmt.offset != nil {
+		if terr := stmt.offset.requiresType(IntegerType, nil, params, ""); terr != nil {
+			return terr
+		}
+	}
+	return nil
 }
 
 func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -3916,25 +3934,37 @@ applyOrderBy:
 		var offset int
 		offset, err = evalExpAsInt(tx, stmt.offset, params)
 		if err != nil {
-			return nil, fmt.Errorf("%w: invalid offset", err)
+			// During InferParameters the bind value for OFFSET is not yet
+			// available; skip so the rest of the statement can be type-
+			// checked. Note: normalizeParams replaces nil with an empty
+			// non-nil map, so len(params)==0 is the inference signal.
+			if len(params) == 0 && errors.Is(err, ErrMissingParameter) {
+				err = nil
+			} else {
+				return nil, fmt.Errorf("%w: invalid offset", err)
+			}
+		} else {
+			rowReader = newOffsetRowReader(rowReader, offset)
 		}
-
-		rowReader = newOffsetRowReader(rowReader, offset)
 	}
 
 	if stmt.limit != nil {
 		var limit int
 		limit, err = evalExpAsInt(tx, stmt.limit, params)
 		if err != nil {
-			return nil, fmt.Errorf("%w: invalid limit", err)
-		}
-
-		if limit < 0 {
-			return nil, fmt.Errorf("%w: invalid limit", ErrIllegalArguments)
-		}
-
-		if limit > 0 {
-			rowReader = newLimitRowReader(rowReader, limit)
+			// Same inference-phase tolerance as for OFFSET above.
+			if len(params) == 0 && errors.Is(err, ErrMissingParameter) {
+				err = nil
+			} else {
+				return nil, fmt.Errorf("%w: invalid limit", err)
+			}
+		} else {
+			if limit < 0 {
+				return nil, fmt.Errorf("%w: invalid limit", ErrIllegalArguments)
+			}
+			if limit > 0 {
+				rowReader = newLimitRowReader(rowReader, limit)
+			}
 		}
 	}
 	return rowReader, nil
