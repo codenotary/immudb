@@ -148,3 +148,75 @@ func TestScalarSubQueryInWhere_InferParameters(t *testing.T) {
 	require.Containsf(t, params, "param2",
 		"param2 must be registered by inferParameters; got %v", params)
 }
+
+// TestInSubQueryInWhere_InferParameters is the Gitea GetUserOrgsList
+// repro. XORM's builder lowers `builder.In(col, subquery)` to the
+// `col IN (SELECT …)` shape, which the grammar parses to
+// *InSubQueryExp. The subquery's WHERE carries the $N marker; the
+// outer SelectStmt.inferParameters must descend into it. Without the
+// fix, the pgsql ParameterDescription reports 0 params and lib/pq
+// rejects the client's 1-value Bind with "got 1 parameters but the
+// statement requires 0".
+func TestInSubQueryInWhere_InferParameters(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	mustExec := func(stmt string) {
+		t.Helper()
+		_, _, err := engine.Exec(ctx, nil, stmt, nil)
+		require.NoError(t, err, stmt)
+	}
+	mustExec(`CREATE TABLE u (id INTEGER NOT NULL, name VARCHAR, PRIMARY KEY(id));`)
+	mustExec(`CREATE TABLE ou (id INTEGER NOT NULL, uid INTEGER, org_id INTEGER, PRIMARY KEY(id));`)
+
+	params, err := engine.InferParameters(ctx, nil,
+		`SELECT id FROM u WHERE id IN (SELECT org_id FROM ou WHERE uid = $1)`)
+	require.NoError(t, err)
+	require.Lenf(t, params, 1,
+		"inferParameters must descend into the IN-subquery's WHERE; got %v", params)
+	require.Contains(t, params, "param1")
+}
+
+// TestExistsSubQueryInWhere_InferParameters — `WHERE EXISTS (SELECT …
+// WHERE x = $1)` is the other correlated-subquery shape ORMs emit for
+// nullable-reference checks. *ExistsBoolExp holds a DataSource `q`;
+// the walker must type-assert to *SelectStmt and recurse.
+func TestExistsSubQueryInWhere_InferParameters(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	mustExec := func(stmt string) {
+		t.Helper()
+		_, _, err := engine.Exec(ctx, nil, stmt, nil)
+		require.NoError(t, err, stmt)
+	}
+	mustExec(`CREATE TABLE t (id INTEGER NOT NULL, PRIMARY KEY(id));`)
+	mustExec(`CREATE TABLE q (id INTEGER NOT NULL, x INTEGER, PRIMARY KEY(id));`)
+
+	params, err := engine.InferParameters(ctx, nil,
+		`SELECT id FROM t WHERE EXISTS (SELECT 1 FROM q WHERE x = $1)`)
+	require.NoError(t, err)
+	require.Lenf(t, params, 1,
+		"inferParameters must descend into the EXISTS subquery's WHERE; got %v", params)
+	require.Contains(t, params, "param1")
+}
+
+// TestCaseWhenWithBindParam_InferParameters — $N can hide inside the
+// WHEN/THEN arms of a CASE expression in the SELECT list. ORMs emit
+// conditional aggregations in this shape. *CaseWhenExp has exp,
+// whenThen[], elseExp, all of which the walker must descend into.
+func TestCaseWhenWithBindParam_InferParameters(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil,
+		`CREATE TABLE t (id INTEGER NOT NULL, x INTEGER, PRIMARY KEY(id));`, nil)
+	require.NoError(t, err)
+
+	params, err := engine.InferParameters(ctx, nil,
+		`SELECT CASE WHEN x = $1 THEN 'y' ELSE 'n' END AS label FROM t`)
+	require.NoError(t, err)
+	require.Lenf(t, params, 1,
+		"inferParameters must descend into CASE/WHEN arms; got %v", params)
+	require.Contains(t, params, "param1")
+}

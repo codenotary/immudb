@@ -8067,6 +8067,30 @@ func collectExpParams(e ValueExp, params map[string]SQLValueType) {
 		for _, v := range ex.values {
 			collectExpParams(v, params)
 		}
+	case *InSubQueryExp:
+		// `col IN (SELECT … WHERE x = $1)` — XORM's builder lowers
+		// builder.In(col, subquery) to this shape; the $N lives in the
+		// subquery's WHERE, not in the outer IN-list.
+		collectExpParams(ex.val, params)
+		if ex.q != nil {
+			collectSubQueryParams(ex.q, params)
+		}
+	case *ExistsBoolExp:
+		// `WHERE EXISTS (SELECT … WHERE x = $1)` — ORM nullable-reference
+		// checks emit this; the DataSource is *SelectStmt in practice
+		// (the grammar wraps non-SelectStmt sources in one).
+		if sub, ok := ex.q.(*SelectStmt); ok {
+			collectSubQueryParams(sub, params)
+		}
+	case *CaseWhenExp:
+		collectExpParams(ex.exp, params)
+		for _, wt := range ex.whenThen {
+			collectExpParams(wt.when, params)
+			collectExpParams(wt.then, params)
+		}
+		collectExpParams(ex.elseExp, params)
+	case *ExtractFromTimestampExp:
+		collectExpParams(ex.Exp, params)
 	}
 }
 

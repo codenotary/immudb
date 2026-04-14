@@ -74,3 +74,43 @@ func TestGiteaCompat_RepoStatsCheckScalarSubquery(t *testing.T) {
 	}
 	require.NoError(t, rows.Err())
 }
+
+// TestGiteaCompat_UserOrgsListSubquery pins the dashboard-page 500 seen
+// on first login against the compose env:
+//
+//	GetUserOrgsList, pq: got 1 parameters but the statement requires 0
+//
+// Gitea's GetUserOrgsList emits
+//   SELECT u.id FROM u WHERE u.id IN (SELECT org_id FROM ou WHERE uid = $1)
+// through XORM. The $1 lives inside the IN-subquery's own WHERE.
+// Before the fix, SelectStmt.inferParameters' walker had no *InSubQueryExp
+// case and the pgsql ParameterDescription reported 0 params, so lib/pq
+// rejected the Bind.
+func TestGiteaCompat_UserOrgsListSubquery(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	db, err := sql.Open("postgres",
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(`CREATE TABLE u (id INTEGER NOT NULL, name VARCHAR, PRIMARY KEY(id))`)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE ou (id INTEGER NOT NULL, uid INTEGER, org_id INTEGER, PRIMARY KEY(id))`)
+	require.NoError(t, err)
+
+	rows, err := db.Query(
+		`SELECT u.id FROM u WHERE u.id IN (SELECT org_id FROM ou WHERE uid = $1) ORDER BY u.id ASC`,
+		42,
+	)
+	require.NoErrorf(t, err,
+		"IN (SELECT …) with a $N in the subquery must not fail at Parse or Bind; "+
+			"this is the GetUserOrgsList dashboard 500 regression guard")
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		require.NoError(t, rows.Scan(&id))
+	}
+	require.NoError(t, rows.Err())
+}
