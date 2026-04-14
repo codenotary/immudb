@@ -1899,13 +1899,32 @@ func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 		return err
 	}
 
+	// Build a column-descriptor map for the target table so RHS column
+	// references in the SET expressions (`SET col = col + 1`) resolve.
+	// Without this, requiresType evaluates RHS expressions against an
+	// empty cols map and any reference to an existing column fails with
+	// "column does not exist". UPDATE col=col+N is the canonical XORM /
+	// Hibernate "version increment" pattern.
+	cols := make(map[string]ColDescriptor, len(table.cols))
+	for _, c := range table.cols {
+		desc := ColDescriptor{
+			Table:  table.name,
+			Column: c.colName,
+			Type:   c.colType,
+		}
+		cols[EncodeSelector("", table.name, c.colName)] = desc
+		// Also key by bare column name so a parser that emits an
+		// unqualified ColSelector resolves directly.
+		cols[c.colName] = desc
+	}
+
 	for _, update := range stmt.updates {
 		col, err := table.GetColumnByName(update.col)
 		if err != nil {
 			return err
 		}
 
-		err = update.val.requiresType(col.colType, make(map[string]ColDescriptor), params, table.name)
+		err = update.val.requiresType(col.colType, cols, params, table.name)
 		if err != nil {
 			return err
 		}

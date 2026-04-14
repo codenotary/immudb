@@ -348,7 +348,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	}
 
 	if i := s.isEmulableInternally(statements); i != nil {
-		s.log.Infof("pgcompat: emulating query internally (extQueryMode=%v) sql=%.1500s", extQueryMode, statements)
+		s.log.Infof("pgcompat: emulating query internally (extQueryMode=%v) sql=%.300s", extQueryMode, statements)
 		if probe, ok := i.(*pgAdminProbe); ok && extQueryMode {
 			// Extended protocol: Describe already sent RowDescription, only send DataRow
 			if err := s.handlePgSystemQueryDataOnly(probe.sql); err != nil {
@@ -410,7 +410,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return err
 	}
 
-	s.log.Infof("pgcompat: executing query via SQL engine: %.1500s", statements)
+	s.log.Infof("pgcompat: executing query via SQL engine: %.300s", statements)
 	var err error
 	cacheKey := removePGCatalogReferences(statements)
 	var stmts []sql.SQLStmt
