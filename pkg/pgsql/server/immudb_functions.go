@@ -629,7 +629,30 @@ func (s *session) handlePgAttributeForTable(tableName string, extQueryMode bool)
 
 		var defaultExpr sql.TypedValue = sql.NewNull(sql.VarcharType)
 		if c.HasDefault() {
-			defaultExpr = sql.NewVarchar(c.DefaultValue().String())
+			raw := c.DefaultValue().String()
+			// Format defaults the way Postgres returns them so Rails' /
+			// SQLAlchemy's column-default parser can recognise them.
+			// Plain SQL literals like `'en'` become `'en'::character
+			// varying` for varchars; bare bools/ints / function calls
+			// (gen_random_uuid()) pass through unchanged. Without the
+			// type cast Rails treats the parsed default as nil and a
+			// NOT NULL column ends up failing validation on every new
+			// record.
+			switch c.Type() {
+			case sql.VarcharType:
+				if strings.HasPrefix(raw, "'") && strings.HasSuffix(raw, "'") {
+					raw = raw + "::character varying"
+				}
+			case sql.JSONType:
+				if strings.HasPrefix(raw, "'") && strings.HasSuffix(raw, "'") {
+					raw = raw + "::jsonb"
+				}
+			case sql.TimestampType:
+				if strings.HasPrefix(raw, "'") && strings.HasSuffix(raw, "'") {
+					raw = raw + "::timestamp without time zone"
+				}
+			}
+			defaultExpr = sql.NewVarchar(raw)
 		}
 
 		rowVals := []sql.TypedValue{
