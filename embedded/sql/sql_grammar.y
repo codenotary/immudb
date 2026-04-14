@@ -1740,6 +1740,7 @@ unaryExp
 
 primary
     : '(' exp ')' { $$ = $2 }
+    | '(' select_stmt ')' { $$ = &ScalarSubQueryExp{stmt: $2.(*SelectStmt)} }
     | boundexp
     ;
 

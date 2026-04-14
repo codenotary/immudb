@@ -7882,3 +7882,164 @@ func (stmt *AlterPrivilegesStmt) execAt(ctx context.Context, tx *SQLTx, params m
 func (stmt *AlterPrivilegesStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
+
+// ScalarSubQueryExp wraps a SELECT statement so it can be used as a
+// scalar value expression — e.g. `UPDATE t SET col = (SELECT count(*)
+// FROM other) WHERE …` or `SELECT … WHERE x = (SELECT max(y) FROM z)`.
+//
+// The subquery is evaluated lazily on first reduce(); the result is the
+// FIRST column of the FIRST row, matching standard SQL semantics. If
+// the subquery produces zero rows the value is NULL. If it produces
+// more than one row, only the first is used (real PG would error;
+// keeping the relaxed behaviour avoids breaking ORM patterns that
+// happen to be unique-by-construction).
+type ScalarSubQueryExp struct {
+	stmt *SelectStmt
+}
+
+func (sq *ScalarSubQueryExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	// Don't recurse into the subquery: SelectStmt.inferParameters needs
+	// a tx to resolve table references, but inferType is called at
+	// parse time before any tx exists. Returning AnyType lets the
+	// outer expression accept the subquery; runtime evaluation in
+	// reduce() handles real type resolution.
+	return AnyType, nil
+}
+
+func (sq *ScalarSubQueryExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	// Walk the subquery's expression tree for `$N` parameter
+	// references and register each in the outer params map as AnyType.
+	// Without this, ParameterDescription advertises 0 params for a
+	// statement like `UPDATE t SET col = (SELECT … WHERE x = $1) WHERE
+	// y = $2` and the client's Bind trips
+	//   "got N parameters but the statement requires 0".
+	collectSubQueryParams(sq.stmt, params)
+	return nil
+}
+
+// collectSubQueryParams registers every `$N` Param reference reachable
+// from a SelectStmt's expression nodes into the supplied params map as
+// AnyType. Used during parse-time parameter inference for scalar
+// subqueries; cannot rely on requiresType on each expression because
+// ColSelector/etc. need a populated cols map (which we don't have yet).
+func collectSubQueryParams(stmt *SelectStmt, params map[string]SQLValueType) {
+	if stmt == nil {
+		return
+	}
+	collectExpParams(stmt.where, params)
+	collectExpParams(stmt.having, params)
+	collectExpParams(stmt.limit, params)
+	collectExpParams(stmt.offset, params)
+	for _, t := range stmt.targets {
+		collectExpParams(t.Exp, params)
+	}
+	for _, j := range stmt.joins {
+		collectExpParams(j.cond, params)
+	}
+	// Recurse into nested subqueries in FROM (selectStmtDataSource).
+	if sub, ok := stmt.ds.(*SelectStmt); ok {
+		collectSubQueryParams(sub, params)
+	}
+}
+
+func collectExpParams(e ValueExp, params map[string]SQLValueType) {
+	if e == nil {
+		return
+	}
+	switch ex := e.(type) {
+	case *Param:
+		if _, exists := params[ex.id]; !exists {
+			params[ex.id] = AnyType
+		}
+	case *CmpBoolExp:
+		collectExpParams(ex.left, params)
+		collectExpParams(ex.right, params)
+	case *BinBoolExp:
+		collectExpParams(ex.left, params)
+		collectExpParams(ex.right, params)
+	case *NotBoolExp:
+		collectExpParams(ex.exp, params)
+	case *NumExp:
+		collectExpParams(ex.left, params)
+		collectExpParams(ex.right, params)
+	case *LikeBoolExp:
+		collectExpParams(ex.val, params)
+		collectExpParams(ex.pattern, params)
+	case *Cast:
+		collectExpParams(ex.val, params)
+	case *FnCall:
+		for _, p := range ex.params {
+			collectExpParams(p, params)
+		}
+	case *ScalarSubQueryExp:
+		collectSubQueryParams(ex.stmt, params)
+	}
+}
+
+func (sq *ScalarSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	// Subqueries can reference the outer parameters via their own
+	// expression tree; substitute does not recurse into the SelectStmt
+	// itself (the inner stmt's Resolve will receive the same params
+	// map at evaluation time).
+	return sq, nil
+}
+
+func (sq *ScalarSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	ctx := context.Background()
+	reader, err := sq.stmt.Resolve(ctx, tx, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	cols, err := reader.colsBySelector(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(cols) == 0 {
+		return &NullValue{t: AnyType}, nil
+	}
+
+	r, err := reader.Read(ctx)
+	if errors.Is(err, ErrNoMoreRows) {
+		// "no rows" → SQL NULL by definition
+		return &NullValue{t: AnyType}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Pick the first column's value. RowReader.Columns() returns them
+	// in select-list order; matching key from r.ValuesBySelector.
+	colDescs, err := reader.Columns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	first := colDescs[0]
+	val, ok := r.ValuesBySelector[first.Selector()]
+	if !ok {
+		return &NullValue{t: AnyType}, nil
+	}
+	return val, nil
+}
+
+func (sq *ScalarSubQueryExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return sq
+}
+
+func (sq *ScalarSubQueryExp) isConstant() bool {
+	// Not a constant — depends on table state.
+	return false
+}
+
+func (sq *ScalarSubQueryExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (sq *ScalarSubQueryExp) selectors() []Selector {
+	return nil
+}
+
+func (sq *ScalarSubQueryExp) String() string {
+	return "(<subquery>)"
+}

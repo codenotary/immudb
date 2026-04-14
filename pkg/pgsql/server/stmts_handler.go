@@ -99,6 +99,15 @@ var (
 	// (XORM, GORM, Hibernate) use to enumerate indexes for a given table.
 	// The handler walks immudb's catalog and emits one row per index.
 	pgIndexesRe = regexp.MustCompile(`(?is)\bfrom\s+(?:pg_catalog\.)?pg_indexes\b`)
+
+	// infoSchemaColumnsRe matches the standard
+	// `information_schema.columns` view query (psql `\d`, JDBC schema
+	// browsers, alembic, flyway, …). The wire normaliser rewrites
+	// `information_schema.` to `information_schema_`, so the regex
+	// matches both forms. Without dedicated handling the canned
+	// 1-row pgAdminProbe response returns NULL for column_name and
+	// crashes any client that scans the result into a string column.
+	infoSchemaColumnsRe = regexp.MustCompile(`(?is)\bfrom\s+information_schema[._]columns\b`)
 )
 
 var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+SEQUENCE|CREATE\s+DOMAIN|CREATE\s+VIEW|CREATE\s+OR\s+REPLACE\s+VIEW|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
@@ -199,6 +208,16 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &pgIndexesCmd{sql: statement}
 	}
 
+	// information_schema.columns: standard SQL view used by psql,
+	// JDBC, alembic, flyway. We synthesise rows from the catalog with
+	// the canonical column shape (table_catalog, table_schema,
+	// table_name, column_name, ordinal_position, column_default,
+	// is_nullable, data_type, character_maximum_length, numeric_*,
+	// datetime_precision, …).
+	if infoSchemaColumnsRe.MatchString(statement) {
+		return &infoSchemaColumnsCmd{sql: statement}
+	}
+
 	// Blanket catch for ALL pg_catalog/information_schema/system queries.
 	// Returns canned responses with column names extracted from the query.
 	if pgSystemQueryRe.MatchString(statement) {
@@ -245,6 +264,8 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 		return s.handleXormColumnsQuery(cmd.sql, nil, false)
 	case *pgIndexesCmd:
 		return s.handlePgIndexesQuery(cmd.sql, nil, false)
+	case *infoSchemaColumnsCmd:
+		return s.handleInfoSchemaColumnsQuery(cmd.sql, nil, false)
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -315,5 +336,13 @@ type xormColumnsCmd struct {
 // canonical (schemaname, tablename, indexname, tablespace, indexdef) row
 // shape so ORM Scan calls don't trip on NULLs.
 type pgIndexesCmd struct {
+	sql string
+}
+
+// infoSchemaColumnsCmd is a query against the standard SQL view
+// `information_schema.columns`. The handler enumerates immudb's
+// catalog columns and emits one row per column with the canonical
+// information_schema.columns column shape.
+type infoSchemaColumnsCmd struct {
 	sql string
 }

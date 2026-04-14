@@ -573,9 +573,35 @@ var pgTablesNameFilterLitRe = regexp.MustCompile(`(?i)\btablename\s*=\s*'([^']+)
 // the extended-query path so the bound value can be looked up.
 var pgTablesNameFilterParamRe = regexp.MustCompile(`(?i)\btablename\s*=\s*\$(\d+)`)
 
+// pgTablesNameLikeLitRe extracts a `tablename LIKE 'pattern'` filter.
+// Supports SQL LIKE wildcards (`%` = any sequence, `_` = single char) by
+// translating to a Go regexp at filter time.
+var pgTablesNameLikeLitRe = regexp.MustCompile(`(?i)\btablename\s+LIKE\s+'([^']+)'`)
+
 // pgTablesSchemaFilterLitRe extracts a literal `schemaname = '<name>'`
 // filter — XORM and others typically scope to the public schema.
 var pgTablesSchemaFilterLitRe = regexp.MustCompile(`(?i)\bschemaname\s*=\s*'([^']+)'`)
+
+// likeToRegexp converts a SQL LIKE pattern to a Go regular expression
+// anchored at both ends. `%` → `.*`, `_` → `.`. Other regex
+// metacharacters in the pattern are escaped so a literal `.` in the LIKE
+// pattern stays a literal `.` in the resulting regexp.
+func likeToRegexp(pat string) (*regexp.Regexp, error) {
+	var b strings.Builder
+	b.WriteString("^")
+	for _, r := range pat {
+		switch r {
+		case '%':
+			b.WriteString(".*")
+		case '_':
+			b.WriteString(".")
+		default:
+			b.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	b.WriteString("$")
+	return regexp.Compile(b.String())
+}
 
 // handlePgTablesQuery emulates the standard `pg_tables` view by
 // enumerating immudb's actual catalog and applying a WHERE filter on
@@ -612,8 +638,10 @@ func (s *session) handlePgTablesQuery(query string, params []*schema.NamedParam,
 		}
 	}
 
-	// Extract WHERE filters.
+	// Extract WHERE filters. Equality and LIKE-pattern forms are both
+	// supported; precedence: literal `=` > `$N` bind > `LIKE 'pattern'`.
 	var nameFilter string
+	var nameLike *regexp.Regexp
 	if m := pgTablesNameFilterLitRe.FindStringSubmatch(query); m != nil {
 		nameFilter = m[1]
 	} else if m := pgTablesNameFilterParamRe.FindStringSubmatch(query); m != nil {
@@ -626,6 +654,10 @@ func (s *session) handlePgTablesQuery(query string, params []*schema.NamedParam,
 				}
 				break
 			}
+		}
+	} else if m := pgTablesNameLikeLitRe.FindStringSubmatch(query); m != nil {
+		if re, err := likeToRegexp(m[1]); err == nil {
+			nameLike = re
 		}
 	}
 
@@ -645,6 +677,9 @@ func (s *session) handlePgTablesQuery(query string, params []*schema.NamedParam,
 	rows := make([]*sql.Row, 0, len(allTables))
 	for _, t := range allTables {
 		if nameFilter != "" && t.Name() != nameFilter {
+			continue
+		}
+		if nameLike != nil && !nameLike.MatchString(t.Name()) {
 			continue
 		}
 		vals := make([]sql.TypedValue, len(cols))
@@ -835,6 +870,7 @@ func (s *session) handlePgIndexesQuery(query string, params []*schema.NamedParam
 
 	// Reuse pg_tables filter regex shapes for tablename / schemaname.
 	var nameFilter string
+	var nameLike *regexp.Regexp
 	if m := pgTablesNameFilterLitRe.FindStringSubmatch(query); m != nil {
 		nameFilter = m[1]
 	} else if m := pgTablesNameFilterParamRe.FindStringSubmatch(query); m != nil {
@@ -845,6 +881,10 @@ func (s *session) handlePgIndexesQuery(query string, params []*schema.NamedParam
 				nameFilter = paramAsString(p)
 				break
 			}
+		}
+	} else if m := pgTablesNameLikeLitRe.FindStringSubmatch(query); m != nil {
+		if re, err := likeToRegexp(m[1]); err == nil {
+			nameLike = re
 		}
 	}
 	schemaFilter := "public"
@@ -862,6 +902,9 @@ func (s *session) handlePgIndexesQuery(query string, params []*schema.NamedParam
 	rows := make([]*sql.Row, 0)
 	for _, t := range allTables {
 		if nameFilter != "" && t.Name() != nameFilter {
+			continue
+		}
+		if nameLike != nil && !nameLike.MatchString(t.Name()) {
 			continue
 		}
 		for _, idx := range t.GetIndexes() {
@@ -926,4 +969,167 @@ func paramAsString(p *schema.NamedParam) string {
 		return strings.Trim(string(v), `"`)
 	}
 	return ""
+}
+
+// infoSchemaTableNameLitRe / ParamRe / SchemaLitRe extract WHERE filters
+// from an information_schema.columns query so we emit only the requested
+// table's rows.
+var (
+	infoSchemaTableNameLitRe   = regexp.MustCompile(`(?i)\btable_name\s*=\s*'([^']+)'`)
+	infoSchemaTableNameParamRe = regexp.MustCompile(`(?i)\btable_name\s*=\s*\$(\d+)`)
+	infoSchemaTableNameLikeRe  = regexp.MustCompile(`(?i)\btable_name\s+LIKE\s+'([^']+)'`)
+	infoSchemaSchemaLitRe      = regexp.MustCompile(`(?i)\btable_schema\s*=\s*'([^']+)'`)
+)
+
+// handleInfoSchemaColumnsQuery emulates the standard SQL
+// `information_schema.columns` view by enumerating immudb's catalog.
+// Real PG returns a row per column with table_catalog, table_schema,
+// table_name, column_name, ordinal_position, column_default,
+// is_nullable, data_type, character_maximum_length and a long tail of
+// numeric_precision / datetime_precision / collation_name / etc.
+//
+// We populate the well-known fields and NULL the rest. The handler
+// supports `WHERE table_name = '…' / = $N / LIKE 'pat'` and
+// `WHERE table_schema = '…'` filters so psql's `\d`, alembic, flyway
+// and ad-hoc JDBC schema browsers all see meaningful data instead of
+// the canned NULL row that crashed Scan-into-string.
+func (s *session) handleInfoSchemaColumnsQuery(query string, params []*schema.NamedParam, extMode bool) error {
+	cols := extractColumnNames(query)
+	if len(cols) == 0 || (len(cols) == 1 && cols[0] == "*") {
+		cols = []string{
+			"table_catalog", "table_schema", "table_name", "column_name",
+			"ordinal_position", "column_default", "is_nullable", "data_type",
+			"character_maximum_length", "character_octet_length",
+			"numeric_precision", "numeric_precision_radix", "numeric_scale",
+			"datetime_precision", "interval_type", "interval_precision",
+			"collation_catalog", "collation_schema", "collation_name",
+			"domain_catalog", "domain_schema", "domain_name",
+			"udt_catalog", "udt_schema", "udt_name",
+		}
+	}
+
+	colDescs := make([]sql.ColDescriptor, len(cols))
+	for i, name := range cols {
+		colType := sql.VarcharType
+		switch strings.ToLower(name) {
+		case "ordinal_position", "character_maximum_length",
+			"character_octet_length", "numeric_precision",
+			"numeric_precision_radix", "numeric_scale",
+			"datetime_precision", "interval_precision":
+			colType = sql.IntegerType
+		}
+		colDescs[i] = sql.ColDescriptor{Column: name, Type: colType}
+	}
+	if !extMode {
+		if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
+			return err
+		}
+	}
+
+	// Filters.
+	var nameFilter string
+	var nameLike *regexp.Regexp
+	if m := infoSchemaTableNameLitRe.FindStringSubmatch(query); m != nil {
+		nameFilter = m[1]
+	} else if m := infoSchemaTableNameParamRe.FindStringSubmatch(query); m != nil {
+		idx, _ := strconv.Atoi(m[1])
+		key := fmt.Sprintf("param%d", idx)
+		for _, p := range params {
+			if p.Name == key {
+				nameFilter = paramAsString(p)
+				break
+			}
+		}
+	} else if m := infoSchemaTableNameLikeRe.FindStringSubmatch(query); m != nil {
+		if re, err := likeToRegexp(m[1]); err == nil {
+			nameLike = re
+		}
+	}
+	schemaFilter := "public"
+	if m := infoSchemaSchemaLitRe.FindStringSubmatch(query); m != nil {
+		schemaFilter = m[1]
+	}
+
+	tx, err := s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return nil
+	}
+	defer tx.Cancel()
+
+	dbName := "defaultdb"
+	if s.db != nil {
+		dbName = s.db.GetName()
+	}
+
+	allTables := tx.Catalog().GetTables()
+	var rows []*sql.Row
+	for _, t := range allTables {
+		if nameFilter != "" && t.Name() != nameFilter {
+			continue
+		}
+		if nameLike != nil && !nameLike.MatchString(t.Name()) {
+			continue
+		}
+		for ord, c := range t.Cols() {
+			pgTypeName, _ := immudbToPGType(c.Type())
+			isNullable := "YES"
+			if !c.IsNullable() {
+				isNullable = "NO"
+			}
+			var maxLen sql.TypedValue = sql.NewNull(sql.IntegerType)
+			if c.Type() == sql.VarcharType && c.MaxLen() > 0 {
+				maxLen = sql.NewInteger(int64(c.MaxLen()))
+			}
+			var defaultExpr sql.TypedValue = sql.NewNull(sql.VarcharType)
+			if c.HasDefault() {
+				defaultExpr = sql.NewVarchar(c.DefaultValue().String())
+			}
+
+			vals := make([]sql.TypedValue, len(cols))
+			for i, name := range cols {
+				switch strings.ToLower(name) {
+				case "table_catalog":
+					vals[i] = sql.NewVarchar(dbName)
+				case "table_schema":
+					vals[i] = sql.NewVarchar(schemaFilter)
+				case "table_name":
+					vals[i] = sql.NewVarchar(t.Name())
+				case "column_name":
+					vals[i] = sql.NewVarchar(c.Name())
+				case "ordinal_position":
+					vals[i] = sql.NewInteger(int64(ord + 1))
+				case "column_default":
+					vals[i] = defaultExpr
+				case "is_nullable":
+					vals[i] = sql.NewVarchar(isNullable)
+				case "data_type":
+					vals[i] = sql.NewVarchar(pgTypeName)
+				case "character_maximum_length", "character_octet_length":
+					vals[i] = maxLen
+				case "udt_name":
+					vals[i] = sql.NewVarchar(pgTypeName)
+				case "udt_catalog":
+					vals[i] = sql.NewVarchar(dbName)
+				case "udt_schema":
+					vals[i] = sql.NewVarchar("pg_catalog")
+				default:
+					// Any column we don't know about (long tail of
+					// numeric / datetime / collation fields) — return
+					// NULL of the column's declared type so clients
+					// scanning into a typed nullable receive nil.
+					vals[i] = sql.NewNull(colDescs[i].Type)
+				}
+			}
+			rows = append(rows, &sql.Row{ValuesByPosition: vals})
+		}
+	}
+
+	s.log.Infof("pgcompat: information_schema.columns: %d row(s) match (nameFilter=%q schema=%q)",
+		len(rows), nameFilter, schemaFilter)
+	if len(rows) > 0 {
+		if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

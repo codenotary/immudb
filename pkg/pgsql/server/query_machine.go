@@ -150,6 +150,9 @@ func (s *session) QueryMachine() error {
 				if probe, ok := emulableCmd.(*pgIndexesCmd); ok {
 					resCols = extractResultCols(probe.sql)
 				}
+				if probe, ok := emulableCmd.(*infoSchemaColumnsCmd); ok {
+					resCols = extractResultCols(probe.sql)
+				}
 				if _, ok := emulableCmd.(*pgAttributeForTableCmd); ok {
 					resCols = pgAttributeResultCols()
 				}
@@ -397,6 +400,13 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		}
 		if cmd, ok := i.(*pgIndexesCmd); ok {
 			if err := s.handlePgIndexesQuery(cmd.sql, parameters, extQueryMode); err != nil {
+				return err
+			}
+			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+			return err
+		}
+		if cmd, ok := i.(*infoSchemaColumnsCmd); ok {
+			if err := s.handleInfoSchemaColumnsQuery(cmd.sql, parameters, extQueryMode); err != nil {
 				return err
 			}
 			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
