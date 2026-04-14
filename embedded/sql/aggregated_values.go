@@ -32,7 +32,10 @@ type CountValue struct {
 	c        int64
 	sel      string
 	distinct bool
-	seen     map[string]bool // for DISTINCT tracking
+	// allRows is true for COUNT(*) — every row counts including NULLs.
+	// false for COUNT(col) — NULL values are skipped per SQL semantics.
+	allRows bool
+	seen    map[string]bool // for DISTINCT tracking
 }
 
 func (v *CountValue) Selector() string {
@@ -87,6 +90,12 @@ func (v *CountValue) updateWith(val TypedValue) error {
 			return nil // already seen this value
 		}
 		v.seen[key] = true
+	} else if !v.allRows {
+		// COUNT(col) — skip NULL values per SQL semantics. Only
+		// COUNT(*) counts every row regardless of value.
+		if val == nil || val.IsNull() {
+			return nil
+		}
 	}
 	v.c++
 	return nil

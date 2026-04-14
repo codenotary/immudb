@@ -1361,3 +1361,75 @@ func TestPgsqlCompat_JSONLiteralWithDoubleQuotes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, count)
 }
+
+// TestPgsqlCompat_GolangMigrateFlow simulates the canonical query
+// sequence golang-migrate's lib/pq driver issues against a fresh
+// database. References issue #2055: the reported blocker was
+// `SELECT CURRENT_SCHEMA()`. With the engine `current_schema()`
+// function, the advisory-lock stub, and the schema_migrations DDL
+// handling, the entire flow completes without error.
+//
+// Note: this is a synthetic reproduction (we don't link golang-migrate
+// itself to keep the test hermetic); it covers the exact statements the
+// driver emits per its source at:
+//   github.com/golang-migrate/migrate/v4/database/postgres/postgres.go
+func TestPgsqlCompat_GolangMigrateFlow(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	ctx := context.Background()
+
+	// Step 1 — discover the current schema (the original #2055 blocker).
+	var schemaName string
+	err = conn.QueryRow(ctx, "SELECT current_schema()").Scan(&schemaName)
+	require.NoError(t, err)
+	require.Equal(t, "public", schemaName)
+
+	// Step 2 — acquire the advisory lock keyed off a hash of the
+	// schema_migrations table name. The hash is computed client-side;
+	// we just need pg_advisory_lock(int8) to return true.
+	var locked bool
+	err = conn.QueryRow(ctx, "SELECT pg_try_advisory_lock(1234567890)").Scan(&locked)
+	require.NoError(t, err)
+	require.True(t, locked)
+
+	// Step 3 — create the schema_migrations table if it doesn't exist.
+	_, err = conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version BIGINT NOT NULL PRIMARY KEY,
+		dirty BOOLEAN NOT NULL
+	)`)
+	require.NoError(t, err)
+
+	// Step 4 — read current version (returns no rows on a fresh DB).
+	var version int64
+	var dirty bool
+	err = conn.QueryRow(ctx, "SELECT version, dirty FROM schema_migrations LIMIT 1").Scan(&version, &dirty)
+	require.Error(t, err) // pgx.ErrNoRows or similar
+	require.Contains(t, err.Error(), "no rows")
+
+	// Step 5 — apply a migration (synthetic: just create another table).
+	_, err = conn.Exec(ctx, "CREATE TABLE app_users (id INTEGER PRIMARY KEY, name VARCHAR[64])")
+	require.NoError(t, err)
+
+	// Step 6 — record the migration as applied.
+	_, err = conn.Exec(ctx, "TRUNCATE TABLE schema_migrations")
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, "INSERT INTO schema_migrations (version, dirty) VALUES ($1, $2)", int64(20260414), false)
+	require.NoError(t, err)
+
+	// Step 7 — release the lock.
+	var unlocked bool
+	err = conn.QueryRow(ctx, "SELECT pg_advisory_unlock(1234567890)").Scan(&unlocked)
+	require.NoError(t, err)
+	require.True(t, unlocked)
+
+	// Step 8 — re-read version, expect the recorded row.
+	err = conn.QueryRow(ctx, "SELECT version, dirty FROM schema_migrations LIMIT 1").Scan(&version, &dirty)
+	require.NoError(t, err)
+	require.Equal(t, int64(20260414), version)
+	require.False(t, dirty)
+}

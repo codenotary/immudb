@@ -363,11 +363,7 @@ func initAggValue(aggFn, table, col string, opts ...interface{}) (TypedValue, er
 	switch aggFn {
 	case COUNT:
 		{
-			if col != "*" && !isDistinct {
-				return nil, ErrLimitedCount
-			}
-
-			cv := &CountValue{sel: EncodeSelector("", table, col), distinct: isDistinct}
+			cv := &CountValue{sel: EncodeSelector("", table, col), distinct: isDistinct, allRows: col == "*"}
 			if isDistinct {
 				cv.seen = make(map[string]bool)
 			}

@@ -5331,7 +5331,9 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause with invalid values should return an error", func(t *testing.T) {
-		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE title IN ('title0', true + 'title1')", nil)
+		// The IN evaluator now short-circuits on the first match —
+		// reorder the bad expression so it's actually visited.
+		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE title IN (true + 'title1', 'title0')", nil)
 		require.NoError(t, err)
 
 		_, err = r.Read(context.Background())
@@ -5926,11 +5928,13 @@ func TestGroupByHaving(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 	require.Nil(t, r)
 
+	// COUNT(col) is now supported (skips NULLs per SQL semantics).
+	// Previously the engine rejected anything but COUNT(*) / COUNT(DISTINCT col).
 	r, err = engine.Query(context.Background(), nil, "SELECT active, COUNT(id) FROM table1 GROUP BY active ORDER BY active", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
-	require.ErrorIs(t, err, ErrLimitedCount)
+	require.NoError(t, err)
 
 	err = r.Close()
 	require.NoError(t, err)

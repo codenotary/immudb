@@ -6949,8 +6949,6 @@ func (bexp *InListExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedV
 		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
 	}
 
-	var found bool
-
 	for _, v := range bexp.values {
 		rv, err := v.reduce(tx, row, implicitTable)
 		if err != nil {
@@ -6963,12 +6961,15 @@ func (bexp *InListExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedV
 		}
 
 		if r == 0 {
-			// TODO: short-circuit evaluation may be preferred when upfront static type inference is in place
-			found = found || true
+			// Short-circuit: with N=10000 IN values evaluated per row,
+			// stopping at the first match cuts mean comparisons in
+			// half. Crucial when the IN clause is the bottleneck (the
+			// classic `WHERE pk IN (… many …) LIMIT M OFFSET N` shape).
+			return &Bool{val: !bexp.notIn}, nil
 		}
 	}
 
-	return &Bool{val: found != bexp.notIn}, nil
+	return &Bool{val: bexp.notIn}, nil
 }
 
 func (bexp *InListExp) selectors() []Selector {
@@ -6997,7 +6998,78 @@ func (bexp *InListExp) isConstant() bool {
 }
 
 func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
-	// TODO: may be determiined by smallest and bigggest value in the list
+	// `WHERE col IN (v1, …, vN)` against an indexed column doesn't
+	// give us the exact set, but the [min, max] spread DOES narrow
+	// the index scan: instead of walking every row in the table the
+	// engine seeks to min and stops at max. Combined with the per-row
+	// short-circuit IN evaluator above, this turns `WHERE pk IN
+	// (…) LIMIT N OFFSET M` from a full-table scan into an
+	// index-bounded scan whose cost depends on the value spread
+	// rather than the table size — the canonical fix for #2062.
+	//
+	// Bail out unless:
+	//   - The left side is a ColSelector for the asTable.
+	//   - The IN list is non-empty and is "constants only" after
+	//     parameter substitution.
+	//   - This is a positive IN (NOT IN doesn't define a useful
+	//     contiguous range).
+	if bexp.notIn || len(bexp.values) == 0 {
+		return nil
+	}
+	sel, isSel := bexp.val.(*ColSelector)
+	if !isSel {
+		return nil
+	}
+	aggFn, t, col := sel.resolve(table.name)
+	if aggFn != "" || t != asTable {
+		return nil
+	}
+	column, err := table.GetColumnByName(col)
+	if err != nil {
+		// Range hints are best-effort — defer real validation to the
+		// per-row evaluator so existing error semantics (e.g. column
+		// does not exist) surface on Read like before.
+		return nil
+	}
+
+	var minVal, maxVal TypedValue
+	for _, v := range bexp.values {
+		sv, err := v.substitute(params)
+		if err != nil {
+			// Includes ErrMissingParameter and any constant-folding
+			// error like `true + 'foo'`. Skip the hint silently.
+			return nil
+		}
+		rv, err := sv.reduce(nil, nil, table.name)
+		if err != nil {
+			return nil
+		}
+		if minVal == nil {
+			minVal = rv
+			maxVal = rv
+			continue
+		}
+		c, err := rv.Compare(minVal)
+		if err != nil {
+			return nil
+		}
+		if c < 0 {
+			minVal = rv
+		}
+		c, err = rv.Compare(maxVal)
+		if err != nil {
+			return nil
+		}
+		if c > 0 {
+			maxVal = rv
+		}
+	}
+	if minVal == nil {
+		return nil
+	}
+
+	_ = updateRangeFor(column.id, minVal, GE, rangesByColID)
+	_ = updateRangeFor(column.id, maxVal, LE, rangesByColID)
 	return nil
 }
 

@@ -126,3 +126,74 @@ func queryAll(t *testing.T, e *Engine, sql string, params map[string]interface{}
 	defer r.Close()
 	return ReadAllRows(context.Background(), r)
 }
+
+// TestCountColSkipsNulls covers the SQL-spec behaviour for COUNT(col):
+// NULL values must not be counted, while every row counts for COUNT(*).
+// Pre-fix the engine rejected `COUNT(col)` outright with ErrLimitedCount.
+func TestCountColSkipsNulls(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	eng, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	_, _, err = eng.Exec(ctx, nil,
+		`CREATE TABLE t (id INTEGER PRIMARY KEY, label VARCHAR[16]);
+		 INSERT INTO t (id, label) VALUES (1, 'a'), (2, 'b'), (3, NULL), (4, NULL);`, nil)
+	require.NoError(t, err)
+
+	rows, err := queryAll(t, eng, `SELECT COUNT(*), COUNT(label), COUNT(DISTINCT label) FROM t`, nil)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Equal(t, int64(4), rows[0].ValuesByPosition[0].RawValue(), "COUNT(*) — every row")
+	require.Equal(t, int64(2), rows[0].ValuesByPosition[1].RawValue(), "COUNT(label) — non-NULLs only")
+	require.Equal(t, int64(2), rows[0].ValuesByPosition[2].RawValue(), "COUNT(DISTINCT label)")
+}
+
+// TestInListWithLimitOffset covers issue #2062's pattern:
+//   `WHERE pk IN (v1, …, vN) LIMIT M OFFSET K`
+//
+// The fix is twofold:
+//   1. InListExp.reduce short-circuits on the first match (cuts mean
+//      comparisons in half for non-trivial IN lists).
+//   2. InListExp.selectorRanges contributes a [min, max] range hint
+//      so the index scan can seek instead of walking every row.
+//
+// This test verifies correctness; the perf improvement is observable
+// against tables in the 10k+ row range under benchmark, not at the
+// scale used here.
+func TestInListWithLimitOffset(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	eng, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	_, _, err = eng.Exec(ctx, nil,
+		`CREATE TABLE t (id INTEGER PRIMARY KEY, label VARCHAR[16]);`, nil)
+	require.NoError(t, err)
+	for i := 1; i <= 50; i++ {
+		_, _, err := eng.Exec(ctx, nil,
+			`INSERT INTO t (id, label) VALUES (@id, @lbl)`,
+			map[string]interface{}{"id": int64(i), "lbl": "x"})
+		require.NoError(t, err)
+	}
+
+	rows, err := queryAll(t, eng,
+		`SELECT id FROM t WHERE id IN (5, 10, 15, 20, 25, 30, 35, 40, 45) ORDER BY id LIMIT 3 OFFSET 4`, nil)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+	got := make([]int64, len(rows))
+	for i, r := range rows {
+		got[i] = r.ValuesByPosition[0].RawValue().(int64)
+	}
+	require.Equal(t, []int64{25, 30, 35}, got)
+}
