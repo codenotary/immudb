@@ -23,6 +23,7 @@ import (
 	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -740,11 +741,35 @@ func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]sql.ColDescriptor
 	for n := range r {
 		paramsNameList = append(paramsNameList, n)
 	}
-	sort.Strings(paramsNameList)
+	// Sort by the numeric suffix of "paramN" rather than lexicographically.
+	// Lexical sort gives param1, param10, param11, …, param2, param3 —
+	// which makes positional Bind values land on the wrong $N in
+	// statements with 10+ parameters and silently corrupts inserts.
+	sort.Slice(paramsNameList, func(i, j int) bool {
+		ai, aok := paramNumericSuffix(paramsNameList[i])
+		bi, bok := paramNumericSuffix(paramsNameList[j])
+		if aok && bok {
+			return ai < bi
+		}
+		return paramsNameList[i] < paramsNameList[j]
+	})
 
 	paramCols := make([]sql.ColDescriptor, 0)
 	for _, n := range paramsNameList {
 		paramCols = append(paramCols, sql.ColDescriptor{Column: n, Type: r[n]})
 	}
 	return paramCols, resCols, nil
+}
+
+// paramNumericSuffix returns the integer suffix of names like "param12".
+// Used to sort parameter names by position rather than lexicographically.
+func paramNumericSuffix(name string) (int, bool) {
+	if !strings.HasPrefix(name, "param") {
+		return 0, false
+	}
+	n, err := strconv.Atoi(name[len("param"):])
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }

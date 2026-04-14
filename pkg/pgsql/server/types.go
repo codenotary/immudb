@@ -32,6 +32,11 @@ func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) (
 		name := param.Column
 
 		val := paramsVal[index]
+		// NULL parameter (Bind protocol pLen == -1).
+		if val == nil {
+			pMap[name] = nil
+			continue
+		}
 		// text param
 		if p, ok := val.(string); ok {
 			switch param.Type {
@@ -52,6 +57,14 @@ func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) (
 					return nil, err
 				}
 				pMap[name] = d
+			default:
+				// AnyType / unrecognised: keep as string. ORMs that
+				// don't introspect parameter types ahead of binding
+				// (Rails sends text-format params for everything
+				// when the inferred type is unknown) rely on the
+				// engine's downstream coercion, not on us forcing
+				// a specific type here.
+				pMap[name] = p
 			}
 		}
 		// binary param
@@ -72,6 +85,10 @@ func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) (
 				}
 				pMap[name] = v
 			case sql.BLOBType:
+				pMap[name] = p
+			default:
+				// AnyType: pass raw bytes through; downstream
+				// coercion picks the right value.
 				pMap[name] = p
 			}
 		}

@@ -108,11 +108,18 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	params := make([]interface{}, 0)
 	for i := 0; i < int(pCount); i++ {
 		pLen, err := getNextInt32(r)
-		if pLen < 0 {
-			return BindMsg{}, pgserrors.ErrNegativeParameterValueLen
-		}
 		if err != nil {
 			return BindMsg{}, err
+		}
+		// Postgres wire protocol: pLen == -1 means SQL NULL (no value
+		// bytes follow). Treat as nil so downstream evaluation sees a
+		// NULL bind. Anything below -1 is malformed.
+		if pLen == -1 {
+			params = append(params, nil)
+			continue
+		}
+		if pLen < 0 {
+			return BindMsg{}, pgserrors.ErrNegativeParameterValueLen
 		}
 		totalParamLen += int(pLen)
 		if totalParamLen > pgmeta.MaxMsgSize {

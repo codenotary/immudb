@@ -4767,9 +4767,22 @@ func (stmt *ReturningStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 }
 
 func (stmt *ReturningStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
-	// Execute the DML
+	// Execute the DML. When called during the InferParameters pre-pass
+	// (the pgsql adapter calls SQLQueryPrepared with nil params to
+	// discover result-column shape before binding), execAt may fail
+	// with "missing parameter" on every Param-bound INSERT/UPDATE.
+	// In that case fall back to an empty row reader with the right
+	// column descriptors so the caller can describe the result shape.
 	_, err := stmt.dml.execAt(ctx, tx, params)
 	if err != nil {
+		if len(params) == 0 && errors.Is(err, ErrMissingParameter) {
+			table, tErr := stmt.resolveTable(tx)
+			if tErr != nil {
+				return nil, tErr
+			}
+			cols := stmt.buildReturnCols(table)
+			return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, nil)
+		}
 		return nil, err
 	}
 
