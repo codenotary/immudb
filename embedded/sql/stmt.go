@@ -7395,7 +7395,9 @@ func (stmt *FnDataSourceStmt) resolveListGrants(ctx context.Context, tx *SQLTx, 
 
 // DropTableStmt represents a statement to delete a table.
 type DropTableStmt struct {
-	table string
+	table    string
+	ifExists bool // DROP TABLE IF EXISTS: succeed silently if table does not exist
+	cascade  bool // DROP TABLE ... CASCADE: no-op in immudb (no FKs), accepted for compat
 }
 
 func NewDropTableStmt(table string) *DropTableStmt {
@@ -7423,6 +7425,10 @@ the data is not deleted, but the metadata is updated.
 */
 func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.catalog.ExistTable(stmt.table) {
+		if stmt.ifExists {
+			// DROP TABLE IF EXISTS on a non-existent table is a no-op.
+			return tx, nil
+		}
 		return nil, ErrTableDoesNotExist
 	}
 

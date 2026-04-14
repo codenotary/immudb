@@ -95,6 +95,7 @@ var keywords = map[string]int{
 	"ONLY":           ONLY,
 	"FOREIGN":        FOREIGN,
 	"REFERENCES":     REFERENCES,
+	"CASCADE":        CASCADE,
 	"SEQUENCE":       SEQUENCE,
 	"TX":             TX,
 	"JOIN":           JOIN,

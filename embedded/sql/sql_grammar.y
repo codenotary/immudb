@@ -129,7 +129,7 @@ func aggFnName(fn AggregateFn) string {
 %token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
 %token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING FETCH ROWS ONLY LATERAL
 %token <keyword> AUTO_INCREMENT NULL CAST SCAST DEFAULT
-%token <keyword> SHOW DATABASES TABLES USERS VIEW FOREIGN REFERENCES SEQUENCE
+%token <keyword> SHOW DATABASES TABLES USERS VIEW FOREIGN REFERENCES SEQUENCE CASCADE
 %token <keyword> BETWEEN
 %token <keyword> EXTRACT YEAR MONTH DAY HOUR MINUTE SECOND
 
@@ -325,6 +325,21 @@ ddlstmt:
     DROP TABLE qualifiedName
     {
         $$ = &DropTableStmt{table: $3}
+    }
+|
+    DROP TABLE IF EXISTS qualifiedName
+    {
+        $$ = &DropTableStmt{table: $5, ifExists: true}
+    }
+|
+    DROP TABLE qualifiedName CASCADE
+    {
+        $$ = &DropTableStmt{table: $3, cascade: true}
+    }
+|
+    DROP TABLE IF EXISTS qualifiedName CASCADE
+    {
+        $$ = &DropTableStmt{table: $5, ifExists: true, cascade: true}
     }
 |
     TRUNCATE TABLE qualifiedName
