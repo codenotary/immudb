@@ -444,3 +444,82 @@ type mockDB struct {
 func (db *mockDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	return nil, fmt.Errorf("dummy error")
 }
+
+// TestRemovePGCatalogReferencesPreservesStringLiterals guards the masking
+// introduced for B.1: the quote-stripping rewrites in pgTypeReplacements
+// are not SQL-aware and used to mangle JSON / identifier-looking bytes
+// inside single-quoted literals, breaking simple-query INSERTs of JSON.
+func TestRemovePGCatalogReferencesPreservesStringLiterals(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string // substring that MUST survive in the output
+	}{
+		{
+			name: "json object in literal",
+			in:   `INSERT INTO t (id, d) VALUES ('a', '{"k":1}')`,
+			want: `'{"k":1}'`,
+		},
+		{
+			name: "nested json in literal",
+			in:   `INSERT INTO t (id, d) VALUES ('b', '{"users":[{"name":"bob"}]}')`,
+			want: `'{"users":[{"name":"bob"}]}'`,
+		},
+		{
+			name: "json string primitive in literal",
+			in:   `INSERT INTO t (id, d) VALUES ('c', '"plain"')`,
+			want: `'"plain"'`,
+		},
+		{
+			name: "keyword-looking word quoted inside literal",
+			in:   `UPDATE t SET note = 'say "select" out loud' WHERE id = 1`,
+			want: `'say "select" out loud'`,
+		},
+		{
+			name: "escaped single quote inside literal",
+			in:   `UPDATE t SET s = 'a''b"c"d' WHERE id = 1`,
+			want: `'a''b"c"d'`,
+		},
+		{
+			name: "quoted plain identifier OUTSIDE a literal still unwrapped",
+			in:   `SELECT "col" FROM t`,
+			want: `SELECT col FROM t`,
+		},
+		{
+			name: "quoted reserved identifier OUTSIDE a literal still escaped",
+			in:   `SELECT "select" FROM t`,
+			want: `SELECT _select FROM t`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := removePGCatalogReferences(tc.in)
+			require.Contains(t, got, tc.want, "normalised SQL: %s", got)
+		})
+	}
+}
+
+// TestMaskStringLiteralsRoundTrip covers the masker itself, which carries
+// the load-bearing SQL-escape logic for the B.1 fix.
+func TestMaskStringLiteralsRoundTrip(t *testing.T) {
+	inputs := []string{
+		``,
+		`SELECT 1`,
+		`SELECT 'hello'`,
+		`SELECT 'a''b'`,                       // escaped quote
+		`INSERT VALUES ('x', '{"k":1}', 'y')`, // multiple literals
+		`SELECT '' FROM t`,                    // empty literal
+		`SELECT 'a', "b", 'c'`,                // mixed with identifier
+	}
+	for _, in := range inputs {
+		masked, restore := maskStringLiterals(in)
+		require.NotContains(t, masked, "'", "masked still has a quote: %q", masked)
+		require.Equal(t, in, restore(masked), "roundtrip for %q", in)
+	}
+
+	// Unterminated literal: emit the tail verbatim. We don't promise no
+	// quotes in the masked form here — only that nothing panics.
+	masked, restore := maskStringLiterals(`UPDATE t SET s = 'unterminated`)
+	require.Equal(t, `UPDATE t SET s = 'unterminated`, restore(masked))
+}

@@ -539,8 +539,79 @@ var primaryKeyInlineRe = regexp.MustCompile(`(?i)PRIMARY\s+KEY`)
 
 var insertSchemaMigrationsRe = regexp.MustCompile(`(?is)\A(\s*INSERT\s+INTO\s+(?:"schema_migrations"|schema_migrations)\s+\([^)]*\)\s+VALUES\s+.+?)(\s*;?\s*)\z`)
 
+// maskStringLiterals replaces every single-quoted SQL string literal in s
+// with a sentinel placeholder so the downstream regex rewrites in
+// pgTypeReplacements — which are not SQL-aware — cannot touch the
+// characters inside. Without this, e.g. the `"(\w+)"` identifier-unquoter
+// would strip double quotes out of a JSON value passed as a SQL literal
+// (`INSERT … VALUES('{"k":1}')` → `INSERT … VALUES('{k:1}')`, which fails
+// validation as invalid JSON).
+//
+// The returned restore function substitutes the originals back after all
+// rewrites have run. SQL string grammar recognised: `''` inside a literal
+// is an escaped single quote. Anything else (including `"`, backslashes,
+// newlines) is preserved verbatim.
+func maskStringLiterals(s string) (string, func(string) string) {
+	var literals []string
+	var b strings.Builder
+	b.Grow(len(s))
+	i := 0
+	for i < len(s) {
+		c := s[i]
+		if c != '\'' {
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		j := i + 1
+		for j < len(s) {
+			if s[j] != '\'' {
+				j++
+				continue
+			}
+			if j+1 < len(s) && s[j+1] == '\'' {
+				j += 2
+				continue
+			}
+			break
+		}
+		if j >= len(s) {
+			// Unterminated string literal — emit the tail verbatim
+			// and stop; downstream will fail on its own if needed.
+			b.WriteString(s[i:])
+			break
+		}
+		idx := len(literals)
+		literals = append(literals, s[i:j+1])
+		fmt.Fprintf(&b, "\x01%d\x01", idx)
+		i = j + 1
+	}
+	masked := b.String()
+
+	restore := func(m string) string {
+		if len(literals) == 0 {
+			return m
+		}
+		return stringLiteralTokenRe.ReplaceAllStringFunc(m, func(tok string) string {
+			idxStr := tok[1 : len(tok)-1]
+			idx, err := strconv.Atoi(idxStr)
+			if err != nil || idx < 0 || idx >= len(literals) {
+				return tok
+			}
+			return literals[idx]
+		})
+	}
+	return masked, restore
+}
+
+var stringLiteralTokenRe = regexp.MustCompile("\x01(\\d+)\x01")
+
 func removePGCatalogReferences(sqlStr string) string {
-	s := strings.ReplaceAll(sqlStr, "pg_catalog.", "")
+	// Mask string literals first so regex-based rewrites can't mutate
+	// their contents (see maskStringLiterals for rationale).
+	s, restore := maskStringLiterals(sqlStr)
+
+	s = strings.ReplaceAll(s, "pg_catalog.", "")
 	s = strings.ReplaceAll(s, "information_schema.", "information_schema_")
 	s = strings.ReplaceAll(s, "public.", "")
 
@@ -572,7 +643,7 @@ func removePGCatalogReferences(sqlStr string) string {
 	// Remove trailing commas before closing paren
 	s = regexp.MustCompile(`,\s*\)`).ReplaceAllString(s, "\n)")
 
-	return s
+	return restore(s)
 }
 
 // addPrimaryKeyToCreateTable adds a PRIMARY KEY clause to a CREATE TABLE
