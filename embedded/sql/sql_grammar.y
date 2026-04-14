@@ -1108,6 +1108,15 @@ selector:
         $$ = &AggColSelector{aggFn: $1, table: $4.table, col: $4.col, distinct: true}
     }
 |
+    AGGREGATE_FUNC '(' DISTINCT '(' col ')' ')'
+    {
+        // Accept `COUNT(DISTINCT(col))` — XORM's builder wraps the
+        // distinct argument in extra parens when it emits aggregated
+        // SELECTs (Gitea GetUserOrgsList per-org repo count uses this).
+        // Semantically identical to COUNT(DISTINCT col).
+        $$ = &AggColSelector{aggFn: $1, table: $5.table, col: $5.col, distinct: true}
+    }
+|
     AGGREGATE_FUNC '(' col ',' VARCHAR_LIT ')'
     {
         $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col, separator: $5}
@@ -1596,6 +1605,16 @@ opt_as:
     AS qualifiedName
     {
         $$ = $2
+    }
+|
+    AS colNameKeyword
+    {
+        // Allow reserved type names (TIMESTAMP, INTEGER, VARCHAR, …) to
+        // appear as column aliases, e.g. Gitea's heatmap query:
+        //   SELECT created_unix / 900 * 900 AS timestamp, count(..) AS ...
+        // Postgres accepts this; immudb's grammar previously rejected it
+        // because qualifiedName only covered IDENTIFIER / unreserved_keyword.
+        $$ = string($2)
     }
 ;
 

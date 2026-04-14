@@ -201,6 +201,62 @@ func TestExistsSubQueryInWhere_InferParameters(t *testing.T) {
 	require.Contains(t, params, "param1")
 }
 
+// TestGroupByAlias_OrderByAlias_InferParameters — Gitea's heatmap
+// query uses `SELECT expr AS timestamp … GROUP BY timestamp ORDER BY
+// timestamp`. The GROUP BY references the SELECT alias, not the raw
+// expression; the aggregation check must treat that as valid.
+func TestGroupByAlias_OrderByAlias_InferParameters(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil,
+		`CREATE TABLE action (id INTEGER NOT NULL, user_id INTEGER, act_user_id INTEGER, created_unix INTEGER, PRIMARY KEY(id));`, nil)
+	require.NoError(t, err)
+
+	_, err = engine.InferParameters(ctx, nil,
+		`SELECT created_unix / 900 * 900 AS timestamp, count(user_id) AS contributions `+
+			`FROM action WHERE (user_id = $1 AND act_user_id = $2) AND created_unix > $3 `+
+			`GROUP BY timestamp ORDER BY timestamp`)
+	require.NoError(t, err,
+		"aggregation check must accept GROUP BY / ORDER BY of a SELECT alias when the target carries AS <alias>")
+
+	// Also the no-AS-on-COUNT variant, matching the literal SQL Gitea's
+	// heatmap generates.
+	_, err = engine.InferParameters(ctx, nil,
+		`SELECT created_unix / 900 * 900 AS timestamp, count(user_id) `+
+			`FROM action WHERE (user_id = $1 AND act_user_id = $2) AND created_unix > $3 `+
+			`GROUP BY timestamp ORDER BY timestamp`)
+	require.NoError(t, err, "same shape without AS on the aggregate target must also be accepted")
+
+	// Also attempt to Exec it — the aggregation check runs on both paths.
+	_, _, err = engine.Exec(ctx, nil,
+		`SELECT created_unix / 900 * 900 AS timestamp, count(user_id) `+
+			`FROM action WHERE (user_id = 1 AND act_user_id = 1) AND created_unix > 0 `+
+			`GROUP BY timestamp ORDER BY timestamp;`, nil)
+	require.NoError(t, err, "Exec path must accept the same query")
+}
+
+// TestTypeNameAsAlias_Parses — Gitea's heatmap SELECT uses
+// `AS timestamp` as an alias; Postgres accepts reserved type names
+// as identifiers in alias position, immudb now does too.
+func TestTypeNameAsAlias_Parses(t *testing.T) {
+	_, err := ParseSQLString(
+		`SELECT created_unix / 900 * 900 AS timestamp, count(user_id) AS contributions FROM action GROUP BY timestamp`)
+	require.NoError(t, err,
+		"grammar must accept reserved type names (TIMESTAMP, INTEGER, VARCHAR, …) as column aliases")
+}
+
+// TestCountDistinctWithParens_Parses pins `COUNT(DISTINCT(col))` — the
+// extra-paren form XORM's builder emits for Gitea GetUserOrgsList's
+// per-org repo count. Grammar accepts it as equivalent to
+// COUNT(DISTINCT col).
+func TestCountDistinctWithParens_Parses(t *testing.T) {
+	_, err := ParseSQLString(
+		`SELECT owner_id AS org_id, COUNT(DISTINCT(repository.id)) AS repo_count FROM repository GROUP BY owner_id`)
+	require.NoError(t, err,
+		"grammar must accept COUNT(DISTINCT(col)) — the parenthesized XORM variant")
+}
+
 // TestCaseWhenWithBindParam_InferParameters — $N can hide inside the
 // WHEN/THEN arms of a CASE expression in the SELECT list. ORMs emit
 // conditional aggregations in this shape. *CaseWhenExp has exp,

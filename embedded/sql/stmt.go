@@ -3699,19 +3699,56 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	}
 
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
-		for _, sel := range stmt.targetSelectors() {
-			_, isAgg := sel.(*AggColSelector)
-			if !isAgg && !stmt.groupByContains(sel) {
-				return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+		for _, t := range stmt.targets {
+			if _, isAgg := t.Exp.(*AggColSelector); isAgg {
+				continue
+			}
+			// Permit grouping by a target's alias (PG-style):
+			//   SELECT <expr> AS x, COUNT(*) FROM t GROUP BY x
+			// immudb's groupBy slice holds *ColSelector, so the literal
+			// alias "x" is present in stmt.groupBy; we treat that as
+			// covering the aliased target. Gitea's heatmap emits this
+			// pattern: SELECT created_unix/900*900 AS timestamp … GROUP BY timestamp.
+			if t.As != "" {
+				matched := false
+				for _, gb := range stmt.groupBy {
+					if gb.table == "" && strings.EqualFold(gb.col, t.As) {
+						matched = true
+						break
+					}
+				}
+				if matched {
+					continue
+				}
+			}
+			for _, sel := range t.Exp.selectors() {
+				if _, isAgg := sel.(*AggColSelector); isAgg {
+					continue
+				}
+				if !stmt.groupByContains(sel) {
+					return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+				}
 			}
 		}
 	}
 
 	if len(stmt.orderBy) > 0 {
-		// Resolve ORDER BY aliases (e.g. "ORDER BY total" → actual expression)
+		// resolveOrderByAliases sets wasAliasResolved=true on entries that
+		// referenced a SELECT alias. Skip those in the aggregation check:
+		// if GROUP BY <alias> was allowed (alias covers the target), then
+		// ORDER BY <same alias> is too — even though after resolution its
+		// selectors may not literally match anything in stmt.groupBy.
+		// Gitea's heatmap is the canonical pattern:
+		//   SELECT expr AS timestamp … GROUP BY timestamp ORDER BY timestamp.
+		// Resolve here is idempotent (entries already marked as resolved
+		// stay marked; no double-rewrite because AsSelector on the
+		// already-resolved exp is not a bare ColSelector).
 		stmt.resolveOrderByAliases()
 
 		for _, col := range stmt.orderBy {
+			if col.wasAliasResolved {
+				continue
+			}
 			for _, sel := range col.exp.selectors() {
 				_, isAgg := sel.(*AggColSelector)
 				if (isAgg && !stmt.selectorAppearsInTargets(sel)) || (!isAgg && len(stmt.groupBy) > 0 && !stmt.groupByContains(sel)) {
@@ -3760,11 +3797,15 @@ func (stmt *SelectStmt) resolveOrderByAliases() {
 		// Check if this selector name matches a target alias
 		for _, target := range stmt.targets {
 			if target.As != "" && strings.EqualFold(target.As, colSel.col) {
-				// Replace the ORDER BY expression with the target expression
+				// Replace the ORDER BY expression with the target expression,
+				// marking it so the aggregation validator doesn't re-check
+				// the resolved selectors against stmt.groupBy (those were
+				// already covered by GROUP BY <alias>).
 				stmt.orderBy[i] = &OrdExp{
-					exp:        target.Exp,
-					descOrder:  ordExp.descOrder,
-					nullsOrder: ordExp.nullsOrder,
+					exp:              target.Exp,
+					descOrder:        ordExp.descOrder,
+					nullsOrder:       ordExp.nullsOrder,
+					wasAliasResolved: true,
 				}
 				break
 			}
@@ -5535,6 +5576,11 @@ type OrdExp struct {
 	exp        ValueExp
 	descOrder  bool
 	nullsOrder NullsOrder
+	// wasAliasResolved is set when resolveOrderByAliases rewrote exp
+	// from a SELECT target alias to the target's underlying expression.
+	// Carried so the aggregation validator in execAt can skip these
+	// entries regardless of whether Resolve ran before inferParameters.
+	wasAliasResolved bool
 }
 
 func (oc *OrdExp) AsSelector() Selector {
