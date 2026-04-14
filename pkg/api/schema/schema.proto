@@ -314,11 +314,20 @@ message ScanRequest {
   // maximum number of entries to get, if not specified, the default value is used
   uint64 limit = 4;
 
-  // If non-zero, only require transactions up to this transaction to be
-  // indexed, newer transaction may still be pending
+  // Controls the visibility lower bound of the scan.
+  //   - If 0 (default): the server captures the latest committed transaction
+  //     id at call-reception time and blocks until the indexer has processed
+  //     at least that transaction before taking the snapshot. This gives
+  //     "read-latest" / read-your-writes semantics without the caller needing
+  //     to know the latest tx id (useful when multiple client processes write
+  //     concurrently, see issue #2082).
+  //   - If > 0: the server only requires transactions up to sinceTx to be
+  //     indexed; transactions committed after sinceTx may still be pending
+  //     and may or may not appear in the result.
   uint64 sinceTx = 5;
 
-  // Deprecated: If set to true, do not wait for indexing to be done before finishing this call
+  // Deprecated and currently ignored by Scan: the server always waits for the
+  // tx id resolved from sinceTx (see above) to be indexed before returning.
   bool noWait = 6;
 
   // If set to true, results will include seekKey

@@ -3433,11 +3433,11 @@
         "sinceTx": {
           "type": "string",
           "format": "uint64",
-          "title": "If non-zero, only require transactions up to this transaction to be\nindexed, newer transaction may still be pending"
+          "title": "Controls the visibility lower bound of the scan.\n  - If 0 (default): the server captures the latest committed transaction\n    id at call-reception time and blocks until the indexer has processed\n    at least that transaction before taking the snapshot. This gives\n    \"read-latest\" / read-your-writes semantics without the caller needing\n    to know the latest tx id (useful when multiple client processes write\n    concurrently, see issue #2082).\n  - If \u003e 0: the server only requires transactions up to sinceTx to be\n    indexed; transactions committed after sinceTx may still be pending\n    and may or may not appear in the result."
         },
         "noWait": {
           "type": "boolean",
-          "title": "Deprecated: If set to true, do not wait for indexing to be done before finishing this call"
+          "title": "Deprecated and currently ignored by Scan: the server always waits for the\ntx id resolved from sinceTx (see above) to be indexed before returning."
         },
         "inclusiveSeek": {
           "type": "boolean",
