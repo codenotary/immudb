@@ -129,7 +129,11 @@ func (s *session) HandleError(e error) {
 
 	_, err := s.writeMessage(pgerr.Encode())
 	if err != nil {
-		s.log.Errorf("unable to write error on wire: %v", err)
+		// "broken pipe" / "use of closed network connection" — the
+		// client gave up while we were preparing the ErrorResponse
+		// (common in pq's connection-rotation paths). Not a server
+		// fault; demote so it doesn't pollute logs.
+		s.log.Debugf("unable to write error on wire: %v", err)
 	}
 }
 

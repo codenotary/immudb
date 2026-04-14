@@ -52,7 +52,10 @@ func (s *session) QueryMachine() error {
 		msg, extQueryMode, err := s.nextMessage()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				s.log.Warningf("connection is closed")
+				// Normal client disconnect — pq driver pools rotate
+				// connections aggressively. Drop to Debug so production
+				// logs aren't drowned in this benign event.
+				s.log.Debugf("connection is closed")
 				return nil
 			}
 			s.HandleError(err)
