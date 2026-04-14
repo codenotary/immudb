@@ -1033,11 +1033,15 @@ func TestExtractFromTimestampType(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		// VARCHAR→TIMESTAMP is now accepted at type-check time; the
+		// literal is coerced to a timestamp via ISO-8601 parsing at
+		// runtime. EXTRACT then yields an INTEGER (convertible to
+		// Float64), so both checks must succeed.
 		err = e.requiresType(Float64Type, nil, nil, "")
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		err = e.requiresType(IntegerType, nil, nil, "")
-		require.Error(t, err)
+		require.NoError(t, err)
 	})
 }
 

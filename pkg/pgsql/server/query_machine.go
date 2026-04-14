@@ -120,6 +120,16 @@ func (s *session) QueryMachine() error {
 			var resCols []sql.ColDescriptor
 			var stmt sql.SQLStmt
 
+			// Apply the same pg → immudb SQL translations (type aliases,
+			// reserved-word renames, etc.) to the Extended Query Parse
+			// message contents that the simple-query path runs. Without
+			// this step, a CREATE TABLE sent via Parse/Bind/Execute
+			// creates a column named "_key" (because quoted "key" gets
+			// renamed only in the simple path), and the subsequent
+			// INSERT or SELECT under Extended Query looks up the
+			// un-renamed "key" and fails with "column does not exist".
+			v.Statements = removePGCatalogReferences(v.Statements)
+
 			emulableCmd := s.isEmulableInternally(v.Statements)
 			if s.isInBlackList(v.Statements) {
 				// blacklisted — skip parsing
@@ -391,10 +401,25 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)\s*DEFAULT\s+\(\s*'now'\s*\)\s*`), " DEFAULT NOW() "},
 
 	// Type aliases — order matters (longer matches first)
+	{regexp.MustCompile(`(?i)\btimestamp\s*\(\s*\d+\s*\)\s+without\s+time\s+zone\b`), "TIMESTAMP"},
+	{regexp.MustCompile(`(?i)\btimestamp\s*\(\s*\d+\s*\)\s+with\s+time\s+zone\b`), "TIMESTAMP"},
 	{regexp.MustCompile(`(?i)\btimestamp\s+without\s+time\s+zone\b`), "TIMESTAMP"},
 	{regexp.MustCompile(`(?i)\btimestamp\s+with\s+time\s+zone\b`), "TIMESTAMP"},
+	// Rails emits `timestamp(6)` for datetime columns; immudb TIMESTAMP
+	// has no fractional-second-precision knob, drop the (N) qualifier.
+	{regexp.MustCompile(`(?i)\btimestamp\s*\(\s*\d+\s*\)`), "TIMESTAMP"},
 	{regexp.MustCompile(`(?i)\bcharacter\s+varying\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
 	{regexp.MustCompile(`(?i)\bcharacter\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
+	// Unsized variant: Rails' `t.string` (and Rails's internal
+	// schema_migrations DDL) emits bare `character varying` without a
+	// size qualifier. immudb's bare VARCHAR is effectively unlimited
+	// and therefore cannot be used as an index key. Cap to 256 bytes
+	// so primary-key / unique-index creation succeeds for well-formed
+	// Rails DDL. Callers that need a larger text column can use TEXT
+	// which maps to VARCHAR[4096] elsewhere in this translator.
+	{regexp.MustCompile(`(?i)\bcharacter\s+varying\b`), "VARCHAR[256]"},
+	{regexp.MustCompile(`(?i)\bvarchar\b(?:\s*\()`), "VARCHAR_PAREN_FIXME("},
+	{regexp.MustCompile(`(?i)\bVARCHAR_PAREN_FIXME\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
 	{regexp.MustCompile(`(?i)\bdouble\s+precision\b`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bbigserial\b`), "INTEGER AUTO_INCREMENT"},
 	{regexp.MustCompile(`(?i)\bserial\b`), "INTEGER AUTO_INCREMENT"},
@@ -405,7 +430,12 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)\bnumeric\b`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bdecimal\s*\([^)]*\)`), "FLOAT"},
 	// PG array types → just use VARCHAR (must come BEFORE text→VARCHAR[4096])
+	// Handles: "text[]", "jsonb[]", "uuid[]", etc.
 	{regexp.MustCompile(`(?i)\w+\[\]`), "VARCHAR[4096]"},
+	// Array-of-sized-VARCHAR, e.g. "character varying(255)[]" already got
+	// rewritten by an earlier rule to "VARCHAR[255][]"; collapse to one
+	// VARCHAR[4096] so the trailing [] doesn't confuse immudb's grammar.
+	{regexp.MustCompile(`(?i)VARCHAR\[\d+\]\s*\[\s*\]`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\bbytea\b`), "BLOB"},
 	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[4096]"},
@@ -423,8 +453,41 @@ var pgTypeReplacements = []struct {
 	// immudb doesn't support DEFAULT expr NOT NULL together — strip NOT NULL after DEFAULT
 	{regexp.MustCompile(`(?i)(DEFAULT\s+\S+(?:\([^)]*\))?)\s+NOT\s+NULL`), "$1"},
 
+	// Rails emits Postgres-style `ON CONFLICT (col_list) DO ...` for
+	// `create_or_find_by!`, `upsert_all`, etc. immudb's grammar accepts
+	// only the column-less form (`ON CONFLICT DO NOTHING` / `ON CONFLICT
+	// DO UPDATE SET`), so drop the column list. The resulting statement
+	// has the same intent: skip / update on any conflict.
+	{regexp.MustCompile(`(?i)\bON\s+CONFLICT\s*\([^)]*\)\s*(DO)\b`), "ON CONFLICT $1"},
+
+	// Rails decides whether a table already exists by probing pg_class;
+	// with immudb's canned emulation that probe always reports "absent",
+	// so Rails emits bare `CREATE TABLE` rather than the idempotent
+	// `CREATE TABLE IF NOT EXISTS`. On the first run the plain form
+	// succeeds. On a restart after a successful schema load the plain
+	// form fails with "table already exists" and aborts db:prepare.
+	// Make every `CREATE TABLE` implicitly idempotent by inserting the
+	// `IF NOT EXISTS` clause when it is missing — Postgres and immudb
+	// both accept the form, and Rails's control flow is unchanged.
+	{regexp.MustCompile(`(?i)^(\s*CREATE\s+TABLE)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?P<name>"[^"]+"|\w+)`), "$1 IF NOT EXISTS $2"},
+
+	// (INSERT-into-schema_migrations idempotency is applied later in a
+	//  Go-side pass because regex alone cannot express "only add
+	//  ON CONFLICT if one is not already present".)
+
 	// Strip CHECK constraints (may be nested parens)
 	{regexp.MustCompile(`(?i)\bCHECK\s*\([^)]*\)`), ""},
+
+	// Strip PostgreSQL stored generated (virtual) column clauses.
+	// Rails' `t.virtual ..., stored: true` emits
+	//   "col" type GENERATED ALWAYS AS (expression) STORED
+	// immudb has no generated-column support, so drop the clause and
+	// leave the column as a regular nullable column. The expression
+	// may contain arbitrary nested parens; we rely on STORED as the
+	// (non-greedy) terminator. This works provided the expression
+	// body does not itself contain the literal identifier "STORED",
+	// which is safe in practice for ActiveRecord-emitted DDL.
+	{regexp.MustCompile(`(?is)\s+GENERATED\s+ALWAYS\s+AS\s+\(.*?\)\s+STORED\b`), ""},
 
 	// Strip CONSTRAINT keyword with name
 	{regexp.MustCompile(`(?i)\bCONSTRAINT\s+\w+\s+`), ""},
@@ -443,6 +506,8 @@ var pgTypeReplacements = []struct {
 var createTableRe = regexp.MustCompile(`(?i)^\s*CREATE\s+TABLE\s+`)
 var primaryKeyInlineRe = regexp.MustCompile(`(?i)PRIMARY\s+KEY`)
 
+var insertSchemaMigrationsRe = regexp.MustCompile(`(?is)\A(\s*INSERT\s+INTO\s+(?:"schema_migrations"|schema_migrations)\s+\([^)]*\)\s+VALUES\s+.+?)(\s*;?\s*)\z`)
+
 func removePGCatalogReferences(sqlStr string) string {
 	s := strings.ReplaceAll(sqlStr, "pg_catalog.", "")
 	s = strings.ReplaceAll(s, "information_schema.", "information_schema_")
@@ -451,6 +516,18 @@ func removePGCatalogReferences(sqlStr string) string {
 	// Apply PG type translations
 	for _, r := range pgTypeReplacements {
 		s = r.re.ReplaceAllString(s, r.repl)
+	}
+
+	// Idempotency for Rails's schema_migrations bulk insert. See
+	// pgTypeReplacements for the long explanation. Using a Go pass here
+	// so we can check "ON CONFLICT already present" safely — the
+	// standard library regex has no lookahead.
+	if m := insertSchemaMigrationsRe.FindStringSubmatchIndex(s); m != nil {
+		if !strings.Contains(strings.ToUpper(s), "ON CONFLICT") {
+			head := s[m[2]:m[3]]
+			tail := s[m[4]:m[5]]
+			s = head + " ON CONFLICT DO NOTHING" + tail
+		}
 	}
 
 	// Auto-add PRIMARY KEY for CREATE TABLE without one

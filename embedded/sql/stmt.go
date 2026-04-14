@@ -2598,7 +2598,12 @@ func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != VarcharType && t != JSONType {
+	// Accept VARCHAR, JSON, and TIMESTAMP. TIMESTAMP is allowed because the
+	// engine already parses ISO-8601 / RFC3339 timestamp literals at
+	// conversion time (see mayApplyImplicitConversion). Rejecting here
+	// would make ORM clients (Rails, Django) unable to bind timestamp
+	// parameters as strings — which is the default wire format.
+	if t != VarcharType && t != JSONType && t != TimestampType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
 	}
 	return nil
