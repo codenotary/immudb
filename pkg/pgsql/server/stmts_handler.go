@@ -76,7 +76,15 @@ var (
 	// Blanket intercept for all PostgreSQL system catalog queries.
 	// pgAdmin, DBeaver, ORMs etc. send dozens of these after connecting.
 	// immudb can't execute them, so we return canned responses.
-	pgSystemQueryRe = regexp.MustCompile(`(?i)pg_catalog\.|information_schema\.|pg_roles\b|pg_database\b|pg_settings\b|pg_extension\b|pg_tablespace\b|pg_replication_slots\b|pg_stat_activity\b|pg_authid\b|pg_shdescription\b|pg_description\b|pg_am\b|pg_stat_replication\b|pg_auth_members\b|pg_namespace\b|pg_class\b|pg_attribute\b|pg_type\b|pg_proc\b|pg_constraint\b|pg_index\b|pg_depend\b|pg_stat_user_tables\b|pg_statio_user_tables\b|pg_locks\b|pg_shadow\b|pg_user\b|current_setting\s*\(|has_database_privilege\s*\(|has_table_privilege\s*\(|has_schema_privilege\s*\(|pg_encoding_to_char\s*\(|pg_get_userbyid\s*\(`)
+	pgSystemQueryRe = regexp.MustCompile(`(?i)pg_catalog\.|information_schema\.|pg_roles\b|pg_database\b|pg_settings\b|pg_extension\b|pg_tablespace\b|pg_replication_slots\b|pg_stat_activity\b|pg_authid\b|pg_shdescription\b|pg_description\b|pg_am\b|pg_stat_replication\b|pg_auth_members\b|pg_namespace\b|pg_class\b|pg_attribute\b|pg_type\b|pg_proc\b|pg_constraint\b|pg_index\b|pg_depend\b|pg_stat_user_tables\b|pg_statio_user_tables\b|pg_locks\b|pg_shadow\b|pg_user\b|pg_tables\b|pg_indexes\b|pg_views\b|pg_matviews\b|pg_sequences\b|current_setting\s*\(|has_database_privilege\s*\(|has_table_privilege\s*\(|has_schema_privilege\s*\(|pg_encoding_to_char\s*\(|pg_get_userbyid\s*\(`)
+
+	// pgTablesRe singles out queries against the standard `pg_tables` view
+	// (and its sister catalog views) so the handler can enumerate immudb's
+	// actual tables and apply a WHERE filter, rather than returning the
+	// generic "one canned row" response — XORM and other ORMs probe these
+	// views to detect table existence, and a blanket 1-row response makes
+	// every IsTableExist check return true.
+	pgTablesRe = regexp.MustCompile(`(?is)\bfrom\s+(?:pg_catalog\.)?pg_tables\b`)
 )
 
 var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+SEQUENCE|CREATE\s+DOMAIN|CREATE\s+VIEW|CREATE\s+OR\s+REPLACE\s+VIEW|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout)`)
@@ -155,6 +163,14 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &pgAdvisoryLockCmd{}
 	}
 
+	// pg_tables view: enumerate immudb's catalog rather than emit canned
+	// rows. XORM / GORM / SQLAlchemy / Hibernate all probe this to decide
+	// whether to CREATE TABLE; a one-row canned response would say "every
+	// table exists" and skip every CREATE.
+	if pgTablesRe.MatchString(statement) {
+		return &pgTablesCmd{sql: statement}
+	}
+
 	// Blanket catch for ALL pg_catalog/information_schema/system queries.
 	// Returns canned responses with column names extracted from the query.
 	if pgSystemQueryRe.MatchString(statement) {
@@ -194,6 +210,9 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 		return s.handlePgAdvisoryLock()
 	case *pgAdminProbe:
 		return s.handlePgSystemQuery(cmd.sql)
+	case *pgTablesCmd:
+		// Simple-query path — no Bind so no parameters available.
+		return s.handlePgTablesQuery(cmd.sql, nil, false)
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -239,5 +258,13 @@ type showCmd struct {
 }
 
 type pgAdminProbe struct {
+	sql string
+}
+
+// pgTablesCmd is a query against the standard `pg_tables` view. The handler
+// enumerates immudb's catalog (with optional WHERE filter) instead of
+// emitting a canned single-row response that would make every IsTableExist
+// probe return true.
+type pgTablesCmd struct {
 	sql string
 }

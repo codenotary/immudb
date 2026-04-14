@@ -19,10 +19,13 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
@@ -560,4 +563,119 @@ func buildMultiColRowDescription(cols []sql.ColDescriptor) []byte {
 	binary.BigEndian.PutUint32(msgLen, uint32(4+2+len(fieldData)))
 
 	return bytes.Join([][]byte{messageType, msgLen, fieldNumb, fieldData}, nil)
+}
+
+// pgTablesNameFilterLitRe extracts a literal `tablename = '<name>'` from
+// a pg_tables WHERE clause for the simple-query path (no binds).
+var pgTablesNameFilterLitRe = regexp.MustCompile(`(?i)\btablename\s*=\s*'([^']+)'`)
+
+// pgTablesNameFilterParamRe extracts a `tablename = $N` reference from
+// the extended-query path so the bound value can be looked up.
+var pgTablesNameFilterParamRe = regexp.MustCompile(`(?i)\btablename\s*=\s*\$(\d+)`)
+
+// pgTablesSchemaFilterLitRe extracts a literal `schemaname = '<name>'`
+// filter — XORM and others typically scope to the public schema.
+var pgTablesSchemaFilterLitRe = regexp.MustCompile(`(?i)\bschemaname\s*=\s*'([^']+)'`)
+
+// handlePgTablesQuery emulates the standard `pg_tables` view by
+// enumerating immudb's actual catalog and applying a WHERE filter on
+// `tablename` (literal or bound) when present. ORM IsTableExist probes
+// rely on this view, so a generic 1-row response would either say
+// "every table exists" (skip every CREATE) or "no table exists" (CREATE
+// a table that already exists). Real catalog lookup avoids both.
+//
+// extMode controls whether RowDescription is also emitted (simple-query
+// path) or skipped (extended-query path, where Describe already sent it).
+func (s *session) handlePgTablesQuery(query string, params []*schema.NamedParam, extMode bool) error {
+	cols := extractColumnNames(query)
+	if len(cols) == 0 || (len(cols) == 1 && cols[0] == "*") {
+		// Default to PG's pg_tables column set.
+		cols = []string{
+			"schemaname", "tablename", "tableowner", "tablespace",
+			"hasindexes", "hasrules", "hastriggers", "rowsecurity",
+		}
+	}
+
+	colDescs := make([]sql.ColDescriptor, len(cols))
+	for i, name := range cols {
+		colType := sql.VarcharType
+		switch strings.ToLower(name) {
+		case "hasindexes", "hasrules", "hastriggers", "rowsecurity":
+			colType = sql.BooleanType
+		}
+		colDescs[i] = sql.ColDescriptor{Column: name, Type: colType}
+	}
+
+	if !extMode {
+		if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
+			return err
+		}
+	}
+
+	// Extract WHERE filters.
+	var nameFilter string
+	if m := pgTablesNameFilterLitRe.FindStringSubmatch(query); m != nil {
+		nameFilter = m[1]
+	} else if m := pgTablesNameFilterParamRe.FindStringSubmatch(query); m != nil {
+		idx, _ := strconv.Atoi(m[1])
+		key := fmt.Sprintf("param%d", idx)
+		for _, p := range params {
+			if p.Name == key {
+				if v, ok := schema.RawValue(p.Value).(string); ok {
+					nameFilter = strings.Trim(v, `"`)
+				}
+				break
+			}
+		}
+	}
+
+	schemaFilter := "public"
+	if m := pgTablesSchemaFilterLitRe.FindStringSubmatch(query); m != nil {
+		schemaFilter = m[1]
+	}
+
+	tx, err := s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		s.log.Infof("pgcompat: pg_tables: begin tx: %v — emitting 0 rows", err)
+		return nil
+	}
+	defer tx.Cancel()
+
+	allTables := tx.Catalog().GetTables()
+	rows := make([]*sql.Row, 0, len(allTables))
+	for _, t := range allTables {
+		if nameFilter != "" && t.Name() != nameFilter {
+			continue
+		}
+		vals := make([]sql.TypedValue, len(cols))
+		for i, name := range cols {
+			switch strings.ToLower(name) {
+			case "schemaname":
+				vals[i] = sql.NewVarchar(schemaFilter)
+			case "tablename":
+				vals[i] = sql.NewVarchar(t.Name())
+			case "tableowner":
+				vals[i] = sql.NewVarchar("immudb")
+			case "tablespace":
+				vals[i] = sql.NewVarchar("pg_default")
+			case "hasindexes":
+				vals[i] = sql.NewBool(len(t.GetIndexes()) > 0)
+			case "hasrules", "hastriggers", "rowsecurity":
+				vals[i] = sql.NewBool(false)
+			default:
+				vals[i] = sql.NewNull(sql.VarcharType)
+			}
+		}
+		rows = append(rows, &sql.Row{ValuesByPosition: vals})
+	}
+
+	s.log.Infof("pgcompat: pg_tables: %d table(s) match filter (nameFilter=%q schema=%q catalogTotal=%d)",
+		len(rows), nameFilter, schemaFilter, len(allTables))
+
+	if len(rows) > 0 {
+		if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

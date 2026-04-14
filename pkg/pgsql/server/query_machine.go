@@ -139,9 +139,23 @@ func (s *session) QueryMachine() error {
 				if probe, ok := emulableCmd.(*pgAdminProbe); ok {
 					resCols = extractResultCols(probe.sql)
 				}
+				if probe, ok := emulableCmd.(*pgTablesCmd); ok {
+					// Same shape as pgAdminProbe — extract column
+					// names from the SELECT list so Describe sees them.
+					resCols = extractResultCols(probe.sql)
+				}
 				if _, ok := emulableCmd.(*pgAttributeForTableCmd); ok {
 					resCols = pgAttributeResultCols()
 				}
+				// Emulated queries don't go through inferParametersPrepared,
+				// so paramCols would default to empty. ParameterDescription
+				// would then advertise 0 params, and the client's Bind with
+				// N>0 values triggers
+				//   "got N parameters but the statement requires 0".
+				// Scan the SQL text for the highest $N marker and emit
+				// AnyType placeholders so the count matches what the client
+				// will Bind.
+				paramCols = inferParamColsFromSQL(v.Statements)
 			} else if true {
 				stmts, err := sql.ParseSQL(strings.NewReader(v.Statements))
 				if err != nil {
@@ -340,6 +354,16 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 				}
 			}
 			if err := s.handlePgAttributeForTable(tableName, extQueryMode); err != nil {
+				return err
+			}
+			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+			return err
+		}
+		if cmd, ok := i.(*pgTablesCmd); ok {
+			// pg_tables view emulation. Pass the bound parameters so the
+			// `WHERE tablename = $1` form (XORM, GORM, …) resolves to a
+			// catalog lookup against the real table list.
+			if err := s.handlePgTablesQuery(cmd.sql, parameters, extQueryMode); err != nil {
 				return err
 			}
 			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
@@ -605,6 +629,39 @@ func maskStringLiterals(s string) (string, func(string) string) {
 }
 
 var stringLiteralTokenRe = regexp.MustCompile("\x01(\\d+)\x01")
+
+// paramMarkerRe matches `$N` placeholder references in a SQL statement,
+// excluding any that fall inside a single-quoted literal (those are
+// pre-masked by maskStringLiterals, so the leading `$` is preserved
+// verbatim and we don't accidentally count them here).
+var paramMarkerRe = regexp.MustCompile(`\$(\d+)`)
+
+// inferParamColsFromSQL scans a SQL statement for the highest `$N`
+// placeholder and returns N AnyType ColDescriptors named param1..paramN.
+// Used in the Extended Query Parse path for queries that the wire layer
+// emulates (pg_catalog, pg_tables, …) and so never reach the engine's
+// real inferParameters. Without this, ParameterDescription advertises
+// zero parameters and the client's subsequent Bind with N>0 values
+// trips the standard "got N parameters but the statement requires 0"
+// pq driver error.
+func inferParamColsFromSQL(stmtSQL string) []sql.ColDescriptor {
+	masked, _ := maskStringLiterals(stmtSQL)
+	max := 0
+	for _, m := range paramMarkerRe.FindAllStringSubmatch(masked, -1) {
+		n, err := strconv.Atoi(m[1])
+		if err == nil && n > max {
+			max = n
+		}
+	}
+	if max == 0 {
+		return nil
+	}
+	cols := make([]sql.ColDescriptor, max)
+	for i := 0; i < max; i++ {
+		cols[i] = sql.ColDescriptor{Column: fmt.Sprintf("param%d", i+1), Type: sql.AnyType}
+	}
+	return cols
+}
 
 func removePGCatalogReferences(sqlStr string) string {
 	// Mask string literals first so regex-based rewrites can't mutate
