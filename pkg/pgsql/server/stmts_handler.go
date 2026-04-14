@@ -51,7 +51,16 @@ var (
 	// `enum :role, ...` fail with "Undeclared attribute type for enum 'role'".
 	// Match the canonical Rails 7 form of this query (multi-line, joins on
 	// pg_attrdef / pg_type / pg_collation, filter on attrelid = '"t"'::regclass).
+	// Literal form — simple query protocol.
 	pgAttributeForTableRe = regexp.MustCompile(`(?is)SELECT\s+a\.attname\s*,\s*format_type\s*\([^)]*\).*?FROM\s+pg_attribute\s+a.*?WHERE\s+a\.attrelid\s*=\s*'"?([^"']+)"?'::regclass`)
+
+	// Parameterised form — Extended Query protocol (Rails's default).
+	// Table name arrives as the bound value of $1 at Execute time; the
+	// caller is responsible for substituting the parameter value for
+	// the empty tableName slot in pgAttributeForTableCmd. Note the
+	// `::regclass` cast is stripped by removePGCatalogReferences before
+	// this regex runs, so we match on bare `$1` here.
+	pgAttributeForTableParamRe = regexp.MustCompile(`(?is)SELECT\s+a\.attname\s*,\s*format_type\s*\([^)]*\).*?FROM\s+pg_attribute\s+a.*?WHERE\s+a\.attrelid\s*=\s*\$1\b`)
 
 	// Rails's db:migrate takes a Postgres advisory lock to serialise
 	// concurrent migrations. immudb has no advisory-lock subsystem; return
@@ -129,6 +138,14 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &pgAttributeForTableCmd{tableName: m[1]}
 	}
 
+	if pgAttributeForTableParamRe.MatchString(statement) {
+		// Parameterised form: table name is bound via $1 at Execute time.
+		// Signal with an empty tableName — the caller pulls the value out
+		// of the bind parameters and passes it in.
+		s.log.Infof("pgcompat: pg_attribute intercept (parameterised, $1)")
+		return &pgAttributeForTableCmd{tableName: ""}
+	}
+
 	if pgAdvisoryLockRe.MatchString(statement) {
 		return &pgAdvisoryLockCmd{}
 	}
@@ -166,7 +183,8 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 	case *regtypeOidCmd:
 		return s.handleRegtypeOid(cmd.typeName)
 	case *pgAttributeForTableCmd:
-		return s.handlePgAttributeForTable(cmd.tableName)
+		// Simple query path — no Describe beforehand, so always emit RowDescription.
+		return s.handlePgAttributeForTable(cmd.tableName, false)
 	case *pgAdvisoryLockCmd:
 		return s.handlePgAdvisoryLock()
 	case *pgAdminProbe:

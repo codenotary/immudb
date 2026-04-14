@@ -108,15 +108,17 @@ func (s *session) handlePgSystemQuery(query string) error {
 	s.log.Infof("pgcompat: extracted columns: %v", cols)
 	s.log.Infof("pgcompat: query length: %d bytes", len(query))
 
-	// pg_type and pg_range lookups (Rails load_additional_types, etc.) must
-	// return zero rows rather than a single row of bogus defaults. Returning
-	// a fake row causes Rails to register a broken type handler (e.g. jsonb
-	// with OID 16384 and nil typname), which then blows up with
-	// "can't quote Hash" the first time a jsonb default like `{}` is
-	// serialised. Empty result = Rails falls back to its built-in OID map
-	// which knows real PG OIDs (jsonb=3802, numeric=1700, …).
+	// pg_type lookups: emit a real row per standard PG type so Rails's
+	// load_additional_types populates its OID-to-Ruby-Type map. Without
+	// this, every column value comes back with a "unknown OID NNNN"
+	// warning and the cast type becomes Type::Value (the default
+	// fallback), which then breaks `enum :col, ...` at model-load time.
+	// pg_range stays as a 0-row response.
 	lq := strings.ToLower(query)
-	if strings.Contains(lq, "pg_type") || strings.Contains(lq, "pg_range") {
+	if strings.Contains(lq, "pg_type") {
+		return s.handlePgTypeRows(query, cols)
+	}
+	if strings.Contains(lq, "pg_range") {
 		colDescs := make([]sql.ColDescriptor, len(cols))
 		for i, name := range cols {
 			colDescs[i] = sql.ColDescriptor{Column: name, Type: sql.VarcharType}
@@ -124,7 +126,7 @@ func (s *session) handlePgSystemQuery(query string) error {
 		if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
 			return err
 		}
-		s.log.Infof("pgcompat: pg_type/pg_range query — returning 0 rows so Rails uses its built-in OID map")
+		s.log.Infof("pgcompat: pg_range query — returning 0 rows")
 		return nil
 	}
 	for i, name := range cols {
@@ -322,6 +324,99 @@ func isReserved(s string) bool {
 	return false
 }
 
+// stdPgTypes is the minimal set of Postgres types that Rails's
+// load_additional_types pass needs to populate its OID type map.
+// Without these rows Rails treats every value as Type::Value (default),
+// which breaks model-side `enum :col, ...` declarations.
+var stdPgTypes = []struct {
+	oid     int64
+	typname string
+	typtype string
+}{
+	{16, "bool", "b"},
+	{17, "bytea", "b"},
+	{18, "char", "b"},
+	{19, "name", "b"},
+	{20, "int8", "b"},
+	{21, "int2", "b"},
+	{23, "int4", "b"},
+	{25, "text", "b"},
+	{26, "oid", "b"},
+	{114, "json", "b"},
+	{142, "xml", "b"},
+	{700, "float4", "b"},
+	{701, "float8", "b"},
+	{1042, "bpchar", "b"},
+	{1043, "varchar", "b"},
+	{1082, "date", "b"},
+	{1083, "time", "b"},
+	{1114, "timestamp", "b"},
+	{1184, "timestamptz", "b"},
+	{1186, "interval", "b"},
+	{1700, "numeric", "b"},
+	{2950, "uuid", "b"},
+	{3802, "jsonb", "b"},
+}
+
+// handlePgTypeRows answers Rails's pg_type catalog query with one row per
+// standard Postgres type. The query column list varies (Rails 7 selects
+// oid, typname, typelem, typdelim, typinput, rngsubtype, typtype,
+// typbasetype) — emit values for the columns the query asks for, NULL
+// for any unrecognised name.
+func (s *session) handlePgTypeRows(query string, cols []string) error {
+	colDescs := make([]sql.ColDescriptor, len(cols))
+	for i, name := range cols {
+		switch strings.ToLower(name) {
+		case "oid":
+			colDescs[i] = sql.ColDescriptor{Column: name, Type: sql.IntegerType}
+		default:
+			colDescs[i] = sql.ColDescriptor{Column: name, Type: sql.VarcharType}
+		}
+	}
+	if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
+		return err
+	}
+
+	rows := make([]*sql.Row, 0, len(stdPgTypes))
+	for _, t := range stdPgTypes {
+		vals := make([]sql.TypedValue, len(cols))
+		for i, name := range cols {
+			switch strings.ToLower(name) {
+			case "oid":
+				vals[i] = sql.NewInteger(t.oid)
+			case "typname":
+				vals[i] = sql.NewVarchar(t.typname)
+			case "typtype":
+				vals[i] = sql.NewVarchar(t.typtype)
+			case "typelem":
+				vals[i] = sql.NewVarchar("0")
+			case "typdelim":
+				vals[i] = sql.NewVarchar(",")
+			case "typinput":
+				vals[i] = sql.NewVarchar(t.typname + "in")
+			case "rngsubtype":
+				vals[i] = sql.NewNull(sql.VarcharType)
+			case "typbasetype":
+				vals[i] = sql.NewVarchar("0")
+			case "typcategory":
+				vals[i] = sql.NewVarchar("U")
+			case "typnotnull":
+				vals[i] = sql.NewVarchar("false")
+			case "typdefault":
+				vals[i] = sql.NewNull(sql.VarcharType)
+			default:
+				vals[i] = sql.NewNull(sql.VarcharType)
+			}
+		}
+		rows = append(rows, &sql.Row{ValuesByPosition: vals})
+	}
+	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+		return err
+	}
+	s.log.Infof("pgcompat: pg_type query — returned %d standard type rows", len(rows))
+	return nil
+}
+
 // handlePgSystemQueryDataOnly is like handlePgSystemQuery but skips
 // RowDescription (for extended query protocol where Describe already sent it).
 func (s *session) handlePgSystemQueryDataOnly(query string) error {
@@ -330,11 +425,46 @@ func (s *session) handlePgSystemQueryDataOnly(query string) error {
 		return nil
 	}
 
-	// Same zero-row short-circuit as handlePgSystemQuery — see that comment
-	// for why pg_type / pg_range must not emit a bogus canned row.
+	// pg_type rows are needed by Rails' type registry. In Extended Query
+	// mode the Describe has already sent RowDescription, so emit only the
+	// DataRow set.
 	lq := strings.ToLower(query)
-	if strings.Contains(lq, "pg_type") || strings.Contains(lq, "pg_range") {
-		s.log.Infof("pgcompat: pg_type/pg_range query (ext mode) — returning 0 rows")
+	if strings.Contains(lq, "pg_type") {
+		rows := make([]*sql.Row, 0, len(stdPgTypes))
+		for _, t := range stdPgTypes {
+			vals := make([]sql.TypedValue, len(cols))
+			for i, name := range cols {
+				switch strings.ToLower(name) {
+				case "oid":
+					vals[i] = sql.NewInteger(t.oid)
+				case "typname":
+					vals[i] = sql.NewVarchar(t.typname)
+				case "typtype":
+					vals[i] = sql.NewVarchar(t.typtype)
+				case "typelem":
+					vals[i] = sql.NewVarchar("0")
+				case "typdelim":
+					vals[i] = sql.NewVarchar(",")
+				case "typinput":
+					vals[i] = sql.NewVarchar(t.typname + "in")
+				case "rngsubtype":
+					vals[i] = sql.NewNull(sql.VarcharType)
+				case "typbasetype":
+					vals[i] = sql.NewVarchar("0")
+				default:
+					vals[i] = sql.NewNull(sql.VarcharType)
+				}
+			}
+			rows = append(rows, &sql.Row{ValuesByPosition: vals})
+		}
+		if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+			return err
+		}
+		s.log.Infof("pgcompat: pg_type query (ext mode) — emitted %d type rows", len(rows))
+		return nil
+	}
+	if strings.Contains(lq, "pg_range") {
+		s.log.Infof("pgcompat: pg_range query (ext mode) — returning 0 rows")
 		return nil
 	}
 

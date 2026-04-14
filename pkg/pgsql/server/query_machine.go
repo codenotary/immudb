@@ -138,6 +138,9 @@ func (s *session) QueryMachine() error {
 				if probe, ok := emulableCmd.(*pgAdminProbe); ok {
 					resCols = extractResultCols(probe.sql)
 				}
+				if _, ok := emulableCmd.(*pgAttributeForTableCmd); ok {
+					resCols = pgAttributeResultCols()
+				}
 			} else if true {
 				stmts, err := sql.ParseSQL(strings.NewReader(v.Statements))
 				if err != nil {
@@ -322,6 +325,25 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
 			return err
 		}
+		if cmd, ok := i.(*pgAttributeForTableCmd); ok {
+			// Same pattern as pgAdminProbe above: in Extended Query mode
+			// Describe has already sent the RowDescription, so pass the
+			// flag through to skip the second one.
+			tableName := cmd.tableName
+			if tableName == "" && len(parameters) > 0 {
+				// Parameterised form — the table name is bound to $1
+				// (value carries the Postgres regclass literal like
+				// `"users"` — strip the double quotes).
+				if raw, ok := schema.RawValue(parameters[0].Value).(string); ok {
+					tableName = strings.Trim(raw, `"`)
+				}
+			}
+			if err := s.handlePgAttributeForTable(tableName, extQueryMode); err != nil {
+				return err
+			}
+			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+			return err
+		}
 		if err := s.tryToHandleInternally(i); err != nil && err != pserr.ErrMessageCannotBeHandledInternally {
 			return err
 		}
@@ -388,7 +410,7 @@ var pgTypeReplacements = []struct {
 	// starts with a digit. SQL reserved words get prefixed with underscore.
 	// Quoted identifiers: prefix digit-start names with t_, prefix reserved words with _
 	{regexp.MustCompile(`"(\d\w*)"`), "t_$1"},
-	{regexp.MustCompile(`"((?i:group|order|key|index|table|column|type|year|date|time|check|default|desc|asc|select|from|where|set|grant|user|role|limit|offset|values|primary|foreign|create|drop|alter|insert|update|delete|begin|commit|rollback|having|between|like|in|is|not|null|and|or|cast|case|when|then|else|end|join|on|as|distinct|all|any|exists|union|except|intersect|natural|cross|full|outer|inner|left|right|using|returning|with|recursive|password|database|transaction))"`), "_$1"},
+	{regexp.MustCompile(`"((?i:group|order|key|index|table|column|type|year|date|time|check|default|desc|asc|select|from|where|set|grant|limit|offset|values|primary|foreign|create|drop|alter|insert|update|delete|begin|commit|rollback|having|between|like|in|is|not|null|and|or|cast|case|when|then|else|end|join|on|as|distinct|all|any|exists|union|except|intersect|natural|cross|full|outer|inner|left|right|using|returning|with|recursive|password|database|transaction))"`), "_$1"},
 	{regexp.MustCompile(`"(\w+)"`), "$1"},
 
 	// Strip ::type casts FIRST — before type name translation

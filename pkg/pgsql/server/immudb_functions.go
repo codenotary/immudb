@@ -558,18 +558,13 @@ func immudbToPGType(t sql.SQLValueType) (string, int64) {
 	return "text", 25
 }
 
-// handlePgAttributeForTable answers Rails's pg_attribute introspection query
-// with real column data sourced from immudb's catalog. Without this, Rails
-// cannot resolve column types for ActiveRecord `enum :col, ...` declarations
-// (which require a backing database column) and every model with an enum
-// raises "Undeclared attribute type for enum 'col'".
-//
-// Rails expects exactly these columns in order:
-//
-//	attname, format_type, pg_get_expr, attnotnull,
-//	atttypid, atttypmod, collname, comment, identity, attgenerated
-func (s *session) handlePgAttributeForTable(tableName string) error {
-	cols := []sql.ColDescriptor{
+// pgAttributeResultCols returns the column descriptor list that handles
+// Rails's pg_attribute introspection query. Exported as its own helper so
+// ParseMsg can precompute it (via st.Results) — necessary for the
+// Extended Query Describe message to send a correct RowDescription before
+// Execute runs and emits DataRow.
+func pgAttributeResultCols() []sql.ColDescriptor {
+	return []sql.ColDescriptor{
 		{Column: "attname", Type: sql.VarcharType},
 		{Column: "format_type", Type: sql.VarcharType},
 		{Column: "pg_get_expr", Type: sql.VarcharType},
@@ -581,8 +576,28 @@ func (s *session) handlePgAttributeForTable(tableName string) error {
 		{Column: "identity", Type: sql.VarcharType},
 		{Column: "attgenerated", Type: sql.VarcharType},
 	}
-	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
-		return err
+}
+
+// handlePgAttributeForTable answers Rails's pg_attribute introspection query
+// with real column data sourced from immudb's catalog. Without this, Rails
+// cannot resolve column types for ActiveRecord `enum :col, ...` declarations
+// (which require a backing database column) and every model with an enum
+// raises "Undeclared attribute type for enum 'col'".
+//
+// Rails expects exactly these columns in order:
+//
+//	attname, format_type, pg_get_expr, attnotnull,
+//	atttypid, atttypmod, collname, comment, identity, attgenerated
+func (s *session) handlePgAttributeForTable(tableName string, extQueryMode bool) error {
+	cols := pgAttributeResultCols()
+	// In Extended Query mode the preceding Describe has already sent
+	// RowDescription; emitting it again confuses the client (Rails' pg
+	// gem skips the "real" DataRow thinking the second RowDescription
+	// is the start of a new result set).
+	if !extQueryMode {
+		if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
+			return err
+		}
 	}
 
 	tx, err := s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true))
