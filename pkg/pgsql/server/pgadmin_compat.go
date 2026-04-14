@@ -107,6 +107,26 @@ func (s *session) handlePgSystemQuery(query string) error {
 	s.log.Infof("pgcompat: intercepted query: %q", query)
 	s.log.Infof("pgcompat: extracted columns: %v", cols)
 	s.log.Infof("pgcompat: query length: %d bytes", len(query))
+
+	// pg_type and pg_range lookups (Rails load_additional_types, etc.) must
+	// return zero rows rather than a single row of bogus defaults. Returning
+	// a fake row causes Rails to register a broken type handler (e.g. jsonb
+	// with OID 16384 and nil typname), which then blows up with
+	// "can't quote Hash" the first time a jsonb default like `{}` is
+	// serialised. Empty result = Rails falls back to its built-in OID map
+	// which knows real PG OIDs (jsonb=3802, numeric=1700, …).
+	lq := strings.ToLower(query)
+	if strings.Contains(lq, "pg_type") || strings.Contains(lq, "pg_range") {
+		colDescs := make([]sql.ColDescriptor, len(cols))
+		for i, name := range cols {
+			colDescs[i] = sql.ColDescriptor{Column: name, Type: sql.VarcharType}
+		}
+		if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
+			return err
+		}
+		s.log.Infof("pgcompat: pg_type/pg_range query — returning 0 rows so Rails uses its built-in OID map")
+		return nil
+	}
 	for i, name := range cols {
 		if val, ok := knownColumnValues[name]; ok && val != nil {
 			s.log.Infof("pgcompat:   col[%d] %s -> type=%s val=%v", i, name, val.Type(), val.RawValue())
@@ -307,6 +327,14 @@ func isReserved(s string) bool {
 func (s *session) handlePgSystemQueryDataOnly(query string) error {
 	cols := extractColumnNames(query)
 	if len(cols) == 0 {
+		return nil
+	}
+
+	// Same zero-row short-circuit as handlePgSystemQuery — see that comment
+	// for why pg_type / pg_range must not emit a bogus canned row.
+	lq := strings.ToLower(query)
+	if strings.Contains(lq, "pg_type") || strings.Contains(lq, "pg_range") {
+		s.log.Infof("pgcompat: pg_type/pg_range query (ext mode) — returning 0 rows")
 		return nil
 	}
 

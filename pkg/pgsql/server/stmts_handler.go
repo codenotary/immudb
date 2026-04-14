@@ -37,6 +37,15 @@ var (
 	// SHOW statement patterns for ORM compatibility
 	showRe = regexp.MustCompile(`(?i)^\s*show\s+(\w+)\s*;?\s*$`)
 
+	// regtype OID lookup: Rails (and other ORMs) resolve custom type OIDs with
+	// queries like:   SELECT 'jsonb'::regtype::oid
+	//                 SELECT 'decimal(19,4)'::regtype::oid
+	// immudb's SQL engine does not implement regtype; without interception it
+	// silently returns the literal string. Rails then stores the string into
+	// its OID map and blows up later ("can't quote Hash") when it tries to
+	// bind a Hash parameter against a column typed by that non-integer OID.
+	regtypeOidRe = regexp.MustCompile(`(?i)^\s*select\s+'([^']+)'::regtype::oid\s*;?\s*$`)
+
 	// Blanket intercept for all PostgreSQL system catalog queries.
 	// pgAdmin, DBeaver, ORMs etc. send dozens of these after connecting.
 	// immudb can't execute them, so we return canned responses.
@@ -98,6 +107,10 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &showCmd{param: m[1]}
 	}
 
+	if m := regtypeOidRe.FindStringSubmatch(statement); len(m) == 2 {
+		return &regtypeOidCmd{typeName: m[1]}
+	}
+
 	// Blanket catch for ALL pg_catalog/information_schema/system queries.
 	// Returns canned responses with column names extracted from the query.
 	if pgSystemQueryRe.MatchString(statement) {
@@ -128,6 +141,8 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 		return s.immudbTxByID(cmd.args)
 	case *showCmd:
 		return s.handleShow(cmd.param)
+	case *regtypeOidCmd:
+		return s.handleRegtypeOid(cmd.typeName)
 	case *pgAdminProbe:
 		return s.handlePgSystemQuery(cmd.sql)
 	default:
@@ -158,6 +173,10 @@ type immudbHistoryCmd struct {
 
 type immudbTxCmd struct {
 	args string
+}
+
+type regtypeOidCmd struct {
+	typeName string
 }
 
 type showCmd struct {

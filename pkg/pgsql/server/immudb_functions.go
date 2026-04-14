@@ -452,6 +452,87 @@ func (s *session) handleShow(param string) error {
 	return nil
 }
 
+// pgTypeOIDByName maps common PostgreSQL type names to their canonical OIDs.
+// Used by handleRegtypeOid to answer `SELECT 'foo'::regtype::oid` queries so
+// Rails / ActiveRecord get usable integer OIDs instead of the literal type
+// name (which breaks the pg gem's type map and leads to "can't quote Hash").
+var pgTypeOIDByName = map[string]int64{
+	"bool":             16,
+	"boolean":          16,
+	"bytea":            17,
+	"char":             18,
+	"name":             19,
+	"int8":             20,
+	"bigint":           20,
+	"int2":             21,
+	"smallint":         21,
+	"int4":             23,
+	"integer":          23,
+	"int":              23,
+	"text":             25,
+	"oid":              26,
+	"json":             114,
+	"xml":              142,
+	"point":            600,
+	"float4":           700,
+	"real":             700,
+	"float8":           701,
+	"double precision": 701,
+	"money":            790,
+	"bpchar":           1042,
+	"character":        1042,
+	"varchar":          1043,
+	"date":             1082,
+	"time":             1083,
+	"timestamp":        1114,
+	"timestamptz":      1184,
+	"interval":         1186,
+	"timetz":           1266,
+	"bit":              1560,
+	"varbit":           1562,
+	"numeric":          1700,
+	"decimal":          1700,
+	"uuid":             2950,
+	"jsonb":            3802,
+}
+
+// handleRegtypeOid emulates `SELECT 'typename'::regtype::oid` by returning the
+// canonical PostgreSQL OID for the requested type. Strips any size/precision
+// qualifier (e.g. "decimal(19,4)" -> "decimal", "varchar(255)" -> "varchar").
+// Unknown type names return a zero row set so the client falls back to its
+// built-in defaults rather than crashing on a bad value.
+func (s *session) handleRegtypeOid(typeName string) error {
+	cols := []sql.ColDescriptor{{Column: "oid", Type: sql.IntegerType}}
+	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
+		return err
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(typeName))
+	if idx := strings.IndexByte(normalized, '('); idx > 0 {
+		normalized = strings.TrimSpace(normalized[:idx])
+	}
+
+	oid, ok := pgTypeOIDByName[normalized]
+	if !ok {
+		// Empty result: Rails treats this as "type unknown" and skips rather
+		// than caching a bogus OID. This is the correct Postgres behaviour
+		// when regtype cast fails for an unknown name, though real Postgres
+		// would error rather than return empty. Empty is safer here because
+		// it lets schema load continue past one unrecognised type.
+		return nil
+	}
+
+	v := sql.NewInteger(oid)
+	rows := []*sql.Row{{
+		ValuesByPosition: []sql.TypedValue{v},
+		ValuesBySelector: map[string]sql.TypedValue{"oid": v},
+	}}
+	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // trimQuotes removes surrounding single or double quotes from a string.
 func trimQuotes(s string) string {
 	if len(s) >= 2 {
