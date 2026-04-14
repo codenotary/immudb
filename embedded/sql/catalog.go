@@ -286,6 +286,29 @@ func (i *Index) coversOrdCols(ordExps []*OrdExp, rangesByColID map[uint32]*typed
 	return i.hasPrefix(i.cols, ordExps) || i.sortableUsing(ordExps, rangesByColID)
 }
 
+// countEqualityCoveredCols returns the number of consecutive leading columns
+// of the index that have a point-equality (unitary) range in rangesByColID.
+// Used by selectINLJIndex to prefer more selective indexes: an index on (a, b)
+// scores 2 when both a=x AND b=y are present, beating a single-column (a) index.
+func (i *Index) countEqualityCoveredCols(rangesByColID map[uint32]*typedValueRange) int {
+	count := 0
+	for _, col := range i.cols {
+		r, ok := rangesByColID[col.id]
+		if !ok || !r.unitary() {
+			break
+		}
+		count++
+	}
+	return count
+}
+
+// coversEqualityRanges returns true when at least the index's leading column
+// has a point-equality range in rangesByColID. It is a convenience wrapper
+// around countEqualityCoveredCols used in tests and unit assertions.
+func (i *Index) coversEqualityRanges(rangesByColID map[uint32]*typedValueRange) bool {
+	return i.countEqualityCoveredCols(rangesByColID) > 0
+}
+
 func ordExpsHaveSameDirection(exps []*OrdExp) bool {
 	if len(exps) == 0 {
 		return true
