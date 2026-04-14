@@ -679,3 +679,251 @@ func (s *session) handlePgTablesQuery(query string, params []*schema.NamedParam,
 	}
 	return nil
 }
+
+// handleXormColumnsQuery emulates XORM's column-introspection query
+// (see xormColumnsRe in stmts_handler.go). XORM walks pg_attribute /
+// pg_class / pg_type / information_schema.columns and reads:
+//
+//   column_name, column_default, is_nullable, data_type,
+//   character_maximum_length, description, primarykey, uniquekey
+//
+// Bind values: $1 = c.relname (table name), $2 = s.table_schema (== public).
+//
+// We synthesise one row per column from immudb's catalog. Without this,
+// the query fell to the generic 1-row pgAdminProbe handler, which filled
+// `column_name` with NULL, and XORM's subsequent
+//   sql: Scan error on column index 0, name "column_name":
+//        converting NULL to string is unsupported
+// stopped initialisation cold.
+func (s *session) handleXormColumnsQuery(query string, params []*schema.NamedParam, extMode bool) error {
+	cols := extractColumnNames(query)
+	// Build column descriptors. XORM expects strings for the textual
+	// columns and bools for primarykey/uniquekey.
+	colDescs := make([]sql.ColDescriptor, len(cols))
+	for i, name := range cols {
+		colType := sql.VarcharType
+		switch strings.ToLower(name) {
+		case "primarykey", "uniquekey":
+			colType = sql.BooleanType
+		case "character_maximum_length":
+			colType = sql.IntegerType
+		}
+		colDescs[i] = sql.ColDescriptor{Column: name, Type: colType}
+	}
+	if !extMode {
+		if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
+			return err
+		}
+	}
+
+	// Resolve $1 (table name). paramAsString tolerates both string- and
+	// bytes-shaped parameter values, so it doesn't matter whether the
+	// client encoded the bind as text or binary format.
+	tableName := ""
+	if len(params) >= 1 {
+		tableName = paramAsString(params[0])
+	}
+	for _, p := range params {
+		if p.Name == "param1" {
+			tableName = paramAsString(p)
+		}
+	}
+
+	tx, err := s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		s.log.Infof("pgcompat: xormColumns: begin tx: %v", err)
+		return nil
+	}
+	defer tx.Cancel()
+
+	catalog := tx.Catalog()
+	table, err := catalog.GetTableByName(tableName)
+	if err != nil {
+		s.log.Infof("pgcompat: xormColumns: table %q absent — emitting 0 rows", tableName)
+		return nil
+	}
+
+	// Identify primary-key columns (single-column PK assumed; immudb's
+	// PK is a single composite index rooted at table.PrimaryIndex()).
+	pkCols := map[string]bool{}
+	if pk := table.PrimaryIndex(); pk != nil {
+		for _, c := range pk.Cols() {
+			pkCols[c.Name()] = true
+		}
+	}
+	uniqueCols := map[string]bool{}
+	for _, idx := range table.GetIndexes() {
+		if !idx.IsUnique() {
+			continue
+		}
+		for _, c := range idx.Cols() {
+			uniqueCols[c.Name()] = true
+		}
+	}
+
+	rows := make([]*sql.Row, 0, len(table.Cols()))
+	for _, c := range table.Cols() {
+		pgTypeName, _ := immudbToPGType(c.Type())
+		var maxLen sql.TypedValue = sql.NewNull(sql.IntegerType)
+		if c.Type() == sql.VarcharType && c.MaxLen() > 0 {
+			maxLen = sql.NewInteger(int64(c.MaxLen()))
+		}
+		isNullable := "YES"
+		if c.IsNullable() == false {
+			isNullable = "NO"
+		}
+		var defaultExpr sql.TypedValue = sql.NewNull(sql.VarcharType)
+		if c.HasDefault() {
+			defaultExpr = sql.NewVarchar(c.DefaultValue().String())
+		}
+
+		vals := make([]sql.TypedValue, len(cols))
+		for i, name := range cols {
+			switch strings.ToLower(name) {
+			case "column_name":
+				vals[i] = sql.NewVarchar(c.Name())
+			case "column_default":
+				vals[i] = defaultExpr
+			case "is_nullable":
+				vals[i] = sql.NewVarchar(isNullable)
+			case "data_type":
+				vals[i] = sql.NewVarchar(pgTypeName)
+			case "character_maximum_length":
+				vals[i] = maxLen
+			case "description":
+				vals[i] = sql.NewNull(sql.VarcharType)
+			case "primarykey":
+				vals[i] = sql.NewBool(pkCols[c.Name()])
+			case "uniquekey":
+				vals[i] = sql.NewBool(uniqueCols[c.Name()])
+			default:
+				vals[i] = sql.NewNull(sql.VarcharType)
+			}
+		}
+		rows = append(rows, &sql.Row{ValuesByPosition: vals})
+	}
+
+	s.log.Infof("pgcompat: xormColumns: table=%q cols=%d", tableName, len(rows))
+	if len(rows) > 0 {
+		if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// handlePgIndexesQuery emulates the standard `pg_indexes` view by
+// enumerating immudb's catalog. ORM index introspection (XORM, GORM,
+// JDBC) reads `indexname` and `indexdef` and crashes on the canned NULL
+// row. We synthesise one row per (table, index) and apply optional
+// `tablename = '…'` / `= $1` and `schemaname = …` filters.
+func (s *session) handlePgIndexesQuery(query string, params []*schema.NamedParam, extMode bool) error {
+	cols := extractColumnNames(query)
+	if len(cols) == 0 {
+		cols = []string{"schemaname", "tablename", "indexname", "tablespace", "indexdef"}
+	}
+
+	colDescs := make([]sql.ColDescriptor, len(cols))
+	for i, name := range cols {
+		colDescs[i] = sql.ColDescriptor{Column: name, Type: sql.VarcharType}
+	}
+	if !extMode {
+		if _, err := s.writeMessage(buildMultiColRowDescription(colDescs)); err != nil {
+			return err
+		}
+	}
+
+	// Reuse pg_tables filter regex shapes for tablename / schemaname.
+	var nameFilter string
+	if m := pgTablesNameFilterLitRe.FindStringSubmatch(query); m != nil {
+		nameFilter = m[1]
+	} else if m := pgTablesNameFilterParamRe.FindStringSubmatch(query); m != nil {
+		idx, _ := strconv.Atoi(m[1])
+		key := fmt.Sprintf("param%d", idx)
+		for _, p := range params {
+			if p.Name == key {
+				nameFilter = paramAsString(p)
+				break
+			}
+		}
+	}
+	schemaFilter := "public"
+	if m := pgTablesSchemaFilterLitRe.FindStringSubmatch(query); m != nil {
+		schemaFilter = m[1]
+	}
+
+	tx, err := s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true))
+	if err != nil {
+		return nil
+	}
+	defer tx.Cancel()
+
+	allTables := tx.Catalog().GetTables()
+	rows := make([]*sql.Row, 0)
+	for _, t := range allTables {
+		if nameFilter != "" && t.Name() != nameFilter {
+			continue
+		}
+		for _, idx := range t.GetIndexes() {
+			indexName := fmt.Sprintf("%s_idx_%d", t.Name(), idx.ID())
+			indexDef := buildIndexDef(t.Name(), idx)
+			vals := make([]sql.TypedValue, len(cols))
+			for i, name := range cols {
+				switch strings.ToLower(name) {
+				case "schemaname":
+					vals[i] = sql.NewVarchar(schemaFilter)
+				case "tablename":
+					vals[i] = sql.NewVarchar(t.Name())
+				case "indexname":
+					vals[i] = sql.NewVarchar(indexName)
+				case "tablespace":
+					vals[i] = sql.NewVarchar("pg_default")
+				case "indexdef":
+					vals[i] = sql.NewVarchar(indexDef)
+				default:
+					vals[i] = sql.NewNull(sql.VarcharType)
+				}
+			}
+			rows = append(rows, &sql.Row{ValuesByPosition: vals})
+		}
+	}
+
+	s.log.Infof("pgcompat: pg_indexes: %d index(es) match (nameFilter=%q schema=%q)",
+		len(rows), nameFilter, schemaFilter)
+	if len(rows) > 0 {
+		if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// buildIndexDef synthesises a canonical CREATE INDEX statement for an
+// index. Real Postgres returns the exact original CREATE INDEX SQL via
+// pg_get_indexdef(); we don't store the source, so reconstruct from the
+// catalog (good enough for ORM "does this index exist + cover X" checks).
+func buildIndexDef(tableName string, idx *sql.Index) string {
+	colNames := make([]string, 0, len(idx.Cols()))
+	for _, c := range idx.Cols() {
+		colNames = append(colNames, c.Name())
+	}
+	verb := "CREATE INDEX"
+	if idx.IsUnique() {
+		verb = "CREATE UNIQUE INDEX"
+	}
+	return fmt.Sprintf("%s ON %s (%s)", verb, tableName, strings.Join(colNames, ", "))
+}
+
+// paramAsString unwraps a NamedParam into a Go string regardless of
+// whether the wire delivered it as text (SQLValue_S) or as raw bytes
+// (SQLValue_Bs — happens when the parameter type was reported as
+// AnyType/bytea and the client encoded a string as raw UTF-8 bytes).
+func paramAsString(p *schema.NamedParam) string {
+	switch v := schema.RawValue(p.Value).(type) {
+	case string:
+		return strings.Trim(v, `"`)
+	case []byte:
+		return strings.Trim(string(v), `"`)
+	}
+	return ""
+}

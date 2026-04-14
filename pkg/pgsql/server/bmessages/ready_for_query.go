@@ -21,10 +21,24 @@ import (
 	"encoding/binary"
 )
 
-func ReadyForQuery() []byte {
+// TransactionStatus byte values per the PG wire protocol's ReadyForQuery
+// message. Clients use this to track their session-side transaction
+// state — pq's `unexpected transaction status idle` error fires when
+// the server returns 'I' after a successful BEGIN.
+const (
+	TxStatusIdle    byte = 'I'
+	TxStatusInTx    byte = 'T'
+	TxStatusFailed  byte = 'E'
+)
+
+// ReadyForQuery emits the standard PG `Z` message with the supplied
+// transaction-status byte. Pass TxStatusIdle outside an explicit
+// transaction; TxStatusInTx between BEGIN and COMMIT/ROLLBACK; TxStatusFailed
+// once an in-transaction statement has errored and the client must roll
+// back before continuing.
+func ReadyForQuery(status byte) []byte {
 	messageType := []byte(`Z`)
 	message := make([]byte, 4)
-	idle := []byte(`I`)
 	binary.BigEndian.PutUint32(message, uint32(5))
-	return bytes.Join([][]byte{messageType, message, idle}, nil)
+	return bytes.Join([][]byte{messageType, message, {status}}, nil)
 }

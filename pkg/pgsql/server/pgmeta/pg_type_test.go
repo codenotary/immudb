@@ -39,6 +39,11 @@ func TestPgTypeMapOIDsMatchPostgres(t *testing.T) {
 		sql.UUIDType:      2950, // uuid
 		sql.Float64Type:   701,  // float8
 		sql.JSONType:      3802, // jsonb
+		// AnyType must NOT be a concrete OID (e.g. 17/bytea), or
+		// ParameterDescription will tell the client to encode every
+		// AnyType value as that type — pq will encode strings as
+		// bytea-text `\xHEX` and break catalog-name comparisons.
+		sql.AnyType: 0,
 	}
 	for typeName, oid := range want {
 		got := PgTypeMap[typeName][PgTypeMapOid]

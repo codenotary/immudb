@@ -44,7 +44,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "unsupported message",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//unsupported message
 				c2.Write([]byte("_"))
@@ -64,7 +64,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "connection is closed",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Close()
 			},
@@ -73,18 +73,18 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "wait for sync",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("wrong_st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				errst := make([]byte, 500)
 				c2.Read(errst)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				c2.Write(h.Msg('S', []byte{0}))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				// Terminate message
 				c2.Write(h.Msg('X', []byte{0}))
@@ -94,7 +94,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "error on parse-infer parameters",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("wrong statement"), h.I16(1), h.I32(0)})))
@@ -109,10 +109,10 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "statement already present",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
@@ -127,7 +127,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "error on parse complete",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
@@ -138,10 +138,10 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "describe S statement not found",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('D', h.Join([][]byte{{'S'}, h.S("wrong st")})))
 				c2.Close()
@@ -151,10 +151,10 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "describe S ParameterDescription error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('D', h.Join([][]byte{{'S'}, h.S("st")})))
 				c2.Close()
@@ -164,10 +164,10 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "describe S RowDescription error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('D', h.Join([][]byte{{'S'}, h.S("st")})))
 				rowDescription := make([]byte, len(bmessages.ParameterDescription(nil)))
@@ -179,10 +179,10 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "describe P portal not found",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('D', h.Join([][]byte{{'P'}, h.S("port")})))
 				c2.Close()
@@ -192,17 +192,17 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "describe P row desc error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S(";"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				bindComplete := make([]byte, len(bmessages.BindComplete()))
 				c2.Read(bindComplete)
 				c2.Write(h.Msg('S', []byte{0}))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('D', h.Join([][]byte{{'P'}, h.S("port")})))
 				c2.Close()
@@ -212,7 +212,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "sync error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('S', []byte{0}))
 				c2.Close()
@@ -222,7 +222,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "query results error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('Q', h.S("_wrong_")))
 				c2.Close()
@@ -232,7 +232,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "query command complete error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('Q', h.S("set test")))
 				c2.Close()
@@ -242,7 +242,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "query command ready for query error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('Q', h.S("set test")))
 				cc := make([]byte, len(bmessages.CommandComplete([]byte(`ok`))))
@@ -254,11 +254,11 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "bind portal already present error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				bindComplete := make([]byte, len(bmessages.BindComplete()))
@@ -273,7 +273,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "bind named param error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				c2.Close()
@@ -295,11 +295,11 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "bind complete error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set set"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				c2.Close()
@@ -309,7 +309,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "execute write result error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('E', h.Join([][]byte{h.S("port"), h.I32(1)})))
 				c2.Close()
@@ -332,11 +332,11 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "execute command complete error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set set"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				bindComplete := make([]byte, len(bmessages.BindComplete()))
@@ -349,11 +349,11 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "execute command complete error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				//parse message
 				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set set"), h.I16(1), h.I32(0)})))
-				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
 				bindComplete := make([]byte, len(bmessages.BindComplete()))
@@ -366,7 +366,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "version info error",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('Q', h.S("select version()")))
 				c2.Close()
@@ -376,7 +376,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "flush",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('H', nil))
 				c2.Close()
@@ -386,7 +386,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "schema info",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('Q', h.S("select current_schema()")))
 				c2.Close()
@@ -396,7 +396,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 		{
 			name: "table help",
 			in: func(c2 net.Conn) {
-				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('Q', h.S(tableHelpPrefix)))
 				c2.Close()
@@ -497,6 +497,32 @@ func TestRemovePGCatalogReferencesPreservesStringLiterals(t *testing.T) {
 			got := removePGCatalogReferences(tc.in)
 			require.Contains(t, got, tc.want, "normalised SQL: %s", got)
 		})
+	}
+}
+
+// TestStripQuotedSchemaPrefix pins the quoted-schema-qualifier strip:
+// XORM / Hibernate / JDBC DDL frequently uses `"public"."table"` and
+// the bare immudb grammar has no schema.table production, so leaving
+// the dot in tripped the parser with `unexpected DOT, expecting '('`.
+func TestStripQuotedSchemaPrefix(t *testing.T) {
+	cases := map[string]string{
+		`CREATE TABLE IF NOT EXISTS "public"."version" ("id" BIGINT)`:        `CREATE TABLE IF NOT EXISTS "version" ("id" BIGINT)`,
+		`SELECT * FROM "public"."users" WHERE id = 1`:                        `SELECT * FROM "users" WHERE id = 1`,
+		`DROP TABLE "public"."t"`:                                            `DROP TABLE "t"`,
+		`SELECT 1 FROM "pg_catalog"."pg_tables"`:                             `SELECT 1 FROM "pg_tables"`,
+		`SELECT * FROM "information_schema"."columns"`:                       `SELECT * FROM "columns"`,
+		// Whitespace between the prefix and the dot is consumed; the
+		// double-space cleanup happens later in removePGCatalogReferences.
+		`SELECT "public" . "users" FROM x`: `SELECT  "users" FROM x`,
+		// Must NOT touch quoted lists where the second token isn't a
+		// schema-qualified identifier (no `.` follows the closing quote).
+		`SELECT "public", "users" FROM x`:                                    `SELECT "public", "users" FROM x`,
+	}
+	for in, want := range cases {
+		got := stripQuotedSchemaPrefix(in)
+		if got != want {
+			t.Errorf("stripQuotedSchemaPrefix(%q)\n   got  %q\n   want %q", in, got, want)
+		}
 	}
 }
 

@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/server/sessions"
+	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
@@ -57,6 +58,15 @@ type session struct {
 	tx     *sql.SQLTx
 
 	mr MessageReader
+
+	// txStatus is the byte we report in the next ReadyForQuery message.
+	// 'I' (idle) outside an explicit transaction; 'T' inside; 'E' inside
+	// a transaction that's been aborted by an error. Clients (pq, JDBC,
+	// XORM) inspect this to gate their commit/rollback logic — emitting
+	// 'I' after a successful BEGIN trips
+	//   "unexpected transaction status idle".
+	// Default zero-value is 0 not 'I', so always init via session ctor.
+	txStatus byte
 
 	connParams      map[string]string
 	protocolVersion string
@@ -110,6 +120,7 @@ func newSession(
 		portals:            make(map[string]*portal),
 		stmtCache:          make(map[string][]sql.SQLStmt, stmtCacheSize),
 		stmtCacheKeys:      make([]string, 0, stmtCacheSize),
+		txStatus:           bm.TxStatusIdle,
 	}
 }
 

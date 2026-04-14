@@ -43,7 +43,7 @@ const (
 func (s *session) QueryMachine() error {
 	var waitForSync = false
 
-	_, err := s.writeMessage(bm.ReadyForQuery())
+	_, err := s.writeMessage(bm.ReadyForQuery(s.txStatus))
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (s *session) QueryMachine() error {
 				if err := s.handleCopyFromStdin(table, cols); err != nil {
 					s.HandleError(err)
 				}
-				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
+				if _, err = s.writeMessage(bm.ReadyForQuery(s.txStatus)); err != nil {
 					waitForSync = extQueryMode
 				}
 				continue
@@ -105,7 +105,7 @@ func (s *session) QueryMachine() error {
 				s.HandleError(err)
 			}
 
-			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
+			if _, err = s.writeMessage(bm.ReadyForQuery(s.txStatus)); err != nil {
 				waitForSync = extQueryMode
 			}
 		case fm.ParseMsg:
@@ -142,6 +142,12 @@ func (s *session) QueryMachine() error {
 				if probe, ok := emulableCmd.(*pgTablesCmd); ok {
 					// Same shape as pgAdminProbe — extract column
 					// names from the SELECT list so Describe sees them.
+					resCols = extractResultCols(probe.sql)
+				}
+				if probe, ok := emulableCmd.(*xormColumnsCmd); ok {
+					resCols = extractResultCols(probe.sql)
+				}
+				if probe, ok := emulableCmd.(*pgIndexesCmd); ok {
 					resCols = extractResultCols(probe.sql)
 				}
 				if _, ok := emulableCmd.(*pgAttributeForTableCmd); ok {
@@ -258,7 +264,7 @@ func (s *session) QueryMachine() error {
 			}
 		case fm.SyncMsg:
 			waitForSync = false
-			s.writeMessage(bm.ReadyForQuery())
+			s.writeMessage(bm.ReadyForQuery(s.txStatus))
 		case fm.BindMsg:
 			_, ok := s.portals[v.DestPortalName]
 			// unnamed portal overrides previous
@@ -325,13 +331,24 @@ func (s *session) QueryMachine() error {
 }
 
 func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, extQueryMode bool) error {
+	tag := commandTagFor(statements)
+	// Track explicit transaction state so the next ReadyForQuery message
+	// reports the correct transaction-status byte. Clients (pq, JDBC)
+	// gate commit/rollback handling on this byte; staying at 'I' after a
+	// BEGIN gives the pq driver "unexpected transaction status idle".
+	switch tag {
+	case "BEGIN":
+		s.txStatus = bm.TxStatusInTx
+	case "COMMIT", "ROLLBACK":
+		s.txStatus = bm.TxStatusIdle
+	}
 	if s.isInBlackList(statements) {
-		_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+		_, err := s.writeMessage(bm.CommandComplete([]byte(tag)))
 		return err
 	}
 
 	if i := s.isEmulableInternally(statements); i != nil {
-		s.log.Infof("pgcompat: emulating query internally (extQueryMode=%v)", extQueryMode)
+		s.log.Infof("pgcompat: emulating query internally (extQueryMode=%v) sql=%.1500s", extQueryMode, statements)
 		if probe, ok := i.(*pgAdminProbe); ok && extQueryMode {
 			// Extended protocol: Describe already sent RowDescription, only send DataRow
 			if err := s.handlePgSystemQueryDataOnly(probe.sql); err != nil {
@@ -369,6 +386,22 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
 			return err
 		}
+		if cmd, ok := i.(*xormColumnsCmd); ok {
+			// XORM column-introspection emulation. Bind values carry the
+			// table name (`c.relname = $1`) and schema (`s.table_schema = $2`).
+			if err := s.handleXormColumnsQuery(cmd.sql, parameters, extQueryMode); err != nil {
+				return err
+			}
+			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+			return err
+		}
+		if cmd, ok := i.(*pgIndexesCmd); ok {
+			if err := s.handlePgIndexesQuery(cmd.sql, parameters, extQueryMode); err != nil {
+				return err
+			}
+			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
+			return err
+		}
 		if err := s.tryToHandleInternally(i); err != nil && err != pserr.ErrMessageCannotBeHandledInternally {
 			return err
 		}
@@ -377,7 +410,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return err
 	}
 
-	s.log.Infof("pgcompat: executing query via SQL engine: %.100s", statements)
+	s.log.Infof("pgcompat: executing query via SQL engine: %.1500s", statements)
 	var err error
 	cacheKey := removePGCatalogReferences(statements)
 	var stmts []sql.SQLStmt
@@ -419,7 +452,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		}
 	}
 
-	_, err = s.writeMessage(bm.CommandComplete([]byte("ok")))
+	_, err = s.writeMessage(bm.CommandComplete([]byte(tag)))
 	if err != nil {
 		return err
 	}
@@ -435,7 +468,15 @@ var pgTypeReplacements = []struct {
 	// starts with a digit. SQL reserved words get prefixed with underscore.
 	// Quoted identifiers: prefix digit-start names with t_, prefix reserved words with _
 	{regexp.MustCompile(`"(\d\w*)"`), "t_$1"},
-	{regexp.MustCompile(`"((?i:group|order|key|index|table|column|type|year|date|time|check|default|desc|asc|select|from|where|set|grant|limit|offset|values|primary|foreign|create|drop|alter|insert|update|delete|begin|commit|rollback|having|between|like|in|is|not|null|and|or|cast|case|when|then|else|end|join|on|as|distinct|all|any|exists|union|except|intersect|natural|cross|full|outer|inner|left|right|using|returning|with|recursive|password|database|transaction))"`), "_$1"},
+	// Quoted-identifier keyword escape. Whenever a SQL token is wrapped
+	// in double quotes AND its content matches an immudb-reserved
+	// keyword, prefix the identifier with an underscore so it parses as
+	// a regular IDENTIFIER instead of triggering a grammar conflict.
+	// The list is kept in sync with the keyword map in
+	// embedded/sql/parser.go (see scripts/dump_immudb_keywords.sh — or
+	// regenerate by grepping `^\s+"[A-Z_]+":` out of parser.go and
+	// lowercasing).
+	{regexp.MustCompile(`"((?i:add|admin|after|all|alter|and|as|asc|auto_increment|avg|before|begin|between|bigint|bigserial|blob|boolean|by|bytea|cascade|case|cast|check|column|commit|conflict|constraint|count|create|cross|database|databases|date|day|decimal|default|delete|desc|diff|distinct|do|double|drop|else|end|except|exists|explain|extract|false|fetch|first|float|for|foreign|from|full|grant|grants|group|having|history|hour|if|ilike|in|index|inner|insert|int|integer|intersect|into|is|join|json|jsonb|key|last|lateral|left|like|limit|max|min|minute|month|natural|not|nothing|null|nulls|numeric|of|offset|on|only|or|order|over|partition|password|primary|privileges|read|readwrite|real|recursive|references|release|rename|returning|revoke|right|rollback|rows|savepoint|second|select|sequence|serial|set|show|since|smallint|snapshot|sum|table|tables|then|timestamp|timestamptz|to|transaction|true|truncate|tx|union|unique|until|update|upsert|use|user|users|using|uuid|values|varchar|view|when|where|with|year))"`), "_$1"},
 	{regexp.MustCompile(`"(\w+)"`), "$1"},
 
 	// Strip ::type casts FIRST — before type name translation
@@ -457,6 +498,11 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)\btimestamp\s*\(\s*\d+\s*\)`), "TIMESTAMP"},
 	{regexp.MustCompile(`(?i)\bcharacter\s+varying\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
 	{regexp.MustCompile(`(?i)\bcharacter\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
+	// PG's `CHAR(N)` is fixed-length string; immudb has only VARCHAR[N].
+	// Map `CHAR(N)` (and the bare `CHAR` short form Postgres also accepts)
+	// to the variable-length equivalent. Storage cost differs marginally
+	// but the wire-visible behaviour matches.
+	{regexp.MustCompile(`(?i)\bchar\s*\(\s*(\d+)\s*\)`), "VARCHAR[$1]"},
 	// Unsized variant: Rails' `t.string` (and Rails's internal
 	// schema_migrations DDL) emits bare `character varying` without a
 	// size qualifier. immudb's bare VARCHAR is effectively unlimited
@@ -485,6 +531,38 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)VARCHAR\[\d+\]\s*\[\s*\]`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\bbytea\b`), "BLOB"},
+	// PG accepts both `BOOL` and `BOOLEAN`; immudb's grammar only knows
+	// the long form. XORM and several other ORMs emit the short form.
+	{regexp.MustCompile(`(?i)\bbool\b`), "BOOLEAN"},
+
+	// (ALTER TABLE … ADD <coldef> → ADD COLUMN <coldef>: handled in
+	// a Go post-pass below since Go RE2 has no negative lookahead and a
+	// blanket regex would also rewrite ADD CONSTRAINT / FOREIGN / etc.)
+
+	// Strip trailing `; COMMENT ON … IS '…'` clauses that XORM and
+	// JDBC ORMs append to DDL. The standalone `COMMENT ON` form is
+	// already in pgUnsupportedDDL but the trailing-clause form survives
+	// the per-statement blacklist check (it's part of a multi-statement
+	// SQL string sent in one Parse). Drop it here so the leading DDL
+	// reaches the engine cleanly.
+	{regexp.MustCompile(`(?is);\s*COMMENT\s+ON\s+[^;]+(?:;|$)`), ""},
+
+	// `BEGIN READ WRITE`, `BEGIN READ ONLY`, `START TRANSACTION READ
+	// WRITE` etc. — PG transaction-mode suffixes that immudb's BEGIN
+	// grammar doesn't accept. Strip the mode; immudb's transactions
+	// are read/write by default and the only client-visible difference
+	// from a SELECT-only block is performance, which doesn't matter
+	// for correctness probing.
+	{regexp.MustCompile(`(?i)\b(BEGIN|START\s+TRANSACTION)\s+(READ\s+(?:WRITE|ONLY)|ISOLATION\s+LEVEL\s+\S+(?:\s+\S+)?|DEFERRABLE|NOT\s+DEFERRABLE)`), "BEGIN"},
+	// Explicit `NULL` after a column type is a no-op nullability marker
+	// in PG (it's the default). immudb's grammar has no such production
+	// and rejects the bare keyword. Strip it; the column stays nullable
+	// because nothing else marked it NOT NULL.
+	{regexp.MustCompile(`(?i)((?:VARCHAR(?:\[\d+\])?|INTEGER|BOOLEAN|BLOB|FLOAT|TIMESTAMP|UUID|JSON|VARCHAR_PAREN_FIXME\([^)]*\)))\s+NULL\b`), "$1"},
+	// XORM-style `… DEFAULT <value> NULL` — same issue: the trailing
+	// NULL is a redundant nullability marker after a default. Strip it
+	// regardless of the default token (TRUE/FALSE/0/numeric/'string'/…).
+	{regexp.MustCompile(`(?i)(DEFAULT\s+(?:'[^']*'|[^\s,()]+))\s+NULL\b`), "$1"},
 	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[4096]"},
 	{regexp.MustCompile(`(?i)\bmpaa_rating\b`), "VARCHAR[10]"},
 	// PG custom domain types from dvdrental
@@ -499,6 +577,18 @@ var pgTypeReplacements = []struct {
 
 	// immudb doesn't support DEFAULT expr NOT NULL together — strip NOT NULL after DEFAULT
 	{regexp.MustCompile(`(?i)(DEFAULT\s+\S+(?:\([^)]*\))?)\s+NOT\s+NULL`), "$1"},
+
+	// PRIMARY KEY columns are already implicitly NOT NULL in immudb's
+	// grammar, and the parser rejects an explicit `NOT NULL` after the
+	// PRIMARY KEY keywords with
+	//   "syntax error: unexpected NOT, expecting ',' or ')'".
+	// XORM, Hibernate, and several JDBC ORMs emit the redundant pair
+	// (`PRIMARY KEY NOT NULL`) for PK columns, so strip the trailing
+	// NOT NULL when it follows PRIMARY KEY.
+	{regexp.MustCompile(`(?i)(PRIMARY\s+KEY)\s+NOT\s+NULL\b`), "$1"},
+	// And the symmetric form (`NOT NULL PRIMARY KEY`) is fine, but a
+	// duplicated NOT NULL on either side of PRIMARY KEY isn't:
+	{regexp.MustCompile(`(?i)NOT\s+NULL\s+(PRIMARY\s+KEY)\s+NOT\s+NULL\b`), "$1"},
 
 	// Rails emits `SELECT "table_name".* FROM "table_name" WHERE ...` as
 	// its standard all-columns projection on ActiveRecord models. immudb
@@ -630,6 +720,88 @@ func maskStringLiterals(s string) (string, func(string) string) {
 
 var stringLiteralTokenRe = regexp.MustCompile("\x01(\\d+)\x01")
 
+// commandTagRe extracts the leading SQL verb from a statement so we can
+// emit the standard Postgres CommandComplete tag (`BEGIN`, `COMMIT`,
+// `INSERT 0 0`, …) instead of the catch-all `ok`. Some clients (the pq
+// Go driver, XORM's transaction state machine, several JDBC drivers)
+// inspect the tag to decide whether a transaction actually committed,
+// and `ok` confuses them with "unexpected command tag ok".
+var commandTagRe = regexp.MustCompile(`(?i)^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE\s+TABLE|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|CREATE\s+DATABASE|CREATE\s+VIEW|DROP\s+TABLE|DROP\s+INDEX|DROP\s+VIEW|DROP\s+DATABASE|ALTER\s+TABLE|TRUNCATE|BEGIN|START\s+TRANSACTION|COMMIT|END|ROLLBACK|ABORT|SAVEPOINT|RELEASE|SET|SHOW|GRANT|REVOKE|EXPLAIN|USE|VACUUM|ANALYZE|COPY|LOCK|FETCH|MOVE|CLOSE|DECLARE|LISTEN|NOTIFY|UNLISTEN|PREPARE|EXECUTE|DEALLOCATE|RESET|CHECKPOINT|REINDEX|DISCARD)\b`)
+
+// commandTagFor returns the PG-canonical CommandComplete tag for a SQL
+// statement. Defaults to "ok" if the verb isn't recognised, so existing
+// behaviour is preserved for unusual statements.
+func commandTagFor(sqlText string) string {
+	m := commandTagRe.FindStringSubmatch(sqlText)
+	if m == nil {
+		return "ok"
+	}
+	verb := strings.ToUpper(strings.Join(strings.Fields(m[1]), " "))
+	switch verb {
+	case "BEGIN", "START TRANSACTION":
+		return "BEGIN"
+	case "COMMIT", "END":
+		return "COMMIT"
+	case "ROLLBACK", "ABORT":
+		return "ROLLBACK"
+	case "INSERT":
+		// PG: "INSERT <oid> <count>". Most clients only check the verb;
+		// emit a plausible 0-row tag.
+		return "INSERT 0 0"
+	case "UPDATE", "DELETE", "SELECT", "FETCH", "MOVE", "COPY":
+		return verb + " 0"
+	}
+	return verb
+}
+
+// quotedSchemaPrefixRe matches a quoted schema qualifier directly
+// followed by a dot and a (quoted or unquoted) identifier. The match
+// covers known schemas only (public, pg_catalog, information_schema)
+// so it can't accidentally rewrite a quoted column-list element like
+// `"public", "private"` outside the schema-prefix context.
+var quotedSchemaPrefixRe = regexp.MustCompile(`"(public|pg_catalog|information_schema)"\s*\.`)
+
+// stripQuotedSchemaPrefix removes `"public".`, `"pg_catalog".`,
+// `"information_schema".` prefixes that ORMs (XORM, Hibernate, JDBC)
+// emit in DDL and DML. immudb's grammar has no schema.table production,
+// so leaving the dot in place trips the parser with
+//   "syntax error: unexpected DOT, expecting '('".
+func stripQuotedSchemaPrefix(s string) string {
+	return quotedSchemaPrefixRe.ReplaceAllString(s, "")
+}
+
+// alterAddRe matches `ALTER TABLE <name> ADD <next-token>` so a Go-side
+// pass can decide whether to inject `COLUMN` before <next-token>.
+// Captures: 1=tableName, 2=whitespace-after-ADD, 3=next-token (raw).
+var alterAddRe = regexp.MustCompile(`(?i)\bALTER\s+TABLE\s+(\S+)\s+ADD(\s+)(\S+)`)
+
+// addClauseSkipKeywords is the set of tokens that follow ADD in
+// constraint/index forms (ADD CONSTRAINT, ADD FOREIGN KEY, …) — we
+// must NOT inject COLUMN ahead of these because immudb's grammar parses
+// them as a separate ALTER variant (or the rule is blacklisted).
+var addClauseSkipKeywords = map[string]bool{
+	"COLUMN": true, "CONSTRAINT": true, "FOREIGN": true,
+	"PRIMARY": true, "UNIQUE": true, "CHECK": true, "INDEX": true,
+}
+
+// injectAddColumnKeyword rewrites `ALTER TABLE x ADD <colspec>` to
+// `ALTER TABLE x ADD COLUMN <colspec>` when <colspec> begins with a
+// (quoted or unquoted) identifier rather than a constraint keyword.
+// PG accepts both forms; immudb's grammar requires the explicit COLUMN.
+func injectAddColumnKeyword(s string) string {
+	return alterAddRe.ReplaceAllStringFunc(s, func(match string) string {
+		m := alterAddRe.FindStringSubmatch(match)
+		if m == nil {
+			return match
+		}
+		next := strings.ToUpper(strings.Trim(m[3], `"`))
+		if addClauseSkipKeywords[next] {
+			return match
+		}
+		return fmt.Sprintf("ALTER TABLE %s ADD COLUMN%s%s", m[1], m[2], m[3])
+	})
+}
+
 // paramMarkerRe matches `$N` placeholder references in a SQL statement,
 // excluding any that fall inside a single-quoted literal (those are
 // pre-masked by maskStringLiterals, so the leading `$` is preserved
@@ -672,10 +844,26 @@ func removePGCatalogReferences(sqlStr string) string {
 	s = strings.ReplaceAll(s, "information_schema.", "information_schema_")
 	s = strings.ReplaceAll(s, "public.", "")
 
+	// Strip QUOTED schema-qualified prefixes too — XORM, Hibernate, JDBC
+	// and friends emit `"public"."tablename"` (and `"pg_catalog"."pg_x"`)
+	// in DDL. The plain string ReplaceAll's above don't catch the quoted
+	// form, and the immudb grammar has no schema.table production so the
+	// stray DOT shows up at parse time as
+	//   "syntax error: unexpected DOT, expecting '('".
+	// Run this BEFORE the identifier-unquote pass in pgTypeReplacements
+	// so we eliminate the dot in the same step that drops the prefix.
+	s = stripQuotedSchemaPrefix(s)
+
 	// Apply PG type translations
 	for _, r := range pgTypeReplacements {
 		s = r.re.ReplaceAllString(s, r.repl)
 	}
+
+	// PG `ALTER TABLE … ADD <coldef>` → immudb `ADD COLUMN <coldef>`.
+	// Done as a Go pass so we can skip the constraint forms (ADD
+	// CONSTRAINT / FOREIGN / PRIMARY / UNIQUE / CHECK / INDEX) which
+	// take a different syntax in immudb (or are blacklisted).
+	s = injectAddColumnKeyword(s)
 
 	// Idempotency for Rails's schema_migrations bulk insert. See
 	// pgTypeReplacements for the long explanation. Using a Go pass here

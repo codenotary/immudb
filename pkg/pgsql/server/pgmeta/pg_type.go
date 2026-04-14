@@ -48,7 +48,15 @@ var PgTypeMap = map[string][]int{
 	sql.UUIDType:      {2950, 16}, //uuid
 	sql.Float64Type:   {701, 8},   //double-precision floating point number
 	sql.JSONType:      {3802, -1}, //jsonb — Rails registers OID 3802 to decode via JSON.parse into Hash/Array; OID 114 (json) would work too but we advertise jsonb in pg_attribute so stay consistent
-	sql.AnyType:       {17, -1},   // bytea
+	// AnyType maps to OID 0 ("unknown") so ParameterDescription doesn't
+	// pick a concrete type for placeholders whose type the engine didn't
+	// infer. Previously we used 17 (bytea), which made the pq driver
+	// encode every text value as bytea-hex literal `\xHEX` — string
+	// `"version"` arrived at the engine as the 16-char string
+	// `\x76657273696f6e` and broke any handler that compared the bound
+	// value to a real catalog name. With OID 0 the driver falls back to
+	// its default text encoding (raw bytes for text/varchar).
+	sql.AnyType: {0, 0},
 }
 
 const PgSeverityError = "ERROR"

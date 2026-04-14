@@ -85,9 +85,23 @@ var (
 	// views to detect table existence, and a blanket 1-row response makes
 	// every IsTableExist check return true.
 	pgTablesRe = regexp.MustCompile(`(?is)\bfrom\s+(?:pg_catalog\.)?pg_tables\b`)
+
+	// xormColumnsRe matches XORM's distinctive column-introspection query
+	// (SELECT column_name, column_default, is_nullable, … FROM pg_attribute
+	// JOIN pg_class …). XORM scans the result expecting non-NULL string
+	// values for column_name; the generic 1-row pgAdminProbe response
+	// (which fills NULL for unknown columns) trips the pq Scan check
+	//   "converting NULL to string is unsupported".
+	// The handler walks immudb's catalog and emits one row per column.
+	xormColumnsRe = regexp.MustCompile(`(?is)\bcolumn_name\s*,\s*column_default\b.*\bfrom\s+pg_attribute\b`)
+
+	// pgIndexesRe matches the standard `pg_indexes` view query that ORMs
+	// (XORM, GORM, Hibernate) use to enumerate indexes for a given table.
+	// The handler walks immudb's catalog and emits one row per index.
+	pgIndexesRe = regexp.MustCompile(`(?is)\bfrom\s+(?:pg_catalog\.)?pg_indexes\b`)
 )
 
-var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+SEQUENCE|CREATE\s+DOMAIN|CREATE\s+VIEW|CREATE\s+OR\s+REPLACE\s+VIEW|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout)`)
+var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+SEQUENCE|CREATE\s+DOMAIN|CREATE\s+VIEW|CREATE\s+OR\s+REPLACE\s+VIEW|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
@@ -171,6 +185,20 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &pgTablesCmd{sql: statement}
 	}
 
+	// XORM column-introspection query: distinct column-list signature
+	// SELECT column_name, column_default, is_nullable, …
+	// Goes ahead of the generic pg_catalog catch because the canned
+	// 1-row response would have NULL column_name and crash XORM.
+	if xormColumnsRe.MatchString(statement) {
+		return &xormColumnsCmd{sql: statement}
+	}
+
+	// pg_indexes view: enumerate indexes from immudb's catalog rather
+	// than emit a canned NULL-filled row that crashes ORM Scan calls.
+	if pgIndexesRe.MatchString(statement) {
+		return &pgIndexesCmd{sql: statement}
+	}
+
 	// Blanket catch for ALL pg_catalog/information_schema/system queries.
 	// Returns canned responses with column names extracted from the query.
 	if pgSystemQueryRe.MatchString(statement) {
@@ -213,6 +241,10 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 	case *pgTablesCmd:
 		// Simple-query path — no Bind so no parameters available.
 		return s.handlePgTablesQuery(cmd.sql, nil, false)
+	case *xormColumnsCmd:
+		return s.handleXormColumnsQuery(cmd.sql, nil, false)
+	case *pgIndexesCmd:
+		return s.handlePgIndexesQuery(cmd.sql, nil, false)
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -266,5 +298,22 @@ type pgAdminProbe struct {
 // emitting a canned single-row response that would make every IsTableExist
 // probe return true.
 type pgTablesCmd struct {
+	sql string
+}
+
+// xormColumnsCmd is XORM's column-introspection query (a multi-table JOIN
+// of pg_attribute / pg_class / pg_type / information_schema.columns). The
+// handler synthesises one row per column from immudb's catalog with the
+// fields XORM expects (column_name, column_default, is_nullable, data_type,
+// character_maximum_length, description, primarykey, uniquekey).
+type xormColumnsCmd struct {
+	sql string
+}
+
+// pgIndexesCmd is a query against the standard `pg_indexes` view. The
+// handler enumerates immudb's indexes for the given table and emits the
+// canonical (schemaname, tablename, indexname, tablespace, indexdef) row
+// shape so ORM Scan calls don't trip on NULLs.
+type pgIndexesCmd struct {
 	sql string
 }
