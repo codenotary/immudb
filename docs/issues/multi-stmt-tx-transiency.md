@@ -1,5 +1,7 @@
 # Multi-statement SQL transactions trip `ErrCannotUpdateKeyTransiency` on UPDATE-after-INSERT of the same row
 
+> **Resolved** in the follow-up commit that changes `OngoingTx.transientEntries` keyRef allocation to a negative-integer space so it can't collide with `tx.entries[]` slice indices. See the "Root cause — confirmed" and "Fix" sections below.
+
 ## Severity
 
 High — blocks any ORM that wraps `INSERT` + `UPDATE` of the same row in a single transaction, which is the norm. Hit in the Gitea compat exercise on `/api/v1/user/repos` where Gitea's `WatchRepo` runs:
@@ -46,7 +48,42 @@ if isKeyUpdate {
 }
 ```
 
-## Suspected root cause
+## Root cause — confirmed
+
+`OngoingTx.entriesByKey[kid] → keyRef` stores keyRefs from two overlapping integer spaces:
+
+- **Non-transient** writes use `len(tx.entries)-1` — a slice index into `tx.entries[]`, starting at 0 and growing monotonically.
+- **Transient** writes (both the user-facing `SetTransient` path and the indexer-walk path at `ongoing_tx.go:336-341`) used `len(tx.entriesByKey)` — a counter meant as an opaque map key into `tx.transientEntries[]`, also starting at 0 and growing.
+
+Both counters share the `int` space starting at 0. When the SQL engine's primary-row indexer runs the walk during an INSERT, it stashes a transient entry for the mapped PK key at `keyRef=0`. The outer non-transient main write for the row key then lands at `keyRef=0` too (as `len(tx.entries)-1`).
+
+On a subsequent write to the main row key (the UPDATE), `wasTransient := tx.transientEntries[keyRef]` looks up `transientEntries[0]` and finds the stale indexer-walk entry — concluding (incorrectly) that the main key was previously written transient. `wasTransient != isTransient` and the check at line 271-273 fires.
+
+The `refInterceptor` reader at line 224-225 had the same ambiguity but was harder to trip because in the Gitea repro no one actually reads the mapped key through it before the next write tips over the transience check.
+
+## Fix
+
+Allocate transient keyRefs in a **negative integer space** disjoint from the non-negative `tx.entries[]` slice indices:
+
+```go
+tkey := -(len(tx.transientEntries) + 1)
+tx.transientEntries[tkey] = e
+tx.entriesByKey[kid] = tkey
+```
+
+Applied at the two insertion sites (`ongoing_tx.go:339-340` for the indexer-walk path and `353-354` for the outer `SetTransient` path). Existing lookups (`tx.transientEntries[keyRef]` at lines 224 and 269) and the update sites (lines 337 and 347) are unchanged — they correctly read back whatever integer is in `entriesByKey` regardless of sign.
+
+## Why this is safe
+
+- Non-transient keyRefs are always slice indices, i.e. `0 ≤ keyRef < len(tx.entries)` — always non-negative.
+- Transient keyRefs after the fix are always negative — disjoint from the non-transient range.
+- `tx.transientEntries` is a `map[int]*EntrySpec` — it indexes by int, so negative integer keys are valid map keys with no performance impact.
+- The `wasTransient := tx.transientEntries[keyRef]` check now returns `true` **iff** the keyRef points to a transient entry for this specific key — which is what the invariant always meant to enforce.
+- The `refInterceptor` at line 224-225 (`entrySpec, transient := tx.transientEntries[keyRef]`) reads the correct entry regardless of sign.
+- No change to serialization, on-disk format, or commit semantics — `transientEntries` is a per-tx in-memory map never persisted as indexed keys.
+- `embedded/store/...` full test suite green (27s). `embedded/sql/...` full test suite green (36s). No new regressions across `embedded/...` other than the pre-existing `embedded/document/TestGetDocument…` failures that reproduce on HEAD before the fix (`max key length exceeded`, unrelated).
+
+## Historical suspected root cause (kept for reference)
 
 `OngoingTx.set` walks every registered indexer after accepting a write. For the SQL engine's **primary-row indexer** (`SourcePrefix=rowEntryPrefix`, no `SourceEntryMapper`, `TargetEntryMapper` rewrites `RowPrefix+…` into `MappedPrefix+…`), a non-transient `tx.set(rowKey)` triggers the block at `ongoing_tx.go:331-340`:
 

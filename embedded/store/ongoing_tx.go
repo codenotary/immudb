@@ -336,8 +336,17 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 			if isKeyUpdate {
 				tx.transientEntries[keyRef] = e
 			} else {
-				tx.transientEntries[len(tx.entriesByKey)] = e
-				tx.entriesByKey[kid] = len(tx.entriesByKey)
+				// Transient entries live in their own negative keyRef
+				// space so they never collide with non-transient keyRefs
+				// (which are slice indices into tx.entries, i.e. ≥ 0).
+				// Without this, an indexer-walk transient entry written
+				// with keyRef=0 shadows the subsequent non-transient
+				// main write that also lands at keyRef=0 (len(entries)-1),
+				// and the transience check at the top of this function
+				// fires spuriously on the next write to the main key.
+				tkey := -(len(tx.transientEntries) + 1)
+				tx.transientEntries[tkey] = e
+				tx.entriesByKey[kid] = tkey
 			}
 		}
 	}
@@ -350,8 +359,11 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 		}
 	} else {
 		if isTransient {
-			tx.transientEntries[len(tx.entriesByKey)] = e
-			tx.entriesByKey[kid] = len(tx.entriesByKey)
+			// See above: transient keyRefs are negative to keep them
+			// disjoint from the non-transient tx.entries[] index space.
+			tkey := -(len(tx.transientEntries) + 1)
+			tx.transientEntries[tkey] = e
+			tx.entriesByKey[kid] = tkey
 		} else {
 			tx.entries = append(tx.entries, e)
 			tx.entriesByKey[kid] = len(tx.entries) - 1
