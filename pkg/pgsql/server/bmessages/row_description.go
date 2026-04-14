@@ -38,7 +38,17 @@ func RowDescription(cols []sql.ColDescriptor, formatCodes []int16) []byte {
 	for n, col := range cols {
 		// The field name.
 		// String
-		fieldName := []byte(col.Selector())
+		// Postgres returns plain column names (e.g. "id"), not the
+		// "(table.col)" wrapper that immudb's Selector() produces.
+		// ORMs (Rails ActiveRecord, SQLAlchemy, …) match result rows
+		// to model attributes by this name, so the wrapper makes
+		// every column look unrecognised. Fall back to Selector
+		// only when Column itself is empty.
+		name := col.Column
+		if name == "" {
+			name = col.Selector()
+		}
+		fieldName := []byte(name)
 		fieldName = bytes.Join([][]byte{fieldName, {0}}, nil)
 		// If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
 		// Int32

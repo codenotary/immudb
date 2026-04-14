@@ -2598,12 +2598,12 @@ func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	// Accept VARCHAR, JSON, and TIMESTAMP. TIMESTAMP is allowed because the
-	// engine already parses ISO-8601 / RFC3339 timestamp literals at
-	// conversion time (see mayApplyImplicitConversion). Rejecting here
-	// would make ORM clients (Rails, Django) unable to bind timestamp
-	// parameters as strings — which is the default wire format.
-	if t != VarcharType && t != JSONType && t != TimestampType {
+	// Accept VARCHAR, JSON, TIMESTAMP, UUID. TIMESTAMP / UUID are allowed
+	// because the engine parses ISO-8601 timestamps and RFC-4122 UUID
+	// strings at conversion time. Rejecting here would make ORM clients
+	// (Rails, Django) unable to bind timestamp/UUID parameters as
+	// strings — which is the default wire format.
+	if t != VarcharType && t != JSONType && t != TimestampType && t != UUIDType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
 	}
 	return nil
@@ -2645,6 +2645,17 @@ func (v *Varchar) Compare(val TypedValue) (int, error) {
 	if val.Type() == JSONType {
 		res, err := val.Compare(v)
 		return -res, err
+	}
+
+	// UUID coercion (symmetric to UUID.Compare): allow `varchar = uuid_col`
+	// by parsing the varchar as a UUID.
+	if val.Type() == UUIDType {
+		parsed, err := uuid.Parse(v.val)
+		if err != nil {
+			return 0, ErrNotComparableValues
+		}
+		rval := val.RawValue().(uuid.UUID)
+		return bytes.Compare(parsed[:], rval[:]), nil
 	}
 
 	if val.Type() != VarcharType {
@@ -2721,13 +2732,27 @@ func (v *UUID) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	if val.Type() != UUIDType {
-		return 0, ErrNotComparableValues
+	if val.Type() == UUIDType {
+		rval := val.RawValue().(uuid.UUID)
+		return bytes.Compare(v.val[:], rval[:]), nil
 	}
 
-	rval := val.RawValue().(uuid.UUID)
+	// VARCHAR coercion: ORMs (Rails ActiveRecord, SQLAlchemy, …) bind
+	// UUID values as text-format strings via Bind. Without coercion the
+	// `WHERE id = $1` predicate fails with "values are not comparable".
+	if val.Type() == VarcharType {
+		s, ok := val.RawValue().(string)
+		if !ok {
+			return 0, ErrNotComparableValues
+		}
+		parsed, err := uuid.Parse(s)
+		if err != nil {
+			return 0, ErrNotComparableValues
+		}
+		return bytes.Compare(v.val[:], parsed[:]), nil
+	}
 
-	return bytes.Compare(v.val[:], rval[:]), nil
+	return 0, ErrNotComparableValues
 }
 
 type Bool struct {
