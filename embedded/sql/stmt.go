@@ -3673,6 +3673,23 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 			return terr
 		}
 	}
+
+	// Walk the WHERE / HAVING / target / join-condition expression trees
+	// for bind parameters hiding inside scalar subqueries. rowReader
+	// .InferParameters above walks scan ranges and top-level WHERE for
+	// direct $N markers, but stops at ScalarSubQueryExp boundaries. Gitea's
+	// repoStatsCheck emits scalar subqueries whose own WHERE has the $N
+	// markers (e.g. `WHERE type IN ($1, $2)`); without this walk, the
+	// pgsql ParameterDescription reports 0 params and lib/pq rejects the
+	// client's Bind with "got N parameters but the statement requires 0".
+	collectExpParams(stmt.where, params)
+	collectExpParams(stmt.having, params)
+	for _, t := range stmt.targets {
+		collectExpParams(t.Exp, params)
+	}
+	for _, j := range stmt.joins {
+		collectExpParams(j.cond, params)
+	}
 	return nil
 }
 
@@ -8045,6 +8062,11 @@ func collectExpParams(e ValueExp, params map[string]SQLValueType) {
 		}
 	case *ScalarSubQueryExp:
 		collectSubQueryParams(ex.stmt, params)
+	case *InListExp:
+		collectExpParams(ex.val, params)
+		for _, v := range ex.values {
+			collectExpParams(v, params)
+		}
 	}
 }
 

@@ -1389,6 +1389,17 @@ join:
         $$ = &JoinSpec{joinType: InnerJoin, ds: $3, lateral: true, cond: &Bool{val: true}}
     }
 |
+    ',' ds
+    {
+        // SQL-89 implicit cross-join: `FROM a, b` is equivalent to
+        // `FROM a CROSS JOIN b`. Postgres and every other ORM-facing
+        // dialect accepts this; immudb's grammar used to require an
+        // explicit LATERAL keyword after the comma, which broke ORM
+        // queries like Gitea's labelStatsQueryNumIssues:
+        //     SELECT COUNT(*) FROM issue_label, issue WHERE ...
+        $$ = &JoinSpec{joinType: CrossJoin, ds: $2, cond: &Bool{val: true}}
+    }
+|
     opt_join_type JOIN LATERAL ds opt_indexon opt_join_cond
     {
         cond := $6
