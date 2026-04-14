@@ -23,7 +23,12 @@ import (
 )
 
 var (
-	set           = regexp.MustCompile(`(?i)set\s+.+`)
+	// Match only top-level PG session SET commands (SET timezone=..., SET
+	// client_encoding=..., etc.), NOT the SET clause inside `UPDATE ... SET
+	// col = val WHERE ...`. Without the start-of-statement anchor every
+	// UPDATE silently matched this regex and was dropped by the blacklist,
+	// so UPDATEs "succeeded" but never wrote anything.
+	set           = regexp.MustCompile(`(?is)^\s*set\s+\S+`)
 	selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
 	dealloc       = regexp.MustCompile(`(?i)deallocate\s+\"([^\"]+)\"`)
 

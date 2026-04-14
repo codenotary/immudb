@@ -42,12 +42,12 @@ var ErrInvalidPgsqlProtocolVersion = errors.New("invalid pgsql protocol version"
 var PgTypeMap = map[string][]int{
 	sql.BooleanType:   {16, 1},    //bool
 	sql.BLOBType:      {17, -1},   //bytea
-	sql.TimestampType: {20, 8},    //int8
+	sql.TimestampType: {1114, 8},  //timestamp without time zone — Rails/pg decode via Time.parse; tagging as int8 (20) made the pg gem call .to_i on the text value and keep only the leading year digits
 	sql.IntegerType:   {20, 8},    //int8
 	sql.VarcharType:   {25, -1},   //text
 	sql.UUIDType:      {2950, 16}, //uuid
 	sql.Float64Type:   {701, 8},   //double-precision floating point number
-	sql.JSONType:      {114, -1},  //json
+	sql.JSONType:      {3802, -1}, //jsonb — Rails registers OID 3802 to decode via JSON.parse into Hash/Array; OID 114 (json) would work too but we advertise jsonb in pg_attribute so stay consistent
 	sql.AnyType:       {17, -1},   // bytea
 }
 
