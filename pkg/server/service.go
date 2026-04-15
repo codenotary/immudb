@@ -16,6 +16,8 @@ limitations under the License.
 
 package server
 
+import "log"
+
 // Service ...
 type Service struct {
 	ImmuServerIf
@@ -33,5 +35,7 @@ func (s Service) Stop() {
 
 // Run - blocking run service
 func (s Service) Run() {
-	s.ImmuServerIf.Start()
+	if err := s.ImmuServerIf.Start(); err != nil {
+		log.Fatalf("immudb failed to start: %v", err)
+	}
 }

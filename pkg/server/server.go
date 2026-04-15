@@ -386,6 +386,12 @@ func (s *ImmuServer) Start() (err error) {
 			log.Fatalf("failed to setup web API/console server: %v", err)
 		}
 		defer func() {
+			if s.webGrpcConn != nil {
+				if err := s.webGrpcConn.Close(); err != nil {
+					s.Logger.Errorf("failed to close web API gRPC connection: %s", err)
+				}
+				s.webGrpcConn = nil
+			}
 			if err := s.webServer.Close(); err != nil {
 				s.Logger.Errorf("failed to shutdown web API/console server: %s", err)
 			}
@@ -419,7 +425,7 @@ func (s *ImmuServer) setupPidFile() error {
 }
 
 func (s *ImmuServer) setUpWebServer(ctx context.Context) error {
-	server, err := startWebServer(
+	server, conn, err := startWebServer(
 		ctx,
 		s.Options.Bind(),
 		s.Options.WebBind(),
@@ -431,6 +437,7 @@ func (s *ImmuServer) setUpWebServer(ctx context.Context) error {
 		return err
 	}
 	s.webServer = server
+	s.webGrpcConn = conn
 	return nil
 }
 

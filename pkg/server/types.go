@@ -82,6 +82,7 @@ type ImmuServer struct {
 	auditLogger          *audit.Logger
 	metricsServer        *http.Server
 	webServer            *http.Server
+	webGrpcConn          *grpc.ClientConn
 	mux                  sync.Mutex
 	pgsqlMux             sync.Mutex
 	StateSigner          StateSigner

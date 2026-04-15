@@ -56,7 +56,7 @@ func TestStartWebServerHTTP(t *testing.T) {
 		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}
 
-	webServer, err := startWebServer(
+	webServer, conn, err := startWebServer(
 		context.Background(),
 		options.Bind(),
 		options.WebBind(),
@@ -64,6 +64,7 @@ func TestStartWebServerHTTP(t *testing.T) {
 		server,
 		&mockLogger{})
 	require.NoError(t, err)
+	defer conn.Close()
 	defer webServer.Close()
 
 	require.IsType(t, &http.Server{}, webServer)
@@ -86,7 +87,7 @@ func TestStartWebServerHTTPS(t *testing.T) {
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
 	tlsConfig := tlsConfigTest(t)
-	webServer, err := startWebServer(
+	webServer, conn, err := startWebServer(
 		context.Background(),
 		options.Bind(),
 		options.WebBind(),
@@ -94,6 +95,7 @@ func TestStartWebServerHTTPS(t *testing.T) {
 		server,
 		&mockLogger{})
 	require.NoError(t, err)
+	defer conn.Close()
 	defer webServer.Close()
 
 	require.IsType(t, &http.Server{}, webServer)
