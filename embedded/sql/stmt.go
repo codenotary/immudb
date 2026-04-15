@@ -3690,6 +3690,15 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 	for _, j := range stmt.joins {
 		collectExpParams(j.cond, params)
 	}
+	for _, o := range stmt.orderBy {
+		// ORDER BY expressions can carry bind params — e.g. Gitea's
+		// BlockedByDependencies emits
+		//   ORDER BY CASE WHEN issue.repo_id = ? THEN 0 ELSE issue.repo_id END, ...
+		// where the CASE's $N would otherwise never make it into the
+		// params map, and the pgsql ParameterDescription would under-
+		// count the binds the client is about to send.
+		collectExpParams(o.exp, params)
+	}
 
 	// For every ScalarSubQueryExp / InSubQueryExp / ExistsBoolExp
 	// reachable from the outer expression tree, recursively run
@@ -3714,6 +3723,11 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 	}
 	for _, j := range stmt.joins {
 		if err := inferSubqueryParamTypes(ctx, tx, j.cond, params); err != nil {
+			return err
+		}
+	}
+	for _, o := range stmt.orderBy {
+		if err := inferSubqueryParamTypes(ctx, tx, o.exp, params); err != nil {
 			return err
 		}
 	}
@@ -4469,7 +4483,22 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 	if stmt.where != nil {
 		err = stmt.where.selectorRanges(table, tableRef.Alias(), params, rangesByColID)
 		if err != nil {
-			return nil, err
+			// In a JOIN context, the outer-table selectorRanges pass can
+			// legitimately encounter unqualified column references that
+			// resolve to one of the inner joined tables (e.g. Gitea's
+			// `WHERE issue_id = ?` where issue_id lives on
+			// issue_dependency). These can't be turned into index ranges
+			// for the outer table, but they're still valid as runtime
+			// WHERE predicates evaluated on the joint row. Swallow the
+			// column-not-found error only when joins are actually in
+			// scope — single-table queries keep the strict behaviour
+			// that propagates `column does not exist`.
+			if len(stmt.joins) > 0 && errors.Is(err, ErrColumnDoesNotExist) {
+				// reset partial ranges to avoid indexing on a partial WHERE
+				rangesByColID = make(map[uint32]*typedValueRange)
+			} else {
+				return nil, err
+			}
 		}
 	}
 
@@ -5750,11 +5779,18 @@ func (sel *ColSelector) inferType(cols map[string]ColDescriptor, params map[stri
 	_, table, col := sel.resolve(implicitTable)
 	encSel := EncodeSelector("", table, col)
 
-	desc, ok := cols[encSel]
-	if !ok {
-		return AnyType, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+	if desc, ok := cols[encSel]; ok {
+		return desc.Type, nil
 	}
-	return desc.Type, nil
+	// Unqualified column: in a JOIN context implicitTable points at the
+	// outer table, but the col may live on an inner joined table. Scan
+	// the cols map for a unique bare-name match before giving up.
+	if sel.table == "" {
+		if desc, ok := lookupUnqualifiedCol(cols, col); ok {
+			return desc.Type, nil
+		}
+	}
+	return AnyType, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 }
 
 func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -5762,6 +5798,15 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescript
 	encSel := EncodeSelector("", table, col)
 
 	desc, ok := cols[encSel]
+	if !ok {
+		// Same JOIN unqualified-lookup fallback as inferType.
+		if sel.table == "" {
+			if d, found := lookupUnqualifiedCol(cols, col); found {
+				desc = d
+				ok = true
+			}
+		}
+	}
 	if !ok {
 		return fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
@@ -5771,6 +5816,30 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescript
 	}
 
 	return nil
+}
+
+// lookupUnqualifiedCol searches a col-descriptors map for a bare column
+// name matching any table. Returns the descriptor only when there's
+// exactly one match — ambiguous names (col present on two tables)
+// return false so the caller falls through to the ErrColumnDoesNotExist
+// path rather than silently picking one.
+func lookupUnqualifiedCol(cols map[string]ColDescriptor, col string) (ColDescriptor, bool) {
+	suffix := "." + col + ")"
+	var match ColDescriptor
+	matches := 0
+	for k, d := range cols {
+		if strings.HasSuffix(k, suffix) {
+			match = d
+			matches++
+			if matches > 1 {
+				return ColDescriptor{}, false
+			}
+		}
+	}
+	if matches == 1 {
+		return match, true
+	}
+	return ColDescriptor{}, false
 }
 
 func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -5784,11 +5853,37 @@ func (sel *ColSelector) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 
 	aggFn, table, col := sel.resolve(implicitTable)
 
-	v, ok := row.ValuesBySelector[EncodeSelector(aggFn, table, col)]
-	if !ok {
-		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+	if v, ok := row.ValuesBySelector[EncodeSelector(aggFn, table, col)]; ok {
+		return v, nil
 	}
-	return v, nil
+
+	// Unqualified column in a JOIN context: implicitTable is the outer
+	// reader's alias, but the column may live on one of the joined inner
+	// tables. Postgres resolves unqualified column references across all
+	// FROM-scope tables; ORMs like Gitea's XORM emit this for JOIN ON
+	// predicates ("JOIN issue_assignees ON assignee_id = user.id").
+	// Scan row.ValuesBySelector for a matching bare column name on any
+	// table. Falls through to the error only if the col is truly missing
+	// or ambiguous.
+	if sel.table == "" {
+		suffix := "." + col + ")"
+		var match TypedValue
+		matches := 0
+		for k, v := range row.ValuesBySelector {
+			if strings.HasSuffix(k, suffix) {
+				match = v
+				matches++
+				if matches > 1 {
+					break
+				}
+			}
+		}
+		if matches == 1 {
+			return match, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 }
 
 func (sel *ColSelector) selectors() []Selector {
