@@ -380,6 +380,47 @@ SELECT immudb_history('mykey');                -- full history of a key
 | ARRAY, ENUM, composite types | Limited to 9 base types with aliases |
 | `SUM(a * b)` expressions inside aggregates | Arithmetic not supported inside aggregate functions |
 
+### ORM and Application Compatibility
+
+This branch significantly hardens the PostgreSQL wire protocol and SQL engine against the corner cases that real-world ORMs and applications hit. Verified workloads now include **Gitea 1.25.5** (full signup → repo creation → git push → issue lifecycle), **Ruby on Rails 7 / ActiveRecord** (Maybe Finance dashboard), **Django**, **GORM**, **XORM**, **golang-migrate**, **SQLAlchemy**, **lib/pq** and **pgx** drivers.
+
+**System catalog and introspection emulation** -- ORMs probe these on every connection; immudb returns realistic results for:
+
+- `pg_catalog`: `pg_class`, `pg_attribute`, `pg_index`, `pg_indexes`, `pg_constraint`, `pg_type`, `pg_namespace`, `pg_roles`, `pg_settings`, `pg_description`, `pg_tables`
+- `information_schema`: `tables`, `columns`, `schemata`, `key_column_usage`
+- Function emulation: `current_database()`, `current_schema()`, `current_user`, `format_type()`, `pg_encoding_to_char()`, `pg_get_indexdef()`, `regclass`/`regtype` casts
+- XORM column-introspection short-circuit so schema syncs don't issue thousands of slow catalog reads
+
+**Reserved-keyword identifier round-trip** -- ORMs that quote `"index"`, `"key"`, `"value"`, `"user"`, `"order"`, `"check"`, etc. now Just Work. Quoted identifiers map to a `_<word>` column on disk, and the wire layer reverse-renames them on the way out so client struct mappers see the original name.
+
+**Parameter-bind protocol fixes** -- correct text- and binary-format handling for every Postgres type immudb supports:
+
+- `BYTEA` in canonical PG hex format (`\x<hex>`) for both bind and result paths
+- `BOOLEAN` accepts `t`/`f`, `true`/`false`, `1`/`0`
+- `TIMESTAMP` accepts the Rails-style `YYYY-MM-DD HH:MM:SS.ffffff` text form
+- `FLOAT8`, `INT8`, `JSONB`, `TIMESTAMPTZ` OIDs in `RowDescription` for ORM type inference
+- `NULL` binds across all types
+- Implicit `VARCHAR → BOOLEAN` coercion for ORMs that never declare a parameter type
+- Bind type inference recurses into subquery expressions (`IN (SELECT …)`, scalar subqueries, `EXISTS`, `CASE WHEN`, `EXTRACT`, `ORDER BY` with bind params), so `lib/pq`'s ParameterDescription matches what the client is about to send
+
+**SQL grammar additions and fixes** for ORM-emitted shapes:
+
+- Unqualified column references inside `JOIN`/`WHERE` resolve across all FROM-scope tables (XORM emits `JOIN issue_assignees ON assignee_id = user.id` without table qualifier)
+- Scalar subqueries usable in `WHERE`, `SELECT` projection, and `ORDER BY`
+- `COUNT(DISTINCT col)`, `COUNT(1)` (rewritten to `COUNT(*)`), `STRING_AGG(col, sep)`, `SUM(CASE WHEN col = ? THEN 1 ELSE 0 END)` (rewritten when the shape matches)
+- Alias names that match aggregate keywords (`SELECT id AS sum FROM …`)
+- `LIKE` / `ILIKE` with standard SQL wildcards (`%`, `_`)
+- Hash aggregate path for `GROUP BY` without sorted input; projection pushdown that skips decoding columns the query doesn't reference; secondary index used for `WHERE`-only `SELECT`
+
+**DML correctness** -- semantics now match Postgres for the patterns ORMs rely on most:
+
+- `INSERT … ON CONFLICT DO UPDATE SET col = expr` reads the EXISTING row's values when reducing `expr` (so per-group counters like XORM's `max_index = max_index + 1` actually increment)
+- `RETURNING` capture is reset on every prepared-statement re-execution (so reused INSERTs over Bind/Execute don't return stale rows from earlier executions)
+- `INSERT INTO schema_migrations` is automatically idempotent (`ON CONFLICT DO NOTHING`) so Rails / golang-migrate can re-run schema syncs safely
+- Multi-statement transactions, `SAVEPOINT` / `ROLLBACK TO SAVEPOINT`, and explicit `BEGIN` / `COMMIT` / `ROLLBACK` track transaction status correctly so `lib/pq` and `pgx` accept the next query
+
+**Logging and operability** -- benign client disconnects (Rails connection-pool churn, Gitea eventsource long-poll cancels) demoted from `[E]` to debug; per-session SQL parse cache and in-memory catalog cache reduce per-query overhead under ORM workloads.
+
 ### Security Hardening
 
 - **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
