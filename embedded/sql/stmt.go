@@ -3690,6 +3690,129 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 	for _, j := range stmt.joins {
 		collectExpParams(j.cond, params)
 	}
+
+	// For every ScalarSubQueryExp / InSubQueryExp / ExistsBoolExp
+	// reachable from the outer expression tree, recursively run
+	// inferParameters on the nested SelectStmt. Without this recursion
+	// the inner WHERE's $N markers were collected by the walker above
+	// but never typed — they stay at AnyType, pgsql sends AnyType on
+	// the wire, and lib/pq binds the value as VARCHAR text. When the
+	// inner WHERE later evaluates `col = $N` at execute time Compare()
+	// fires "values are not comparable". Recursing here pushes the
+	// inner-col types into params so the wire bind uses the correct
+	// format.
+	if err := inferSubqueryParamTypes(ctx, tx, stmt.where, params); err != nil {
+		return err
+	}
+	if err := inferSubqueryParamTypes(ctx, tx, stmt.having, params); err != nil {
+		return err
+	}
+	for _, t := range stmt.targets {
+		if err := inferSubqueryParamTypes(ctx, tx, t.Exp, params); err != nil {
+			return err
+		}
+	}
+	for _, j := range stmt.joins {
+		if err := inferSubqueryParamTypes(ctx, tx, j.cond, params); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// inferSubqueryParamTypes walks an expression tree looking for
+// subquery-holding expression nodes and best-effort runs
+// SelectStmt.inferParameters on them. Type inference on the outer
+// statement's WHERE stops at subquery boundaries (the inner cols are
+// scoped to a different SelectStmt), so this second pass delegates
+// typing to the subquery's own inference. Cheap — most expression
+// trees don't contain subqueries, and this is only on the
+// inference/prepare path, not per-row at read time.
+//
+// Errors from the inner inferParameters are swallowed: correlated
+// subqueries reference outer-scope cols that the inner SelectStmt's
+// own inference can't resolve in isolation (`column does not exist`).
+// That's fine — any $N markers found along the way still make it
+// into the params map with their inferred type, and unresolved
+// markers remain at AnyType which the outer path handles.
+func inferSubqueryParamTypes(ctx context.Context, tx *SQLTx, e ValueExp, params map[string]SQLValueType) error {
+	if e == nil {
+		return nil
+	}
+	switch ex := e.(type) {
+	case *ScalarSubQueryExp:
+		if ex.stmt != nil {
+			_ = ex.stmt.inferParameters(ctx, tx, params)
+		}
+		return nil
+	case *InSubQueryExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.val, params); err != nil {
+			return err
+		}
+		if ex.q != nil {
+			_ = ex.q.inferParameters(ctx, tx, params)
+		}
+		return nil
+	case *ExistsBoolExp:
+		if sub, ok := ex.q.(*SelectStmt); ok && sub != nil {
+			_ = sub.inferParameters(ctx, tx, params)
+		}
+		return nil
+	case *CmpBoolExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.left, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.right, params)
+	case *BinBoolExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.left, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.right, params)
+	case *NotBoolExp:
+		return inferSubqueryParamTypes(ctx, tx, ex.exp, params)
+	case *NumExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.left, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.right, params)
+	case *LikeBoolExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.val, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.pattern, params)
+	case *Cast:
+		return inferSubqueryParamTypes(ctx, tx, ex.val, params)
+	case *FnCall:
+		for _, p := range ex.params {
+			if err := inferSubqueryParamTypes(ctx, tx, p, params); err != nil {
+				return err
+			}
+		}
+	case *InListExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.val, params); err != nil {
+			return err
+		}
+		for _, v := range ex.values {
+			if err := inferSubqueryParamTypes(ctx, tx, v, params); err != nil {
+				return err
+			}
+		}
+	case *CaseWhenExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.exp, params); err != nil {
+			return err
+		}
+		for _, wt := range ex.whenThen {
+			if err := inferSubqueryParamTypes(ctx, tx, wt.when, params); err != nil {
+				return err
+			}
+			if err := inferSubqueryParamTypes(ctx, tx, wt.then, params); err != nil {
+				return err
+			}
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.elseExp, params)
+	case *ExtractFromTimestampExp:
+		return inferSubqueryParamTypes(ctx, tx, ex.Exp, params)
+	}
 	return nil
 }
 
