@@ -19,10 +19,73 @@ package bmessages
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
+
+// reservedRenameColumns lists the lower-case keywords that the pgsql
+// translator (query_machine.go) prefixes with `_` when they appear as
+// quoted identifiers in incoming DDL/DML. The list MUST stay in sync
+// with the regex in query_machine.go pgTypeReplacements at the
+// `"reserved-keyword" -> _word` rule. The reverse mapping is needed
+// here so result columns presented to ORMs (XORM, GORM, …) carry
+// the original Postgres-side name. Without it, Gitea's
+// `Issue.Index int64 \`xorm:"INDEX"\`` field never gets populated
+// (column comes back as `_index`, struct mapper looks for `index`),
+// and the issue-list template renders every issue as "#0".
+var reservedRenameColumns = map[string]bool{
+	"add": true, "admin": true, "after": true, "all": true, "alter": true, "and": true,
+	"as": true, "asc": true, "auto_increment": true, "avg": true, "before": true,
+	"begin": true, "between": true, "bigint": true, "bigserial": true, "blob": true,
+	"boolean": true, "by": true, "bytea": true, "cascade": true, "case": true,
+	"cast": true, "check": true, "column": true, "commit": true, "conflict": true,
+	"constraint": true, "count": true, "create": true, "cross": true, "database": true,
+	"databases": true, "date": true, "day": true, "decimal": true, "default": true,
+	"delete": true, "desc": true, "diff": true, "distinct": true, "do": true,
+	"double": true, "drop": true, "else": true, "end": true, "except": true,
+	"exists": true, "explain": true, "extract": true, "false": true, "fetch": true,
+	"first": true, "float": true, "for": true, "foreign": true, "from": true,
+	"full": true, "grant": true, "grants": true, "group": true, "having": true,
+	"history": true, "hour": true, "if": true, "ilike": true, "in": true,
+	"index": true, "inner": true, "insert": true, "int": true, "integer": true,
+	"intersect": true, "into": true, "is": true, "join": true, "json": true,
+	"jsonb": true, "key": true, "last": true, "lateral": true, "left": true,
+	"like": true, "limit": true, "max": true, "min": true, "minute": true,
+	"month": true, "natural": true, "not": true, "nothing": true, "null": true,
+	"nulls": true, "numeric": true, "of": true, "offset": true, "on": true,
+	"only": true, "or": true, "order": true, "over": true, "partition": true,
+	"password": true, "primary": true, "privileges": true, "read": true,
+	"readwrite": true, "real": true, "recursive": true, "references": true,
+	"release": true, "rename": true, "returning": true, "revoke": true,
+	"right": true, "rollback": true, "rows": true, "savepoint": true, "second": true,
+	"select": true, "sequence": true, "serial": true, "set": true, "show": true,
+	"since": true, "smallint": true, "snapshot": true, "sum": true, "table": true,
+	"tables": true, "then": true, "timestamp": true, "timestamptz": true, "to": true,
+	"transaction": true, "true": true, "truncate": true, "tx": true, "union": true,
+	"unique": true, "until": true, "update": true, "upsert": true, "use": true,
+	"user": true, "users": true, "using": true, "uuid": true, "values": true,
+	"varchar": true, "view": true, "when": true, "where": true, "with": true,
+	"year": true,
+}
+
+// stripReservedColumnPrefix reverses the `_<keyword>` rename applied
+// by the pgsql translator on the way IN. If the column name is
+// `_<word>` AND `<word>` is one of the immudb-reserved identifiers
+// the translator handles, return the bare `<word>` so client-side
+// ORMs see the same name they wrote. Columns that legitimately start
+// with `_` and whose suffix is NOT a reserved keyword pass through
+// untouched.
+func stripReservedColumnPrefix(name string) string {
+	if len(name) < 2 || name[0] != '_' {
+		return name
+	}
+	if reservedRenameColumns[strings.ToLower(name[1:])] {
+		return name[1:]
+	}
+	return name
+}
 
 func RowDescription(cols []sql.ColDescriptor, formatCodes []int16) []byte {
 	////##-> dataRowDescription
@@ -48,6 +111,7 @@ func RowDescription(cols []sql.ColDescriptor, formatCodes []int16) []byte {
 		if name == "" {
 			name = col.Selector()
 		}
+		name = stripReservedColumnPrefix(name)
 		fieldName := []byte(name)
 		fieldName = bytes.Join([][]byte{fieldName, {0}}, nil)
 		// If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
