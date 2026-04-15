@@ -125,10 +125,15 @@ Option 1 is least invasive but risks masking genuine user bugs. Option 2 is the 
 
 ## Related boundary errors
 
-With the same multi-statement pattern, these errors also surface in Gitea's dashboard and were left unfixed until the transiency bug is rooted out:
+With the same multi-statement pattern, these errors also surfaced in Gitea's dashboard and were fixed incrementally:
 
-- `issueIDsFromSearch, pq: already closed` — same tx state corruption, different symptom.
-- `eventsource/manager_run.go: Unable to get UIDcounts: pq: syntax error: unexpected CASE at position 24` — separate grammar gap.
+- `issueIDsFromSearch, pq: already closed` — same tx state corruption symptom, fixed in `ddde60eb` by deferring the outer reader close in `jointRowReader.Read`.
+- `eventsource/manager_run.go: Unable to get UIDcounts: pq: syntax error: unexpected CASE at position 24` — **still open**. `SUM(CASE WHEN … END)` needs a new engine-level `AggExp` AST node that holds a ValueExp instead of a column, parallel to `AggColSelector`. `embedded/sql/gitea_background_regression_test.go::TestSumCaseWhenAggregate` carries a `t.Skip(...)` marker pointing at this follow-up. The error surface is background (Gitea's notification event poller); all user-visible pages render.
+
+Post-fix remaining background-only errors against Gitea 1.25.5:
+
+- `workflows.go init.0.1: yaml unmarshal errors` — Gitea's own bindata YAML init, unrelated to the DB layer.
+- `InsertRun, pq: values are not comparable` — fires through the pgsql wire on `INSERT INTO action_run …` with 22 scalar params. A direct engine-level INSERT with the same schema + bound types passes (`TestInsertActionRunShape`), so the error is in the pgsql wire's type coercion during Bind, not in the SQL engine. Needs pgsql-wire-level bind tracing to root-cause. Safe to defer.
 
 ## Acceptance
 
