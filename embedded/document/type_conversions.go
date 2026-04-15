@@ -103,10 +103,19 @@ var protomodelValueTypeToSQLValueType = func(stype protomodel.FieldType) (sql.SQ
 	return "", fmt.Errorf("%w(%s)", ErrUnsupportedType, stype)
 }
 
+// maxDocumentFieldLen is the default encoded-key width (bytes) for
+// variable-length indexed fields in document collections.  It must be small
+// enough that the full composite secondary-index key
+// (prefix + tableID + indexID + fieldEncoding + docIDEncoding) stays within
+// the store layer's 1024-byte hard cap.  512 was the implicit value before
+// sql.MaxKeyLen was raised to 1024; keep it fixed here so that the SQL-level
+// cap can move independently of the document layer.
+const maxDocumentFieldLen = 512
+
 var sqlValueTypeDefaultLength = func(stype sql.SQLValueType) (int, error) {
 	switch stype {
 	case sql.VarcharType:
-		return sql.MaxKeyLen, nil
+		return maxDocumentFieldLen, nil
 	case sql.UUIDType:
 		return 0, nil
 	case sql.IntegerType:

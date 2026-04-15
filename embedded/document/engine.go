@@ -981,8 +981,13 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		return nil, err
 	}
 
+	docIDField := docIDFieldName(table)
+
 	op := sql.NewSelectStmt(
-		[]sql.TargetEntry{{Exp: sql.NewColSelector(query.CollectionName, DocumentBLOBField)}},
+		[]sql.TargetEntry{
+			{Exp: sql.NewColSelector(query.CollectionName, docIDField)},
+			{Exp: sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
+		},
 		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),

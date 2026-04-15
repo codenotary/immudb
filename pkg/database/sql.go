@@ -288,10 +288,16 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 }
 
 func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, err error) {
-	txCtx, txCancel := context.WithCancel(context.Background())
+	// Derive txCtx from the caller's context so that the engine-level NewTx
+	// call inherits the caller's deadline/cancellation.  txCancel lets us
+	// signal the goroutine to stop if we return early.
+	txCtx, txCancel := context.WithCancel(ctx)
 
-	txChan := make(chan *sql.SQLTx)
-	errChan := make(chan error)
+	// Buffered channels (capacity 1) ensure the goroutine can always send its
+	// result and exit, even when the outer select has already returned on
+	// ctx.Done() — preventing a goroutine leak.
+	txChan := make(chan *sql.SQLTx, 1)
+	errChan := make(chan error, 1)
 
 	defer func() {
 		if err != nil {
@@ -304,37 +310,33 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	}()
 
 	go func() {
+		defer txCancel()
+
 		md := schema.MetadataFromContext(ctx)
 		if len(md) > 0 {
-			data, err := md.Marshal()
-			if err != nil {
-				errChan <- err
+			data, e := md.Marshal()
+			if e != nil {
+				errChan <- e
 				return
 			}
 			opts = opts.WithExtra(data)
 		}
 
-		tx, err = d.sqlEngine.NewTx(txCtx, opts)
-		if err != nil {
-			errChan <- err
+		t, e := d.sqlEngine.NewTx(txCtx, opts)
+		if e != nil {
+			errChan <- e
 		} else {
-			txChan <- tx
+			txChan <- t
 		}
 	}()
 
 	select {
 	case <-ctx.Done():
-		{
-			return nil, ctx.Err()
-		}
+		return nil, ctx.Err()
 	case tx = <-txChan:
-		{
-			return tx, nil
-		}
+		return tx, nil
 	case err = <-errChan:
-		{
-			return nil, err
-		}
+		return nil, err
 	}
 }
 

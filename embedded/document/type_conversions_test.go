@@ -178,7 +178,7 @@ func TestSQLValueTypeDefaultLength(t *testing.T) {
 		{
 			name:      "varchar",
 			valueType: sql.VarcharType,
-			length:    sql.MaxKeyLen,
+			length:    maxDocumentFieldLen,
 			expectErr: nil,
 		},
 		{

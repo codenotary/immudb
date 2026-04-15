@@ -151,5 +151,5 @@ func (s *ImmuServer) TxSQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuServ
 	}
 	defer reader.Close()
 
-	return s.streamRows(context.Background(), reader, tx.Database().MaxResultSize(), srv.Send)
+	return s.streamRows(srv.Context(), reader, tx.Database().MaxResultSize(), srv.Send)
 }
