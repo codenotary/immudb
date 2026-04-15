@@ -7344,6 +7344,47 @@ func TestOnConflictDoUpdate(t *testing.T) {
 	r.Close()
 }
 
+// TestOnConflictDoUpdateExpressionRefsExistingRow pins the Postgres
+// semantics that bare column references in `ON CONFLICT DO UPDATE SET
+// col = <expr>` evaluate against the EXISTING (conflicting) row, not
+// against the would-be-inserted values. This is what XORM relies on
+// for per-group counters like Gitea's issue_index:
+//
+//	INSERT INTO issue_index (group_id, max_index) VALUES (1, 1)
+//	  ON CONFLICT DO UPDATE SET max_index = max_index + 1
+//	  RETURNING max_index
+//
+// Before the fix, `max_index` on the RHS bound to the INSERT value
+// (`1`), so every conflicting upsert returned `2` instead of
+// incrementing — Gitea's issue list collapsed all issues onto
+// duplicate per-repo indexes.
+func TestOnConflictDoUpdateExpressionRefsExistingRow(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil,
+		`CREATE TABLE counters (group_id INTEGER NOT NULL, n INTEGER NOT NULL, PRIMARY KEY(group_id))`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		`INSERT INTO counters (group_id, n) VALUES (1, 10)`, nil)
+	require.NoError(t, err)
+
+	// Three upserts, each should increment by one starting from 10.
+	for expected := int64(11); expected <= 13; expected++ {
+		_, _, err = engine.Exec(context.Background(), nil,
+			`INSERT INTO counters (group_id, n) VALUES (1, 1) ON CONFLICT DO UPDATE SET n = n + 1`, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil,
+			`SELECT n FROM counters WHERE group_id = 1`, nil)
+		require.NoError(t, err)
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, expected, row.ValuesByPosition[0].RawValue())
+		r.Close()
+	}
+}
+
 func TestExceptIntersect(t *testing.T) {
 	engine := setupCommonTest(t)
 

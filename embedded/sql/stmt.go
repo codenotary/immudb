@@ -1513,6 +1513,38 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 					continue
 				}
 
+				// Load the CONFLICTING row's current values before applying
+				// the DO UPDATE SET expressions. Without this, bare column
+				// references on the RHS (e.g. `SET n = n + 1`) reduce
+				// against the INSERT-attempt's values instead of the
+				// existing row — Postgres semantics require the opposite,
+				// and XORM's per-repo issue-index counter (INSERT ...
+				// VALUES (group_id, 1) ON CONFLICT DO UPDATE SET
+				// max_index = max_index + 1) loses every increment past
+				// the first without this fix.
+				existingRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
+				if err != nil {
+					return nil, err
+				}
+
+				// Overwrite valuesByColID / r with the existing row so
+				// subsequent operations (reduce, encodeRowValue,
+				// checkConstraints, doUpsert) see ON CONFLICT DO UPDATE
+				// as "UPDATE from existing state" rather than "INSERT
+				// with optional override". Unmentioned columns therefore
+				// keep their current values on write, which also matches
+				// Postgres semantics.
+				for i, col := range table.cols {
+					encSel := EncodeSelector("", table.name, col.colName)
+					v := existingRow.ValuesBySelector[encSel]
+					if v == nil {
+						v = &NullValue{t: col.colType}
+					}
+					valuesByColID[col.id] = v
+					r.ValuesByPosition[i] = v
+					r.ValuesBySelector[encSel] = v
+				}
+
 				// ON CONFLICT DO UPDATE SET ...
 				for _, u := range stmt.onConflict.updates {
 					col, colExists := table.colsByName[u.col]
