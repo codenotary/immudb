@@ -199,6 +199,12 @@ func (sm *manager) StartSessionsGuard() error {
 	if sm.running {
 		return ErrGuardAlreadyRunning
 	}
+
+	// Recreate ticker and done channel so a Stop→Start cycle gets a live
+	// ticker (Stop() calls ticker.Stop() which permanently disables it) and
+	// a fresh done channel (the previous one was consumed by StopSessionsGuard).
+	sm.ticker = time.NewTicker(sm.options.SessionGuardCheckInterval)
+	sm.done = make(chan bool)
 	sm.running = true
 
 	go func() {

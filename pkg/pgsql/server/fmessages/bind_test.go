@@ -118,9 +118,11 @@ func TestParseBindMsg(t *testing.T) {
 			BindMsg{},
 			pgserror.ErrParametersValueSizeTooLarge,
 		},
+		// pLen==-1 is now treated as SQL NULL (no bytes consumed); the next
+		// field is the result-format-codes count == -1, which is malformed.
 		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(1), h.I16(1), h.I32(-1), h.I16(-1), h.I16(1), h.I16(1)}),
 			BindMsg{},
-			pgserror.ErrNegativeParameterValueLen,
+			pgserror.ErrMalformedMessage,
 		},
 		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(-1), h.I16(1), h.I16(1), h.I32(-1), h.I16(-1), h.I16(1), h.I16(1)}),
 			BindMsg{},

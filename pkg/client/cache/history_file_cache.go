@@ -100,7 +100,7 @@ func (history *historyFileCache) Set(serverUUID, db string, state *schema.Immuta
 	newState := db + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
 	var exists bool
 	for i, line := range lines {
-		if strings.Contains(line, db+":") {
+		if strings.HasPrefix(line, db+":") {
 			exists = true
 			lines[i] = newState
 		}
@@ -140,7 +140,7 @@ func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema
 
 	lines := strings.Split(string(raw), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, db+":") {
+		if strings.HasPrefix(line, db+":") {
 			r := strings.Split(line, ":")
 
 			if r[1] == "" {

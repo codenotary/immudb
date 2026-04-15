@@ -169,6 +169,10 @@ func (txr *TxReplicator) Start() error {
 
 	txr.context, txr.cancelFunc = context.WithCancel(context.Background())
 
+	// Recreate the prefetch buffer so a Stop→Start cycle doesn't reuse a
+	// closed channel (which would panic on the next send).
+	txr.prefetchTxBuffer = make(chan prefetchTxEntry, cap(txr.prefetchTxBuffer))
+
 	txr.running = true
 
 	go txr.replicationLoop()
@@ -370,7 +374,9 @@ func (txr *TxReplicator) fetchNextTx() error {
 		SkipIntegrityCheck: txr.skipIntegrityCheck,
 	}
 
-	txr.exportTxStream.Send(req)
+	if err := txr.exportTxStream.Send(req); err != nil {
+		return err
+	}
 
 	etx, emd, err := txr.exportTxStreamReceiver.ReadFully()
 	if err != nil {

@@ -245,8 +245,14 @@ func (s *Session) SetPaginatedDocumentReader(searchID string, reader *PaginatedD
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// add the reader to the documentReaders map
-	s.documentReaders.Put(searchID, reader)
+	_, evicted, _ := s.documentReaders.Put(searchID, reader)
+	if evicted != nil {
+		// The cache is capped at DefaultMaxDocumentReadersCacheSize (1), so
+		// putting a new reader evicts the previous one.  Close it to cancel
+		// the underlying SQL transaction; ignoring the error here matches the
+		// behaviour of deleteDocumentReader on a best-effort close.
+		evicted.(*PaginatedDocumentReader).Reader.Close()
+	}
 }
 
 func (s *Session) GetDocumentReader(searchID string) (*PaginatedDocumentReader, error) {
