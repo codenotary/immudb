@@ -44,7 +44,8 @@ import (
 
 // usernameToUserdataMap keeps an associacion of username to userdata
 type usernameToUserdataMap struct {
-	Userdata map[string]*auth.User
+	Userdata      map[string]*auth.User
+	sessionCounts map[string]int
 	sync.RWMutex
 }
 
@@ -100,7 +101,7 @@ func DefaultServer() *ImmuServer {
 		Logger:               logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:              DefaultOptions(),
 		quit:                 make(chan struct{}),
-		userdata:             &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
+		userdata:             &usernameToUserdataMap{Userdata: make(map[string]*auth.User), sessionCounts: make(map[string]int)},
 		GrpcServer:           grpc.NewServer(),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}

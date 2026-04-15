@@ -122,8 +122,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 }
 
 func (r *Rows) Close() error {
-	// no reader here
-	return nil
+	return r.reader.Close()
 }
 
 func (r *Rows) Next(dest []driver.Value) error {

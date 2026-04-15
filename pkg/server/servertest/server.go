@@ -55,13 +55,15 @@ type BufconnServer struct {
 // to talk to its clients - communication happens using memory buffers instead of TCP connections.
 func NewBufconnServer(options *server.Options) *BufconnServer {
 	options.Port = 0
+	lis := bufconn.Listen(bufSize)
+	options.WithListener(lis)
 	immuserver := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 
 	uuid := xid.New()
 
 	bs := &BufconnServer{
 		quit:       make(chan struct{}),
-		Lis:        bufconn.Listen(bufSize),
+		Lis:        lis,
 		Options:    options,
 		immuServer: immuserver,
 		Server:     &ServerMock{Srv: immuserver},

@@ -80,11 +80,13 @@ func (c *immuClient) SQLQueryReader(ctx context.Context, sql string, params map[
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	stream, err := c.sqlQuery(ctx, sql, params, true)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	stream, err := c.sqlQuery(cancelCtx, sql, params, true)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	return newSQLQueryRowReader(stream)
+	return newSQLQueryRowReader(stream, cancel)
 }
 
 func (c *immuClient) sqlQuery(ctx context.Context, sql string, params map[string]interface{}, acceptStream bool) (schema.ImmuService_SQLQueryClient, error) {
@@ -398,6 +400,7 @@ type SQLQueryRowReader interface {
 
 type rowReader struct {
 	stream schema.ImmuService_SQLQueryClient
+	cancel context.CancelFunc
 
 	cols []Column
 	rows []*schema.Row
@@ -408,7 +411,7 @@ type rowReader struct {
 	err     error
 }
 
-func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient) (*rowReader, error) {
+func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient, cancel context.CancelFunc) (*rowReader, error) {
 	res, err := stream.Recv()
 	if err != nil {
 		return nil, errors.FromError(err)
@@ -416,6 +419,7 @@ func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient) (*rowReader,
 
 	return &rowReader{
 		stream:  stream,
+		cancel:  cancel,
 		rows:    res.Rows,
 		row:     make(Row, len(res.Columns)),
 		nextRow: -1,
@@ -478,13 +482,17 @@ func (it *rowReader) Read() (Row, error) {
 func (it *rowReader) fetchRows() error {
 	res, err := it.stream.Recv()
 	if err == io.EOF {
+		it.cancel()
 		return sql.ErrNoMoreRows
 	}
 
-	if err == nil {
-		it.rows = res.Rows
+	if err != nil {
+		it.cancel()
+		return errors.FromError(err)
 	}
-	return errors.FromError(err)
+
+	it.rows = res.Rows
+	return nil
 }
 
 func (it *rowReader) Close() error {

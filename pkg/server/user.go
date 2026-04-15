@@ -87,11 +87,10 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 		return nil, err
 	}
 
-	// remove user from loggedin users
-	s.removeUserFromLoginList(user.Username)
-
-	// invalidate the token for this user
-	_, err = auth.DropTokenKeysForCtx(ctx)
+	// remove user from loggedin users; only rotate token keys when last session ends
+	if s.removeUserFromLoginList(user.Username) {
+		_, err = auth.DropTokenKeysForCtx(ctx)
+	}
 
 	return new(empty.Empty), err
 }
@@ -603,11 +602,19 @@ func (s *ImmuServer) saveUser(ctx context.Context, user *auth.User) error {
 	return logErr(s.Logger, "error saving user: %v", err)
 }
 
-func (s *ImmuServer) removeUserFromLoginList(username string) {
+// removeUserFromLoginList decrements the session count for username and removes the
+// entry when no sessions remain. Returns true when the last session was removed.
+func (s *ImmuServer) removeUserFromLoginList(username string) bool {
 	s.userdata.Lock()
 	defer s.userdata.Unlock()
 
-	delete(s.userdata.Userdata, username)
+	s.userdata.sessionCounts[username]--
+	if s.userdata.sessionCounts[username] <= 0 {
+		delete(s.userdata.sessionCounts, username)
+		delete(s.userdata.Userdata, username)
+		return true
+	}
+	return false
 }
 
 func (s *ImmuServer) addUserToLoginList(u *auth.User) {
@@ -615,6 +622,7 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 	defer s.userdata.Unlock()
 
 	s.userdata.Userdata[u.Username] = u
+	s.userdata.sessionCounts[u.Username]++
 }
 
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth.User, error) {

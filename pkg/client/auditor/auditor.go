@@ -109,8 +109,10 @@ func DefaultAuditor(
 
 	slugifyRegExp, _ := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
 
-	httpClient := &http.Client{Timeout: notificationConfig.RequestTimeout}
-	notificationConfig.PublishFunc = httpClient.Do
+	if notificationConfig.PublishFunc == nil {
+		httpClient := &http.Client{Timeout: notificationConfig.RequestTimeout}
+		notificationConfig.PublishFunc = httpClient.Do
+	}
 
 	return &defaultAuditor{
 		0,

@@ -44,7 +44,7 @@ func testServerClient(t *testing.T) (*servertest.BufconnServer, *sql.DB) {
 	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	require.NoError(t, bs.Start())
 	t.Cleanup(func() { bs.Stop() })
 
 	opts := client.DefaultOptions()
