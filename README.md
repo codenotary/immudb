@@ -244,7 +244,9 @@ docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 
 ## Recent Changes
 
-### Structured Audit Logging
+<details>
+<summary><b>Structured Audit Logging</b></summary>
+
 
 immudb now supports immutable, structured audit logging of all server operations. When enabled, every gRPC operation is recorded as a JSON audit event stored in immudb's own tamper-proof KV store under the `audit:` key prefix.
 
@@ -278,7 +280,11 @@ Each audit event captures:
 
 Audit events are written asynchronously to avoid impacting request latency. They can be queried using the standard `Scan` API with prefix `audit:` and verified with `VerifiableGet` for tamper-proof compliance evidence. Events are stored as JSON, ready for export to external SIEM systems (Splunk, ELK, etc.).
 
-### DIFF OF SQL Query
+</details>
+
+<details>
+<summary><b>DIFF OF SQL Query</b></summary>
+
 
 immudb now supports comparing table state between two points in time using the new `DIFF OF` SQL syntax:
 
@@ -288,7 +294,11 @@ SELECT _diff_action, id, title, active FROM (DIFF OF mytable) SINCE TX 100 UNTIL
 
 The `_diff_action` column indicates whether each row was an `INSERT`, `UPDATE`, or `DELETE` within the specified transaction range. Both `SINCE`/`AFTER` and `UNTIL`/`BEFORE` period specifiers are supported. Standard `WHERE` clauses can be applied to filter results.
 
-### PostgreSQL SQL Compatibility
+</details>
+
+<details>
+<summary><b>PostgreSQL SQL Compatibility</b></summary>
+
 
 immudb's PostgreSQL wire protocol server now supports a comprehensive set of SQL features for ORM and tool compatibility. Connect with any PostgreSQL client (`psql`, pgAdmin, JDBC, SQLAlchemy, Django, GORM, ActiveRecord) and use standard SQL.
 
@@ -380,7 +390,11 @@ SELECT immudb_history('mykey');                -- full history of a key
 | ARRAY, ENUM, composite types | Limited to 9 base types with aliases |
 | `SUM(a * b)` expressions inside aggregates | Arithmetic not supported inside aggregate functions |
 
-### ORM and Application Compatibility
+</details>
+
+<details>
+<summary><b>ORM and Application Compatibility</b></summary>
+
 
 This branch significantly hardens the PostgreSQL wire protocol and SQL engine against the corner cases that real-world ORMs and applications hit. Verified workloads now include **Gitea 1.25.5** (full signup → repo creation → git push → issue lifecycle), **Ruby on Rails 7 / ActiveRecord** (Maybe Finance dashboard), **Django**, **GORM**, **XORM**, **golang-migrate**, **SQLAlchemy**, **lib/pq** and **pgx** drivers.
 
@@ -421,13 +435,18 @@ This branch significantly hardens the PostgreSQL wire protocol and SQL engine ag
 
 **Logging and operability** -- benign client disconnects (Rails connection-pool churn, Gitea eventsource long-poll cancels) demoted from `[E]` to debug; per-session SQL parse cache and in-memory catalog cache reduce per-query overhead under ORM workloads.
 
-### Security Hardening
+</details>
+
+<details>
+<summary><b>Security Hardening</b></summary>
+
 
 - **Path traversal protection**: Archive restore now validates extraction paths, rejecting entries that attempt directory escape via `..` or absolute paths.
 - **Session invalidation**: User deactivation, password changes, permission changes, and SQL privilege changes now immediately terminate all active sessions for the affected user.
 - **Token file permissions**: Client authentication tokens are now written with `0600` permissions (owner-only) instead of `0644`.
 - **PgSQL TLS warning**: The PostgreSQL-compatible server now logs a warning at startup when running without TLS, as cleartext password authentication is used.
 
+</details>
 
 ## Using immudb
 
