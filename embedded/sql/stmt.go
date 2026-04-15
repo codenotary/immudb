@@ -1347,6 +1347,14 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
 }
 
 func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	// Reset RETURNING capture from any prior execution of this same
+	// prepared statement. Without this, prepared INSERTs reused across
+	// pgsql Bind/Execute cycles accumulate rows from earlier runs and
+	// the wire layer hands the FIRST cached row back to the client —
+	// which is how Gitea's per-repo issue counter (a repeated UPSERT
+	// RETURNING max_index) ended up returning `1` for every issue.
+	stmt.returnedRows = nil
+
 	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
 		return nil, err
@@ -1994,6 +2002,8 @@ func (stmt *UpdateStmt) validate(table *Table) error {
 }
 
 func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	stmt.returnedRows = nil // reset RETURNING capture (see UpsertIntoStmt.execAt)
+
 	selectStmt := &SelectStmt{
 		ds:      stmt.tableRef,
 		where:   stmt.where,
@@ -2141,6 +2151,8 @@ func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, para
 }
 
 func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	stmt.returnedRows = nil // reset RETURNING capture (see UpsertIntoStmt.execAt)
+
 	selectStmt := &SelectStmt{
 		ds:      stmt.tableRef,
 		where:   stmt.where,
