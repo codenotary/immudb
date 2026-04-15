@@ -617,6 +617,16 @@ var pgTypeReplacements = []struct {
 	// technically different but returns the same union of columns.
 	{regexp.MustCompile(`(?i)\b[A-Za-z_][A-Za-z0-9_]*\s*\.\s*\*`), "*"},
 
+	// After the `table.* -> *` reduction above, XORM's
+	//   SELECT project.*, project_issue.issue_id FROM project ...
+	// becomes `SELECT *, project_issue.issue_id FROM ...`, which
+	// immudb's grammar rejects (the `opt_targets` production is either
+	// bare `*` or a comma-separated expression list, never a mix).
+	// `SELECT *` over a JOIN in immudb already yields all columns from
+	// all joined tables, so the trailing comma-separated list is
+	// redundant — collapse it back to a bare `*`.
+	{regexp.MustCompile(`(?is)(SELECT\s+\*)(?:\s*,[^,]+?)+(\s+FROM\b)`), "$1$2"},
+
 	// Rails emits Postgres-style `ON CONFLICT (col_list) DO ...` for
 	// `create_or_find_by!`, `upsert_all`, etc. immudb's grammar accepts
 	// only the column-less form (`ON CONFLICT DO NOTHING` / `ON CONFLICT
