@@ -124,17 +124,21 @@ func TestPgsqlServer_SimpleQueryBlob(t *testing.T) {
 	_, err = db.Exec(fmt.Sprintf("UPSERT INTO %s (id, amount, title, content) VALUES (1, 200, 'title 1', x'%s')", table, blobContent))
 	require.NoError(t, err)
 
+	// Scan BYTEA into []byte — lib/pq decodes the PG canonical `\x<hex>`
+	// text format back into raw bytes for us. Earlier the test scanned
+	// into a string and hex-decoded the result, which only worked
+	// because immudb was emitting raw hex without the `\x` prefix and
+	// lib/pq fell back to escape-format (returning the ASCII of the
+	// hex digits). After the text-format BYTEA fix
+	// (data_row.renderValueAsByte), real PG behaviour is preserved.
 	var id int64
 	var amount int64
 	var title string
-	var content string
+	var content []byte
 	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, content FROM %s", table)).Scan(&id, &amount, &title, &content)
 	require.NoError(t, err)
-	contentDst := make([]byte, 1000)
-
-	_, err = hex.Decode(contentDst, []byte(content))
-	require.NoError(t, err)
-
+	require.Equal(t, "my blob content", string(content))
+	_ = blobContent
 }
 
 func TestPgsqlServer_SimpleQueryBool(t *testing.T) {

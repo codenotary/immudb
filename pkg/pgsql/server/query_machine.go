@@ -535,14 +535,20 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`(?i)\bnumeric\s*\([^)]*\)`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bnumeric\b`), "FLOAT"},
 	{regexp.MustCompile(`(?i)\bdecimal\s*\([^)]*\)`), "FLOAT"},
-	// PG array types → just use VARCHAR (must come BEFORE text→VARCHAR[4096])
-	// Handles: "text[]", "jsonb[]", "uuid[]", etc.
-	{regexp.MustCompile(`(?i)\w+\[\]`), "VARCHAR[4096]"},
+	// PG array types → just use a generous VARCHAR (must come BEFORE text
+	// mapping). Handles: "text[]", "jsonb[]", "uuid[]", etc.
+	// Size bumped from 4096 to 1 MB so Gitea's PushCommits JSON payload
+	// and other unbounded-TEXT columns (workflow dispatch inputs, action
+	// logs, etc.) fit. Per-db MaxValueLen is 32 MB (pkg/server/db_options.go:135).
+	{regexp.MustCompile(`(?i)\w+\[\]`), "VARCHAR[1048576]"},
 	// Array-of-sized-VARCHAR, e.g. "character varying(255)[]" already got
-	// rewritten by an earlier rule to "VARCHAR[255][]"; collapse to one
-	// VARCHAR[4096] so the trailing [] doesn't confuse immudb's grammar.
-	{regexp.MustCompile(`(?i)VARCHAR\[\d+\]\s*\[\s*\]`), "VARCHAR[4096]"},
-	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[4096]"},
+	// rewritten by an earlier rule to "VARCHAR[255][]"; collapse so the
+	// trailing [] doesn't confuse immudb's grammar.
+	{regexp.MustCompile(`(?i)VARCHAR\[\d+\]\s*\[\s*\]`), "VARCHAR[1048576]"},
+	// PG's unbounded TEXT → 1 MB VARCHAR. Critical for Gitea's action.content
+	// (commit JSON for a push of N commits grows O(N) and exceeds 4 KB for
+	// even modest pushes), issue bodies, workflow YAML blobs, etc.
+	{regexp.MustCompile(`(?i)\btext\b`), "VARCHAR[1048576]"},
 	{regexp.MustCompile(`(?i)\bbytea\b`), "BLOB"},
 	// PG accepts both `BOOL` and `BOOLEAN`; immudb's grammar only knows
 	// the long form. XORM and several other ORMs emit the short form.
@@ -576,7 +582,7 @@ var pgTypeReplacements = []struct {
 	// NULL is a redundant nullability marker after a default. Strip it
 	// regardless of the default token (TRUE/FALSE/0/numeric/'string'/…).
 	{regexp.MustCompile(`(?i)(DEFAULT\s+(?:'[^']*'|[^\s,()]+))\s+NULL\b`), "$1"},
-	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[4096]"},
+	{regexp.MustCompile(`(?i)\btsvector\b`), "VARCHAR[1048576]"},
 	{regexp.MustCompile(`(?i)\bmpaa_rating\b`), "VARCHAR[10]"},
 	// PG custom domain types from dvdrental
 	{regexp.MustCompile(`(?i)\byear\b`), "INTEGER"},

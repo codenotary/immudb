@@ -19,6 +19,7 @@ package bmessages
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -128,6 +129,19 @@ func renderValueAsByte(v sql.TypedValue) []byte {
 		s, _ = v.RawValue().(string)
 	case sql.JSONType:
 		s = trimQuotes(v.String())
+	case sql.BLOBType:
+		// Postgres canonical text format for bytea is `\x<hex>` since PG 9.0.
+		// lib/pq / pgx parse this: with the `\x` prefix they hex-decode the
+		// rest; without it they fall back to escape format and treat the
+		// string bytes as-is — which breaks every Gitea/Rails/Django consumer
+		// that stores binary blobs (YAML workflow payloads, push-commit
+		// hashes, session data) because they get raw hex characters when
+		// they expect the decoded bytes.
+		if raw, ok := v.RawValue().([]byte); ok {
+			s = `\x` + hex.EncodeToString(raw)
+		} else {
+			s = `\x` + v.String()
+		}
 	default:
 		s = v.String()
 	}

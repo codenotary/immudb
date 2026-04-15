@@ -116,7 +116,16 @@ func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) (
 					return nil, fmt.Errorf("invalid timestamp bind value %q for parameter %s", p, name)
 				}
 			case sql.BLOBType:
-				d, err := hex.DecodeString(p)
+				// lib/pq / pgx text-format for BYTEA is PG's canonical
+				// `\x<hex>` since PG 9.0 (default bytea_output=hex).
+				// Strip the leading `\x` if present so the hex decoder
+				// sees just the hex digits. Falls back to raw hex for
+				// clients that encode without the prefix.
+				s := p
+				if len(s) >= 2 && s[0] == '\\' && s[1] == 'x' {
+					s = s[2:]
+				}
+				d, err := hex.DecodeString(s)
 				if err != nil {
 					return nil, err
 				}

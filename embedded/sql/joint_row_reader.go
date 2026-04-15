@@ -31,6 +31,15 @@ type jointRowReader struct {
 	rowReaders                 []RowReader
 	rowReadersValuesByPosition [][]TypedValue
 	rowReadersValuesBySelector []map[string]TypedValue
+
+	// outerPoppedDuringRead is set when Read() pops jointr.rowReader off
+	// the active rowReaders stack at end-of-iteration. We deliberately
+	// leave the outer reader open until Close() runs: wrapping readers
+	// such as groupedRowReader.emitCurrentRow → zeroRow → colsBySelector
+	// reach back into jointr.rowReader after iteration ends to introspect
+	// the join's column list, and closing the outer mid-iteration trips
+	// "already closed" on that path for empty-result COUNT(*) over JOIN.
+	outerPoppedDuringRead bool
 }
 
 func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
@@ -195,9 +204,21 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 				// previous reader will need to read next row
 				jointr.rowReaders = jointr.rowReaders[:len(jointr.rowReaders)-1]
 
-				err = lastReader.Close()
-				if err != nil {
-					return nil, err
+				// Close inner join readers immediately to release their
+				// resources, but leave the outer reader (== jointr.rowReader)
+				// open until jointRowReader.Close runs. Wrapping readers
+				// (groupedRowReader.emitCurrentRow → zeroRow → colsBySelector)
+				// read back the outer's columns after iteration exhausts,
+				// and an early Close there trips "already closed" on the
+				// empty-result COUNT(*) over JOIN path that Gitea's
+				// GetIssueStats hits on the issues page.
+				if lastReader == jointr.rowReader {
+					jointr.outerPoppedDuringRead = true
+				} else {
+					err = lastReader.Close()
+					if err != nil {
+						return nil, err
+					}
 				}
 
 				continue
@@ -319,6 +340,14 @@ func (jointr *jointRowReader) Close() error {
 	for i := len(jointr.rowReaders) - 1; i >= 0; i-- {
 		err := jointr.rowReaders[i].Close()
 		merr.Append(err)
+	}
+
+	// Read() leaves jointr.rowReader open (not Close'd) when popping the
+	// outermost reader from the active stack so wrapping readers can
+	// still introspect its columns post-exhaustion. Close it here so
+	// the tx state is released.
+	if jointr.outerPoppedDuringRead {
+		merr.Append(jointr.rowReader.Close())
 	}
 
 	return merr.Reduce()
