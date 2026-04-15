@@ -6858,7 +6858,27 @@ func (bexp *InSubQueryExp) requiresType(t SQLValueType, cols map[string]ColDescr
 }
 
 func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
-	return bexp, nil
+	// Propagate $N substitution into the inner subquery's WHERE (and
+	// HAVING / LIMIT / OFFSET). reduce() later Resolves the subquery
+	// with nil params, so any $N markers left un-substituted here
+	// would hit "missing parameter(paramN)" at WHERE evaluation time.
+	// Gitea's FindRecentlyPushedNewBranches is the canonical caller:
+	//   … repo_id IN (SELECT id FROM repository WHERE is_fork=$4 AND …)
+	// where $4 is bound by the outer statement and never reaches the
+	// inner WHERE without this walk.
+	newVal := bexp.val
+	if newVal != nil {
+		sv, err := newVal.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+		newVal = sv
+	}
+	newQ, err := substituteSelectStmtParams(bexp.q, params)
+	if err != nil {
+		return nil, err
+	}
+	return &InSubQueryExp{val: newVal, notIn: bexp.notIn, q: newQ}, nil
 }
 
 func (bexp *InSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
@@ -8141,11 +8161,82 @@ func collectExpParams(e ValueExp, params map[string]SQLValueType) {
 }
 
 func (sq *ScalarSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
-	// Subqueries can reference the outer parameters via their own
-	// expression tree; substitute does not recurse into the SelectStmt
-	// itself (the inner stmt's Resolve will receive the same params
-	// map at evaluation time).
-	return sq, nil
+	// Propagate $N substitution into the inner subquery's WHERE (and
+	// HAVING / LIMIT / OFFSET). reduce() later Resolves the subquery
+	// with nil params, so leaving $N markers un-substituted here trips
+	// "missing parameter(paramN)" at inner WHERE evaluation time.
+	newStmt, err := substituteSelectStmtParams(sq.stmt, params)
+	if err != nil {
+		return nil, err
+	}
+	return &ScalarSubQueryExp{stmt: newStmt}, nil
+}
+
+// substituteSelectStmtParams returns a shallow clone of stmt with $N
+// markers in WHERE / HAVING / LIMIT / OFFSET / targets / join
+// conditions substituted against params. It does NOT recurse into
+// nested subqueries other than via the substitute() methods on
+// ValueExp, which do their own recursion. Called from the subquery-
+// holding ValueExp substitute() paths so inner WHEREs see the
+// outer-scope parameter binds.
+func substituteSelectStmtParams(stmt *SelectStmt, params map[string]interface{}) (*SelectStmt, error) {
+	if stmt == nil {
+		return nil, nil
+	}
+	cp := *stmt
+	var err error
+	if cp.where != nil {
+		cp.where, err = cp.where.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cp.having != nil {
+		cp.having, err = cp.having.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cp.limit != nil {
+		cp.limit, err = cp.limit.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cp.offset != nil {
+		cp.offset, err = cp.offset.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(cp.targets) > 0 {
+		newTargets := make([]TargetEntry, len(cp.targets))
+		copy(newTargets, cp.targets)
+		for i := range newTargets {
+			if newTargets[i].Exp != nil {
+				newTargets[i].Exp, err = newTargets[i].Exp.substitute(params)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		cp.targets = newTargets
+	}
+	if len(cp.joins) > 0 {
+		newJoins := make([]*JoinSpec, len(cp.joins))
+		for i, j := range cp.joins {
+			nj := *j
+			if nj.cond != nil {
+				nj.cond, err = nj.cond.substitute(params)
+				if err != nil {
+					return nil, err
+				}
+			}
+			newJoins[i] = &nj
+		}
+		cp.joins = newJoins
+	}
+	return &cp, nil
 }
 
 func (sq *ScalarSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {

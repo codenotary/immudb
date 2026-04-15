@@ -1616,6 +1616,17 @@ opt_as:
         // because qualifiedName only covered IDENTIFIER / unreserved_keyword.
         $$ = string($2)
     }
+|
+    AS AGGREGATE_FUNC
+    {
+        // Accept aggregate-function names (count, sum, max, min, avg,
+        // string_agg) as column aliases. Postgres treats these as
+        // non-reserved — they can appear in any identifier position.
+        // Gitea's getUserIssueStats emits
+        //   SELECT COUNT(issue.id) AS count FROM issue …
+        // which failed at Parse with "unexpected AGGREGATE_FUNC".
+        $$ = string($2)
+    }
 ;
 
 check:

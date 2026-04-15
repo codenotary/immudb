@@ -40,6 +40,15 @@ func TestCountStarOverInnerJoin(t *testing.T) {
 	require.NoError(t, err, "empty COUNT(*) over INNER JOIN must not error — this is the Gitea GetIssueStats regression guard")
 	require.Len(t, rows, 1)
 
+	// Gitea's getUserIssueStats shape — alias is `count` (an aggregate
+	// keyword). Postgres accepts it; immudb's grammar previously
+	// rejected it with "unexpected AGGREGATE_FUNC at position N".
+	_, err = engine.queryAll(ctx, nil,
+		`SELECT COUNT(ja.id) AS count FROM ja INNER JOIN jb ON ja.id = jb.a_id WHERE ja.id = 1;`,
+		nil)
+	require.NoError(t, err,
+		"`AS count` must parse as an alias even though count is an aggregate keyword — this is the Gitea getUserIssueStats regression guard")
+
 	// With data
 	mustExec(`INSERT INTO ja (id, name) VALUES (1, 'a'), (2, 'b');`)
 	mustExec(`INSERT INTO jb (id, a_id) VALUES (10, 1), (11, 1), (12, 2);`)
