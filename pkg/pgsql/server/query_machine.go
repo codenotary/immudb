@@ -627,6 +627,31 @@ var pgTypeReplacements = []struct {
 	// redundant — collapse it back to a bare `*`.
 	{regexp.MustCompile(`(?is)(SELECT\s+\*)(?:\s*,[^,]+?)+(\s+FROM\b)`), "$1$2"},
 
+	// XORM / Gitea's QueryIssueContentHistoryEditedCountMap emits
+	//   SELECT comment_id, COUNT(1) as history_count ...
+	//   ... HAVING count(1) > 1
+	// immudb's aggregate-func grammar accepts COUNT(*) and COUNT(col)
+	// but not an integer-literal arg, producing "unexpected INTEGER_LIT
+	// at position 26" at parse time. Postgres/MySQL treat `COUNT(1)`
+	// and `COUNT(*)` identically (row count), so rewrite.
+	{regexp.MustCompile(`(?i)\bCOUNT\s*\(\s*1\s*\)`), "COUNT(*)"},
+
+	// Gitea's eventsource UIDcounts (GetUIDsAndNotificationCounts) emits
+	//   SELECT user_id, sum(case when status = $1 then 1 else 0 end) AS count
+	//     FROM notification WHERE <cond> GROUP BY user_id
+	// immudb's grammar has no expression-based aggregate (AggExp); the
+	// CASE WHEN inside SUM(…) parses as "unexpected CASE at position 24".
+	// For this specific shape the 0/1 indicator is equivalent to a
+	// row count filtered by the CASE predicate, so hoist the predicate
+	// into the WHERE clause and swap SUM(...) for COUNT(*). Users with
+	// zero matching rows drop out of the result, which is the correct
+	// semantics for an unread-notification counter (the Gitea frontend
+	// treats absence as zero).
+	{
+		regexp.MustCompile(`(?is)SELECT\s+(\w+)\s*,\s*sum\s*\(\s*case\s+when\s+(\w+)\s*=\s*\$(\d+)\s+then\s+1\s+else\s+0\s+end\s*\)\s+AS\s+(\w+)\s+FROM\s+(\w+)\s+WHERE\s+`),
+		`SELECT $1, COUNT(*) AS $4 FROM $5 WHERE $2 = $$$3 AND `,
+	},
+
 	// Rails emits Postgres-style `ON CONFLICT (col_list) DO ...` for
 	// `create_or_find_by!`, `upsert_all`, etc. immudb's grammar accepts
 	// only the column-less form (`ON CONFLICT DO NOTHING` / `ON CONFLICT
