@@ -992,6 +992,7 @@ func TestResetCornerCases(t *testing.T) {
 }
 
 func BenchmarkAppend(b *testing.B) {
+	b.ReportAllocs()
 	opts := DefaultOptions().
 		WithWriteBufferSize(1 << 26). //64Mb
 		WithRetryableSync(true).

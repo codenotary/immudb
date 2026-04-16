@@ -256,39 +256,66 @@ func (sm *manager) StopSessionsGuard() error {
 }
 
 func (sm *manager) expireSessions(now time.Time) (sessionsCount, inactiveSessCount, deletedSessCount int, err error) {
+	// Phase 1: under the manager lock, identify expired sessions, detach them
+	// from the map, and count the survivors. Per-session resource release
+	// (CloseDocumentReaders / RollbackTransactions, each of which takes its
+	// own session mutex and may do I/O) is deferred to phase 2 so that the
+	// sweep does not stall every concurrent GetSession/NewSession for the
+	// duration of that I/O — which at 100k+ active sessions was a multi-ms
+	// global pause every SessionGuardCheckInterval.
+	type expiredSession struct {
+		id     string
+		sess   *Session
+		reason string
+	}
+
 	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
 
 	if !sm.running {
+		sm.sessionMux.Unlock()
 		return 0, 0, 0, ErrGuardNotRunning
 	}
 
-	inactiveSessCount = 0
-	deletedSessCount = 0
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
-	for ID, sess := range sm.sessions {
 
+	var expired []expiredSession
+	for ID, sess := range sm.sessions {
 		createdAt := sess.GetCreationTime()
 		lastActivity := sess.GetLastActivityTime()
 
-		if now.Sub(createdAt) > sm.options.MaxSessionAgeTime {
-			sm.logger.Debugf("removing session %s - exceeded MaxSessionAgeTime", ID)
-			sm.deleteSession(ID)
-			deletedSessCount++
-		} else if now.Sub(lastActivity) > sm.options.Timeout {
-			sm.logger.Debugf("removing session %s - exceeded Timeout", ID)
-			sm.deleteSession(ID)
-			deletedSessCount++
-		} else if now.Sub(lastActivity) > sm.options.MaxSessionInactivityTime {
+		switch {
+		case now.Sub(createdAt) > sm.options.MaxSessionAgeTime:
+			expired = append(expired, expiredSession{ID, sess, "MaxSessionAgeTime"})
+			delete(sm.sessions, ID)
+		case now.Sub(lastActivity) > sm.options.Timeout:
+			expired = append(expired, expiredSession{ID, sess, "Timeout"})
+			delete(sm.sessions, ID)
+		case now.Sub(lastActivity) > sm.options.MaxSessionInactivityTime:
 			inactiveSessCount++
 		}
 	}
+	remaining := len(sm.sessions)
 
-	sm.logger.Debugf("Open sessions count: %d\n", len(sm.sessions))
+	sm.sessionMux.Unlock()
+
+	// Phase 2: release per-session resources out-of-lock.
+	for _, e := range expired {
+		sm.logger.Debugf("removing session %s - exceeded %s", e.id, e.reason)
+		if err := e.sess.CloseDocumentReaders(); err != nil {
+			sm.logger.Errorf("closing document readers for %s: %v", e.id, err)
+		}
+		if err := e.sess.RollbackTransactions(); err != nil {
+			sm.logger.Errorf("rolling back transactions for %s: %v", e.id, err)
+		}
+	}
+
+	deletedSessCount = len(expired)
+
+	sm.logger.Debugf("Open sessions count: %d\n", remaining)
 	sm.logger.Debugf("Inactive sessions count: %d\n", inactiveSessCount)
 	sm.logger.Debugf("Deleted sessions count: %d\n", deletedSessCount)
 
-	return len(sm.sessions), inactiveSessCount, deletedSessCount, nil
+	return remaining, inactiveSessCount, deletedSessCount, nil
 }
 
 func (sm *manager) GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error) {

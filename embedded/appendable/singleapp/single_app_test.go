@@ -521,6 +521,7 @@ func BenchmarkAppendFlush(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	chunck := make([]byte, 512)
 
@@ -547,6 +548,7 @@ func BenchmarkAppendFlushless(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	chunck := make([]byte, 512)
 

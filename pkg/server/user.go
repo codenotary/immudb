@@ -595,11 +595,18 @@ func (s *ImmuServer) saveUser(ctx context.Context, user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := &schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.sysDB.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
+	hdr, err := s.sysDB.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
+	if err != nil {
+		return logErr(s.Logger, "error saving user: %v", err)
+	}
 
-	time.Sleep(time.Duration(10) * time.Millisecond)
-
-	return logErr(s.Logger, "error saving user: %v", err)
+	// Block until the write is visible to subsequent Get calls. Replaces a prior
+	// unconditional 10ms sleep; this returns immediately when indexing has
+	// already caught up and only waits as long as indexing actually requires.
+	if err := s.sysDB.WaitForIndexingUpto(ctx, hdr.Id); err != nil {
+		return logErr(s.Logger, "error awaiting user indexing: %v", err)
+	}
+	return nil
 }
 
 // removeUserFromLoginList decrements the session count for username and removes the

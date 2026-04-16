@@ -2886,6 +2886,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 	immuStore, _ := Open(b.TempDir(), opts)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
 		workerCount := 100
@@ -2934,6 +2935,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 }
 
 func BenchmarkAsyncAppend(b *testing.B) {
+	b.ReportAllocs()
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1).
@@ -2990,6 +2992,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 	}()
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
 		workerCount := 100
@@ -3038,6 +3041,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 }
 
 func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
+	b.ReportAllocs()
 	opts := DefaultOptions().
 		WithSynced(false).
 		WithMaxConcurrency(1).
@@ -3116,6 +3120,7 @@ func BenchmarkExportTx(b *testing.B) {
 	defer immuStore.releaseAllocTx(tx)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
 		for i := 0; i < txCount; i++ {

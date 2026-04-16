@@ -2139,6 +2139,7 @@ func BenchmarkInsertion(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	noOfWorkers := 100
 	noOfDocs := 10

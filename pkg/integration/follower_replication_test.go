@@ -761,6 +761,7 @@ func BenchmarkExportTx(b *testing.B) {
 	streamServiceFactory := stream.NewStreamServiceFactory(replication.DefaultChunkSize)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	// measure exportTx performance
 	for i := 0; i < b.N; i++ {
@@ -920,6 +921,7 @@ func BenchmarkStreamExportTx(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	// measure exportTx performance
 	for i := 0; i < b.N; i++ {

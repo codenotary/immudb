@@ -1409,6 +1409,7 @@ func TestTBTreeFlushAfterIncreaseTs(t *testing.T) {
 }
 
 func BenchmarkRandomInsertion(b *testing.B) {
+	b.ReportAllocs()
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
 
@@ -1460,6 +1461,7 @@ func BenchmarkRandomRead(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
 		k := make([]byte, 8)
@@ -1471,6 +1473,7 @@ func BenchmarkRandomRead(b *testing.B) {
 }
 
 func BenchmarkAscendingBulkInsertion(b *testing.B) {
+	b.ReportAllocs()
 	opts := DefaultOptions().
 		WithCacheSize(100_000).
 		WithFlushThld(100_000).
@@ -1492,6 +1495,7 @@ func BenchmarkAscendingBulkInsertion(b *testing.B) {
 }
 
 func BenchmarkDescendingBulkInsertion(b *testing.B) {
+	b.ReportAllocs()
 	opts := DefaultOptions().
 		WithCacheSize(10_000).
 		WithFlushThld(100_000).
@@ -1543,6 +1547,7 @@ func bulkInsert(tbtree *TBtree, bulkCount, bulkSize int, asc bool) error {
 }
 
 func BenchmarkRandomBulkInsertion(b *testing.B) {
+	b.ReportAllocs()
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
 

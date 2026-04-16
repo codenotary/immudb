@@ -10857,6 +10857,7 @@ func BenchmarkInsertInto(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
@@ -10943,6 +10944,7 @@ func BenchmarkNotIndexedOrderBy(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	start := time.Now()
 	reader, err := engine.Query(context.Background(), nil, "SELECT * FROM mytable ORDER BY title ASC LIMIT 1", nil)

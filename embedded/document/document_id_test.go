@@ -120,6 +120,7 @@ func TestDocumentID_FromRawBytes(t *testing.T) {
 }
 
 func BenchmarkHex(b *testing.B) {
+	b.ReportAllocs()
 	id := NewDocumentIDFromTx(0)
 	for i := 0; i < b.N; i++ {
 		id.EncodeToHexString()
