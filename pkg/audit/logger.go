@@ -36,6 +36,7 @@ const (
 
 const (
 	defaultChannelSize = 4096
+	auditBatchSize     = 64
 )
 
 // Logger writes structured audit events to an immudb database as KV entries.
@@ -135,54 +136,66 @@ func (l *Logger) drain() {
 
 	for {
 		select {
-		case event := <-l.ch:
-			l.writeEvent(event)
+		case first := <-l.ch:
+			l.writeBatch(first)
 		case <-l.stopCh:
-			// Drain remaining events
-			for {
-				select {
-				case event := <-l.ch:
-					l.writeEvent(event)
-				default:
-					return
-				}
-			}
+			l.flushRemaining()
+			return
 		}
 	}
 }
 
-func (l *Logger) writeEvent(event *AuditEvent) {
-	value, err := json.Marshal(event)
-	if err != nil {
-		l.log.Errorf("audit: failed to marshal event: %v", err)
+// writeBatch collects up to auditBatchSize events (non-blocking after the first)
+// and writes them all in a single db.Set call.
+func (l *Logger) writeBatch(first *AuditEvent) {
+	batch := make([]*AuditEvent, 1, auditBatchSize)
+	batch[0] = first
+
+	for len(batch) < auditBatchSize {
+		select {
+		case ev := <-l.ch:
+			batch = append(batch, ev)
+		default:
+			goto flush
+		}
+	}
+
+flush:
+	kvs := make([]*schema.KeyValue, 0, len(batch))
+	for _, ev := range batch {
+		value, err := json.Marshal(ev)
+		if err != nil {
+			l.log.Errorf("audit: failed to marshal event: %v", err)
+			continue
+		}
+		kvs = append(kvs, &schema.KeyValue{Key: ev.Key(), Value: value})
+	}
+	if len(kvs) == 0 {
 		return
 	}
 
-	req := &schema.SetRequest{
-		KVs: []*schema.KeyValue{
-			{
-				Key:   event.Key(),
-				Value: value,
-			},
-		},
-		NoWait: true,
-	}
-
-	// Retry on transient write failures (disk pressure, replication lag)
+	req := &schema.SetRequest{KVs: kvs, NoWait: true}
 	for attempt := 0; attempt < writeRetryCount; attempt++ {
-		_, err = l.db.Set(context.Background(), req)
+		_, err := l.db.Set(context.Background(), req)
 		if err == nil {
 			return
 		}
-
-		l.log.Warningf("audit: write attempt %d/%d failed: %v (method=%s user=%s)",
-			attempt+1, writeRetryCount, err, event.Method, event.Username)
-
+		l.log.Warningf("audit: batch write attempt %d/%d failed (%d events): %v",
+			attempt+1, writeRetryCount, len(kvs), err)
 		if attempt < writeRetryCount-1 {
 			time.Sleep(writeRetryDelay * time.Duration(attempt+1))
 		}
 	}
+	l.log.Errorf("audit: PERMANENTLY FAILED to write batch of %d events", len(kvs))
+}
 
-	l.log.Errorf("audit: PERMANENTLY FAILED to write event after %d attempts: %v (method=%s user=%s)",
-		writeRetryCount, err, event.Method, event.Username)
+func (l *Logger) flushRemaining() {
+	for {
+		select {
+		case ev := <-l.ch:
+			l.writeBatch(ev)
+		default:
+			return
+		}
+	}
 }

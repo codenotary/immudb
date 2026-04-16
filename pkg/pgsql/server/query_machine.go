@@ -877,6 +877,13 @@ func injectAddColumnKeyword(s string) string {
 // verbatim and we don't accidentally count them here).
 var paramMarkerRe = regexp.MustCompile(`\$(\d+)`)
 
+// cleanup regexes used in removePGCatalogReferences — compiled once at init.
+var (
+	doubleSpaceRe   = regexp.MustCompile(`  +`)
+	doubleCommaRe   = regexp.MustCompile(`(?m)^\s*,\s*,`)
+	trailingCommaRe = regexp.MustCompile(`,\s*\)`)
+)
+
 // inferParamColsFromSQL scans a SQL statement for the highest `$N`
 // placeholder and returns N AnyType ColDescriptors named param1..paramN.
 // Used in the Extended Query Parse path for queries that the wire layer
@@ -952,10 +959,10 @@ func removePGCatalogReferences(sqlStr string) string {
 	}
 
 	// Clean up double spaces and empty lines
-	s = regexp.MustCompile(`  +`).ReplaceAllString(s, " ")
-	s = regexp.MustCompile(`(?m)^\s*,\s*,`).ReplaceAllString(s, ",")
+	s = doubleSpaceRe.ReplaceAllString(s, " ")
+	s = doubleCommaRe.ReplaceAllString(s, ",")
 	// Remove trailing commas before closing paren
-	s = regexp.MustCompile(`,\s*\)`).ReplaceAllString(s, "\n)")
+	s = trailingCommaRe.ReplaceAllString(s, "\n)")
 
 	return restore(s)
 }
