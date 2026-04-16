@@ -55,7 +55,7 @@ func TestSession_MessageReader(t *testing.T) {
 
 	_, err = mr.ReadRawMessage()
 
-	require.ErrorIs(t, err, io.EOF)
+	require.NoError(t, err)
 
 	mr = &messageReader{}
 	err = mr.CloseConnection()

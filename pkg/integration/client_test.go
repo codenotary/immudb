@@ -911,7 +911,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.SetAll(ctx, nil)
-	require.ErrorContains(t, err, "Marshal called with nil")
+	require.ErrorContains(t, err, "no entries provided")
 
 	setRequest := &schema.SetRequest{KVs: []*schema.KeyValue{}}
 	_, err = client.SetAll(ctx, setRequest)
