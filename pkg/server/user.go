@@ -655,8 +655,14 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth
 }
 
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
-	s.userdata.Lock()
-	defer s.userdata.Unlock()
+	// RLock: this function only reads the userdata map. Every authenticated
+	// RPC passes through here (via getLoggedInUserdataFromCtx), so taking the
+	// writer lock serialised the entire auth-ed RPC path through a single
+	// mutex. RLock lets concurrent readers proceed in parallel; the writer
+	// contenders (addUserToLoginList / removeUserFromLoginList) run only on
+	// login/logout and permission change, so writer contention is negligible.
+	s.userdata.RLock()
+	defer s.userdata.RUnlock()
 
 	userdata, ok := s.userdata.Userdata[username]
 	if !ok {
