@@ -11109,11 +11109,12 @@ func BenchmarkJoin(b *testing.B) {
 	}
 }
 
-// BenchmarkTxSetupManyTables measures the cost of engine.NewTx on a schema
-// with many tables+indexes. Every read-write SQLTx currently re-runs the
-// catalog load path (three prefix scans + default-expression re-parse per
-// table) — see review item D2. A meaningful D2 PR must move this number.
-func BenchmarkTxSetupManyTables(b *testing.B) {
+// benchmarkTxSetupManyTables exercises engine.NewTx on a schema with many
+// tables+indexes. Callers control whether the engine-level catalog cache
+// has been warmed before the measured loop: with warmCache=false the bench
+// captures the current cold-start cost; with warmCache=true it measures
+// the D2 Clone() fast path where the cached catalog is reused.
+func benchmarkTxSetupManyTables(b *testing.B, warmCache bool) {
 	st, err := store.Open(b.TempDir(), store.DefaultOptions().
 		WithMultiIndexing(true).
 		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
@@ -11135,6 +11136,14 @@ func BenchmarkTxSetupManyTables(b *testing.B) {
 		require.NoError(b, err)
 	}
 
+	if warmCache {
+		// Open+cancel a read-only tx so the engine populates cachedCatalog.
+		roTx, err := engine.NewTx(context.Background(),
+			DefaultTxOptions().WithReadOnly(true).WithExplicitClose(true))
+		require.NoError(b, err)
+		require.NoError(b, roTx.Cancel())
+	}
+
 	b.ResetTimer()
 	b.ReportAllocs()
 
@@ -11147,6 +11156,19 @@ func BenchmarkTxSetupManyTables(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// BenchmarkTxSetupManyTables measures NewTx cost when the catalog cache is
+// cold (no prior read-only tx). Reflects the first read-write after startup.
+func BenchmarkTxSetupManyTables(b *testing.B) {
+	benchmarkTxSetupManyTables(b, false)
+}
+
+// BenchmarkTxSetupManyTablesWarmCache measures NewTx cost once the engine
+// has a cached catalog (e.g. any prior SELECT). Gates the D2 Clone()
+// optimisation — should be materially cheaper than the cold variant.
+func BenchmarkTxSetupManyTablesWarmCache(b *testing.B) {
+	benchmarkTxSetupManyTables(b, true)
 }
 
 func TestLikeWithNullableColumns(t *testing.T) {

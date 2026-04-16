@@ -385,33 +385,46 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		tx.WithMetadata(txmd)
 	}
 
-	// For read-only transactions, try to reuse the engine-level catalog cache.
+	// Try to reuse the engine-level catalog cache.
 	// catalog.load() scans all table/column/index metadata from the B-tree on
-	// every transaction open — skipping it on reads eliminates the dominant
-	// per-query overhead for autocommit SELECT workloads.
-	if opts.ReadOnly {
-		e.catalogMu.RLock()
-		cached := e.cachedCatalog
-		e.catalogMu.RUnlock()
+	// every transaction open — skipping it eliminates the dominant per-query
+	// overhead for autocommit SELECT workloads, and (via Clone) for DML-heavy
+	// read-write workloads as well.
+	e.catalogMu.RLock()
+	cached := e.cachedCatalog
+	e.catalogMu.RUnlock()
 
-		if cached != nil {
-			// Sequences and views are already loaded in engine fields.
-			return &SQLTx{
-				engine:           e,
-				opts:             opts,
-				tx:               tx,
-				catalog:          cached,
-				lastInsertedPKs:  make(map[string]int64),
-				firstInsertedPKs: make(map[string]int64),
-			}, nil
-		}
+	if cached != nil && opts.ReadOnly {
+		// Read-only transactions cannot mutate the schema, so they share the
+		// cached catalog directly. Sequences and views are already loaded in
+		// engine fields.
+		return &SQLTx{
+			engine:           e,
+			opts:             opts,
+			tx:               tx,
+			catalog:          cached,
+			lastInsertedPKs:  make(map[string]int64),
+			firstInsertedPKs: make(map[string]int64),
+		}, nil
 	}
 
-	catalog := newCatalog(e.prefix)
-
-	err = catalog.load(ctx, tx)
-	if err != nil {
-		return nil, err
+	var catalog *Catalog
+	if cached != nil {
+		// Read-write tx with a warm cache: clone so any DDL this tx performs
+		// lands on the local copy, not the shared cache. Reset maxPK on the
+		// clones — the authoritative value comes from the snapshot-dependent
+		// loadMaxPK loop below and must not leak the cache's stale value into
+		// an empty-table case (where loadMaxPK returns ErrNoMoreEntries and
+		// the existing code falls through without resetting).
+		catalog = cached.Clone()
+		for _, table := range catalog.GetTables() {
+			table.maxPK = 0
+		}
+	} else {
+		catalog = newCatalog(e.prefix)
+		if err := catalog.load(ctx, tx); err != nil {
+			return nil, err
+		}
 	}
 
 	// Load persisted sequences (only once, on first tx)

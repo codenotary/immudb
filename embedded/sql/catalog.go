@@ -798,6 +798,110 @@ func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
 	return catlg.loadCatalog(ctx, tx, false)
 }
 
+// Clone returns a deep copy of the catalog suitable for use as the in-memory
+// schema of a fresh transaction. Per-tx DDL mutations operate on the clone
+// and never touch the source, so a cache of the last known schema can be
+// cloned for read-write transactions to avoid the cost of re-running
+// loadCatalog (prefix scans + default-expression re-parse) on every NewTx.
+//
+// The builtin pg_type virtual table is initialised from scratch via
+// newCatalog rather than copied; its identity is stable across catalogs.
+//
+// Immutable substructures — ValueExp default expressions, Index predicates,
+// and CheckConstraint expressions — are shared with the source by pointer
+// because they are never mutated after parsing. All mutable state (tables,
+// columns, indexes, and their lookup maps) is deep-copied. Back-references
+// (Table.catalog, Column.table, Index.table) are re-targeted to the clones.
+//
+// table.maxPK is copied from the source but callers that need up-to-date
+// auto-increment state must re-run loadMaxPK (which is snapshot-dependent).
+func (catlg *Catalog) Clone() *Catalog {
+	cp := newCatalog(catlg.enginePrefix)
+	cp.maxTableID = catlg.maxTableID
+
+	if len(catlg.tables) > 0 {
+		cp.tables = make([]*Table, 0, len(catlg.tables))
+	}
+
+	for _, t := range catlg.tables {
+		nt := cloneTable(t, cp)
+		cp.tables = append(cp.tables, nt)
+		cp.tablesByID[nt.id] = nt
+		cp.tablesByName[nt.name] = nt
+	}
+
+	return cp
+}
+
+// cloneTable deep-copies t and reparents columns/indexes onto the returned
+// clone. The new Catalog back-reference must already be available so the
+// clone's Table.catalog field can be filled in.
+func cloneTable(t *Table, newCatalog *Catalog) *Table {
+	nt := &Table{
+		id:               t.id,
+		catalog:          newCatalog,
+		name:             t.name,
+		autoIncrementPK:  t.autoIncrementPK,
+		maxPK:            t.maxPK,
+		maxColID:         t.maxColID,
+		maxIndexID:       t.maxIndexID,
+		cols:             make([]*Column, 0, len(t.cols)),
+		colsByID:         make(map[uint32]*Column, len(t.colsByID)),
+		colsByName:       make(map[string]*Column, len(t.colsByName)),
+		indexes:          make([]*Index, 0, len(t.indexes)),
+		indexesByName:    make(map[string]*Index, len(t.indexesByName)),
+		indexesByColID:   make(map[uint32][]*Index, len(t.indexesByColID)),
+		checkConstraints: make(map[string]CheckConstraint, len(t.checkConstraints)),
+	}
+
+	for name, cc := range t.checkConstraints {
+		// CheckConstraint is a value type; its .exp (ValueExp) is immutable
+		// after parsing so the pointer can be shared.
+		nt.checkConstraints[name] = cc
+	}
+
+	for _, c := range t.cols {
+		nc := *c
+		nc.table = nt
+		// nc.defaultValue is a ValueExp interface value; treated as immutable.
+		nt.cols = append(nt.cols, &nc)
+		nt.colsByID[nc.id] = &nc
+		nt.colsByName[nc.colName] = &nc
+	}
+
+	for _, idx := range t.indexes {
+		ni := &Index{
+			id:        idx.id,
+			table:     nt,
+			unique:    idx.unique,
+			predicate: idx.predicate, // immutable after parsing
+			cols:      make([]*Column, len(idx.cols)),
+			colsByID:  make(map[uint32]*Column, len(idx.colsByID)),
+		}
+		for i, c := range idx.cols {
+			ni.cols[i] = nt.colsByID[c.id]
+		}
+		for id := range idx.colsByID {
+			ni.colsByID[id] = nt.colsByID[id]
+		}
+		nt.indexes = append(nt.indexes, ni)
+		nt.indexesByName[ni.Name()] = ni
+		if idx == t.primaryIndex {
+			nt.primaryIndex = ni
+		}
+	}
+
+	// Rebuild indexesByColID from the cloned indexes; it mirrors the source's
+	// mapping from column-id → list of indexes that reference that column.
+	for _, ni := range nt.indexes {
+		for _, c := range ni.cols {
+			nt.indexesByColID[c.id] = append(nt.indexesByColID[c.id], ni)
+		}
+	}
+
+	return nt
+}
+
 func (catlg *Catalog) loadCatalog(ctx context.Context, tx *store.OngoingTx, copyToTx bool) error {
 	prefix := MapKey(catlg.enginePrefix, catalogTablePrefix, EncodeID(1))
 
