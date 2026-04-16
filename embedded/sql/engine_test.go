@@ -10960,6 +10960,112 @@ func BenchmarkNotIndexedOrderBy(b *testing.B) {
 	fmt.Println("Elapsed:", time.Since(start))
 }
 
+// BenchmarkIndexedSelect measures a hot SELECT path on a keyed lookup: table
+// with a secondary index on `title`, query shape `WHERE title = ?`. This is
+// the right shape to catch regressions in planner/predicate-pushdown/tbtree
+// read path (see review items D2, D6, D7) and is representative of typical
+// OLTP read traffic.
+func BenchmarkIndexedSelect(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	require.NoError(b, err)
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(b, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE mytable(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id);
+		 CREATE INDEX ON mytable(title);`, nil)
+	require.NoError(b, err)
+
+	const (
+		nBatches    = 10
+		rowsPerBatch = 1_000
+		nRows       = nBatches * rowsPerBatch
+	)
+
+	// Batched inserts to stay under the default MaxTxEntries (1024).
+	for nBatch := 0; nBatch < nBatches; nBatch++ {
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+		require.NoError(b, err)
+
+		for i := 0; i < rowsPerBatch; i++ {
+			row := nBatch*rowsPerBatch + i
+			_, _, err := engine.Exec(context.Background(), tx,
+				"INSERT INTO mytable(title) VALUES (@title)",
+				map[string]interface{}{
+					"title": fmt.Sprintf("title_%06d", row),
+				})
+			require.NoError(b, err)
+		}
+		require.NoError(b, tx.Commit(context.Background()))
+	}
+
+	rnd := rand.New(rand.NewSource(42))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		params := map[string]interface{}{
+			"title": fmt.Sprintf("title_%06d", rnd.Intn(nRows)),
+		}
+
+		reader, err := engine.Query(context.Background(), nil,
+			"SELECT id, title FROM mytable WHERE title = @title", params)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if _, err := reader.Read(context.Background()); err != nil {
+			b.Fatal(err)
+		}
+		reader.Close()
+	}
+}
+
+// BenchmarkTxSetupManyTables measures the cost of engine.NewTx on a schema
+// with many tables+indexes. Every read-write SQLTx currently re-runs the
+// catalog load path (three prefix scans + default-expression re-parse per
+// table) — see review item D2. A meaningful D2 PR must move this number.
+func BenchmarkTxSetupManyTables(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	require.NoError(b, err)
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(b, err)
+
+	const nTables = 100
+
+	// Create nTables tables, each with a secondary index, so the catalog is
+	// dense enough that per-tx reload cost is visible.
+	for t := 0; t < nTables; t++ {
+		stmt := fmt.Sprintf(
+			`CREATE TABLE t_%03d(id INTEGER AUTO_INCREMENT, v VARCHAR[50], PRIMARY KEY id);
+			 CREATE INDEX ON t_%03d(v);`, t, t)
+		_, _, err = engine.Exec(context.Background(), nil, stmt, nil)
+		require.NoError(b, err)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := tx.Cancel(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestLikeWithNullableColumns(t *testing.T) {
 	engine := setupCommonTest(t)
 
