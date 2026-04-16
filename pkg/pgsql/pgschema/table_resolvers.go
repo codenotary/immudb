@@ -573,7 +573,7 @@ func (r *pgSettingsResolver) Table() string { return "pg_settings" }
 
 func (r *pgSettingsResolver) Resolve(ctx context.Context, tx *sql.SQLTx, alias string) (sql.RowReader, error) {
 	settings := []struct{ name, setting, unit, category string }{
-		{"server_version", "9.6", "", "Preset Options"},
+		{"server_version", "14.0", "", "Preset Options"},
 		{"server_encoding", "UTF8", "", "Client Connection Defaults"},
 		{"client_encoding", "UTF8", "", "Client Connection Defaults"},
 		{"standard_conforming_strings", "on", "", "Client Connection Defaults"},

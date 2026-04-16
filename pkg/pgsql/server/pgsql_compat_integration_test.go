@@ -818,7 +818,7 @@ func TestPgsqlCompat_ComplexQueries(t *testing.T) {
 	// LIKE
 	var name string
 	err = conn.QueryRow(context.Background(),
-		"SELECT name FROM products WHERE name LIKE 'Wid.*'").Scan(&name)
+		"SELECT name FROM products WHERE name LIKE 'Wid%'").Scan(&name)
 	require.NoError(t, err)
 	require.Equal(t, "Widget", name)
 

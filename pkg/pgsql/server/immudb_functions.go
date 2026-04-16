@@ -545,7 +545,7 @@ func immudbToPGType(t sql.SQLValueType) (string, int64) {
 	case sql.BooleanType:
 		return "boolean", 16
 	case sql.VarcharType:
-		return "character varying", 1043
+		return "text", 25
 	case sql.UUIDType:
 		return "uuid", 2950
 	case sql.BLOBType:

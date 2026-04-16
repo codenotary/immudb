@@ -492,9 +492,16 @@ var pgTypeReplacements = []struct {
 	{regexp.MustCompile(`"((?i:add|admin|after|all|alter|and|as|asc|auto_increment|avg|before|begin|between|bigint|bigserial|blob|boolean|by|bytea|cascade|case|cast|check|column|commit|conflict|constraint|count|create|cross|database|databases|date|day|decimal|default|delete|desc|diff|distinct|do|double|drop|else|end|except|exists|explain|extract|false|fetch|first|float|for|foreign|from|full|grant|grants|group|having|history|hour|if|ilike|in|index|inner|insert|int|integer|intersect|into|is|join|json|jsonb|key|last|lateral|left|like|limit|max|min|minute|month|natural|not|nothing|null|nulls|numeric|of|offset|on|only|or|order|over|partition|password|primary|privileges|read|readwrite|real|recursive|references|release|rename|returning|revoke|right|rollback|rows|savepoint|second|select|sequence|serial|set|show|since|smallint|snapshot|sum|table|tables|then|timestamp|timestamptz|to|transaction|true|truncate|tx|union|unique|until|update|upsert|use|user|users|using|uuid|values|varchar|view|when|where|with|year))"`), "_$1"},
 	{regexp.MustCompile(`"(\w+)"`), "$1"},
 
-	// Strip ::type casts FIRST — before type name translation
-	// (prevents ::text from being converted to ::VARCHAR[4096])
-	{regexp.MustCompile(`::[\w]+`), ""},
+	// Strip PG-only ::TYPE casts before the type-name translation below.
+	// Types natively recognised by immudb's SQL parser via the SCAST
+	// production (boundexp :: sql_type) — INTEGER/INT/BIGINT, BOOLEAN,
+	// FLOAT/REAL/NUMERIC/DECIMAL, VARCHAR, BLOB/BYTEA, UUID, JSON/JSONB,
+	// TIMESTAMP/TIMESTAMPTZ/DATE — are intentionally left intact so the
+	// engine can evaluate them (e.g. '42'::INTEGER). PG-specific or
+	// string types are removed: ::text would otherwise become
+	// ::VARCHAR[4096] after the text rewrite below; ::regclass, ::name,
+	// ::oid etc. have no immudb equivalent.
+	{regexp.MustCompile(`(?i)::(?:text|character(?:\s+varying)?|name|oid|regclass|regtype|regproc|regoper|regnamespace|anyarray|anyelement|anynonarray|void|cstring|internal|opaque|unknown|pg_[a-z_]+)(?:\[\])?`), ""},
 
 	// DEFAULT nextval('...'::regclass) → strip (AUTO_INCREMENT handles it)
 	{regexp.MustCompile(`(?i)\s*DEFAULT\s+nextval\s*\([^)]+\)`), ""},
@@ -691,7 +698,15 @@ var pgTypeReplacements = []struct {
 	// Strip CONSTRAINT keyword with name
 	{regexp.MustCompile(`(?i)\bCONSTRAINT\s+\w+\s+`), ""},
 
-	// Strip REFERENCES (foreign keys) with optional ON DELETE/UPDATE
+	// Strip table-level FOREIGN KEY … REFERENCES … constraints BEFORE the
+	// column-level REFERENCES strip below. Without this, the column-level
+	// strip removes only the REFERENCES clause, leaving a dangling
+	// "FOREIGN KEY (col)" that causes "unexpected ')', expecting REFERENCES".
+	// immudb's SQL engine does accept FOREIGN KEY in CREATE TABLE (parsed
+	// but not enforced), but stripping here is equivalent and avoids the
+	// interaction with the REFERENCES rule.
+	{regexp.MustCompile(`(?i),?\s*\bFOREIGN\s+KEY\s*\([^)]*\)\s*REFERENCES\s+\S+\s*\([^)]*\)(\s+ON\s+(DELETE|UPDATE)\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))*`), ""},
+	// Strip column-level REFERENCES (inline FK) with optional ON DELETE/UPDATE
 	{regexp.MustCompile(`(?i)\bREFERENCES\s+\S+\s*\([^)]*\)(\s+ON\s+(DELETE|UPDATE)\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))*`), ""},
 
 	// Strip UNIQUE keyword on columns (immudb handles unique via index)

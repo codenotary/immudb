@@ -78,6 +78,18 @@ var (
 	// immudb can't execute them, so we return canned responses.
 	pgSystemQueryRe = regexp.MustCompile(`(?i)pg_catalog\.|information_schema\.|pg_roles\b|pg_database\b|pg_settings\b|pg_extension\b|pg_tablespace\b|pg_replication_slots\b|pg_stat_activity\b|pg_authid\b|pg_shdescription\b|pg_description\b|pg_am\b|pg_stat_replication\b|pg_auth_members\b|pg_namespace\b|pg_class\b|pg_attribute\b|pg_type\b|pg_proc\b|pg_constraint\b|pg_index\b|pg_depend\b|pg_stat_user_tables\b|pg_statio_user_tables\b|pg_locks\b|pg_shadow\b|pg_user\b|pg_tables\b|pg_indexes\b|pg_views\b|pg_matviews\b|pg_sequences\b|current_setting\s*\(|has_database_privilege\s*\(|has_table_privilege\s*\(|has_schema_privilege\s*\(|pg_encoding_to_char\s*\(|pg_get_userbyid\s*\(`)
 
+	// pgVirtualTableFromRe matches a query whose FROM clause names one of the
+	// virtual catalog tables that the embedded SQL engine implements natively
+	// (pg_class, pg_attribute). When no JOIN to another system table is
+	// present the query is forwarded to the SQL engine so callers receive
+	// real catalog data rather than canned NULLs.
+	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_settings|pg_constraint)\b`)
+
+	// pgSystemJoinRe detects a JOIN keyword or a comma-separated second
+	// system-catalog table alongside pg_class / pg_attribute, indicating the
+	// query is complex enough to require the canned pgAdminProbe handler.
+	pgSystemJoinRe = regexp.MustCompile(`(?i)\bjoin\b|,\s*(?:pg_catalog\.)?pg_`)
+
 	// pgTablesRe singles out queries against the standard `pg_tables` view
 	// (and its sister catalog views) so the handler can enumerate immudb's
 	// actual tables and apply a WHERE filter, rather than returning the
@@ -110,7 +122,7 @@ var (
 	infoSchemaColumnsRe = regexp.MustCompile(`(?is)\bfrom\s+information_schema[._]columns\b`)
 )
 
-var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+SEQUENCE|CREATE\s+DOMAIN|CREATE\s+VIEW|CREATE\s+OR\s+REPLACE\s+VIEW|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
+var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
@@ -216,6 +228,13 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 	// datetime_precision, …).
 	if infoSchemaColumnsRe.MatchString(statement) {
 		return &infoSchemaColumnsCmd{sql: statement}
+	}
+
+	// Simple queries against pg_class / pg_attribute with no JOINs to other
+	// system-catalog tables: forward to the SQL engine's virtual tables so
+	// callers receive real catalog data rather than canned NULLs.
+	if pgVirtualTableFromRe.MatchString(statement) && !pgSystemJoinRe.MatchString(statement) {
+		return nil
 	}
 
 	// Blanket catch for ALL pg_catalog/information_schema/system queries.
