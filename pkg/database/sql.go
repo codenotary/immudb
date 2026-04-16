@@ -310,8 +310,13 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	}()
 
 	go func() {
-		defer txCancel()
-
+		// Do NOT defer txCancel() here: the OngoingTx returned by NewTx
+		// stores txCtx in its ctx field and uses it for all subsequent
+		// snapshot reads.  Cancelling txCtx in this goroutine's defer
+		// would fire immediately after txChan <- t, making every read on
+		// the freshly-created transaction fail with "context canceled".
+		// txCancel() is called by the outer defer (on error) or by the
+		// ctx.Done() branch below (to interrupt an in-progress NewTx).
 		md := schema.MetadataFromContext(ctx)
 		if len(md) > 0 {
 			data, e := md.Marshal()
@@ -332,6 +337,7 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 
 	select {
 	case <-ctx.Done():
+		txCancel() // interrupt the in-progress NewTx call inside the goroutine
 		return nil, ctx.Err()
 	case tx = <-txChan:
 		return tx, nil
