@@ -175,14 +175,23 @@ func (sm *manager) CloseSessionsForUser(username string) error {
 }
 
 func (sm *manager) UpdateSessionActivityTime(sessionID string) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+	// RLock is sufficient: this function only reads sm.sessions to resolve the
+	// sessionID, and the actual lastActivityTime write is serialised inside
+	// (*Session).SetLastActivityTime by the session's own mutex. Taking the
+	// writer lock here previously serialised *every* session-authed RPC
+	// through the manager — now concurrent activity-time updates only contend
+	// on their own session object.
+	sm.sessionMux.RLock()
+	sess, ok := sm.sessions[sessionID]
+	sm.sessionMux.RUnlock()
 
-	if sess, ok := sm.sessions[sessionID]; ok {
-		now := time.Now()
-		sess.SetLastActivityTime(now)
-		sm.logger.Debugf("updated last activity time for %s at %s", sessionID, now.Format(time.UnixDate))
+	if !ok {
+		return
 	}
+
+	now := time.Now()
+	sess.SetLastActivityTime(now)
+	sm.logger.Debugf("updated last activity time for %s at %s", sessionID, now.Format(time.UnixDate))
 }
 
 func (sm *manager) SessionCount() int {
