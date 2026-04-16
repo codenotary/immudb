@@ -140,8 +140,8 @@ func (s *pgsrv) Stop() (err error) {
 }
 
 func (s *pgsrv) GetPort() int {
-	s.m.Lock()
-	defer s.m.Unlock()
+	s.m.RLock()
+	defer s.m.RUnlock()
 
 	if s.listener != nil {
 		return s.listener.Addr().(*net.TCPAddr).Port
