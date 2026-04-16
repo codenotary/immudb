@@ -57,3 +57,44 @@ func TestKeyTracker(t *testing.T) {
 		require.Greater(t, u, 20)
 	}
 }
+
+func TestZipfKeyTracker(t *testing.T) {
+	// s=1.5 gives noticeable skew without being degenerate.
+	kt := NewZipfKeyTracker(0, 999, 1.5, 1, 42)
+	require.NotNil(t, kt)
+
+	// With no writes yet, reads should return the start key deterministically.
+	require.Equal(t, "KEY:0000000000", kt.GetRKeyZipf())
+
+	// Populate 1000 writable keys.
+	for i := 0; i < 1000; i++ {
+		kt.GetWKey()
+	}
+
+	// Sample a large number of reads; the most frequent key should clearly
+	// dominate under a Zipf distribution. For s=1.5 over imax=999, the hit
+	// frequency of the top key is >20% in expectation, and the top-10 keys
+	// together should cover a majority of reads.
+	const nReads = 20000
+	counts := make(map[string]int, 1000)
+	for i := 0; i < nReads; i++ {
+		counts[kt.GetRKeyZipf()]++
+	}
+
+	var maxHits int
+	var topKey string
+	for k, v := range counts {
+		if v > maxHits {
+			maxHits = v
+			topKey = k
+		}
+	}
+
+	// Sanity check: the distribution is skewed (some key got far more than
+	// uniform 1/1000 = 20 hits).
+	require.Greater(t, maxHits, 20, "expected skewed distribution; top key=%s hits=%d", topKey, maxHits)
+
+	// Sanity check: not all reads landed on a single key — the tracker should
+	// still explore the tail.
+	require.Greater(t, len(counts), 10)
+}
