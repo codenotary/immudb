@@ -3130,6 +3130,104 @@ func BenchmarkExportTx(b *testing.B) {
 	}
 }
 
+// benchmarkGet exercises the Get path with value resolution, which is the right
+// shape to measure the effect of the value-log cache (DefaultVLogCacheSize).
+// Drives index lookup + vlog read per iteration. hotSetSize caps how many
+// distinct keys the workload touches on the read side — keep equal to the
+// stored set for a uniform-random workload; shrink well below the cache size
+// to model a workload with locality.
+func benchmarkGet(b *testing.B, vlogCacheSize, hotSetSize int) {
+	b.Helper()
+
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithVLogCacheSize(vlogCacheSize)
+
+	immuStore, err := Open(b.TempDir(), opts)
+	require.NoError(b, err)
+	defer immuStore.Close()
+
+	const (
+		txCount = 100
+		eCount  = 1_000
+		keyLen  = 40
+		valLen  = 512
+	)
+
+	// Pre-populate 100k KV entries across 100 transactions so the vlog is
+	// well-populated but still small enough to exercise caching behavior.
+	for i := 0; i < txCount; i++ {
+		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		require.NoError(b, err)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, keyLen)
+			binary.BigEndian.PutUint64(k, uint64(i*eCount+j))
+
+			v := make([]byte, valLen)
+			binary.BigEndian.PutUint64(v, uint64(j))
+
+			require.NoError(b, tx.Set(k, nil, v))
+		}
+
+		hdr, err := tx.Commit(context.Background())
+		require.NoError(b, err)
+
+		if i == txCount-1 {
+			require.NoError(b, immuStore.WaitForIndexingUpto(context.Background(), hdr.ID))
+		}
+	}
+
+	rnd := rand.New(rand.NewSource(42))
+	if hotSetSize <= 0 || hotSetSize > txCount*eCount {
+		hotSetSize = txCount * eCount
+	}
+	keyBuf := make([]byte, keyLen)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		binary.BigEndian.PutUint64(keyBuf, uint64(rnd.Intn(hotSetSize)))
+
+		valRef, err := immuStore.Get(context.Background(), keyBuf)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, err := valRef.Resolve(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkRandomGetNoVLogCache measures Get throughput at the current default
+// (cache disabled) under a uniform-random workload over the full 100k-key
+// keyspace. Reopens and seeks the vlog file on every read.
+func BenchmarkRandomGetNoVLogCache(b *testing.B) {
+	benchmarkGet(b, 0, 0)
+}
+
+// BenchmarkRandomGetWithVLogCache measures the same workload with a
+// 1000-slot vlog cache. With 100k keys the hit rate is ~1 %, so cache overhead
+// is expected to dominate — use the HotSet variants to see the caching win.
+func BenchmarkRandomGetWithVLogCache(b *testing.B) {
+	benchmarkGet(b, 1_000, 0)
+}
+
+// BenchmarkHotSetGetNoVLogCache models a workload with locality: only 500 of
+// the 100k stored keys are read. Every read still hits the vlog file.
+func BenchmarkHotSetGetNoVLogCache(b *testing.B) {
+	benchmarkGet(b, 0, 500)
+}
+
+// BenchmarkHotSetGetWithVLogCache runs the same 500-key hot set against a
+// 1000-slot cache (cache is comfortably larger than the hot set). Compare to
+// HotSetGetNoVLogCache to quantify the caching win on locality-heavy
+// workloads — this is the regime where DefaultVLogCacheSize>0 pays off.
+func BenchmarkHotSetGetWithVLogCache(b *testing.B) {
+	benchmarkGet(b, 1_000, 500)
+}
+
 func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	dir := t.TempDir()
 

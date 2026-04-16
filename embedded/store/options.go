@@ -45,6 +45,15 @@ const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultEmbeddedValues = false
 const DefaultPreallocFiles = false
 const DefaultTxLogCacheSize = 1000
+
+// DefaultVLogCacheSize caps how many value-log entries are kept in memory.
+// Left at 0 (disabled) because the tradeoff is workload-specific: see the
+// BenchmarkRandomGet*/BenchmarkHotSetGet* pair in immustore_test.go. Enabling
+// a 1000-slot cache was measured at -30% on uniform-random reads over a 100k
+// keyspace (cache overhead + tiny hit rate) but +25% on a 500-key hot set
+// where the cache is comfortably larger than the working set. Operators with
+// known locality should raise this via options; a flat non-zero default would
+// regress uniform workloads.
 const DefaultVLogCacheSize = 0
 const DefaultMaxWaitees = 1000
 const DefaultVLogMaxOpenedFiles = 10
