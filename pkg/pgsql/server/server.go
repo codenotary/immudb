@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
@@ -32,8 +33,10 @@ import (
 )
 
 type pgsrv struct {
-	m                  sync.RWMutex
-	running            bool
+	m sync.RWMutex
+	// running is read without taking m on the Accept hot loop, so it's kept
+	// as an atomic.Bool. Stop writes via Store(false); Serve reads via Load.
+	running            atomic.Bool
 	maxConnections     int
 	tlsConfig          *tls.Config
 	logger             logger.Logger
@@ -56,7 +59,6 @@ type PGSQLServer interface {
 func New(setters ...Option) *pgsrv {
 	// Default Options
 	srv := &pgsrv{
-		running:        true,
 		maxConnections: 1000,
 		tlsConfig:      &tls.Config{},
 		logger:         logger.NewSimpleLogger("pgsqlSrv", os.Stderr),
@@ -64,6 +66,7 @@ func New(setters ...Option) *pgsrv {
 		immudbPort:     3322,
 		port:           5432,
 	}
+	srv.running.Store(true)
 
 	for _, setter := range setters {
 		setter(srv)
@@ -84,9 +87,14 @@ func (s *pgsrv) Initialize() (err error) {
 func (s *pgsrv) Serve() (err error) {
 	s.m.Lock()
 	if s.listener == nil {
+		s.m.Unlock()
+		// Previously returned without unlocking, leaking the mutex and
+		// deadlocking any subsequent Stop/GetPort call.
 		return errors.New("no listener found for pgsql server")
 	}
 	s.listener = netutil.LimitListener(s.listener, s.maxConnections)
+	listener := s.listener
+	s.m.Unlock()
 
 	if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
 		s.logger.Warningf("pgsql server is running WITHOUT TLS. " +
@@ -94,22 +102,23 @@ func (s *pgsrv) Serve() (err error) {
 			"Configure TLS or disable the pgsql server (--pgsql-server=false) in production.")
 	}
 
-	s.m.Unlock()
-
 	for {
-		s.m.Lock()
-		if !s.running {
-			s.m.Unlock()
+		if !s.running.Load() {
 			return nil
 		}
-		s.m.Unlock()
 
-		conn, err := s.listener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
+			// Stop() closes the listener, which is the expected path out of
+			// Accept. Report an error only if we were still supposed to be
+			// running — otherwise the error is simply the consequence of Stop.
+			if !s.running.Load() {
+				return nil
+			}
 			s.logger.Errorf("%v", err)
-		} else {
-			go s.handleRequest(context.Background(), conn)
+			continue
 		}
+		go s.handleRequest(context.Background(), conn)
 	}
 }
 
@@ -118,10 +127,10 @@ func (s *pgsrv) newSession(conn net.Conn) Session {
 }
 
 func (s *pgsrv) Stop() (err error) {
+	s.running.Store(false)
+
 	s.m.Lock()
 	defer s.m.Unlock()
-
-	s.running = false
 
 	if s.listener != nil {
 		return s.listener.Close()
