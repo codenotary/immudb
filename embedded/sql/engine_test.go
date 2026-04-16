@@ -11026,6 +11026,89 @@ func BenchmarkIndexedSelect(b *testing.B) {
 	}
 }
 
+// BenchmarkJoin captures the current baseline of the two-table equi-join
+// execution path. The outer table has nOuter rows; the inner table has nInner
+// rows with a matching key column; the query joins them on the key.
+//
+// Today every outer row causes jointRowReader.Read to call jointq.Resolve
+// and open a fresh inner scan (see joint_row_reader.go:275), making the whole
+// join O(nOuter * inner-scan-cost). A hash-join wiring (review item D1) would
+// build the inner hash once and make the loop O(nOuter + nInner); the delta
+// should be clearly visible on this bench.
+func BenchmarkJoin(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	require.NoError(b, err)
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(b, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE outer_t(id INTEGER AUTO_INCREMENT, k INTEGER, PRIMARY KEY id);
+		 CREATE INDEX ON outer_t(k);
+		 CREATE TABLE inner_t(id INTEGER AUTO_INCREMENT, k INTEGER, v VARCHAR[50], PRIMARY KEY id);
+		 CREATE INDEX ON inner_t(k);`, nil)
+	require.NoError(b, err)
+
+	const (
+		nOuter = 500
+		nInner = 500
+	)
+
+	insertBatch := func(table string, n int, valFmt string) {
+		// Stay under DefaultMaxTxEntries=1024 per tx.
+		const perTx = 500
+		for off := 0; off < n; off += perTx {
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+			require.NoError(b, err)
+
+			end := off + perTx
+			if end > n {
+				end = n
+			}
+			for i := off; i < end; i++ {
+				stmt := fmt.Sprintf("INSERT INTO %s(k, v) VALUES (@k, @v)", table)
+				params := map[string]interface{}{"k": i, "v": fmt.Sprintf(valFmt, i)}
+				if table == "outer_t" {
+					stmt = "INSERT INTO outer_t(k) VALUES (@k)"
+					params = map[string]interface{}{"k": i}
+				}
+				_, _, err := engine.Exec(context.Background(), tx, stmt, params)
+				require.NoError(b, err)
+			}
+			require.NoError(b, tx.Commit(context.Background()))
+		}
+	}
+
+	insertBatch("outer_t", nOuter, "")
+	insertBatch("inner_t", nInner, "v_%06d")
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		reader, err := engine.Query(context.Background(), nil,
+			"SELECT outer_t.k, inner_t.v FROM outer_t INNER JOIN inner_t ON outer_t.k = inner_t.k", nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		for {
+			_, err := reader.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				reader.Close()
+				b.Fatal(err)
+			}
+		}
+		reader.Close()
+	}
+}
+
 // BenchmarkTxSetupManyTables measures the cost of engine.NewTx on a schema
 // with many tables+indexes. Every read-write SQLTx currently re-runs the
 // catalog load path (three prefix scans + default-expression re-parse per
