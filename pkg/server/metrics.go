@@ -21,9 +21,9 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"expvar"
+	"net"
 	"net/http"
 	"net/http/pprof"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -89,13 +89,19 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 // UpdateClientMetrics ...
 func (mc *MetricsCollection) UpdateClientMetrics(ctx context.Context) {
 	p, ok := peer.FromContext(ctx)
-	if ok && p != nil {
-		ipAndPort := strings.Split(p.Addr.String(), ":")
-		if len(ipAndPort) > 0 {
-			mc.RPCsPerClientCounters.WithLabelValues(ipAndPort[0]).Inc()
-			mc.LastMessageAtPerClientGauges.WithLabelValues(ipAndPort[0]).SetToCurrentTime()
-		}
+	if !ok || p == nil {
+		return
 	}
+
+	// net.SplitHostPort correctly handles IPv6 addresses like "[::1]:8080"
+	// (strings.Split on ":" would mangle them). Falls through silently on
+	// bufconn/mock addresses that don't carry a port.
+	host, _, err := net.SplitHostPort(p.Addr.String())
+	if err != nil {
+		return
+	}
+	mc.RPCsPerClientCounters.WithLabelValues(host).Inc()
+	mc.LastMessageAtPerClientGauges.WithLabelValues(host).SetToCurrentTime()
 }
 
 // WithComputeDBSizes ...
