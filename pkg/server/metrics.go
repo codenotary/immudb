@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -50,22 +51,27 @@ type VersionResponse struct {
 type MetricsCollection struct {
 	UptimeCounter prometheus.CounterFunc
 
-	computeDBSizes func() map[string]float64
-	DBSizeGauges   *prometheus.GaugeVec
+	// computeMu guards the four compute* callback fields below. They are
+	// written by StartMetrics via the With*() setters and read by the
+	// ticker-driven UpdateDBMetrics loop; without this mutex, a second
+	// StartMetrics call (e.g. successive tests against the global Metrics
+	// collection) races the still-running goroutine started by the first.
+	computeMu           sync.RWMutex
+	computeDBSizes      func() map[string]float64
+	computeDBEntries    func() map[string]float64
+	computeLoadedDBSize func() float64
+	computeSessionCount func() float64
 
-	computeDBEntries func() map[string]float64
-	DBEntriesGauges  *prometheus.GaugeVec
+	DBSizeGauges    *prometheus.GaugeVec
+	DBEntriesGauges *prometheus.GaugeVec
 
 	RPCsPerClientCounters        *prometheus.CounterVec
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
 
 	RemoteStorageKind *prometheus.GaugeVec
 
-	computeLoadedDBSize func() float64
-	LoadedDatabases     prometheus.Gauge
-
-	computeSessionCount func() float64
-	ActiveSessions      prometheus.Gauge
+	LoadedDatabases prometheus.Gauge
+	ActiveSessions  prometheus.Gauge
 }
 
 var metricsNamespace = "immudb"
@@ -106,41 +112,58 @@ func (mc *MetricsCollection) UpdateClientMetrics(ctx context.Context) {
 
 // WithComputeDBSizes ...
 func (mc *MetricsCollection) WithComputeDBSizes(f func() map[string]float64) {
+	mc.computeMu.Lock()
 	mc.computeDBSizes = f
+	mc.computeMu.Unlock()
 }
 
 // WithComputeDBEntries ...
 func (mc *MetricsCollection) WithComputeDBEntries(f func() map[string]float64) {
+	mc.computeMu.Lock()
 	mc.computeDBEntries = f
+	mc.computeMu.Unlock()
 }
 
 // WithLoadedDBSize ...
 func (mc *MetricsCollection) WithLoadedDBSize(f func() float64) {
+	mc.computeMu.Lock()
 	mc.computeLoadedDBSize = f
+	mc.computeMu.Unlock()
 }
 
 // WithLoadedDBSize ...
 func (mc *MetricsCollection) WithComputeSessionCount(f func() float64) {
+	mc.computeMu.Lock()
 	mc.computeSessionCount = f
+	mc.computeMu.Unlock()
 }
 
 // UpdateDBMetrics ...
 func (mc *MetricsCollection) UpdateDBMetrics() {
-	if mc.computeDBSizes != nil {
-		for db, size := range mc.computeDBSizes() {
+	// Snapshot the callback set under RLock so we don't hold the mutex while
+	// the (potentially slow) callbacks execute.
+	mc.computeMu.RLock()
+	dbSizes := mc.computeDBSizes
+	dbEntries := mc.computeDBEntries
+	loadedDBSize := mc.computeLoadedDBSize
+	sessionCount := mc.computeSessionCount
+	mc.computeMu.RUnlock()
+
+	if dbSizes != nil {
+		for db, size := range dbSizes() {
 			mc.DBSizeGauges.WithLabelValues(db).Set(size)
 		}
 	}
-	if mc.computeDBEntries != nil {
-		for db, nbEntries := range mc.computeDBEntries() {
+	if dbEntries != nil {
+		for db, nbEntries := range dbEntries() {
 			mc.DBEntriesGauges.WithLabelValues(db).Set(nbEntries)
 		}
 	}
-	if mc.computeLoadedDBSize != nil {
-		mc.LoadedDatabases.Set(mc.computeLoadedDBSize())
+	if loadedDBSize != nil {
+		mc.LoadedDatabases.Set(loadedDBSize())
 	}
-	if mc.computeSessionCount != nil {
-		mc.ActiveSessions.Set(mc.computeSessionCount())
+	if sessionCount != nil {
+		mc.ActiveSessions.Set(sessionCount())
 	}
 }
 

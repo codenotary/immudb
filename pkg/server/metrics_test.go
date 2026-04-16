@@ -143,7 +143,7 @@ func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	ctx := peer.NewContext(context.Background(), p)
 	mc.UpdateClientMetrics(ctx)
 
-	require.IsType(t, MetricsCollection{}, mc)
+	require.IsType(t, &MetricsCollection{}, &mc)
 }
 
 func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
@@ -179,7 +179,7 @@ func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
 	// update after injecting the funcs, to catch the normal execution path
 	mc.UpdateDBMetrics()
 
-	require.IsType(t, MetricsCollection{}, mc)
+	require.IsType(t, &MetricsCollection{}, &mc)
 }
 
 func TestImmudbHealthHandlerFunc(t *testing.T) {
