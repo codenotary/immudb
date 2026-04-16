@@ -86,6 +86,9 @@ func (v *CountValue) updateWith(val TypedValue) error {
 			return nil // NULL values are not counted in DISTINCT
 		}
 		key := val.String()
+		if v.seen == nil {
+			v.seen = make(map[string]bool)
+		}
 		if v.seen[key] {
 			return nil // already seen this value
 		}

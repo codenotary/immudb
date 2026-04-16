@@ -500,6 +500,11 @@ func (it *rowReader) Close() error {
 		return sql.ErrAlreadyClosed
 	}
 
+	// Cancel the derived context so the underlying gRPC stream is signalled
+	// even when the consumer abandons the reader before reaching EOF.
+	// fetchRows already calls cancel() on EOF/error, so this is a no-op in
+	// the normal completion path but essential for early-close callers.
+	it.cancel()
 	it.stream = nil
 	it.closed = true
 	it.rows = nil

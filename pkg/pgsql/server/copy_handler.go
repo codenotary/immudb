@@ -109,13 +109,16 @@ func (s *session) handleCopyFromStdin(table string, cols []string) error {
 
 				// Parse tab-separated values
 				fields := strings.Split(line, "\t")
-				if len(fields) > 0 {
-					row := make([]string, len(fields))
-					for i, f := range fields {
-						row[i] = unescapeCopyValue(f)
-					}
-					rows = append(rows, row)
+				if len(fields) != numCols {
+					s.log.Warningf("COPY %s: row has %d field(s), expected %d — skipping malformed row",
+						table, len(fields), numCols)
+					continue
 				}
+				row := make([]string, numCols)
+				for i, f := range fields {
+					row[i] = unescapeCopyValue(f)
+				}
+				rows = append(rows, row)
 			}
 
 		case fm.CopyDoneMsg:
@@ -124,11 +127,16 @@ func (s *session) handleCopyFromStdin(table string, cols []string) error {
 				line := strings.TrimRight(string(currentData), "\r\n")
 				if line != "" && line != "\\." {
 					fields := strings.Split(line, "\t")
-					row := make([]string, len(fields))
-					for i, f := range fields {
-						row[i] = unescapeCopyValue(f)
+					if len(fields) != numCols {
+						s.log.Warningf("COPY %s: row has %d field(s), expected %d — skipping malformed row",
+							table, len(fields), numCols)
+					} else {
+						row := make([]string, numCols)
+						for i, f := range fields {
+							row[i] = unescapeCopyValue(f)
+						}
+						rows = append(rows, row)
 					}
-					rows = append(rows, row)
 				}
 			}
 

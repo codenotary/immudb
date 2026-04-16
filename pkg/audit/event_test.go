@@ -72,9 +72,16 @@ func TestClassifyMethod_Unknown(t *testing.T) {
 func TestAuditEvent_Key(t *testing.T) {
 	event := &AuditEvent{Timestamp: 1234567890123456789}
 	key := event.Key()
+	keyStr := string(key)
 
-	require.True(t, strings.HasPrefix(string(key), KeyPrefix))
-	assert.Equal(t, "audit:01234567890123456789", string(key))
+	require.True(t, strings.HasPrefix(keyStr, KeyPrefix))
+	// Key format: "audit:<20-digit-ts>_<16-digit-seq>"
+	// Verify timestamp portion is zero-padded and correct.
+	require.True(t, strings.HasPrefix(keyStr, "audit:01234567890123456789_"),
+		"unexpected key format: %s", keyStr)
+	// Verify same-timestamp events get distinct keys (sequence increments).
+	key2 := event.Key()
+	assert.NotEqual(t, keyStr, string(key2), "duplicate keys for same-nanosecond events")
 }
 
 func TestAuditEvent_Key_Ordering(t *testing.T) {

@@ -128,16 +128,23 @@ func (wr *windowRowReader) partitionRows(rows []*Row, wfn *WindowFnExp, tx *SQLT
 }
 
 func (wr *windowRowReader) partitionKey(row *Row, wfn *WindowFnExp, tx *SQLTx, tableAlias string) string {
-	var key string
+	// Use the same binary encoding as hashGroupedRowReader.groupKey():
+	// 0x00 byte for SQL NULL, 0x01 + EncodeValue bytes for non-NULL.
+	// The previous pipe-delimited string approach had two correctness bugs:
+	//   1. VARCHAR values containing "|" produced colliding partition keys.
+	//   2. VARCHAR value "NULL" was indistinguishable from an actual SQL NULL.
+	var key []byte
 	for _, pexp := range wfn.partitionBy {
 		val, err := pexp.reduce(tx, row, tableAlias)
-		if err != nil || val == nil {
-			key += "NULL|"
+		if err != nil || val == nil || val.IsNull() {
+			key = append(key, 0) // NULL sentinel
 			continue
 		}
-		key += fmt.Sprintf("%v|", val.RawValue())
+		key = append(key, 1) // non-NULL sentinel
+		b, _ := EncodeValue(val, val.Type(), 0)
+		key = append(key, b...)
 	}
-	return key
+	return string(key)
 }
 
 func (wr *windowRowReader) sortPartition(partition []*Row, wfn *WindowFnExp, tx *SQLTx, tableAlias string) {

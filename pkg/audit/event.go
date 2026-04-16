@@ -19,6 +19,7 @@ package audit
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 )
 
 // EventType classifies audit events by operation category.
@@ -49,10 +50,19 @@ type AuditEvent struct {
 // KeyPrefix is the prefix for all audit event keys in the KV store.
 const KeyPrefix = "audit:"
 
-// Key returns the KV key for this event. Zero-padded nanosecond timestamp
-// ensures lexicographic ordering matches time ordering for prefix scans.
+// auditSeq is a process-lifetime monotonic counter that disambiguates audit
+// events whose nanosecond timestamps are identical (e.g. during bulk imports).
+// It resets on process restart, which is safe: the timestamp is the primary
+// sort key; the counter only prevents same-nanosecond key collisions that
+// would cause the second Set() to silently overwrite the first.
+var auditSeq atomic.Int64
+
+// Key returns the KV key for this event. The key encodes both the nanosecond
+// timestamp (for lexicographic time ordering) and a per-process sequence
+// number (to prevent collisions when two events share the same nanosecond).
 func (e *AuditEvent) Key() []byte {
-	return []byte(fmt.Sprintf("%s%020d", KeyPrefix, e.Timestamp))
+	seq := auditSeq.Add(1)
+	return []byte(fmt.Sprintf("%s%020d_%016d", KeyPrefix, e.Timestamp, seq))
 }
 
 var authMethods = map[string]struct{}{
