@@ -162,29 +162,6 @@ type ImmuStore struct {
 	txLog      appendable.Appendable
 	txLogCache *cache.Cache
 
-	// txbsPool recycles per-commit tx-serialisation buffers. Each commit
-	// previously did `make([]byte, txSize); copy(...)` inside
-	// performPrecommit's critical section — O(writes) allocator pressure
-	// on the hot path.
-	//
-	// Safety contract with txLogCache:
-	//   - A pooled buffer is handed over to Put(txID, buf); the cache
-	//     retains it as the entry value.
-	//   - On eviction the onEvict hook (below) returns the buffer to
-	//     the pool.
-	//   - appendableReaderForTx copies the slice on cache hit before
-	//     handing it to slicedReaderAt, so no reader outside the cache
-	//     lock can observe a pool-recycled slice.
-	//   - txLog.Append copies its argument into its own writeBuffer
-	//     (singleapp.AppendableFile.write at single_app.go:469), so
-	//     passing the pooled buffer to Append does not retain it.
-	//
-	// Buckets are chosen so the vast majority of tx serialisations (at
-	// DefaultMaxTxEntries=1024) fit in the 64 KB bucket; the 256 KB
-	// bucket absorbs large-payload outliers. Buffers that exceed 256 KB
-	// fall back to a plain make() and are not pooled.
-	txbsPool [4]sync.Pool
-
 	cLog          appendable.Appendable
 	cLogEntrySize int
 
@@ -706,16 +683,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		compactionDisabled: opts.CompactionDisabled,
 	}
-
-	// Return evicted tx-serialisation buffers to the pool so a long-
-	// running store with sustained writes reuses the same set of
-	// allocations. See the txbsPool field doc for the safety contract
-	// with appendableReaderForTx's copy-on-Get.
-	txLogCache.SetOnEvict(func(_, value interface{}) {
-		if buf, ok := value.([]byte); ok {
-			store.putTxbsBuf(buf)
-		}
-	})
 
 	if store.aht.Size() > precommittedTxID {
 		err = store.aht.ResetSize(precommittedTxID)
@@ -1965,24 +1932,26 @@ func (s *ImmuStore) performPrecommit(tx *Tx, entries []*EntrySpec, ts int64, blT
 	copy(s._txbs[txSize:], alh[:])
 	txSize += sha256.Size
 
-	// Pooled buffer reused across commits. The cache takes ownership
-	// (txLog.Append copies bs into its writeBuffer before returning),
-	// and the cache's onEvict hook returns the buffer to the pool. See
-	// the txbsPool field comment for the full safety contract.
-	txbs := s.getTxbsBuf(txSize)[:txSize]
-	copy(txbs, s._txbs[:txSize])
-
-	txOff, _, err := s.txLog.Append(txbs)
+	// Pass s._txbs directly to Append (it copies into its writeBuffer
+	// before returning — singleapp.AppendableFile.write copies at
+	// line 469). The intermediate `txbs := make(); copy(...)` that
+	// used to live here was redundant: Append's copy already produces
+	// a stable, Append-owned slice.
+	//
+	// The cache, however, retains its value, so it must get its own
+	// slice — s._txbs gets overwritten by the next commit. Allocate
+	// fresh for the cache retention path only. Net effect vs the old
+	// code: one copy saved per commit (≈ 8–16 KB for batch=100), same
+	// allocation count.
+	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
 	if err != nil {
-		// Append did not retain; safe to return the buffer to the pool.
-		s.putTxbsBuf(txbs)
 		return err
 	}
 
-	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
+	cachedBytes := make([]byte, txSize)
+	copy(cachedBytes, s._txbs[:txSize])
+	_, _, err = s.txLogCache.Put(tx.header.ID, cachedBytes)
 	if err != nil {
-		// The cache rejected the value; nobody else holds the slice.
-		s.putTxbsBuf(txbs)
 		return err
 	}
 
@@ -2649,57 +2618,6 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	return txOffset, txSize, nil
 }
 
-// txbsBucketSizes — sizes of the sync.Pool buckets keyed by buffer
-// capacity. Indexed by the bucket position that txbsBucketFor returns.
-// Must stay in ascending order.
-var txbsBucketSizes = [...]int{
-	4 * 1024,
-	16 * 1024,
-	64 * 1024,
-	256 * 1024,
-}
-
-// txbsBucketFor returns the index of the smallest pool bucket whose
-// capacity is >= n, or -1 when n exceeds the largest bucket.
-func txbsBucketFor(n int) int {
-	for i, b := range txbsBucketSizes {
-		if n <= b {
-			return i
-		}
-	}
-	return -1
-}
-
-// getTxbsBuf returns a buffer with cap equal to the chosen bucket's
-// size, recycled from the pool when available. The returned buffer's
-// length is the bucket size; callers must re-slice to their required
-// tx length before use. Buffers for payloads larger than the biggest
-// bucket are allocated fresh (and not returned to the pool).
-func (s *ImmuStore) getTxbsBuf(size int) []byte {
-	i := txbsBucketFor(size)
-	if i < 0 {
-		return make([]byte, size)
-	}
-	if v := s.txbsPool[i].Get(); v != nil {
-		return v.([]byte)
-	}
-	return make([]byte, txbsBucketSizes[i])
-}
-
-// putTxbsBuf returns a buffer to the pool. Only buffers whose capacity
-// exactly matches one of the bucket sizes are accepted; odd-sized
-// fallbacks from the alloc path above go to GC.
-func (s *ImmuStore) putTxbsBuf(buf []byte) {
-	c := cap(buf)
-	i := txbsBucketFor(c)
-	if i < 0 || c != txbsBucketSizes[i] {
-		return
-	}
-	// Reset len to cap so callers get a full-length slice back.
-	//nolint:staticcheck // intentional: the slice capacity is the payload the next caller gets.
-	s.txbsPool[i].Put(buf[:c])
-}
-
 type slicedReaderAt struct {
 	bs  []byte
 	off int64
@@ -3133,17 +3051,7 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64, allowPrecommitted bool) (
 	if cacheMiss {
 		txr = s.txLog
 	} else {
-		// Copy the cached bytes before handing them to slicedReaderAt.
-		// The caller will use the reader AFTER releasing
-		// commitStateRWMutex, at which point a concurrent Put on the
-		// txLogCache could evict this entry and return its backing
-		// slice to txbsPool — where a subsequent getTxbsBuf would
-		// overwrite it. Copying preserves the reader's view without
-		// breaking the pooling contract.
-		rawTxbs := txbs.([]byte)
-		txbsCopy := make([]byte, len(rawTxbs))
-		copy(txbsCopy, rawTxbs)
-		txr = &slicedReaderAt{bs: txbsCopy, off: txOff}
+		txr = &slicedReaderAt{bs: txbs.([]byte), off: txOff}
 	}
 	return appendable.NewReaderFrom(txr, txOff, txSize), nil
 }
