@@ -797,17 +797,19 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 		return nil, err
 	}
 
-	// Slow path: cache miss. Escalate to exclusive lock and re-check:
-	// a concurrent miss may have populated the entry between our
-	// RUnlock and Lock. Without the re-check we'd double-read the
-	// file and double-Put into the cache, racing two evictions.
+	// Slow path: cache miss. readNodeAt reads from t.nLog (appendable
+	// with its own internal synchronisation), and t.cache is
+	// concurrency-safe — so neither step needs t.nmutex.
+	//
+	// Two goroutines racing to miss the SAME offset may each read
+	// the node from disk and each PutWeighted: the last Put wins and
+	// both node instances carry identical bytes (same on-disk
+	// content), so no correctness issue. The prior Lock + re-check
+	// cost ~1 extra cache.Get-under-Mutex per miss (visible as the
+	// KV-write w=4 tail regression in the Docker sweep); accepting
+	// the rare duplicate file read avoids that per-miss fixed cost.
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
-
-	if v, err := t.cache.Get(encOffset); err == nil {
-		metricsCacheHit.WithLabelValues(t.path).Inc()
-		return v.(node), nil
-	}
 
 	metricsCacheMiss.WithLabelValues(t.path).Inc()
 
