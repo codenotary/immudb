@@ -175,14 +175,6 @@ type ImmuStore struct {
 	cLog          appendable.Appendable
 	cLogEntrySize int
 
-	// _cLogEntryBs is a reusable buffer for serialising individual
-	// cLog entries inside mayCommit's flush loop. All callers hold
-	// commitStateRWMutex.Lock() so no concurrent reuse is possible.
-	// Replaces the per-iteration `make([]byte, cLogEntrySize)` that
-	// fired once per committed tx — tiny individually (12 B v1, 44 B
-	// v2) but accumulates over long-running stores.
-	_cLogEntryBs []byte
-
 	cLogBuf *precommitBuffer
 
 	committedTxID uint64
@@ -644,7 +636,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		cLog:          cLog,
 		cLogEntrySize: cLogEntrySize,
-		_cLogEntryBs:  make([]byte, cLogEntrySize),
 
 		cLogBuf: cLogBuf,
 
@@ -1973,25 +1964,15 @@ func (s *ImmuStore) performPrecommit(tx *Tx, entries []*EntrySpec, ts int64, blT
 	copy(s._txbs[txSize:], alh[:])
 	txSize += sha256.Size
 
-	// Pass s._txbs directly to Append (it copies into its writeBuffer
-	// before returning — singleapp.AppendableFile.write copies at
-	// line 469). The intermediate `txbs := make(); copy(...)` that
-	// used to live here was redundant: Append's copy already produces
-	// a stable, Append-owned slice.
-	//
-	// The cache, however, retains its value, so it must get its own
-	// slice — s._txbs gets overwritten by the next commit. Allocate
-	// fresh for the cache retention path only. Net effect vs the old
-	// code: one copy saved per commit (≈ 8–16 KB for batch=100), same
-	// allocation count.
-	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
+	txbs := make([]byte, txSize)
+	copy(txbs, s._txbs[:txSize])
+
+	txOff, _, err := s.txLog.Append(txbs)
 	if err != nil {
 		return err
 	}
 
-	cachedBytes := make([]byte, txSize)
-	copy(cachedBytes, s._txbs[:txSize])
-	_, _, err = s.txLogCache.Put(tx.header.ID, cachedBytes)
+	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
 	if err != nil {
 		return err
 	}
@@ -2163,10 +2144,7 @@ func (s *ImmuStore) mayCommit() error {
 			return err
 		}
 
-		// Reuse the per-store cLog-entry buffer. mayCommit and sync
-		// both hold commitStateRWMutex.Lock(), and cLog.Append copies
-		// before returning (singleapp.AppendableFile.write).
-		cb := s._cLogEntryBs
+		cb := make([]byte, s.cLogEntrySize)
 		binary.BigEndian.PutUint64(cb, uint64(txOff))
 		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 
@@ -3423,10 +3401,7 @@ func (s *ImmuStore) sync() error {
 			return err
 		}
 
-		// Reuse the per-store cLog-entry buffer. mayCommit and sync
-		// both hold commitStateRWMutex.Lock(), and cLog.Append copies
-		// before returning (singleapp.AppendableFile.write).
-		cb := s._cLogEntryBs
+		cb := make([]byte, s.cLogEntrySize)
 		binary.BigEndian.PutUint64(cb, uint64(txOff))
 		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 
