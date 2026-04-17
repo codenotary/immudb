@@ -3228,6 +3228,62 @@ func BenchmarkHotSetGetWithVLogCache(b *testing.B) {
 	benchmarkGet(b, 1_000, 500)
 }
 
+// BenchmarkConcurrentRandomGet exercises the tbtree.nmutex lock shape on
+// parallel reads. Run with `-cpu 1,4,16,64` to see scaling: prior to the
+// Mutex→RWMutex refactor every B-tree node fetch serialised through a
+// full mutex, so scaling was flat. After, the cache-hit fast path holds
+// only RLock so concurrent descents over disjoint nodes proceed in
+// parallel.
+func BenchmarkConcurrentRandomGet(b *testing.B) {
+	b.Helper()
+
+	immuStore, err := Open(b.TempDir(), DefaultOptions().WithSynced(false))
+	require.NoError(b, err)
+	defer immuStore.Close()
+
+	const (
+		txCount = 100
+		eCount  = 1_000
+		keyLen  = 40
+		valLen  = 512
+	)
+
+	for i := 0; i < txCount; i++ {
+		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		require.NoError(b, err)
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, keyLen)
+			binary.BigEndian.PutUint64(k, uint64(i*eCount+j))
+			v := make([]byte, valLen)
+			binary.BigEndian.PutUint64(v, uint64(j))
+			require.NoError(b, tx.Set(k, nil, v))
+		}
+		hdr, err := tx.Commit(context.Background())
+		require.NoError(b, err)
+		if i == txCount-1 {
+			require.NoError(b, immuStore.WaitForIndexingUpto(context.Background(), hdr.ID))
+		}
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+		keyBuf := make([]byte, keyLen)
+		for pb.Next() {
+			binary.BigEndian.PutUint64(keyBuf, uint64(rnd.Intn(txCount*eCount)))
+			valRef, err := immuStore.Get(context.Background(), keyBuf)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if _, err := valRef.Resolve(); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	dir := t.TempDir()
 

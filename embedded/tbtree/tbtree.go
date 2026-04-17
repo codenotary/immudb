@@ -172,9 +172,18 @@ type TBtree struct {
 
 	logger logger.Logger
 
-	nLog   appendable.Appendable
-	cache  *cache.Cache
-	nmutex sync.Mutex // mutex for cache and file reading
+	nLog appendable.Appendable
+	cache *cache.Cache
+	// nmutex serialises cache+nLog state coherence for *structural*
+	// mutations (cache puts + file reads). nodeAt's fast path (cache
+	// hit) takes RLock so concurrent B-tree descents can share the
+	// cache without serialising behind each other; the slow path
+	// (cache miss) escalates to Lock with a double-checked re-read
+	// before the file IO. cache.Cache has its own internal sync.Mutex
+	// protecting LRU list mutation, which is correct for that data
+	// structure but wasted cycles when the outer lock is already held
+	// exclusive.
+	nmutex sync.RWMutex
 
 	hLog   appendable.Appendable
 	cLog   appendable.Appendable
@@ -772,40 +781,55 @@ func encodeOffset(id uint16, offset int64) int64 {
 }
 
 func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
-	t.nmutex.Lock()
-	defer t.nmutex.Unlock()
-
-	size := t.cache.EntriesCount()
-	metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(size))
-
 	encOffset := encodeOffset(t.id, offset)
 
+	// Fast path: cache hit. RLock lets concurrent readers share the
+	// cache lookup; LRU-list mutation inside cache.Get is guarded by
+	// cache.Cache's own internal mutex.
+	t.nmutex.RLock()
 	v, err := t.cache.Get(encOffset)
+	t.nmutex.RUnlock()
 	if err == nil {
 		metricsCacheHit.WithLabelValues(t.path).Inc()
 		return v.(node), nil
 	}
-
-	if err == cache.ErrKeyNotFound {
-		metricsCacheMiss.WithLabelValues(t.path).Inc()
-
-		n, err := t.readNodeAt(offset)
-		if err != nil {
-			return nil, err
-		}
-
-		if updateCache {
-			size, _ := n.size()
-			r, _, _ := t.cache.PutWeighted(encOffset, n, size)
-			if r != nil {
-				metricsCacheEvict.WithLabelValues(t.path).Inc()
-			}
-		}
-
-		return n, nil
+	if err != cache.ErrKeyNotFound {
+		return nil, err
 	}
 
-	return nil, err
+	// Slow path: cache miss. Escalate to exclusive lock and re-check:
+	// a concurrent miss may have populated the entry between our
+	// RUnlock and Lock. Without the re-check we'd double-read the
+	// file and double-Put into the cache, racing two evictions.
+	t.nmutex.Lock()
+	defer t.nmutex.Unlock()
+
+	if v, err := t.cache.Get(encOffset); err == nil {
+		metricsCacheHit.WithLabelValues(t.path).Inc()
+		return v.(node), nil
+	}
+
+	metricsCacheMiss.WithLabelValues(t.path).Inc()
+
+	n, err := t.readNodeAt(offset)
+	if err != nil {
+		return nil, err
+	}
+
+	if updateCache {
+		size, _ := n.size()
+		r, _, _ := t.cache.PutWeighted(encOffset, n, size)
+		if r != nil {
+			metricsCacheEvict.WithLabelValues(t.path).Inc()
+		}
+		// Emit the cache-size gauge on the slow path only (misses are
+		// infrequent vs hits). Prometheus scrapes the gauge value, so
+		// lagging updates are acceptable. The prior per-hot-path Set
+		// imposed cache.Cache's internal mutex on every B-tree descent.
+		metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(t.cache.EntriesCount()))
+	}
+
+	return n, nil
 }
 
 func (t *TBtree) readNodeAt(off int64) (node, error) {
@@ -1609,14 +1633,19 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 }
 
 func (t *TBtree) Close() error {
-	t.logger.Infof("closing index '%s' {ts=%d}...", t.path, t.root.ts())
-
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
 	}
+
+	// Reading t.root.ts() requires the rwmutex because the indexer goroutine
+	// mutates leafNode._ts under the same lock (see leafNode.setTs). Prior
+	// code emitted the log line *before* acquiring the lock, which was the
+	// -race failure pair documented against tbtree.go:2634 (writer) vs
+	// tbtree.go:2621 (ts reader).
+	t.logger.Infof("closing index '%s' {ts=%d}...", t.path, t.root.ts())
 
 	if len(t.snapshots) > 0 {
 		return ErrSnapshotsNotClosed
