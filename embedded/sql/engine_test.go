@@ -11256,6 +11256,56 @@ func BenchmarkTxSetupManyTablesWarmCache(b *testing.B) {
 	benchmarkTxSetupManyTables(b, true)
 }
 
+// BenchmarkTxSetupManyTablesPureRW measures NewTx cost after a non-DDL
+// RW commit (D2 Phase 2 populate path) has warmed the catalog cache.
+// Performs one warmup commit, then measures NewTx+Cancel like the cold
+// and warm-from-RO variants — apples-to-apples.
+//
+// Numbers should converge toward the WarmCache variant (which uses a
+// read-only tx to warm), confirming pure-RW workloads also benefit
+// from the Clone fast path once the first commit lands.
+func BenchmarkTxSetupManyTablesPureRW(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	require.NoError(b, err)
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(b, err)
+
+	const nTables = 100
+	for t := 0; t < nTables; t++ {
+		stmt := fmt.Sprintf(
+			`CREATE TABLE t_%03d(id INTEGER AUTO_INCREMENT, v VARCHAR[50], PRIMARY KEY id);
+			 CREATE INDEX ON t_%03d(v);`, t, t)
+		_, _, err = engine.Exec(context.Background(), nil, stmt, nil)
+		require.NoError(b, err)
+	}
+
+	// Warm the cache via one RW (non-DDL) commit. Phase 2 populates the
+	// engine cache from this tx's catalog clone.
+	wtx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+	require.NoError(b, err)
+	_, _, err = engine.Exec(context.Background(), wtx,
+		"UPSERT INTO t_000(id, v) VALUES (1, 'x');", nil)
+	require.NoError(b, err)
+	require.NoError(b, wtx.Commit(context.Background()))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := tx.Cancel(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestLikeWithNullableColumns(t *testing.T) {
 	engine := setupCommonTest(t)
 

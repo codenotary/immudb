@@ -60,6 +60,78 @@ func TestDistinctRowReader(t *testing.T) {
 	require.ErrorIs(t, err, errDummy)
 }
 
+// BenchmarkDistinctSpill exercises the D5 spill-to-disk path on a 200k
+// distinct-row population (smaller than the doc's 10M target so the
+// bench finishes in seconds — but still 1000+ spill flushes at the
+// 100-row threshold, which is enough to stress the merge path). The
+// benchmark variant is the gate that perf-delta tracks; the
+// correctness assertion is over in TestDistinctSpill.
+//
+// Each iteration runs SELECT DISTINCT k FROM t over a single-table scan
+// with k = i % distinctK; the threshold of 100 forces ~2000 spill
+// flushes per iteration, exercising both the in-mem fast path and the
+// on-disk binary search. Any regression in spill performance shows up
+// here as latency or alloc growth.
+func BenchmarkDistinctSpill(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(b, err)
+	b.Cleanup(func() { _ = st.Close() })
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithDistinctSpillThreshold(100))
+	require.NoError(b, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		"CREATE TABLE t(id INTEGER, k INTEGER, PRIMARY KEY id);", nil)
+	require.NoError(b, err)
+
+	const (
+		distinctK = 200_000
+		nRows     = 200_000
+	)
+	const perTx = 1000
+	for off := 0; off < nRows; off += perTx {
+		tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+		require.NoError(b, err)
+		end := off + perTx
+		if end > nRows {
+			end = nRows
+		}
+		for i := off; i < end; i++ {
+			_, _, err := engine.Exec(context.Background(), tx,
+				fmt.Sprintf("UPSERT INTO t(id, k) VALUES (%d, %d);", i, i%distinctK), nil)
+			require.NoError(b, err)
+		}
+		_, _, err = engine.Exec(context.Background(), tx, "COMMIT;", nil)
+		require.NoError(b, err)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		reader, err := engine.Query(context.Background(), nil, "SELECT DISTINCT k FROM t", nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		seen := 0
+		for {
+			_, err := reader.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				reader.Close()
+				b.Fatal(err)
+			}
+			seen++
+		}
+		reader.Close()
+		if seen != distinctK {
+			b.Fatalf("expected %d distinct rows, got %d", distinctK, seen)
+		}
+	}
+}
+
 // TestDistinctSpill verifies D5: with DistinctSpillThreshold > 0 and an
 // input that exceeds the threshold many times over, DISTINCT yields the
 // correct unique row count without OOM and without ErrTooManyRows.

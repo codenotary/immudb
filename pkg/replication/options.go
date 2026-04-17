@@ -48,23 +48,21 @@ type Options struct {
 
 	// fetchPipelineDepth (A4) controls how many ExportTx requests can be
 	// in flight on the export stream concurrently. Default 1 = legacy
-	// strictly-serial fetch loop; > 1 enables pipelined fetch.
+	// strictly-serial fetch loop; > 1 enables pipelined fetch on the
+	// async-replication path so the primary can prepare the next
+	// response while the replica is still draining the current one.
 	//
-	// IMPORTANT: pipelined fetch (depth > 1) is currently scaffolding-only
-	// — the option is plumbed through but the replicator's serial
-	// fetchNextTx loop has not yet been refactored into a producer/
-	// consumer split. Wiring the actual pipeline requires non-trivial
-	// changes to:
-	//   - sync-replication state machinery (each ExportTxRequest carries
-	//     a ReplicaState snapshot; pipelined requests need coherent
-	//     ordering of those snapshots),
-	//   - error handling (a mid-pipeline failure must drop pending
-	//     responses without leaking the gRPC stream),
-	//   - back-pressure (a slow replica must not let the primary buffer
-	//     unbounded export traffic).
-	// These are the risks called out in immudb-improvements.md A4.
-	// Setting this > 1 today is a no-op other than emitting a one-time
-	// warning at startup.
+	// Sync replication ignores this setting — each ExportTxRequest in
+	// the sync path carries a ReplicaState snapshot the primary uses
+	// for commit acks, and pre-sending with stale state would confuse
+	// that handshake. To pipeline sync replication, the request shape
+	// would need to be redesigned to decouple state-reporting from
+	// tx-fetching (out of scope for A4 Phase 1).
+	//
+	// Recommended values: 2-4. Higher depths give diminishing returns
+	// and increase the primary-side buffer headroom required for slow
+	// replicas (back-pressure considerations in
+	// immudb-improvements.md A4).
 	fetchPipelineDepth int
 
 	allowTxDiscarding  bool
@@ -96,10 +94,11 @@ func DefaultOptions() *Options {
 	}
 }
 
-// WithFetchPipelineDepth (A4) reserves the option for future pipelined
-// fetch from the primary. See Options.fetchPipelineDepth doc for the
-// current scaffolding limitation — depth > 1 is accepted but not yet
-// honoured by the replicator loop.
+// WithFetchPipelineDepth (A4) sets the number of in-flight
+// ExportTxRequests on the async-replication fetch path. depth=1
+// (default) is the legacy strictly-serial loop; depth>=2 keeps the
+// stream warm by pre-sending requests for upcoming txs. See
+// Options.fetchPipelineDepth for the sync-replication exclusion.
 func (o *Options) WithFetchPipelineDepth(depth int) *Options {
 	if depth < 1 {
 		depth = 1

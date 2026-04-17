@@ -72,6 +72,16 @@ type TxReplicator struct {
 
 	lastTx uint64
 
+	// lastSentTx is the highest tx ID for which an ExportTxRequest has
+	// been Send()'d on exportTxStream but whose response may not yet
+	// have been ReadFully()'d. Tracks the pipeline depth (A4): when
+	// fetchPipelineDepth > 1 and async replication is in use,
+	// fetchNextTx pre-sends up to (lastTx + pipelineDepth) requests
+	// while ReadFully drains the responses one at a time. Reset to 0
+	// on disconnect so a reconnected stream doesn't try to drain
+	// orphaned in-flight sends.
+	lastSentTx uint64
+
 	prefetchTxBuffer       chan prefetchTxEntry // buffered channel of exported txs
 	replicationConcurrency int
 
@@ -322,6 +332,10 @@ func (txr *TxReplicator) disconnect() {
 		txr.exportTxStream = nil
 	}
 
+	// Any pre-sent (pipelined) requests are gone with the stream — clear
+	// the bookkeeping so a reconnect starts fresh.
+	txr.lastSentTx = 0
+
 	txr.client.CloseSession(txr.context)
 	txr.client = nil
 
@@ -367,15 +381,41 @@ func (txr *TxReplicator) fetchNextTx() error {
 		}
 	}
 
-	req := &schema.ExportTxRequest{
-		Tx:                 nextTx,
-		ReplicaState:       state,
-		AllowPreCommitted:  syncReplicationEnabled,
-		SkipIntegrityCheck: txr.skipIntegrityCheck,
+	// A4: pipelined fetch. With pipelineDepth > 1 we keep up to that many
+	// requests in flight on exportTxStream so the primary can prepare the
+	// next response while we ReadFully the current one. Restricted to
+	// async replication: the sync path embeds replica state in each
+	// request (CommittedTxID/PrecommittedTxID) and the primary uses
+	// those values for commit acks — pre-sending with stale state would
+	// confuse that handshake.
+	pipelineDepth := txr.opts.fetchPipelineDepth
+	if pipelineDepth < 1 {
+		pipelineDepth = 1
+	}
+	if syncReplicationEnabled {
+		pipelineDepth = 1
 	}
 
-	if err := txr.exportTxStream.Send(req); err != nil {
-		return err
+	// Compute the highest tx we should have a request out for, and emit
+	// fresh Sends for any not-yet-sent ones in [lastSentTx+1, maxToSend].
+	if txr.lastSentTx < nextTx-1 {
+		// The stream is fresh (just connected) or we lost track on
+		// reconnect — anchor at nextTx-1 so the loop below starts at nextTx.
+		txr.lastSentTx = nextTx - 1
+	}
+	maxToSend := nextTx + uint64(pipelineDepth-1)
+
+	for sendTx := txr.lastSentTx + 1; sendTx <= maxToSend; sendTx++ {
+		sendReq := &schema.ExportTxRequest{
+			Tx:                 sendTx,
+			ReplicaState:       state, // nil for async; same for all pipelined sends
+			AllowPreCommitted:  syncReplicationEnabled,
+			SkipIntegrityCheck: txr.skipIntegrityCheck,
+		}
+		if err := txr.exportTxStream.Send(sendReq); err != nil {
+			return err
+		}
+		txr.lastSentTx = sendTx
 	}
 
 	etx, emd, err := txr.exportTxStreamReceiver.ReadFully()

@@ -454,6 +454,14 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		for _, table := range catalog.GetTables() {
 			table.maxPK = 0
 		}
+		// D2 Phase 2 correctness: catalog.load was skipped, so the MVCC
+		// read-set has no record of the catalog rows this tx implicitly
+		// observed. Without this seed, two concurrent txs doing
+		// conflicting DDL would both commit (no read-conflict tripwire).
+		// See immudb-improvements.md "Open question #2".
+		if err := e.seedCatalogReadSet(ctx, tx, catalog.GetTables()); err != nil {
+			return nil, err
+		}
 	} else {
 		CatalogCacheMissObserver()
 		catalog = newCatalog(e.prefix)
@@ -577,6 +585,54 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		lastInsertedPKs:    make(map[string]int64),
 		firstInsertedPKs:   make(map[string]int64),
 	}, nil
+}
+
+// seedCatalogReadSet walks the catalog prefix ranges that catalog.load
+// would have read, registering them in the OngoingTx MVCC read-set
+// without doing the full per-row decoding work. Used by NewTx's Clone
+// fast path (D2 Phase 2) so DDL-vs-DDL conflict detection still fires
+// even when the cached catalog skips the parse step.
+//
+// Each prefix is read to ErrNoMoreEntries via the regular OngoingTx
+// KeyReader path, which appends per-key expectedReads plus an
+// expectedNoMoreEntries marker — the same MVCC bookkeeping that
+// catalog.load relies on for its conflict guarantee. Only the (cheap)
+// per-row processing inside iteratePrefix's onSpec callback is skipped.
+func (e *Engine) seedCatalogReadSet(ctx context.Context, tx *store.OngoingTx, tables []*Table) error {
+	prefixes := [][]byte{
+		MapKey(e.prefix, catalogTablePrefix, EncodeID(DatabaseID)),
+	}
+	for _, t := range tables {
+		prefixes = append(prefixes,
+			MapKey(e.prefix, catalogColumnPrefix, EncodeID(DatabaseID), EncodeID(t.id)),
+			MapKey(e.prefix, catalogIndexPrefix, EncodeID(DatabaseID), EncodeID(t.id)),
+			MapKey(e.prefix, catalogCheckPrefix, EncodeID(DatabaseID), EncodeID(t.id)),
+		)
+	}
+	for _, p := range prefixes {
+		if err := drainKeyReader(ctx, tx, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func drainKeyReader(ctx context.Context, tx *store.OngoingTx, prefix []byte) error {
+	rdr, err := tx.NewKeyReader(store.KeyReaderSpec{Prefix: prefix})
+	if err != nil {
+		return err
+	}
+	defer rdr.Close()
+
+	for {
+		_, _, err := rdr.Read(ctx)
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // invalidateCatalogCache clears the engine-level catalog cache. Called after
