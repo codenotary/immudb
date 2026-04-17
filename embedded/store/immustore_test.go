@@ -3320,44 +3320,6 @@ func TestTxbsPoolEvictionSafety(t *testing.T) {
 	}
 }
 
-// BenchmarkSyncedSingleTxLatency gates the syncer fast-path for R3.
-// Opens a store with Synced=true and issues a stream of single-tx
-// commits, measuring end-to-end Commit wall time. Before the fast
-// path, every commit paid at least one syncFrequency/4 sleep (~5 ms
-// at the 20 ms default) inside the syncer goroutine before the fsync.
-// After, a single-tx commit syncs immediately once it wakes the
-// syncer. Target: meaningful p50 reduction.
-func BenchmarkSyncedSingleTxLatency(b *testing.B) {
-	immuStore, err := Open(b.TempDir(), DefaultOptions().WithSynced(true))
-	require.NoError(b, err)
-	defer immuStore.Close()
-
-	const (
-		keyLen = 40
-		valLen = 128
-	)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		tx, err := immuStore.NewWriteOnlyTx(context.Background())
-		if err != nil {
-			b.Fatal(err)
-		}
-		k := make([]byte, keyLen)
-		binary.BigEndian.PutUint64(k, uint64(i))
-		v := make([]byte, valLen)
-		binary.BigEndian.PutUint64(v, uint64(i))
-		if err := tx.Set(k, nil, v); err != nil {
-			b.Fatal(err)
-		}
-		if _, err := tx.Commit(context.Background()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 // BenchmarkConcurrentCommits exercises the commit hot path that the
 // txbs buffer pool and cLog entry reuse target. Parallel writers each
 // open a tx, insert `batchSize` KVs, and Commit. Alloc-count deltas

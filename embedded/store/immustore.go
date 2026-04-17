@@ -735,18 +735,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	return store, nil
 }
 
-// peekPrecommitted reports whether tx txID has been precommitted,
-// without blocking. Uses an already-elapsed context on
-// inmemPrecommitWHub.WaitFor so the fast path (doneUpto >= txID)
-// returns nil immediately while the slow path returns ctx.Err()
-// immediately (the select's ctx.Done is already fired). Same idiom
-// used by the D3 adaptive-bulk-size peek in indexer.go.
-func (s *ImmuStore) peekPrecommitted(txID uint64) bool {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Time{})
-	defer cancel()
-	return s.inmemPrecommitWHub.WaitFor(ctx, txID) == nil
-}
-
 func (s *ImmuStore) syncer() {
 	for {
 		committedTxID := s.LastCommittedTxID()
@@ -757,30 +745,22 @@ func (s *ImmuStore) syncer() {
 			return
 		}
 
-		// R3 fast path: if no second tx has precommitted yet, sync
-		// immediately. The accumulation loop below exists to batch the
-		// fsync across a burst of txs — but when there IS no burst it
-		// imposes a full syncFrequency/4 sleep for no durability benefit
-		// (the lull-detect break always requires at least ONE sleep
-		// before it can compare prev vs latest). Peeking non-blockingly
-		// for tx committedTxID+2 distinguishes single-tx from burst.
-		if s.peekPrecommitted(committedTxID + 2) {
-			// Burst in progress — accumulate briefly so the fsync
-			// amortises across the txs. Exits on the first lull or
-			// after syncFrequency total wall time. Semantics unchanged
-			// from the prior loop body.
-			prevLatestPrecommitedTx := committedTxID + 1
-			for i := 0; i < 4; i++ {
-				time.Sleep(s.syncFrequency / 4)
+		// TODO: waiting on earlier stages of transaction processing may also be possible
+		prevLatestPrecommitedTx := committedTxID + 1
 
-				latestPrecommitedTx := s.LastPrecommittedTxID()
+		// TODO: parametrize concurrency evaluation
+		for i := 0; i < 4; i++ {
+			// give some time for more transactions to be precommitted
+			time.Sleep(s.syncFrequency / 4)
 
-				if prevLatestPrecommitedTx == latestPrecommitedTx {
-					break
-				}
+			latestPrecommitedTx := s.LastPrecommittedTxID()
 
-				prevLatestPrecommitedTx = latestPrecommitedTx
+			if prevLatestPrecommitedTx == latestPrecommitedTx {
+				// avoid waiting if there are no new transactions
+				break
 			}
+
+			prevLatestPrecommitedTx = latestPrecommitedTx
 		}
 
 		// ensure durability
