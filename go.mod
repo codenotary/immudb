@@ -34,6 +34,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.11.1
 	github.com/takama/daemon v0.12.0
+	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/net v0.50.0
 	golang.org/x/sys v0.41.0
@@ -95,7 +96,6 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	go.uber.org/goleak v1.3.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect

@@ -332,8 +332,9 @@ func (txr *TxReplicator) disconnect() {
 		txr.exportTxStream = nil
 	}
 
-	// Any pre-sent (pipelined) requests are gone with the stream — clear
-	// the bookkeeping so a reconnect starts fresh.
+	// lastSentTx is currently unread (A4 pipelining was reverted in
+	// fetchNextTx; see the long comment there). The reset stays so a
+	// future re-enable picks up clean state.
 	txr.lastSentTx = 0
 
 	txr.client.CloseSession(txr.context)
@@ -381,36 +382,35 @@ func (txr *TxReplicator) fetchNextTx() error {
 		}
 	}
 
-	// A4: pipelined fetch. With pipelineDepth > 1 we keep up to that many
-	// requests in flight on exportTxStream so the primary can prepare the
-	// next response while we ReadFully the current one. Restricted to
-	// async replication: the sync path embeds replica state in each
-	// request (CommittedTxID/PrecommittedTxID) and the primary uses
-	// those values for commit acks — pre-sending with stale state would
-	// confuse that handshake.
-	depth := effectivePipelineDepth(txr.opts.fetchPipelineDepth, syncReplicationEnabled)
-
-	// Compute the highest tx we should have a request out for, and emit
-	// fresh Sends for any not-yet-sent ones in the returned range.
-	lo, hi, anchored := pipelineSendRange(txr.lastSentTx, nextTx, depth)
-	if anchored {
-		// The stream is fresh (just connected) or we lost track on
-		// reconnect — pipelineSendRange already advanced lastSentTx
-		// for us; reflect the anchor in the replicator state.
-		txr.lastSentTx = nextTx - 1
+	// A4 pipelined-fetch wiring intentionally REVERTED. The earlier
+	// implementation broke `pkg/integration/replication` because it
+	// conflated "highest tx Sent" with "highest tx whose response was
+	// applied". Whenever ReadFully consumed a response without bumping
+	// txr.lastTx — e.g. ErrNoNewTransactions on the async polling path,
+	// or the empty-etx primary-state-only sync path — the next call
+	// thought the request for nextTx was still in flight, skipped the
+	// Send, and ReadFully blocked forever waiting for a response that
+	// would never arrive. Sync-replication suite hung at the test
+	// timeout (600s) for this reason.
+	//
+	// The protocol is request/response (the primary doesn't block on a
+	// future tx; it returns ErrNoNewTransactions immediately when
+	// req.Tx > committed). Pipelining a poll-style protocol requires
+	// either (a) primary-side blocking semantics (so each Send
+	// translates 1:1 to a useful response) or (b) explicit drain/
+	// re-poll handling for stale responses. Neither is in scope today.
+	//
+	// The Options.fetchPipelineDepth knob and the pipeline.go helpers
+	// remain in tree as tested scaffolding for a future redesign; this
+	// loop ships the pre-A4 single Send + ReadFully behaviour.
+	req := &schema.ExportTxRequest{
+		Tx:                 nextTx,
+		ReplicaState:       state,
+		AllowPreCommitted:  syncReplicationEnabled,
+		SkipIntegrityCheck: txr.skipIntegrityCheck,
 	}
-
-	for sendTx := lo; sendTx <= hi; sendTx++ {
-		sendReq := &schema.ExportTxRequest{
-			Tx:                 sendTx,
-			ReplicaState:       state, // nil for async; same for all pipelined sends
-			AllowPreCommitted:  syncReplicationEnabled,
-			SkipIntegrityCheck: txr.skipIntegrityCheck,
-		}
-		if err := txr.exportTxStream.Send(sendReq); err != nil {
-			return err
-		}
-		txr.lastSentTx = sendTx
+	if err := txr.exportTxStream.Send(req); err != nil {
+		return err
 	}
 
 	etx, emd, err := txr.exportTxStreamReceiver.ReadFully()
