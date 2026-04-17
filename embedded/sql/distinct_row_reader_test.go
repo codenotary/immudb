@@ -19,6 +19,8 @@ package sql
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -129,6 +131,81 @@ func BenchmarkDistinctSpill(b *testing.B) {
 		if seen != distinctK {
 			b.Fatalf("expected %d distinct rows, got %d", distinctK, seen)
 		}
+	}
+}
+
+// TestDistinctSpillTempFileLifecycle (D5 follow-up) verifies that the
+// merge-replaces-previous-spill path correctly deregisters the old
+// spill from the SQLTx tempFiles list (so each flush keeps only ONE
+// spill file registered), and that tx Commit/Cancel removes the final
+// spill from disk.
+func TestDistinctSpillTempFileLifecycle(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMultiIndexing(true))
+	require.NoError(t, err)
+	t.Cleanup(func() { closeStore(t, st) })
+
+	// Threshold of 8 forces ~12 spill flushes over a 100-key population.
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithDistinctSpillThreshold(8))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		"CREATE TABLE t(id INTEGER, k INTEGER, PRIMARY KEY id);", nil)
+	require.NoError(t, err)
+
+	// Populate.
+	tx, _, err := engine.Exec(context.Background(), nil, "BEGIN TRANSACTION;", nil)
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, _, err := engine.Exec(context.Background(), tx,
+			fmt.Sprintf("UPSERT INTO t(id, k) VALUES (%d, %d);", i, i), nil)
+		require.NoError(t, err)
+	}
+	_, _, err = engine.Exec(context.Background(), tx, "COMMIT;", nil)
+	require.NoError(t, err)
+
+	// Run DISTINCT inside an explicit-close tx so we can inspect
+	// tempFiles before final cleanup.
+	queryTx, err := engine.NewTx(context.Background(),
+		DefaultTxOptions().WithReadOnly(true).WithExplicitClose(true))
+	require.NoError(t, err)
+
+	stmts, err := ParseSQL(strings.NewReader("SELECT DISTINCT k FROM t"))
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+	dsStmt := stmts[0].(DataSource)
+
+	reader, err := engine.QueryPreparedStmt(context.Background(), queryTx, dsStmt, nil)
+	require.NoError(t, err)
+
+	seen := 0
+	for {
+		_, err := reader.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		seen++
+	}
+	require.Equal(t, 100, seen)
+	require.NoError(t, reader.Close())
+
+	// Flush-replace-merge invariant: after many flushes the queryTx
+	// should hold AT MOST one tempFile (the current spill).
+	require.LessOrEqual(t, len(queryTx.tempFiles), 1,
+		"flushToSpill should deregister the previous spill on each merge")
+
+	// Capture path so we can assert the file is gone after Cancel.
+	var spillPath string
+	if len(queryTx.tempFiles) == 1 {
+		spillPath = queryTx.tempFiles[0].Name()
+	}
+
+	require.NoError(t, queryTx.Cancel())
+
+	if spillPath != "" {
+		_, err := os.Stat(spillPath)
+		require.True(t, os.IsNotExist(err),
+			"tx Cancel should have removed the spill file at %s", spillPath)
 	}
 }
 

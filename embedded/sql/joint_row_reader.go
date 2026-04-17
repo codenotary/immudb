@@ -371,9 +371,14 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 // already-reduced join condition for the current outer row. It returns
 // (probed=true, reader, row, nil) when a hashProbeReader was built and a
 // first row pulled, (probed=true, nil, nil, nil) when the outer row has no
-// matching inner rows, and (probed=false, nil, nil, nil) when the join is
-// not eligible (LATERAL, NATURAL, non-INNER, non-equi cond, etc.) so the
-// caller falls back to the existing Resolve-per-row path.
+// matching inner rows AND the join is INNER (caller backtracks), and
+// (probed=false, nil, nil, nil) when the join is not eligible (LATERAL,
+// NATURAL, FULL OUTER, non-equi cond, etc.) so the caller falls back to
+// the existing Resolve-per-row path.
+//
+// LEFT JOIN: when matched is empty, synthesises a single NULL-extended row
+// for the inner side (mirrors the slow path's NULL-fill behaviour at
+// joint_row_reader.go:327).
 //
 // The hash table is built once per join level on first eligible call and
 // cached on jointr.hashTables[i]. Build errors degrade to the slow path
@@ -389,7 +394,10 @@ func (jointr *jointRowReader) tryHashProbe(
 	ds DataSource,
 	reducedWhere ValueExp,
 ) (probed bool, reader RowReader, r *Row, err error) {
-	if jspec.lateral || jspec.natural || jspec.joinType != InnerJoin {
+	if jspec.lateral || jspec.natural {
+		return false, nil, nil, nil
+	}
+	if jspec.joinType != InnerJoin && jspec.joinType != LeftJoin {
 		return false, nil, nil, nil
 	}
 
@@ -431,7 +439,23 @@ func (jointr *jointRowReader) tryHashProbe(
 
 	matched := ht.rows[compositeHashKey(outerVals)]
 	if len(matched) == 0 {
-		return true, nil, nil, nil
+		if jspec.joinType != LeftJoin {
+			return true, nil, nil, nil
+		}
+		// LEFT JOIN with no inner match: synthesise a single NULL-extended
+		// row over the inner column set. The probe reader returns it once,
+		// then ErrNoMoreRows on the next Read (popping cleanly so the
+		// outer reader advances to the next row).
+		nullRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(ht.cols)),
+			ValuesBySelector: make(map[string]TypedValue, len(ht.cols)),
+		}
+		for k, col := range ht.cols {
+			nullValue := NewNull(col.Type)
+			nullRow.ValuesByPosition[k] = nullValue
+			nullRow.ValuesBySelector[col.Selector()] = nullValue
+		}
+		matched = []*Row{nullRow}
 	}
 
 	probe := newHashProbeReader(matched, ht.cols, jointr.Tx(), jointr.Parameters())

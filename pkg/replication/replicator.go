@@ -388,24 +388,19 @@ func (txr *TxReplicator) fetchNextTx() error {
 	// request (CommittedTxID/PrecommittedTxID) and the primary uses
 	// those values for commit acks — pre-sending with stale state would
 	// confuse that handshake.
-	pipelineDepth := txr.opts.fetchPipelineDepth
-	if pipelineDepth < 1 {
-		pipelineDepth = 1
-	}
-	if syncReplicationEnabled {
-		pipelineDepth = 1
-	}
+	depth := effectivePipelineDepth(txr.opts.fetchPipelineDepth, syncReplicationEnabled)
 
 	// Compute the highest tx we should have a request out for, and emit
-	// fresh Sends for any not-yet-sent ones in [lastSentTx+1, maxToSend].
-	if txr.lastSentTx < nextTx-1 {
+	// fresh Sends for any not-yet-sent ones in the returned range.
+	lo, hi, anchored := pipelineSendRange(txr.lastSentTx, nextTx, depth)
+	if anchored {
 		// The stream is fresh (just connected) or we lost track on
-		// reconnect — anchor at nextTx-1 so the loop below starts at nextTx.
+		// reconnect — pipelineSendRange already advanced lastSentTx
+		// for us; reflect the anchor in the replicator state.
 		txr.lastSentTx = nextTx - 1
 	}
-	maxToSend := nextTx + uint64(pipelineDepth-1)
 
-	for sendTx := txr.lastSentTx + 1; sendTx <= maxToSend; sendTx++ {
+	for sendTx := lo; sendTx <= hi; sendTx++ {
 		sendReq := &schema.ExportTxRequest{
 			Tx:                 sendTx,
 			ReplicaState:       state, // nil for async; same for all pipelined sends

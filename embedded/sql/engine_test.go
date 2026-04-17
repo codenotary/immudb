@@ -11109,6 +11109,81 @@ func BenchmarkJoin(b *testing.B) {
 	}
 }
 
+// BenchmarkLeftJoin mirrors BenchmarkJoin but uses LEFT JOIN with a
+// 50%-miss rate (inner only has half the keys), so the hash-join must
+// emit NULL-extended rows for the outer rows that don't match. Gates
+// the D1 LEFT JOIN extension.
+func BenchmarkLeftJoin(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	require.NoError(b, err)
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(b, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE outer_t(id INTEGER AUTO_INCREMENT, k INTEGER, PRIMARY KEY id);
+		 CREATE INDEX ON outer_t(k);
+		 CREATE TABLE inner_t(id INTEGER AUTO_INCREMENT, k INTEGER, v VARCHAR[50], PRIMARY KEY id);
+		 CREATE INDEX ON inner_t(k);`, nil)
+	require.NoError(b, err)
+
+	const (
+		nOuter = 500
+		nInner = 250 // half — so 50% of outer rows have no match
+	)
+
+	insertBatch := func(table string, n int, valFmt string) {
+		const perTx = 500
+		for off := 0; off < n; off += perTx {
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+			require.NoError(b, err)
+			end := off + perTx
+			if end > n {
+				end = n
+			}
+			for i := off; i < end; i++ {
+				stmt := fmt.Sprintf("INSERT INTO %s(k, v) VALUES (@k, @v)", table)
+				params := map[string]interface{}{"k": i, "v": fmt.Sprintf(valFmt, i)}
+				if table == "outer_t" {
+					stmt = "INSERT INTO outer_t(k) VALUES (@k)"
+					params = map[string]interface{}{"k": i}
+				}
+				_, _, err := engine.Exec(context.Background(), tx, stmt, params)
+				require.NoError(b, err)
+			}
+			require.NoError(b, tx.Commit(context.Background()))
+		}
+	}
+
+	insertBatch("outer_t", nOuter, "")
+	insertBatch("inner_t", nInner, "v_%06d")
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		reader, err := engine.Query(context.Background(), nil,
+			"SELECT outer_t.k, inner_t.v FROM outer_t LEFT JOIN inner_t ON outer_t.k = inner_t.k", nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		for {
+			_, err := reader.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				reader.Close()
+				b.Fatal(err)
+			}
+		}
+		reader.Close()
+	}
+}
+
 // BenchmarkJoinWithFilter measures the predicate-pushdown (D7) win on a
 // two-table INNER JOIN whose WHERE clause carries a selective inner-only
 // filter (k mod 10 == 0 → keeps 10% of inner rows). Without pushdown, the
