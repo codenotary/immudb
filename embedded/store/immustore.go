@@ -157,6 +157,16 @@ type ImmuStore struct {
 	vLogUnlockedList *list.List
 	vLogsCond        *sync.Cond
 
+	// singleVLogMu is the R6 fast-path gate used when maxIOConcurrency
+	// == 1 and embeddedValues == false. With only one vLog the
+	// vLogsCond/vLogUnlockedList machinery reduces to "acquire the one
+	// vLog": a plain sync.Mutex suffices, saving the condvar's
+	// inner-lock + list-surgery + Signal overhead on every value-log
+	// access. For maxIOConcurrency > 1 the multi-vLog arbitration still
+	// needs the condvar path (we can't block on a specific vLogID with
+	// a single mutex).
+	singleVLogMu sync.Mutex
+
 	vLogCache *cache.Cache
 
 	txLog      appendable.Appendable
@@ -1439,7 +1449,20 @@ func decodeOffset(offset int64) (byte, int64) {
 	return byte(offset >> 56), offset & ^(0xff << 55)
 }
 
+// isSingleVLogFastPath reports whether the R6 fast path applies:
+// non-embedded mode with a single vLog (default config). In that case
+// fetch*/release* skip the condvar + unlockedList machinery and use
+// a plain sync.Mutex.
+func (s *ImmuStore) isSingleVLogFastPath() bool {
+	return s.maxIOConcurrency == 1 && !s.embeddedValues
+}
+
 func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable) {
+	if s.isSingleVLogFastPath() {
+		s.singleVLogMu.Lock()
+		return 1, s.vLogs[0].vLog
+	}
+
 	s.vLogsCond.L.Lock()
 	defer s.vLogsCond.L.Unlock()
 
@@ -1463,6 +1486,16 @@ func (s *ImmuStore) fetchVLog(vLogID byte) (appendable.Appendable, error) {
 		return s.txLog, nil
 	}
 
+	if s.isSingleVLogFastPath() {
+		// With one vLog, vLogID must be 1. Anything else is a bug in
+		// the caller encoding a stale or cross-store vLogID.
+		if vLogID != 1 {
+			return nil, fmt.Errorf("%w: invalid vLogID %d for single-vLog store", ErrUnexpectedError, vLogID)
+		}
+		s.singleVLogMu.Lock()
+		return s.vLogs[0].vLog, nil
+	}
+
 	s.vLogsCond.L.Lock()
 	defer s.vLogsCond.L.Unlock()
 
@@ -1483,6 +1516,14 @@ func (s *ImmuStore) releaseVLog(vLogID byte) error {
 		}
 
 		s.commitStateRWMutex.Unlock()
+		return nil
+	}
+
+	if s.isSingleVLogFastPath() {
+		if vLogID != 1 {
+			return fmt.Errorf("%w: invalid vLogID %d for single-vLog store", ErrUnexpectedError, vLogID)
+		}
+		s.singleVLogMu.Unlock()
 		return nil
 	}
 
