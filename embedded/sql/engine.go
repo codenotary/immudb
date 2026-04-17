@@ -587,17 +587,16 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	}, nil
 }
 
-// seedCatalogReadSet walks the catalog prefix ranges that catalog.load
-// would have read, registering them in the OngoingTx MVCC read-set
-// without doing the full per-row decoding work. Used by NewTx's Clone
-// fast path (D2 Phase 2) so DDL-vs-DDL conflict detection still fires
-// even when the cached catalog skips the parse step.
+// seedCatalogReadSet registers prefix-range fingerprints on the
+// OngoingTx read-set for every catalog prefix that catalog.load
+// would have walked. Used by NewTx's Clone fast path (D2 Phase 2)
+// so DDL-vs-DDL conflict detection still fires even when the cached
+// catalog skips the parse step.
 //
-// Each prefix is read to ErrNoMoreEntries via the regular OngoingTx
-// KeyReader path, which appends per-key expectedReads plus an
-// expectedNoMoreEntries marker — the same MVCC bookkeeping that
-// catalog.load relies on for its conflict guarantee. Only the (cheap)
-// per-row processing inside iteratePrefix's onSpec callback is skipped.
+// Uses OngoingTx.MarkPrefixScanned (R1 from the agent review) which
+// records ONE fingerprint per prefix instead of per-entry
+// expectedReads + expectedNoMoreEntries — same conflict guarantee,
+// without the O(N) bookkeeping tax on every warm-cache NewTx.
 func (e *Engine) seedCatalogReadSet(ctx context.Context, tx *store.OngoingTx, tables []*Table) error {
 	prefixes := [][]byte{
 		MapKey(e.prefix, catalogTablePrefix, EncodeID(DatabaseID)),
@@ -610,7 +609,7 @@ func (e *Engine) seedCatalogReadSet(ctx context.Context, tx *store.OngoingTx, ta
 		)
 	}
 	for _, p := range prefixes {
-		if err := drainKeyReader(ctx, tx, p); err != nil {
+		if err := tx.MarkPrefixScanned(ctx, store.KeyReaderSpec{Prefix: p}); err != nil {
 			return err
 		}
 	}

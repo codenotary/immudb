@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -61,13 +62,38 @@ type mvccReadSet struct {
 	expectedGets           []expectedGet
 	expectedGetsWithPrefix []expectedGetWithPrefix
 	expectedReaders        []*expectedReader
+	expectedPrefixFPs      []expectedPrefixFingerprint
 	readsetSize            int
 }
 
 func (mvccReadSet *mvccReadSet) isEmpty() bool {
 	return len(mvccReadSet.expectedGets) == 0 &&
 		len(mvccReadSet.expectedGetsWithPrefix) == 0 &&
-		len(mvccReadSet.expectedReaders) == 0
+		len(mvccReadSet.expectedReaders) == 0 &&
+		len(mvccReadSet.expectedPrefixFPs) == 0
+}
+
+// expectedPrefixFingerprint records that a caller has scanned every
+// key under a prefix (optionally bounded by seekKey/endKey) as of the
+// snapshot taken at MarkPrefixScanned time, with `fingerprint` being
+// sha256 over the (keyLen, key, committedTxID) tuples in iteration
+// order. At commit the store re-computes the fingerprint against the
+// current sync snapshot and trips ErrTxReadConflict on any mismatch.
+//
+// The primitive is a lightweight alternative to wrapping every read
+// in an expectedReader when the caller doesn't need per-key
+// conflict-detection granularity — only "did anything in this
+// prefix change?". Post-D2 Phase 2 the catalog seedCatalogReadSet
+// path uses this to avoid per-entry bookkeeping on every warm-cache
+// NewTx.
+type expectedPrefixFingerprint struct {
+	prefix        []byte
+	seekKey       []byte
+	endKey        []byte
+	inclusiveSeek bool
+	inclusiveEnd  bool
+	descOrder     bool
+	fingerprint   [sha256.Size]byte
 }
 
 type expectedGet struct {
@@ -578,6 +604,115 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	return newOngoingTxKeyReader(tx, spec)
 }
 
+// MarkPrefixScanned registers that the caller has observed every
+// key matching spec on the current read-snapshot and wants the
+// prefix as a whole protected by MVCC conflict detection, without
+// paying the per-key bookkeeping cost of a wrapped KeyReader.
+//
+// The store computes a sha256 fingerprint over (keyLen, key,
+// committedTxID) for every key in iteration order and stashes it on
+// the tx's read-set. At commit, the same fingerprint is recomputed
+// against the sync snapshot; any divergence — added keys, removed
+// keys, or a key's value updated to a newer txID — raises
+// ErrTxReadConflict.
+//
+// This is a strictly weaker guarantee than wrapping the reads in
+// ongoingTxKeyReader: callers lose the per-read initial/final txID
+// bounds and the "specific key at specific tx" check. It is however
+// strictly stronger than no tracking at all, and enough for the
+// catalog-seeding use case (Engine.seedCatalogReadSet) where we
+// only need to know "did the catalog change?" not "which exact row
+// moved under me?".
+//
+// Read-only transactions don't register — they can't be invalidated.
+func (tx *OngoingTx) MarkPrefixScanned(ctx context.Context, spec KeyReaderSpec) error {
+	if tx.closed {
+		return ErrAlreadyClosed
+	}
+
+	if tx.IsWriteOnly() {
+		return ErrWriteOnlyTx
+	}
+
+	if tx.IsReadOnly() {
+		// RO txs cannot be invalidated — nothing to track.
+		return nil
+	}
+
+	if tx.mvccReadSetLimitReached() {
+		return ErrMVCCReadSetLimitExceeded
+	}
+
+	snap, err := tx.snap(spec.Prefix)
+	if err != nil {
+		return err
+	}
+
+	fp, err := prefixFingerprint(ctx, snap, spec)
+	if err != nil {
+		return err
+	}
+
+	tx.mvccReadSet.expectedPrefixFPs = append(tx.mvccReadSet.expectedPrefixFPs,
+		expectedPrefixFingerprint{
+			prefix:        cp(spec.Prefix),
+			seekKey:       cp(spec.SeekKey),
+			endKey:        cp(spec.EndKey),
+			inclusiveSeek: spec.InclusiveSeek,
+			inclusiveEnd:  spec.InclusiveEnd,
+			descOrder:     spec.DescOrder,
+			fingerprint:   fp,
+		})
+	tx.mvccReadSet.readsetSize++
+
+	return nil
+}
+
+// prefixFingerprint hashes every (keyLen, key, committedTxID) tuple
+// in prefix-scan order. Shared between MarkPrefixScanned (read-time
+// snapshot) and checkPreconditions (commit-time sync snapshot) so
+// the two fingerprints are directly comparable byte-for-byte.
+func prefixFingerprint(ctx context.Context, snap *Snapshot, spec KeyReaderSpec) ([sha256.Size]byte, error) {
+	var out [sha256.Size]byte
+
+	rspec := KeyReaderSpec{
+		SeekKey:       spec.SeekKey,
+		EndKey:        spec.EndKey,
+		Prefix:        spec.Prefix,
+		InclusiveSeek: spec.InclusiveSeek,
+		InclusiveEnd:  spec.InclusiveEnd,
+		DescOrder:     spec.DescOrder,
+	}
+
+	kr, err := snap.NewKeyReader(rspec)
+	if err != nil {
+		return out, err
+	}
+	defer kr.Close()
+
+	h := sha256.New()
+	var buf [8]byte
+
+	for {
+		k, vr, err := kr.Read(ctx)
+		if errors.Is(err, ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return out, err
+		}
+
+		binary.BigEndian.PutUint32(buf[0:4], uint32(len(k)))
+		h.Write(buf[0:4])
+		h.Write(k)
+		binary.BigEndian.PutUint64(buf[:], vr.Tx())
+		h.Write(buf[:])
+	}
+
+	h.Sum(out[:0])
+	return out, nil
+}
+
 func (tx *OngoingTx) RequireMVCCOnFollowingTxs(requireMVCCOnFollowingTxs bool) error {
 	if tx.closed {
 		return ErrAlreadyClosed
@@ -795,6 +930,33 @@ func (tx *OngoingTx) checkPreconditions(ctx context.Context, st *ImmuStore) erro
 				if err != nil {
 					return err
 				}
+			}
+		}
+
+		// Range fingerprints from MarkPrefixScanned. Recompute against
+		// the sync snapshot and trip ErrTxReadConflict on any divergence.
+		// Cheaper than wrapping every read in an expectedReader — one
+		// fingerprint per scanned prefix, no per-key bookkeeping.
+		for _, epf := range tx.mvccReadSet.expectedPrefixFPs {
+			if !hasPrefix(epf.prefix, txSnap.prefix) {
+				continue
+			}
+
+			rspec := KeyReaderSpec{
+				SeekKey:       epf.seekKey,
+				EndKey:        epf.endKey,
+				Prefix:        epf.prefix,
+				InclusiveSeek: epf.inclusiveSeek,
+				InclusiveEnd:  epf.inclusiveEnd,
+				DescOrder:     epf.descOrder,
+			}
+
+			fp, err := prefixFingerprint(ctx, snap, rspec)
+			if err != nil {
+				return err
+			}
+			if fp != epf.fingerprint {
+				return fmt.Errorf("%w: prefix %q range fingerprint changed", ErrTxReadConflict, epf.prefix)
 			}
 		}
 	}
