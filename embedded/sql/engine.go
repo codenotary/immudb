@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -114,6 +115,19 @@ var (
 // embedded/sql.Options can override it at engine init time.
 var MaxKeyLen = 1024
 
+// CatalogCacheHitObserver and CatalogCacheMissObserver are package-level
+// hooks the upper layers (pkg/server/metrics.go) populate to translate
+// catalog cache events into Prometheus counters. Kept as func() vars to
+// avoid pulling a Prometheus dependency into embedded/sql, which is a
+// pure storage primitive shared across all higher layers.
+//
+// Default no-op implementations make these safe to call from NewTx
+// regardless of whether the server has wired observers in yet.
+var (
+	CatalogCacheHitObserver  = func() {}
+	CatalogCacheMissObserver = func() {}
+)
+
 const (
 	EncIDLen  = 4
 	EncLenLen = 4
@@ -126,6 +140,7 @@ type Engine struct {
 
 	prefix                        []byte
 	distinctLimit                 int
+	distinctSpillThreshold        int
 	sortBufferSize                int
 	maxWindowRows                 int // max rows materialized for window functions (0 = unlimited)
 	autocommit                    bool
@@ -141,6 +156,15 @@ type Engine struct {
 	// statement commits (mutatedCatalog == true).
 	catalogMu     sync.RWMutex
 	cachedCatalog *Catalog
+
+	// cachedCatalogVersion is bumped on every invalidateCatalogCache call.
+	// Each SQLTx records this counter in openCatalogVersion at NewTx time;
+	// on commit, tryPopulateCatalogCache only accepts a populate when the
+	// version still matches — i.e. no DDL has invalidated the cache since
+	// this tx opened. Without this guard, a non-DDL RW tx whose snapshot
+	// pre-dates a concurrent DDL commit could overwrite the cache with a
+	// stale schema view (the doc's "stale-view race").
+	cachedCatalogVersion atomic.Uint64
 }
 
 // Sequence represents a named auto-incrementing counter
@@ -321,6 +345,7 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		store:                         st,
 		prefix:                        make([]byte, len(opts.prefix)),
 		distinctLimit:                 opts.distinctLimit,
+		distinctSpillThreshold:        opts.distinctSpillThreshold,
 		sortBufferSize:                opts.sortBufferSize,
 		maxWindowRows:                 opts.maxWindowRows,
 		autocommit:                    opts.autocommit,
@@ -390,21 +415,29 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	// every transaction open — skipping it eliminates the dominant per-query
 	// overhead for autocommit SELECT workloads, and (via Clone) for DML-heavy
 	// read-write workloads as well.
+	//
+	// openCatalogVersion is captured once here under the same RLock as
+	// cachedCatalog so the (catalog, version) pair seen by this tx is
+	// coherent. tryPopulateCatalogCache rejects populates whose version
+	// disagrees with what subsequently lives on the engine.
 	e.catalogMu.RLock()
 	cached := e.cachedCatalog
+	openVersion := e.cachedCatalogVersion.Load()
 	e.catalogMu.RUnlock()
 
 	if cached != nil && opts.ReadOnly {
 		// Read-only transactions cannot mutate the schema, so they share the
 		// cached catalog directly. Sequences and views are already loaded in
 		// engine fields.
+		CatalogCacheHitObserver()
 		return &SQLTx{
-			engine:           e,
-			opts:             opts,
-			tx:               tx,
-			catalog:          cached,
-			lastInsertedPKs:  make(map[string]int64),
-			firstInsertedPKs: make(map[string]int64),
+			engine:             e,
+			opts:               opts,
+			tx:                 tx,
+			catalog:            cached,
+			openCatalogVersion: openVersion,
+			lastInsertedPKs:    make(map[string]int64),
+			firstInsertedPKs:   make(map[string]int64),
 		}, nil
 	}
 
@@ -416,11 +449,13 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		// loadMaxPK loop below and must not leak the cache's stale value into
 		// an empty-table case (where loadMaxPK returns ErrNoMoreEntries and
 		// the existing code falls through without resetting).
+		CatalogCacheHitObserver()
 		catalog = cached.Clone()
 		for _, table := range catalog.GetTables() {
 			table.maxPK = 0
 		}
 	} else {
+		CatalogCacheMissObserver()
 		catalog = newCatalog(e.prefix)
 		if err := catalog.load(ctx, tx); err != nil {
 			return nil, err
@@ -534,21 +569,56 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	}
 
 	return &SQLTx{
-		engine:           e,
-		opts:             opts,
-		tx:               tx,
-		catalog:          catalog,
-		lastInsertedPKs:  make(map[string]int64),
-		firstInsertedPKs: make(map[string]int64),
+		engine:             e,
+		opts:               opts,
+		tx:                 tx,
+		catalog:            catalog,
+		openCatalogVersion: openVersion,
+		lastInsertedPKs:    make(map[string]int64),
+		firstInsertedPKs:   make(map[string]int64),
 	}, nil
 }
 
 // invalidateCatalogCache clears the engine-level catalog cache. Called after
 // any DDL transaction commits so the next read-only tx reloads from the store.
+//
+// The version counter is bumped under the same lock so a concurrent
+// tryPopulateCatalogCache call sees a coherent (catalog, version) pair —
+// either the old cached catalog with version V, or nil with version V+1.
+// Never the inconsistent intermediate state where the catalog is nil but
+// the version is still V.
 func (e *Engine) invalidateCatalogCache() {
 	e.catalogMu.Lock()
 	e.cachedCatalog = nil
+	e.cachedCatalogVersion.Add(1)
 	e.catalogMu.Unlock()
+}
+
+// tryPopulateCatalogCache opportunistically promotes a freshly-committed
+// (non-DDL) tx's catalog into the engine cache so subsequent NewTx calls
+// can take the Clone fast path. No-op when:
+//   - The cache is already warm (first-fill-wins, preserves coherence
+//     even if the existing entry came from a different tx).
+//   - cachedCatalogVersion has changed since this tx opened — meaning a
+//     concurrent DDL invalidated the cache, and our snapshot is by now
+//     stale relative to the next valid view.
+//
+// The catalog reference handed in is shared post-publication: callers
+// MUST NOT mutate the catalog after handing it over.
+func (e *Engine) tryPopulateCatalogCache(catalog *Catalog, openVersion uint64) {
+	if catalog == nil {
+		return
+	}
+	e.catalogMu.Lock()
+	defer e.catalogMu.Unlock()
+
+	if e.cachedCatalog != nil {
+		return
+	}
+	if e.cachedCatalogVersion.Load() != openVersion {
+		return
+	}
+	e.cachedCatalog = catalog
 }
 
 func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {

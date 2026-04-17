@@ -48,6 +48,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
+      - run: go build -o perf-delta ./test/performance-test-suite/cmd/perf-delta/
       - name: Run performance tests
         id: performance
         run: |
@@ -58,6 +59,47 @@ jobs:
           sed '/^{/,/^}/!d' perf-test-results-with-summaries.txt > perf-test-results.json
         env:
           GOMEMLIMIT: 7680MiB
+
+      # Q1: regression gate via perf-delta. The baseline JSON lives at
+      # test/performance-test-suite/.perf-baseline.json — when present we
+      # diff the just-completed run against it and write a markdown table
+      # to the GitHub Actions step summary. Set PERF_DELTA_FAIL_ON_REGRESSION
+      # (e.g. via repo variable PERF_DELTA_FAIL_ON_REGRESSION=true) to make
+      # the job fail on regression beyond -tolerance; default behaviour is
+      # advisory-only so the gate can be staged in without breaking CI on
+      # the first noisy run. To refresh the baseline after intentional
+      # changes, copy perf-test-results.json over the committed file in
+      # the same PR that introduces the change.
+      - name: Compare against perf baseline
+        id: perf-delta
+        if: always() && hashFiles('test/performance-test-suite/.perf-baseline.json') != ''
+        env:
+          TOLERANCE: ${{ vars.PERF_DELTA_TOLERANCE || '0.05' }}
+          FAIL_ON_REGRESSION: ${{ vars.PERF_DELTA_FAIL_ON_REGRESSION || 'false' }}
+        run: |
+          set +e
+          ./perf-delta \
+            -baseline test/performance-test-suite/.perf-baseline.json \
+            -current perf-test-results.json \
+            -tolerance "$TOLERANCE" > perf-delta.md
+          rc=$?
+          {
+            echo "## perf-delta vs committed baseline (tolerance: ${TOLERANCE})"
+            echo ""
+            cat perf-delta.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$FAIL_ON_REGRESSION" = "true" ] && [ "$rc" -ne 0 ]; then
+            echo "perf-delta exited $rc and FAIL_ON_REGRESSION is true — failing job." >&2
+            exit "$rc"
+          fi
+          exit 0
+      - name: Upload perf-delta report
+        if: always() && hashFiles('perf-delta.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perf-delta Report (${{ matrix.target.name }})
+          path: perf-delta.md
+          retention-days: 30
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:

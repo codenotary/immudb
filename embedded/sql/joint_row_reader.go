@@ -40,6 +40,13 @@ type jointRowReader struct {
 	// the join's column list, and closing the outer mid-iteration trips
 	// "already closed" on that path for empty-result COUNT(*) over JOIN.
 	outerPoppedDuringRead bool
+
+	// hashJoin caches per-join hash-table state. Populated lazily on the
+	// first outer row reaching each join level. nil entry means hash join
+	// is not in use for that join (either disabled, unsupported shape, or
+	// build failed — fall back to the per-row Resolve path).
+	hashTables      []*hashJoinTable
+	hashJoinChecked []bool
 }
 
 func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
@@ -61,6 +68,8 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader,
 		rowReaders:                 []RowReader{rowReader},
 		rowReadersValuesByPosition: make([][]TypedValue, 1+len(joins)),
 		rowReadersValuesBySelector: make([]map[string]TypedValue, 1+len(joins)),
+		hashTables:                 make([]*hashJoinTable, len(joins)),
+		hashJoinChecked:            make([]bool, len(joins)),
 	}, nil
 }
 
@@ -266,6 +275,32 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 				}
 			}
 
+			// Hash-join fast path: for non-correlated INNER equi-joins, build the
+			// inner hash table once on first outer row, then probe per outer row
+			// instead of opening a fresh inner scan. Falls back transparently to
+			// the per-row Resolve path on any unsupported shape, build error, or
+			// if jointr.tryHashProbe returns false.
+			if probed, reader, r, err := jointr.tryHashProbe(ctx, i, jspec, ds, where); err != nil {
+				return nil, err
+			} else if probed {
+				if r == nil {
+					// Hash table existed but no inner row matched this outer.
+					// INNER JOIN: backtrack so the outer reader advances.
+					unsolvedFK = true
+					break
+				}
+
+				jointr.rowReaders = append(jointr.rowReaders, reader)
+				jointr.rowReadersValuesByPosition[i+1] = r.ValuesByPosition
+				jointr.rowReadersValuesBySelector[i+1] = r.ValuesBySelector
+
+				row.ValuesByPosition = append(row.ValuesByPosition, r.ValuesByPosition...)
+				for c, v := range r.ValuesBySelector {
+					row.ValuesBySelector[c] = v
+				}
+				continue
+			}
+
 			jointq := &SelectStmt{
 				ds:      ds,
 				where:   where,
@@ -330,6 +365,83 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 			return row, nil
 		}
 	}
+}
+
+// tryHashProbe attempts the hash-join fast path for join index i with the
+// already-reduced join condition for the current outer row. It returns
+// (probed=true, reader, row, nil) when a hashProbeReader was built and a
+// first row pulled, (probed=true, nil, nil, nil) when the outer row has no
+// matching inner rows, and (probed=false, nil, nil, nil) when the join is
+// not eligible (LATERAL, NATURAL, non-INNER, non-equi cond, etc.) so the
+// caller falls back to the existing Resolve-per-row path.
+//
+// The hash table is built once per join level on first eligible call and
+// cached on jointr.hashTables[i]. Build errors degrade to the slow path
+// without surfacing — correctness must always win over the optimization.
+//
+// When the join cond was enriched by D7 with inner-only residual predicates,
+// extractEquiJoinPlan separates them out and they are applied as a WHERE
+// filter at hash-build time so D1 + D7 compose correctly.
+func (jointr *jointRowReader) tryHashProbe(
+	ctx context.Context,
+	i int,
+	jspec *JoinSpec,
+	ds DataSource,
+	reducedWhere ValueExp,
+) (probed bool, reader RowReader, r *Row, err error) {
+	if jspec.lateral || jspec.natural || jspec.joinType != InnerJoin {
+		return false, nil, nil, nil
+	}
+
+	// We need the inner table's alias to classify ColSelector references in
+	// extractEquiJoinPlan. Currently we only support simple *tableRef
+	// sources; subqueries / values rows fall back to the slow path.
+	tref, ok := ds.(*tableRef)
+	if !ok {
+		return false, nil, nil, nil
+	}
+	innerAlias := tref.Alias()
+
+	if !jointr.hashJoinChecked[i] {
+		jointr.hashJoinChecked[i] = true
+
+		_, innerSels, innerResidual, planOk := extractEquiJoinPlan(reducedWhere, innerAlias)
+		if !planOk {
+			return false, nil, nil, nil
+		}
+
+		ht, buildErr := buildJoinHashTable(ctx, jointr.Tx(), ds, innerSels, innerResidual, jointr.Parameters())
+		if buildErr != nil {
+			// Build failure is non-fatal; fall back to the per-row path.
+			return false, nil, nil, nil
+		}
+		jointr.hashTables[i] = ht
+	}
+
+	ht := jointr.hashTables[i]
+	if ht == nil {
+		return false, nil, nil, nil
+	}
+
+	outerVals, _, _, planOk := extractEquiJoinPlan(reducedWhere, innerAlias)
+	if !planOk {
+		// Should not happen if first call succeeded, but stay defensive.
+		return false, nil, nil, nil
+	}
+
+	matched := ht.rows[compositeHashKey(outerVals)]
+	if len(matched) == 0 {
+		return true, nil, nil, nil
+	}
+
+	probe := newHashProbeReader(matched, ht.cols, jointr.Tx(), jointr.Parameters())
+
+	first, readErr := probe.Read(ctx)
+	if readErr != nil {
+		probe.Close()
+		return false, nil, nil, readErr
+	}
+	return true, probe, first, nil
 }
 
 func (jointr *jointRowReader) Close() error {

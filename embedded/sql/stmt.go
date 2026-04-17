@@ -4049,6 +4049,12 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}()
 
+	// Effective WHERE and joins after predicate pushdown. Defaults to the
+	// AST originals; pushdownInnerOnlyConjuncts may relocate inner-only
+	// WHERE conjuncts into INNER join conds (D7) without mutating the AST.
+	effectiveWhere := stmt.where
+	effectiveJoins := stmt.joins
+
 	if stmt.joins != nil {
 		hasFullOuter := false
 		for _, jspec := range stmt.joins {
@@ -4058,9 +4064,16 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			}
 		}
 
+		// Predicate pushdown is only safe when no FULL OUTER JOIN is present:
+		// FOJ semantics make NULL-extension on either side, so an inner-only
+		// filter pushed past the join would change the result set.
+		if !hasFullOuter {
+			effectiveWhere, effectiveJoins = pushdownInnerOnlyConjuncts(stmt.where, stmt.joins)
+		}
+
 		if hasFullOuter {
 			// Process joins one at a time when FULL OUTER JOIN is present
-			for _, jspec := range stmt.joins {
+			for _, jspec := range effectiveJoins {
 				if jspec.joinType == FullOuterJoin {
 					rightQ := &SelectStmt{ds: jspec.ds, indexOn: jspec.indexOn}
 					rightReader, jErr := rightQ.Resolve(ctx, tx, params, nil)
@@ -4082,7 +4095,7 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 				}
 			}
 		} else {
-			jointRowReader, jErr := newJointRowReader(rowReader, stmt.joins)
+			jointRowReader, jErr := newJointRowReader(rowReader, effectiveJoins)
 			if jErr != nil {
 				return nil, jErr
 			}
@@ -4090,8 +4103,8 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}
 
-	if stmt.where != nil {
-		rowReader = newConditionalRowReader(rowReader, stmt.where)
+	if effectiveWhere != nil {
+		rowReader = newConditionalRowReader(rowReader, effectiveWhere)
 	}
 
 	// Fast-path: SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or

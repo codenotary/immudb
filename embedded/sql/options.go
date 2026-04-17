@@ -31,6 +31,7 @@ type Options struct {
 	prefix                        []byte
 	sortBufferSize                int
 	distinctLimit                 int
+	distinctSpillThreshold        int // 0 = spill disabled, hard distinctLimit cap applies
 	maxWindowRows                 int // 0 = unlimited
 	maxKeyLen                     int // 0 = leave package default in place
 	autocommit                    bool
@@ -78,6 +79,23 @@ func (opts *Options) WithPrefix(prefix []byte) *Options {
 
 func (opts *Options) WithDistinctLimit(distinctLimit int) *Options {
 	opts.distinctLimit = distinctLimit
+	return opts
+}
+
+// WithDistinctSpillThreshold enables D5 spill-to-disk for SELECT DISTINCT.
+// When threshold > 0, the in-memory dedup set spills to a temp file once
+// it accumulates threshold distinct digests, allowing DISTINCT queries
+// over arbitrarily large result sets without OOMing the process. The
+// distinctLimit hard cap is then ignored (effectively unlimited rows).
+//
+// Default 0 preserves the legacy behaviour: ErrTooManyRows when the
+// in-memory dedup set hits distinctLimit, no temp-file spill.
+//
+// Pick a threshold around (RAM budget / sha256.Size / 4): each digest
+// is 32 bytes plus map overhead, so 100k → ~10MB working set. Larger
+// thresholds reduce spill churn at the cost of memory headroom.
+func (opts *Options) WithDistinctSpillThreshold(n int) *Options {
+	opts.distinctSpillThreshold = n
 	return opts
 }
 

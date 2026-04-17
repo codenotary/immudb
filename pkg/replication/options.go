@@ -46,6 +46,27 @@ type Options struct {
 	prefetchTxBufferSize         int
 	replicationCommitConcurrency int
 
+	// fetchPipelineDepth (A4) controls how many ExportTx requests can be
+	// in flight on the export stream concurrently. Default 1 = legacy
+	// strictly-serial fetch loop; > 1 enables pipelined fetch.
+	//
+	// IMPORTANT: pipelined fetch (depth > 1) is currently scaffolding-only
+	// — the option is plumbed through but the replicator's serial
+	// fetchNextTx loop has not yet been refactored into a producer/
+	// consumer split. Wiring the actual pipeline requires non-trivial
+	// changes to:
+	//   - sync-replication state machinery (each ExportTxRequest carries
+	//     a ReplicaState snapshot; pipelined requests need coherent
+	//     ordering of those snapshots),
+	//   - error handling (a mid-pipeline failure must drop pending
+	//     responses without leaking the gRPC stream),
+	//   - back-pressure (a slow replica must not let the primary buffer
+	//     unbounded export traffic).
+	// These are the risks called out in immudb-improvements.md A4.
+	// Setting this > 1 today is a no-op other than emitting a one-time
+	// warning at startup.
+	fetchPipelineDepth int
+
 	allowTxDiscarding  bool
 	skipIntegrityCheck bool
 	waitForIndexing    bool
@@ -67,11 +88,24 @@ func DefaultOptions() *Options {
 		streamChunkSize:              DefaultChunkSize,
 		prefetchTxBufferSize:         DefaultPrefetchTxBufferSize,
 		replicationCommitConcurrency: DefaultReplicationCommitConcurrency,
+		fetchPipelineDepth:           1, // strictly-serial fetch (A4 not yet wired)
 		allowTxDiscarding:            DefaultAllowTxDiscarding,
 		skipIntegrityCheck:           DefaultSkipIntegrityCheck,
 		waitForIndexing:              DefaultWaitForIndexing,
 		clientFactory:                newClient,
 	}
+}
+
+// WithFetchPipelineDepth (A4) reserves the option for future pipelined
+// fetch from the primary. See Options.fetchPipelineDepth doc for the
+// current scaffolding limitation — depth > 1 is accepted but not yet
+// honoured by the replicator loop.
+func (o *Options) WithFetchPipelineDepth(depth int) *Options {
+	if depth < 1 {
+		depth = 1
+	}
+	o.fetchPipelineDepth = depth
+	return o
 }
 
 func newClient(host string, port int) client.ImmuClient {

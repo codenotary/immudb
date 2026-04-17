@@ -252,6 +252,7 @@ func (s *ImmuServer) Initialize() error {
 		s.KeepAliveSessionInterceptor,
 		uuidContext.UUIDContextSetter,
 		grpc_prometheus.UnaryServerInterceptor,
+		QueryLatencyInterceptor(), // Q3: per-op p99 latency
 		auth.ServerUnaryInterceptor,
 		s.SessionAuthInterceptor,
 		s.InjectRequestMetadataUnaryInterceptor,
@@ -351,7 +352,11 @@ func (s *ImmuServer) Start() (err error) {
 			s.Options.PProf)
 
 		defer func() {
-			if err := s.metricsServer.Close(); err != nil {
+			// Use Shutdown (not Close) so the ticker registered via
+			// RegisterOnShutdown in StartMetrics actually stops.
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := s.metricsServer.Shutdown(ctx); err != nil {
 				s.Logger.Errorf("failed to shutdown metric server: %s", err)
 			}
 		}()

@@ -11109,6 +11109,91 @@ func BenchmarkJoin(b *testing.B) {
 	}
 }
 
+// BenchmarkJoinWithFilter measures the predicate-pushdown (D7) win on a
+// two-table INNER JOIN whose WHERE clause carries a selective inner-only
+// filter (k mod 10 == 0 → keeps 10% of inner rows). Without pushdown, the
+// filter runs against the full join output; with D7, the filter is attached
+// to the join cond and applied during the inner scan, so 90% of would-be
+// inner matches are skipped before the join produces them.
+//
+// D7 also composes with D1 (hash-join wiring): the residual is applied at
+// hash-table build time, shrinking the table itself.
+func BenchmarkJoinWithFilter(b *testing.B) {
+	st, err := store.Open(b.TempDir(), store.DefaultOptions().
+		WithMultiIndexing(true).
+		WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogError)))
+	require.NoError(b, err)
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(b, err)
+
+	_, _, err = engine.Exec(context.Background(), nil,
+		`CREATE TABLE outer_t(id INTEGER AUTO_INCREMENT, k INTEGER, PRIMARY KEY id);
+		 CREATE INDEX ON outer_t(k);
+		 CREATE TABLE inner_t(id INTEGER AUTO_INCREMENT, k INTEGER, v INTEGER, PRIMARY KEY id);
+		 CREATE INDEX ON inner_t(k);`, nil)
+	require.NoError(b, err)
+
+	const (
+		nOuter = 500
+		nInner = 500
+	)
+
+	insertBatch := func(table string, n int) {
+		const perTx = 500
+		for off := 0; off < n; off += perTx {
+			tx, err := engine.NewTx(context.Background(), DefaultTxOptions().WithExplicitClose(true))
+			require.NoError(b, err)
+			end := off + perTx
+			if end > n {
+				end = n
+			}
+			for i := off; i < end; i++ {
+				if table == "outer_t" {
+					_, _, err := engine.Exec(context.Background(), tx,
+						"INSERT INTO outer_t(k) VALUES (@k)",
+						map[string]interface{}{"k": i}, // dense 0..499
+					)
+					require.NoError(b, err)
+				} else {
+					_, _, err := engine.Exec(context.Background(), tx,
+						"INSERT INTO inner_t(k, v) VALUES (@k, @v)",
+						map[string]interface{}{"k": i, "v": i % 10}, // 10% pass v=0
+					)
+					require.NoError(b, err)
+				}
+			}
+			require.NoError(b, tx.Commit(context.Background()))
+		}
+	}
+
+	insertBatch("outer_t", nOuter)
+	insertBatch("inner_t", nInner)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		reader, err := engine.Query(context.Background(), nil,
+			"SELECT outer_t.k, inner_t.v FROM outer_t INNER JOIN inner_t ON outer_t.k = inner_t.k WHERE inner_t.v = 0", nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		for {
+			_, err := reader.Read(context.Background())
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				reader.Close()
+				b.Fatal(err)
+			}
+		}
+		reader.Close()
+	}
+}
+
 // benchmarkTxSetupManyTables exercises engine.NewTx on a schema with many
 // tables+indexes. Callers control whether the engine-level catalog cache
 // has been warmed before the measured loop: with warmCache=false the bench

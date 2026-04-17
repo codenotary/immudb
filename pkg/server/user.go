@@ -612,24 +612,11 @@ func (s *ImmuServer) saveUser(ctx context.Context, user *auth.User) error {
 // removeUserFromLoginList decrements the session count for username and removes the
 // entry when no sessions remain. Returns true when the last session was removed.
 func (s *ImmuServer) removeUserFromLoginList(username string) bool {
-	s.userdata.Lock()
-	defer s.userdata.Unlock()
-
-	s.userdata.sessionCounts[username]--
-	if s.userdata.sessionCounts[username] <= 0 {
-		delete(s.userdata.sessionCounts, username)
-		delete(s.userdata.Userdata, username)
-		return true
-	}
-	return false
+	return s.userdata.RemoveSession(username)
 }
 
 func (s *ImmuServer) addUserToLoginList(u *auth.User) {
-	s.userdata.Lock()
-	defer s.userdata.Unlock()
-
-	s.userdata.Userdata[u.Username] = u
-	s.userdata.sessionCounts[u.Username]++
+	s.userdata.AddSession(u)
 }
 
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth.User, error) {
@@ -655,20 +642,15 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth
 }
 
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
-	// RLock: this function only reads the userdata map. Every authenticated
-	// RPC passes through here (via getLoggedInUserdataFromCtx), so taking the
-	// writer lock serialised the entire auth-ed RPC path through a single
-	// mutex. RLock lets concurrent readers proceed in parallel; the writer
-	// contenders (addUserToLoginList / removeUserFromLoginList) run only on
-	// login/logout and permission change, so writer contention is negligible.
-	s.userdata.RLock()
-	defer s.userdata.RUnlock()
-
-	userdata, ok := s.userdata.Userdata[username]
+	// Get acquires only the per-shard read lock. Every authenticated RPC
+	// passes through this path, so the previous global writer lock — and
+	// even the global RLock that replaced it — serialised auth across all
+	// usernames. Per-shard sharding (A3) lets reads on disjoint usernames
+	// proceed without any cross-coherence cost.
+	userdata, ok := s.userdata.Get(username)
 	if !ok {
 		return nil, ErrNotLoggedIn
 	}
-
 	return userdata, nil
 }
 

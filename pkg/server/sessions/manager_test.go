@@ -34,7 +34,9 @@ func TestNewManager(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
 	require.IsType(t, new(manager), m)
-	require.NotNil(t, m.sessions)
+	for i := range m.shards {
+		require.NotNil(t, m.shards[i].sessions)
+	}
 }
 
 func TestNewManagerCornerCases(t *testing.T) {

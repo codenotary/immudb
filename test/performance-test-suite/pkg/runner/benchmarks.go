@@ -18,6 +18,7 @@ package runner
 
 import (
 	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks"
+	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/readtxs"
 	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
@@ -139,6 +140,30 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 			ValueSize:  128,
 			AsyncWrite: false,
 			Replica:    "sync",
+		}),
+
+		// Read-side companions to the writetxs suite. The Zipf variant
+		// captures hot-set behaviour (where a small subset of keys
+		// dominates traffic — typical of real workloads); the uniform
+		// variant captures the worst case for caches (every read may
+		// miss). Both share the same KeyPopulation so resident-set
+		// pressure on the inner store is comparable.
+		readtxs.NewBenchmark(readtxs.Config{
+			Name:          "Read Get/s zipf (s=1.5) - 100k key population",
+			Workers:       30,
+			KeySize:       32,
+			ValueSize:     128,
+			KeyPopulation: 100_000,
+			ZipfS:         1.5,
+			ZipfV:         1,
+		}),
+		readtxs.NewBenchmark(readtxs.Config{
+			Name:          "Read Get/s uniform - 100k key population",
+			Workers:       30,
+			KeySize:       32,
+			ValueSize:     128,
+			KeyPopulation: 100_000,
+			ZipfS:         0,
 		}),
 	}
 }

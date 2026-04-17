@@ -46,6 +46,12 @@ type SQLTx struct {
 
 	catalog *Catalog // in-mem catalog
 
+	// openCatalogVersion is engine.cachedCatalogVersion at the time this tx
+	// was opened. Compared on commit (D2 Phase 2) to determine whether this
+	// tx's catalog can safely populate the engine cache: if the version has
+	// changed, an invalidation happened concurrently and our view is stale.
+	openCatalogVersion uint64
+
 	mutatedCatalog bool // set when a DDL stmt was executed within the current tx
 
 	updatedRows      int
@@ -105,6 +111,10 @@ func (sqlTx *SQLTx) sqlPrefix() []byte {
 
 func (sqlTx *SQLTx) distinctLimit() int {
 	return sqlTx.engine.distinctLimit
+}
+
+func (sqlTx *SQLTx) distinctSpillThreshold() int {
+	return sqlTx.engine.distinctSpillThreshold
 }
 
 func (sqlTx *SQLTx) newKeyReader(rSpec store.KeyReaderSpec) (store.KeyReader, error) {
@@ -211,6 +221,22 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 	if sqlTx.mutatedCatalog {
 		sqlTx.engine.invalidateCatalogCache()
 	}
+	// D2 Phase 2 (catalog populate from non-DDL RW commit) is intentionally
+	// NOT enabled. The version-tracked, first-fill-wins helper exists on
+	// engine.go (Engine.tryPopulateCatalogCache + cachedCatalogVersion) but
+	// is currently unwired because populating the cache from an RW tx puts
+	// subsequent RW txs onto the Clone fast path — which does not call
+	// catalog.load and therefore does not record catalog rows in the
+	// OngoingTx read-set. That hole is invisible until two concurrent RW
+	// txs do conflicting DDL: TestMVCC/"invalidated catalog changes" then
+	// no longer detects the read conflict because tx2 never read the
+	// catalog row tx1 modified. Re-enabling Phase 2 requires either
+	//   (a) a Clone path that still touches the catalog row keys for
+	//       read-set tracking (e.g. via a stub OngoingTx.Get on each
+	//       table's catalog key at NewTx time), or
+	//   (b) accepting the weaker conflict-detection guarantee with explicit
+	//       documentation and a feature flag.
+	// See immudb-improvements.md "Open question #2".
 
 	merr := multierr.NewMultiErr()
 
