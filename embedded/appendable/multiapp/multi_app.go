@@ -554,12 +554,12 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 
 		metricsCacheMiss.Inc()
 
-		app, err = mf.openAppendable(appendableName(appID, mf.fileExt), false, false)
+		raw, err := mf.openAppendable(appendableName(appID, mf.fileExt), false, false)
 		if err != nil {
 			return nil, err
 		}
 
-		_, ejectedApp, err := mf.appendables.Put(appID, app)
+		_, ejectedApp, err := mf.appendables.Put(appID, raw)
 		if err != nil {
 			return nil, err
 		}
@@ -570,6 +570,16 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 			if err != nil {
 				return nil, err
 			}
+		}
+
+		// Re-fetch via Get so the caller gets the refcounted wrapper
+		// (with one ref already taken). Returning the raw pointer
+		// from openAppendable would bypass the refcount and reproduce
+		// the close-while-reading race that this whole machinery
+		// exists to prevent.
+		app, err = mf.appendables.Get(appID)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		metricsCacheHit.Inc()
@@ -603,6 +613,15 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		}
 
 		rn, err := app.ReadAt(bs[r:], offr%int64(mf.fileSize))
+		// If app is a refcounted handle from the cache, release it
+		// now that the read is done. The currApp short-circuit in
+		// appendableFor returns the writer-owned current appendable,
+		// which is not refcounted; type-assert to skip release.
+		if rc, ok := app.(*refCountedApp); ok {
+			if rerr := rc.Release(); rerr != nil && err == nil {
+				err = rerr
+			}
+		}
 		r += rn
 
 		if errors.Is(err, io.EOF) {
