@@ -185,6 +185,14 @@ type TBtree struct {
 	// exclusive.
 	nmutex sync.RWMutex
 
+	// inflight dedupes concurrent slow-path loads of the same offset,
+	// per-offset. Cache miss N goroutines on the same offset → 1 disk
+	// read instead of N. Different offsets stay fully concurrent
+	// (unlike the old global Lock around readNodeAt that serialised
+	// every miss). Keyed by encoded offset, same as cache.
+	inflightMu sync.Mutex
+	inflight   map[int64]*nodeLoad
+
 	hLog   appendable.Appendable
 	cLog   appendable.Appendable
 	tsFile string
@@ -590,6 +598,7 @@ func OpenWith(path, tsFile string, nLog, hLog, cLog appendable.Appendable, opts 
 		cLog:                     cLog,
 		tsFile:                   tsFile,
 		cache:                    nodeCache,
+		inflight:                 make(map[int64]*nodeLoad),
 		maxNodeSize:              maxNodeSize,
 		maxKeySize:               maxKeySize,
 		maxValueSize:             maxValueSize,
@@ -765,6 +774,14 @@ func (t *TBtree) GetOptions() *Options {
 		WithAppRemoveFunc(t.appRemove)
 }
 
+// nodeLoad holds the result of a single in-flight cache-miss load.
+// Waiters block on done, then read n/err.
+type nodeLoad struct {
+	done chan struct{}
+	n    node
+	err  error
+}
+
 func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
@@ -797,28 +814,27 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 		return nil, err
 	}
 
-	// Slow path: cache miss. readNodeAt reads from t.nLog (appendable
-	// with its own internal synchronisation), and t.cache is
-	// concurrency-safe — so neither step needs t.nmutex. No outer
-	// lock at all: under bulkInsert fan-out (one goroutine per child
-	// at every tree level) the prior exclusive Lock around readNodeAt
-	// serialised every concurrent cache miss through one disk read at
-	// a time. pprof during the long-run showed 46 of 78 tbtree-spawned
-	// goroutines parked on this single Lock during each indexer-flush
-	// burst, which is exactly the p95 ratchet the long-run surfaced.
-	//
-	// Two goroutines racing to miss the SAME offset may each read
-	// the node from disk and each PutWeighted: the last Put wins and
-	// both node instances carry identical bytes (same on-disk
-	// content), so no correctness issue.
+	// Slow path: cache miss. Per-offset singleflight: dedupe concurrent
+	// loads of the same offset through one disk read while keeping
+	// different offsets fully concurrent. The prior global Lock here
+	// serialised every miss across all offsets — pprof during the
+	// long-run showed 46 of 78 tbtree-spawned goroutines parked on it
+	// during each indexer-flush burst, which is exactly the p95
+	// ratchet the long-run surfaced.
+	t.inflightMu.Lock()
+	if p, ok := t.inflight[encOffset]; ok {
+		t.inflightMu.Unlock()
+		<-p.done
+		return p.n, p.err
+	}
+	p := &nodeLoad{done: make(chan struct{})}
+	t.inflight[encOffset] = p
+	t.inflightMu.Unlock()
+
 	metricsCacheMiss.WithLabelValues(t.path).Inc()
 
 	n, err := t.readNodeAt(offset)
-	if err != nil {
-		return nil, err
-	}
-
-	if updateCache {
+	if err == nil && updateCache {
 		size, _ := n.size()
 		r, _, _ := t.cache.PutWeighted(encOffset, n, size)
 		if r != nil {
@@ -831,6 +847,17 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 		metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(t.cache.EntriesCount()))
 	}
 
+	p.n = n
+	p.err = err
+	close(p.done)
+
+	t.inflightMu.Lock()
+	delete(t.inflight, encOffset)
+	t.inflightMu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
 	return n, nil
 }
 
