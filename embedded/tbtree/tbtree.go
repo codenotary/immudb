@@ -799,18 +799,18 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 
 	// Slow path: cache miss. readNodeAt reads from t.nLog (appendable
 	// with its own internal synchronisation), and t.cache is
-	// concurrency-safe — so neither step needs t.nmutex.
+	// concurrency-safe — so neither step needs t.nmutex. No outer
+	// lock at all: under bulkInsert fan-out (one goroutine per child
+	// at every tree level) the prior exclusive Lock around readNodeAt
+	// serialised every concurrent cache miss through one disk read at
+	// a time. pprof during the long-run showed 46 of 78 tbtree-spawned
+	// goroutines parked on this single Lock during each indexer-flush
+	// burst, which is exactly the p95 ratchet the long-run surfaced.
 	//
 	// Two goroutines racing to miss the SAME offset may each read
 	// the node from disk and each PutWeighted: the last Put wins and
 	// both node instances carry identical bytes (same on-disk
-	// content), so no correctness issue. The prior Lock + re-check
-	// cost ~1 extra cache.Get-under-Mutex per miss (visible as the
-	// KV-write w=4 tail regression in the Docker sweep); accepting
-	// the rare duplicate file read avoids that per-miss fixed cost.
-	t.nmutex.Lock()
-	defer t.nmutex.Unlock()
-
+	// content), so no correctness issue.
 	metricsCacheMiss.WithLabelValues(t.path).Inc()
 
 	n, err := t.readNodeAt(offset)
