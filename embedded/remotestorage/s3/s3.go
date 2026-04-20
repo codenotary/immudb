@@ -516,11 +516,20 @@ func (s *Storage) requestWithRedirects(
 		}
 
 		log.Printf("S3 %s %s", req.Method, req.URL)
+
+		start := time.Now()
+		metricsInFlight.Inc()
 		resp, err := s.httpClient.Do(req)
+		metricsInFlight.Dec()
+		metricsRequestDuration.WithLabelValues(req.Method).Observe(time.Since(start).Seconds())
+
 		if err != nil {
+			metricsRequestErrors.WithLabelValues(req.Method, "transport").Inc()
 			log.Printf("S3 %s %s failed: %v", req.Method, req.URL, err)
 			return nil, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
 		}
+
+		metricsRequestsTotal.WithLabelValues(req.Method, statusClass(resp.StatusCode)).Inc()
 
 		for _, validStatus := range validStatusCodes {
 			if resp.StatusCode == validStatus {
@@ -528,6 +537,10 @@ func (s *Storage) requestWithRedirects(
 				return resp, nil
 			}
 		}
+		// Capture AWS request identifiers before closing the response so that
+		// unexpected-status errors can be correlated against AWS support logs.
+		amzReqID := resp.Header.Get("x-amz-request-id")
+		amzID2 := resp.Header.Get("x-amz-id-2")
 		resp.Body.Close()
 
 		switch resp.StatusCode {
@@ -553,19 +566,23 @@ func (s *Storage) requestWithRedirects(
 			log.Printf("S3 %s redirect to %s", req.Method, reqURL)
 
 		default:
+			metricsRequestErrors.WithLabelValues(req.Method, "status").Inc()
 			log.Printf(
-				"S3 %s %s failed with status code %d (%s)",
+				"S3 %s %s failed with status code %d (%s) x-amz-request-id=%q x-amz-id-2=%q",
 				req.Method,
 				req.URL,
 				resp.StatusCode,
 				resp.Status,
+				amzReqID,
+				amzID2,
 			)
 			return nil, fmt.Errorf(
-				"%w: request failed with status code %d (%s)",
-				ErrInvalidResponse, resp.StatusCode, resp.Status,
+				"%w: request failed with status code %d (%s) x-amz-request-id=%q",
+				ErrInvalidResponse, resp.StatusCode, resp.Status, amzReqID,
 			)
 		}
 	}
+	metricsRequestErrors.WithLabelValues(method, "redirects").Inc()
 	log.Printf("S3 %s %s failed - too many redirects", method, reqURL)
 	return nil, ErrTooManyRedirects
 }
