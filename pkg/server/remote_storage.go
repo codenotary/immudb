@@ -50,7 +50,7 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 		}
 
 		// S3 storage
-		return s3.Open(
+		st, err := s3.Open(
 			s.Options.RemoteStorageOptions.S3Endpoint,
 			s.Options.RemoteStorageOptions.S3RoleEnabled,
 			s.Options.RemoteStorageOptions.S3Role,
@@ -62,6 +62,19 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 			s.Options.RemoteStorageOptions.S3InstanceMetadataURL,
 			s.Options.RemoteStorageOptions.S3UseFargateCredentials,
 		)
+		if err != nil {
+			return nil, err
+		}
+		if s.Options.RemoteStorageOptions.S3ServerSideEncryption != "" ||
+			s.Options.RemoteStorageOptions.S3SSEKMSKeyID != "" {
+			if err := st.(*s3.Storage).WithSSE(
+				s.Options.RemoteStorageOptions.S3ServerSideEncryption,
+				s.Options.RemoteStorageOptions.S3SSEKMSKeyID,
+			); err != nil {
+				return nil, err
+			}
+		}
+		return st, nil
 	}
 
 	return nil, nil

@@ -91,6 +91,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("s3-external-identifier", false, "use the remote identifier if there is no local identifier")
 	cmd.Flags().String("s3-instance-metadata-url", "http://169.254.169.254", "s3 instance metadata url")
 	cmd.Flags().String("s3-use-fargate-credentials", "false", "use fargate credentials for s3 authentication: true/false")
+	cmd.Flags().String("s3-server-side-encryption", "", "s3 server-side encryption algorithm: empty (bucket default), AES256, or aws:kms")
+	cmd.Flags().String("s3-sse-kms-key-id", "", "optional KMS key id, only used when s3-server-side-encryption=aws:kms")
 	cmd.Flags().Int("max-sessions", 100, "maximum number of simultaneously opened sessions")
 	cmd.Flags().Duration("max-session-inactivity-time", 3*time.Minute, "max session inactivity time is a duration after which an active session is declared inactive by the server. A session is kept active if server is still receiving requests from client (keep-alive or other methods)")
 	cmd.Flags().Duration("max-session-age-time", 0, "the current default value is infinity. max session age time is a duration after which session will be forcibly closed")

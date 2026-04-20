@@ -54,12 +54,28 @@ type Storage struct {
 	location      string
 	httpClient    *http.Client
 	sessionToken  string
-	
+
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
 
 	useFargateCredentials bool
+
+	// Server-side encryption configuration for PUT operations.
+	// sseAlgorithm is either "" (no encryption header sent), "AES256" (SSE-S3),
+	// or "aws:kms" (SSE-KMS). sseKMSKeyID is optional and only meaningful for
+	// "aws:kms"; when set it is sent as x-amz-server-side-encryption-aws-kms-key-id.
+	sseAlgorithm string
+	sseKMSKeyID  string
 }
+
+// Valid SSE algorithm values, matching the x-amz-server-side-encryption header
+// documented at https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html.
+const (
+	SSEAlgorithmAES256 = "AES256"
+	SSEAlgorithmKMS    = "aws:kms"
+)
+
+var ErrInvalidSSEAlgorithm = fmt.Errorf("%w: invalid sse algorithm (want \"\", %q, or %q)", ErrInvalidArguments, SSEAlgorithmAES256, SSEAlgorithmKMS)
 
 var (
 	ErrInvalidArguments               = errors.New("invalid arguments")
@@ -218,6 +234,25 @@ func Open(
 	}
 
 	return s3storage, nil
+}
+
+// WithSSE configures server-side encryption to be requested on all PUT
+// operations. algorithm must be "", "AES256" (SSE-S3), or "aws:kms" (SSE-KMS);
+// kmsKeyID is optional and only used when algorithm is "aws:kms". Passing an
+// empty algorithm disables SSE headers (bucket default encryption, if any,
+// still applies server-side).
+func (s *Storage) WithSSE(algorithm, kmsKeyID string) error {
+	switch algorithm {
+	case "", SSEAlgorithmAES256, SSEAlgorithmKMS:
+	default:
+		return ErrInvalidSSEAlgorithm
+	}
+	if kmsKeyID != "" && algorithm != SSEAlgorithmKMS {
+		return fmt.Errorf("%w: kmsKeyID only valid with %q", ErrInvalidArguments, SSEAlgorithmKMS)
+	}
+	s.sseAlgorithm = algorithm
+	s.sseKMSKeyID = kmsKeyID
+	return nil
 }
 
 func (s *Storage) Kind() string {
@@ -651,6 +686,16 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 		},
 		func(req *http.Request) error {
 			req.ContentLength = flStat.Size()
+			if s.sseAlgorithm != "" {
+				// SigV4 includes these headers in the signed set because they
+				// are added here before the signer runs (setupRequest is
+				// invoked inside s3SignedRequestV4 prior to canonical header
+				// computation).
+				req.Header.Set("x-amz-server-side-encryption", s.sseAlgorithm)
+				if s.sseKMSKeyID != "" {
+					req.Header.Set("x-amz-server-side-encryption-aws-kms-key-id", s.sseKMSKeyID)
+				}
+			}
 			return nil
 		},
 	)

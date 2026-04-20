@@ -102,6 +102,13 @@ type RemoteStorageOptions struct {
 	S3ExternalIdentifier    bool
 	S3InstanceMetadataURL   string
 	S3UseFargateCredentials bool
+
+	// S3ServerSideEncryption selects server-side encryption for PUT operations:
+	// "" (bucket default / none), "AES256" (SSE-S3), or "aws:kms" (SSE-KMS).
+	S3ServerSideEncryption string
+	// S3SSEKMSKeyID is an optional KMS key id, only used when
+	// S3ServerSideEncryption == "aws:kms".
+	S3SSEKMSKeyID string `json:"-"`
 }
 
 type ReplicationOptions struct {
@@ -393,6 +400,10 @@ func (o *Options) String() string {
 		if !o.RemoteStorageOptions.S3UseFargateCredentials {
 		  opts = append(opts, rightPad("   metadata url", o.RemoteStorageOptions.S3InstanceMetadataURL))
 		}
+		if o.RemoteStorageOptions.S3ServerSideEncryption != "" {
+			opts = append(opts, rightPad("   sse", o.RemoteStorageOptions.S3ServerSideEncryption))
+			// intentionally do not print SSEKMSKeyID; callers may treat it as sensitive
+		}
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
 		opts = append(opts, "----------------------------------------")
@@ -635,6 +646,16 @@ func (opts *RemoteStorageOptions) WithS3InstanceMetadataURL(url string) *RemoteS
 
 func (opts *RemoteStorageOptions) WithS3UseFargateCredentials(s3UseFargateCredentials bool) *RemoteStorageOptions {
 	opts.S3UseFargateCredentials = s3UseFargateCredentials
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3ServerSideEncryption(algorithm string) *RemoteStorageOptions {
+	opts.S3ServerSideEncryption = algorithm
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3SSEKMSKeyID(keyID string) *RemoteStorageOptions {
+	opts.S3SSEKMSKeyID = keyID
 	return opts
 }
 
