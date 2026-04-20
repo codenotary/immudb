@@ -26,10 +26,36 @@ import (
 func TestInvalidOptions(t *testing.T) {
 	require.False(t, (*Options)(nil).Valid())
 	require.False(t, (&Options{}).Valid())
+
+	require.ErrorIs(t, (*Options)(nil).Validate(), ErrInvalidOptions)
+	require.ErrorIs(t, (&Options{}).Validate(), ErrInvalidOptions)
 }
 
 func TestDefaultOptions(t *testing.T) {
 	require.True(t, DefaultOptions().Valid())
+	require.NoError(t, DefaultOptions().Validate())
+}
+
+func TestValidateFieldConstraints(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(o *Options)
+	}{
+		{"zero parallel uploads", func(o *Options) { o.parallelUploads = 0 }},
+		{"too many parallel uploads", func(o *Options) { o.parallelUploads = 1_000_000 }},
+		{"zero retry min delay", func(o *Options) { o.retryMinDelay = 0 }},
+		{"zero retry max delay", func(o *Options) { o.retryMaxDelay = 0 }},
+		{"max < min retry delay", func(o *Options) { o.retryMinDelay = 10 * time.Second; o.retryMaxDelay = time.Second }},
+		{"retry exp <= 1", func(o *Options) { o.retryDelayExp = 1 }},
+		{"negative jitter", func(o *Options) { o.retryDelayJitter = -0.1 }},
+		{"jitter > 1", func(o *Options) { o.retryDelayJitter = 1.1 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := DefaultOptions()
+			tc.mutate(o)
+			require.ErrorIs(t, o.Validate(), ErrInvalidOptions)
+		})
+	}
 }
 
 func TestValidOptions(t *testing.T) {

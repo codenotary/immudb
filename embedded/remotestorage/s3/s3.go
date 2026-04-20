@@ -30,6 +30,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -91,6 +92,78 @@ var (
 
 const maxRedirects = 5
 
+// HTTP timeouts applied to the S3 client. Exposed as vars so that tests and
+// downstream callers can tune them; defaults are chosen conservatively to keep
+// a stalled or black-holed endpoint from hanging uploads/downloads forever.
+var (
+	DefaultDialTimeout           = 10 * time.Second
+	DefaultTLSHandshakeTimeout   = 10 * time.Second
+	DefaultResponseHeaderTimeout = 60 * time.Second
+	DefaultExpectContinueTimeout = 1 * time.Second
+	DefaultIdleConnTimeout       = 90 * time.Second
+)
+
+func newS3HTTPClient() *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   DefaultDialTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       DefaultIdleConnTimeout,
+		TLSHandshakeTimeout:   DefaultTLSHandshakeTimeout,
+		ExpectContinueTimeout: DefaultExpectContinueTimeout,
+		ResponseHeaderTimeout: DefaultResponseHeaderTimeout,
+	}
+	return &http.Client{
+		Transport: transport,
+		// No overall Timeout: large uploads may legitimately take a while;
+		// stall-protection is provided by the per-phase Transport timeouts above.
+		// Request cancellation still flows through ctx in http.NewRequestWithContext.
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+// s3CanonicalURI returns the S3 SigV4 canonical URI for a URL path.
+// Per the SigV4 spec for S3 (single-encoding service), each path segment is
+// URI-encoded according to RFC 3986 unreserved rules, preserving '/'. Go's
+// url.PathEscape escapes '/' and has a slightly different unreserved set, so
+// we re-encode the decoded req.URL.Path segment-wise here.
+func s3CanonicalURI(p string) string {
+	if p == "" {
+		return "/"
+	}
+	parts := strings.Split(p, "/")
+	for i, seg := range parts {
+		parts[i] = s3PathSegmentEscape(seg)
+	}
+	return strings.Join(parts, "/")
+}
+
+func s3PathSegmentEscape(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'A' && c <= 'Z') ||
+			(c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '~' {
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteByte('%')
+		const hex = "0123456789ABCDEF"
+		b.WriteByte(hex[c>>4])
+		b.WriteByte(hex[c&0x0f])
+	}
+	return b.String()
+}
+
 func Open(
 	endpoint string,
 	S3RoleEnabled bool,
@@ -133,11 +206,7 @@ func Open(
 		bucket:        bucket,
 		location:      location,
 		prefix:        prefix,
-		httpClient: &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
+		httpClient: newS3HTTPClient(),
 		awsInstanceMetadataURL: awsInstanceMetadataURL,
 		awsCredsRefreshPeriod:  time.Minute,
 		useFargateCredentials:     useFargateCredentials,
@@ -246,7 +315,7 @@ func (s *Storage) s3SignedRequestV4(
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	canonicalURI := req.URL.Path // TODO: This may require some encoding
+	canonicalURI := s3CanonicalURI(req.URL.Path)
 	canonicalQueryString := req.URL.Query().Encode()
 
 	signerHeadersList := []string{"host"}
@@ -700,7 +769,6 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 		if err != nil {
 			return nil, nil, err
 		}
-		defer resp.Body.Close()
 
 		respParsed := struct {
 			Contents []struct {
@@ -712,9 +780,12 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 			NextContinuationToken string
 		}{}
 
-		err = xml.NewDecoder(resp.Body).Decode(&respParsed)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseXmlDecodeError, err)
+		decodeErr := xml.NewDecoder(resp.Body).Decode(&respParsed)
+		// Close body immediately rather than accumulating deferred closes
+		// across continuation-token iterations.
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseXmlDecodeError, decodeErr)
 		}
 
 		for _, object := range respParsed.Contents {
