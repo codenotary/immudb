@@ -588,6 +588,105 @@ func TestPgsqlServer_CommentOnlyQueryReturnsEmptyQueryResponse(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// F1 DB / generic PG dump regressions. Each of these used to fail
+// against immudb's pgwire; see the PR that introduced the fixes.
+func TestPgsqlServer_F1DBCompatRegressions(t *testing.T) {
+	td := t.TempDir()
+
+	options := server.DefaultOptions().
+		WithDir(td).
+		WithPort(0).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(0).
+		WithMetricsServer(false).
+		WithWebServer(false)
+
+	srv := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	require.NoError(t, srv.Initialize())
+	go srv.Start()
+	defer srv.Stop()
+	defer os.Remove(".state-")
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	t.Run("UNIQUE column constraint is enforced", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, email VARCHAR(255) UNIQUE)", tbl))
+		require.NoError(t, err)
+
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, email) VALUES (1, 'a@x')", tbl))
+		require.NoError(t, err)
+
+		// Different key, same email — must be rejected by the unique
+		// index created implicitly from the column constraint. Prior
+		// behaviour (UNIQUE silently stripped) would have accepted it.
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, email) VALUES (2, 'a@x')", tbl))
+		require.Error(t, err, "duplicate email should violate UNIQUE constraint")
+	})
+
+	t.Run("DATE 'yyyy-mm-dd' typed literal", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, dob TIMESTAMP)", tbl))
+		require.NoError(t, err)
+
+		// The F1DB dump uses `DATE '2025-01-01'` — immudb previously
+		// rejected it with "syntax error: unexpected '-'".
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, dob) VALUES (1, DATE '2025-01-01')", tbl))
+		require.NoError(t, err)
+	})
+
+	t.Run("DECIMAL column accepts integer literal", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, price DECIMAL(10,2))", tbl))
+		require.NoError(t, err)
+
+		// User report: `INSERT … VALUES (1, 0)` fails on a DECIMAL
+		// column; only `0.0` works. Implicit int→float conversion
+		// should cover this (embedded/sql/implicit_conversion.go).
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, price) VALUES (1, 0)", tbl))
+		require.NoError(t, err, "integer literal into DECIMAL column should be coerced")
+
+		// Single-row non-zero int
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, price) VALUES (2, 42)", tbl))
+		require.NoError(t, err, "single-row non-zero int into DECIMAL")
+
+		// Multi-row, all ints
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, price) VALUES (3, 42), (4, -7)", tbl))
+		require.NoError(t, err, "multi-row all-int into DECIMAL")
+
+		// Multi-row mixed int + float — F1DB-realistic
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, price) VALUES (5, 42), (6, 3.14)", tbl))
+		require.NoError(t, err, "multi-row mixed int+float into DECIMAL")
+
+		// 3 rows, int then float then int — ordering stress test.
+		// The regression that motivated this test had this shape.
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, price) VALUES (7, 42), (8, -7), (9, 3.14)", tbl))
+		require.NoError(t, err, "3-row int+int+float into DECIMAL")
+
+		// UPDATE path — same coercion must apply.
+		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET price = 10 WHERE id = 1", tbl))
+		require.NoError(t, err, "UPDATE int-literal into DECIMAL")
+	})
+
+	t.Run("NUMERIC column accepts integer literal", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, amount NUMERIC)", tbl))
+		require.NoError(t, err)
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount) VALUES (1, 0)", tbl))
+		require.NoError(t, err)
+	})
+}
+
 func TestPgsqlServer_UseDatabaseSwitchesSession(t *testing.T) {
 	td := t.TempDir()
 

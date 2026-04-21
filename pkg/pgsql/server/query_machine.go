@@ -725,8 +725,23 @@ var pgTypeReplacements = []struct {
 	// Strip column-level REFERENCES (inline FK) with optional ON DELETE/UPDATE
 	{regexp.MustCompile(`(?i)\bREFERENCES\s+\S+\s*\([^)]*\)(\s+ON\s+(DELETE|UPDATE)\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))*`), ""},
 
-	// Strip UNIQUE keyword on columns (immudb handles unique via index)
-	{regexp.MustCompile(`(?i)\bUNIQUE\b`), ""},
+	// Strip the optional index name from `CREATE [UNIQUE] INDEX [IF NOT
+	// EXISTS] <name> ON …`. PostgreSQL requires (and pg_dump emits) a
+	// name; immudb's grammar rejects one (sql_grammar.y:390-408 has
+	// `CREATE INDEX … ON …` with no name). The alternation matches both
+	// the double-quoted and bare-identifier forms. When the name is
+	// absent (`CREATE INDEX ON …`, which immudb accepts natively) the
+	// `<name> ON` suffix can't be satisfied and the pattern does not
+	// match, so no-op rewrite.
+	{regexp.MustCompile(`(?i)\bCREATE\s+(UNIQUE\s+)?INDEX\s+(IF\s+NOT\s+EXISTS\s+)?(?:"[^"]+"|[A-Za-z_]\w*)\s+ON\b`), "CREATE ${1}INDEX ${2}ON"},
+
+	// NOTE: `UNIQUE` inline-on-column / table-level constraints are NOT
+	// stripped here. They are translated into a trailing
+	// `CREATE UNIQUE INDEX ON tbl(col)` statement by the Go pass in
+	// extractUniqueConstraints (unique_ddl.go) which runs before this
+	// regex pipeline. Stripping the keyword outright would silently drop
+	// uniqueness guarantees — which is exactly what the buggy prior
+	// behavior did.
 
 	// date type — must come after timestamp replacements
 	// Only match standalone 'date' as a type (after a column name, not in other contexts)
@@ -973,6 +988,14 @@ func removePGCatalogReferences(sqlStr string) string {
 	if createTableRe.MatchString(s) && !primaryKeyInlineRe.MatchString(s) {
 		s = addPrimaryKeyToCreateTable(s)
 	}
+
+	// Translate inline / table-level UNIQUE constraints into trailing
+	// `CREATE UNIQUE INDEX` statements. Must run AFTER
+	// addPrimaryKeyToCreateTable — that pass scans for the last ")" in
+	// the string, and splitting the CREATE TABLE off from the new
+	// CREATE UNIQUE INDEX statements would put that ")" inside the
+	// INDEX parens (wrong target).
+	s = extractUniqueConstraints(s)
 
 	// Clean up double spaces and empty lines
 	s = doubleSpaceRe.ReplaceAllString(s, " ")

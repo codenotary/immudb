@@ -122,7 +122,14 @@ var (
 	infoSchemaColumnsRe = regexp.MustCompile(`(?is)\bfrom\s+information_schema[._]columns\b`)
 )
 
-var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|CREATE\s+INDEX|CREATE\s+UNIQUE\s+INDEX|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
+// CREATE INDEX / CREATE UNIQUE INDEX are SUPPORTED by immudb's engine
+// (see embedded/sql/sql_grammar.y:390-408). PG-style statements arrive
+// with an index name (`CREATE INDEX idx_foo ON t(c)`) which immudb's
+// grammar rejects; the name-strip regex in query_machine.go's
+// pgTypeReplacements handles that before the statement reaches the
+// engine. Do NOT re-add them to this blacklist — blacklisting turns
+// them into silent no-ops, which destroys uniqueness guarantees.
+var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {

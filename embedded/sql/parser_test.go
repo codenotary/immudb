@@ -57,6 +57,37 @@ func TestCommentOnlyInput(t *testing.T) {
 	}
 }
 
+func TestDateTypedLiteral(t *testing.T) {
+	// PostgreSQL / SQL-92 typed literal syntax: `DATE '…'`, `TIMESTAMP '…'`,
+	// `TIMESTAMPTZ '…'`. Lexer maps all three keywords to TIMESTAMP_TYPE,
+	// so a single grammar production (val: TIMESTAMP_TYPE VARCHAR_LIT)
+	// covers them. The production lowers to the same AST as
+	// `CAST('…' AS TIMESTAMP)` — the engine's VarcharType→TimestampType
+	// converter does the actual parsing at execution time.
+	testCases := []string{
+		"SELECT DATE '2025-01-01'",
+		"SELECT TIMESTAMP '2025-01-01 12:00:00'",
+		"SELECT TIMESTAMPTZ '2025-01-01 12:00:00+02'",
+		"INSERT INTO t (dob) VALUES (DATE '2025-01-01')",
+		"SELECT * FROM t WHERE dob = DATE '2025-01-01'",
+	}
+
+	for _, input := range testCases {
+		_, err := ParseSQLString(input)
+		require.NoError(t, err, "input %q", input)
+	}
+}
+
+func TestFriendlyParseError(t *testing.T) {
+	// goyacc's verbose-error mode emits raw token names from the grammar
+	// (VARCHAR_LIT, INTEGER_LIT, …). Rewrite them to something end users
+	// recognise — "string literal", "integer", etc.
+	_, err := ParseSQLString("SELECT 1 'foo'")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "string literal")
+	require.NotContains(t, err.Error(), "VARCHAR_LIT")
+}
+
 func TestLineCommentAroundStatement(t *testing.T) {
 	// Verify that line comments adjacent to a real statement don't
 	// interfere with parsing. We only assert len==1 + no-error so this

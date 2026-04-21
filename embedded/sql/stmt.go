@@ -2492,7 +2492,15 @@ func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != IntegerType && t != JSONType {
+	// Integer literals promote to Float64 implicitly — see
+	// mayApplyImplicitConversion in implicit_conversion.go. The static
+	// type check must mirror runtime coercion or `UPDATE t SET f = 10`
+	// against a Float column fails with "INTEGER can not be interpreted
+	// as type FLOAT" even though the engine would happily widen at
+	// encode time. This matters for PG dumps (DECIMAL/NUMERIC columns
+	// filled with bare integer literals) since immudb aliases
+	// DECIMAL/NUMERIC to FLOAT.
+	if t != IntegerType && t != Float64Type && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 	return nil

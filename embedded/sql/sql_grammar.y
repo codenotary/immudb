@@ -752,6 +752,11 @@ val:
         $$ = &Cast{val: $3, t: $5}
     }
 |
+    TIMESTAMP_TYPE VARCHAR_LIT
+    {
+        $$ = &Cast{val: &Varchar{val: $2}, t: TimestampType}
+    }
+|
     fnCall
     {
         $$ = $1

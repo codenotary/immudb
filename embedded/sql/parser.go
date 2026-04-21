@@ -635,8 +635,37 @@ func (l *lexer) Lex(lval *yySymType) int {
 	return int(ch)
 }
 
+// tokenFriendlyNames rewrites goyacc's raw grammar-token names into
+// descriptions a human who has never read sql_grammar.y will recognise.
+// Applies to yyerror output such as
+//
+//	"syntax error: unexpected VARCHAR_LIT, expecting ')'"
+//
+// which becomes "... unexpected string literal, expecting ')'".
+// Only uppercase-with-underscore names appear in goyacc's verbose error
+// format, so there is no risk of matching inside an identifier.
+var tokenFriendlyNames = strings.NewReplacer(
+	"VARCHAR_LIT", "string literal",
+	"INTEGER_LIT", "integer",
+	"FLOAT_LIT", "number",
+	"BLOB_LIT", "binary literal",
+	"BOOLEAN_LIT", "boolean",
+	"NPARAM", "named parameter",
+	"PPARAM", "positional parameter",
+	"VARCHAR_TYPE", "VARCHAR",
+	"INTEGER_TYPE", "INTEGER",
+	"BOOLEAN_TYPE", "BOOLEAN",
+	"BLOB_TYPE", "BLOB",
+	"FLOAT_TYPE", "FLOAT",
+	"TIMESTAMP_TYPE", "TIMESTAMP",
+	"UUID_TYPE", "UUID",
+	"JSON_TYPE", "JSON",
+	"AGGREGATE_FUNC", "aggregate function",
+	"STMT_SEPARATOR", "';'",
+)
+
 func (l *lexer) Error(err string) {
-	l.err = fmt.Errorf("%s at position %d", err, l.r.ReadCount())
+	l.err = fmt.Errorf("%s at position %d", tokenFriendlyNames.Replace(err), l.r.ReadCount())
 }
 
 func (l *lexer) readWord() (string, error) {

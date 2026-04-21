@@ -258,6 +258,46 @@ func TestRemovePGCatalogReferences_DDLNormalization(t *testing.T) {
 			wantContains: []string{"VARCHAR[64]"},
 			wantAbsent:   []string{"COLLATE", "ucs_basic"},
 		},
+		{
+			// Inline UNIQUE must become a trailing CREATE UNIQUE INDEX
+			// — NOT be silently stripped (the prior regex broke
+			// uniqueness guarantees). Assert the UNIQUE keyword is gone
+			// from the column definition AND a CREATE UNIQUE INDEX
+			// referencing the column has been appended.
+			name: "inline UNIQUE becomes CREATE UNIQUE INDEX",
+			in:   `CREATE TABLE t (id INTEGER, email VARCHAR(255) UNIQUE)`,
+			wantContains: []string{
+				"CREATE UNIQUE INDEX",
+				"ON t(email)",
+			},
+			wantAbsent: []string{"UNIQUE)"},
+		},
+		{
+			// Table-level UNIQUE (col1, col2) produces a CREATE UNIQUE
+			// INDEX on the composite. The UNIQUE clause itself is
+			// removed from the column list.
+			name: "table-level UNIQUE(a,b) becomes CREATE UNIQUE INDEX",
+			in:   `CREATE TABLE t (a INTEGER, b INTEGER, UNIQUE (a, b))`,
+			wantContains: []string{
+				"CREATE UNIQUE INDEX",
+				"ON t(a, b)",
+			},
+			wantAbsent: []string{"UNIQUE ("},
+		},
+		{
+			// PG emits CREATE INDEX with a name; immudb's grammar
+			// rejects names. Strip to the unnamed form.
+			name:         "CREATE INDEX name stripped",
+			in:           `CREATE INDEX idx_foo ON t(col)`,
+			wantContains: []string{"CREATE INDEX ON t(col)"},
+			wantAbsent:   []string{"idx_foo"},
+		},
+		{
+			name:         "CREATE UNIQUE INDEX IF NOT EXISTS name stripped",
+			in:           `CREATE UNIQUE INDEX IF NOT EXISTS idx_foo ON t(col)`,
+			wantContains: []string{"CREATE UNIQUE INDEX IF NOT EXISTS ON t(col)"},
+			wantAbsent:   []string{"idx_foo"},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
