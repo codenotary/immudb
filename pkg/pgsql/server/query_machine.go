@@ -735,6 +735,19 @@ var pgTypeReplacements = []struct {
 	// match, so no-op rewrite.
 	{regexp.MustCompile(`(?i)\bCREATE\s+(UNIQUE\s+)?INDEX\s+(IF\s+NOT\s+EXISTS\s+)?(?:"[^"]+"|[A-Za-z_]\w*)\s+ON\b`), "CREATE ${1}INDEX ${2}ON"},
 
+	// Strip the optional PostgreSQL column-alias list from
+	// `CREATE VIEW [IF NOT EXISTS] <name>(col1, col2, …) AS SELECT …`.
+	// immudb's grammar (sql_grammar.y:355-360) only accepts
+	// `CREATE VIEW <name> AS dqlstmt`. PG's outer column list renames
+	// the SELECT's output columns; pg_dump emits both the list AND
+	// matching `AS` aliases in the SELECT, so dropping the outer list
+	// preserves names for the common case. Multi-line matching (?is)
+	// because dumps put each column on its own line. If a list ever
+	// contains nested parens the pattern will not match and the user
+	// gets the original pre-fix "unexpected '(', expecting AS" error,
+	// which is acceptable — PG lists are identifier-only in practice.
+	{regexp.MustCompile(`(?is)\bCREATE\s+VIEW\s+(IF\s+NOT\s+EXISTS\s+)?("[^"]+"|[A-Za-z_]\w*)\s*\([^)]*\)\s+AS\b`), "CREATE VIEW ${1}${2} AS"},
+
 	// NOTE: `UNIQUE` inline-on-column / table-level constraints are NOT
 	// stripped here. They are translated into a trailing
 	// `CREATE UNIQUE INDEX ON tbl(col)` statement by the Go pass in

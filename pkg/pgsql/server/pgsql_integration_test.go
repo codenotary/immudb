@@ -685,6 +685,34 @@ func TestPgsqlServer_F1DBCompatRegressions(t *testing.T) {
 		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount) VALUES (1, 0)", tbl))
 		require.NoError(t, err)
 	})
+
+	t.Run("CREATE VIEW with PG column-list", func(t *testing.T) {
+		// pg_dump emits `CREATE VIEW v("a","b") AS SELECT …` — the
+		// outer (a,b) renames output columns. immudb's grammar rejects
+		// the list, so the pgwire layer strips it; the SELECT's AS
+		// aliases carry the names through.
+		tbl := getRandomTableName()
+		view := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, raw_time VARCHAR(32))", tbl))
+		require.NoError(t, err)
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, raw_time) VALUES (1, '1:23.456')", tbl))
+		require.NoError(t, err)
+
+		viewDDL := fmt.Sprintf(
+			"CREATE VIEW %s(\"id\", \"time\") AS SELECT \"%s\".\"id\", \"%s\".\"raw_time\" AS \"time\" FROM \"%s\"",
+			view, tbl, tbl, tbl)
+		_, err = db.Exec(viewDDL)
+		require.NoError(t, err, "PG-style CREATE VIEW with column-list should load")
+
+		var id int64
+		var tstr string
+		err = db.QueryRow(fmt.Sprintf("SELECT id, time FROM %s", view)).Scan(&id, &tstr)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), id)
+		require.Equal(t, "1:23.456", tstr)
+	})
 }
 
 func TestPgsqlServer_UseDatabaseSwitchesSession(t *testing.T) {

@@ -298,6 +298,25 @@ func TestRemovePGCatalogReferences_DDLNormalization(t *testing.T) {
 			wantContains: []string{"CREATE UNIQUE INDEX IF NOT EXISTS ON t(col)"},
 			wantAbsent:   []string{"idx_foo"},
 		},
+		{
+			// PG pg_dump emits CREATE VIEW with an outer column-list that
+			// renames the SELECT's output columns; immudb's grammar only
+			// accepts `CREATE VIEW name AS dqlstmt`. Strip the list and
+			// rely on AS aliases in the SELECT (which pg_dump always
+			// emits alongside).
+			name: "CREATE VIEW column-list stripped (quoted)",
+			in: `CREATE VIEW "v"("a", "b")
+AS
+SELECT "t"."x" AS "a", "t"."y" AS "b" FROM "t"`,
+			wantContains: []string{"CREATE VIEW v AS", "SELECT"},
+			wantAbsent:   []string{`("a", "b")`, `("a",`},
+		},
+		{
+			name:         "CREATE VIEW IF NOT EXISTS column-list stripped (bare)",
+			in:           `CREATE VIEW IF NOT EXISTS v(a, b) AS SELECT 1 AS a, 2 AS b`,
+			wantContains: []string{"CREATE VIEW IF NOT EXISTS v AS"},
+			wantAbsent:   []string{"v(a, b)", "(a, b)"},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
