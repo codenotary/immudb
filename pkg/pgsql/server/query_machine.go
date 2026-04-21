@@ -513,6 +513,14 @@ var pgTypeReplacements = []struct {
 
 	// DEFAULT nextval('...'::regclass) → strip (AUTO_INCREMENT handles it)
 	{regexp.MustCompile(`(?i)\s*DEFAULT\s+nextval\s*\([^)]+\)`), ""},
+
+	// Strip `COLLATE <identifier>` column/type modifiers. immudb has no
+	// collation support — the default byte-wise comparison is always in
+	// effect. k3s/kine emits `name text COLLATE "C"` to pin Postgres's
+	// index behavior; without stripping, the unquote pass would leave us
+	// with `COLLATE C` which still fails to parse. Run before the
+	// double-quote unquote rule so the quoted form is handled in one go.
+	{regexp.MustCompile(`(?i)\s+COLLATE\s+(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)`), ""},
 	// DEFAULT ('now'...) → DEFAULT NOW()
 	{regexp.MustCompile(`(?i)\s*DEFAULT\s+\(\s*'now'\s*\)\s*`), " DEFAULT NOW() "},
 

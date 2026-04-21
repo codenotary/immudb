@@ -241,6 +241,23 @@ func TestRemovePGCatalogReferences_DDLNormalization(t *testing.T) {
 			wantContains: []string{"pg_type"},
 			wantAbsent:   []string{"pg_catalog."},
 		},
+		{
+			// k3s/kine issues this CREATE TABLE when bootstrapping its
+			// schema. The `COLLATE "C"` must be stripped for immudb to
+			// parse it (immudb has no collation support). Note other
+			// passes also rewrite this to add IF NOT EXISTS and a
+			// default PRIMARY KEY — we assert only on the COLLATE strip.
+			name:         "COLLATE quoted-identifier stripped",
+			in:           `CREATE TABLE kine (name text COLLATE "C", id INTEGER)`,
+			wantContains: []string{"kine", "name"},
+			wantAbsent:   []string{"COLLATE", `"C"`},
+		},
+		{
+			name:         "COLLATE bare-identifier stripped",
+			in:           `CREATE TABLE t (s VARCHAR[64] COLLATE ucs_basic)`,
+			wantContains: []string{"VARCHAR[64]"},
+			wantAbsent:   []string{"COLLATE", "ucs_basic"},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
