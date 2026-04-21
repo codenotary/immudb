@@ -528,6 +528,66 @@ func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
+// k3s/kine (and many pg clients) use `-- ping` as a liveness probe.
+// PostgreSQL replies EmptyQueryResponse + ReadyForQuery; immudb must
+// do the same so the connection stays usable for real queries after.
+func TestPgsqlServer_CommentOnlyQueryReturnsEmptyQueryResponse(t *testing.T) {
+	td := t.TempDir()
+
+	options := server.DefaultOptions().
+		WithDir(td).
+		WithPort(0).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(0).
+		WithMetricsServer(false).
+		WithWebServer(false)
+
+	srv := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+
+	err := srv.Initialize()
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		srv.Start()
+	}()
+
+	defer func() {
+		srv.Stop()
+	}()
+
+	defer os.Remove(".state-")
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Pin a single connection so we can verify the session survives the
+	// comment-only query and the transaction status stays 'Idle'.
+	conn, err := db.Conn(context.Background())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	// Comment-only queries: line, block, whitespace-only, and mixed.
+	for _, q := range []string{"-- ping", "/* ping */", "   ", "-- a\n-- b\n", "/* a */ -- b\n"} {
+		_, err = conn.ExecContext(context.Background(), q)
+		require.NoError(t, err, "query %q should not error", q)
+	}
+
+	// Real query on the same connection must still work, proving that
+	// ReadyForQuery was emitted correctly after each EmptyQueryResponse.
+	table := getRandomTableName()
+	_, err = conn.ExecContext(context.Background(),
+		fmt.Sprintf("CREATE TABLE %s (id INTEGER, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+
+	// Trailing-comment on a real query should also work (lexer skip).
+	_, err = conn.ExecContext(context.Background(),
+		fmt.Sprintf("UPSERT INTO %s (id) VALUES (1) -- trailing", table))
+	require.NoError(t, err)
+}
+
 func TestPgsqlServer_UseDatabaseSwitchesSession(t *testing.T) {
 	td := t.TempDir()
 

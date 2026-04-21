@@ -334,6 +334,23 @@ func (l *lexer) Lex(lval *yySymType) int {
 			continue
 		}
 
+		if ch == '-' && l.r.nextChar == '-' {
+			l.r.ReadByte() // consume second dash
+
+			for {
+				ch, err := l.r.ReadByte()
+				if err == io.EOF || isLineBreak(ch) {
+					break
+				}
+				if err != nil {
+					lval.err = err
+					return ERROR
+				}
+			}
+
+			continue
+		}
+
 		if isLineBreak(ch) {
 			if ch == '\r' && l.r.nextChar == '\n' {
 				l.r.ReadByte()

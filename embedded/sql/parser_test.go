@@ -31,8 +31,48 @@ func init() {
 }
 
 func TestEmptyInput(t *testing.T) {
-	_, err := ParseSQLString("")
-	require.Error(t, err)
+	// PostgreSQL treats an empty query or a comment-only query as a valid
+	// (empty) parse — it replies with EmptyQueryResponse, not a syntax
+	// error. Mirror that so pg clients (k3s kine, pgx, libpq) can issue
+	// `-- ping` health checks against the pgwire endpoint.
+	res, err := ParseSQLString("")
+	require.NoError(t, err)
+	require.Nil(t, res)
+}
+
+func TestCommentOnlyInput(t *testing.T) {
+	testCases := []string{
+		"-- ping",
+		"-- ping\n",
+		"/* block */",
+		"   \n  -- trailing\n",
+		"-- first\n-- second\n",
+		"/* a */ -- b\n",
+	}
+
+	for _, input := range testCases {
+		res, err := ParseSQLString(input)
+		require.NoError(t, err, "input %q", input)
+		require.Nil(t, res, "input %q", input)
+	}
+}
+
+func TestLineCommentAroundStatement(t *testing.T) {
+	// Verify that line comments adjacent to a real statement don't
+	// interfere with parsing. We only assert len==1 + no-error so this
+	// doesn't depend on the exact AST shape of SELECT.
+	testCases := []string{
+		"SELECT * FROM t -- trailing comment",
+		"SELECT * FROM t; -- trailing comment\n",
+		"-- leading comment\nSELECT * FROM t",
+		"-- c1\nSELECT * FROM t -- c2\n",
+	}
+
+	for _, input := range testCases {
+		res, err := ParseSQLString(input)
+		require.NoError(t, err, "input %q", input)
+		require.Len(t, res, 1, "input %q", input)
+	}
 }
 
 func TestCreateDatabaseStmt(t *testing.T) {

@@ -447,6 +447,14 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		}
 	}
 
+	if len(stmts) == 0 {
+		// PostgreSQL contract: a Simple Query that is empty or contains
+		// only comments returns EmptyQueryResponse, not CommandComplete.
+		// k3s/kine issues `-- ping` as a liveness check and expects this.
+		_, err := s.writeMessage(bm.EmptyQueryResponse())
+		return err
+	}
+
 	for _, stmt := range stmts {
 		switch st := stmt.(type) {
 		case *sql.UseDatabaseStmt:

@@ -230,6 +230,11 @@ sql: sqlstmts
         $$ = $1
         setResult(yylex, $1)
     }
+|
+    /* empty */
+    {
+        setResult(yylex, nil)
+    }
 
 sqlstmts:
     sqlstmt opt_separator
