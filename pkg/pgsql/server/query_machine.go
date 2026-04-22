@@ -964,7 +964,33 @@ func normalizePsqlPatterns(sql string) string {
 	return sql
 }
 
+// removePGCatalogReferences is the single entry point used across the
+// pgwire server to normalise incoming SQL before it reaches the immudb
+// engine (or the cache-key machinery). Historically it was a single
+// monolithic regex chain; B1 of the Part B roadmap adds an AST-based
+// alternative gated by a server option (WithSQLRewriter) and kept off
+// by default. The AST path falls back to the regex chain on any
+// parser error so we pay no correctness tax while the new code soaks.
+//
+// See docs/pg-compat-roadmap.md for the programme and
+// pkg/pgsql/server/rewrite/ for the AST implementation.
 func removePGCatalogReferences(sqlStr string) string {
+	if sqlRewriterMode() == "ast" {
+		if out, ok := astRewrite(sqlStr); ok {
+			return out
+		}
+		// Parser rejected the input OR the AST path hit a gap. Fall
+		// through to the regex chain so every existing caller keeps
+		// getting correct output.
+	}
+	return removePGCatalogReferencesRegex(sqlStr)
+}
+
+// removePGCatalogReferencesRegex is the legacy regex-based rewriter.
+// B2 will gradually retire passes from here as their AST equivalents
+// land; B3 removes the function entirely once the AST path handles
+// every supported query shape.
+func removePGCatalogReferencesRegex(sqlStr string) string {
 	// Normalise PG-specific patterns that operate on string literals
 	// *before* masking (maskStringLiterals hides literal contents so
 	// the downstream regex chain can't touch them, but these rules
