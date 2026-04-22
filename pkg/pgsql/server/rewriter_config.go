@@ -96,7 +96,8 @@ var astRewriterSingleton = rewrite.New().
 	WithRule(rules.StripForeignKeys{}).
 	WithRule(rules.StripCreateIndexName{}).
 	WithRule(rules.StripCreateViewColList{}).
-	WithRule(rules.EnsureCreateTableIfNotExists{})
+	WithRule(rules.EnsureCreateTableIfNotExists{}).
+	WithRule(rules.StripTransactionModes{})
 
 // astRewrite runs the B1 AST rewriter on a single SQL string.
 // Returns (output, true) on success; (input, false) when the parser
