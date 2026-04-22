@@ -5676,6 +5676,17 @@ func (stmt *tableRef) Resolve(ctx context.Context, tx *SQLTx, params map[string]
 
 	table, err := stmt.referencedTable(tx)
 	if err == nil {
+		// System tables (pg_type, future pg_class/pg_attribute/...) are
+		// catalog-present for schema lookups but backed by Go code for
+		// row production. Route them past the storage reader entirely;
+		// a nil Scan (as with pg_type today) yields zero rows.
+		if table.systemScan != nil {
+			rows, err := table.systemScan(ctx, tx)
+			if err != nil {
+				return nil, err
+			}
+			return newSystemTableRowReader(tx, table, stmt.Alias(), rows)
+		}
 		if stmt.diff {
 			return newDiffRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 		}

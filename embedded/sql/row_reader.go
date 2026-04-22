@@ -201,7 +201,12 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 
 	var r store.KeyReader
 
-	if table.name == "pg_type" {
+	// System tables have no storage backing — their rows come from
+	// Table.systemScan via tableRef.Resolve. If anything still funnels
+	// a rawRowReader at one (e.g. a direct internal call), fall back to
+	// an empty reader rather than scanning storage with a key prefix
+	// that has no entries.
+	if table.systemScan != nil {
 		r = &emptyKeyReader{}
 	} else {
 		r, err = tx.newKeyReader(*rSpec)

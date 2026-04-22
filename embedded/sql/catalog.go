@@ -76,6 +76,11 @@ type Table struct {
 
 	maxColID   uint32
 	maxIndexID uint32
+
+	// systemScan is non-nil only for tables installed via
+	// RegisterSystemTable. When set, SELECTs against this table bypass
+	// storage and iterate the rows returned by Scan. See system_tables.go.
+	systemScan func(ctx context.Context, tx *SQLTx) ([]*Row, error)
 }
 
 type Index struct {
@@ -105,50 +110,31 @@ func newCatalog(enginePrefix []byte) *Catalog {
 		tablesByName: make(map[string]*Table),
 	}
 
-	pgTypeTable := &Table{
-		catalog: ctlg,
-		name:    "pg_type",
-		cols: []*Column{
-			{
-				colName: "oid",
-				colType: VarcharType,
-				maxLen:  10,
-			},
-			{
-				colName: "typbasetype",
-				colType: VarcharType,
-				maxLen:  10,
-			},
-			{
-				colName: "typname",
-				colType: VarcharType,
-				maxLen:  50,
-			},
-		},
+	// Install every registered system table (pg_type today; more in
+	// future pg-compat phases). Each is a virtual catalog entry with
+	// Go-provided row source — no storage backing.
+	for _, def := range registeredSystemTables() {
+		installSystemTable(ctlg, def)
 	}
-
-	pgTypeTable.colsByName = make(map[string]*Column, len(pgTypeTable.cols))
-
-	for _, col := range pgTypeTable.cols {
-		pgTypeTable.colsByName[col.colName] = col
-	}
-
-	pgTypeTable.indexes = []*Index{
-		{
-			unique: true,
-			cols: []*Column{
-				pgTypeTable.colsByName["oid"],
-			},
-			colsByID: map[uint32]*Column{
-				0: pgTypeTable.colsByName["oid"],
-			},
-		},
-	}
-
-	pgTypeTable.primaryIndex = pgTypeTable.indexes[0]
-	ctlg.tablesByName[pgTypeTable.name] = pgTypeTable
 
 	return ctlg
+}
+
+func init() {
+	// pg_type: the one system table immudb has shipped with for years.
+	// Scan is nil, so SELECTs against pg_type return zero rows at the
+	// SQL engine level — the PG wire layer (pkg/pgsql/server) fabricates
+	// rows for clients that need them (e.g. Rails' type map). This
+	// registration reproduces the prior hardcoded shape byte-for-byte.
+	RegisterSystemTable(&SystemTableDef{
+		Name: "pg_type",
+		Columns: []SystemTableColumn{
+			{Name: "oid", Type: VarcharType, MaxLen: 10},
+			{Name: "typbasetype", Type: VarcharType, MaxLen: 10},
+			{Name: "typname", Type: VarcharType, MaxLen: 50},
+		},
+		PKColumn: "oid",
+	})
 }
 
 func (catlg *Catalog) ExistTable(table string) bool {
@@ -804,8 +790,10 @@ func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
 // cloned for read-write transactions to avoid the cost of re-running
 // loadCatalog (prefix scans + default-expression re-parse) on every NewTx.
 //
-// The builtin pg_type virtual table is initialised from scratch via
-// newCatalog rather than copied; its identity is stable across catalogs.
+// Registered system tables (pg_type today, more in future pg-compat
+// phases) are re-installed from scratch by newCatalog — never copied —
+// so their identity is stable across catalogs and the Scan function
+// pointers stay bound to the package-level registry.
 //
 // Immutable substructures — ValueExp default expressions, Index predicates,
 // and CheckConstraint expressions — are shared with the source by pointer
