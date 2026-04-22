@@ -68,15 +68,16 @@ func TestParserFidelity(t *testing.T) {
 		t.Logf("  FAIL: %s", truncate(q, 120))
 	}
 
-	// B1 floor: 60% of the curated corpus parses. The immudb-
-	// specific DDL lines (VARCHAR[N], AUTO_INCREMENT, COPY) are in
-	// the corpus on purpose — they measure how much the regex
-	// fallback still carries. Raise this floor in B2 as rule
-	// coverage grows.
-	const b1Floor = 60.0
-	require.GreaterOrEqual(t, pct, b1Floor,
-		"parser fidelity dropped below B1 floor (%.1f%% < %.1f%%); %d failing lines logged above",
-		pct, b1Floor, len(failing))
+	// B2.7 floor: 90%. After the initial 7 B2 rules landed we added
+	// concrete transcripts for each (COUNT(1), Rails AR projection,
+	// ON CONFLICT upsert, CHECK, FK, CREATE INDEX name, CREATE VIEW
+	// col list), all of which parse. The remaining ~10% are the
+	// immudb-specific DDL forms (VARCHAR[N], AUTO_INCREMENT) that
+	// are expected to fall back to the regex chain.
+	const fidelityFloor = 90.0
+	require.GreaterOrEqual(t, pct, fidelityFloor,
+		"parser fidelity dropped below floor (%.1f%% < %.1f%%); %d failing lines logged above",
+		pct, fidelityFloor, len(failing))
 }
 
 func truncate(s string, n int) string {

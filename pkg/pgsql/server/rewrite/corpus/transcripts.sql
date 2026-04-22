@@ -82,6 +82,30 @@ DELETE FROM users WHERE id = 1
 -- CREATE TABLE without immudb extensions (parses)
 CREATE TABLE posts (id INTEGER, body TEXT)
 
+-- XORM COUNT(1) aggregate
+SELECT comment_id, COUNT(1) AS n FROM issue_content_history GROUP BY comment_id
+
+-- Rails ActiveRecord projection
+SELECT "users".* FROM "users" WHERE "users"."id" = 1
+
+-- Rails ON CONFLICT upsert
+INSERT INTO schema_migrations (version) VALUES ('20231201000000') ON CONFLICT (version) DO NOTHING
+
+-- pg_dump CREATE TABLE with CHECK
+CREATE TABLE products (id INTEGER, price INTEGER, CHECK (price >= 0))
+
+-- Rails FK column-level
+CREATE TABLE orders (id INTEGER, user_id INTEGER REFERENCES users(id))
+
+-- pg_dump FK with ON DELETE
+CREATE TABLE orders (id INTEGER, user_id INTEGER, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)
+
+-- pg_dump CREATE INDEX with name
+CREATE INDEX idx_users_email ON users (email)
+
+-- pg_dump CREATE VIEW with column list
+CREATE VIEW user_emails(user_id, email) AS SELECT id, email FROM users
+
 -- CREATE TABLE with immudb VARCHAR[N] (does NOT parse — goes to regex chain)
 CREATE TABLE posts (id INTEGER, body VARCHAR[128], PRIMARY KEY id)
 
