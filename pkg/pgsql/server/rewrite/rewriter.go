@@ -83,6 +83,11 @@ func (r *Rewriter) Rules() []Rule {
 // callers (currently query_machine.go) use that signal to fall back
 // to the legacy regex chain.
 //
+// A rule that returns nil from Apply signals "drop this statement
+// entirely" — the Rewriter filters such results out of the emitted
+// SQL. Useful for strip-whole-statement rules like the trailing-
+// `COMMENT ON …` remover.
+//
 // Rewriting is deliberately a pure function of (sql, rules): no
 // session state, no catalog lookups. Rules that need catalog
 // information take it via constructor arguments, not via the
@@ -92,10 +97,20 @@ func (r *Rewriter) Rewrite(sql string) (string, error) {
 	if err != nil {
 		return sql, err
 	}
+	kept := stmts[:0]
 	for i := range stmts {
+		ast := stmts[i].AST
 		for _, rule := range r.rules {
-			stmts[i].AST = rule.Apply(stmts[i].AST)
+			if ast == nil {
+				break
+			}
+			ast = rule.Apply(ast)
 		}
+		if ast == nil {
+			continue
+		}
+		stmts[i].AST = ast
+		kept = append(kept, stmts[i])
 	}
-	return stmts.String(), nil
+	return kept.String(), nil
 }
