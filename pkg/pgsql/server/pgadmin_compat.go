@@ -198,11 +198,14 @@ func (s *session) handlePgSystemQuery(query string) error {
 // extractColumnNames extracts column names from a SQL query.
 // Strategy: find all "AS alias" patterns, plus bare column names from
 // simple "SELECT col1, col2 FROM" patterns.
+//
+// IMPORTANT: returns one entry per SELECT-list item. psql's backslash
+// commands (\d, \l, …) use hard-coded column indexes on the result, so
+// dropping an item makes libpq crash with
+// "column number N is out of range 0..M" followed by a segfault. When a
+// name cannot be derived (bare literal, CASE…END, other complex exprs)
+// we emit "?column?" — the same placeholder real PostgreSQL uses.
 func extractColumnNames(query string) []string {
-	// Strategy: parse the SELECT list between SELECT and FROM (at depth 0),
-	// split by commas at depth 0, then for each part extract AS alias or
-	// the bare trailing column name.
-
 	upper := strings.ToUpper(query)
 	selIdx := strings.Index(upper, "SELECT")
 	if selIdx < 0 {
@@ -256,27 +259,26 @@ func extractColumnNames(query string) []string {
 	parts := splitAtDepthZero(selectList, ',')
 
 	var cols []string
-	seen := make(map[string]bool)
-
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
+			// Only genuinely empty (e.g. trailing comma artifact) — no
+			// corresponding SELECT-list item, so don't count one.
 			continue
 		}
 
-		var colName string
+		colName := ""
 
 		// Check for "... AS alias"
 		asMatch := regexp.MustCompile(`(?i)\bAS\s+(\w+)\s*$`).FindStringSubmatch(part)
 		if len(asMatch) == 2 {
 			colName = strings.ToLower(asMatch[1])
 		} else {
-			// No AS — get the last token as bare column name
-			// Handle "table.column" or just "column"
+			// No AS — get the last token as bare column name.
+			// Handle "table.column" or just "column".
 			words := strings.Fields(part)
 			if len(words) > 0 {
 				last := words[len(words)-1]
-				// Strip table prefix
 				if idx := strings.LastIndex(last, "."); idx >= 0 {
 					last = last[idx+1:]
 				}
@@ -285,10 +287,10 @@ func extractColumnNames(query string) []string {
 			}
 		}
 
-		if colName != "" && !isReserved(colName) && !seen[colName] {
-			cols = append(cols, colName)
-			seen[colName] = true
+		if colName == "" || isReserved(colName) {
+			colName = "?column?"
 		}
+		cols = append(cols, colName)
 	}
 
 	return cols
