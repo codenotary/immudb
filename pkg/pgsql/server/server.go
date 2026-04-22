@@ -29,6 +29,14 @@ import (
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server/sessions"
+
+	// Register pg_catalog system tables (pg_namespace, pg_am, pg_class,
+	// pg_attribute, pg_index). Side-effect import — the init() chain in
+	// pkg/pgsql/sys calls sql.RegisterSystemTable. Without this import
+	// the registry stays at just pg_type (the legacy entry registered
+	// directly by embedded/sql).
+	_ "github.com/codenotary/immudb/pkg/pgsql/sys"
+
 	"golang.org/x/net/netutil"
 )
 
