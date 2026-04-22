@@ -1,0 +1,192 @@
+/*
+Copyright 2026 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://mariadb.com/bsl11/
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package server
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// TestNormalizePsqlPatterns_OperatorRegex pins the core rewrite that
+// turns psql's anchored regex-match operator into equality. Without
+// this the engine fails to parse OPERATOR(pg_catalog.~) and psql \d
+// falls back to the canned-handler path with fabricated NULLs.
+func TestNormalizePsqlPatterns_OperatorRegex(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "parenthesised_anchor_with_pg_catalog_prefix",
+			in:   `WHERE c.relname OPERATOR(pg_catalog.~) '^(continent)$'`,
+			want: `WHERE c.relname = 'continent'`,
+		},
+		{
+			name: "parenthesised_anchor_bare",
+			in:   `WHERE c.relname OPERATOR(~) '^(accounts)$'`,
+			want: `WHERE c.relname = 'accounts'`,
+		},
+		{
+			name: "no_parens_form",
+			in:   `WHERE c.relname OPERATOR(pg_catalog.~) '^mytable$'`,
+			want: `WHERE c.relname = 'mytable'`,
+		},
+		{
+			// Alternations are out of scope for Path A. Rule should
+			// leave them untouched so the canned-handler fallback
+			// still catches them.
+			name: "alternation_not_rewritten",
+			in:   `WHERE c.relname OPERATOR(pg_catalog.~) '^(a|b|c)$'`,
+			want: `WHERE c.relname OPERATOR(pg_catalog.~) '^(a|b|c)$'`,
+		},
+		{
+			// Make sure we don't accidentally rewrite unanchored
+			// patterns — those are real regex usage and should fall
+			// through to the canned handler.
+			name: "unanchored_not_rewritten",
+			in:   `WHERE c.relname OPERATOR(pg_catalog.~) 'foo'`,
+			want: `WHERE c.relname OPERATOR(pg_catalog.~) 'foo'`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizePsqlPatterns(tc.in))
+		})
+	}
+}
+
+// TestNormalizePsqlPatterns_OidLiteralCoercion pins the second
+// transform psql depends on: stripping single quotes around an
+// integer compared to an oid column. PostgreSQL accepts
+// `c.oid = '16384'` via implicit text→oid cast; immudb doesn't.
+func TestNormalizePsqlPatterns_OidLiteralCoercion(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "pg_class_oid",
+			in:   `WHERE c.oid = '16384'`,
+			want: `WHERE c.oid = 16384`,
+		},
+		{
+			name: "attrelid",
+			in:   `WHERE a.attrelid = '99'`,
+			want: `WHERE a.attrelid = 99`,
+		},
+		{
+			name: "indrelid",
+			in:   `WHERE i.indrelid = '20001'`,
+			want: `WHERE i.indrelid = 20001`,
+		},
+		{
+			name: "qualifier_with_spaces",
+			in:   `WHERE c . oid = '42'`,
+			want: `WHERE c . oid = 42`,
+		},
+		{
+			// A string column with a numeric string must not be
+			// touched — bounded allowlist in psqlOidStringLiteralRe
+			// is what keeps this safe.
+			name: "string_column_untouched",
+			in:   `WHERE t.name = '42'`,
+			want: `WHERE t.name = '42'`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizePsqlPatterns(tc.in))
+		})
+	}
+}
+
+// TestAllPgRefsRegistered exercises the helper the dispatcher uses to
+// decide whether a query's pg_* references are all satisfiable by the
+// SQL engine. A miss here means the query falls through to the
+// canned-handler path, which is the safe default for anything we
+// haven't explicitly registered.
+func TestAllPgRefsRegistered(t *testing.T) {
+	cases := []struct {
+		name string
+		sql  string
+		want bool
+	}{
+		{
+			name: "psql_describe_first_roundtrip",
+			sql: `SELECT c.oid, n.nspname, c.relname
+			      FROM pg_catalog.pg_class c
+			      LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+			      WHERE c.relname = 'continent'
+			        AND pg_catalog.pg_table_is_visible(c.oid)
+			      ORDER BY 2, 3`,
+			want: true,
+		},
+		{
+			name: "psql_describe_second_roundtrip",
+			sql: `SELECT c.relchecks, c.relkind, am.amname
+			      FROM pg_catalog.pg_class c
+			      LEFT JOIN pg_catalog.pg_class tc ON (c.reltoastrelid = tc.oid)
+			      LEFT JOIN pg_catalog.pg_am am ON (c.relam = am.oid)
+			      WHERE c.oid = '16384'`,
+			want: true,
+		},
+		{
+			// pg_proc isn't registered — query must fall through to
+			// canned handler.
+			name: "references_unregistered_pg_proc",
+			sql:  `SELECT * FROM pg_catalog.pg_proc WHERE proname = 'foo'`,
+			want: false,
+		},
+		{
+			// pg_roles is served by pkg/pgsql/pgschema/ resolvers —
+			// engine passthrough is correct.
+			name: "references_registered_pg_roles",
+			sql:  `SELECT rolname FROM pg_catalog.pg_roles`,
+			want: true,
+		},
+		{
+			// pg_database has no resolver and no A2 system table yet
+			// (scheduled for phase A3) — must still fall through.
+			name: "references_unregistered_pg_database",
+			sql:  `SELECT datname FROM pg_catalog.pg_database`,
+			want: false,
+		},
+		{
+			name: "only_builtin_function",
+			sql:  `SELECT pg_table_is_visible(42)`,
+			want: true,
+		},
+		{
+			// A user table that happens to have a pg_ prefix must
+			// correctly block engine passthrough — registering the
+			// engine for such a query would give wrong results
+			// (trying to read pg_class when the user meant their own
+			// table). Safer to fall to canned-handler.
+			name: "user_pg_prefixed_table_blocks",
+			sql:  `SELECT * FROM pg_my_app_state`,
+			want: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, allPgRefsRegistered(tc.sql))
+		})
+	}
+}

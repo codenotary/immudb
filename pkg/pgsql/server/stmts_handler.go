@@ -18,6 +18,7 @@ package server
 
 import (
 	"regexp"
+	"strings"
 
 	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 )
@@ -79,16 +80,53 @@ var (
 	pgSystemQueryRe = regexp.MustCompile(`(?i)pg_catalog\.|information_schema\.|pg_roles\b|pg_database\b|pg_settings\b|pg_extension\b|pg_tablespace\b|pg_replication_slots\b|pg_stat_activity\b|pg_authid\b|pg_shdescription\b|pg_description\b|pg_am\b|pg_stat_replication\b|pg_auth_members\b|pg_namespace\b|pg_class\b|pg_attribute\b|pg_type\b|pg_proc\b|pg_constraint\b|pg_index\b|pg_depend\b|pg_stat_user_tables\b|pg_statio_user_tables\b|pg_locks\b|pg_shadow\b|pg_user\b|pg_tables\b|pg_indexes\b|pg_views\b|pg_matviews\b|pg_sequences\b|current_setting\s*\(|has_database_privilege\s*\(|has_table_privilege\s*\(|has_schema_privilege\s*\(|pg_encoding_to_char\s*\(|pg_get_userbyid\s*\(`)
 
 	// pgVirtualTableFromRe matches a query whose FROM clause names one of the
-	// virtual catalog tables that the embedded SQL engine implements natively
-	// (pg_class, pg_attribute). When no JOIN to another system table is
-	// present the query is forwarded to the SQL engine so callers receive
-	// real catalog data rather than canned NULLs.
-	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_settings|pg_constraint)\b`)
+	// virtual catalog tables the SQL engine implements natively. Covers
+	// everything registered by pkg/pgsql/sys/ (pg_class, pg_attribute,
+	// pg_index, pg_namespace, pg_am, pg_type) plus the historical entries
+	// (pg_settings, pg_constraint). A match flags the query as a
+	// candidate for engine passthrough; allPgRefsRegistered decides
+	// whether it actually qualifies.
+	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint)\b`)
 
-	// pgSystemJoinRe detects a JOIN keyword or a comma-separated second
-	// system-catalog table alongside pg_class / pg_attribute, indicating the
-	// query is complex enough to require the canned pgAdminProbe handler.
-	pgSystemJoinRe = regexp.MustCompile(`(?i)\bjoin\b|,\s*(?:pg_catalog\.)?pg_`)
+	// pgAnyTableRe finds every reference to a pg_ table in the statement.
+	// Used by allPgRefsRegistered to decide whether a JOIN-containing
+	// query only touches tables the engine can actually serve.
+	pgAnyTableRe = regexp.MustCompile(`(?i)\b(pg_[a-z_]+)\b`)
+
+	// registeredPgTables is the set of pg_catalog objects the SQL engine
+	// can serve — either via the A2 catalog-level system-table registry
+	// (pkg/pgsql/sys/) or via the legacy TableResolvers in
+	// pkg/pgsql/pgschema/ (wired up by pkg/database/database.go). Keep
+	// in sync with pgVirtualTableFromRe and with the resolver list in
+	// pgschema/table_resolvers.go's PgCatalogResolvers().
+	registeredPgTables = map[string]bool{
+		// pkg/pgsql/sys/ (A2)
+		"pg_class":     true,
+		"pg_attribute": true,
+		"pg_index":     true,
+		"pg_namespace": true,
+		"pg_am":        true,
+		"pg_type":      true,
+		// pkg/pgsql/pgschema/ (pre-A2 resolvers, still live)
+		"pg_roles":       true,
+		"pg_settings":    true,
+		"pg_constraint":  true,
+		"pg_description": true,
+	}
+
+	// pgBuiltinFunctions are known pg_catalog-qualified functions built
+	// into embedded/sql/functions.go. A reference to one of these does
+	// not disqualify a query from engine passthrough even though it
+	// matches pgAnyTableRe's identifier shape. Keep in sync with
+	// embedded/sql/functions.go's builtinFunctions map.
+	pgBuiltinFunctions = map[string]bool{
+		"pg_table_is_visible":    true,
+		"pg_get_userbyid":        true,
+		"pg_get_expr":            true,
+		"pg_get_constraintdef":   true,
+		"pg_get_serial_sequence": true,
+		"pg_encoding_to_char":    true,
+	}
 
 	// pgTablesRe singles out queries against the standard `pg_tables` view
 	// (and its sister catalog views) so the handler can enumerate immudb's
@@ -130,6 +168,35 @@ var (
 // engine. Do NOT re-add them to this blacklist — blacklisting turns
 // them into silent no-ops, which destroys uniqueness guarantees.
 var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
+
+// allPgRefsRegistered returns true when every pg_* identifier in
+// statement is either a registered system table (registeredPgTables)
+// or a registered built-in function (pgBuiltinFunctions). Used by the
+// dispatcher to decide whether a query can safely execute against the
+// SQL engine instead of being shunted to a canned handler.
+//
+// The scan is deliberately permissive: pg_* substrings that happen to
+// appear inside string literals are rare in real client traffic and
+// a false "unregistered" classification only means we fall through to
+// the canned handler (no correctness loss, just the old behaviour).
+func allPgRefsRegistered(statement string) bool {
+	matches := pgAnyTableRe.FindAllStringSubmatch(statement, -1)
+	for _, m := range matches {
+		name := strings.ToLower(m[1])
+		// pg_catalog is a namespace qualifier, not a table — it gets
+		// stripped by removePGCatalogReferences before the engine
+		// sees the statement. Skip it here so queries that reference
+		// `pg_catalog.pg_class` aren't wrongly disqualified.
+		if name == "pg_catalog" {
+			continue
+		}
+		if registeredPgTables[name] || pgBuiltinFunctions[name] {
+			continue
+		}
+		return false
+	}
+	return true
+}
 
 func (s *session) isInBlackList(statement string) bool {
 	if set.MatchString(statement) {
@@ -237,10 +304,15 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &infoSchemaColumnsCmd{sql: statement}
 	}
 
-	// Simple queries against pg_class / pg_attribute with no JOINs to other
-	// system-catalog tables: forward to the SQL engine's virtual tables so
-	// callers receive real catalog data rather than canned NULLs.
-	if pgVirtualTableFromRe.MatchString(statement) && !pgSystemJoinRe.MatchString(statement) {
+	// Queries whose every pg_ reference resolves to a table the engine
+	// can actually serve (pg_class / pg_attribute / pg_index /
+	// pg_namespace / pg_am / pg_type) plus any pg_* built-in function
+	// already registered in embedded/sql/functions.go: forward to the
+	// SQL engine. JOINs between registered tables are allowed — the
+	// engine handles them correctly against the system-table backing.
+	// This is the path that lets psql \d, \dt, \di, \dv execute
+	// against real catalog data.
+	if pgVirtualTableFromRe.MatchString(statement) && allPgRefsRegistered(statement) {
 		return nil
 	}
 

@@ -955,7 +955,58 @@ func inferParamColsFromSQL(stmtSQL string) []sql.ColDescriptor {
 	return cols
 }
 
+// psqlOperatorRegexEqRe turns psql's anchored single-name regex match
+// into equality. psql's \d-family meta-commands emit queries like
+//   WHERE c.relname OPERATOR(pg_catalog.~) '^(mytable)$'
+// and immudb's SQL grammar has no `~` regex operator. The anchored
+// regex body, which psql uses to pin to exactly one name, is
+// semantically identical to `= 'mytable'`.
+//
+// The rule requires a `|`-free body — alternations (`^(a|b|c)$`) are
+// structural and deferred to the future AST rewriter (Part B).
+var psqlOperatorRegexEqRe = regexp.MustCompile(
+	`(?i)\s+OPERATOR\s*\(\s*(?:pg_catalog\.)?~\s*\)\s*'\^\(([^)|]+)\)\$'`)
+
+// psqlOperatorRegexEqNoParenRe covers the rarer paren-less form some
+// clients emit: `c.relname ~ '^mytable$'`.
+var psqlOperatorRegexEqNoParenRe = regexp.MustCompile(
+	`(?i)\s+OPERATOR\s*\(\s*(?:pg_catalog\.)?~\s*\)\s*'\^([^$|']+)\$'`)
+
+// psqlOidStringLiteralRe coerces `'N'` back to `N` when compared to
+// an integer oid column. PostgreSQL accepts both forms via implicit
+// coercion; immudb's SQL engine does not, so psql's second round-trip
+// `WHERE c.oid = '16384'` would fail type-check against pg_class.oid
+// (IntegerType) without this rewrite.
+//
+// The column allowlist is bounded to known integer-oid columns across
+// pg_class / pg_attribute / pg_index so the rewrite can't over-match
+// into a genuinely string-typed column.
+var psqlOidStringLiteralRe = regexp.MustCompile(
+	`(?i)(\.\s*(?:oid|relnamespace|relfilenode|reltoastrelid|reltype|reloftype|relam|relowner|attrelid|atttypid|attcollation|indrelid|indexrelid|indcollation)\s*=\s*)'(\d+)'`)
+
+// normalizePsqlPatterns performs the subset of query rewriting that
+// must see string literals intact. Everything else goes through
+// pgTypeReplacements, which runs after maskStringLiterals hides
+// literal contents. See removePGCatalogReferences for the flow.
+//
+// Each rule is narrowly scoped to a psql meta-command pattern — over-
+// matching would corrupt non-psql queries, so we prefer leaving
+// edge cases to the canned-handler fallback.
+func normalizePsqlPatterns(sql string) string {
+	sql = psqlOperatorRegexEqRe.ReplaceAllString(sql, " = '$1'")
+	sql = psqlOperatorRegexEqNoParenRe.ReplaceAllString(sql, " = '$1'")
+	sql = psqlOidStringLiteralRe.ReplaceAllString(sql, "${1}${2}")
+	return sql
+}
+
 func removePGCatalogReferences(sqlStr string) string {
+	// Normalise PG-specific patterns that operate on string literals
+	// *before* masking (maskStringLiterals hides literal contents so
+	// the downstream regex chain can't touch them, but these rules
+	// specifically need to see the literal). See normalizePsqlPatterns
+	// for the rules and why they're kept separate.
+	sqlStr = normalizePsqlPatterns(sqlStr)
+
 	// Mask string literals first so regex-based rewrites can't mutate
 	// their contents (see maskStringLiterals for rationale).
 	s, restore := maskStringLiterals(sqlStr)
