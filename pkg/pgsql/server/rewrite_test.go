@@ -148,25 +148,26 @@ func TestAllPgRefsRegistered(t *testing.T) {
 			want: true,
 		},
 		{
-			// pg_proc isn't registered — query must fall through to
-			// canned handler.
-			name: "references_unregistered_pg_proc",
+			// pg_proc is served by the A3 sys/ system table — engine
+			// passthrough is correct so psql \df can execute against
+			// real function metadata.
+			name: "references_registered_pg_proc",
 			sql:  `SELECT * FROM pg_catalog.pg_proc WHERE proname = 'foo'`,
-			want: false,
+			want: true,
 		},
 		{
-			// pg_roles is served by pkg/pgsql/pgschema/ resolvers —
+			// pg_roles is served by pkg/pgsql/sys/ system tables (A3) —
 			// engine passthrough is correct.
 			name: "references_registered_pg_roles",
 			sql:  `SELECT rolname FROM pg_catalog.pg_roles`,
 			want: true,
 		},
 		{
-			// pg_database has no resolver and no A2 system table yet
-			// (scheduled for phase A3) — must still fall through.
-			name: "references_unregistered_pg_database",
+			// pg_database is served by the A3 sys/ system table —
+			// engine passthrough is correct so psql \l can execute.
+			name: "references_registered_pg_database",
 			sql:  `SELECT datname FROM pg_catalog.pg_database`,
-			want: false,
+			want: true,
 		},
 		{
 			name: "only_builtin_function",

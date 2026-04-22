@@ -110,7 +110,12 @@ func TestUseDatabaseWithoutMultiDBHandler(t *testing.T) {
 		require.ErrorIs(t, err, ErrUnspecifiedMultiDBHandler)
 	})
 
-	r, err := engine.Query(context.Background(), nil, "SELECT ts FROM pg_type WHERE ts < 1 + NOW()", nil)
+	// pg_type is a system table; querying it shouldn't need a multi-
+	// database handler. Historically this query used a bogus `ts`
+	// column that only worked because pg_type was empty — A3 populated
+	// it, so use a real column instead.
+	r, err := engine.Query(context.Background(), nil,
+		"SELECT typname FROM pg_type WHERE typname = 'nonexistent_type'", nil)
 	require.NoError(t, err)
 	defer r.Close()
 

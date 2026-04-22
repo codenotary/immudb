@@ -34,7 +34,6 @@ import (
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/pgsql/pgschema"
 )
 
 const (
@@ -239,8 +238,7 @@ func OpenDB(
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
 		WithMultiDBHandler(multidbHandler).
-		WithParseTxMetadataFunc(parseTxMetadata).
-		WithTableResolvers(pgschema.PgCatalogResolvers()...)
+		WithParseTxMetadataFunc(parseTxMetadata)
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
@@ -365,8 +363,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log 
 	sqlOpts := sql.DefaultOptions().
 		WithPrefix([]byte{SQLPrefix}).
 		WithMultiDBHandler(multidbHandler).
-		WithParseTxMetadataFunc(parseTxMetadata).
-		WithTableResolvers(pgschema.PgCatalogResolvers()...)
+		WithParseTxMetadataFunc(parseTxMetadata)
 
 	dbi.Logger.Infof("loading sql-engine for database '%s' {replica = %v}...", dbName, opts.replica)
 

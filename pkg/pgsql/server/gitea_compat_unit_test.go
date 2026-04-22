@@ -137,7 +137,12 @@ func TestInjectAddColumnKeyword(t *testing.T) {
 // through to the engine and surface the canned 1-row NULL response
 // that breaks XORM Scan.
 func TestORMIntrospectionRegexes(t *testing.T) {
-	t.Run("pgTablesRe", func(t *testing.T) {
+	t.Run("pgTablesViaPgVirtualTableFromRe", func(t *testing.T) {
+		// pg_tables used to route to its own canned handler; the A5
+		// sys.pg_tables system table now serves the same shape via the
+		// shared pgVirtualTableFromRe → engine-passthrough path. The
+		// regex is the same except pg_tables sits inside the alternation
+		// group alongside pg_class / pg_attribute / …
 		matches := []string{
 			`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
 			`SELECT * FROM pg_catalog.pg_tables`,
@@ -146,13 +151,14 @@ func TestORMIntrospectionRegexes(t *testing.T) {
 		nonMatches := []string{
 			`SELECT * FROM my_tables`,
 			`SELECT * FROM pg_tables_view_wannabe`,
-			`SELECT * FROM pg_type`,
 		}
 		for _, q := range matches {
-			require.Truef(t, pgTablesRe.MatchString(q), "pgTablesRe should match %q", q)
+			require.Truef(t, pgVirtualTableFromRe.MatchString(q),
+				"pgVirtualTableFromRe should match pg_tables query %q", q)
 		}
 		for _, q := range nonMatches {
-			require.Falsef(t, pgTablesRe.MatchString(q), "pgTablesRe must NOT match %q", q)
+			require.Falsef(t, pgVirtualTableFromRe.MatchString(q),
+				"pgVirtualTableFromRe must NOT match %q", q)
 		}
 	})
 
@@ -177,7 +183,10 @@ func TestORMIntrospectionRegexes(t *testing.T) {
 		}
 	})
 
-	t.Run("pgIndexesRe", func(t *testing.T) {
+	t.Run("pgIndexesViaPgVirtualTableFromRe", func(t *testing.T) {
+		// pg_indexes routes through the same shared regex as every
+		// other A5 compat view; the dedicated pgIndexesRe was retired
+		// once sys.pg_indexes landed.
 		matches := []string{
 			`SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 't'`,
 			`SELECT * FROM pg_catalog.pg_indexes`,
@@ -187,10 +196,12 @@ func TestORMIntrospectionRegexes(t *testing.T) {
 			`SELECT * FROM pg_stat_user_indexes`,
 		}
 		for _, q := range matches {
-			require.Truef(t, pgIndexesRe.MatchString(q), "pgIndexesRe should match %q", q)
+			require.Truef(t, pgVirtualTableFromRe.MatchString(q),
+				"pgVirtualTableFromRe should match pg_indexes query %q", q)
 		}
 		for _, q := range nonMatches {
-			require.Falsef(t, pgIndexesRe.MatchString(q), "pgIndexesRe must NOT match %q", q)
+			require.Falsef(t, pgVirtualTableFromRe.MatchString(q),
+				"pgVirtualTableFromRe must NOT match %q", q)
 		}
 	})
 }

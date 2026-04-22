@@ -142,18 +142,7 @@ func (s *session) QueryMachine() error {
 				if probe, ok := emulableCmd.(*pgAdminProbe); ok {
 					resCols = extractResultCols(probe.sql)
 				}
-				if probe, ok := emulableCmd.(*pgTablesCmd); ok {
-					// Same shape as pgAdminProbe — extract column
-					// names from the SELECT list so Describe sees them.
-					resCols = extractResultCols(probe.sql)
-				}
 				if probe, ok := emulableCmd.(*xormColumnsCmd); ok {
-					resCols = extractResultCols(probe.sql)
-				}
-				if probe, ok := emulableCmd.(*pgIndexesCmd); ok {
-					resCols = extractResultCols(probe.sql)
-				}
-				if probe, ok := emulableCmd.(*infoSchemaColumnsCmd); ok {
 					resCols = extractResultCols(probe.sql)
 				}
 				if _, ok := emulableCmd.(*pgAttributeForTableCmd); ok {
@@ -382,34 +371,10 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
 			return err
 		}
-		if cmd, ok := i.(*pgTablesCmd); ok {
-			// pg_tables view emulation. Pass the bound parameters so the
-			// `WHERE tablename = $1` form (XORM, GORM, …) resolves to a
-			// catalog lookup against the real table list.
-			if err := s.handlePgTablesQuery(cmd.sql, parameters, extQueryMode); err != nil {
-				return err
-			}
-			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
-			return err
-		}
 		if cmd, ok := i.(*xormColumnsCmd); ok {
 			// XORM column-introspection emulation. Bind values carry the
 			// table name (`c.relname = $1`) and schema (`s.table_schema = $2`).
 			if err := s.handleXormColumnsQuery(cmd.sql, parameters, extQueryMode); err != nil {
-				return err
-			}
-			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
-			return err
-		}
-		if cmd, ok := i.(*pgIndexesCmd); ok {
-			if err := s.handlePgIndexesQuery(cmd.sql, parameters, extQueryMode); err != nil {
-				return err
-			}
-			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))
-			return err
-		}
-		if cmd, ok := i.(*infoSchemaColumnsCmd); ok {
-			if err := s.handleInfoSchemaColumnsQuery(cmd.sql, parameters, extQueryMode); err != nil {
 				return err
 			}
 			_, err := s.writeMessage(bm.CommandComplete([]byte("ok")))

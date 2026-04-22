@@ -81,12 +81,14 @@ var (
 
 	// pgVirtualTableFromRe matches a query whose FROM clause names one of the
 	// virtual catalog tables the SQL engine implements natively. Covers
-	// everything registered by pkg/pgsql/sys/ (pg_class, pg_attribute,
-	// pg_index, pg_namespace, pg_am, pg_type) plus the historical entries
-	// (pg_settings, pg_constraint). A match flags the query as a
-	// candidate for engine passthrough; allPgRefsRegistered decides
-	// whether it actually qualifies.
-	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint)\b`)
+	// everything registered by pkg/pgsql/sys/: the relation catalog
+	// (pg_class, pg_attribute, pg_index, pg_namespace, pg_am, pg_type),
+	// auxiliary catalogs (pg_database, pg_roles, pg_settings,
+	// pg_constraint, pg_description, pg_proc), and the A5 compat views
+	// (pg_tables, pg_indexes, pg_views, pg_sequences). A match flags
+	// the query as a candidate for engine passthrough;
+	// allPgRefsRegistered decides whether it actually qualifies.
+	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences)\b`)
 
 	// pgAnyTableRe finds every reference to a pg_ table in the statement.
 	// Used by allPgRefsRegistered to decide whether a JOIN-containing
@@ -94,24 +96,29 @@ var (
 	pgAnyTableRe = regexp.MustCompile(`(?i)\b(pg_[a-z_]+)\b`)
 
 	// registeredPgTables is the set of pg_catalog objects the SQL engine
-	// can serve — either via the A2 catalog-level system-table registry
-	// (pkg/pgsql/sys/) or via the legacy TableResolvers in
-	// pkg/pgsql/pgschema/ (wired up by pkg/database/database.go). Keep
-	// in sync with pgVirtualTableFromRe and with the resolver list in
-	// pgschema/table_resolvers.go's PgCatalogResolvers().
+	// can serve via the catalog-level system-table registry
+	// (pkg/pgsql/sys/ — installed at engine-init time). Keep in sync
+	// with pgVirtualTableFromRe and the init()s in pkg/pgsql/sys/.
 	registeredPgTables = map[string]bool{
-		// pkg/pgsql/sys/ (A2)
+		// pkg/pgsql/sys/ — core relation catalog (A2)
 		"pg_class":     true,
 		"pg_attribute": true,
 		"pg_index":     true,
 		"pg_namespace": true,
 		"pg_am":        true,
 		"pg_type":      true,
-		// pkg/pgsql/pgschema/ (pre-A2 resolvers, still live)
+		// pkg/pgsql/sys/ — auxiliary catalogs (A3)
+		"pg_database":    true,
 		"pg_roles":       true,
 		"pg_settings":    true,
 		"pg_constraint":  true,
 		"pg_description": true,
+		"pg_proc":        true,
+		// pkg/pgsql/sys/ — compat views (A5)
+		"pg_tables":    true,
+		"pg_indexes":   true,
+		"pg_views":     true,
+		"pg_sequences": true,
 	}
 
 	// pgBuiltinFunctions are known pg_catalog-qualified functions built
@@ -120,44 +127,33 @@ var (
 	// matches pgAnyTableRe's identifier shape. Keep in sync with
 	// embedded/sql/functions.go's builtinFunctions map.
 	pgBuiltinFunctions = map[string]bool{
-		"pg_table_is_visible":    true,
-		"pg_get_userbyid":        true,
-		"pg_get_expr":            true,
-		"pg_get_constraintdef":   true,
-		"pg_get_serial_sequence": true,
-		"pg_encoding_to_char":    true,
+		"pg_table_is_visible":     true,
+		"pg_get_userbyid":         true,
+		"pg_get_expr":             true,
+		"pg_get_constraintdef":    true,
+		"pg_get_indexdef":         true,
+		"pg_get_serial_sequence":  true,
+		"pg_encoding_to_char":     true,
+		"pg_total_relation_size":  true,
+		"pg_relation_size":        true,
 	}
-
-	// pgTablesRe singles out queries against the standard `pg_tables` view
-	// (and its sister catalog views) so the handler can enumerate immudb's
-	// actual tables and apply a WHERE filter, rather than returning the
-	// generic "one canned row" response — XORM and other ORMs probe these
-	// views to detect table existence, and a blanket 1-row response makes
-	// every IsTableExist check return true.
-	pgTablesRe = regexp.MustCompile(`(?is)\bfrom\s+(?:pg_catalog\.)?pg_tables\b`)
 
 	// xormColumnsRe matches XORM's distinctive column-introspection query
 	// (SELECT column_name, column_default, is_nullable, … FROM pg_attribute
-	// JOIN pg_class …). XORM scans the result expecting non-NULL string
-	// values for column_name; the generic 1-row pgAdminProbe response
-	// (which fills NULL for unknown columns) trips the pq Scan check
-	//   "converting NULL to string is unsupported".
-	// The handler walks immudb's catalog and emits one row per column.
+	// JOIN pg_class …). XORM selects info_schema-flavoured column names
+	// against pg_attribute, which the SQL engine can't serve directly
+	// (pg_attribute's own columns are attname/attnotnull/…). The handler
+	// walks immudb's catalog and emits one row per column.
 	xormColumnsRe = regexp.MustCompile(`(?is)\bcolumn_name\s*,\s*column_default\b.*\bfrom\s+pg_attribute\b`)
 
-	// pgIndexesRe matches the standard `pg_indexes` view query that ORMs
-	// (XORM, GORM, Hibernate) use to enumerate indexes for a given table.
-	// The handler walks immudb's catalog and emits one row per index.
-	pgIndexesRe = regexp.MustCompile(`(?is)\bfrom\s+(?:pg_catalog\.)?pg_indexes\b`)
-
-	// infoSchemaColumnsRe matches the standard
-	// `information_schema.columns` view query (psql `\d`, JDBC schema
-	// browsers, alembic, flyway, …). The wire normaliser rewrites
-	// `information_schema.` to `information_schema_`, so the regex
-	// matches both forms. Without dedicated handling the canned
-	// 1-row pgAdminProbe response returns NULL for column_name and
-	// crashes any client that scans the result into a string column.
-	infoSchemaColumnsRe = regexp.MustCompile(`(?is)\bfrom\s+information_schema[._]columns\b`)
+	// infoSchemaVirtualTableFromRe flags queries whose FROM clause
+	// names one of the information_schema tables the SQL engine
+	// implements natively via pkg/pgsql/sys/ (A4). When the dispatcher
+	// spots one, the query is forwarded to the engine so JOINs and
+	// complex WHEREs work correctly — the legacy infoSchemaColumnsRe
+	// canned handler stays wired as a fallback for the tiny number of
+	// information_schema views we haven't registered yet.
+	infoSchemaVirtualTableFromRe = regexp.MustCompile(`(?is)\bfrom\s+information_schema[._](tables|columns|schemata|key_column_usage|table_constraints)\b`)
 )
 
 // CREATE INDEX / CREATE UNIQUE INDEX are SUPPORTED by immudb's engine
@@ -272,52 +268,36 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 		return &pgAdvisoryLockCmd{}
 	}
 
-	// pg_tables view: enumerate immudb's catalog rather than emit canned
-	// rows. XORM / GORM / SQLAlchemy / Hibernate all probe this to decide
-	// whether to CREATE TABLE; a one-row canned response would say "every
-	// table exists" and skip every CREATE.
-	if pgTablesRe.MatchString(statement) {
-		return &pgTablesCmd{sql: statement}
-	}
-
-	// XORM column-introspection query: distinct column-list signature
-	// SELECT column_name, column_default, is_nullable, …
-	// Goes ahead of the generic pg_catalog catch because the canned
-	// 1-row response would have NULL column_name and crash XORM.
+	// XORM column-introspection: the one ORM shape where the query
+	// selects info_schema-flavoured column names (column_name,
+	// column_default, is_nullable, …) but FROMs pg_attribute. The
+	// engine would reject this because pg_attribute doesn't expose
+	// those column names — the canned handler synthesises a result set
+	// that matches what XORM expects. Must run BEFORE the engine
+	// passthrough below or the dispatcher sends it to the engine and
+	// the client gets "column does not exist".
 	if xormColumnsRe.MatchString(statement) {
 		return &xormColumnsCmd{sql: statement}
 	}
 
-	// pg_indexes view: enumerate indexes from immudb's catalog rather
-	// than emit a canned NULL-filled row that crashes ORM Scan calls.
-	if pgIndexesRe.MatchString(statement) {
-		return &pgIndexesCmd{sql: statement}
-	}
-
-	// information_schema.columns: standard SQL view used by psql,
-	// JDBC, alembic, flyway. We synthesise rows from the catalog with
-	// the canonical column shape (table_catalog, table_schema,
-	// table_name, column_name, ordinal_position, column_default,
-	// is_nullable, data_type, character_maximum_length, numeric_*,
-	// datetime_precision, …).
-	if infoSchemaColumnsRe.MatchString(statement) {
-		return &infoSchemaColumnsCmd{sql: statement}
-	}
-
-	// Queries whose every pg_ reference resolves to a table the engine
-	// can actually serve (pg_class / pg_attribute / pg_index /
-	// pg_namespace / pg_am / pg_type) plus any pg_* built-in function
-	// already registered in embedded/sql/functions.go: forward to the
-	// SQL engine. JOINs between registered tables are allowed — the
-	// engine handles them correctly against the system-table backing.
-	// This is the path that lets psql \d, \dt, \di, \dv execute
-	// against real catalog data.
+	// Engine passthrough for queries targeting registered pg_catalog
+	// or information_schema system tables. The A2-A5 sys/ tables cover
+	// every common ORM / psql introspection shape; JOINs, ORDER BY,
+	// complex WHERE clauses, and sub-queries all work because the SQL
+	// engine handles them against the live catalog.
 	if pgVirtualTableFromRe.MatchString(statement) && allPgRefsRegistered(statement) {
 		return nil
 	}
+	if infoSchemaVirtualTableFromRe.MatchString(statement) && allPgRefsRegistered(statement) {
+		return nil
+	}
 
-	// Blanket catch for ALL pg_catalog/information_schema/system queries.
-	// Returns canned responses with column names extracted from the query.
+	// Safety net for pg_catalog / information_schema probes that
+	// reference tables we haven't registered (pg_extension,
+	// pg_tablespace, pg_replication_slots, pg_locks, …). Returns
+	// a canned one-row response with column names extracted from the
+	// query's SELECT list — avoids "table does not exist" errors on
+	// clients that probe every possible system view at connect time.
 	if pgSystemQueryRe.MatchString(statement) {
 		return &pgAdminProbe{sql: statement}
 	}
@@ -355,15 +335,8 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 		return s.handlePgAdvisoryLock()
 	case *pgAdminProbe:
 		return s.handlePgSystemQuery(cmd.sql)
-	case *pgTablesCmd:
-		// Simple-query path — no Bind so no parameters available.
-		return s.handlePgTablesQuery(cmd.sql, nil, false)
 	case *xormColumnsCmd:
 		return s.handleXormColumnsQuery(cmd.sql, nil, false)
-	case *pgIndexesCmd:
-		return s.handlePgIndexesQuery(cmd.sql, nil, false)
-	case *infoSchemaColumnsCmd:
-		return s.handleInfoSchemaColumnsQuery(cmd.sql, nil, false)
 	default:
 		return pserr.ErrMessageCannotBeHandledInternally
 	}
@@ -412,35 +385,15 @@ type pgAdminProbe struct {
 	sql string
 }
 
-// pgTablesCmd is a query against the standard `pg_tables` view. The handler
-// enumerates immudb's catalog (with optional WHERE filter) instead of
-// emitting a canned single-row response that would make every IsTableExist
-// probe return true.
-type pgTablesCmd struct {
-	sql string
-}
-
-// xormColumnsCmd is XORM's column-introspection query (a multi-table JOIN
-// of pg_attribute / pg_class / pg_type / information_schema.columns). The
-// handler synthesises one row per column from immudb's catalog with the
-// fields XORM expects (column_name, column_default, is_nullable, data_type,
-// character_maximum_length, description, primarykey, uniquekey).
+// xormColumnsCmd is XORM's column-introspection query: a multi-table
+// JOIN of pg_attribute / pg_class / pg_type / information_schema.columns
+// where the SELECT list uses info_schema-flavoured column names
+// (column_name, column_default, is_nullable, …) against pg_attribute.
+// The SQL engine can't serve this shape directly — pg_attribute's own
+// columns are attname / attnotnull / … — so the handler synthesises
+// one row per column with the fields XORM expects (column_name,
+// column_default, is_nullable, data_type, character_maximum_length,
+// description, primarykey, uniquekey).
 type xormColumnsCmd struct {
-	sql string
-}
-
-// pgIndexesCmd is a query against the standard `pg_indexes` view. The
-// handler enumerates immudb's indexes for the given table and emits the
-// canonical (schemaname, tablename, indexname, tablespace, indexdef) row
-// shape so ORM Scan calls don't trip on NULLs.
-type pgIndexesCmd struct {
-	sql string
-}
-
-// infoSchemaColumnsCmd is a query against the standard SQL view
-// `information_schema.columns`. The handler enumerates immudb's
-// catalog columns and emits one row per column with the canonical
-// information_schema.columns column shape.
-type infoSchemaColumnsCmd struct {
 	sql string
 }

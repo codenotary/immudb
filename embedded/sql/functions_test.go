@@ -38,8 +38,13 @@ func TestPGFunctions(t *testing.T) {
 		_, err = f.Apply(nil, []TypedValue{NewInteger(0), NewInteger(0)})
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		_, err = f.Apply(nil, []TypedValue{NewInteger(1)})
-		require.ErrorContains(t, err, "user not found")
+		// Non-zero oids used to error with "user not found"; A3
+		// relaxed this to return the admin username as a stable stand-
+		// in so psql \l (which calls pg_get_userbyid with real datdba
+		// oids) stops erroring. Nil tx short-circuits to "immudb".
+		v, err := f.Apply(nil, []TypedValue{NewInteger(1)})
+		require.NoError(t, err)
+		require.Equal(t, "immudb", v.RawValue())
 	})
 
 	t.Run("pg_table_is_visible", func(t *testing.T) {

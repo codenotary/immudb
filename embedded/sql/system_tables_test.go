@@ -23,10 +23,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSystemTable_PgTypeRegistered asserts that pg_type — the one
-// system table immudb has always shipped — is still installed with
-// its historic three-column schema and still returns zero rows at
-// the SQL engine layer (the PG wire layer synthesises rows separately).
+// TestSystemTable_PgTypeRegistered asserts that pg_type is installed
+// with its historic three-column schema and now returns at least the
+// canonical PG base types (bool, int8, varchar, uuid, …). The 0-row
+// contract from earlier phases was lifted in A3 so psql \dT and Rails'
+// type map work without the PG wire layer fabricating rows separately.
 func TestSystemTable_PgTypeRegistered(t *testing.T) {
 	engine := setupCommonTest(t)
 
@@ -37,10 +38,23 @@ func TestSystemTable_PgTypeRegistered(t *testing.T) {
 	require.NoError(t, err)
 	defer r.Close()
 
-	// Zero rows at the SQL layer — historic contract preserved by the
-	// pg_type registration in catalog.go having Scan == nil.
-	_, err = r.Read(context.Background())
-	require.ErrorIs(t, err, ErrNoMoreRows)
+	seenByOID := map[string]string{}
+	for {
+		row, err := r.Read(context.Background())
+		if err == ErrNoMoreRows {
+			break
+		}
+		require.NoError(t, err)
+		require.Len(t, row.ValuesByPosition, 3)
+		oid := row.ValuesByPosition[0].RawValue().(string)
+		name := row.ValuesByPosition[2].RawValue().(string)
+		seenByOID[oid] = name
+	}
+	// Spot-check a few OIDs every PG client hardcodes.
+	require.Equal(t, "bool", seenByOID["16"])
+	require.Equal(t, "int8", seenByOID["20"])
+	require.Equal(t, "varchar", seenByOID["1043"])
+	require.Equal(t, "uuid", seenByOID["2950"])
 }
 
 // TestSystemTable_RegisterAndQuery registers a dummy system table with

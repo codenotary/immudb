@@ -25,20 +25,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Integration coverage for the three emulated pg_catalog-view handlers
-// introduced in 3cf2bb46 (XORM/Gitea compat): handlePgTablesQuery,
-// handleXormColumnsQuery, handlePgIndexesQuery — plus the wire-level
-// guarantees that ORMs gate on (non-NULL column_name, transaction
-// command tags, ReadyForQuery transaction-status byte).
-//
-// These tests use the shared setupTestServer helper and lib/pq via
-// database/sql so failures surface the same error the ORM would see.
+// Integration coverage for the pg_catalog-view shapes XORM / Gitea
+// emit at connect time. Originally backed by per-view canned handlers
+// (handlePgTablesQuery / handlePgIndexesQuery) introduced in 3cf2bb46;
+// those were retired once the A5 sys.pg_tables / sys.pg_indexes system
+// tables landed. The engine passthrough now serves these queries
+// directly, and handleXormColumnsQuery stays for the one XORM shape
+// the engine can't handle (info_schema-flavoured column names against
+// pg_attribute). These tests still exercise the end-to-end wire path
+// via lib/pq so failures surface the same error the ORM would see.
 
-// TestGiteaCompat_PgTablesEnumeratesCatalog exercises handlePgTablesQuery.
-// Before 3cf2bb46 the server returned a canned 1-row response to any
-// `SELECT … FROM pg_tables` probe, so IsTableExist-style introspection
-// always reported "yes" and ORMs skipped every CREATE on restart. The
-// handler now walks immudb's catalog and filters on tablename.
+// TestGiteaCompat_PgTablesEnumeratesCatalog exercises the
+// `SELECT … FROM pg_tables` shape XORM uses for IsTableExist probes.
+// Before the A5 sys/ system tables landed, a canned handler walked
+// the catalog; now the SQL engine serves the same query directly
+// against sys.pg_tables. The behavioural contract is unchanged: a
+// row iff the table exists.
 func TestGiteaCompat_PgTablesEnumeratesCatalog(t *testing.T) {
 	_, port := setupTestServer(t)
 
@@ -64,7 +66,7 @@ func TestGiteaCompat_PgTablesEnumeratesCatalog(t *testing.T) {
 		}
 		require.NoError(t, rows.Err())
 		require.Equal(t, []string{"gitea_users"}, names,
-			"handlePgTablesQuery must report the existing table and nothing else")
+			"pg_tables lookup must report the existing table and nothing else")
 	})
 
 	t.Run("missing table returns zero rows", func(t *testing.T) {
@@ -77,7 +79,7 @@ func TestGiteaCompat_PgTablesEnumeratesCatalog(t *testing.T) {
 		}
 		require.NoError(t, rows.Err())
 		require.Equal(t, 0, count,
-			"handlePgTablesQuery must NOT claim a missing table exists — that was the pre-3cf2bb46 bug")
+			"pg_tables lookup must NOT claim a missing table exists — that was the pre-3cf2bb46 bug")
 	})
 
 	t.Run("no filter lists created tables", func(t *testing.T) {
@@ -158,10 +160,11 @@ func TestGiteaCompat_XormColumnsReturnsNonNullValues(t *testing.T) {
 	require.True(t, names["is_active"], "column_name=is_active missing: %v", names)
 }
 
-// TestGiteaCompat_PgIndexesEnumeratesIndexes exercises handlePgIndexesQuery.
-// ORMs (XORM, GORM, Hibernate) read pg_indexes to decide whether a
-// CREATE INDEX migration has already run. The handler must emit one row
-// per index defined on the requested table, with indexdef populated.
+// TestGiteaCompat_PgIndexesEnumeratesIndexes exercises the
+// `SELECT … FROM pg_indexes` shape XORM / GORM / Hibernate use to
+// decide whether a CREATE INDEX migration has already run. Served by
+// the A5 sys.pg_indexes system table via engine passthrough since the
+// canned handlePgIndexesQuery was retired.
 func TestGiteaCompat_PgIndexesEnumeratesIndexes(t *testing.T) {
 	_, port := setupTestServer(t)
 
@@ -198,7 +201,7 @@ func TestGiteaCompat_PgIndexesEnumeratesIndexes(t *testing.T) {
 	// number of rows — lib/pq's wire format for CREATE INDEX without
 	// an explicit name varies and is covered by other tests.
 	require.GreaterOrEqualf(t, len(got), 1,
-		"handlePgIndexesQuery must report at least the primary index: %+v", got)
+		"pg_indexes must report at least the primary index: %+v", got)
 	for _, i := range got {
 		require.NotEmptyf(t, i.name, "indexname must not be empty (row: %+v)", i)
 		require.NotEmptyf(t, i.def, "indexdef must not be empty (row: %+v)", i)

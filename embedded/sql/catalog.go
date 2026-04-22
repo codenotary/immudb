@@ -122,10 +122,13 @@ func newCatalog(enginePrefix []byte) *Catalog {
 
 func init() {
 	// pg_type: the one system table immudb has shipped with for years.
-	// Scan is nil, so SELECTs against pg_type return zero rows at the
-	// SQL engine level — the PG wire layer (pkg/pgsql/server) fabricates
-	// rows for clients that need them (e.g. Rails' type map). This
-	// registration reproduces the prior hardcoded shape byte-for-byte.
+	// Schema stays at the historic three-column shape (oid, typbasetype,
+	// typname) — every existing test that hits pg_type assumes it —
+	// but the Scan now returns the canonical PG type catalog so psql
+	// \dT and Rails' type map work without the PG wire layer having to
+	// fabricate rows separately. The list is intentionally small: just
+	// the types immudb actually emits. Callers that want a composite
+	// row per user table walk pg_class instead.
 	RegisterSystemTable(&SystemTableDef{
 		Name: "pg_type",
 		Columns: []SystemTableColumn{
@@ -134,7 +137,54 @@ func init() {
 			{Name: "typname", Type: VarcharType, MaxLen: 50},
 		},
 		PKColumn: "oid",
+		Scan: func(ctx context.Context, tx *SQLTx) ([]*Row, error) {
+			rows := make([]*Row, 0, len(pgTypeBaseRows))
+			for _, r := range pgTypeBaseRows {
+				rows = append(rows, &Row{ValuesByPosition: []TypedValue{
+					&Varchar{val: r.oid},
+					&Varchar{val: "0"},
+					&Varchar{val: r.name},
+				}})
+			}
+			return rows, nil
+		},
 	})
+}
+
+// pgTypeBaseRows lists the PostgreSQL base types we advertise in
+// pg_type. OIDs match real PG so clients that cache them (Rails type
+// map) round-trip correctly. Kept here rather than in pkg/pgsql/sys to
+// avoid a dependency inversion — embedded/sql can't import pkg/pgsql.
+var pgTypeBaseRows = []struct {
+	oid  string
+	name string
+}{
+	{"16", "bool"},
+	{"17", "bytea"},
+	{"18", "char"},
+	{"19", "name"},
+	{"20", "int8"},
+	{"21", "int2"},
+	{"23", "int4"},
+	{"25", "text"},
+	{"26", "oid"},
+	{"114", "json"},
+	{"142", "xml"},
+	{"700", "float4"},
+	{"701", "float8"},
+	{"790", "money"},
+	{"829", "macaddr"},
+	{"869", "inet"},
+	{"1042", "bpchar"},
+	{"1043", "varchar"},
+	{"1082", "date"},
+	{"1083", "time"},
+	{"1114", "timestamp"},
+	{"1184", "timestamptz"},
+	{"1186", "interval"},
+	{"1700", "numeric"},
+	{"2950", "uuid"},
+	{"3802", "jsonb"},
 }
 
 func (catlg *Catalog) ExistTable(table string) bool {

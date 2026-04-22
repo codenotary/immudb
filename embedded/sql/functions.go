@@ -52,15 +52,23 @@ const (
 	PgShobjDescriptionFnCall     string = "SHOBJ_DESCRIPTION"
 	CurrentDatabaseFnCall        string = "CURRENT_DATABASE"
 	CurrentSchemaFnCall          string = "CURRENT_SCHEMA"
+	CurrentSchemasFnCall         string = "CURRENT_SCHEMAS"
 	CurrentUserFnCall            string = "CURRENT_USER"
 	FormatTypeFnCall             string = "FORMAT_TYPE"
 	PgGetExprFnCall              string = "PG_GET_EXPR"
 	PgGetConstraintDefFnCall     string = "PG_GET_CONSTRAINTDEF"
+	PgGetIndexDefFnCall          string = "PG_GET_INDEXDEF"
 	PgEncodingToCharFnCall       string = "PG_ENCODING_TO_CHAR"
 	ObjDescriptionFnCall         string = "OBJ_DESCRIPTION"
 	HasTablePrivilegeFnCall      string = "HAS_TABLE_PRIVILEGE"
 	HasSchemaPrivilegeFnCall     string = "HAS_SCHEMA_PRIVILEGE"
+	HasDatabasePrivilegeFnCall   string = "HAS_DATABASE_PRIVILEGE"
+	HasFunctionPrivilegeFnCall   string = "HAS_FUNCTION_PRIVILEGE"
 	ArrayUpperFnCall             string = "ARRAY_UPPER"
+	ArrayToStringFnCall          string = "ARRAY_TO_STRING"
+	QuoteIdentFnCall             string = "QUOTE_IDENT"
+	PgTotalRelationSizeFnCall    string = "PG_TOTAL_RELATION_SIZE"
+	PgRelationSizeFnCall         string = "PG_RELATION_SIZE"
 	PgGetSerialSequenceFnCall    string = "PG_GET_SERIAL_SEQUENCE"
 	ColDescriptionFnCall         string = "COL_DESCRIPTION"
 
@@ -138,15 +146,23 @@ var builtinFunctions = map[string]Function{
 	PgShobjDescriptionFnCall:     &pgShobjDescription{},
 	CurrentDatabaseFnCall:        &pgCurrentDatabase{},
 	CurrentSchemaFnCall:          &pgCurrentSchema{},
+	CurrentSchemasFnCall:         &pgCurrentSchemas{},
 	CurrentUserFnCall:            &pgCurrentUser{},
 	FormatTypeFnCall:             &pgFormatType{},
 	PgGetExprFnCall:              &pgVarcharStub{name: PgGetExprFnCall, nParams: -1},
 	PgGetConstraintDefFnCall:     &pgVarcharStub{name: PgGetConstraintDefFnCall, nParams: -1},
+	PgGetIndexDefFnCall:          &pgVarcharStub{name: PgGetIndexDefFnCall, nParams: -1},
 	PgEncodingToCharFnCall:       &pgEncodingToChar{},
 	ObjDescriptionFnCall:         &pgVarcharStub{name: ObjDescriptionFnCall, nParams: -1},
 	HasTablePrivilegeFnCall:      &pgBoolStub{name: HasTablePrivilegeFnCall, nParams: -1},
 	HasSchemaPrivilegeFnCall:     &pgBoolStub{name: HasSchemaPrivilegeFnCall, nParams: -1},
+	HasDatabasePrivilegeFnCall:   &pgBoolStub{name: HasDatabasePrivilegeFnCall, nParams: -1},
+	HasFunctionPrivilegeFnCall:   &pgBoolStub{name: HasFunctionPrivilegeFnCall, nParams: -1},
 	ArrayUpperFnCall:             &pgNullIntStub{name: ArrayUpperFnCall},
+	ArrayToStringFnCall:          &pgArrayToString{},
+	QuoteIdentFnCall:             &pgQuoteIdent{},
+	PgTotalRelationSizeFnCall:    &pgZeroIntStub{name: PgTotalRelationSizeFnCall, nParams: -1},
+	PgRelationSizeFnCall:         &pgZeroIntStub{name: PgRelationSizeFnCall, nParams: -1},
 	PgGetSerialSequenceFnCall:    &pgVarcharStub{name: PgGetSerialSequenceFnCall, nParams: -1},
 	ColDescriptionFnCall:         &pgVarcharStub{name: ColDescriptionFnCall, nParams: -1},
 
@@ -204,6 +220,18 @@ var builtinFunctions = map[string]Function{
 	RandomFnCall:      &randomFn{},
 	GenRandomUUIDCall: &UUIDFn{},
 	ToNumberFnCall:    &toNumberFn{},
+}
+
+// RegisteredFunctions returns a snapshot of all built-in functions
+// keyed by their canonical upper-case name. Callers must not mutate
+// the returned map. Used by the pg_catalog pg_proc system table to
+// enumerate callable functions.
+func RegisteredFunctions() map[string]Function {
+	out := make(map[string]Function, len(builtinFunctions))
+	for k, v := range builtinFunctions {
+		out[k] = v
+	}
+	return out
 }
 
 type Function interface {
@@ -538,21 +566,27 @@ func (f *pgGetUserByIDFunc) Apply(tx *SQLTx, params []TypedValue) (TypedValue, e
 	if len(params) != 1 {
 		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, PGGetUserByIDFnCall, 1, len(params))
 	}
-
-	if params[0].RawValue() != int64(0) {
-		return nil, fmt.Errorf("user not found")
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
 	}
 
+	// psql, pgAdmin and Rails all call this with real role oids
+	// (pg_database.datdba, pg_class.relowner, pg_namespace.nspowner),
+	// which immudb doesn't track per-user. Return the admin username
+	// as a stable stand-in — matches the single-role model we expose
+	// in pg_roles. A nil tx (unit tests exercising Apply directly)
+	// short-circuits to the "immudb" default.
+	if tx == nil || tx.tx == nil {
+		return NewVarchar("immudb"), nil
+	}
 	users, err := tx.ListUsers(tx.tx.Context())
-	if err != nil {
-		return nil, err
+	if err != nil || len(users) == 0 {
+		return NewVarchar("immudb"), nil
 	}
-
-	idx := findSysAdmin(users)
-	if idx < 0 {
-		return nil, fmt.Errorf("admin not found")
+	if idx := findSysAdmin(users); idx >= 0 {
+		return NewVarchar(users[idx].Username()), nil
 	}
-	return NewVarchar(users[idx].Username()), nil
+	return NewVarchar("immudb"), nil
 }
 
 func findSysAdmin(users []User) int {
@@ -816,6 +850,172 @@ func (f *pgNullIntStub) RequiresType(t SQLValueType, cols map[string]ColDescript
 
 func (f *pgNullIntStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	return NewNull(IntegerType), nil
+}
+
+// pgZeroIntStub — returns integer 0, used for pg_*_size functions which
+// psql calls from \d+ to render size columns. Returning 0 rather than
+// NULL keeps psql's formatting happy (NULL→`—`, 0→`0 bytes`).
+type pgZeroIntStub struct {
+	name    string
+	nParams int
+}
+
+func (f *pgZeroIntStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (f *pgZeroIntStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+
+func (f *pgZeroIntStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if f.nParams >= 0 && len(params) != f.nParams {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, f.name, f.nParams, len(params))
+	}
+	return NewInteger(0), nil
+}
+
+// current_schemas(include_implicit bool) — returns the search path as a
+// PG array literal. PG returns text[], but the SQL engine has no array
+// type; we hand back a VARCHAR formatted as `{pg_catalog,public}` so
+// that array_to_string can round-trip it and naive clients see something
+// sensible. include_implicit=true prepends `pg_catalog` to match PG's
+// documented behaviour.
+type pgCurrentSchemas struct{}
+
+func (f *pgCurrentSchemas) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentSchemas) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentSchemas) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, CurrentSchemasFnCall, 1, len(params))
+	}
+	include := false
+	if !params[0].IsNull() {
+		if b, ok := params[0].RawValue().(bool); ok {
+			include = b
+		}
+	}
+	if include {
+		return NewVarchar("{pg_catalog,public}"), nil
+	}
+	return NewVarchar("{public}"), nil
+}
+
+// quote_ident(name) — wraps an identifier in double quotes if it
+// contains anything outside [a-z_][a-z0-9_]* or matches a short list of
+// SQL reserved words. Embedded double quotes are doubled. A permissive
+// implementation is fine here: psql and Rails only use the return value
+// for display and DDL rendering, not to re-parse user input.
+type pgQuoteIdent struct{}
+
+func (f *pgQuoteIdent) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgQuoteIdent) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+var quoteIdentReservedWords = map[string]struct{}{
+	"select": {}, "from": {}, "where": {}, "join": {}, "order": {},
+	"group": {}, "by": {}, "insert": {}, "update": {}, "delete": {},
+	"create": {}, "table": {}, "index": {}, "view": {}, "user": {},
+	"database": {}, "schema": {}, "grant": {}, "revoke": {}, "as": {},
+}
+
+func quoteIdentNeedsQuoting(s string) bool {
+	if s == "" {
+		return true
+	}
+	if _, reserved := quoteIdentReservedWords[strings.ToLower(s)]; reserved {
+		return true
+	}
+	for i, r := range s {
+		if i == 0 {
+			if !(r == '_' || (r >= 'a' && r <= 'z')) {
+				return true
+			}
+			continue
+		}
+		if !(r == '_' || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *pgQuoteIdent) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, QuoteIdentFnCall, 1, len(params))
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	if !quoteIdentNeedsQuoting(s) {
+		return NewVarchar(s), nil
+	}
+	return NewVarchar(`"` + strings.ReplaceAll(s, `"`, `""`) + `"`), nil
+}
+
+// array_to_string(array_literal, delim[, null_repr]) — joins the
+// elements of a PG array literal (text form: `{a,b,c}`) with delim.
+// Real PG arrays aren't representable in the engine today, so this
+// function accepts the VARCHAR stand-in emitted by current_schemas and
+// any other source that follows the curly-brace text convention. When
+// the argument isn't in that shape we pass it through unchanged —
+// that's what psql's callers expect when the "array" only has one
+// element and the server happened to render it as a bare scalar.
+type pgArrayToString struct{}
+
+func (f *pgArrayToString) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgArrayToString) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgArrayToString) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 2 || len(params) > 3 {
+		return nil, fmt.Errorf("%w: '%s' function expects 2 or 3 arguments but %d were provided", ErrIllegalArguments, ArrayToStringFnCall, len(params))
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	raw, _ := params[0].RawValue().(string)
+	delim := ""
+	if !params[1].IsNull() {
+		delim, _ = params[1].RawValue().(string)
+	}
+	// Curly-brace PG array literal → strip the braces and re-join.
+	if len(raw) >= 2 && raw[0] == '{' && raw[len(raw)-1] == '}' {
+		inner := raw[1 : len(raw)-1]
+		if inner == "" {
+			return NewVarchar(""), nil
+		}
+		parts := strings.Split(inner, ",")
+		return NewVarchar(strings.Join(parts, delim)), nil
+	}
+	return NewVarchar(raw), nil
 }
 
 // -------------------------------------
