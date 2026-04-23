@@ -3424,6 +3424,14 @@ type CaseWhenExp struct {
 	exp      ValueExp
 	whenThen []whenThenClause
 	elseExp  ValueExp
+
+	// resType is the widened result type computed by inferType; the
+	// reduce path uses it to coerce arm outputs when an arm's native
+	// type differs from the unified CASE type (e.g. INT arm in an
+	// otherwise-VARCHAR CASE). Empty until inferType has run. Set
+	// exactly once — inferType is guarded by the emptiness check
+	// below so it's safe to re-call (requiresType does).
+	resType SQLValueType
 }
 
 func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -3437,14 +3445,16 @@ func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[strin
 			return t, nil
 		}
 
-		if t != expectedType {
-			if (t == Float64Type && expectedType == IntegerType) ||
-				(t == IntegerType && expectedType == Float64Type) {
-				return Float64Type, nil
-			}
-			return "", fmt.Errorf("%w: CASE types %s and %s cannot be matched", ErrInferredMultipleTypes, expectedType, t)
+		// PG-style widening: when CASE arms disagree on type, pick
+		// the common type if the runtime can convert between them.
+		// coerceTypesForCase is the permissive variant — INT↔FLOAT
+		// (historic), plus VARCHAR paired with any scalar. The
+		// runtime converter at type_conversion.go:getConverter backs
+		// every pair accepted here.
+		if merged, ok := coerceTypesForCase(expectedType, t); ok {
+			return merged, nil
 		}
-		return t, nil
+		return "", fmt.Errorf("%w: CASE types %s and %s cannot be matched", ErrInferredMultipleTypes, expectedType, t)
 	}
 
 	searchType := BooleanType
@@ -3475,8 +3485,13 @@ func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[strin
 	}
 
 	if ce.elseExp != nil {
-		return checkType(ce.elseExp, inferredResType)
+		t, err := checkType(ce.elseExp, inferredResType)
+		if err != nil {
+			return "", err
+		}
+		inferredResType = t
 	}
+	ce.resType = inferredResType
 	return inferredResType, nil
 }
 
@@ -3521,6 +3536,7 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 		return &CaseWhenExp{
 			exp:      exp,
 			whenThen: whenThen,
+			resType:  ce.resType,
 		}, nil
 	}
 
@@ -3532,6 +3548,7 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 		exp:      exp,
 		whenThen: whenThen,
 		elseExp:  elseValue,
+		resType:  ce.resType,
 	}, nil
 }
 
@@ -3553,6 +3570,15 @@ func (ce *CaseWhenExp) selectors() []Selector {
 }
 
 func (ce *CaseWhenExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	// Best-effort lazy inference: if the plan path never called
+	// inferType (e.g. a bare `SELECT CASE …` with no FROM — no
+	// projectedRowReader involved), populate resType now with
+	// empty cols/params. Arms that reference columns will error,
+	// which is fine — those can't appear in a bare SELECT anyway.
+	if ce.resType == "" {
+		_, _ = ce.inferType(nil, nil, implicitTable)
+	}
+
 	var searchValue TypedValue
 	if ce.exp != nil {
 		v, err := ce.exp.reduce(tx, row, implicitTable)
@@ -3579,14 +3605,43 @@ func (ce *CaseWhenExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedV
 			return nil, err
 		}
 		if res == 0 {
-			return wt.then.reduce(tx, row, implicitTable)
+			then, err := wt.then.reduce(tx, row, implicitTable)
+			if err != nil {
+				return nil, err
+			}
+			return ce.coerceToResType(then)
 		}
 	}
 
 	if ce.elseExp == nil {
 		return NewNull(AnyType), nil
 	}
-	return ce.elseExp.reduce(tx, row, implicitTable)
+	elseVal, err := ce.elseExp.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+	return ce.coerceToResType(elseVal)
+}
+
+// coerceToResType widens an arm's output value to the CASE's
+// unified result type when the two differ. inferType (called during
+// query planning) populates ce.resType; reduce (called per row)
+// uses the converter matrix at type_conversion.go to make every
+// arm's output type-consistent with what downstream consumers
+// expect.
+//
+// Identity pass-through when resType is empty (inferType hasn't
+// run — defensive; shouldn't happen in practice) or when the
+// types already match.
+func (ce *CaseWhenExp) coerceToResType(v TypedValue) (TypedValue, error) {
+	if ce.resType == "" || v == nil || v.IsNull() || v.Type() == ce.resType {
+		return v, nil
+	}
+	conv, err := getConverter(v.Type(), ce.resType)
+	if err != nil {
+		return v, nil
+	}
+	return conv(v)
 }
 
 func (ce *CaseWhenExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -3602,12 +3657,14 @@ func (ce *CaseWhenExp) reduceSelectors(row *Row, implicitTable string) ValueExp 
 	if ce.elseExp == nil {
 		return &CaseWhenExp{
 			whenThen: whenThen,
+			resType:  ce.resType,
 		}
 	}
 
 	return &CaseWhenExp{
 		whenThen: whenThen,
 		elseExp:  ce.elseExp.reduceSelectors(row, implicitTable),
+		resType:  ce.resType,
 	}
 }
 
@@ -6579,6 +6636,46 @@ func coerceTypes(t1, t2 SQLValueType) (SQLValueType, bool) {
 		return Float64Type, true
 	}
 	return "", false
+}
+
+// coerceTypesForCase is a permissive variant of coerceTypes used at
+// CASE arm unification. PostgreSQL implicitly widens non-string
+// scalar types to TEXT when CASE arms differ; the runtime converter
+// matrix in type_conversion.go already supports every pair we accept
+// here (INT/FLOAT/BOOL/TIMESTAMP/UUID/BLOB ↔ VARCHAR), so the
+// widening is free to implement at inference time.
+//
+// Kept distinct from coerceTypes because arithmetic and comparison
+// operators intentionally stay strict — `1 + 'x'` should still error
+// at plan time, as should `WHERE age = 'old'`. Only CASE-like
+// contexts (CASE arms, later also COALESCE / NULLIF / UNION) call
+// through this widened function.
+func coerceTypesForCase(t1, t2 SQLValueType) (SQLValueType, bool) {
+	if merged, ok := coerceTypes(t1, t2); ok {
+		return merged, true
+	}
+	// Either side VARCHAR wins — every other scalar has a
+	// runtime converter to VARCHAR.
+	if t1 == VarcharType && isCoercibleToVarchar(t2) {
+		return VarcharType, true
+	}
+	if t2 == VarcharType && isCoercibleToVarchar(t1) {
+		return VarcharType, true
+	}
+	return "", false
+}
+
+// isCoercibleToVarchar returns true for every scalar type the
+// runtime's getConverter(src, VarcharType) supports. Kept in lockstep
+// with the src switch in embedded/sql/type_conversion.go — if a new
+// source type gets a Varchar converter there, add it here too.
+func isCoercibleToVarchar(t SQLValueType) bool {
+	switch t {
+	case IntegerType, Float64Type, BooleanType,
+		TimestampType, UUIDType, BLOBType:
+		return true
+	}
+	return false
 }
 
 func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {

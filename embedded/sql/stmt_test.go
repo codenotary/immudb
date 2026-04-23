@@ -906,6 +906,9 @@ func TestCaseWhenExp(t *testing.T) {
 					},
 				},
 				elseExp: &Integer{1},
+				// resType is populated by requiresType above (which
+				// runs inferType); reduceSelectors preserves it.
+				resType: IntegerType,
 			}, e.reduceSelectors(row, ""))
 
 		v, err := e.reduce(nil, row, "")
@@ -962,14 +965,20 @@ func TestInferTypeCaseWhenExp(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		_, err = e.inferType(
+		// Contract change: coerceTypesForCase now widens INT+VARCHAR
+		// → VARCHAR (same runtime converter exists in
+		// type_conversion.go). Previously rejected with
+		// ErrInferredMultipleTypes; now the query succeeds at plan
+		// time and the INT arm is stringified at reduce time.
+		widenedType, err := e.inferType(
 			map[string]ColDescriptor{
 				EncodeSelector("", "", "salary"): {Type: IntegerType},
 			},
 			nil,
 			"",
 		)
-		require.ErrorIs(t, err, ErrInferredMultipleTypes)
+		require.NoError(t, err)
+		require.Equal(t, VarcharType, widenedType)
 
 		e, err = ParseExpFromString(
 			"CASE WHEN salary > 0 THEN 10 ELSE 0 END",
