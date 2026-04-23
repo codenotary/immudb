@@ -535,13 +535,18 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 		if id < 0 || id > int64(math.MaxInt) {
 			return nil, 0, fmt.Errorf("chunk id %d out of range", id)
 		}
+		// idInt is bounded by the check above; the local conversion
+		// makes the safety visible to CodeQL's taint analysis, which
+		// otherwise flags every `int(id)` call site as an
+		// unchecked 64→int truncation (go/incorrect-integer-conversion).
+		idInt := int(id)
 
-		for len(chunkInfos) <= int(id) {
+		for len(chunkInfos) <= idInt {
 			chunkInfos = append(chunkInfos, chunkInfo{state: chunkState_Invalid})
 		}
 
-		chunkInfos[id].state = chunkState_Local
-		chunkInfos[id].storageSize = fi.Size()
+		chunkInfos[idInt].state = chunkState_Local
+		chunkInfos[idInt].storageSize = fi.Size()
 	}
 
 	// Scan remote chunks
@@ -564,13 +569,16 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 		if id < 0 || id > int64(math.MaxInt) {
 			return nil, 0, fmt.Errorf("chunk id %d out of range", id)
 		}
+		// See earlier loop — local `idInt` makes the bounds-checked
+		// 64→int narrowing visible to CodeQL's taint analysis.
+		idInt := int(id)
 
-		for len(chunkInfos) <= int(id) {
+		for len(chunkInfos) <= idInt {
 			chunkInfos = append(chunkInfos, chunkInfo{state: chunkState_Invalid})
 		}
 
-		if chunkInfos[id].state == chunkState_Local {
-			if entry.Size > chunkInfos[id].storageSize {
+		if chunkInfos[idInt].state == chunkState_Local {
+			if entry.Size > chunkInfos[idInt].storageSize {
 				// Chunk size can only grow in size,
 				// if the local file is smaller than the remote object,
 				// there must have been some corruption of local file
@@ -578,8 +586,8 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 				return nil, 0, ErrInvalidRemoteStorage
 			}
 		} else {
-			chunkInfos[id].state = chunkState_Remote
-			chunkInfos[id].storageSize = entry.Size
+			chunkInfos[idInt].state = chunkState_Remote
+			chunkInfos[idInt].storageSize = entry.Size
 		}
 	}
 
