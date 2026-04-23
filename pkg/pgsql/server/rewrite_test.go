@@ -104,6 +104,21 @@ func TestNormalizePsqlPatterns_AlwaysZeroOidCase(t *testing.T) {
 			want: `''`,
 		},
 		{
+			// The exact psql 14 `\d <table>` detail-query shape:
+			// ELSE arm has a cast chain. Pre-rewrite the casts
+			// haven't been stripped (normalizePsqlPatterns runs
+			// before the pg_catalog. / ::cast chain-strippers).
+			name: "psql_14_cast_chain_on_else",
+			in:   `CASE WHEN c.reloftype = 0 THEN '' ELSE c.reloftype::pg_catalog.regtype::pg_catalog.text END`,
+			want: `''`,
+		},
+		{
+			// Single-level cast on the ELSE arm.
+			name: "single_cast_on_else",
+			in:   `CASE WHEN c.reloftype = 0 THEN '' ELSE c.reloftype::regtype END`,
+			want: `''`,
+		},
+		{
 			// Different allowlisted columns on each side: both are
 			// always 0 in our pg_class, so collapsing is semantically
 			// correct (the CASE always returns ''). Go's RE2 can't

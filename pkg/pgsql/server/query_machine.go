@@ -972,8 +972,16 @@ var psqlOidStringLiteralRe = regexp.MustCompile(
 // allowlisted column appears in the ELSE arm, so we don't need a
 // backreference to pin THEN-column = ELSE-column (Go's RE2 doesn't
 // support backrefs in patterns anyway).
+//
+// The ELSE arm tolerates a trailing `::cast::cast…` chain because
+// real psql emits
+//
+//	ELSE c.reloftype::pg_catalog.regtype::pg_catalog.text END
+//
+// and the cast chain hasn't been stripped yet (pgTypeReplacements
+// runs AFTER this function).
 var psqlAlwaysZeroOidCaseRe = regexp.MustCompile(
-	`(?is)CASE\s+WHEN\s+\w+\.(?:reltype|reloftype|relfilenode|reltablespace|relpages|relallvisible|reltoastrelid|relchecks)\s*=\s*0\s+THEN\s+''\s+ELSE\s+\w+\.(?:reltype|reloftype|relfilenode|reltablespace|relpages|relallvisible|reltoastrelid|relchecks)\s+END`)
+	`(?is)CASE\s+WHEN\s+\w+\.(?:reltype|reloftype|relfilenode|reltablespace|relpages|relallvisible|reltoastrelid|relchecks)\s*=\s*0\s+THEN\s+''\s+ELSE\s+\w+\.(?:reltype|reloftype|relfilenode|reltablespace|relpages|relallvisible|reltoastrelid|relchecks)(?:\s*::\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*)*\s+END`)
 
 // normalizePsqlPatterns performs the subset of query rewriting that
 // must see string literals intact. Everything else goes through
