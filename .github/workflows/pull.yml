@@ -9,27 +9,27 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            go: "1.24"
+            go: "1.25"
 
           - os: ubuntu-latest
-            go: "1.24"
+            go: "1.25"
             testWithMinio: true
 
           - os: ubuntu-latest
-            go: "1.24"
+            go: "1.25"
             testWithFips: true
 
           - os: ubuntu-latest
-            go: "1.24"
+            go: "1.25"
             test: true
 
           - os: windows-latest
-            go: "1.24"
+            go: "1.25"
             testClientOnly: true
             noWebconsole: true
 
           - os: macos-latest
-            go: "1.24"
+            go: "1.25"
             testClientOnly: true
 
     runs-on: ${{ matrix.os }}
@@ -134,7 +134,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - uses: actions/checkout@v6
       - run: |
           # Spawn minio docker container in the background
@@ -205,7 +205,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - uses: actions/checkout@v6
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - run: ./perf-test-suite > perf-test-results.json
