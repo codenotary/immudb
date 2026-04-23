@@ -171,12 +171,18 @@ var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCT
 // dispatcher to decide whether a query can safely execute against the
 // SQL engine instead of being shunted to a canned handler.
 //
-// The scan is deliberately permissive: pg_* substrings that happen to
-// appear inside string literals are rare in real client traffic and
-// a false "unregistered" classification only means we fall through to
-// the canned handler (no correctness loss, just the old behaviour).
+// Strips single-quoted string literals before the scan so that
+// identifiers appearing *inside* literals don't disqualify the query.
+// This matters for psql's `\d`, which emits
+//
+//	WHERE n.nspname !~ '^pg_toast'
+//
+// The bare `pg_toast` inside the pattern literal would otherwise be
+// treated as an unregistered table reference and shunt the whole
+// query to the canned pgAdminProbe handler.
 func allPgRefsRegistered(statement string) bool {
-	matches := pgAnyTableRe.FindAllStringSubmatch(statement, -1)
+	stripped := stripSingleQuotedLiterals(statement)
+	matches := pgAnyTableRe.FindAllStringSubmatch(stripped, -1)
 	for _, m := range matches {
 		name := strings.ToLower(m[1])
 		// pg_catalog is a namespace qualifier, not a table — it gets
@@ -192,6 +198,36 @@ func allPgRefsRegistered(statement string) bool {
 		return false
 	}
 	return true
+}
+
+// stripSingleQuotedLiterals replaces the body of every `'…'` string
+// literal with spaces so identifier-matching regexes can't trip on
+// substrings of user-supplied text. Preserves length so error
+// positions downstream (if any) still point at the right character
+// offsets. Escaped `''` inside a literal is handled.
+func stripSingleQuotedLiterals(s string) string {
+	b := make([]byte, len(s))
+	inStr := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '\'' {
+			b[i] = c
+			if inStr && i+1 < len(s) && s[i+1] == '\'' {
+				// Escaped '' — stay inside the literal, copy the second ' too.
+				b[i+1] = '\''
+				i++
+				continue
+			}
+			inStr = !inStr
+			continue
+		}
+		if inStr {
+			b[i] = ' '
+		} else {
+			b[i] = c
+		}
+	}
+	return string(b)
 }
 
 func (s *session) isInBlackList(statement string) bool {

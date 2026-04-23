@@ -71,6 +71,62 @@ func TestNormalizePsqlPatterns_OperatorRegex(t *testing.T) {
 	}
 }
 
+// TestNormalizePsqlPatterns_AlwaysZeroOidCase pins the rewrite for
+// psql's `\d` mixed-type CASE on always-zero pg_class columns. Without
+// it the engine errors with "CASE types VARCHAR and INTEGER cannot be
+// matched" on every `\d <table>` detail query.
+func TestNormalizePsqlPatterns_AlwaysZeroOidCase(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "reloftype_psql_shape",
+			in:   `CASE WHEN c.reloftype = 0 THEN '' ELSE c.reloftype END`,
+			want: `''`,
+		},
+		{
+			name: "reltype_column",
+			in:   `CASE WHEN c.reltype = 0 THEN '' ELSE c.reltype END`,
+			want: `''`,
+		},
+		{
+			name: "relfilenode_column",
+			in:   `CASE WHEN c.relfilenode = 0 THEN '' ELSE c.relfilenode END`,
+			want: `''`,
+		},
+		{
+			// Different alias doesn't matter — the regex binds the
+			// prefix backref.
+			name: "aliased_table",
+			in:   `CASE WHEN tc.reltoastrelid = 0 THEN '' ELSE tc.reltoastrelid END`,
+			want: `''`,
+		},
+		{
+			// Different allowlisted columns on each side: both are
+			// always 0 in our pg_class, so collapsing is semantically
+			// correct (the CASE always returns ''). Go's RE2 can't
+			// backref so the regex accepts the pair.
+			name: "mismatched_allowlisted_columns_collapse",
+			in:   `CASE WHEN c.reltype = 0 THEN '' ELSE c.reloftype END`,
+			want: `''`,
+		},
+		{
+			// A non-allowlisted column stays: over-collapsing into
+			// literal-'' would corrupt semantics.
+			name: "untracked_column_untouched",
+			in:   `CASE WHEN c.relnatts = 0 THEN '' ELSE c.relnatts END`,
+			want: `CASE WHEN c.relnatts = 0 THEN '' ELSE c.relnatts END`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizePsqlPatterns(tc.in))
+		})
+	}
+}
+
 // TestNormalizePsqlPatterns_OidLiteralCoercion pins the second
 // transform psql depends on: stripping single quotes around an
 // integer compared to an oid column. PostgreSQL accepts
@@ -183,6 +239,29 @@ func TestAllPgRefsRegistered(t *testing.T) {
 			name: "user_pg_prefixed_table_blocks",
 			sql:  `SELECT * FROM pg_my_app_state`,
 			want: false,
+		},
+		{
+			// psql `\d` (no args) filters out pg_toast schemas with
+			// `n.nspname !~ '^pg_toast'`. The `pg_toast` token inside
+			// the string literal must not disqualify the query —
+			// stripSingleQuotedLiterals handles that.
+			name: "psql_backslash_d_with_pg_toast_in_literal",
+			sql: `SELECT n.nspname, c.relname ` +
+				`FROM pg_catalog.pg_class c ` +
+				`LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace ` +
+				`WHERE c.relkind IN ('r','p','v','m','S','f','') ` +
+				`AND n.nspname <> 'pg_catalog' ` +
+				`AND n.nspname !~ '^pg_toast' ` +
+				`AND n.nspname <> 'information_schema' ` +
+				`AND pg_catalog.pg_table_is_visible(c.oid)`,
+			want: true,
+		},
+		{
+			// Embedded pg_* names inside any literal must be stripped —
+			// not just psql's toast filter.
+			name: "pg_name_inside_arbitrary_literal",
+			sql:  `SELECT 'pg_extension matched' FROM pg_catalog.pg_class`,
+			want: true,
 		},
 	}
 	for _, tc := range cases {

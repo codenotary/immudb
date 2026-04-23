@@ -949,6 +949,32 @@ var psqlOperatorRegexEqNoParenRe = regexp.MustCompile(
 var psqlOidStringLiteralRe = regexp.MustCompile(
 	`(?i)(\.\s*(?:oid|relnamespace|relfilenode|reltoastrelid|reltype|reloftype|relam|relowner|attrelid|atttypid|attcollation|indrelid|indexrelid|indcollation)\s*=\s*)'(\d+)'`)
 
+// psqlAlwaysZeroOidCaseRe collapses a CASE expression that psql's
+// `\d <table>` second round-trip emits for oid columns that immudb
+// always reports as 0 — `reloftype`, `reltype`, `reltablespace`,
+// `relpages`, `relallvisible`, `reltoastrelid`, `relchecks`,
+// `relfilenode`. Shape:
+//
+//	CASE WHEN c.reloftype = 0 THEN '' ELSE c.reloftype END
+//
+// immudb's SQL engine rejects this with "CASE types VARCHAR and
+// INTEGER cannot be matched" because it doesn't implicitly coerce
+// integer oids to strings. Since our sys/pg_class always stores
+// these columns as 0, the CASE deterministically takes the THEN
+// branch — collapse to the empty-string literal and the engine's
+// type inference is unblocked.
+//
+// Narrowly scoped: only the exact column allowlist in the
+// alternation. Because every column in the allowlist is reported as
+// 0 by sys/pg_class, any CASE that reads one of them and branches
+// on `= 0` always takes the THEN branch. Collapsing to the literal
+// empty string is semantically correct regardless of which
+// allowlisted column appears in the ELSE arm, so we don't need a
+// backreference to pin THEN-column = ELSE-column (Go's RE2 doesn't
+// support backrefs in patterns anyway).
+var psqlAlwaysZeroOidCaseRe = regexp.MustCompile(
+	`(?is)CASE\s+WHEN\s+\w+\.(?:reltype|reloftype|relfilenode|reltablespace|relpages|relallvisible|reltoastrelid|relchecks)\s*=\s*0\s+THEN\s+''\s+ELSE\s+\w+\.(?:reltype|reloftype|relfilenode|reltablespace|relpages|relallvisible|reltoastrelid|relchecks)\s+END`)
+
 // normalizePsqlPatterns performs the subset of query rewriting that
 // must see string literals intact. Everything else goes through
 // pgTypeReplacements, which runs after maskStringLiterals hides
@@ -961,6 +987,7 @@ func normalizePsqlPatterns(sql string) string {
 	sql = psqlOperatorRegexEqRe.ReplaceAllString(sql, " = '$1'")
 	sql = psqlOperatorRegexEqNoParenRe.ReplaceAllString(sql, " = '$1'")
 	sql = psqlOidStringLiteralRe.ReplaceAllString(sql, "${1}${2}")
+	sql = psqlAlwaysZeroOidCaseRe.ReplaceAllString(sql, "''")
 	return sql
 }
 
