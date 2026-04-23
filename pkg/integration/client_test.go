@@ -980,7 +980,7 @@ func TestImmuClient_Delete(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.Delete(ctx, nil)
-	require.ErrorContains(t, err, "Marshal called with nil")
+	require.ErrorContains(t, err, "no entries provided")
 
 	deleteRequest := &schema.DeleteKeysRequest{}
 	_, err = client.Delete(ctx, deleteRequest)

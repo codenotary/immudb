@@ -15,6 +15,7 @@ import (
 func TestAccessLogInterceptors(t *testing.T) {
 	opts := DefaultOptions().
 		WithDir(t.TempDir()).
+		WithPort(0).
 		WithLogAccess(true).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
