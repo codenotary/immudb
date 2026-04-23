@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 func RunAllBenchmarks(d time.Duration, tempDir string, seed uint64) (*BenchmarkSuiteResult, error) {
@@ -100,7 +98,10 @@ func RunAllBenchmarks(d time.Duration, tempDir string, seed uint64) (*BenchmarkS
 		result.EndTime = time.Now()
 		result.Duration = Duration(result.EndTime.Sub(result.StartTime))
 		result.RequestedDuration = Duration(d)
-		result.Results = res.(*writetxs.Result)
+		// Any benchmark Result type (writetxs / readtxs / future)
+		// carries through here as any; downstream consumers type-
+		// switch on the concrete type. See results.go.
+		result.Results = res
 
 		ret.Benchmarks = append(ret.Benchmarks, result)
 

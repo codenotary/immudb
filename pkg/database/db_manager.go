@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -39,8 +39,9 @@ type DBManager struct {
 	databases []*dbInfo
 	dbIndex   map[string]int
 
-	mtx      sync.Mutex
-	waitCond *sync.Cond
+	mtx         sync.Mutex
+	waitCond    *sync.Cond
+	pendingClose map[int]*dbRef // refs removed from cache but still in use
 
 	closed bool
 }
@@ -99,10 +100,11 @@ type OpenDBFunc func(name string, opts *Options) (DB, error)
 
 func NewDBManager(openFunc OpenDBFunc, maxActiveDatabases int, log logger.Logger) *DBManager {
 	m := &DBManager{
-		openDB:    openFunc,
-		dbIndex:   make(map[string]int),
-		databases: make([]*dbInfo, 0),
-		logger:    log,
+		openDB:       openFunc,
+		dbIndex:      make(map[string]int),
+		databases:    make([]*dbInfo, 0),
+		logger:       log,
+		pendingClose: make(map[int]*dbRef),
 	}
 	m.dbCache = createCache(m, maxActiveDatabases)
 	m.waitCond = sync.NewCond(&m.mtx)
@@ -232,21 +234,35 @@ func (m *DBManager) allocDB(idx int, db *dbInfo) (*dbRef, error) {
 }
 
 func (m *DBManager) Release(idx int) {
-	v, err := m.dbCache.Get(idx)
+	var ref *dbRef
 
-	// NOTE: may occur if the database is closed
-	// before being fully released
-	if err != nil {
-		return
+	if v, err := m.dbCache.Get(idx); err == nil {
+		ref, _ = v.(*dbRef)
+	} else {
+		// DB was removed from the active cache (e.g. by Close or eviction).
+		// Check whether it is parked in pendingClose.
+		m.mtx.Lock()
+		ref = m.pendingClose[idx]
+		m.mtx.Unlock()
 	}
 
-	ref, _ := v.(*dbRef)
 	if ref == nil {
 		return
 	}
 
 	if atomic.AddUint32(&ref.count, ^uint32(0)) == 0 {
 		m.signal()
+		// If Close() deferred the underlying close to us, finalize it now.
+		m.mtx.Lock()
+		if pc := m.pendingClose[idx]; pc == ref {
+			delete(m.pendingClose, idx)
+			m.mtx.Unlock()
+			if ref.db != nil {
+				ref.db.Close()
+			}
+			return
+		}
+		m.mtx.Unlock()
 	}
 }
 
@@ -398,21 +414,33 @@ func (m *DBManager) Close(idx int) error {
 		return nil
 	}
 
+	// Mark db.closed so allocDB rejects new callers from this point on.
 	if err := db.close(); err != nil {
 		return err
 	}
 	defer m.waitCond.Broadcast()
 
+	// Remove from the active cache so that any eviction logic cannot race
+	// with our cleanup path.
+	m.mtx.Lock()
 	v, err := m.dbCache.Pop(idx)
 	if err != nil {
+		m.mtx.Unlock()
+		return nil // not in cache — never opened or already evicted
+	}
+	ref, _ := v.(*dbRef)
+	if ref == nil || atomic.LoadUint32(&ref.count) == 0 {
+		m.mtx.Unlock()
+		if ref != nil && ref.db != nil {
+			ref.db.Close()
+		}
 		return nil
 	}
 
-	ref, _ := v.(*dbRef)
-	if ref != nil && ref.db != nil {
-		ref.db.Close()
-		ref.db = nil
-	}
+	// There are still active callers holding this ref.  Park it in
+	// pendingClose so that the last Release() will perform the actual close.
+	m.pendingClose[idx] = ref
+	m.mtx.Unlock()
 	return nil
 }
 

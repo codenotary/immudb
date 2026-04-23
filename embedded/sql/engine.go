@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -82,6 +84,7 @@ var (
 	ErrMaxLengthExceeded                      = errors.New("max length exceeded")
 	ErrColumnIsNotAnAggregation               = errors.New("column is not an aggregation")
 	ErrLimitedCount                           = errors.New("only unbounded counting is supported i.e. COUNT(*)")
+	ErrWindowRowsLimitExceeded                = errors.New("window function result exceeds max_window_rows limit")
 	ErrTxDoesNotExist                         = errors.New("tx does not exist")
 	ErrNestedTxNotSupported                   = errors.New("nested tx are not supported")
 	ErrNoOngoingTx                            = errors.New("no ongoing transaction")
@@ -102,7 +105,28 @@ var (
 	ErrDiffRequiresPeriod                     = errors.New("DIFF requires both SINCE/AFTER and UNTIL/BEFORE clauses")
 )
 
-var MaxKeyLen = 512
+// MaxKeyLen caps the length of variable-width indexed columns (the
+// real on-disk constraint is in the store/btree layer, currently 1024
+// bytes — see embedded/store/immustore.go MaxKeyLen and the btree
+// DefaultMaxKeySize). Engine code historically used 512 bytes, which
+// is well under the storage cap; raising it to 1024 unblocks dumps
+// that declare longer text PKs (e.g. netflix's `show_id text`) without
+// any on-disk format change. The variable stays mutable so that
+// embedded/sql.Options can override it at engine init time.
+var MaxKeyLen = 1024
+
+// CatalogCacheHitObserver and CatalogCacheMissObserver are package-level
+// hooks the upper layers (pkg/server/metrics.go) populate to translate
+// catalog cache events into Prometheus counters. Kept as func() vars to
+// avoid pulling a Prometheus dependency into embedded/sql, which is a
+// pure storage primitive shared across all higher layers.
+//
+// Default no-op implementations make these safe to call from NewTx
+// regardless of whether the server has wired observers in yet.
+var (
+	CatalogCacheHitObserver  = func() {}
+	CatalogCacheMissObserver = func() {}
+)
 
 const (
 	EncIDLen  = 4
@@ -116,12 +140,157 @@ type Engine struct {
 
 	prefix                        []byte
 	distinctLimit                 int
+	distinctSpillThreshold        int
 	sortBufferSize                int
+	maxWindowRows                 int // max rows materialized for window functions (0 = unlimited)
 	autocommit                    bool
 	lazyIndexConstraintValidation bool
 	parseTxMetadata               func([]byte) (map[string]interface{}, error)
 	multidbHandler                MultiDBHandler
 	tableResolvers                map[string]TableResolver
+	sequences                     map[string]*Sequence
+
+	// catalogMu guards cachedCatalog. The cached catalog is built once from the
+	// store and reused across read-only transactions to avoid redundant B-tree
+	// scans on every autocommit SELECT. It is invalidated whenever a DDL
+	// statement commits (mutatedCatalog == true).
+	catalogMu     sync.RWMutex
+	cachedCatalog *Catalog
+
+	// cachedCatalogVersion is bumped on every invalidateCatalogCache call.
+	// Each SQLTx records this counter in openCatalogVersion at NewTx time;
+	// on commit, tryPopulateCatalogCache only accepts a populate when the
+	// version still matches — i.e. no DDL has invalidated the cache since
+	// this tx opened. Without this guard, a non-DDL RW tx whose snapshot
+	// pre-dates a concurrent DDL commit could overwrite the cache with a
+	// stale schema view (the doc's "stale-view race").
+	cachedCatalogVersion atomic.Uint64
+}
+
+// Sequence represents a named auto-incrementing counter
+type Sequence struct {
+	name      string
+	currValue int64
+	increment int64
+	started   bool
+}
+
+func (e *Engine) CreateSequence(name string, startValue, increment int64) {
+	if e.sequences == nil {
+		e.sequences = make(map[string]*Sequence)
+	}
+	e.sequences[name] = &Sequence{
+		name:      name,
+		currValue: startValue - increment, // first NEXTVAL will return startValue
+		increment: increment,
+	}
+}
+
+func (e *Engine) DropSequence(name string) bool {
+	if e.sequences == nil {
+		return false
+	}
+	_, exists := e.sequences[name]
+	if exists {
+		delete(e.sequences, name)
+	}
+	return exists
+}
+
+func (e *Engine) NextVal(name string) (int64, error) {
+	if e.sequences == nil {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	seq, exists := e.sequences[name]
+	if !exists {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	seq.currValue += seq.increment
+	seq.started = true
+	return seq.currValue, nil
+}
+
+func (e *Engine) CurrVal(name string) (int64, error) {
+	if e.sequences == nil {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	seq, exists := e.sequences[name]
+	if !exists {
+		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+	}
+	if !seq.started {
+		return 0, fmt.Errorf("sequence '%s' has not been used yet", name)
+	}
+	return seq.currValue, nil
+}
+
+func (e *Engine) loadViews(ctx context.Context, tx *store.OngoingTx) {
+	prefix := MapKey(e.prefix, catalogViewPrefix, EncodeID(DatabaseID))
+
+	_ = iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		if deleted || len(value) == 0 {
+			return nil
+		}
+
+		// Extract view name from key
+		nameStart := len(prefix)
+		if nameStart >= len(key) {
+			return nil
+		}
+		viewName := string(key[nameStart:])
+		sqlText := string(value)
+
+		// Parse the view query and register it
+		stmts, err := ParseSQL(strings.NewReader(sqlText))
+		if err != nil {
+			return nil // skip unparseable views
+		}
+
+		for _, stmt := range stmts {
+			if ds, ok := stmt.(DataSource); ok {
+				e.registerTableResolver(viewName, &viewResolver{
+					name:  viewName,
+					query: ds,
+				})
+				break
+			}
+		}
+
+		return nil
+	})
+}
+
+func (e *Engine) loadSequences(ctx context.Context, tx *store.OngoingTx) error {
+	prefix := MapKey(e.prefix, catalogSequencePrefix, EncodeID(DatabaseID))
+
+	return iteratePrefix(ctx, tx, prefix, func(key, value []byte, deleted bool) error {
+		if deleted || len(value) < 16 {
+			return nil
+		}
+
+		// Extract name from key: prefix + DatabaseID + name
+		nameStart := len(prefix)
+		if nameStart >= len(key) {
+			return nil
+		}
+		name := string(key[nameStart:])
+
+		currValue := int64(binary.BigEndian.Uint64(value[0:8]))
+		increment := int64(binary.BigEndian.Uint64(value[8:16]))
+
+		if e.sequences == nil {
+			e.sequences = make(map[string]*Sequence)
+		}
+
+		e.sequences[name] = &Sequence{
+			name:      name,
+			currValue: currValue,
+			increment: increment,
+			started:   currValue != 0,
+		}
+
+		return nil
+	})
 }
 
 type MultiDBHandler interface {
@@ -163,11 +332,22 @@ func NewEngine(st *store.ImmuStore, opts *Options) (*Engine, error) {
 		return nil, err
 	}
 
+	// Apply the engine-side variable-key cap override, if requested.
+	// This mutates a package-level variable that other call sites
+	// (EncodeRawValueAsKey, the document layer, etc.) consult — the
+	// global is intentional, matching the existing MaxKeyLen design.
+	// Zero leaves the package default in place.
+	if opts.maxKeyLen != 0 {
+		MaxKeyLen = opts.maxKeyLen
+	}
+
 	e := &Engine{
 		store:                         st,
 		prefix:                        make([]byte, len(opts.prefix)),
 		distinctLimit:                 opts.distinctLimit,
+		distinctSpillThreshold:        opts.distinctSpillThreshold,
 		sortBufferSize:                opts.sortBufferSize,
+		maxWindowRows:                 opts.maxWindowRows,
 		autocommit:                    opts.autocommit,
 		lazyIndexConstraintValidation: opts.lazyIndexConstraintValidation,
 		parseTxMetadata:               opts.parseTxMetadata,
@@ -230,11 +410,77 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		tx.WithMetadata(txmd)
 	}
 
-	catalog := newCatalog(e.prefix)
+	// Try to reuse the engine-level catalog cache.
+	// catalog.load() scans all table/column/index metadata from the B-tree on
+	// every transaction open — skipping it eliminates the dominant per-query
+	// overhead for autocommit SELECT workloads, and (via Clone) for DML-heavy
+	// read-write workloads as well.
+	//
+	// openCatalogVersion is captured once here under the same RLock as
+	// cachedCatalog so the (catalog, version) pair seen by this tx is
+	// coherent. tryPopulateCatalogCache rejects populates whose version
+	// disagrees with what subsequently lives on the engine.
+	e.catalogMu.RLock()
+	cached := e.cachedCatalog
+	openVersion := e.cachedCatalogVersion.Load()
+	e.catalogMu.RUnlock()
 
-	err = catalog.load(ctx, tx)
-	if err != nil {
-		return nil, err
+	if cached != nil && opts.ReadOnly {
+		// Read-only transactions cannot mutate the schema, so they share the
+		// cached catalog directly. Sequences and views are already loaded in
+		// engine fields.
+		CatalogCacheHitObserver()
+		return &SQLTx{
+			engine:             e,
+			opts:               opts,
+			tx:                 tx,
+			catalog:            cached,
+			openCatalogVersion: openVersion,
+			lastInsertedPKs:    make(map[string]int64),
+			firstInsertedPKs:   make(map[string]int64),
+		}, nil
+	}
+
+	var catalog *Catalog
+	if cached != nil {
+		// Read-write tx with a warm cache: clone so any DDL this tx performs
+		// lands on the local copy, not the shared cache. Reset maxPK on the
+		// clones — the authoritative value comes from the snapshot-dependent
+		// loadMaxPK loop below and must not leak the cache's stale value into
+		// an empty-table case (where loadMaxPK returns ErrNoMoreEntries and
+		// the existing code falls through without resetting).
+		CatalogCacheHitObserver()
+		catalog = cached.Clone()
+		for _, table := range catalog.GetTables() {
+			table.maxPK = 0
+		}
+		// D2 Phase 2 correctness: catalog.load was skipped, so the MVCC
+		// read-set has no record of the catalog rows this tx implicitly
+		// observed. Without this seed, two concurrent txs doing
+		// conflicting DDL would both commit (no read-conflict tripwire).
+		// See immudb-improvements.md "Open question #2".
+		if err := e.seedCatalogReadSet(ctx, tx, catalog.GetTables()); err != nil {
+			return nil, err
+		}
+	} else {
+		CatalogCacheMissObserver()
+		catalog = newCatalog(e.prefix)
+		if err := catalog.load(ctx, tx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Load persisted sequences (only once, on first tx)
+	if e.sequences == nil {
+		if err := e.loadSequences(ctx, tx); err != nil {
+			// Non-fatal: sequences are optional
+			_ = err
+		}
+	}
+
+	// Load persisted views (only once, on first tx open)
+	if len(e.tableResolvers) == 0 {
+		e.loadViews(ctx, tx)
 	}
 
 	for _, table := range catalog.GetTables() {
@@ -319,14 +565,115 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		}
 	}
 
+	// Populate the read-only catalog cache so subsequent autocommit SELECTs
+	// bypass catalog.load() entirely. Only cache when the caller did not
+	// mutate the schema (write transactions are never cached).
+	if opts.ReadOnly {
+		e.catalogMu.Lock()
+		if e.cachedCatalog == nil {
+			e.cachedCatalog = catalog
+		}
+		e.catalogMu.Unlock()
+	}
+
 	return &SQLTx{
-		engine:           e,
-		opts:             opts,
-		tx:               tx,
-		catalog:          catalog,
-		lastInsertedPKs:  make(map[string]int64),
-		firstInsertedPKs: make(map[string]int64),
+		engine:             e,
+		opts:               opts,
+		tx:                 tx,
+		catalog:            catalog,
+		openCatalogVersion: openVersion,
+		lastInsertedPKs:    make(map[string]int64),
+		firstInsertedPKs:   make(map[string]int64),
 	}, nil
+}
+
+// seedCatalogReadSet registers prefix-range fingerprints on the
+// OngoingTx read-set for every catalog prefix that catalog.load
+// would have walked. Used by NewTx's Clone fast path (D2 Phase 2)
+// so DDL-vs-DDL conflict detection still fires even when the cached
+// catalog skips the parse step.
+//
+// Uses OngoingTx.MarkPrefixScanned (R1 from the agent review) which
+// records ONE fingerprint per prefix instead of per-entry
+// expectedReads + expectedNoMoreEntries — same conflict guarantee,
+// without the O(N) bookkeeping tax on every warm-cache NewTx.
+func (e *Engine) seedCatalogReadSet(ctx context.Context, tx *store.OngoingTx, tables []*Table) error {
+	prefixes := [][]byte{
+		MapKey(e.prefix, catalogTablePrefix, EncodeID(DatabaseID)),
+	}
+	for _, t := range tables {
+		prefixes = append(prefixes,
+			MapKey(e.prefix, catalogColumnPrefix, EncodeID(DatabaseID), EncodeID(t.id)),
+			MapKey(e.prefix, catalogIndexPrefix, EncodeID(DatabaseID), EncodeID(t.id)),
+			MapKey(e.prefix, catalogCheckPrefix, EncodeID(DatabaseID), EncodeID(t.id)),
+		)
+	}
+	for _, p := range prefixes {
+		if err := tx.MarkPrefixScanned(ctx, store.KeyReaderSpec{Prefix: p}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func drainKeyReader(ctx context.Context, tx *store.OngoingTx, prefix []byte) error {
+	rdr, err := tx.NewKeyReader(store.KeyReaderSpec{Prefix: prefix})
+	if err != nil {
+		return err
+	}
+	defer rdr.Close()
+
+	for {
+		_, _, err := rdr.Read(ctx)
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// invalidateCatalogCache clears the engine-level catalog cache. Called after
+// any DDL transaction commits so the next read-only tx reloads from the store.
+//
+// The version counter is bumped under the same lock so a concurrent
+// tryPopulateCatalogCache call sees a coherent (catalog, version) pair —
+// either the old cached catalog with version V, or nil with version V+1.
+// Never the inconsistent intermediate state where the catalog is nil but
+// the version is still V.
+func (e *Engine) invalidateCatalogCache() {
+	e.catalogMu.Lock()
+	e.cachedCatalog = nil
+	e.cachedCatalogVersion.Add(1)
+	e.catalogMu.Unlock()
+}
+
+// tryPopulateCatalogCache opportunistically promotes a freshly-committed
+// (non-DDL) tx's catalog into the engine cache so subsequent NewTx calls
+// can take the Clone fast path. No-op when:
+//   - The cache is already warm (first-fill-wins, preserves coherence
+//     even if the existing entry came from a different tx).
+//   - cachedCatalogVersion has changed since this tx opened — meaning a
+//     concurrent DDL invalidated the cache, and our snapshot is by now
+//     stale relative to the next valid view.
+//
+// The catalog reference handed in is shared post-publication: callers
+// MUST NOT mutate the catalog after handing it over.
+func (e *Engine) tryPopulateCatalogCache(catalog *Catalog, openVersion uint64) {
+	if catalog == nil {
+		return
+	}
+	e.catalogMu.Lock()
+	defer e.catalogMu.Unlock()
+
+	if e.cachedCatalog != nil {
+		return
+	}
+	if e.cachedCatalogVersion.Load() != openVersion {
+		return
+	}
+	e.cachedCatalog = catalog
 }
 
 func indexEntryMapperFor(index, primaryIndex *Index) store.EntryMapper {
@@ -611,7 +958,8 @@ func (e *Engine) QueryPreparedStmt(ctx context.Context, tx *SQLTx, stmt DataSour
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
+		readOnly := stmt.readOnly()
+		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(readOnly))
 		if err != nil {
 			return nil, err
 		}
@@ -644,9 +992,16 @@ func (e *Engine) QueryPreparedStmt(ctx context.Context, tx *SQLTx, stmt DataSour
 	}
 
 	if tx == nil {
-		r.onClose(func() {
-			qtx.Cancel()
-		})
+		if stmt.readOnly() {
+			r.onClose(func() {
+				qtx.Cancel()
+			})
+		} else {
+			// DML with RETURNING: commit the transaction on close
+			r.onClose(func() {
+				qtx.Commit(ctx)
+			})
+		}
 	}
 
 	return r, nil

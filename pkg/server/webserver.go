@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -34,10 +34,13 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsConfig *tls.Config, s *ImmuServer, l logger.Logger) (*http.Server, error) {
-	grpcClient, err := grpcClient(ctx, grpcAddr, tlsConfig)
+// startWebServer starts the HTTP reverse-proxy that forwards REST calls to the
+// local gRPC server.  It returns both the HTTP server and the gRPC client
+// connection so the caller can close the connection explicitly when done.
+func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsConfig *tls.Config, s *ImmuServer, l logger.Logger) (*http.Server, *grpc.ClientConn, error) {
+	conn, err := newGrpcClientConn(grpcAddr, tlsConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	proxyMux := runtime.NewServeMux(
@@ -51,19 +54,19 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 		}),
 	)
 
-	err = schema.RegisterImmuServiceHandler(ctx, proxyMux, grpcClient)
-	if err != nil {
-		return nil, err
+	if err = schema.RegisterImmuServiceHandler(ctx, proxyMux, conn); err != nil {
+		conn.Close()
+		return nil, nil, err
 	}
 
-	err = protomodel.RegisterAuthorizationServiceHandler(ctx, proxyMux, grpcClient)
-	if err != nil {
-		return nil, err
+	if err = protomodel.RegisterAuthorizationServiceHandler(ctx, proxyMux, conn); err != nil {
+		conn.Close()
+		return nil, nil, err
 	}
 
-	err = protomodel.RegisterDocumentServiceHandler(ctx, proxyMux, grpcClient)
-	if err != nil {
-		return nil, err
+	if err = protomodel.RegisterDocumentServiceHandler(ctx, proxyMux, conn); err != nil {
+		conn.Close()
+		return nil, nil, err
 	}
 
 	webMux := http.NewServeMux()
@@ -71,15 +74,15 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 	webMux.Handle("/api/", http.StripPrefix("/api", proxyMux))
 	webMux.Handle("/api/v2/", http.StripPrefix("/api/v2", proxyMux))
 
-	err = webconsole.SetupWebconsole(webMux, l, httpAddr)
-	if err != nil {
-		return nil, err
+	if err = webconsole.SetupWebconsole(webMux, l, httpAddr); err != nil {
+		conn.Close()
+		return nil, nil, err
 	}
 
 	if s.Options.SwaggerUIEnabled {
-		err = swagger.SetupSwaggerUI(webMux, l, httpAddr)
-		if err != nil {
-			return nil, err
+		if err = swagger.SetupSwaggerUI(webMux, l, httpAddr); err != nil {
+			conn.Close()
+			return nil, nil, err
 		}
 	}
 
@@ -103,10 +106,12 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 		}
 	}()
 
-	return httpServer, nil
+	return httpServer, conn, nil
 }
 
-func grpcClient(ctx context.Context, grpcAddr string, tlsConfig *tls.Config) (conn *grpc.ClientConn, err error) {
+// newGrpcClientConn opens a gRPC client connection to grpcAddr.
+// The caller is responsible for closing the returned connection.
+func newGrpcClientConn(grpcAddr string, tlsConfig *tls.Config) (conn *grpc.ClientConn, err error) {
 	var creds credentials.TransportCredentials
 	if tlsConfig != nil {
 		creds = credentials.NewTLS(&tls.Config{RootCAs: tlsConfig.RootCAs})
@@ -114,23 +119,16 @@ func grpcClient(ctx context.Context, grpcAddr string, tlsConfig *tls.Config) (co
 		creds = insecure.NewCredentials()
 	}
 
-	conn, err = grpc.Dial(grpcAddr, grpc.WithTransportCredentials(creds))
+	conn, err = grpc.NewClient(grpcAddr, grpc.WithTransportCredentials(creds))
 	if err != nil {
-		return conn, err
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
 			if cerr := conn.Close(); cerr != nil {
 				grpclog.Infof("failed to close conn to %s: %v", grpcAddr, cerr)
 			}
-			return
 		}
-		go func() {
-			<-ctx.Done()
-			if cerr := conn.Close(); cerr != nil {
-				grpclog.Infof("failed to close conn to %s: %v", grpcAddr, cerr)
-			}
-		}()
 	}()
 	return conn, nil
 }

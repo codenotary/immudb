@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -29,59 +29,64 @@ import (
 )
 
 func TestSession_MessageReader(t *testing.T) {
-	c1, c2 := net.Pipe()
-	mr := &messageReader{
-		conn: c1,
+	// Each block uses its own c1/c2 pair and the goroutine captures the
+	// peer connection by value (function parameter) instead of by
+	// closure over the outer variable.  Reusing a single `c2` variable
+	// across blocks and closing it inside a goroutine created a race
+	// where the previous goroutine's c2.Close() could fire after the
+	// main goroutine reassigned c2 to a fresh pipe, closing the new
+	// pipe prematurely and surfacing as spurious EOF in CI.
+	{
+		c1, c2 := net.Pipe()
+		mr := &messageReader{conn: c1}
+
+		go func(c net.Conn) {
+			c.Write([]byte{'E'})
+			c.Close()
+		}(c2)
+
+		_, err := mr.ReadRawMessage()
+		require.ErrorIs(t, err, io.EOF)
 	}
 
-	go func() {
-		c2.Write([]byte{'E'})
-		c2.Close()
-	}()
+	{
+		c1, c2 := net.Pipe()
+		mr := &messageReader{conn: c1}
 
-	_, err := mr.ReadRawMessage()
+		go func(c net.Conn) {
+			c.Write([]byte{'E'})
+			c.Write([]byte{0, 0, 0, 4})
+			c.Close()
+		}(c2)
 
-	require.ErrorIs(t, err, io.EOF)
+		_, err := mr.ReadRawMessage()
+		require.NoError(t, err)
 
-	c1, c2 = net.Pipe()
-	mr = &messageReader{
-		conn: c1,
+		mr = &messageReader{}
+		err = mr.CloseConnection()
+		require.NoError(t, err)
 	}
-	go func() {
-		c2.Write([]byte{'E'})
-		c2.Write([]byte{0, 0, 0, 4})
-		c2.Close()
-	}()
 
-	_, err = mr.ReadRawMessage()
+	{
+		c1, c2 := net.Pipe()
+		mr := &messageReader{conn: c1}
 
-	require.ErrorIs(t, err, io.EOF)
+		b := make([]byte, 4)
+		binary.BigEndian.PutUint32(b, math.MaxUint32)
 
-	mr = &messageReader{}
-	err = mr.CloseConnection()
+		go func(c net.Conn) {
+			c.Write([]byte{'E'})
+			c.Write(b)
+			c.Close()
+		}(c2)
 
-	require.NoError(t, err)
+		_, err := mr.ReadRawMessage()
+		require.ErrorIs(t, err, errors.ErrMalformedMessage)
 
-	c1, c2 = net.Pipe()
-	mr = &messageReader{
-		conn: c1,
+		mr = &messageReader{}
+		err = mr.CloseConnection()
+		require.NoError(t, err)
 	}
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, math.MaxUint32)
-	go func() {
-		c2.Write([]byte{'E'})
-		c2.Write(b)
-		c2.Close()
-	}()
-
-	_, err = mr.ReadRawMessage()
-
-	require.ErrorIs(t, err, errors.ErrMalformedMessage)
-
-	mr = &messageReader{}
-	err = mr.CloseConnection()
-
-	require.NoError(t, err)
 }
 
 func TestSession_MessageReaderMaxMsgSize(t *testing.T) {

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -50,6 +50,10 @@ type ScanSpecs struct {
 	DescOrder         bool
 	groupBySortExps   []*OrdExp
 	orderBySortExps   []*OrdExp
+	// neededColIDs, when non-nil, restricts column decoding to the listed IDs.
+	// Columns absent from the map are skipped (offset advanced, no allocation).
+	// nil means decode all columns (backward-compatible default).
+	neededColIDs map[uint32]bool
 }
 
 func (s *ScanSpecs) extraCols() int {
@@ -197,7 +201,12 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 
 	var r store.KeyReader
 
-	if table.name == "pg_type" {
+	// System tables have no storage backing — their rows come from
+	// Table.systemScan via tableRef.Resolve. If anything still funnels
+	// a rawRowReader at one (e.g. a direct internal call), fall back to
+	// an empty reader rather than scanning storage with a key prefix
+	// that has no entries.
+	if table.systemScan != nil {
 		r = &emptyKeyReader{}
 	} else {
 		r, err = tx.newKeyReader(*rSpec)
@@ -469,7 +478,24 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	valuesByPosition := make([]TypedValue, len(r.colsByPos))
 	valuesBySelector := make(map[string]TypedValue, len(r.colsBySel))
 
+	// extraCols is the number of synthetic leading columns (rev, txMetadata).
+	// Table columns occupy r.colsByPos[extraCols:], corresponding 1-to-1 with
+	// r.table.cols. Moved up so the pre-fill loop can use it for the skip check.
+	extraCols := r.scanSpecs.extraCols()
+
 	for i, col := range r.colsByPos {
+		// Skip NullValue pre-fill for table columns that the query does not
+		// need. The nil zero-value is semantically NULL and is never accessed
+		// for columns excluded by neededColIDs. Extra synthetic columns (rev,
+		// txMetadata) are always included regardless of neededColIDs.
+		if r.scanSpecs.neededColIDs != nil {
+			if tableIdx := i - extraCols; tableIdx >= 0 && tableIdx < len(r.table.cols) {
+				if !r.scanSpecs.neededColIDs[r.table.cols[tableIdx].id] {
+					continue
+				}
+			}
+		}
+
 		var val TypedValue
 
 		switch col.Column {
@@ -492,7 +518,6 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 		return nil, ErrCorruptedData
 	}
 
-	extraCols := r.scanSpecs.extraCols()
 
 	voff := 0
 
@@ -520,6 +545,19 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 		}
 		if err != nil {
 			return nil, ErrCorruptedData
+		}
+
+		// Projection pushdown: skip columns not needed by the query.
+		// We still advance voff so the byte stream stays in sync.
+		// pos advancement is handled by the loop at the decode site below,
+		// since that same loop also advances pos past any skipped entries.
+		if r.scanSpecs.neededColIDs != nil && !r.scanSpecs.neededColIDs[colID] {
+			vlen, n, err := DecodeValueLength(v[voff:])
+			if err != nil {
+				return nil, err
+			}
+			voff += n + vlen
+			continue
 		}
 
 		val, n, err := DecodeValue(v[voff:], col.colType)
@@ -550,6 +588,35 @@ func (r *rawRowReader) Read(ctx context.Context) (*Row, error) {
 	}
 
 	return &Row{ValuesByPosition: valuesByPosition, ValuesBySelector: valuesBySelector}, nil
+}
+
+// CountAll iterates the scan without decoding column values, returning the
+// number of matching index entries. Used by the COUNT(*) fast-path.
+func (r *rawRowReader) CountAll(ctx context.Context) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if err := r.reduceTxRange(); errors.Is(err, store.ErrTxNotFound) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+	var n int64
+	for {
+		var err error
+		if r.txRange == nil {
+			_, _, err = r.reader.Read(ctx)
+		} else {
+			_, _, err = r.reader.ReadBetween(ctx, r.txRange.initialTxID, r.txRange.finalTxID)
+		}
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			return n, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		n++
+	}
 }
 
 func (r *rawRowReader) parseTxMetadata(txmd *store.TxMetadata) (TypedValue, error) {

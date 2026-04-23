@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,9 +17,14 @@ limitations under the License.
 package sql
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"math"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -42,9 +47,87 @@ const (
 	IndexesFnCall            string = "INDEXES"
 	GrantsFnCall             string = "GRANTS"
 	JSONTypeOfFnCall         string = "JSON_TYPEOF"
-	PGGetUserByIDFnCall      string = "PG_GET_USERBYID"
-	PgTableIsVisibleFnCall   string = "PG_TABLE_IS_VISIBLE"
-	PgShobjDescriptionFnCall string = "SHOBJ_DESCRIPTION"
+	PGGetUserByIDFnCall          string = "PG_GET_USERBYID"
+	PgTableIsVisibleFnCall       string = "PG_TABLE_IS_VISIBLE"
+	PgShobjDescriptionFnCall     string = "SHOBJ_DESCRIPTION"
+	CurrentDatabaseFnCall        string = "CURRENT_DATABASE"
+	CurrentSchemaFnCall          string = "CURRENT_SCHEMA"
+	CurrentSchemasFnCall         string = "CURRENT_SCHEMAS"
+	CurrentUserFnCall            string = "CURRENT_USER"
+	FormatTypeFnCall             string = "FORMAT_TYPE"
+	PgGetExprFnCall              string = "PG_GET_EXPR"
+	PgGetConstraintDefFnCall     string = "PG_GET_CONSTRAINTDEF"
+	PgGetIndexDefFnCall          string = "PG_GET_INDEXDEF"
+	PgEncodingToCharFnCall       string = "PG_ENCODING_TO_CHAR"
+	ObjDescriptionFnCall         string = "OBJ_DESCRIPTION"
+	HasTablePrivilegeFnCall      string = "HAS_TABLE_PRIVILEGE"
+	HasSchemaPrivilegeFnCall     string = "HAS_SCHEMA_PRIVILEGE"
+	HasDatabasePrivilegeFnCall   string = "HAS_DATABASE_PRIVILEGE"
+	HasFunctionPrivilegeFnCall   string = "HAS_FUNCTION_PRIVILEGE"
+	ArrayUpperFnCall             string = "ARRAY_UPPER"
+	ArrayToStringFnCall          string = "ARRAY_TO_STRING"
+	QuoteIdentFnCall             string = "QUOTE_IDENT"
+	PgTotalRelationSizeFnCall    string = "PG_TOTAL_RELATION_SIZE"
+	PgRelationSizeFnCall         string = "PG_RELATION_SIZE"
+	PgGetSerialSequenceFnCall    string = "PG_GET_SERIAL_SEQUENCE"
+	ColDescriptionFnCall         string = "COL_DESCRIPTION"
+
+	// Math functions
+	AbsFnCall     string = "ABS"
+	CeilFnCall    string = "CEIL"
+	FloorFnCall   string = "FLOOR"
+	RoundFnCall   string = "ROUND"
+	PowerFnCall   string = "POWER"
+	SqrtFnCall    string = "SQRT"
+	ModFnCall     string = "MOD"
+	SignFnCall    string = "SIGN"
+
+	// String functions
+	ReplaceFnCall  string = "REPLACE"
+	ReverseFnCall  string = "REVERSE"
+	LeftFnCall     string = "LEFT"
+	RightFnCall    string = "RIGHT"
+	RepeatFnCall   string = "REPEAT"
+	PositionFnCall string = "POSITION"
+	CharLengthFnCall string = "CHAR_LENGTH"
+	OctetLengthFnCall string = "OCTET_LENGTH"
+
+	// Conditional functions
+	NullIfFnCall   string = "NULLIF"
+	GreatestFnCall string = "GREATEST"
+	LeastFnCall    string = "LEAST"
+
+	// Additional string functions
+	LpadFnCall      string = "LPAD"
+	RpadFnCall      string = "RPAD"
+	SplitPartFnCall string = "SPLIT_PART"
+	InitcapFnCall   string = "INITCAP"
+	ChrFnCall       string = "CHR"
+	AsciiFnCall     string = "ASCII"
+	MD5FnCall       string = "MD5"
+	TranslateFnCall string = "TRANSLATE"
+
+	// Date/time functions
+	DateTruncFnCall  string = "DATE_TRUNC"
+	ToCharFnCall     string = "TO_CHAR"
+	DatePartFnCall   string = "DATE_PART"
+	AgeFnCall        string = "AGE"
+	ClockTimestampFnCall string = "CLOCK_TIMESTAMP"
+
+	// Aliases
+	SubstrFnCall        string = "SUBSTR"
+	StrposFnCall        string = "STRPOS"
+	ConcatWSFnCall      string = "CONCAT_WS"
+	RegexpReplaceFnCall string = "REGEXP_REPLACE"
+
+	// Sequence functions
+	NextValFnCall string = "NEXTVAL"
+	CurrValFnCall string = "CURRVAL"
+
+	// Additional utility functions
+	RandomFnCall      string = "RANDOM"
+	GenRandomUUIDCall string = "GEN_RANDOM_UUID"
+	ToNumberFnCall    string = "TO_NUMBER"
 )
 
 var builtinFunctions = map[string]Function{
@@ -58,9 +141,97 @@ var builtinFunctions = map[string]Function{
 	NowFnCall:                &NowFn{},
 	UUIDFnCall:               &UUIDFn{},
 	JSONTypeOfFnCall:         &JsonTypeOfFn{},
-	PGGetUserByIDFnCall:      &pgGetUserByIDFunc{},
-	PgTableIsVisibleFnCall:   &pgTableIsVisible{},
-	PgShobjDescriptionFnCall: &pgShobjDescription{},
+	PGGetUserByIDFnCall:          &pgGetUserByIDFunc{},
+	PgTableIsVisibleFnCall:       &pgTableIsVisible{},
+	PgShobjDescriptionFnCall:     &pgShobjDescription{},
+	CurrentDatabaseFnCall:        &pgCurrentDatabase{},
+	CurrentSchemaFnCall:          &pgCurrentSchema{},
+	CurrentSchemasFnCall:         &pgCurrentSchemas{},
+	CurrentUserFnCall:            &pgCurrentUser{},
+	FormatTypeFnCall:             &pgFormatType{},
+	PgGetExprFnCall:              &pgVarcharStub{name: PgGetExprFnCall, nParams: -1},
+	PgGetConstraintDefFnCall:     &pgVarcharStub{name: PgGetConstraintDefFnCall, nParams: -1},
+	PgGetIndexDefFnCall:          &pgVarcharStub{name: PgGetIndexDefFnCall, nParams: -1},
+	PgEncodingToCharFnCall:       &pgEncodingToChar{},
+	ObjDescriptionFnCall:         &pgVarcharStub{name: ObjDescriptionFnCall, nParams: -1},
+	HasTablePrivilegeFnCall:      &pgBoolStub{name: HasTablePrivilegeFnCall, nParams: -1},
+	HasSchemaPrivilegeFnCall:     &pgBoolStub{name: HasSchemaPrivilegeFnCall, nParams: -1},
+	HasDatabasePrivilegeFnCall:   &pgBoolStub{name: HasDatabasePrivilegeFnCall, nParams: -1},
+	HasFunctionPrivilegeFnCall:   &pgBoolStub{name: HasFunctionPrivilegeFnCall, nParams: -1},
+	ArrayUpperFnCall:             &pgNullIntStub{name: ArrayUpperFnCall},
+	ArrayToStringFnCall:          &pgArrayToString{},
+	QuoteIdentFnCall:             &pgQuoteIdent{},
+	PgTotalRelationSizeFnCall:    &pgZeroIntStub{name: PgTotalRelationSizeFnCall, nParams: -1},
+	PgRelationSizeFnCall:         &pgZeroIntStub{name: PgRelationSizeFnCall, nParams: -1},
+	PgGetSerialSequenceFnCall:    &pgVarcharStub{name: PgGetSerialSequenceFnCall, nParams: -1},
+	ColDescriptionFnCall:         &pgVarcharStub{name: ColDescriptionFnCall, nParams: -1},
+
+	// Math functions
+	AbsFnCall:     &mathFn{name: AbsFnCall},
+	CeilFnCall:    &mathFn{name: CeilFnCall},
+	FloorFnCall:   &mathFn{name: FloorFnCall},
+	RoundFnCall:   &mathFn{name: RoundFnCall},
+	PowerFnCall:   &mathFn{name: PowerFnCall},
+	SqrtFnCall:    &mathFn{name: SqrtFnCall},
+	ModFnCall:     &mathFn{name: ModFnCall},
+	SignFnCall:    &mathFn{name: SignFnCall},
+
+	// String functions
+	ReplaceFnCall:    &replaceFn{},
+	ReverseFnCall:    &reverseFn{},
+	LeftFnCall:       &leftRightFn{isRight: false},
+	RightFnCall:      &leftRightFn{isRight: true},
+	RepeatFnCall:     &repeatFn{},
+	PositionFnCall:   &positionFn{},
+	CharLengthFnCall: &LengthFn{},
+	OctetLengthFnCall: &LengthFn{},
+
+	// Conditional functions
+	NullIfFnCall:   &nullIfFn{},
+	GreatestFnCall: &greatestLeastFn{isGreatest: true},
+	LeastFnCall:    &greatestLeastFn{isGreatest: false},
+
+	// Additional string functions
+	LpadFnCall:      &padFn{isRight: false},
+	RpadFnCall:      &padFn{isRight: true},
+	SplitPartFnCall: &splitPartFn{},
+	InitcapFnCall:   &initcapFn{},
+	ChrFnCall:       &chrFn{},
+	AsciiFnCall:     &asciiFn{},
+	MD5FnCall:       &md5Fn{},
+	TranslateFnCall: &translateFn{},
+
+	// Date/time functions
+	DateTruncFnCall:      &dateTruncFn{},
+	ToCharFnCall:         &toCharFn{},
+	DatePartFnCall:       &datePartFn{},
+	AgeFnCall:            &ageFn{},
+	ClockTimestampFnCall: &NowFn{},
+
+	// Aliases
+	SubstrFnCall:        &SubstringFn{},
+	StrposFnCall:        &positionFn{},
+	ConcatWSFnCall:      &concatWSFn{},
+	RegexpReplaceFnCall: &regexpReplaceFn{},
+	NextValFnCall:       &nextValFn{},
+	CurrValFnCall:       &currValFn{},
+
+	// Utility functions
+	RandomFnCall:      &randomFn{},
+	GenRandomUUIDCall: &UUIDFn{},
+	ToNumberFnCall:    &toNumberFn{},
+}
+
+// RegisteredFunctions returns a snapshot of all built-in functions
+// keyed by their canonical upper-case name. Callers must not mutate
+// the returned map. Used by the pg_catalog pg_proc system table to
+// enumerate callable functions.
+func RegisteredFunctions() map[string]Function {
+	out := make(map[string]Function, len(builtinFunctions))
+	for k, v := range builtinFunctions {
+		out[k] = v
+	}
+	return out
 }
 
 type Function interface {
@@ -395,21 +566,27 @@ func (f *pgGetUserByIDFunc) Apply(tx *SQLTx, params []TypedValue) (TypedValue, e
 	if len(params) != 1 {
 		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, PGGetUserByIDFnCall, 1, len(params))
 	}
-
-	if params[0].RawValue() != int64(0) {
-		return nil, fmt.Errorf("user not found")
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
 	}
 
+	// psql, pgAdmin and Rails all call this with real role oids
+	// (pg_database.datdba, pg_class.relowner, pg_namespace.nspowner),
+	// which immudb doesn't track per-user. Return the admin username
+	// as a stable stand-in — matches the single-role model we expose
+	// in pg_roles. A nil tx (unit tests exercising Apply directly)
+	// short-circuits to the "immudb" default.
+	if tx == nil || tx.tx == nil {
+		return NewVarchar("immudb"), nil
+	}
 	users, err := tx.ListUsers(tx.tx.Context())
-	if err != nil {
-		return nil, err
+	if err != nil || len(users) == 0 {
+		return NewVarchar("immudb"), nil
 	}
-
-	idx := findSysAdmin(users)
-	if idx < 0 {
-		return nil, fmt.Errorf("admin not found")
+	if idx := findSysAdmin(users); idx >= 0 {
+		return NewVarchar(users[idx].Username()), nil
 	}
-	return NewVarchar(users[idx].Username()), nil
+	return NewVarchar("immudb"), nil
 }
 
 func findSysAdmin(users []User) int {
@@ -459,4 +636,1335 @@ func (f *pgShobjDescription) Apply(tx *SQLTx, params []TypedValue) (TypedValue, 
 		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, PgShobjDescriptionFnCall, 2, len(params))
 	}
 	return NewVarchar(""), nil
+}
+
+// -------------------------------------
+// PostgreSQL Compatibility Functions
+// -------------------------------------
+
+// current_database() — returns "defaultdb" (immudb default database name)
+type pgCurrentDatabase struct{}
+
+func (f *pgCurrentDatabase) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentDatabase) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentDatabase) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) > 0 {
+		return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, CurrentDatabaseFnCall, len(params))
+	}
+	return NewVarchar("defaultdb"), nil
+}
+
+// current_schema() — returns "public"
+type pgCurrentSchema struct{}
+
+func (f *pgCurrentSchema) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentSchema) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentSchema) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) > 0 {
+		return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, CurrentSchemaFnCall, len(params))
+	}
+	return NewVarchar("public"), nil
+}
+
+// current_user — returns the logged-in username
+type pgCurrentUser struct{}
+
+func (f *pgCurrentUser) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentUser) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentUser) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) > 0 {
+		return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, CurrentUserFnCall, len(params))
+	}
+
+	users, err := tx.ListUsers(tx.tx.Context())
+	if err != nil {
+		return NewVarchar("immudb"), nil
+	}
+
+	idx := findSysAdmin(users)
+	if idx >= 0 {
+		return NewVarchar(users[idx].Username()), nil
+	}
+	return NewVarchar("immudb"), nil
+}
+
+// format_type(oid, typmod) — maps type OID to type name
+type pgFormatType struct{}
+
+func (f *pgFormatType) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgFormatType) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+// oidToTypeName maps every PG type OID our wire layer advertises
+// (see pkg/pgsql/sys/types.go pgTypeOIDForSQLType) to a human-
+// readable type string. format_type uses this to render type
+// labels in psql's `\d` output; every OID we might emit in
+// pg_attribute.atttypid needs a row here or psql falls back to the
+// `unknown (OID=N)` stringification.
+//
+// Keep in lockstep with pgTypeOIDForSQLType — if a new immudb type
+// gets a PG OID there, add a matching row here.
+var oidToTypeName = map[int64]string{
+	16:   "boolean",                    // bool
+	17:   "bytea",                      // bytea
+	20:   "bigint",                     // int8
+	21:   "smallint",                   // int2
+	23:   "integer",                    // int4
+	25:   "text",                       // text
+	26:   "oid",                        // oid
+	114:  "json",                       // json
+	700:  "real",                       // float4
+	701:  "double precision",           // float8
+	1042: "character",                  // bpchar
+	1043: "character varying",          // varchar — used by every immudb VARCHAR column
+	1082: "date",                       // date
+	1083: "time without time zone",     // time
+	1114: "timestamp without time zone", // timestamp — immudb's TIMESTAMP type
+	1184: "timestamp with time zone",   // timestamptz
+	1186: "interval",                   // interval
+	1700: "numeric",                    // numeric
+	2950: "uuid",                       // uuid
+	2276: "any",                        // any (pseudo-type)
+	3802: "jsonb",                      // jsonb
+}
+
+// varcharTypeWithModifier renders a VARCHAR/CHAR type with its
+// typmod-derived length, matching PG's format_type conventions:
+//
+//	format_type(1043, 128) → "character varying(124)"    (typmod = N+4)
+//	format_type(1043, -1)  → "character varying"
+//
+// Real PG uses the "N+4" convention so 0 can signal "unsized".
+// Our pg_attribute emits typmod = -1 for immudb types (we don't
+// store PG-style typmods), so the sized form is only reached when
+// a client-supplied literal typmod arrives.
+func varcharTypeWithModifier(oid, typmod int64) string {
+	base := oidToTypeName[oid]
+	if typmod < 0 {
+		return base
+	}
+	if typmod >= 4 {
+		return fmt.Sprintf("%s(%d)", base, typmod-4)
+	}
+	return fmt.Sprintf("%s(%d)", base, typmod)
+}
+
+func (f *pgFormatType) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, FormatTypeFnCall, 2, len(params))
+	}
+
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+
+	oid, ok := params[0].RawValue().(int64)
+	if !ok {
+		return NewVarchar("???"), nil
+	}
+
+	name, exists := oidToTypeName[oid]
+	if !exists {
+		return NewVarchar(fmt.Sprintf("unknown (OID=%d)", oid)), nil
+	}
+	// Only VARCHAR / CHAR carry a meaningful typmod. Every other
+	// type ignores the second argument, matching PG behaviour.
+	if oid == 1043 || oid == 1042 {
+		if !params[1].IsNull() {
+			if typmod, ok := params[1].RawValue().(int64); ok {
+				return NewVarchar(varcharTypeWithModifier(oid, typmod)), nil
+			}
+		}
+	}
+	return NewVarchar(name), nil
+}
+
+// pg_encoding_to_char(encoding_id) — returns encoding name
+type pgEncodingToChar struct{}
+
+func (f *pgEncodingToChar) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgEncodingToChar) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgEncodingToChar) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, PgEncodingToCharFnCall, 1, len(params))
+	}
+	return NewVarchar("UTF8"), nil
+}
+
+// pgVarcharStub — generic stub that returns empty string for any PG function.
+// nParams=-1 means accept any number of parameters.
+type pgVarcharStub struct {
+	name    string
+	nParams int
+}
+
+func (f *pgVarcharStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgVarcharStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgVarcharStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if f.nParams >= 0 && len(params) != f.nParams {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, f.name, f.nParams, len(params))
+	}
+	return NewVarchar(""), nil
+}
+
+// pgBoolStub — generic stub that returns true for any PG privilege-check function.
+// nParams=-1 means accept any number of parameters.
+type pgBoolStub struct {
+	name    string
+	nParams int
+}
+
+func (f *pgBoolStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return BooleanType, nil
+}
+
+func (f *pgBoolStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != BooleanType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return nil
+}
+
+func (f *pgBoolStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if f.nParams >= 0 && len(params) != f.nParams {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, f.name, f.nParams, len(params))
+	}
+	return NewBool(true), nil
+}
+
+// pgNullIntStub — returns NULL integer (for array_upper etc.)
+type pgNullIntStub struct {
+	name string
+}
+
+func (f *pgNullIntStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (f *pgNullIntStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+
+func (f *pgNullIntStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	return NewNull(IntegerType), nil
+}
+
+// pgZeroIntStub — returns integer 0, used for pg_*_size functions which
+// psql calls from \d+ to render size columns. Returning 0 rather than
+// NULL keeps psql's formatting happy (NULL→`—`, 0→`0 bytes`).
+type pgZeroIntStub struct {
+	name    string
+	nParams int
+}
+
+func (f *pgZeroIntStub) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (f *pgZeroIntStub) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+
+func (f *pgZeroIntStub) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if f.nParams >= 0 && len(params) != f.nParams {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, f.name, f.nParams, len(params))
+	}
+	return NewInteger(0), nil
+}
+
+// current_schemas(include_implicit bool) — returns the search path as a
+// PG array literal. PG returns text[], but the SQL engine has no array
+// type; we hand back a VARCHAR formatted as `{pg_catalog,public}` so
+// that array_to_string can round-trip it and naive clients see something
+// sensible. include_implicit=true prepends `pg_catalog` to match PG's
+// documented behaviour.
+type pgCurrentSchemas struct{}
+
+func (f *pgCurrentSchemas) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgCurrentSchemas) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgCurrentSchemas) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, CurrentSchemasFnCall, 1, len(params))
+	}
+	include := false
+	if !params[0].IsNull() {
+		if b, ok := params[0].RawValue().(bool); ok {
+			include = b
+		}
+	}
+	if include {
+		return NewVarchar("{pg_catalog,public}"), nil
+	}
+	return NewVarchar("{public}"), nil
+}
+
+// quote_ident(name) — wraps an identifier in double quotes if it
+// contains anything outside [a-z_][a-z0-9_]* or matches a short list of
+// SQL reserved words. Embedded double quotes are doubled. A permissive
+// implementation is fine here: psql and Rails only use the return value
+// for display and DDL rendering, not to re-parse user input.
+type pgQuoteIdent struct{}
+
+func (f *pgQuoteIdent) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgQuoteIdent) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+var quoteIdentReservedWords = map[string]struct{}{
+	"select": {}, "from": {}, "where": {}, "join": {}, "order": {},
+	"group": {}, "by": {}, "insert": {}, "update": {}, "delete": {},
+	"create": {}, "table": {}, "index": {}, "view": {}, "user": {},
+	"database": {}, "schema": {}, "grant": {}, "revoke": {}, "as": {},
+}
+
+func quoteIdentNeedsQuoting(s string) bool {
+	if s == "" {
+		return true
+	}
+	if _, reserved := quoteIdentReservedWords[strings.ToLower(s)]; reserved {
+		return true
+	}
+	for i, r := range s {
+		if i == 0 {
+			if !(r == '_' || (r >= 'a' && r <= 'z')) {
+				return true
+			}
+			continue
+		}
+		if !(r == '_' || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *pgQuoteIdent) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' function expects %d arguments but %d were provided", ErrIllegalArguments, QuoteIdentFnCall, 1, len(params))
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	if !quoteIdentNeedsQuoting(s) {
+		return NewVarchar(s), nil
+	}
+	return NewVarchar(`"` + strings.ReplaceAll(s, `"`, `""`) + `"`), nil
+}
+
+// array_to_string(array_literal, delim[, null_repr]) — joins the
+// elements of a PG array literal (text form: `{a,b,c}`) with delim.
+// Real PG arrays aren't representable in the engine today, so this
+// function accepts the VARCHAR stand-in emitted by current_schemas and
+// any other source that follows the curly-brace text convention. When
+// the argument isn't in that shape we pass it through unchanged —
+// that's what psql's callers expect when the "array" only has one
+// element and the server happened to render it as a bare scalar.
+type pgArrayToString struct{}
+
+func (f *pgArrayToString) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (f *pgArrayToString) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+
+func (f *pgArrayToString) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 2 || len(params) > 3 {
+		return nil, fmt.Errorf("%w: '%s' function expects 2 or 3 arguments but %d were provided", ErrIllegalArguments, ArrayToStringFnCall, len(params))
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	raw, _ := params[0].RawValue().(string)
+	delim := ""
+	if !params[1].IsNull() {
+		delim, _ = params[1].RawValue().(string)
+	}
+	// Curly-brace PG array literal → strip the braces and re-join.
+	if len(raw) >= 2 && raw[0] == '{' && raw[len(raw)-1] == '}' {
+		inner := raw[1 : len(raw)-1]
+		if inner == "" {
+			return NewVarchar(""), nil
+		}
+		parts := strings.Split(inner, ",")
+		return NewVarchar(strings.Join(parts, delim)), nil
+	}
+	return NewVarchar(raw), nil
+}
+
+// -------------------------------------
+// Math Functions
+// -------------------------------------
+
+type mathFn struct {
+	name string
+}
+
+func (f *mathFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+
+func (f *mathFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != Float64Type && t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as numeric type", ErrInvalidTypes, t)
+	}
+	return nil
+}
+
+func (f *mathFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	switch f.name {
+	case AbsFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Abs)
+	case CeilFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Ceil)
+	case FloorFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Floor)
+	case RoundFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Round)
+	case SqrtFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], math.Sqrt)
+	case SignFnCall:
+		if len(params) != 1 {
+			return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, f.name)
+		}
+		return f.applyUnary(params[0], func(v float64) float64 {
+			if v > 0 {
+				return 1
+			}
+			if v < 0 {
+				return -1
+			}
+			return 0
+		})
+	case PowerFnCall:
+		if len(params) != 2 {
+			return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, f.name)
+		}
+		return f.applyBinary(params[0], params[1], math.Pow)
+	case ModFnCall:
+		if len(params) != 2 {
+			return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, f.name)
+		}
+		return f.applyBinary(params[0], params[1], math.Mod)
+	default:
+		return nil, fmt.Errorf("%w: unknown math function '%s'", ErrIllegalArguments, f.name)
+	}
+}
+
+func (f *mathFn) applyUnary(p TypedValue, fn func(float64) float64) (TypedValue, error) {
+	if p.IsNull() {
+		return NewNull(Float64Type), nil
+	}
+
+	var v float64
+	switch raw := p.RawValue().(type) {
+	case int64:
+		v = float64(raw)
+	case float64:
+		v = raw
+	default:
+		return nil, fmt.Errorf("%w: '%s' expects a numeric argument", ErrIllegalArguments, f.name)
+	}
+	return NewFloat64(fn(v)), nil
+}
+
+func (f *mathFn) applyBinary(a, b TypedValue, fn func(float64, float64) float64) (TypedValue, error) {
+	if a.IsNull() || b.IsNull() {
+		return NewNull(Float64Type), nil
+	}
+
+	var va, vb float64
+	switch raw := a.RawValue().(type) {
+	case int64:
+		va = float64(raw)
+	case float64:
+		va = raw
+	default:
+		return nil, fmt.Errorf("%w: '%s' expects numeric arguments", ErrIllegalArguments, f.name)
+	}
+	switch raw := b.RawValue().(type) {
+	case int64:
+		vb = float64(raw)
+	case float64:
+		vb = raw
+	default:
+		return nil, fmt.Errorf("%w: '%s' expects numeric arguments", ErrIllegalArguments, f.name)
+	}
+	return NewFloat64(fn(va, vb)), nil
+}
+
+// -------------------------------------
+// Additional String Functions
+// -------------------------------------
+
+type replaceFn struct{}
+
+func (f *replaceFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *replaceFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *replaceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 3 {
+		return nil, fmt.Errorf("%w: '%s' expects 3 arguments", ErrIllegalArguments, ReplaceFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	old, _ := params[1].RawValue().(string)
+	new, _ := params[2].RawValue().(string)
+	return NewVarchar(strings.ReplaceAll(s, old, new)), nil
+}
+
+type reverseFn struct{}
+
+func (f *reverseFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *reverseFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *reverseFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, ReverseFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return NewVarchar(string(runes)), nil
+}
+
+type leftRightFn struct {
+	isRight bool
+}
+
+func (f *leftRightFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *leftRightFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *leftRightFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: function expects 2 arguments", ErrIllegalArguments)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	n, _ := params[1].RawValue().(int64)
+	if n < 0 {
+		n = 0
+	}
+	if int(n) > len(s) {
+		return NewVarchar(s), nil
+	}
+	if f.isRight {
+		return NewVarchar(s[len(s)-int(n):]), nil
+	}
+	return NewVarchar(s[:int(n)]), nil
+}
+
+type repeatFn struct{}
+
+func (f *repeatFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *repeatFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *repeatFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, RepeatFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	n, _ := params[1].RawValue().(int64)
+	if n <= 0 {
+		return NewVarchar(""), nil
+	}
+	return NewVarchar(strings.Repeat(s, int(n))), nil
+}
+
+type positionFn struct{}
+
+func (f *positionFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *positionFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *positionFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, PositionFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	substr, _ := params[0].RawValue().(string)
+	s, _ := params[1].RawValue().(string)
+	pos := strings.Index(s, substr)
+	if pos < 0 {
+		return NewInteger(0), nil
+	}
+	return NewInteger(int64(pos + 1)), nil // 1-based
+}
+
+// -------------------------------------
+// Conditional Functions
+// -------------------------------------
+
+type nullIfFn struct{}
+
+func (f *nullIfFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return AnyType, nil
+}
+func (f *nullIfFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *nullIfFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, NullIfFnCall)
+	}
+	r, err := params[0].Compare(params[1])
+	if err != nil {
+		return params[0], nil
+	}
+	if r == 0 {
+		return NewNull(params[0].Type()), nil
+	}
+	return params[0], nil
+}
+
+type greatestLeastFn struct {
+	isGreatest bool
+}
+
+func (f *greatestLeastFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return AnyType, nil
+}
+func (f *greatestLeastFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *greatestLeastFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) == 0 {
+		return nil, fmt.Errorf("%w: function expects at least 1 argument", ErrIllegalArguments)
+	}
+	result := params[0]
+	for _, p := range params[1:] {
+		if result.IsNull() {
+			result = p
+			continue
+		}
+		if p.IsNull() {
+			continue
+		}
+		cmp, err := result.Compare(p)
+		if err != nil {
+			continue
+		}
+		if (f.isGreatest && cmp < 0) || (!f.isGreatest && cmp > 0) {
+			result = p
+		}
+	}
+	return result, nil
+}
+
+// -------------------------------------
+// Additional String Functions
+// -------------------------------------
+
+type padFn struct {
+	isRight bool
+}
+
+func (f *padFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *padFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *padFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 2 || len(params) > 3 {
+		return nil, fmt.Errorf("%w: LPAD/RPAD expects 2-3 arguments", ErrIllegalArguments)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	length, _ := params[1].RawValue().(int64)
+	fill := " "
+	if len(params) == 3 {
+		fill, _ = params[2].RawValue().(string)
+	}
+	if fill == "" {
+		fill = " "
+	}
+	for int64(len(s)) < length {
+		if f.isRight {
+			s = s + fill
+		} else {
+			s = fill + s
+		}
+	}
+	if int64(len(s)) > length {
+		s = s[:length]
+	}
+	return NewVarchar(s), nil
+}
+
+type splitPartFn struct{}
+
+func (f *splitPartFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *splitPartFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *splitPartFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 3 {
+		return nil, fmt.Errorf("%w: '%s' expects 3 arguments", ErrIllegalArguments, SplitPartFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	delim, _ := params[1].RawValue().(string)
+	n, _ := params[2].RawValue().(int64)
+	parts := strings.Split(s, delim)
+	if n < 1 || int(n) > len(parts) {
+		return NewVarchar(""), nil
+	}
+	return NewVarchar(parts[n-1]), nil
+}
+
+type initcapFn struct{}
+
+func (f *initcapFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *initcapFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *initcapFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, InitcapFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	runes := []rune(strings.ToLower(s))
+	inWord := false
+	for i, r := range runes {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if !inWord {
+				runes[i] = unicode.ToUpper(r)
+				inWord = true
+			}
+		} else {
+			inWord = false
+		}
+	}
+	return NewVarchar(string(runes)), nil
+}
+
+type chrFn struct{}
+
+func (f *chrFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *chrFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *chrFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, ChrFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	code, _ := params[0].RawValue().(int64)
+	return NewVarchar(string(rune(code))), nil
+}
+
+type asciiFn struct{}
+
+func (f *asciiFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *asciiFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *asciiFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, AsciiFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	if len(s) == 0 {
+		return NewInteger(0), nil
+	}
+	return NewInteger(int64(s[0])), nil
+}
+
+type md5Fn struct{}
+
+func (f *md5Fn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *md5Fn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *md5Fn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, MD5FnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	hash := md5.Sum([]byte(s))
+	return NewVarchar(hex.EncodeToString(hash[:])), nil
+}
+
+type translateFn struct{}
+
+func (f *translateFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *translateFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *translateFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 3 {
+		return nil, fmt.Errorf("%w: '%s' expects 3 arguments", ErrIllegalArguments, TranslateFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	s, _ := params[0].RawValue().(string)
+	from, _ := params[1].RawValue().(string)
+	to, _ := params[2].RawValue().(string)
+	fromRunes := []rune(from)
+	toRunes := []rune(to)
+	mapping := make(map[rune]rune)
+	for i, r := range fromRunes {
+		if i < len(toRunes) {
+			mapping[r] = toRunes[i]
+		} else {
+			mapping[r] = -1 // delete
+		}
+	}
+	var result []rune
+	for _, r := range s {
+		if repl, ok := mapping[r]; ok {
+			if repl != -1 {
+				result = append(result, repl)
+			}
+		} else {
+			result = append(result, r)
+		}
+	}
+	return NewVarchar(string(result)), nil
+}
+
+// -------------------------------------
+// Date/Time Functions
+// -------------------------------------
+
+type dateTruncFn struct{}
+
+func (f *dateTruncFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return TimestampType, nil
+}
+func (f *dateTruncFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != TimestampType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, TimestampType, t)
+	}
+	return nil
+}
+func (f *dateTruncFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, DateTruncFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(TimestampType), nil
+	}
+	field, _ := params[0].RawValue().(string)
+	ts, ok := params[1].RawValue().(time.Time)
+	if !ok {
+		return NewNull(TimestampType), nil
+	}
+	ts = ts.UTC()
+	switch strings.ToLower(field) {
+	case "year":
+		ts = time.Date(ts.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	case "month":
+		ts = time.Date(ts.Year(), ts.Month(), 1, 0, 0, 0, 0, time.UTC)
+	case "day":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
+	case "hour":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), 0, 0, 0, time.UTC)
+	case "minute":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), ts.Minute(), 0, 0, time.UTC)
+	case "second":
+		ts = time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), ts.Minute(), ts.Second(), 0, time.UTC)
+	}
+	return &Timestamp{val: ts}, nil
+}
+
+type toCharFn struct{}
+
+func (f *toCharFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *toCharFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *toCharFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, ToCharFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	ts, ok := params[0].RawValue().(time.Time)
+	if !ok {
+		// For non-timestamp values, just return string representation
+		return NewVarchar(fmt.Sprintf("%v", params[0].RawValue())), nil
+	}
+	format, _ := params[1].RawValue().(string)
+	// Convert PG format to Go format
+	result := pgFormatToGo(format, ts)
+	return NewVarchar(result), nil
+}
+
+func pgFormatToGo(pgFmt string, ts time.Time) string {
+	r := strings.NewReplacer(
+		"YYYY", fmt.Sprintf("%04d", ts.Year()),
+		"YY", fmt.Sprintf("%02d", ts.Year()%100),
+		"MM", fmt.Sprintf("%02d", ts.Month()),
+		"DD", fmt.Sprintf("%02d", ts.Day()),
+		"HH24", fmt.Sprintf("%02d", ts.Hour()),
+		"HH12", fmt.Sprintf("%02d", (ts.Hour()+11)%12+1),
+		"HH", fmt.Sprintf("%02d", ts.Hour()),
+		"MI", fmt.Sprintf("%02d", ts.Minute()),
+		"SS", fmt.Sprintf("%02d", ts.Second()),
+		"Month", ts.Month().String(),
+		"Day", ts.Weekday().String(),
+	)
+	return r.Replace(pgFmt)
+}
+
+type datePartFn struct{}
+
+func (f *datePartFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+func (f *datePartFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != Float64Type && t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as numeric type", ErrInvalidTypes, t)
+	}
+	return nil
+}
+func (f *datePartFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 2 arguments", ErrIllegalArguments, DatePartFnCall)
+	}
+	if params[0].IsNull() || params[1].IsNull() {
+		return NewNull(Float64Type), nil
+	}
+	field, _ := params[0].RawValue().(string)
+	ts, ok := params[1].RawValue().(time.Time)
+	if !ok {
+		return NewNull(Float64Type), nil
+	}
+	ts = ts.UTC()
+	var val float64
+	switch strings.ToLower(field) {
+	case "year":
+		val = float64(ts.Year())
+	case "month":
+		val = float64(ts.Month())
+	case "day":
+		val = float64(ts.Day())
+	case "hour":
+		val = float64(ts.Hour())
+	case "minute":
+		val = float64(ts.Minute())
+	case "second":
+		val = float64(ts.Second())
+	case "dow", "dayofweek":
+		val = float64(ts.Weekday())
+	case "doy", "dayofyear":
+		val = float64(ts.YearDay())
+	case "epoch":
+		val = float64(ts.Unix())
+	}
+	return NewFloat64(val), nil
+}
+
+type ageFn struct{}
+
+func (f *ageFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *ageFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+// concat_ws(separator, val1, val2, ...) — concatenate with separator
+type concatWSFn struct{}
+
+func (f *concatWSFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *concatWSFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *concatWSFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("%w: '%s' expects at least 2 arguments", ErrIllegalArguments, ConcatWSFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	sep, _ := params[0].RawValue().(string)
+	var parts []string
+	for _, p := range params[1:] {
+		if !p.IsNull() {
+			s, _ := p.RawValue().(string)
+			parts = append(parts, s)
+		}
+	}
+	return NewVarchar(strings.Join(parts, sep)), nil
+}
+
+// regexp_replace(source, pattern, replacement) — regex replacement
+type regexpReplaceFn struct{}
+
+func (f *regexpReplaceFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+func (f *regexpReplaceFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
+	}
+	return nil
+}
+func (f *regexpReplaceFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("%w: '%s' expects at least 3 arguments", ErrIllegalArguments, RegexpReplaceFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+	source, _ := params[0].RawValue().(string)
+	pattern, _ := params[1].RawValue().(string)
+	replacement, _ := params[2].RawValue().(string)
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return NewVarchar(source), nil
+	}
+	return NewVarchar(re.ReplaceAllString(source, replacement)), nil
+}
+
+// random() — returns a random float between 0 and 1
+type randomFn struct{}
+
+func (f *randomFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+func (f *randomFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *randomFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	return NewFloat64(math.Float64frombits(uint64(time.Now().UnixNano()) ^ 0x5DEECE66D)), nil
+}
+
+// to_number(text, format) — converts text to numeric
+type toNumberFn struct{}
+
+func (f *toNumberFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+func (f *toNumberFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+func (f *toNumberFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 1 {
+		return nil, fmt.Errorf("%w: '%s' expects at least 1 argument", ErrIllegalArguments, ToNumberFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(Float64Type), nil
+	}
+	s, ok := params[0].RawValue().(string)
+	if !ok {
+		return NewNull(Float64Type), nil
+	}
+	// Simple numeric parsing
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, ",", "")
+	var val float64
+	_, err := fmt.Sscanf(s, "%f", &val)
+	if err != nil {
+		return NewNull(Float64Type), nil
+	}
+	return NewFloat64(val), nil
+}
+
+// nextval(sequence_name) — returns next value from sequence
+type nextValFn struct{}
+
+func (f *nextValFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *nextValFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *nextValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, NextValFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	name, ok := params[0].RawValue().(string)
+	if !ok {
+		return nil, fmt.Errorf("%w: '%s' expects a string argument", ErrIllegalArguments, NextValFnCall)
+	}
+	val, err := tx.engine.NextVal(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Best-effort persistence — sequence counter is always updated in-memory.
+	// Persistence may fail in read-only transactions (SELECT NEXTVAL),
+	// but succeeds when called within DML or explicit transactions.
+	if seq, exists := tx.engine.sequences[name]; exists {
+		_ = persistSequence(tx, seq)
+	}
+
+	return NewInteger(val), nil
+}
+
+// currval(sequence_name) — returns current value of sequence
+type currValFn struct{}
+
+func (f *currValFn) InferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+func (f *currValFn) RequiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != IntegerType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
+	}
+	return nil
+}
+func (f *currValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("%w: '%s' expects 1 argument", ErrIllegalArguments, CurrValFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(IntegerType), nil
+	}
+	name, ok := params[0].RawValue().(string)
+	if !ok {
+		return nil, fmt.Errorf("%w: '%s' expects a string argument", ErrIllegalArguments, CurrValFnCall)
+	}
+	val, err := tx.engine.CurrVal(name)
+	if err != nil {
+		return nil, err
+	}
+	return NewInteger(val), nil
+}
+
+func (f *ageFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
+	if len(params) < 1 || len(params) > 2 {
+		return nil, fmt.Errorf("%w: '%s' expects 1-2 arguments", ErrIllegalArguments, AgeFnCall)
+	}
+	if params[0].IsNull() {
+		return NewNull(VarcharType), nil
+	}
+
+	var from, to time.Time
+	if len(params) == 2 {
+		var ok bool
+		from, ok = params[1].RawValue().(time.Time)
+		if !ok {
+			return NewNull(VarcharType), nil
+		}
+		to, ok = params[0].RawValue().(time.Time)
+		if !ok {
+			return NewNull(VarcharType), nil
+		}
+	} else {
+		var ok bool
+		from, ok = params[0].RawValue().(time.Time)
+		if !ok {
+			return NewNull(VarcharType), nil
+		}
+		to = tx.Timestamp().UTC()
+	}
+
+	diff := to.Sub(from)
+	days := int(diff.Hours() / 24)
+	years := days / 365
+	remainDays := days % 365
+	months := remainDays / 30
+	d := remainDays % 30
+
+	return NewVarchar(fmt.Sprintf("%d years %d mons %d days", years, months, d)), nil
 }

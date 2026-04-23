@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -80,11 +80,13 @@ func (c *immuClient) SQLQueryReader(ctx context.Context, sql string, params map[
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	stream, err := c.sqlQuery(ctx, sql, params, true)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	stream, err := c.sqlQuery(cancelCtx, sql, params, true)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	return newSQLQueryRowReader(stream)
+	return newSQLQueryRowReader(stream, cancel)
 }
 
 func (c *immuClient) sqlQuery(ctx context.Context, sql string, params map[string]interface{}, acceptStream bool) (schema.ImmuService_SQLQueryClient, error) {
@@ -398,6 +400,7 @@ type SQLQueryRowReader interface {
 
 type rowReader struct {
 	stream schema.ImmuService_SQLQueryClient
+	cancel context.CancelFunc
 
 	cols []Column
 	rows []*schema.Row
@@ -408,7 +411,7 @@ type rowReader struct {
 	err     error
 }
 
-func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient) (*rowReader, error) {
+func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient, cancel context.CancelFunc) (*rowReader, error) {
 	res, err := stream.Recv()
 	if err != nil {
 		return nil, errors.FromError(err)
@@ -416,6 +419,7 @@ func newSQLQueryRowReader(stream schema.ImmuService_SQLQueryClient) (*rowReader,
 
 	return &rowReader{
 		stream:  stream,
+		cancel:  cancel,
 		rows:    res.Rows,
 		row:     make(Row, len(res.Columns)),
 		nextRow: -1,
@@ -478,13 +482,17 @@ func (it *rowReader) Read() (Row, error) {
 func (it *rowReader) fetchRows() error {
 	res, err := it.stream.Recv()
 	if err == io.EOF {
+		it.cancel()
 		return sql.ErrNoMoreRows
 	}
 
-	if err == nil {
-		it.rows = res.Rows
+	if err != nil {
+		it.cancel()
+		return errors.FromError(err)
 	}
-	return errors.FromError(err)
+
+	it.rows = res.Rows
+	return nil
 }
 
 func (it *rowReader) Close() error {
@@ -492,6 +500,11 @@ func (it *rowReader) Close() error {
 		return sql.ErrAlreadyClosed
 	}
 
+	// Cancel the derived context so the underlying gRPC stream is signalled
+	// even when the consumer abandons the reader before reaching EOF.
+	// fetchRows already calls cancel() on EOF/error, so this is a no-op in
+	// the normal completion path but essential for early-close callers.
+	it.cancel()
 	it.stream = nil
 	it.closed = true
 	it.rows = nil

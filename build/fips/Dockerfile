@@ -1,4 +1,4 @@
-FROM golang:1.24 AS build-fips
+FROM golang:1.25 AS build-fips
 ENV GOFIPS140=latest
 ARG BUILD_ARCH=amd64
 WORKDIR /src

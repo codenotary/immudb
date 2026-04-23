@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -87,11 +87,10 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 		return nil, err
 	}
 
-	// remove user from loggedin users
-	s.removeUserFromLoginList(user.Username)
-
-	// invalidate the token for this user
-	_, err = auth.DropTokenKeysForCtx(ctx)
+	// remove user from loggedin users; only rotate token keys when last session ends
+	if s.removeUserFromLoginList(user.Username) {
+		_, err = auth.DropTokenKeysForCtx(ctx)
+	}
 
 	return new(empty.Empty), err
 }
@@ -596,25 +595,28 @@ func (s *ImmuServer) saveUser(ctx context.Context, user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := &schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.sysDB.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
+	hdr, err := s.sysDB.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
+	if err != nil {
+		return logErr(s.Logger, "error saving user: %v", err)
+	}
 
-	time.Sleep(time.Duration(10) * time.Millisecond)
-
-	return logErr(s.Logger, "error saving user: %v", err)
+	// Block until the write is visible to subsequent Get calls. Replaces a prior
+	// unconditional 10ms sleep; this returns immediately when indexing has
+	// already caught up and only waits as long as indexing actually requires.
+	if err := s.sysDB.WaitForIndexingUpto(ctx, hdr.Id); err != nil {
+		return logErr(s.Logger, "error awaiting user indexing: %v", err)
+	}
+	return nil
 }
 
-func (s *ImmuServer) removeUserFromLoginList(username string) {
-	s.userdata.Lock()
-	defer s.userdata.Unlock()
-
-	delete(s.userdata.Userdata, username)
+// removeUserFromLoginList decrements the session count for username and removes the
+// entry when no sessions remain. Returns true when the last session was removed.
+func (s *ImmuServer) removeUserFromLoginList(username string) bool {
+	return s.userdata.RemoveSession(username)
 }
 
 func (s *ImmuServer) addUserToLoginList(u *auth.User) {
-	s.userdata.Lock()
-	defer s.userdata.Unlock()
-
-	s.userdata.Userdata[u.Username] = u
+	s.userdata.AddSession(u)
 }
 
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth.User, error) {
@@ -640,14 +642,15 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth
 }
 
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
-	s.userdata.Lock()
-	defer s.userdata.Unlock()
-
-	userdata, ok := s.userdata.Userdata[username]
+	// Get acquires only the per-shard read lock. Every authenticated RPC
+	// passes through this path, so the previous global writer lock — and
+	// even the global RLock that replaced it — serialised auth across all
+	// usernames. Per-shard sharding (A3) lets reads on disjoint usernames
+	// proceed without any cross-coherence cost.
+	userdata, ok := s.userdata.Get(username)
 	if !ok {
 		return nil, ErrNotLoggedIn
 	}
-
 	return userdata, nil
 }
 

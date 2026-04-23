@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -254,8 +254,12 @@ func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error
 	rand := benchmarks.NewRandStringGen(b.cfg.ValueSize)
 	defer rand.Stop()
 
-	var done chan bool
-	var errChan chan error
+	// done and errChan were previously left as nil channels, so the time-up
+	// branch returned without signalling workers and Cleanup would race against
+	// in-flight SetAll calls — CloseSession nils c.ServiceClient while a worker
+	// is between IsConnected() and ServiceClient.Set, causing a SIGSEGV.
+	done := make(chan struct{})
+	errChan := make(chan error, 1)
 
 	b.startTime = time.Now()
 	b.lastProbeTime = b.startTime
@@ -325,6 +329,8 @@ func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error
 
 	case <-time.After(duration):
 		// Finish after given duration
+		close(done)
+		wg.Wait()
 	}
 
 	return b.genResults(false), nil

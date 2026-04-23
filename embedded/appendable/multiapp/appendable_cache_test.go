@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -38,11 +38,11 @@ func TestAppendableCache(t *testing.T) {
 
 	app, err = c.Get(1)
 	require.NoError(t, err)
-	require.Equal(t, m1, app)
+	require.Equal(t, m1, app.(*refCountedApp).Appendable)
 
 	err = c.Apply(func(k int64, v appendable.Appendable) error {
 		require.EqualValues(t, 1, k)
-		require.Equal(t, m1, v)
+		require.Equal(t, m1, v.(*refCountedApp).Appendable)
 		return nil
 	})
 	require.NoError(t, err)
@@ -58,16 +58,16 @@ func TestAppendableCache(t *testing.T) {
 	id, app, err = c.Put(7, m2)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, id)
-	require.Equal(t, m1, app)
+	require.Equal(t, m1, app.(*refCountedApp).Appendable)
 
 	m3 := &mocked.MockedAppendable{}
 	app, err = c.Replace(7, m3)
 	require.NoError(t, err)
-	require.Equal(t, m2, app)
+	require.Equal(t, m2, app.(*refCountedApp).Appendable)
 
 	err = c.Apply(func(k int64, v appendable.Appendable) error {
 		if k == 7 {
-			require.Equal(t, m3, v)
+			require.Equal(t, m3, v.(*refCountedApp).Appendable)
 		}
 		return nil
 	})
@@ -75,7 +75,7 @@ func TestAppendableCache(t *testing.T) {
 
 	app, err = c.Pop(7)
 	require.NoError(t, err)
-	require.Equal(t, m3, app)
+	require.Equal(t, m3, app.(*refCountedApp).Appendable)
 
 	err = c.Apply(func(k int64, v appendable.Appendable) error {
 		require.NotEqualValues(t, 7, k)

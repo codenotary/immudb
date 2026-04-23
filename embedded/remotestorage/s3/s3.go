@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -53,12 +54,28 @@ type Storage struct {
 	location      string
 	httpClient    *http.Client
 	sessionToken  string
-	
+
 	awsInstanceMetadataURL string
 	awsCredsRefreshPeriod  time.Duration
 
 	useFargateCredentials bool
+
+	// Server-side encryption configuration for PUT operations.
+	// sseAlgorithm is either "" (no encryption header sent), "AES256" (SSE-S3),
+	// or "aws:kms" (SSE-KMS). sseKMSKeyID is optional and only meaningful for
+	// "aws:kms"; when set it is sent as x-amz-server-side-encryption-aws-kms-key-id.
+	sseAlgorithm string
+	sseKMSKeyID  string
 }
+
+// Valid SSE algorithm values, matching the x-amz-server-side-encryption header
+// documented at https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html.
+const (
+	SSEAlgorithmAES256 = "AES256"
+	SSEAlgorithmKMS    = "aws:kms"
+)
+
+var ErrInvalidSSEAlgorithm = fmt.Errorf("%w: invalid sse algorithm (want \"\", %q, or %q)", ErrInvalidArguments, SSEAlgorithmAES256, SSEAlgorithmKMS)
 
 var (
 	ErrInvalidArguments               = errors.New("invalid arguments")
@@ -90,6 +107,78 @@ var (
 )
 
 const maxRedirects = 5
+
+// HTTP timeouts applied to the S3 client. Exposed as vars so that tests and
+// downstream callers can tune them; defaults are chosen conservatively to keep
+// a stalled or black-holed endpoint from hanging uploads/downloads forever.
+var (
+	DefaultDialTimeout           = 10 * time.Second
+	DefaultTLSHandshakeTimeout   = 10 * time.Second
+	DefaultResponseHeaderTimeout = 60 * time.Second
+	DefaultExpectContinueTimeout = 1 * time.Second
+	DefaultIdleConnTimeout       = 90 * time.Second
+)
+
+func newS3HTTPClient() *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   DefaultDialTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       DefaultIdleConnTimeout,
+		TLSHandshakeTimeout:   DefaultTLSHandshakeTimeout,
+		ExpectContinueTimeout: DefaultExpectContinueTimeout,
+		ResponseHeaderTimeout: DefaultResponseHeaderTimeout,
+	}
+	return &http.Client{
+		Transport: transport,
+		// No overall Timeout: large uploads may legitimately take a while;
+		// stall-protection is provided by the per-phase Transport timeouts above.
+		// Request cancellation still flows through ctx in http.NewRequestWithContext.
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+// s3CanonicalURI returns the S3 SigV4 canonical URI for a URL path.
+// Per the SigV4 spec for S3 (single-encoding service), each path segment is
+// URI-encoded according to RFC 3986 unreserved rules, preserving '/'. Go's
+// url.PathEscape escapes '/' and has a slightly different unreserved set, so
+// we re-encode the decoded req.URL.Path segment-wise here.
+func s3CanonicalURI(p string) string {
+	if p == "" {
+		return "/"
+	}
+	parts := strings.Split(p, "/")
+	for i, seg := range parts {
+		parts[i] = s3PathSegmentEscape(seg)
+	}
+	return strings.Join(parts, "/")
+}
+
+func s3PathSegmentEscape(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'A' && c <= 'Z') ||
+			(c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '~' {
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteByte('%')
+		const hex = "0123456789ABCDEF"
+		b.WriteByte(hex[c>>4])
+		b.WriteByte(hex[c&0x0f])
+	}
+	return b.String()
+}
 
 func Open(
 	endpoint string,
@@ -133,11 +222,7 @@ func Open(
 		bucket:        bucket,
 		location:      location,
 		prefix:        prefix,
-		httpClient: &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
+		httpClient: newS3HTTPClient(),
 		awsInstanceMetadataURL: awsInstanceMetadataURL,
 		awsCredsRefreshPeriod:  time.Minute,
 		useFargateCredentials:     useFargateCredentials,
@@ -149,6 +234,25 @@ func Open(
 	}
 
 	return s3storage, nil
+}
+
+// WithSSE configures server-side encryption to be requested on all PUT
+// operations. algorithm must be "", "AES256" (SSE-S3), or "aws:kms" (SSE-KMS);
+// kmsKeyID is optional and only used when algorithm is "aws:kms". Passing an
+// empty algorithm disables SSE headers (bucket default encryption, if any,
+// still applies server-side).
+func (s *Storage) WithSSE(algorithm, kmsKeyID string) error {
+	switch algorithm {
+	case "", SSEAlgorithmAES256, SSEAlgorithmKMS:
+	default:
+		return ErrInvalidSSEAlgorithm
+	}
+	if kmsKeyID != "" && algorithm != SSEAlgorithmKMS {
+		return fmt.Errorf("%w: kmsKeyID only valid with %q", ErrInvalidArguments, SSEAlgorithmKMS)
+	}
+	s.sseAlgorithm = algorithm
+	s.sseKMSKeyID = kmsKeyID
+	return nil
 }
 
 func (s *Storage) Kind() string {
@@ -246,7 +350,7 @@ func (s *Storage) s3SignedRequestV4(
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	canonicalURI := req.URL.Path // TODO: This may require some encoding
+	canonicalURI := s3CanonicalURI(req.URL.Path)
 	canonicalQueryString := req.URL.Query().Encode()
 
 	signerHeadersList := []string{"host"}
@@ -447,11 +551,20 @@ func (s *Storage) requestWithRedirects(
 		}
 
 		log.Printf("S3 %s %s", req.Method, req.URL)
+
+		start := time.Now()
+		metricsInFlight.Inc()
 		resp, err := s.httpClient.Do(req)
+		metricsInFlight.Dec()
+		metricsRequestDuration.WithLabelValues(req.Method).Observe(time.Since(start).Seconds())
+
 		if err != nil {
+			metricsRequestErrors.WithLabelValues(req.Method, "transport").Inc()
 			log.Printf("S3 %s %s failed: %v", req.Method, req.URL, err)
 			return nil, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
 		}
+
+		metricsRequestsTotal.WithLabelValues(req.Method, statusClass(resp.StatusCode)).Inc()
 
 		for _, validStatus := range validStatusCodes {
 			if resp.StatusCode == validStatus {
@@ -459,6 +572,10 @@ func (s *Storage) requestWithRedirects(
 				return resp, nil
 			}
 		}
+		// Capture AWS request identifiers before closing the response so that
+		// unexpected-status errors can be correlated against AWS support logs.
+		amzReqID := resp.Header.Get("x-amz-request-id")
+		amzID2 := resp.Header.Get("x-amz-id-2")
 		resp.Body.Close()
 
 		switch resp.StatusCode {
@@ -484,19 +601,23 @@ func (s *Storage) requestWithRedirects(
 			log.Printf("S3 %s redirect to %s", req.Method, reqURL)
 
 		default:
+			metricsRequestErrors.WithLabelValues(req.Method, "status").Inc()
 			log.Printf(
-				"S3 %s %s failed with status code %d (%s)",
+				"S3 %s %s failed with status code %d (%s) x-amz-request-id=%q x-amz-id-2=%q",
 				req.Method,
 				req.URL,
 				resp.StatusCode,
 				resp.Status,
+				amzReqID,
+				amzID2,
 			)
 			return nil, fmt.Errorf(
-				"%w: request failed with status code %d (%s)",
-				ErrInvalidResponse, resp.StatusCode, resp.Status,
+				"%w: request failed with status code %d (%s) x-amz-request-id=%q",
+				ErrInvalidResponse, resp.StatusCode, resp.Status, amzReqID,
 			)
 		}
 	}
+	metricsRequestErrors.WithLabelValues(method, "redirects").Inc()
 	log.Printf("S3 %s %s failed - too many redirects", method, reqURL)
 	return nil, ErrTooManyRedirects
 }
@@ -565,6 +686,16 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 		},
 		func(req *http.Request) error {
 			req.ContentLength = flStat.Size()
+			if s.sseAlgorithm != "" {
+				// SigV4 includes these headers in the signed set because they
+				// are added here before the signer runs (setupRequest is
+				// invoked inside s3SignedRequestV4 prior to canonical header
+				// computation).
+				req.Header.Set("x-amz-server-side-encryption", s.sseAlgorithm)
+				if s.sseKMSKeyID != "" {
+					req.Header.Set("x-amz-server-side-encryption-aws-kms-key-id", s.sseKMSKeyID)
+				}
+			}
 			return nil
 		},
 	)
@@ -700,7 +831,6 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 		if err != nil {
 			return nil, nil, err
 		}
-		defer resp.Body.Close()
 
 		respParsed := struct {
 			Contents []struct {
@@ -712,9 +842,12 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 			NextContinuationToken string
 		}{}
 
-		err = xml.NewDecoder(resp.Body).Decode(&respParsed)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseXmlDecodeError, err)
+		decodeErr := xml.NewDecoder(resp.Body).Decode(&respParsed)
+		// Close body immediately rather than accumulating deferred closes
+		// across continuation-token iterations.
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseXmlDecodeError, decodeErr)
 		}
 
 		for _, object := range respParsed.Contents {

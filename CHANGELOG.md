@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.11.0"></a>
+## [v1.11.0] - 2026-04-23
+### Features
+- **embedded/sql:** DIFF OF SQL query — compare table state between two transaction points via `SELECT _diff_action, ... FROM (DIFF OF t) SINCE TX N UNTIL TX M`
+- **embedded/sql:** FULL OUTER JOIN, LATERAL joins, CROSS JOIN, NATURAL JOIN, JOIN USING
+- **embedded/sql:** EXISTS, IN, correlated subqueries, WITH CTEs including WITH RECURSIVE
+- **embedded/sql:** window functions (LEAD, LAG, FIRST_VALUE, LAST_VALUE, NTILE) with per-query memory limit
+- **embedded/sql:** EXCEPT and INTERSECT set operations
+- **embedded/sql:** CREATE/DROP VIEW with persistence, partial indexes, TRUNCATE TABLE, DROP TABLE IF EXISTS CASCADE, ALTER COLUMN, SAVEPOINT/RELEASE/ROLLBACK TO, FOREIGN KEY, SEQUENCES, DEFAULT column values with persistence
+- **embedded/sql:** RETURNING, ON CONFLICT DO UPDATE, FETCH FIRST N ROWS ONLY, LIMIT ALL, NULLS FIRST/LAST
+- **embedded/sql:** hash-aggregate for unindexed GROUP BY, per-session SQL parse cache, cached Engine catalog reused via Clone, prefix-fingerprint read-set
+- **embedded/sql:** COALESCE, NULLIF, GREATEST, LEAST, EXTRACT, BETWEEN AND, ILIKE, STRING_AGG, RANDOM, GEN_RANDOM_UUID, TO_NUMBER, CONCAT_WS, REGEXP_REPLACE, LPAD, RPAD, SPLIT_PART, INITCAP, CHR, ASCII, MD5, TRANSLATE, DATE_TRUNC, TO_CHAR, DATE_PART, AGE, CLOCK_TIMESTAMP
+- **embedded/sql:** PG-style CASE arm widening (scalar ↔ VARCHAR coerce at plan time, runtime converter matrix applies at reduce time)
+- **embedded/sql:** EXPLAIN output for plan inspection
+- **pkg/pgsql/sys:** full pg_catalog system tables — pg_class, pg_attribute, pg_index, pg_namespace, pg_am, pg_type, pg_database, pg_roles, pg_settings, pg_constraint, pg_description, pg_proc, pg_tables, pg_indexes, pg_views, pg_sequences, pg_attrdef, pg_collation, pg_inherits
+- **pkg/pgsql/sys:** information_schema tables, columns, schemata, key_column_usage, table_constraints as real system tables
+- **pkg/pgsql/server:** pg_catalog functions — format_type, pg_get_indexdef, pg_get_constraintdef, current_schemas, quote_ident, array_to_string, pg_total_relation_size, pg_relation_size, col_description, obj_description, pg_get_userbyid, has_{table,schema,database,function}_privilege
+- **pkg/pgsql/server/rewrite:** AST-based SQL rewriter (beta) with 14 AST-level rewrite rules; feature-flagged via `--pg-rewriter=ast`, off by default
+- **pkg/pgsql/server:** COPY FROM stdin protocol support
+- **pkg/server:** structured audit logger with immutable audit trail (reload path, async flush, persistence through crashes)
+- **perf:** BenchmarkJoin and BenchmarkIPAddrFromContext baselines; perf-delta regression comparator for perf-test-suite JSON
+- **remote/s3:** server-side encryption on PUT; request latency/error metrics; AWS request IDs in logs
+
+### Changes
+- **pkg/pgsql/server:** psql backslash commands (\\d, \\dt, \\di, \\dv, \\dn, \\df, \\dT, \\l, \\du) route to engine passthrough against real catalog data
+- **pkg/pgsql/server:** end-to-end integration with Rails ActiveRecord, XORM, Gitea, SQLAlchemy, JDBC and pgAdmin drivers
+- **pkg/pgsql/server:** retire legacy pgschema resolver layer and canned pgAdminProbe/pgTables/pgIndexes/infoSchemaColumns handlers (~1500 LOC net deletion)
+- **embedded/tbtree:** nodeAt fast/slow path restructure, slow-path re-check removal, Close-while-reading race fix, Mutex→RWMutex on node fetch
+- **embedded/store:** vLog fast path for MaxIOConcurrency==1; syncer single-tx fast path skips 5 ms accumulation sleep; commit buffer + cLog entry reuse
+- **embedded/multiapp:** appendable cache refcounted to eliminate close-while-reading race
+- **pkg/pgsql/server:** RWMutex in pgsrv.GetPort and session activity update paths
+- **pkg/server:** RLock in getLoggedInUserDataFromUsername; mutex-guarded MetricsCollection compute* callbacks
+- **pkg/server:** correct IPv6 handling in per-client metrics and local-client identification
+- **remote/s3:** SigV4 path encoding fix; HTTP timeout propagation; request body leak fix
+- **embedded/sql:** MaxKeyLen raised 512→1024 with new --max-key-length flag
+- **dependencies:** grpc bumped to v1.79.3 across four modules
+- **tests:** pgsql integration tests migrated from jackc/pgx/v4 to v5
+- **docs:** README restructured with PostgreSQL compatibility matrix; SQL engine contributing guide added; DIFF OF query docs; ScanRequest.sinceTx=0 clarification
+
+### Bug Fixes
+- **pkg/pgsql/server:** psql \\d <table> segfault caused by extractColumnNames dropping anonymous SELECT items
+- **pkg/pgsql/server:** CREATE VIEW name(col1,col2) AS column-list form for pg_dump / F1DB dumps
+- **pkg/pgsql/server:** COLLATE "C" k3s/kine DDL compatibility
+- **embedded/sql:** CASE … END mixed-type errors replaced with engine-level widening
+- **pkg/pgsql/server:** LIKE wildcards, ORDER BY alias, COUNT(DISTINCT) in PG wire path
+- **pkg/pgsql/server:** ILIKE operator bug, UNION subquery panic, UNION column resolution, alias propagation
+- **pkg/pgsql/server:** two pgsql COPY handler regressions; session timeout during COPY bulk imports
+- **embedded/sql:** file-sort temp-file race on JOIN + GROUP + ORDER + LIMIT
+- **pkg/pgsql/server:** quoted identifier and reserved-word renaming for PG-dump imports
+- **pkg/client:** immuclient scan now supports listing all keys without prefix
+- **pkg/replication:** revert A4 pipelined fetch (wrong for poll protocol)
+- **pkg/server:** audit logger reliability (reload path, async flush)
+- **tests:** server interceptor tests no longer contend on ports; HW-stats prober passes on tmpfs
+
+
 <a name="v1.10.0"></a>
 ## [v1.10.0] - 2025-10-18
 ### Bug Fixes

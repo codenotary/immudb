@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ type unionRowReader struct {
 	rowReaders []RowReader
 	currReader int
 
-	cols []ColDescriptor
+	cols  []ColDescriptor
+	alias string
 }
 
 func newUnionRowReader(ctx context.Context, rowReaders []RowReader) (*unionRowReader, error) {
@@ -74,7 +75,7 @@ func (ur *unionRowReader) Tx() *SQLTx {
 }
 
 func (ur *unionRowReader) TableAlias() string {
-	return ""
+	return ur.alias
 }
 
 func (ur *unionRowReader) Parameters() map[string]interface{} {
@@ -90,11 +91,30 @@ func (ur *unionRowReader) ScanSpecs() *ScanSpecs {
 }
 
 func (ur *unionRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
-	return ur.rowReaders[0].Columns(ctx)
+	cols, err := ur.rowReaders[0].Columns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ur.alias != "" {
+		aliasedCols := make([]ColDescriptor, len(cols))
+		for i, c := range cols {
+			aliasedCols[i] = ColDescriptor{Table: ur.alias, Column: c.Column, Type: c.Type}
+		}
+		return aliasedCols, nil
+	}
+	return cols, nil
 }
 
 func (ur *unionRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
-	return ur.rowReaders[0].colsBySelector(ctx)
+	cols, err := ur.Columns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]ColDescriptor, len(cols))
+	for _, c := range cols {
+		result[c.Selector()] = c
+	}
+	return result, nil
 }
 
 func (ur *unionRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
@@ -119,12 +139,17 @@ func (ur *unionRowReader) Read(ctx context.Context) (*Row, error) {
 			return nil, err
 		}
 
-		if ur.currReader > 0 {
-			// overwrite selectors using the ones from the first subquery
+		if ur.currReader > 0 || ur.alias != "" {
+			// remap selectors using the alias or first subquery's column names
 			valuesBySelector := make(map[string]TypedValue, len(ur.cols))
 
+			table := ur.alias
 			for i, c := range ur.cols {
-				valuesBySelector[c.Selector()] = row.ValuesByPosition[i]
+				col := c
+				if table != "" {
+					col = ColDescriptor{Table: table, Column: c.Column, Type: c.Type}
+				}
+				valuesBySelector[col.Selector()] = row.ValuesByPosition[i]
 			}
 
 			row.ValuesBySelector = valuesBySelector

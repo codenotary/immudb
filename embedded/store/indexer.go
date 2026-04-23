@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ type indexer struct {
 
 	maxBulkSize            int
 	bulkPreparationTimeout time.Duration
+	adaptiveBulkSize       bool
 
 	_kvs []*tbtree.KVT            //pre-allocated for multi-tx bulk indexing
 	_val [DefaultMaxValueLen]byte //pre-allocated buffer to read entry values while mapping
@@ -172,6 +173,7 @@ func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) 
 		tx:                     tx,
 		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
 		bulkPreparationTimeout: opts.IndexOpts.BulkPreparationTimeout,
+		adaptiveBulkSize:       opts.IndexOpts.AdaptiveBulkSize,
 		_kvs:                   kvs,
 		path:                   path,
 		index:                  index,
@@ -707,8 +709,25 @@ func (idx *indexer) indexSince(txID uint64) error {
 		bulkSize++
 
 		if bulkSize < idx.maxBulkSize {
-			// wait for the next tx to be committed
-			err = idx.store.commitWHub.WaitFor(ctx, txID+uint64(i+1))
+			if idx.adaptiveBulkSize {
+				// D3 follow-up: peek without waiting. WaitFor's fast path
+				// returns nil immediately when doneUpto >= t; an
+				// already-elapsed context never goes into the wait branch.
+				// So with cancelled-now ctx, this returns nil iff the next
+				// tx is already committed (include in bulk), and ctx.Err()
+				// (= DeadlineExceeded) iff it isn't (stop the bulk loop).
+				peekCtx, peekCancel := context.WithDeadline(context.Background(), time.Time{})
+				err = idx.store.commitWHub.WaitFor(peekCtx, txID+uint64(i+1))
+				peekCancel()
+				if err != nil {
+					// Either the next tx isn't committed yet (DeadlineExceeded)
+					// or another fatal — either way, stop accumulating.
+					break
+				}
+			} else {
+				// wait for the next tx to be committed
+				err = idx.store.commitWHub.WaitFor(ctx, txID+uint64(i+1))
+			}
 		}
 		if ctx.Err() != nil {
 			break

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -77,6 +77,10 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 					"2006-01-02 15:04:05",
 					"2006-01-02 15:04",
 					"2006-01-02",
+					time.RFC3339Nano,                // 2006-01-02T15:04:05.999999999Z07:00
+					time.RFC3339,                    // 2006-01-02T15:04:05Z07:00
+					"2006-01-02T15:04:05.999999999", // ISO-8601, no timezone
+					"2006-01-02T15:04:05",           // ISO-8601, no fractional seconds, no timezone
 				}
 
 				for _, layout := range supportedTimeFormats {
@@ -166,6 +170,27 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 	if dst == BooleanType {
 		if src == JSONType {
 			return jsonConverted(dst), nil
+		}
+
+		if src == VarcharType {
+			// Accept Postgres' text-format boolean literals (t/f, true/
+			// false, y/n, yes/no, on/off, 0/1, case-insensitive). Any
+			// SQL-level literal `'t'` inserted into a BOOLEAN column —
+			// or a varchar parameter from a client that didn't infer
+			// the column type — coerces here rather than failing with
+			// "value is not a boolean".
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: BooleanType}, nil
+				}
+				s, _ := val.RawValue().(string)
+				b, ok := parsePGTextBool(s)
+				if !ok {
+					return nil, fmt.Errorf(
+						"%w: invalid boolean text value %q", ErrUnsupportedCast, s)
+				}
+				return &Bool{val: b}, nil
+			}, nil
 		}
 
 		return nil, fmt.Errorf(
@@ -319,9 +344,37 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 			return jsonConverted(dst), nil
 		}
 
+		if src == IntegerType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+				return &Varchar{val: strconv.FormatInt(val.RawValue().(int64), 10)}, nil
+			}, nil
+		}
+
+		if src == Float64Type {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+				return &Varchar{val: strconv.FormatFloat(val.RawValue().(float64), 'g', -1, 64)}, nil
+			}, nil
+		}
+
+		if src == BooleanType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.RawValue() == nil {
+					return &NullValue{t: VarcharType}, nil
+				}
+				return &Varchar{val: strconv.FormatBool(val.RawValue().(bool))}, nil
+			}, nil
+		}
+
 		return nil, fmt.Errorf(
-			"%w: only UUID type can be cast as VARCHAR",
+			"%w: cannot cast %s to VARCHAR",
 			ErrUnsupportedCast,
+			src,
 		)
 	}
 
@@ -400,4 +453,20 @@ func jsonConverted(t SQLValueType) converterFunc {
 		}
 		return conv(val)
 	}
+}
+
+// parsePGTextBool recognises Postgres' text-format boolean values:
+// t/true/y/yes/on/1 → true; f/false/n/no/off/0 → false (case-insensitive,
+// surrounding whitespace tolerated). The pgsql wire layer has its own
+// copy in `pkg/pgsql/server/types.go` for bind parameters; this engine-
+// level copy lets a Varchar value (a SQL literal or an unannotated
+// parameter) round-trip into a BOOLEAN column without the wire layer.
+func parsePGTextBool(s string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "t", "true", "y", "yes", "on", "1":
+		return true, true
+	case "f", "false", "n", "no", "off", "0":
+		return false, true
+	}
+	return false, false
 }

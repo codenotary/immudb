@@ -31,6 +31,22 @@ type jointRowReader struct {
 	rowReaders                 []RowReader
 	rowReadersValuesByPosition [][]TypedValue
 	rowReadersValuesBySelector []map[string]TypedValue
+
+	// outerPoppedDuringRead is set when Read() pops jointr.rowReader off
+	// the active rowReaders stack at end-of-iteration. We deliberately
+	// leave the outer reader open until Close() runs: wrapping readers
+	// such as groupedRowReader.emitCurrentRow → zeroRow → colsBySelector
+	// reach back into jointr.rowReader after iteration ends to introspect
+	// the join's column list, and closing the outer mid-iteration trips
+	// "already closed" on that path for empty-result COUNT(*) over JOIN.
+	outerPoppedDuringRead bool
+
+	// hashJoin caches per-join hash-table state. Populated lazily on the
+	// first outer row reaching each join level. nil entry means hash join
+	// is not in use for that join (either disabled, unsupported shape, or
+	// build failed — fall back to the per-row Resolve path).
+	hashTables      []*hashJoinTable
+	hashJoinChecked []bool
 }
 
 func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
@@ -40,7 +56,7 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader,
 
 	for _, jspec := range joins {
 		switch jspec.joinType {
-		case InnerJoin, LeftJoin:
+		case InnerJoin, LeftJoin, CrossJoin, FullOuterJoin:
 		default:
 			return nil, ErrUnsupportedJoinType
 		}
@@ -52,6 +68,8 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader,
 		rowReaders:                 []RowReader{rowReader},
 		rowReadersValuesByPosition: make([][]TypedValue, 1+len(joins)),
 		rowReadersValuesBySelector: make([]map[string]TypedValue, 1+len(joins)),
+		hashTables:                 make([]*hashJoinTable, len(joins)),
+		hashJoinChecked:            make([]bool, len(joins)),
 	}, nil
 }
 
@@ -195,9 +213,21 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 				// previous reader will need to read next row
 				jointr.rowReaders = jointr.rowReaders[:len(jointr.rowReaders)-1]
 
-				err = lastReader.Close()
-				if err != nil {
-					return nil, err
+				// Close inner join readers immediately to release their
+				// resources, but leave the outer reader (== jointr.rowReader)
+				// open until jointRowReader.Close runs. Wrapping readers
+				// (groupedRowReader.emitCurrentRow → zeroRow → colsBySelector)
+				// read back the outer's columns after iteration exhausts,
+				// and an early Close there trips "already closed" on the
+				// empty-result COUNT(*) over JOIN path that Gitea's
+				// GetIssueStats hits on the issues page.
+				if lastReader == jointr.rowReader {
+					jointr.outerPoppedDuringRead = true
+				} else {
+					err = lastReader.Close()
+					if err != nil {
+						return nil, err
+					}
 				}
 
 				continue
@@ -231,9 +261,49 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 		for i := len(jointr.rowReaders) - 1; i < len(jointr.joins); i++ {
 			jspec := jointr.joins[i]
 
+			ds := jspec.ds
+			where := jspec.cond.reduceSelectors(row, jointr.TableAlias())
+
+			// For LATERAL joins, reduce the subquery's internal WHERE with outer row values
+			if jspec.lateral {
+				if selStmt, ok := ds.(*SelectStmt); ok {
+					lateralDS := *selStmt
+					if lateralDS.where != nil {
+						lateralDS.where = lateralDS.where.reduceSelectors(row, jointr.TableAlias())
+					}
+					ds = &lateralDS
+				}
+			}
+
+			// Hash-join fast path: for non-correlated INNER equi-joins, build the
+			// inner hash table once on first outer row, then probe per outer row
+			// instead of opening a fresh inner scan. Falls back transparently to
+			// the per-row Resolve path on any unsupported shape, build error, or
+			// if jointr.tryHashProbe returns false.
+			if probed, reader, r, err := jointr.tryHashProbe(ctx, i, jspec, ds, where); err != nil {
+				return nil, err
+			} else if probed {
+				if r == nil {
+					// Hash table existed but no inner row matched this outer.
+					// INNER JOIN: backtrack so the outer reader advances.
+					unsolvedFK = true
+					break
+				}
+
+				jointr.rowReaders = append(jointr.rowReaders, reader)
+				jointr.rowReadersValuesByPosition[i+1] = r.ValuesByPosition
+				jointr.rowReadersValuesBySelector[i+1] = r.ValuesBySelector
+
+				row.ValuesByPosition = append(row.ValuesByPosition, r.ValuesByPosition...)
+				for c, v := range r.ValuesBySelector {
+					row.ValuesBySelector[c] = v
+				}
+				continue
+			}
+
 			jointq := &SelectStmt{
-				ds:      jspec.ds,
-				where:   jspec.cond.reduceSelectors(row, jointr.TableAlias()),
+				ds:      ds,
+				where:   where,
 				indexOn: jspec.indexOn,
 			}
 
@@ -297,6 +367,107 @@ func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 	}
 }
 
+// tryHashProbe attempts the hash-join fast path for join index i with the
+// already-reduced join condition for the current outer row. It returns
+// (probed=true, reader, row, nil) when a hashProbeReader was built and a
+// first row pulled, (probed=true, nil, nil, nil) when the outer row has no
+// matching inner rows AND the join is INNER (caller backtracks), and
+// (probed=false, nil, nil, nil) when the join is not eligible (LATERAL,
+// NATURAL, FULL OUTER, non-equi cond, etc.) so the caller falls back to
+// the existing Resolve-per-row path.
+//
+// LEFT JOIN: when matched is empty, synthesises a single NULL-extended row
+// for the inner side (mirrors the slow path's NULL-fill behaviour at
+// joint_row_reader.go:327).
+//
+// The hash table is built once per join level on first eligible call and
+// cached on jointr.hashTables[i]. Build errors degrade to the slow path
+// without surfacing — correctness must always win over the optimization.
+//
+// When the join cond was enriched by D7 with inner-only residual predicates,
+// extractEquiJoinPlan separates them out and they are applied as a WHERE
+// filter at hash-build time so D1 + D7 compose correctly.
+func (jointr *jointRowReader) tryHashProbe(
+	ctx context.Context,
+	i int,
+	jspec *JoinSpec,
+	ds DataSource,
+	reducedWhere ValueExp,
+) (probed bool, reader RowReader, r *Row, err error) {
+	if jspec.lateral || jspec.natural {
+		return false, nil, nil, nil
+	}
+	if jspec.joinType != InnerJoin && jspec.joinType != LeftJoin {
+		return false, nil, nil, nil
+	}
+
+	// We need the inner table's alias to classify ColSelector references in
+	// extractEquiJoinPlan. Currently we only support simple *tableRef
+	// sources; subqueries / values rows fall back to the slow path.
+	tref, ok := ds.(*tableRef)
+	if !ok {
+		return false, nil, nil, nil
+	}
+	innerAlias := tref.Alias()
+
+	if !jointr.hashJoinChecked[i] {
+		jointr.hashJoinChecked[i] = true
+
+		_, innerSels, innerResidual, planOk := extractEquiJoinPlan(reducedWhere, innerAlias)
+		if !planOk {
+			return false, nil, nil, nil
+		}
+
+		ht, buildErr := buildJoinHashTable(ctx, jointr.Tx(), ds, innerSels, innerResidual, jointr.Parameters())
+		if buildErr != nil {
+			// Build failure is non-fatal; fall back to the per-row path.
+			return false, nil, nil, nil
+		}
+		jointr.hashTables[i] = ht
+	}
+
+	ht := jointr.hashTables[i]
+	if ht == nil {
+		return false, nil, nil, nil
+	}
+
+	outerVals, _, _, planOk := extractEquiJoinPlan(reducedWhere, innerAlias)
+	if !planOk {
+		// Should not happen if first call succeeded, but stay defensive.
+		return false, nil, nil, nil
+	}
+
+	matched := ht.rows[compositeHashKey(outerVals)]
+	if len(matched) == 0 {
+		if jspec.joinType != LeftJoin {
+			return true, nil, nil, nil
+		}
+		// LEFT JOIN with no inner match: synthesise a single NULL-extended
+		// row over the inner column set. The probe reader returns it once,
+		// then ErrNoMoreRows on the next Read (popping cleanly so the
+		// outer reader advances to the next row).
+		nullRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(ht.cols)),
+			ValuesBySelector: make(map[string]TypedValue, len(ht.cols)),
+		}
+		for k, col := range ht.cols {
+			nullValue := NewNull(col.Type)
+			nullRow.ValuesByPosition[k] = nullValue
+			nullRow.ValuesBySelector[col.Selector()] = nullValue
+		}
+		matched = []*Row{nullRow}
+	}
+
+	probe := newHashProbeReader(matched, ht.cols, jointr.Tx(), jointr.Parameters())
+
+	first, readErr := probe.Read(ctx)
+	if readErr != nil {
+		probe.Close()
+		return false, nil, nil, readErr
+	}
+	return true, probe, first, nil
+}
+
 func (jointr *jointRowReader) Close() error {
 	merr := multierr.NewMultiErr()
 
@@ -305,6 +476,14 @@ func (jointr *jointRowReader) Close() error {
 	for i := len(jointr.rowReaders) - 1; i >= 0; i-- {
 		err := jointr.rowReaders[i].Close()
 		merr.Append(err)
+	}
+
+	// Read() leaves jointr.rowReader open (not Close'd) when popping the
+	// outermost reader from the active stack so wrapping readers can
+	// still introspect its columns post-exhaustion. Close it here so
+	// the tx state is released.
+	if jointr.outerPoppedDuringRead {
+		merr.Append(jointr.rowReader.Close())
 	}
 
 	return merr.Reduce()

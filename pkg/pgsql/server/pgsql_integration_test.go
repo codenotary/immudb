@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import (
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	pq "github.com/lib/pq"
 
 	"github.com/stretchr/testify/require"
@@ -124,17 +124,21 @@ func TestPgsqlServer_SimpleQueryBlob(t *testing.T) {
 	_, err = db.Exec(fmt.Sprintf("UPSERT INTO %s (id, amount, title, content) VALUES (1, 200, 'title 1', x'%s')", table, blobContent))
 	require.NoError(t, err)
 
+	// Scan BYTEA into []byte — lib/pq decodes the PG canonical `\x<hex>`
+	// text format back into raw bytes for us. Earlier the test scanned
+	// into a string and hex-decoded the result, which only worked
+	// because immudb was emitting raw hex without the `\x` prefix and
+	// lib/pq fell back to escape-format (returning the ASCII of the
+	// hex digits). After the text-format BYTEA fix
+	// (data_row.renderValueAsByte), real PG behaviour is preserved.
 	var id int64
 	var amount int64
 	var title string
-	var content string
+	var content []byte
 	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, content FROM %s", table)).Scan(&id, &amount, &title, &content)
 	require.NoError(t, err)
-	contentDst := make([]byte, 1000)
-
-	_, err = hex.Decode(contentDst, []byte(content))
-	require.NoError(t, err)
-
+	require.Equal(t, "my blob content", string(content))
+	_ = blobContent
 }
 
 func TestPgsqlServer_SimpleQueryBool(t *testing.T) {
@@ -524,7 +528,194 @@ func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.T) {
+// k3s/kine (and many pg clients) use `-- ping` as a liveness probe.
+// PostgreSQL replies EmptyQueryResponse + ReadyForQuery; immudb must
+// do the same so the connection stays usable for real queries after.
+func TestPgsqlServer_CommentOnlyQueryReturnsEmptyQueryResponse(t *testing.T) {
+	td := t.TempDir()
+
+	options := server.DefaultOptions().
+		WithDir(td).
+		WithPort(0).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(0).
+		WithMetricsServer(false).
+		WithWebServer(false)
+
+	srv := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+
+	err := srv.Initialize()
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		srv.Start()
+	}()
+
+	defer func() {
+		srv.Stop()
+	}()
+
+	defer os.Remove(".state-")
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Pin a single connection so we can verify the session survives the
+	// comment-only query and the transaction status stays 'Idle'.
+	conn, err := db.Conn(context.Background())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	// Comment-only queries: line, block, whitespace-only, and mixed.
+	for _, q := range []string{"-- ping", "/* ping */", "   ", "-- a\n-- b\n", "/* a */ -- b\n"} {
+		_, err = conn.ExecContext(context.Background(), q)
+		require.NoError(t, err, "query %q should not error", q)
+	}
+
+	// Real query on the same connection must still work, proving that
+	// ReadyForQuery was emitted correctly after each EmptyQueryResponse.
+	table := getRandomTableName()
+	_, err = conn.ExecContext(context.Background(),
+		fmt.Sprintf("CREATE TABLE %s (id INTEGER, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+
+	// Trailing-comment on a real query should also work (lexer skip).
+	_, err = conn.ExecContext(context.Background(),
+		fmt.Sprintf("UPSERT INTO %s (id) VALUES (1) -- trailing", table))
+	require.NoError(t, err)
+}
+
+// F1 DB / generic PG dump regressions. Each of these used to fail
+// against immudb's pgwire; see the PR that introduced the fixes.
+func TestPgsqlServer_F1DBCompatRegressions(t *testing.T) {
+	td := t.TempDir()
+
+	options := server.DefaultOptions().
+		WithDir(td).
+		WithPort(0).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(0).
+		WithMetricsServer(false).
+		WithWebServer(false)
+
+	srv := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	require.NoError(t, srv.Initialize())
+	go srv.Start()
+	defer srv.Stop()
+	defer os.Remove(".state-")
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	t.Run("UNIQUE column constraint is enforced", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, email VARCHAR(255) UNIQUE)", tbl))
+		require.NoError(t, err)
+
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, email) VALUES (1, 'a@x')", tbl))
+		require.NoError(t, err)
+
+		// Different key, same email — must be rejected by the unique
+		// index created implicitly from the column constraint. Prior
+		// behaviour (UNIQUE silently stripped) would have accepted it.
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, email) VALUES (2, 'a@x')", tbl))
+		require.Error(t, err, "duplicate email should violate UNIQUE constraint")
+	})
+
+	t.Run("DATE 'yyyy-mm-dd' typed literal", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, dob TIMESTAMP)", tbl))
+		require.NoError(t, err)
+
+		// The F1DB dump uses `DATE '2025-01-01'` — immudb previously
+		// rejected it with "syntax error: unexpected '-'".
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, dob) VALUES (1, DATE '2025-01-01')", tbl))
+		require.NoError(t, err)
+	})
+
+	t.Run("DECIMAL column accepts integer literal", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, price DECIMAL(10,2))", tbl))
+		require.NoError(t, err)
+
+		// User report: `INSERT … VALUES (1, 0)` fails on a DECIMAL
+		// column; only `0.0` works. Implicit int→float conversion
+		// should cover this (embedded/sql/implicit_conversion.go).
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, price) VALUES (1, 0)", tbl))
+		require.NoError(t, err, "integer literal into DECIMAL column should be coerced")
+
+		// Single-row non-zero int
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, price) VALUES (2, 42)", tbl))
+		require.NoError(t, err, "single-row non-zero int into DECIMAL")
+
+		// Multi-row, all ints
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, price) VALUES (3, 42), (4, -7)", tbl))
+		require.NoError(t, err, "multi-row all-int into DECIMAL")
+
+		// Multi-row mixed int + float — F1DB-realistic
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, price) VALUES (5, 42), (6, 3.14)", tbl))
+		require.NoError(t, err, "multi-row mixed int+float into DECIMAL")
+
+		// 3 rows, int then float then int — ordering stress test.
+		// The regression that motivated this test had this shape.
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, price) VALUES (7, 42), (8, -7), (9, 3.14)", tbl))
+		require.NoError(t, err, "3-row int+int+float into DECIMAL")
+
+		// UPDATE path — same coercion must apply.
+		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET price = 10 WHERE id = 1", tbl))
+		require.NoError(t, err, "UPDATE int-literal into DECIMAL")
+	})
+
+	t.Run("NUMERIC column accepts integer literal", func(t *testing.T) {
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, amount NUMERIC)", tbl))
+		require.NoError(t, err)
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount) VALUES (1, 0)", tbl))
+		require.NoError(t, err)
+	})
+
+	t.Run("CREATE VIEW with PG column-list", func(t *testing.T) {
+		// pg_dump emits `CREATE VIEW v("a","b") AS SELECT …` — the
+		// outer (a,b) renames output columns. immudb's grammar rejects
+		// the list, so the pgwire layer strips it; the SELECT's AS
+		// aliases carry the names through.
+		tbl := getRandomTableName()
+		view := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (id INTEGER PRIMARY KEY, raw_time VARCHAR(32))", tbl))
+		require.NoError(t, err)
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (id, raw_time) VALUES (1, '1:23.456')", tbl))
+		require.NoError(t, err)
+
+		viewDDL := fmt.Sprintf(
+			"CREATE VIEW %s(\"id\", \"time\") AS SELECT \"%s\".\"id\", \"%s\".\"raw_time\" AS \"time\" FROM \"%s\"",
+			view, tbl, tbl, tbl)
+		_, err = db.Exec(viewDDL)
+		require.NoError(t, err, "PG-style CREATE VIEW with column-list should load")
+
+		var id int64
+		var tstr string
+		err = db.QueryRow(fmt.Sprintf("SELECT id, time FROM %s", view)).Scan(&id, &tstr)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), id)
+		require.Equal(t, "1:23.456", tstr)
+	})
+}
+
+func TestPgsqlServer_UseDatabaseSwitchesSession(t *testing.T) {
 	td := t.TempDir()
 
 	options := server.DefaultOptions().
@@ -555,12 +746,37 @@ func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	_, err = db.Exec("CREATE DATABASE db")
+	_, err = db.Exec("CREATE DATABASE seconddb")
 	require.NoError(t, err)
 
-	_, err = db.Exec("USE DATABASE db")
-	require.ErrorContains(t, err, errors.ErrUseDBStatementNotSupported.Error())
+	// USE DATABASE used to be rejected with ErrUseDBStatementNotSupported.
+	// It now succeeds and rebinds the session to the target database without
+	// requiring the client to reconnect.
+	_, err = db.Exec("USE DATABASE seconddb")
+	require.NoError(t, err)
 
+	// A table created after USE must land in seconddb. We prove this by
+	// switching back to defaultdb and confirming the table is no longer
+	// visible there.
+	_, err = db.Exec("CREATE TABLE post_use (id INTEGER, val VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+	_, err = db.Exec("UPSERT INTO post_use (id, val) VALUES (1, 'in-second-db')")
+	require.NoError(t, err)
+
+	_, err = db.Exec("USE DATABASE defaultdb")
+	require.NoError(t, err)
+
+	_, err = db.Exec("SELECT * FROM post_use")
+	require.Error(t, err) // table doesn't exist in defaultdb
+
+	// Switching to a database that does not exist must surface an error
+	// without leaving the session in a half-bound state.
+	_, err = db.Exec("USE DATABASE no_such_db")
+	require.Error(t, err)
+
+	// Sanity: defaultdb is still usable after the failed switch.
+	_, err = db.Exec("CREATE TABLE in_defaultdb (id INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
 }
 
 func TestPgsqlServer_SimpleQueryQueryExecError(t *testing.T) {

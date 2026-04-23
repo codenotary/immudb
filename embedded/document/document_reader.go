@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -67,7 +67,8 @@ func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.Do
 			return nil, mayTranslateError(err)
 		}
 
-		docBytes := row.ValuesByPosition[0].RawValue().([]byte)
+		docIDBytes := row.ValuesByPosition[0].RawValue().([]byte)
+		docBytes := row.ValuesByPosition[1].RawValue().([]byte)
 
 		doc := &structpb.Struct{}
 		err = proto.Unmarshal(docBytes, doc)
@@ -76,8 +77,9 @@ func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.Do
 		}
 
 		revisions = append(revisions, &protomodel.DocumentAtRevision{
-			TransactionId: 0, // TODO: not yet available
-			Revision:      0, // TODO: not yet available
+			TransactionId: 0, // TODO: not yet available via SQL row reader
+			Revision:      0, // TODO: not yet available via SQL row reader
+			DocumentId:    DocumentID(docIDBytes).EncodeToHexString(),
 			Document:      doc,
 		})
 	}
@@ -104,7 +106,8 @@ func (r *documentReader) Read(ctx context.Context) (*protomodel.DocumentAtRevisi
 		return nil, mayTranslateError(err)
 	}
 
-	docBytes := row.ValuesByPosition[0].RawValue().([]byte)
+	docIDBytes := row.ValuesByPosition[0].RawValue().([]byte)
+	docBytes := row.ValuesByPosition[1].RawValue().([]byte)
 
 	doc := &structpb.Struct{}
 	err = proto.Unmarshal(docBytes, doc)
@@ -113,8 +116,9 @@ func (r *documentReader) Read(ctx context.Context) (*protomodel.DocumentAtRevisi
 	}
 
 	revision := &protomodel.DocumentAtRevision{
-		TransactionId: 0, // TODO: not yet available
-		Revision:      0, // TODO: not yet available
+		TransactionId: 0, // TODO: not yet available via SQL row reader
+		Revision:      0, // TODO: not yet available via SQL row reader
+		DocumentId:    DocumentID(docIDBytes).EncodeToHexString(),
 		Document:      doc,
 	}
 

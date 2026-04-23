@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import (
 	"bytes"
 	"io"
 	"testing"
+	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/stretchr/testify/require"
 )
@@ -103,6 +105,37 @@ func TestMsgSender_SendMultipleChunks(t *testing.T) {
 	b := bytes.NewBuffer(content)
 	err := s.Send(b, len(content), nil)
 	require.NoError(t, err)
+}
+
+// TestMsgSender_SendTimeoutFires verifies A5 back-pressure: with a
+// configured per-send timeout, a stalled Send returns ErrSendStalled
+// instead of blocking forever (and inflating gRPC's per-stream window).
+func TestMsgSender_SendTimeoutFires(t *testing.T) {
+	sm := &streamtest.ImmuServiceSender_StreamMock{
+		SendF: func(_ *schema.Chunk) error {
+			// Simulate a slow receiver — sleep longer than the timeout.
+			time.Sleep(200 * time.Millisecond)
+			return nil
+		},
+		RecvMsgF: func(_ interface{}) error { return nil },
+	}
+	s := NewMsgSender(sm, make([]byte, 4096), WithSendTimeout(20*time.Millisecond))
+
+	content := []byte(`mycontent`)
+	b := bytes.NewBuffer(content)
+	err := s.Send(b, len(content), nil)
+	require.ErrorIs(t, err, ErrSendStalled)
+}
+
+// TestMsgSender_SendTimeoutNotTriggered verifies a fast send completes
+// normally even when a timeout is configured.
+func TestMsgSender_SendTimeoutNotTriggered(t *testing.T) {
+	sm := streamtest.DefaultImmuServiceSenderStreamMock()
+	s := NewMsgSender(sm, make([]byte, 4096), WithSendTimeout(time.Second))
+
+	content := []byte(`mycontent`)
+	b := bytes.NewBuffer(content)
+	require.NoError(t, s.Send(b, len(content), nil))
 }
 
 func TestMsgSender_RecvMsg(t *testing.T) {

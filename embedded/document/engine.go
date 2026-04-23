@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -981,8 +981,13 @@ func (e *Engine) GetDocuments(ctx context.Context, query *protomodel.Query, offs
 		return nil, err
 	}
 
+	docIDField := docIDFieldName(table)
+
 	op := sql.NewSelectStmt(
-		[]sql.TargetEntry{{Exp: sql.NewColSelector(query.CollectionName, DocumentBLOBField)}},
+		[]sql.TargetEntry{
+			{Exp: sql.NewColSelector(query.CollectionName, docIDField)},
+			{Exp: sql.NewColSelector(query.CollectionName, DocumentBLOBField)},
+		},
 		sql.NewTableRef(query.CollectionName, ""),
 		queryCondition,
 		generateSQLOrderByClauses(table, query.OrderBy),

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -46,6 +46,25 @@ type Options struct {
 	prefetchTxBufferSize         int
 	replicationCommitConcurrency int
 
+	// fetchPipelineDepth (A4) controls how many ExportTx requests can be
+	// in flight on the export stream concurrently. Default 1 = legacy
+	// strictly-serial fetch loop; > 1 enables pipelined fetch on the
+	// async-replication path so the primary can prepare the next
+	// response while the replica is still draining the current one.
+	//
+	// Sync replication ignores this setting — each ExportTxRequest in
+	// the sync path carries a ReplicaState snapshot the primary uses
+	// for commit acks, and pre-sending with stale state would confuse
+	// that handshake. To pipeline sync replication, the request shape
+	// would need to be redesigned to decouple state-reporting from
+	// tx-fetching (out of scope for A4 Phase 1).
+	//
+	// Recommended values: 2-4. Higher depths give diminishing returns
+	// and increase the primary-side buffer headroom required for slow
+	// replicas (back-pressure considerations in
+	// immudb-improvements.md A4).
+	fetchPipelineDepth int
+
 	allowTxDiscarding  bool
 	skipIntegrityCheck bool
 	waitForIndexing    bool
@@ -67,11 +86,25 @@ func DefaultOptions() *Options {
 		streamChunkSize:              DefaultChunkSize,
 		prefetchTxBufferSize:         DefaultPrefetchTxBufferSize,
 		replicationCommitConcurrency: DefaultReplicationCommitConcurrency,
+		fetchPipelineDepth:           1, // strictly-serial fetch (A4 not yet wired)
 		allowTxDiscarding:            DefaultAllowTxDiscarding,
 		skipIntegrityCheck:           DefaultSkipIntegrityCheck,
 		waitForIndexing:              DefaultWaitForIndexing,
 		clientFactory:                newClient,
 	}
+}
+
+// WithFetchPipelineDepth (A4) sets the number of in-flight
+// ExportTxRequests on the async-replication fetch path. depth=1
+// (default) is the legacy strictly-serial loop; depth>=2 keeps the
+// stream warm by pre-sending requests for upcoming txs. See
+// Options.fetchPipelineDepth for the sync-replication exclusion.
+func (o *Options) WithFetchPipelineDepth(depth int) *Options {
+	if depth < 1 {
+		depth = 1
+	}
+	o.fetchPipelineDepth = depth
+	return o
 }
 
 func newClient(host string, port int) client.ImmuClient {

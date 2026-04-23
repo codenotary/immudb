@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -34,7 +34,9 @@ func TestNewManager(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
 	require.IsType(t, new(manager), m)
-	require.NotNil(t, m.sessions)
+	for i := range m.shards {
+		require.NotNil(t, m.shards[i].sessions)
+	}
 }
 
 func TestNewManagerCornerCases(t *testing.T) {

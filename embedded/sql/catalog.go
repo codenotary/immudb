@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -46,6 +46,13 @@ type Constraint interface{}
 
 type PrimaryKeyConstraint []string
 
+// ForeignKeyConstraint is parsed but not enforced — stored for ORM migration compatibility
+type ForeignKeyConstraint struct {
+	cols     []string
+	refTable string
+	refCols  []string
+}
+
 type CheckConstraint struct {
 	id   uint32
 	name string
@@ -69,14 +76,20 @@ type Table struct {
 
 	maxColID   uint32
 	maxIndexID uint32
+
+	// systemScan is non-nil only for tables installed via
+	// RegisterSystemTable. When set, SELECTs against this table bypass
+	// storage and iterate the rows returned by Scan. See system_tables.go.
+	systemScan func(ctx context.Context, tx *SQLTx) ([]*Row, error)
 }
 
 type Index struct {
-	table    *Table
-	id       uint32
-	unique   bool
-	cols     []*Column
-	colsByID map[uint32]*Column
+	table     *Table
+	id        uint32
+	unique    bool
+	cols      []*Column
+	colsByID  map[uint32]*Column
+	predicate ValueExp // WHERE clause for partial indexes (nil = full index)
 }
 
 type Column struct {
@@ -87,6 +100,7 @@ type Column struct {
 	maxLen        int
 	autoIncrement bool
 	notNull       bool
+	defaultValue  ValueExp
 }
 
 func newCatalog(enginePrefix []byte) *Catalog {
@@ -96,50 +110,81 @@ func newCatalog(enginePrefix []byte) *Catalog {
 		tablesByName: make(map[string]*Table),
 	}
 
-	pgTypeTable := &Table{
-		catalog: ctlg,
-		name:    "pg_type",
-		cols: []*Column{
-			{
-				colName: "oid",
-				colType: VarcharType,
-				maxLen:  10,
-			},
-			{
-				colName: "typbasetype",
-				colType: VarcharType,
-				maxLen:  10,
-			},
-			{
-				colName: "typname",
-				colType: VarcharType,
-				maxLen:  50,
-			},
-		},
+	// Install every registered system table (pg_type today; more in
+	// future pg-compat phases). Each is a virtual catalog entry with
+	// Go-provided row source — no storage backing.
+	for _, def := range registeredSystemTables() {
+		installSystemTable(ctlg, def)
 	}
-
-	pgTypeTable.colsByName = make(map[string]*Column, len(pgTypeTable.cols))
-
-	for _, col := range pgTypeTable.cols {
-		pgTypeTable.colsByName[col.colName] = col
-	}
-
-	pgTypeTable.indexes = []*Index{
-		{
-			unique: true,
-			cols: []*Column{
-				pgTypeTable.colsByName["oid"],
-			},
-			colsByID: map[uint32]*Column{
-				0: pgTypeTable.colsByName["oid"],
-			},
-		},
-	}
-
-	pgTypeTable.primaryIndex = pgTypeTable.indexes[0]
-	ctlg.tablesByName[pgTypeTable.name] = pgTypeTable
 
 	return ctlg
+}
+
+func init() {
+	// pg_type: the one system table immudb has shipped with for years.
+	// Schema stays at the historic three-column shape (oid, typbasetype,
+	// typname) — every existing test that hits pg_type assumes it —
+	// but the Scan now returns the canonical PG type catalog so psql
+	// \dT and Rails' type map work without the PG wire layer having to
+	// fabricate rows separately. The list is intentionally small: just
+	// the types immudb actually emits. Callers that want a composite
+	// row per user table walk pg_class instead.
+	RegisterSystemTable(&SystemTableDef{
+		Name: "pg_type",
+		Columns: []SystemTableColumn{
+			{Name: "oid", Type: VarcharType, MaxLen: 10},
+			{Name: "typbasetype", Type: VarcharType, MaxLen: 10},
+			{Name: "typname", Type: VarcharType, MaxLen: 50},
+		},
+		PKColumn: "oid",
+		Scan: func(ctx context.Context, tx *SQLTx) ([]*Row, error) {
+			rows := make([]*Row, 0, len(pgTypeBaseRows))
+			for _, r := range pgTypeBaseRows {
+				rows = append(rows, &Row{ValuesByPosition: []TypedValue{
+					&Varchar{val: r.oid},
+					&Varchar{val: "0"},
+					&Varchar{val: r.name},
+				}})
+			}
+			return rows, nil
+		},
+	})
+}
+
+// pgTypeBaseRows lists the PostgreSQL base types we advertise in
+// pg_type. OIDs match real PG so clients that cache them (Rails type
+// map) round-trip correctly. Kept here rather than in pkg/pgsql/sys to
+// avoid a dependency inversion — embedded/sql can't import pkg/pgsql.
+var pgTypeBaseRows = []struct {
+	oid  string
+	name string
+}{
+	{"16", "bool"},
+	{"17", "bytea"},
+	{"18", "char"},
+	{"19", "name"},
+	{"20", "int8"},
+	{"21", "int2"},
+	{"23", "int4"},
+	{"25", "text"},
+	{"26", "oid"},
+	{"114", "json"},
+	{"142", "xml"},
+	{"700", "float4"},
+	{"701", "float8"},
+	{"790", "money"},
+	{"829", "macaddr"},
+	{"869", "inet"},
+	{"1042", "bpchar"},
+	{"1043", "varchar"},
+	{"1082", "date"},
+	{"1083", "time"},
+	{"1114", "timestamp"},
+	{"1184", "timestamptz"},
+	{"1186", "interval"},
+	{"1700", "numeric"},
+	{"2950", "uuid"},
+	{"3802", "jsonb"},
 }
 
 func (catlg *Catalog) ExistTable(table string) bool {
@@ -275,6 +320,29 @@ func (i *Index) coversOrdCols(ordExps []*OrdExp, rangesByColID map[uint32]*typed
 		return false
 	}
 	return i.hasPrefix(i.cols, ordExps) || i.sortableUsing(ordExps, rangesByColID)
+}
+
+// countEqualityCoveredCols returns the number of consecutive leading columns
+// of the index that have a point-equality (unitary) range in rangesByColID.
+// Used by selectINLJIndex to prefer more selective indexes: an index on (a, b)
+// scores 2 when both a=x AND b=y are present, beating a single-column (a) index.
+func (i *Index) countEqualityCoveredCols(rangesByColID map[uint32]*typedValueRange) int {
+	count := 0
+	for _, col := range i.cols {
+		r, ok := rangesByColID[col.id]
+		if !ok || !r.unitary() {
+			break
+		}
+		count++
+	}
+	return count
+}
+
+// coversEqualityRanges returns true when at least the index's leading column
+// has a point-equality range in rangesByColID. It is a convenience wrapper
+// around countEqualityCoveredCols used in tests and unit assertions.
+func (i *Index) coversEqualityRanges(rangesByColID map[uint32]*typedValueRange) bool {
+	return i.countEqualityCoveredCols(rangesByColID) > 0
 }
 
 func ordExpsHaveSameDirection(exps []*OrdExp) bool {
@@ -454,6 +522,7 @@ func (catlg *Catalog) newTable(name string, colsSpec map[uint32]*ColSpec, checkC
 			maxLen:        cs.maxLen,
 			autoIncrement: cs.autoIncrement,
 			notNull:       cs.notNull,
+			defaultValue:  cs.defaultValue,
 		}
 
 		table.cols = append(table.cols, col)
@@ -584,6 +653,7 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 		maxLen:        spec.maxLen,
 		autoIncrement: spec.autoIncrement,
 		notNull:       spec.notNull,
+		defaultValue:  spec.defaultValue,
 	}
 
 	t.cols = append(t.cols, col)
@@ -735,6 +805,14 @@ func (c *Column) IsAutoIncremental() bool {
 	return c.autoIncrement
 }
 
+func (c *Column) HasDefault() bool {
+	return c.defaultValue != nil
+}
+
+func (c *Column) DefaultValue() ValueExp {
+	return c.defaultValue
+}
+
 func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 	switch sqlType {
 	case BooleanType:
@@ -754,6 +832,112 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 
 func (catlg *Catalog) load(ctx context.Context, tx *store.OngoingTx) error {
 	return catlg.loadCatalog(ctx, tx, false)
+}
+
+// Clone returns a deep copy of the catalog suitable for use as the in-memory
+// schema of a fresh transaction. Per-tx DDL mutations operate on the clone
+// and never touch the source, so a cache of the last known schema can be
+// cloned for read-write transactions to avoid the cost of re-running
+// loadCatalog (prefix scans + default-expression re-parse) on every NewTx.
+//
+// Registered system tables (pg_type today, more in future pg-compat
+// phases) are re-installed from scratch by newCatalog — never copied —
+// so their identity is stable across catalogs and the Scan function
+// pointers stay bound to the package-level registry.
+//
+// Immutable substructures — ValueExp default expressions, Index predicates,
+// and CheckConstraint expressions — are shared with the source by pointer
+// because they are never mutated after parsing. All mutable state (tables,
+// columns, indexes, and their lookup maps) is deep-copied. Back-references
+// (Table.catalog, Column.table, Index.table) are re-targeted to the clones.
+//
+// table.maxPK is copied from the source but callers that need up-to-date
+// auto-increment state must re-run loadMaxPK (which is snapshot-dependent).
+func (catlg *Catalog) Clone() *Catalog {
+	cp := newCatalog(catlg.enginePrefix)
+	cp.maxTableID = catlg.maxTableID
+
+	if len(catlg.tables) > 0 {
+		cp.tables = make([]*Table, 0, len(catlg.tables))
+	}
+
+	for _, t := range catlg.tables {
+		nt := cloneTable(t, cp)
+		cp.tables = append(cp.tables, nt)
+		cp.tablesByID[nt.id] = nt
+		cp.tablesByName[nt.name] = nt
+	}
+
+	return cp
+}
+
+// cloneTable deep-copies t and reparents columns/indexes onto the returned
+// clone. The new Catalog back-reference must already be available so the
+// clone's Table.catalog field can be filled in.
+func cloneTable(t *Table, newCatalog *Catalog) *Table {
+	nt := &Table{
+		id:               t.id,
+		catalog:          newCatalog,
+		name:             t.name,
+		autoIncrementPK:  t.autoIncrementPK,
+		maxPK:            t.maxPK,
+		maxColID:         t.maxColID,
+		maxIndexID:       t.maxIndexID,
+		cols:             make([]*Column, 0, len(t.cols)),
+		colsByID:         make(map[uint32]*Column, len(t.colsByID)),
+		colsByName:       make(map[string]*Column, len(t.colsByName)),
+		indexes:          make([]*Index, 0, len(t.indexes)),
+		indexesByName:    make(map[string]*Index, len(t.indexesByName)),
+		indexesByColID:   make(map[uint32][]*Index, len(t.indexesByColID)),
+		checkConstraints: make(map[string]CheckConstraint, len(t.checkConstraints)),
+	}
+
+	for name, cc := range t.checkConstraints {
+		// CheckConstraint is a value type; its .exp (ValueExp) is immutable
+		// after parsing so the pointer can be shared.
+		nt.checkConstraints[name] = cc
+	}
+
+	for _, c := range t.cols {
+		nc := *c
+		nc.table = nt
+		// nc.defaultValue is a ValueExp interface value; treated as immutable.
+		nt.cols = append(nt.cols, &nc)
+		nt.colsByID[nc.id] = &nc
+		nt.colsByName[nc.colName] = &nc
+	}
+
+	for _, idx := range t.indexes {
+		ni := &Index{
+			id:        idx.id,
+			table:     nt,
+			unique:    idx.unique,
+			predicate: idx.predicate, // immutable after parsing
+			cols:      make([]*Column, len(idx.cols)),
+			colsByID:  make(map[uint32]*Column, len(idx.colsByID)),
+		}
+		for i, c := range idx.cols {
+			ni.cols[i] = nt.colsByID[c.id]
+		}
+		for id := range idx.colsByID {
+			ni.colsByID[id] = nt.colsByID[id]
+		}
+		nt.indexes = append(nt.indexes, ni)
+		nt.indexesByName[ni.Name()] = ni
+		if idx == t.primaryIndex {
+			nt.primaryIndex = ni
+		}
+	}
+
+	// Rebuild indexesByColID from the cloned indexes; it mirrors the source's
+	// mapping from column-id → list of indexes that reference that column.
+	for _, ni := range nt.indexes {
+		for _, c := range ni.cols {
+			nt.indexesByColID[c.id] = append(nt.indexesByColID[c.id], ni)
+		}
+	}
+
+	return nt
 }
 
 func (catlg *Catalog) loadCatalog(ctx context.Context, tx *store.OngoingTx, copyToTx bool) error {
@@ -865,12 +1049,45 @@ func loadColSpec(sqlPrefix, key, value []byte, tableID uint32) (*ColSpec, uint32
 		return nil, 0, ErrCorruptedData
 	}
 
+	flags := value[0]
+	maxLen := int(binary.BigEndian.Uint32(value[1:]))
+
+	var colName string
+	var defaultValue ValueExp
+
+	if flags&hasDefaultFlag != 0 && len(value) >= 7 {
+		// New format: {flags(1)}{maxLen(4)}{colNameLen(2)}{colName}{defaultSQL}
+		colNameLen := int(binary.BigEndian.Uint16(value[5:]))
+		if len(value) < 7+colNameLen {
+			return nil, 0, ErrCorruptedData
+		}
+		colName = string(value[7 : 7+colNameLen])
+
+		// Parse default value SQL if present
+		if defaultStart := 7 + colNameLen; defaultStart < len(value) {
+			defaultSQL := string(value[defaultStart:])
+			if defaultSQL != "" {
+				// Parse the default expression
+				stmts, err := ParseSQL(strings.NewReader("SELECT " + defaultSQL))
+				if err == nil && len(stmts) > 0 {
+					if sel, ok := stmts[0].(*SelectStmt); ok && len(sel.targets) > 0 {
+						defaultValue = sel.targets[0].Exp
+					}
+				}
+			}
+		}
+	} else {
+		// Old format: {flags(1)}{maxLen(4)}{colName}
+		colName = string(value[5:])
+	}
+
 	return &ColSpec{
-		colName:       string(value[5:]),
+		colName:       colName,
 		colType:       colType,
-		maxLen:        int(binary.BigEndian.Uint32(value[1:])),
-		autoIncrement: value[0]&autoIncrementFlag != 0,
-		notNull:       value[0]&nullableFlag != 0,
+		maxLen:        maxLen,
+		autoIncrement: flags&autoIncrementFlag != 0,
+		notNull:       flags&nullableFlag != 0,
+		defaultValue:  defaultValue,
 	}, colID, nil
 }
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -532,11 +531,14 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 			return nil, 0, ErrInvalidLocalStorage
 		}
 
-		if id < 0 || id > int64(math.MaxInt) {
+		if id < 0 {
 			return nil, 0, fmt.Errorf("chunk id %d out of range", id)
 		}
+		// Index with int64 directly; matches the rest of the file (see
+		// OpenAppendable) and avoids a 64→int narrowing cast that
+		// CodeQL's taint analysis flags even when bounds-checked.
 
-		for len(chunkInfos) <= int(id) {
+		for int64(len(chunkInfos)) <= id {
 			chunkInfos = append(chunkInfos, chunkInfo{state: chunkState_Invalid})
 		}
 
@@ -561,11 +563,12 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 			return nil, 0, ErrInvalidRemoteStorage
 		}
 
-		if id < 0 || id > int64(math.MaxInt) {
+		if id < 0 {
 			return nil, 0, fmt.Errorf("chunk id %d out of range", id)
 		}
+		// Index with int64 directly; see earlier loop.
 
-		for len(chunkInfos) <= int(id) {
+		for int64(len(chunkInfos)) <= id {
 			chunkInfos = append(chunkInfos, chunkInfo{state: chunkState_Invalid})
 		}
 

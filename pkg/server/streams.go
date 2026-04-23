@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 
@@ -30,6 +29,12 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
+
+// streamBatchHint is a starting capacity for per-stream KV/op slices. Streams
+// carry an unknown number of elements, so we pick a small non-zero default to
+// avoid the early-growth reallocations on typical batches while keeping the
+// overhead negligible for small streams.
+const streamBatchHint = 64
 
 // StreamGet return a stream of key-values to the client
 func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_StreamGetServer) error {
@@ -47,11 +52,11 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 
 	kv := &stream.KeyValue{
 		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(entry.Key)),
+			Content: bytes.NewReader(entry.Key),
 			Size:    len(entry.Key),
 		},
 		Value: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(entry.Value)),
+			Content: bytes.NewReader(entry.Value),
 			Size:    len(entry.Value),
 		},
 	}
@@ -72,7 +77,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(s.StreamServiceFactory.NewMsgReceiver(str))
 
-	var kvs = make([]*schema.KeyValue, 0)
+	kvs := make([]*schema.KeyValue, 0, streamBatchHint)
 
 	vlength := 0
 	for {
@@ -149,7 +154,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 	}
 
 	value := stream.ValueSize{
-		Content: bufio.NewReader(bytes.NewBuffer(vEntry.GetEntry().GetValue())),
+		Content: bytes.NewReader(vEntry.GetEntry().GetValue()),
 		Size:    len(vEntry.GetEntry().GetValue()),
 	}
 
@@ -176,15 +181,15 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 
 	sVEntry := stream.VerifiableEntry{
 		EntryWithoutValueProto: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(entryWithoutValueProto)),
+			Content: bytes.NewReader(entryWithoutValueProto),
 			Size:    len(entryWithoutValueProto),
 		},
 		VerifiableTxProto: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(verifiableTxProto)),
+			Content: bytes.NewReader(verifiableTxProto),
 			Size:    len(verifiableTxProto),
 		},
 		InclusionProofProto: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(inclusionProofProto)),
+			Content: bytes.NewReader(inclusionProofProto),
 			Size:    len(inclusionProofProto),
 		},
 		Value: &value,
@@ -224,7 +229,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		return errors.New(stream.ErrMaxTxValuesLenExceeded).WithCode(errors.CodDataException)
 	}
 
-	var kvs = make([]*schema.KeyValue, 0)
+	kvs := make([]*schema.KeyValue, 0, streamBatchHint)
 
 	for {
 		key, vr, err := kvsr.Next()
@@ -305,11 +310,11 @@ func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_
 	for _, e := range r.Entries {
 		kv := &stream.KeyValue{
 			Key: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
+				Content: bytes.NewReader(e.Key),
 				Size:    len(e.Key),
 			},
 			Value: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Value)),
+				Content: bytes.NewReader(e.Value),
 				Size:    len(e.Value),
 			},
 		}
@@ -350,23 +355,23 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 
 		ze := &stream.ZEntry{
 			Set: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Set)),
+				Content: bytes.NewReader(e.Set),
 				Size:    len(e.Set),
 			},
 			Key: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
+				Content: bytes.NewReader(e.Key),
 				Size:    len(e.Key),
 			},
 			Score: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(scoreBs)),
+				Content: bytes.NewReader(scoreBs),
 				Size:    len(scoreBs),
 			},
 			AtTx: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(atTxBs)),
+				Content: bytes.NewReader(atTxBs),
 				Size:    len(atTxBs),
 			},
 			Value: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Entry.Value)),
+				Content: bytes.NewReader(e.Entry.Value),
 				Size:    len(e.Entry.Value),
 			},
 		}
@@ -395,11 +400,11 @@ func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema
 	for _, e := range r.Entries {
 		kv := &stream.KeyValue{
 			Key: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
+				Content: bytes.NewReader(e.Key),
 				Size:    len(e.Key),
 			},
 			Value: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Value)),
+				Content: bytes.NewReader(e.Value),
 				Size:    len(e.Value),
 			},
 		}
@@ -423,7 +428,7 @@ func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) e
 		return err
 	}
 
-	sops := []*schema.Op{}
+	sops := make([]*schema.Op, 0, streamBatchHint)
 	eas := s.StreamServiceFactory.NewExecAllStreamReceiver(s.StreamServiceFactory.NewMsgReceiver(str))
 	for {
 		op, err := eas.Next()

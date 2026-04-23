@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -51,7 +51,11 @@ func TestStartMetricsHTTP(t *testing.T) {
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
-	defer server.Close()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
 
 	require.IsType(t, &http.Server{}, server)
 }
@@ -72,7 +76,11 @@ func TestStartMetricsHTTPS(t *testing.T) {
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
-	defer server.Close()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
 
 	require.IsType(t, &http.Server{}, server)
 
@@ -102,7 +110,11 @@ func TestStartMetricsFail(t *testing.T) {
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
-	defer server.Close()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
 
 	require.IsType(t, &http.Server{}, server)
 }
@@ -143,7 +155,97 @@ func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	ctx := peer.NewContext(context.Background(), p)
 	mc.UpdateClientMetrics(ctx)
 
-	require.IsType(t, MetricsCollection{}, mc)
+	require.IsType(t, &MetricsCollection{}, &mc)
+}
+
+// TestMetricsCollection_ClientIPCap verifies A7's cardinality cap: once
+// the configured cap is reached, additional distinct IPs are folded into
+// ClientIPOverflowLabel rather than creating new Prometheus series.
+func TestMetricsCollection_ClientIPCap(t *testing.T) {
+	mc := MetricsCollection{}
+	mc.SetClientMetricsCap(3)
+
+	require.Equal(t, "1.1.1.1", mc.classifyClientLabel("1.1.1.1"))
+	require.Equal(t, "2.2.2.2", mc.classifyClientLabel("2.2.2.2"))
+	require.Equal(t, "3.3.3.3", mc.classifyClientLabel("3.3.3.3"))
+	// At cap — new IPs bucket into the overflow label.
+	require.Equal(t, ClientIPOverflowLabel, mc.classifyClientLabel("4.4.4.4"))
+	require.Equal(t, ClientIPOverflowLabel, mc.classifyClientLabel("5.5.5.5"))
+	// Already-tracked IPs continue to use their own label.
+	require.Equal(t, "1.1.1.1", mc.classifyClientLabel("1.1.1.1"))
+}
+
+// TestMetricsCollection_ClientMetricsDisabled verifies the off-switch.
+func TestMetricsCollection_ClientMetricsDisabled(t *testing.T) {
+	mc := MetricsCollection{
+		RPCsPerClientCounters: prometheus.NewCounterVec(
+			prometheus.CounterOpts{Name: "test_disabled_counter"},
+			[]string{"ip"},
+		),
+		LastMessageAtPerClientGauges: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{Name: "test_disabled_gauge"},
+			[]string{"ip"},
+		),
+	}
+	mc.SetClientMetricsDisabled(true)
+
+	ip := net.IP{}
+	require.NoError(t, ip.UnmarshalText([]byte("127.0.0.1")))
+	ctx := peer.NewContext(context.Background(), &peer.Peer{
+		Addr: &net.TCPAddr{IP: ip, Port: 9999},
+	})
+	mc.UpdateClientMetrics(ctx)
+
+	// No labels should have been registered.
+	require.Equal(t, 0, testCollectorCount(mc.RPCsPerClientCounters))
+}
+
+// testCollectorCount returns the number of registered child series in a
+// CounterVec. Used to assert no labels are emitted when client metrics
+// are disabled.
+func testCollectorCount(c *prometheus.CounterVec) int {
+	ch := make(chan prometheus.Metric, 16)
+	c.Collect(ch)
+	close(ch)
+	n := 0
+	for range ch {
+		n++
+	}
+	return n
+}
+
+// BenchmarkUpdateClientMetrics exercises the per-client metric update
+// path under cardinality-exhaustion conditions. With A7's cap in place,
+// even a workload of 100k distinct IPs degrades to a single overflow
+// label after the first DefaultClientIPMetricsCap unique entries.
+func BenchmarkUpdateClientMetrics(b *testing.B) {
+	mc := MetricsCollection{
+		RPCsPerClientCounters: prometheus.NewCounterVec(
+			prometheus.CounterOpts{Name: "bench_rpcs_per_client"},
+			[]string{"ip"},
+		),
+		LastMessageAtPerClientGauges: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{Name: "bench_last_at_per_client"},
+			[]string{"ip"},
+		),
+	}
+	mc.SetClientMetricsCap(DefaultClientIPMetricsCap)
+
+	const distinctIPs = 100_000
+	contexts := make([]context.Context, distinctIPs)
+	for i := 0; i < distinctIPs; i++ {
+		ip := net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
+		contexts[i] = peer.NewContext(context.Background(), &peer.Peer{
+			Addr: &net.TCPAddr{IP: ip, Port: 1024 + i%50000},
+		})
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		mc.UpdateClientMetrics(contexts[i%distinctIPs])
+	}
 }
 
 func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
@@ -179,7 +281,7 @@ func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
 	// update after injecting the funcs, to catch the normal execution path
 	mc.UpdateDBMetrics()
 
-	require.IsType(t, MetricsCollection{}, mc)
+	require.IsType(t, &MetricsCollection{}, &mc)
 }
 
 func TestImmudbHealthHandlerFunc(t *testing.T) {

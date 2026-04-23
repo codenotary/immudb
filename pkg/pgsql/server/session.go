@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -29,9 +29,15 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/pkg/server/sessions"
+	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
+
+// stmtCacheSize is the maximum number of parsed statement lists cached
+// per session. When the cache is full the oldest entry is evicted (FIFO).
+const stmtCacheSize = 64
 
 type session struct {
 	immudbHost         string
@@ -40,7 +46,8 @@ type session struct {
 	log                logger.Logger
 	logRequestMetadata bool
 
-	dbList database.DatabaseList
+	dbList      database.DatabaseList
+	sessManager sessions.Manager
 
 	client client.ImmuClient
 
@@ -52,11 +59,27 @@ type session struct {
 
 	mr MessageReader
 
+	// txStatus is the byte we report in the next ReadyForQuery message.
+	// 'I' (idle) outside an explicit transaction; 'T' inside; 'E' inside
+	// a transaction that's been aborted by an error. Clients (pq, JDBC,
+	// XORM) inspect this to gate their commit/rollback logic — emitting
+	// 'I' after a successful BEGIN trips
+	//   "unexpected transaction status idle".
+	// Default zero-value is 0 not 'I', so always init via session ctor.
+	txStatus byte
+
 	connParams      map[string]string
 	protocolVersion string
 
 	statements map[string]*statement
 	portals    map[string]*portal
+
+	// stmtCache is a bounded per-session cache of parsed SQL statement lists,
+	// keyed on the post-normalization SQL string (after removePGCatalogReferences).
+	// Avoids repeated lex+parse overhead for queries repeated by dashboards or ORMs.
+	// Eviction is FIFO; stmtCacheKeys tracks insertion order for eviction.
+	stmtCache     map[string][]sql.SQLStmt
+	stmtCacheKeys []string
 }
 
 type Session interface {
@@ -75,6 +98,7 @@ func newSession(
 	tlsConfig *tls.Config,
 	logRequestMetadata bool,
 	dbList database.DatabaseList,
+	sessManager sessions.Manager,
 ) *session {
 	addr := c.RemoteAddr().String()
 	i := strings.Index(addr, ":")
@@ -89,10 +113,14 @@ func newSession(
 		log:                log,
 		logRequestMetadata: logRequestMetadata,
 		dbList:             dbList,
+		sessManager:        sessManager,
 		ipAddr:             addr,
 		mr:                 NewMessageReader(c),
 		statements:         make(map[string]*statement),
 		portals:            make(map[string]*portal),
+		stmtCache:          make(map[string][]sql.SQLStmt, stmtCacheSize),
+		stmtCacheKeys:      make([]string, 0, stmtCacheSize),
+		txStatus:           bm.TxStatusIdle,
 	}
 }
 
@@ -101,7 +129,11 @@ func (s *session) HandleError(e error) {
 
 	_, err := s.writeMessage(pgerr.Encode())
 	if err != nil {
-		s.log.Errorf("unable to write error on wire: %v", err)
+		// "broken pipe" / "use of closed network connection" — the
+		// client gave up while we were preparing the ErrorResponse
+		// (common in pq's connection-rotation paths). Not a server
+		// fault; demote so it doesn't pollute logs.
+		s.log.Debugf("unable to write error on wire: %v", err)
 	}
 }
 
@@ -147,6 +179,12 @@ func (s *session) parseRawMessage(msg *rawMessage) (interface{}, error) {
 		return fm.ParseExecuteMsg(msg.payload)
 	case 'H':
 		return fm.ParseFlushMsg(msg.payload)
+	case 'd':
+		return fm.ParseCopyDataMsg(msg.payload)
+	case 'c':
+		return fm.ParseCopyDoneMsg(msg.payload)
+	case 'f':
+		return fm.ParseCopyFailMsg(msg.payload)
 	default:
 		return nil, errors.ErrUnknowMessageType
 	}
@@ -158,6 +196,20 @@ func (s *session) writeMessage(msg []byte) (int, error) {
 	}
 
 	return s.mr.Write(msg)
+}
+
+// refreshSessionActivity updates the server-side session activity timestamp
+// to prevent the session guard from killing long-running operations like COPY.
+func (s *session) refreshSessionActivity() {
+	if s.sessManager != nil && s.client != nil {
+		sessionID := s.client.GetSessionID()
+		if sessionID != "" {
+			s.sessManager.UpdateSessionActivityTime(sessionID)
+			s.log.Infof("pgcompat: refreshed session activity for %s", sessionID)
+		}
+	} else {
+		s.log.Warningf("pgcompat: cannot refresh session: sessManager=%v client=%v", s.sessManager != nil, s.client != nil)
+	}
 }
 
 func (s *session) sqlTx() (*sql.SQLTx, error) {
@@ -173,4 +225,42 @@ func (s *session) sqlTx() (*sql.SQLTx, error) {
 	// create transaction explicitly to inject request metadata
 	ctx := schema.ContextWithMetadata(s.ctx, md)
 	return s.db.NewSQLTx(ctx, sql.DefaultTxOptions())
+}
+
+// useDatabase rebinds this pgsql session to a different immudb database
+// without forcing the client to reconnect. Permission enforcement is
+// delegated to the embedded gRPC client (s.client.UseDatabase), which
+// runs the same checks as the initial connect: the logged-in user must
+// have Admin / R / RW on the target database, otherwise the gRPC layer
+// returns PermissionDenied and we surface that to the pgsql client.
+//
+// Any in-flight SQL transaction is rolled back, and prepared statements
+// and portals are dropped, since their plans reference the old catalog
+// and would silently bind to wrong tables on the new database.
+func (s *session) useDatabase(name string) error {
+	dbHandle, err := s.dbList.GetByName(name)
+	if err != nil {
+		return err
+	}
+
+	if s.client != nil {
+		if _, err := s.client.UseDatabase(s.ctx, &schema.Database{DatabaseName: name}); err != nil {
+			return err
+		}
+	}
+
+	if s.tx != nil {
+		_ = s.tx.Cancel()
+		s.tx = nil
+	}
+	for k := range s.statements {
+		delete(s.statements, k)
+	}
+	for k := range s.portals {
+		delete(s.portals, k)
+	}
+
+	s.db = dbHandle
+	s.log.Infof("pgcompat: session for user %q switched to database %q", s.user, name)
+	return nil
 }

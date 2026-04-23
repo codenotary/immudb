@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,9 +17,14 @@ limitations under the License.
 package sql
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 )
+
+// topNSortThreshold is the maximum LIMIT value for which the top-N heap
+// optimisation is applied. For larger limits the full file-sort path is used.
+const topNSortThreshold = 1000
 
 type sortDirection int8
 
@@ -35,6 +40,17 @@ type sortRowReader struct {
 	sorter             fileSorter
 
 	resultReader resultReader
+
+	// topNLimit, when > 0, activates the bounded heap optimisation: only the
+	// top-N rows (in sort order) are retained in memory instead of sorting
+	// the full result set. Set from the query LIMIT when applicable.
+	topNLimit int
+
+	// onCloseCallback fires from this reader's own Close (not from inner
+	// readers'). Stored locally rather than propagated so that the join
+	// machinery's mid-iteration Close on inner readers does not trigger
+	// qtx.Cancel before sortRowReader.finalize finishes merging temp files.
+	onCloseCallback func()
 }
 
 func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, error) {
@@ -94,6 +110,11 @@ func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, e
 	t1 := make(Tuple, len(ordExps))
 	t2 := make(Tuple, len(ordExps))
 
+	nullsOrders := make([]NullsOrder, len(ordExps))
+	for i, col := range ordExps {
+		nullsOrders[i] = col.nullsOrder
+	}
+
 	sr.sorter.cmp = func(r1, r2 *Row) (int, error) {
 		if err := sr.evalSortExps(r1, t1); err != nil {
 			return 0, err
@@ -103,15 +124,44 @@ func newSortRowReader(rowReader RowReader, ordExps []*OrdExp) (*sortRowReader, e
 			return 0, err
 		}
 
-		res, idx, err := t1.Compare(t2)
-		if err != nil {
-			return 0, err
-		}
+		for i := range t1 {
+			v1Null := t1[i] == nil || t1[i].IsNull()
+			v2Null := t2[i] == nil || t2[i].IsNull()
 
-		if idx >= 0 {
-			return res * int(directions[idx]), nil
+			if v1Null && v2Null {
+				continue
+			}
+			if v1Null || v2Null {
+				nullOrder := nullsOrders[i]
+				if nullOrder == NullsDefault {
+					// immudb default: NULLS FIRST for ASC, NULLS LAST for DESC
+					if directions[i] == sortDirectionAsc {
+						nullOrder = NullsFirst
+					} else {
+						nullOrder = NullsLast
+					}
+				}
+				if v1Null {
+					if nullOrder == NullsFirst {
+						return -1, nil
+					}
+					return 1, nil
+				}
+				if nullOrder == NullsFirst {
+					return 1, nil
+				}
+				return -1, nil
+			}
+
+			res, err := t1[i].Compare(t2[i])
+			if err != nil {
+				return 0, err
+			}
+			if res != 0 {
+				return res * int(directions[i]), nil
+			}
 		}
-		return res, nil
+		return 0, nil
 	}
 	return sr, nil
 }
@@ -188,8 +238,14 @@ func getColPositionsBySelector(desc []ColDescriptor) (map[string]int, error) {
 	return colPositionsBySelector, nil
 }
 
+// onClose registers a callback that fires exactly once when this reader's
+// own Close runs. We deliberately do NOT propagate the callback down to
+// sr.rowReader because inner readers (notably jointRowReader) Close
+// nested sub-readers mid-iteration; propagating would let qtx.Cancel
+// fire while sortRowReader.finalize is still merging temp files. See
+// joint_row_reader.go:198 and the JOIN+GROUP+ORDER regression test.
 func (sr *sortRowReader) onClose(callback func()) {
-	sr.rowReader.onClose(callback)
+	sr.onCloseCallback = callback
 }
 
 func (sr *sortRowReader) Tx() *SQLTx {
@@ -236,11 +292,95 @@ func (sr *sortRowReader) Read(ctx context.Context) (*Row, error) {
 }
 
 func (sr *sortRowReader) readAndSort(ctx context.Context) (resultReader, error) {
+	if sr.topNLimit > 0 {
+		return sr.readAndSortTopN(ctx)
+	}
 	err := sr.readAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return sr.sorter.finalize()
+}
+
+// topNHeap is a max-heap of *Row values used by the top-N sort optimisation.
+// It retains only the N rows with the smallest sort key (the rows that appear
+// first in the final ORDER BY output). A max-heap lets us cheaply compare and
+// evict the current worst candidate without touching the other rows.
+type topNHeap struct {
+	rows []*Row
+	cmp  func(r1, r2 *Row) (int, error)
+	err  error // first comparison error, if any
+}
+
+func (h *topNHeap) Len() int { return len(h.rows) }
+
+// Less makes this a max-heap: the root holds the row that sorts LAST (worst).
+func (h *topNHeap) Less(i, j int) bool {
+	res, err := h.cmp(h.rows[i], h.rows[j])
+	if err != nil && h.err == nil {
+		h.err = err
+	}
+	return res > 0
+}
+
+func (h *topNHeap) Swap(i, j int) { h.rows[i], h.rows[j] = h.rows[j], h.rows[i] }
+
+func (h *topNHeap) Push(x interface{}) { h.rows = append(h.rows, x.(*Row)) }
+
+func (h *topNHeap) Pop() interface{} {
+	old := h.rows
+	n := len(old)
+	x := old[n-1]
+	old[n-1] = nil
+	h.rows = old[:n-1]
+	return x
+}
+
+// readAndSortTopN reads all inner rows into a bounded max-heap of size
+// topNLimit, then extracts them in ascending sort order. This avoids the
+// disk-spill path for queries like ORDER BY col LIMIT 10.
+func (sr *sortRowReader) readAndSortTopN(ctx context.Context) (resultReader, error) {
+	h := &topNHeap{
+		cmp:  sr.sorter.cmp,
+		rows: make([]*Row, 0, sr.topNLimit+1),
+	}
+	heap.Init(h)
+
+	for {
+		row, err := sr.rowReader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		if h.Len() < sr.topNLimit {
+			heap.Push(h, row)
+		} else {
+			// Evict the current worst row if this one is better.
+			res, cmpErr := sr.sorter.cmp(row, h.rows[0])
+			if cmpErr != nil {
+				return nil, cmpErr
+			}
+			if res < 0 { // row sorts before the heap root (current worst)
+				heap.Pop(h)
+				heap.Push(h, row)
+			}
+		}
+		if h.err != nil {
+			return nil, h.err
+		}
+	}
+
+	// Pop from max-heap: elements come out largest-first.  Reverse to get
+	// ascending (correct final) order.
+	n := h.Len()
+	rows := make([]*Row, n)
+	for i := n - 1; i >= 0; i-- {
+		rows[i] = heap.Pop(h).(*Row)
+	}
+	return &bufferResultReader{sortBuf: rows}, nil
 }
 
 func (sr *sortRowReader) readAll(ctx context.Context) error {
@@ -262,5 +402,19 @@ func (sr *sortRowReader) readAll(ctx context.Context) error {
 }
 
 func (sr *sortRowReader) Close() error {
-	return sr.rowReader.Close()
+	if cb := sr.onCloseCallback; cb != nil {
+		// Fire after inner Close so the tx that owns any underlying
+		// resources stays alive until everyone downstream is done.
+		defer cb()
+		sr.onCloseCallback = nil
+	}
+	var resultErr error
+	if sr.resultReader != nil {
+		resultErr = sr.resultReader.Close()
+		sr.resultReader = nil
+	}
+	if err := sr.rowReader.Close(); err != nil {
+		return err
+	}
+	return resultErr
 }

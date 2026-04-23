@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -521,6 +521,7 @@ func BenchmarkAppendFlush(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	chunck := make([]byte, 512)
 
@@ -547,6 +548,7 @@ func BenchmarkAppendFlushless(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	chunck := make([]byte, 512)
 

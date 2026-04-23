@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -32,10 +32,12 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/codenotary/immudb/pkg/audit"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/codenotary/immudb/pkg/truncator"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/replication"
@@ -137,12 +139,29 @@ func (s *ImmuServer) Initialize() error {
 	// NOTE: MaxActiveDatabases might have changed since the server instance was created
 	s.dbList.Resize(s.Options.MaxActiveDatabases)
 
+	// Apply the engine-side variable-key length override (if any) before
+	// any database is opened, because every per-db sql engine reads the
+	// embedded/sql package-level MaxKeyLen at construction. Validation
+	// of the value (range / store-cap fit) happens inside
+	// embedded/sql.Options.Validate when the first engine is created.
+	if s.Options.MaxKeyLen > 0 {
+		s.Logger.Infof("applying SQL engine MaxKeyLen override: %d (default %d)",
+			s.Options.MaxKeyLen, sql.MaxKeyLen)
+		sql.MaxKeyLen = s.Options.MaxKeyLen
+	}
+
 	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword, s.Options.ForceAdminPassword); err != nil {
 		return logErr(s.Logger, "unable to load system database: %v", err)
 	}
 
 	if err = s.loadDefaultDatabase(dataDir, s.remoteStorage); err != nil {
 		return logErr(s.Logger, "unable to load default database: %v", err)
+	}
+
+	if s.Options.AuditLog {
+		s.auditLogger = audit.NewLogger(s.sysDB, s.Options.AuditLogEvents, s.Logger)
+		s.auditLogger.Start()
+		s.Logger.Infof("structured audit logging enabled (events=%s)", s.Options.AuditLogEvents)
 	}
 
 	defaultDB, _ := s.dbList.GetByIndex(defaultDbIndex)
@@ -228,16 +247,19 @@ func (s *ImmuServer) Initialize() error {
 
 	uis := []grpc.UnaryServerInterceptor{
 		ErrorMapper, // converts errors in gRPC ones. Need to be the first
+		s.AuditLogInterceptor,
 		s.AccessLogInterceptor,
 		s.KeepAliveSessionInterceptor,
 		uuidContext.UUIDContextSetter,
 		grpc_prometheus.UnaryServerInterceptor,
+		QueryLatencyInterceptor(), // Q3: per-op p99 latency
 		auth.ServerUnaryInterceptor,
 		s.SessionAuthInterceptor,
 		s.InjectRequestMetadataUnaryInterceptor,
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
+		s.AuditLogStreamInterceptor,
 		s.AccessLogStreamInterceptor,
 		s.KeepALiveSessionStreamInterceptor,
 		uuidContext.UUIDStreamContextSetter,
@@ -272,6 +294,7 @@ func (s *ImmuServer) Initialize() error {
 			pgsqlsrv.Logger(s.Logger),
 			pgsqlsrv.DatabaseList(s.dbList),
 			pgsqlsrv.LogRequestMetadata(s.Options.LogRequestMetadata),
+			pgsqlsrv.SessManager(s.SessManager),
 		)
 
 		if err = s.PgsqlSrv.Initialize(); err != nil {
@@ -329,7 +352,11 @@ func (s *ImmuServer) Start() (err error) {
 			s.Options.PProf)
 
 		defer func() {
-			if err := s.metricsServer.Close(); err != nil {
+			// Use Shutdown (not Close) so the ticker registered via
+			// RegisterOnShutdown in StartMetrics actually stops.
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := s.metricsServer.Shutdown(ctx); err != nil {
 				s.Logger.Errorf("failed to shutdown metric server: %s", err)
 			}
 		}()
@@ -364,6 +391,12 @@ func (s *ImmuServer) Start() (err error) {
 			log.Fatalf("failed to setup web API/console server: %v", err)
 		}
 		defer func() {
+			if s.webGrpcConn != nil {
+				if err := s.webGrpcConn.Close(); err != nil {
+					s.Logger.Errorf("failed to close web API gRPC connection: %s", err)
+				}
+				s.webGrpcConn = nil
+			}
 			if err := s.webServer.Close(); err != nil {
 				s.Logger.Errorf("failed to shutdown web API/console server: %s", err)
 			}
@@ -397,7 +430,7 @@ func (s *ImmuServer) setupPidFile() error {
 }
 
 func (s *ImmuServer) setUpWebServer(ctx context.Context) error {
-	server, err := startWebServer(
+	server, conn, err := startWebServer(
 		ctx,
 		s.Options.Bind(),
 		s.Options.WebBind(),
@@ -409,6 +442,7 @@ func (s *ImmuServer) setUpWebServer(ctx context.Context) error {
 		return err
 	}
 	s.webServer = server
+	s.webGrpcConn = conn
 	return nil
 }
 
@@ -762,6 +796,10 @@ func (s *ImmuServer) Stop() error {
 	}
 
 	s.SessManager.StopSessionsGuard()
+
+	if s.auditLogger != nil {
+		s.auditLogger.Stop()
+	}
 
 	s.stopReplication()
 

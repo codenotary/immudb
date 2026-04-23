@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestImmuClient_OpenSession_ErrParsingKey(t *testing.T) {
@@ -68,19 +70,35 @@ func TestImmuClient_OpenSession_OpenAndCloseSessionAfterError_AvoidPanic(t *test
 }
 
 func TestImmuClient_OpenSession_StateServiceError(t *testing.T) {
-	c := NewClient().WithOptions(DefaultOptions().WithDir("false"))
-	c.ServiceClient = &immuServiceClientMock{
-		OpenSessionF: func(ctx context.Context, in *schema.OpenSessionRequest, opts ...grpc.CallOption) (*schema.OpenSessionResponse, error) {
-			return &schema.OpenSessionResponse{
-				SessionID: "test",
-			}, nil
-		},
-		KeepAliveF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
-			return new(empty.Empty), nil
-		},
-	}
+	// A real gRPC server is required here because OpenSession creates its own
+	// service client from the dial connection; setting c.ServiceClient has no
+	// effect on that internal call.  The server returns a session with an empty
+	// ServerUUID, which causes NewStateServiceWithUUID to fail with ErrNoServerUuid.
+	lis := bufconn.Listen(1 << 20)
+	srv := grpc.NewServer()
+	schema.RegisterImmuServiceServer(srv, emptyUUIDImmuServer{})
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+
+	c := NewClient().WithOptions(DefaultOptions().
+		WithDir("false").
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+				return lis.DialContext(ctx)
+			}),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		}))
+
 	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.Error(t, err)
+}
+
+// emptyUUIDImmuServer accepts OpenSession and returns a session ID with no
+// ServerUUID, causing NewStateServiceWithUUID to return ErrNoServerUuid.
+type emptyUUIDImmuServer struct{ schema.UnimplementedImmuServiceServer }
+
+func (emptyUUIDImmuServer) OpenSession(_ context.Context, _ *schema.OpenSessionRequest) (*schema.OpenSessionResponse, error) {
+	return &schema.OpenSessionResponse{SessionID: "test-session"}, nil
 }
 
 type immuServiceClientMock struct {

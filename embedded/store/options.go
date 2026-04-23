@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -45,6 +45,15 @@ const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultEmbeddedValues = false
 const DefaultPreallocFiles = false
 const DefaultTxLogCacheSize = 1000
+
+// DefaultVLogCacheSize caps how many value-log entries are kept in memory.
+// Left at 0 (disabled) because the tradeoff is workload-specific: see the
+// BenchmarkRandomGet*/BenchmarkHotSetGet* pair in immustore_test.go. Enabling
+// a 1000-slot cache was measured at -30% on uniform-random reads over a 100k
+// keyspace (cache overhead + tiny hit rate) but +25% on a 500-key hot set
+// where the cache is comfortably larger than the working set. Operators with
+// known locality should raise this via options; a flat non-zero default would
+// regress uniform workloads.
 const DefaultVLogCacheSize = 0
 const DefaultMaxWaitees = 1000
 const DefaultVLogMaxOpenedFiles = 10
@@ -206,6 +215,23 @@ type IndexOptions struct {
 
 	// Maximum time waiting for more transactions to be committed and included into the same bulk
 	BulkPreparationTimeout time.Duration
+
+	// AdaptiveBulkSize (D3 follow-up) makes the indexer scale the actual
+	// per-cycle bulk size to observed concurrency. When true, after the
+	// first transaction is included in a bulk, subsequent additions only
+	// happen if the next transaction is ALREADY committed — never wait
+	// up to BulkPreparationTimeout for it. Effects:
+	//
+	//  - Single-tx workloads see no extra latency regardless of MaxBulkSize.
+	//  - Concurrent-tx workloads opportunistically batch up to MaxBulkSize
+	//    when more commits are already in flight, so the per-tx indexing
+	//    overhead is amortised.
+	//
+	// Operators can therefore raise MaxBulkSize for batched workloads
+	// without paying the previously-measured -49% single-tx regression
+	// (see immudb-improvements.md "D3 flat bulk-size attempt"). Default
+	// false preserves the legacy fixed-window batching behaviour.
+	AdaptiveBulkSize bool
 }
 
 type AHTOptions struct {
@@ -669,6 +695,13 @@ func (opts *IndexOptions) WithMaxBulkSize(maxBulkSize int) *IndexOptions {
 
 func (opts *IndexOptions) WithBulkPreparationTimeout(bulkPreparationTimeout time.Duration) *IndexOptions {
 	opts.BulkPreparationTimeout = bulkPreparationTimeout
+	return opts
+}
+
+// WithAdaptiveBulkSize toggles concurrency-aware bulk sizing. See the
+// AdaptiveBulkSize field doc on IndexOptions for the trade-off.
+func (opts *IndexOptions) WithAdaptiveBulkSize(enabled bool) *IndexOptions {
+	opts.AdaptiveBulkSize = enabled
 	return opts
 }
 

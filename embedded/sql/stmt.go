@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ const (
 	catalogIndexPrefix     = "CTL.INDEX."     // (key=CTL.INDEX.{1}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
 	catalogCheckPrefix     = "CTL.CHECK."     // (key=CTL.CHECK.{1}{tableID}{checkID}, value={nameLen}{name}{expText})
 	catalogPrivilegePrefix = "CTL.PRIVILEGE." // (key=CTL.COLUMN.{1}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogViewPrefix      = "CTL.VIEW."      // (key=CTL.VIEW.{1}{viewID}, value={viewName\0sqlText})
+	catalogSequencePrefix  = "CTL.SEQUENCE."  // (key=CTL.SEQUENCE.{1}{seqName}, value={currValue}{increment})
 
 	RowPrefix    = "R." // (key=R.{1}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
 	MappedPrefix = "M." // (key=M.{tableID}{indexID}({null}({val}{padding}{valLen})?)*({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
@@ -53,6 +55,7 @@ const (
 const (
 	nullableFlag      byte = 1 << iota
 	autoIncrementFlag byte = 1 << iota
+	hasDefaultFlag    byte = 1 << iota
 )
 
 const (
@@ -120,11 +123,12 @@ func PermissionFromCode(code uint32) Permission {
 type AggregateFn = string
 
 const (
-	COUNT AggregateFn = "COUNT"
-	SUM   AggregateFn = "SUM"
-	MAX   AggregateFn = "MAX"
-	MIN   AggregateFn = "MIN"
-	AVG   AggregateFn = "AVG"
+	COUNT      AggregateFn = "COUNT"
+	SUM        AggregateFn = "SUM"
+	MAX        AggregateFn = "MAX"
+	MIN        AggregateFn = "MIN"
+	AVG        AggregateFn = "AVG"
+	STRING_AGG AggregateFn = "STRING_AGG"
 )
 
 type CmpOperator = int
@@ -202,6 +206,8 @@ const (
 	InnerJoin JoinType = iota
 	LeftJoin
 	RightJoin
+	CrossJoin
+	FullOuterJoin
 )
 
 type SQLStmt interface {
@@ -291,6 +297,58 @@ func (stmt *RollbackStmt) execAt(ctx context.Context, tx *SQLTx, params map[stri
 	}
 
 	return nil, tx.Cancel()
+}
+
+type SavepointStmt struct {
+	name string
+}
+
+func (stmt *SavepointStmt) readOnly() bool                     { return true }
+func (stmt *SavepointStmt) requiredPrivileges() []SQLPrivilege { return nil }
+func (stmt *SavepointStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *SavepointStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.IsExplicitCloseRequired() {
+		return nil, ErrNoOngoingTx
+	}
+	tx.Savepoint(stmt.name)
+	return tx, nil
+}
+
+type ReleaseSavepointStmt struct {
+	name string
+}
+
+func (stmt *ReleaseSavepointStmt) readOnly() bool                     { return true }
+func (stmt *ReleaseSavepointStmt) requiredPrivileges() []SQLPrivilege { return nil }
+func (stmt *ReleaseSavepointStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *ReleaseSavepointStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.IsExplicitCloseRequired() {
+		return nil, ErrNoOngoingTx
+	}
+	return tx, tx.ReleaseSavepoint(stmt.name)
+}
+
+type RollbackToSavepointStmt struct {
+	name string
+}
+
+func (stmt *RollbackToSavepointStmt) readOnly() bool                     { return true }
+func (stmt *RollbackToSavepointStmt) requiredPrivileges() []SQLPrivilege { return nil }
+func (stmt *RollbackToSavepointStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *RollbackToSavepointStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.IsExplicitCloseRequired() {
+		return nil, ErrNoOngoingTx
+	}
+	return tx, tx.RollbackToSavepoint(stmt.name)
 }
 
 type CreateDatabaseStmt struct {
@@ -616,8 +674,38 @@ func (stmt *CreateTableStmt) primaryKeyCols() []string {
 }
 
 func persistColumn(tx *SQLTx, col *Column) error {
-	//{auto_incremental | nullable}{maxLen}{colNAME})
-	v := make([]byte, 1+4+len(col.colName))
+	var defaultSQL string
+	hasDefault := col.defaultValue != nil
+	if hasDefault {
+		defaultSQL = col.defaultValue.String()
+	}
+
+	colNameBytes := []byte(col.Name())
+
+	// Column names and default expressions are hard-capped so that the
+	// allocation size below cannot overflow on any supported platform and
+	// CodeQL can see the bound at the call site.
+	const maxColNameLen = math.MaxUint16
+	const maxDefaultSQLLen = 1 << 20 // 1 MiB is already absurdly large for a column default
+	if len(colNameBytes) > maxColNameLen {
+		return fmt.Errorf("column name too long: %d bytes (max %d)", len(colNameBytes), maxColNameLen)
+	}
+	if len(defaultSQL) > maxDefaultSQLLen {
+		return fmt.Errorf("column default expression too long: %d bytes (max %d)", len(defaultSQL), maxDefaultSQLLen)
+	}
+
+	var v []byte
+	if hasDefault {
+		// New format: {flags(1)}{maxLen(4)}{colNameLen(2)}{colName}{defaultSQL}
+		v = make([]byte, 1+4+2+len(colNameBytes)+len(defaultSQL))
+		binary.BigEndian.PutUint16(v[5:], uint16(len(colNameBytes)))
+		copy(v[7:], colNameBytes)
+		copy(v[7+len(colNameBytes):], []byte(defaultSQL))
+	} else {
+		// Old format: {flags(1)}{maxLen(4)}{colName}
+		v = make([]byte, 1+4+len(colNameBytes))
+		copy(v[5:], colNameBytes)
+	}
 
 	if col.autoIncrement {
 		v[0] = v[0] | autoIncrementFlag
@@ -627,9 +715,11 @@ func persistColumn(tx *SQLTx, col *Column) error {
 		v[0] = v[0] | nullableFlag
 	}
 
-	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
+	if hasDefault {
+		v[0] = v[0] | hasDefaultFlag
+	}
 
-	copy(v[5:], []byte(col.Name()))
+	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
 
 	mappedKey := MapKey(
 		tx.sqlPrefix(),
@@ -669,6 +759,51 @@ func persistCheck(tx *SQLTx, table *Table, check *CheckConstraint) error {
 	return tx.set(mappedKey, nil, val)
 }
 
+func persistView(tx *SQLTx, viewName string, sqlText string) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogViewPrefix,
+		EncodeID(DatabaseID),
+		[]byte(viewName),
+	)
+	return tx.set(mappedKey, nil, []byte(sqlText))
+}
+
+func deleteView(ctx context.Context, tx *SQLTx, viewName string) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogViewPrefix,
+		EncodeID(DatabaseID),
+		[]byte(viewName),
+	)
+	return tx.delete(ctx, mappedKey)
+}
+
+func persistSequence(tx *SQLTx, seq *Sequence) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogSequencePrefix,
+		EncodeID(DatabaseID),
+		[]byte(seq.name),
+	)
+
+	val := make([]byte, 16)
+	binary.BigEndian.PutUint64(val[0:8], uint64(seq.currValue))
+	binary.BigEndian.PutUint64(val[8:16], uint64(seq.increment))
+
+	return tx.set(mappedKey, nil, val)
+}
+
+func deleteSequence(ctx context.Context, tx *SQLTx, seqName string) error {
+	mappedKey := MapKey(
+		tx.sqlPrefix(),
+		catalogSequencePrefix,
+		EncodeID(DatabaseID),
+		[]byte(seqName),
+	)
+	return tx.delete(ctx, mappedKey)
+}
+
 type ColSpec struct {
 	colName       string
 	colType       SQLValueType
@@ -676,6 +811,7 @@ type ColSpec struct {
 	autoIncrement bool
 	notNull       bool
 	primaryKey    bool
+	defaultValue  ValueExp
 }
 
 func NewColSpec(name string, colType SQLValueType, maxLen int, autoIncrement bool, notNull bool) *ColSpec {
@@ -693,6 +829,7 @@ type CreateIndexStmt struct {
 	ifNotExists bool
 	table       string
 	cols        []string
+	predicate   ValueExp // WHERE clause for partial indexes (nil = full index)
 }
 
 func NewCreateIndexStmt(table string, cols []string, isUnique bool) *CreateIndexStmt {
@@ -772,6 +909,11 @@ func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[s
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	// Set predicate for partial indexes
+	if stmt.predicate != nil {
+		index.predicate = stmt.predicate
 	}
 
 	// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
@@ -1012,6 +1154,60 @@ func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 	return tx.delete(ctx, mappedKey)
 }
 
+type AlterColumnAction int
+
+const (
+	AlterColumnSetNotNull  AlterColumnAction = iota
+	AlterColumnDropNotNull
+	AlterColumnSetType
+)
+
+type AlterColumnStmt struct {
+	table   string
+	colName string
+	action  AlterColumnAction
+	newType SQLValueType
+}
+
+func (stmt *AlterColumnStmt) readOnly() bool                     { return false }
+func (stmt *AlterColumnStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *AlterColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *AlterColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.GetColumnByName(stmt.colName)
+	if err != nil {
+		return nil, err
+	}
+
+	switch stmt.action {
+	case AlterColumnSetNotNull:
+		col.notNull = true
+	case AlterColumnDropNotNull:
+		// Cannot drop NOT NULL on PK columns
+		if table.primaryIndex != nil {
+			for _, pkCol := range table.primaryIndex.cols {
+				if pkCol.id == col.id {
+					return nil, fmt.Errorf("cannot drop NOT NULL constraint on primary key column %s", col.colName)
+				}
+			}
+		}
+		col.notNull = false
+	case AlterColumnSetType:
+		col.colType = stmt.newType
+	}
+
+	tx.mutatedCatalog = true
+	return tx, nil
+}
+
 type DropConstraintStmt struct {
 	table          string
 	constraintName string
@@ -1059,11 +1255,12 @@ func (stmt *DropConstraintStmt) inferParameters(ctx context.Context, tx *SQLTx, 
 }
 
 type UpsertIntoStmt struct {
-	isInsert   bool
-	tableRef   *tableRef
-	cols       []string
-	ds         DataSource
-	onConflict *OnConflictDo
+	isInsert     bool
+	tableRef     *tableRef
+	cols         []string
+	ds           DataSource
+	onConflict   *OnConflictDo
+	returnedRows []*Row // populated during execAt for RETURNING
 }
 
 func (stmt *UpsertIntoStmt) readOnly() bool {
@@ -1105,7 +1302,9 @@ func NewRowSpec(values []ValueExp) *RowSpec {
 	}
 }
 
-type OnConflictDo struct{}
+type OnConflictDo struct {
+	updates []*colUpdate // nil means DO NOTHING, non-nil means DO UPDATE SET ...
+}
 
 func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	ds, ok := stmt.ds.(*valuesDataSource)
@@ -1160,6 +1359,14 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
 }
 
 func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	// Reset RETURNING capture from any prior execution of this same
+	// prepared statement. Without this, prepared INSERTs reused across
+	// pgsql Bind/Execute cycles accumulate rows from earlier runs and
+	// the wire layer hands the FIRST cached row back to the client —
+	// which is how Gitea's per-repo issue counter (a repeated UPSERT
+	// RETURNING max_index) ended up returning `1` for every issue.
+	stmt.returnedRows = nil
+
 	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
 		return nil, err
@@ -1201,7 +1408,18 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		for colID, col := range table.colsByID {
 			colPos, specified := selPosByColID[colID]
 			if !specified {
-				// TODO: Default values
+				// Use default value if defined
+				if col.HasDefault() {
+					defVal, err := col.DefaultValue().reduce(tx, nil, table.name)
+					if err != nil {
+						return nil, fmt.Errorf("error evaluating default for column '%s': %w", col.colName, err)
+					}
+					if !defVal.IsNull() {
+						valuesByColID[colID] = defVal
+					}
+					continue
+				}
+
 				if col.notNull && !col.autoIncrement {
 					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
@@ -1310,8 +1528,71 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			}
 
 			if err == nil && stmt.onConflict != nil {
-				// TODO: conflict resolution may be extended. Currently only supports "ON CONFLICT DO NOTHING"
-				continue
+				if stmt.onConflict.updates == nil {
+					// ON CONFLICT DO NOTHING
+					continue
+				}
+
+				// Load the CONFLICTING row's current values before applying
+				// the DO UPDATE SET expressions. Without this, bare column
+				// references on the RHS (e.g. `SET n = n + 1`) reduce
+				// against the INSERT-attempt's values instead of the
+				// existing row — Postgres semantics require the opposite,
+				// and XORM's per-repo issue-index counter (INSERT ...
+				// VALUES (group_id, 1) ON CONFLICT DO UPDATE SET
+				// max_index = max_index + 1) loses every increment past
+				// the first without this fix.
+				existingRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
+				if err != nil {
+					return nil, err
+				}
+
+				// Overwrite valuesByColID / r with the existing row so
+				// subsequent operations (reduce, encodeRowValue,
+				// checkConstraints, doUpsert) see ON CONFLICT DO UPDATE
+				// as "UPDATE from existing state" rather than "INSERT
+				// with optional override". Unmentioned columns therefore
+				// keep their current values on write, which also matches
+				// Postgres semantics.
+				for i, col := range table.cols {
+					encSel := EncodeSelector("", table.name, col.colName)
+					v := existingRow.ValuesBySelector[encSel]
+					if v == nil {
+						v = &NullValue{t: col.colType}
+					}
+					valuesByColID[col.id] = v
+					r.ValuesByPosition[i] = v
+					r.ValuesBySelector[encSel] = v
+				}
+
+				// ON CONFLICT DO UPDATE SET ...
+				for _, u := range stmt.onConflict.updates {
+					col, colExists := table.colsByName[u.col]
+					if !colExists {
+						return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, u.col)
+					}
+
+					uval, err := u.val.substitute(params)
+					if err != nil {
+						return nil, err
+					}
+
+					rval, err := uval.reduce(tx, r, table.name)
+					if err != nil {
+						return nil, err
+					}
+
+					valuesByColID[col.id] = rval
+
+					// update row representation for check constraints
+					for i, c := range table.cols {
+						if c.id == col.id {
+							r.ValuesByPosition[i] = rval
+							r.ValuesBySelector[EncodeSelector("", table.name, c.colName)] = rval
+							break
+						}
+					}
+				}
 			}
 		}
 
@@ -1319,6 +1600,17 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		if err != nil {
 			return nil, err
 		}
+
+		// Capture row for RETURNING clause
+		capturedRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(r.ValuesByPosition)),
+			ValuesBySelector: make(map[string]TypedValue, len(r.ValuesBySelector)),
+		}
+		copy(capturedRow.ValuesByPosition, r.ValuesByPosition)
+		for k, v := range r.ValuesBySelector {
+			capturedRow.ValuesBySelector[k] = v
+		}
+		stmt.returnedRows = append(stmt.returnedRows, capturedRow)
 	}
 	return tx, nil
 }
@@ -1620,12 +1912,13 @@ func (tx *SQLTx) deprecateIndexEntries(
 }
 
 type UpdateStmt struct {
-	tableRef *tableRef
-	where    ValueExp
-	updates  []*colUpdate
-	indexOn  []string
-	limit    ValueExp
-	offset   ValueExp
+	tableRef     *tableRef
+	where        ValueExp
+	updates      []*colUpdate
+	indexOn      []string
+	limit        ValueExp
+	offset       ValueExp
+	returnedRows []*Row
 }
 
 type colUpdate struct {
@@ -1658,13 +1951,32 @@ func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 		return err
 	}
 
+	// Build a column-descriptor map for the target table so RHS column
+	// references in the SET expressions (`SET col = col + 1`) resolve.
+	// Without this, requiresType evaluates RHS expressions against an
+	// empty cols map and any reference to an existing column fails with
+	// "column does not exist". UPDATE col=col+N is the canonical XORM /
+	// Hibernate "version increment" pattern.
+	cols := make(map[string]ColDescriptor, len(table.cols))
+	for _, c := range table.cols {
+		desc := ColDescriptor{
+			Table:  table.name,
+			Column: c.colName,
+			Type:   c.colType,
+		}
+		cols[EncodeSelector("", table.name, c.colName)] = desc
+		// Also key by bare column name so a parser that emits an
+		// unqualified ColSelector resolves directly.
+		cols[c.colName] = desc
+	}
+
 	for _, update := range stmt.updates {
 		col, err := table.GetColumnByName(update.col)
 		if err != nil {
 			return err
 		}
 
-		err = update.val.requiresType(col.colType, make(map[string]ColDescriptor), params, table.name)
+		err = update.val.requiresType(col.colType, cols, params, table.name)
 		if err != nil {
 			return err
 		}
@@ -1702,6 +2014,8 @@ func (stmt *UpdateStmt) validate(table *Table) error {
 }
 
 func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	stmt.returnedRows = nil // reset RETURNING capture (see UpsertIntoStmt.execAt)
+
 	selectStmt := &SelectStmt{
 		ds:      stmt.tableRef,
 		where:   stmt.where,
@@ -1796,18 +2110,30 @@ func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 		if err != nil {
 			return nil, err
 		}
+
+		// Capture row for RETURNING clause
+		capturedRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(row.ValuesByPosition)),
+			ValuesBySelector: make(map[string]TypedValue, len(row.ValuesBySelector)),
+		}
+		copy(capturedRow.ValuesByPosition, row.ValuesByPosition)
+		for k, v := range row.ValuesBySelector {
+			capturedRow.ValuesBySelector[k] = v
+		}
+		stmt.returnedRows = append(stmt.returnedRows, capturedRow)
 	}
 
 	return tx, nil
 }
 
 type DeleteFromStmt struct {
-	tableRef *tableRef
-	where    ValueExp
-	indexOn  []string
-	orderBy  []*OrdExp
-	limit    ValueExp
-	offset   ValueExp
+	tableRef     *tableRef
+	where        ValueExp
+	indexOn      []string
+	orderBy      []*OrdExp
+	limit        ValueExp
+	offset       ValueExp
+	returnedRows []*Row
 }
 
 func NewDeleteFromStmt(table string, where ValueExp, orderBy []*OrdExp, limit ValueExp) *DeleteFromStmt {
@@ -1837,6 +2163,8 @@ func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, para
 }
 
 func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	stmt.returnedRows = nil // reset RETURNING capture (see UpsertIntoStmt.execAt)
+
 	selectStmt := &SelectStmt{
 		ds:      stmt.tableRef,
 		where:   stmt.where,
@@ -1874,6 +2202,17 @@ func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 		if err != nil {
 			return nil, err
 		}
+
+		// Capture row for RETURNING clause (before deletion)
+		capturedRow := &Row{
+			ValuesByPosition: make([]TypedValue, len(row.ValuesByPosition)),
+			ValuesBySelector: make(map[string]TypedValue, len(row.ValuesBySelector)),
+		}
+		copy(capturedRow.ValuesByPosition, row.ValuesByPosition)
+		for k, v := range row.ValuesBySelector {
+			capturedRow.ValuesBySelector[k] = v
+		}
+		stmt.returnedRows = append(stmt.returnedRows, capturedRow)
 
 		err = tx.deleteIndexEntries(pkEncVals, valuesByColID, table)
 		if err != nil {
@@ -2165,7 +2504,15 @@ func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != IntegerType && t != JSONType {
+	// Integer literals promote to Float64 implicitly — see
+	// mayApplyImplicitConversion in implicit_conversion.go. The static
+	// type check must mirror runtime coercion or `UPDATE t SET f = 10`
+	// against a Float column fails with "INTEGER can not be interpreted
+	// as type FLOAT" even though the engine would happily widen at
+	// encode time. This matters for PG dumps (DECIMAL/NUMERIC columns
+	// filled with bare integer literals) since immudb aliases
+	// DECIMAL/NUMERIC to FLOAT.
+	if t != IntegerType && t != Float64Type && t != JSONType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 	return nil
@@ -2334,7 +2681,12 @@ func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQL
 }
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	if t != VarcharType && t != JSONType {
+	// Accept VARCHAR, JSON, TIMESTAMP, UUID. TIMESTAMP / UUID are allowed
+	// because the engine parses ISO-8601 timestamps and RFC-4122 UUID
+	// strings at conversion time. Rejecting here would make ORM clients
+	// (Rails, Django) unable to bind timestamp/UUID parameters as
+	// strings — which is the default wire format.
+	if t != VarcharType && t != JSONType && t != TimestampType && t != UUIDType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
 	}
 	return nil
@@ -2376,6 +2728,17 @@ func (v *Varchar) Compare(val TypedValue) (int, error) {
 	if val.Type() == JSONType {
 		res, err := val.Compare(v)
 		return -res, err
+	}
+
+	// UUID coercion (symmetric to UUID.Compare): allow `varchar = uuid_col`
+	// by parsing the varchar as a UUID.
+	if val.Type() == UUIDType {
+		parsed, err := uuid.Parse(v.val)
+		if err != nil {
+			return 0, ErrNotComparableValues
+		}
+		rval := val.RawValue().(uuid.UUID)
+		return bytes.Compare(parsed[:], rval[:]), nil
 	}
 
 	if val.Type() != VarcharType {
@@ -2452,13 +2815,27 @@ func (v *UUID) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	if val.Type() != UUIDType {
-		return 0, ErrNotComparableValues
+	if val.Type() == UUIDType {
+		rval := val.RawValue().(uuid.UUID)
+		return bytes.Compare(v.val[:], rval[:]), nil
 	}
 
-	rval := val.RawValue().(uuid.UUID)
+	// VARCHAR coercion: ORMs (Rails ActiveRecord, SQLAlchemy, …) bind
+	// UUID values as text-format strings via Bind. Without coercion the
+	// `WHERE id = $1` predicate fails with "values are not comparable".
+	if val.Type() == VarcharType {
+		s, ok := val.RawValue().(string)
+		if !ok {
+			return 0, ErrNotComparableValues
+		}
+		parsed, err := uuid.Parse(s)
+		if err != nil {
+			return 0, ErrNotComparableValues
+		}
+		return bytes.Compare(v.val[:], parsed[:]), nil
+	}
 
-	return bytes.Compare(v.val[:], rval[:]), nil
+	return 0, ErrNotComparableValues
 }
 
 type Bool struct {
@@ -2709,6 +3086,75 @@ func (v *Float64) Compare(val TypedValue) (int, error) {
 	}
 
 	return -1, nil
+}
+
+// WindowFnExp represents a window function expression: fn(...) OVER (PARTITION BY ... ORDER BY ...)
+type WindowFnExp struct {
+	fnName      string
+	params      []ValueExp
+	partitionBy []ValueExp
+	orderBy     []*OrdExp
+	alias       string // column alias for the result
+}
+
+func (v *WindowFnExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return v.resultType(), nil
+}
+
+func (v *WindowFnExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	return nil
+}
+
+func (v *WindowFnExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *WindowFnExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	// Window function values are computed by windowRowReader, not during reduce.
+	// By the time reduce is called, the value should already be in the row.
+	sel := v.selectorName()
+	if val, ok := row.ValuesBySelector[sel]; ok {
+		return val, nil
+	}
+	return NewNull(v.resultType()), nil
+}
+
+func (v *WindowFnExp) selectors() []Selector {
+	return nil
+}
+
+func (v *WindowFnExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return v
+}
+
+func (v *WindowFnExp) isConstant() bool {
+	return false
+}
+
+func (v *WindowFnExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (v *WindowFnExp) String() string {
+	return v.selectorName()
+}
+
+func (v *WindowFnExp) selectorName() string {
+	if v.alias != "" {
+		return v.alias
+	}
+	return v.fnName + "_over"
+}
+
+func (v *WindowFnExp) resultType() SQLValueType {
+	switch v.fnName {
+	case "ROW_NUMBER", "RANK", "DENSE_RANK", "COUNT", "NTILE":
+		return IntegerType
+	case "SUM", "AVG":
+		return Float64Type
+	default:
+		return AnyType
+	}
 }
 
 type FnCall struct {
@@ -2990,6 +3436,14 @@ type CaseWhenExp struct {
 	exp      ValueExp
 	whenThen []whenThenClause
 	elseExp  ValueExp
+
+	// resType is the widened result type computed by inferType; the
+	// reduce path uses it to coerce arm outputs when an arm's native
+	// type differs from the unified CASE type (e.g. INT arm in an
+	// otherwise-VARCHAR CASE). Empty until inferType has run. Set
+	// exactly once — inferType is guarded by the emptiness check
+	// below so it's safe to re-call (requiresType does).
+	resType SQLValueType
 }
 
 func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -3003,14 +3457,16 @@ func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[strin
 			return t, nil
 		}
 
-		if t != expectedType {
-			if (t == Float64Type && expectedType == IntegerType) ||
-				(t == IntegerType && expectedType == Float64Type) {
-				return Float64Type, nil
-			}
-			return "", fmt.Errorf("%w: CASE types %s and %s cannot be matched", ErrInferredMultipleTypes, expectedType, t)
+		// PG-style widening: when CASE arms disagree on type, pick
+		// the common type if the runtime can convert between them.
+		// coerceTypesForCase is the permissive variant — INT↔FLOAT
+		// (historic), plus VARCHAR paired with any scalar. The
+		// runtime converter at type_conversion.go:getConverter backs
+		// every pair accepted here.
+		if merged, ok := coerceTypesForCase(expectedType, t); ok {
+			return merged, nil
 		}
-		return t, nil
+		return "", fmt.Errorf("%w: CASE types %s and %s cannot be matched", ErrInferredMultipleTypes, expectedType, t)
 	}
 
 	searchType := BooleanType
@@ -3041,8 +3497,13 @@ func (ce *CaseWhenExp) inferType(cols map[string]ColDescriptor, params map[strin
 	}
 
 	if ce.elseExp != nil {
-		return checkType(ce.elseExp, inferredResType)
+		t, err := checkType(ce.elseExp, inferredResType)
+		if err != nil {
+			return "", err
+		}
+		inferredResType = t
 	}
+	ce.resType = inferredResType
 	return inferredResType, nil
 }
 
@@ -3087,6 +3548,7 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 		return &CaseWhenExp{
 			exp:      exp,
 			whenThen: whenThen,
+			resType:  ce.resType,
 		}, nil
 	}
 
@@ -3098,6 +3560,7 @@ func (ce *CaseWhenExp) substitute(params map[string]interface{}) (ValueExp, erro
 		exp:      exp,
 		whenThen: whenThen,
 		elseExp:  elseValue,
+		resType:  ce.resType,
 	}, nil
 }
 
@@ -3119,6 +3582,15 @@ func (ce *CaseWhenExp) selectors() []Selector {
 }
 
 func (ce *CaseWhenExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	// Best-effort lazy inference: if the plan path never called
+	// inferType (e.g. a bare `SELECT CASE …` with no FROM — no
+	// projectedRowReader involved), populate resType now with
+	// empty cols/params. Arms that reference columns will error,
+	// which is fine — those can't appear in a bare SELECT anyway.
+	if ce.resType == "" {
+		_, _ = ce.inferType(nil, nil, implicitTable)
+	}
+
 	var searchValue TypedValue
 	if ce.exp != nil {
 		v, err := ce.exp.reduce(tx, row, implicitTable)
@@ -3145,14 +3617,43 @@ func (ce *CaseWhenExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedV
 			return nil, err
 		}
 		if res == 0 {
-			return wt.then.reduce(tx, row, implicitTable)
+			then, err := wt.then.reduce(tx, row, implicitTable)
+			if err != nil {
+				return nil, err
+			}
+			return ce.coerceToResType(then)
 		}
 	}
 
 	if ce.elseExp == nil {
 		return NewNull(AnyType), nil
 	}
-	return ce.elseExp.reduce(tx, row, implicitTable)
+	elseVal, err := ce.elseExp.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+	return ce.coerceToResType(elseVal)
+}
+
+// coerceToResType widens an arm's output value to the CASE's
+// unified result type when the two differ. inferType (called during
+// query planning) populates ce.resType; reduce (called per row)
+// uses the converter matrix at type_conversion.go to make every
+// arm's output type-consistent with what downstream consumers
+// expect.
+//
+// Identity pass-through when resType is empty (inferType hasn't
+// run — defensive; shouldn't happen in practice) or when the
+// types already match.
+func (ce *CaseWhenExp) coerceToResType(v TypedValue) (TypedValue, error) {
+	if ce.resType == "" || v == nil || v.IsNull() || v.Type() == ce.resType {
+		return v, nil
+	}
+	conv, err := getConverter(v.Type(), ce.resType)
+	if err != nil {
+		return v, nil
+	}
+	return conv(v)
 }
 
 func (ce *CaseWhenExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -3168,12 +3669,14 @@ func (ce *CaseWhenExp) reduceSelectors(row *Row, implicitTable string) ValueExp 
 	if ce.elseExp == nil {
 		return &CaseWhenExp{
 			whenThen: whenThen,
+			resType:  ce.resType,
 		}
 	}
 
 	return &CaseWhenExp{
 		whenThen: whenThen,
 		elseExp:  ce.elseExp.reduceSelectors(row, implicitTable),
+		resType:  ce.resType,
 	}
 }
 
@@ -3273,7 +3776,179 @@ func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params m
 	}
 	defer rowReader.Close()
 
-	return rowReader.InferParameters(ctx, params)
+	if err := rowReader.InferParameters(ctx, params); err != nil {
+		return err
+	}
+
+	// LIMIT / OFFSET expressions are evaluated eagerly in Resolve; when they
+	// are bind parameters, the Resolve-during-inference pass swallows the
+	// missing-parameter error. Walk them here so the parameter type
+	// (INTEGER) gets registered for the client's Bind message.
+	if stmt.limit != nil {
+		if terr := stmt.limit.requiresType(IntegerType, nil, params, ""); terr != nil {
+			return terr
+		}
+	}
+	if stmt.offset != nil {
+		if terr := stmt.offset.requiresType(IntegerType, nil, params, ""); terr != nil {
+			return terr
+		}
+	}
+
+	// Walk the WHERE / HAVING / target / join-condition expression trees
+	// for bind parameters hiding inside scalar subqueries. rowReader
+	// .InferParameters above walks scan ranges and top-level WHERE for
+	// direct $N markers, but stops at ScalarSubQueryExp boundaries. Gitea's
+	// repoStatsCheck emits scalar subqueries whose own WHERE has the $N
+	// markers (e.g. `WHERE type IN ($1, $2)`); without this walk, the
+	// pgsql ParameterDescription reports 0 params and lib/pq rejects the
+	// client's Bind with "got N parameters but the statement requires 0".
+	collectExpParams(stmt.where, params)
+	collectExpParams(stmt.having, params)
+	for _, t := range stmt.targets {
+		collectExpParams(t.Exp, params)
+	}
+	for _, j := range stmt.joins {
+		collectExpParams(j.cond, params)
+	}
+	for _, o := range stmt.orderBy {
+		// ORDER BY expressions can carry bind params — e.g. Gitea's
+		// BlockedByDependencies emits
+		//   ORDER BY CASE WHEN issue.repo_id = ? THEN 0 ELSE issue.repo_id END, ...
+		// where the CASE's $N would otherwise never make it into the
+		// params map, and the pgsql ParameterDescription would under-
+		// count the binds the client is about to send.
+		collectExpParams(o.exp, params)
+	}
+
+	// For every ScalarSubQueryExp / InSubQueryExp / ExistsBoolExp
+	// reachable from the outer expression tree, recursively run
+	// inferParameters on the nested SelectStmt. Without this recursion
+	// the inner WHERE's $N markers were collected by the walker above
+	// but never typed — they stay at AnyType, pgsql sends AnyType on
+	// the wire, and lib/pq binds the value as VARCHAR text. When the
+	// inner WHERE later evaluates `col = $N` at execute time Compare()
+	// fires "values are not comparable". Recursing here pushes the
+	// inner-col types into params so the wire bind uses the correct
+	// format.
+	if err := inferSubqueryParamTypes(ctx, tx, stmt.where, params); err != nil {
+		return err
+	}
+	if err := inferSubqueryParamTypes(ctx, tx, stmt.having, params); err != nil {
+		return err
+	}
+	for _, t := range stmt.targets {
+		if err := inferSubqueryParamTypes(ctx, tx, t.Exp, params); err != nil {
+			return err
+		}
+	}
+	for _, j := range stmt.joins {
+		if err := inferSubqueryParamTypes(ctx, tx, j.cond, params); err != nil {
+			return err
+		}
+	}
+	for _, o := range stmt.orderBy {
+		if err := inferSubqueryParamTypes(ctx, tx, o.exp, params); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// inferSubqueryParamTypes walks an expression tree looking for
+// subquery-holding expression nodes and best-effort runs
+// SelectStmt.inferParameters on them. Type inference on the outer
+// statement's WHERE stops at subquery boundaries (the inner cols are
+// scoped to a different SelectStmt), so this second pass delegates
+// typing to the subquery's own inference. Cheap — most expression
+// trees don't contain subqueries, and this is only on the
+// inference/prepare path, not per-row at read time.
+//
+// Errors from the inner inferParameters are swallowed: correlated
+// subqueries reference outer-scope cols that the inner SelectStmt's
+// own inference can't resolve in isolation (`column does not exist`).
+// That's fine — any $N markers found along the way still make it
+// into the params map with their inferred type, and unresolved
+// markers remain at AnyType which the outer path handles.
+func inferSubqueryParamTypes(ctx context.Context, tx *SQLTx, e ValueExp, params map[string]SQLValueType) error {
+	if e == nil {
+		return nil
+	}
+	switch ex := e.(type) {
+	case *ScalarSubQueryExp:
+		if ex.stmt != nil {
+			_ = ex.stmt.inferParameters(ctx, tx, params)
+		}
+		return nil
+	case *InSubQueryExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.val, params); err != nil {
+			return err
+		}
+		if ex.q != nil {
+			_ = ex.q.inferParameters(ctx, tx, params)
+		}
+		return nil
+	case *ExistsBoolExp:
+		if sub, ok := ex.q.(*SelectStmt); ok && sub != nil {
+			_ = sub.inferParameters(ctx, tx, params)
+		}
+		return nil
+	case *CmpBoolExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.left, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.right, params)
+	case *BinBoolExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.left, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.right, params)
+	case *NotBoolExp:
+		return inferSubqueryParamTypes(ctx, tx, ex.exp, params)
+	case *NumExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.left, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.right, params)
+	case *LikeBoolExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.val, params); err != nil {
+			return err
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.pattern, params)
+	case *Cast:
+		return inferSubqueryParamTypes(ctx, tx, ex.val, params)
+	case *FnCall:
+		for _, p := range ex.params {
+			if err := inferSubqueryParamTypes(ctx, tx, p, params); err != nil {
+				return err
+			}
+		}
+	case *InListExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.val, params); err != nil {
+			return err
+		}
+		for _, v := range ex.values {
+			if err := inferSubqueryParamTypes(ctx, tx, v, params); err != nil {
+				return err
+			}
+		}
+	case *CaseWhenExp:
+		if err := inferSubqueryParamTypes(ctx, tx, ex.exp, params); err != nil {
+			return err
+		}
+		for _, wt := range ex.whenThen {
+			if err := inferSubqueryParamTypes(ctx, tx, wt.when, params); err != nil {
+				return err
+			}
+			if err := inferSubqueryParamTypes(ctx, tx, wt.then, params); err != nil {
+				return err
+			}
+		}
+		return inferSubqueryParamTypes(ctx, tx, ex.elseExp, params)
+	case *ExtractFromTimestampExp:
+		return inferSubqueryParamTypes(ctx, tx, ex.Exp, params)
+	}
+	return nil
 }
 
 func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -3282,16 +3957,56 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 	}
 
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
-		for _, sel := range stmt.targetSelectors() {
-			_, isAgg := sel.(*AggColSelector)
-			if !isAgg && !stmt.groupByContains(sel) {
-				return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+		for _, t := range stmt.targets {
+			if _, isAgg := t.Exp.(*AggColSelector); isAgg {
+				continue
+			}
+			// Permit grouping by a target's alias (PG-style):
+			//   SELECT <expr> AS x, COUNT(*) FROM t GROUP BY x
+			// immudb's groupBy slice holds *ColSelector, so the literal
+			// alias "x" is present in stmt.groupBy; we treat that as
+			// covering the aliased target. Gitea's heatmap emits this
+			// pattern: SELECT created_unix/900*900 AS timestamp … GROUP BY timestamp.
+			if t.As != "" {
+				matched := false
+				for _, gb := range stmt.groupBy {
+					if gb.table == "" && strings.EqualFold(gb.col, t.As) {
+						matched = true
+						break
+					}
+				}
+				if matched {
+					continue
+				}
+			}
+			for _, sel := range t.Exp.selectors() {
+				if _, isAgg := sel.(*AggColSelector); isAgg {
+					continue
+				}
+				if !stmt.groupByContains(sel) {
+					return nil, fmt.Errorf("%s: %w", EncodeSelector(sel.resolve(stmt.Alias())), ErrColumnMustAppearInGroupByOrAggregation)
+				}
 			}
 		}
 	}
 
 	if len(stmt.orderBy) > 0 {
+		// resolveOrderByAliases sets wasAliasResolved=true on entries that
+		// referenced a SELECT alias. Skip those in the aggregation check:
+		// if GROUP BY <alias> was allowed (alias covers the target), then
+		// ORDER BY <same alias> is too — even though after resolution its
+		// selectors may not literally match anything in stmt.groupBy.
+		// Gitea's heatmap is the canonical pattern:
+		//   SELECT expr AS timestamp … GROUP BY timestamp ORDER BY timestamp.
+		// Resolve here is idempotent (entries already marked as resolved
+		// stay marked; no double-rewrite because AsSelector on the
+		// already-resolved exp is not a bare ColSelector).
+		stmt.resolveOrderByAliases()
+
 		for _, col := range stmt.orderBy {
+			if col.wasAliasResolved {
+				continue
+			}
 			for _, sel := range col.exp.selectors() {
 				_, isAgg := sel.(*AggColSelector)
 				if (isAgg && !stmt.selectorAppearsInTargets(sel)) || (!isAgg && len(stmt.groupBy) > 0 && !stmt.groupByContains(sel)) {
@@ -3319,6 +4034,41 @@ func (stmt *SelectStmt) selectorAppearsInTargets(s Selector) bool {
 		}
 	}
 	return false
+}
+
+// resolveOrderByAliases replaces ORDER BY expressions that reference
+// SELECT aliases with the actual target expressions. This enables
+// "SELECT col AS alias ... ORDER BY alias" syntax.
+func (stmt *SelectStmt) resolveOrderByAliases() {
+	for i, ordExp := range stmt.orderBy {
+		// Check if the ORDER BY expression is a simple column selector
+		sel := ordExp.AsSelector()
+		if sel == nil {
+			continue
+		}
+
+		colSel, ok := sel.(*ColSelector)
+		if !ok {
+			continue
+		}
+
+		// Check if this selector name matches a target alias
+		for _, target := range stmt.targets {
+			if target.As != "" && strings.EqualFold(target.As, colSel.col) {
+				// Replace the ORDER BY expression with the target expression,
+				// marking it so the aggregation validator doesn't re-check
+				// the resolved selectors against stmt.groupBy (those were
+				// already covered by GROUP BY <alias>).
+				stmt.orderBy[i] = &OrdExp{
+					exp:              target.Exp,
+					descOrder:        ordExp.descOrder,
+					nullsOrder:       ordExp.nullsOrder,
+					wasAliasResolved: true,
+				}
+				break
+			}
+		}
+	}
 }
 
 func (stmt *SelectStmt) groupByContains(sel Selector) bool {
@@ -3356,6 +4106,11 @@ func (stmt *SelectStmt) extractSelectors() []Selector {
 }
 
 func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	// resolveOrderByAliases is normally called via execAt→validateQuery, but
+	// CTEStmt.Resolve() calls this method directly (bypassing execAt). Calling
+	// here ensures "ORDER BY alias" always works regardless of entry point.
+	stmt.resolveOrderByAliases()
+
 	scanSpecs, err := stmt.genScanSpecs(tx, params)
 	if err != nil {
 		return nil, err
@@ -3371,48 +4126,166 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}()
 
+	// Effective WHERE and joins after predicate pushdown. Defaults to the
+	// AST originals; pushdownInnerOnlyConjuncts may relocate inner-only
+	// WHERE conjuncts into INNER join conds (D7) without mutating the AST.
+	effectiveWhere := stmt.where
+	effectiveJoins := stmt.joins
+
 	if stmt.joins != nil {
-		var jointRowReader *jointRowReader
-		jointRowReader, err = newJointRowReader(rowReader, stmt.joins)
-		if err != nil {
-			return nil, err
+		hasFullOuter := false
+		for _, jspec := range stmt.joins {
+			if jspec.joinType == FullOuterJoin {
+				hasFullOuter = true
+				break
+			}
 		}
-		rowReader = jointRowReader
+
+		// Predicate pushdown is only safe when no FULL OUTER JOIN is present:
+		// FOJ semantics make NULL-extension on either side, so an inner-only
+		// filter pushed past the join would change the result set.
+		if !hasFullOuter {
+			effectiveWhere, effectiveJoins = pushdownInnerOnlyConjuncts(stmt.where, stmt.joins)
+		}
+
+		if hasFullOuter {
+			// Process joins one at a time when FULL OUTER JOIN is present
+			for _, jspec := range effectiveJoins {
+				if jspec.joinType == FullOuterJoin {
+					rightQ := &SelectStmt{ds: jspec.ds, indexOn: jspec.indexOn}
+					rightReader, jErr := rightQ.Resolve(ctx, tx, params, nil)
+					if jErr != nil {
+						return nil, jErr
+					}
+					fojReader, jErr := newFullOuterJoinRowReader(ctx, rowReader, rightReader, jspec.cond)
+					if jErr != nil {
+						rightReader.Close()
+						return nil, jErr
+					}
+					rowReader = fojReader
+				} else {
+					jReader, jErr := newJointRowReader(rowReader, []*JoinSpec{jspec})
+					if jErr != nil {
+						return nil, jErr
+					}
+					rowReader = jReader
+				}
+			}
+		} else {
+			jointRowReader, jErr := newJointRowReader(rowReader, effectiveJoins)
+			if jErr != nil {
+				return nil, jErr
+			}
+			rowReader = jointRowReader
+		}
 	}
 
-	if stmt.where != nil {
-		rowReader = newConditionalRowReader(rowReader, stmt.where)
+	if effectiveWhere != nil {
+		rowReader = newConditionalRowReader(rowReader, effectiveWhere)
+	}
+
+	// Fast-path: SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or
+	// HAVING.  Count index keys directly without decoding any column values.
+	if stmt.isBareCountStar() {
+		if rawRdr, ok := rowReader.(*rawRowReader); ok {
+			rowReader = newCountingRowReader(rawRdr, stmt.targets[0].Exp.(*AggColSelector))
+			goto applyOrderBy
+		}
 	}
 
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
-		if len(scanSpecs.groupBySortExps) > 0 {
-			var sortRowReader *sortRowReader
-			sortRowReader, err = newSortRowReader(rowReader, scanSpecs.groupBySortExps)
+		// Hash aggregate: replace sort(GROUP BY) + stream-group with a single
+		// hash-map pass whenever the GROUP BY columns are not already provided
+		// in order by the index scan (groupBySortExps != nil).
+		//
+		// Three sub-cases after hash agg:
+		//   a) stmt.orderBy == nil: no ORDER BY — output order is undefined,
+		//      which is correct per SQL standard.
+		//   b) orderBySortExps != nil: a separate ORDER BY sort is needed;
+		//      the applyOrderBy block below adds it.
+		//   c) orderBySortExps == nil && stmt.orderBy != nil: rearrangeOrdExps
+		//      merged ORDER BY into the GROUP BY sort, which hash agg bypassed.
+		//      Re-add the sort here using the original ORDER BY expressions.
+		useHashAgg := len(scanSpecs.groupBySortExps) > 0
+
+		if useHashAgg {
+			hashGrpRdr, hErr := newHashGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
+			if hErr != nil {
+				return nil, hErr
+			}
+			rowReader = hashGrpRdr
+
+			// Case (c): ORDER BY was merged into the GROUP BY sort by
+			// rearrangeOrdExps (stmt.orderBy set but orderBySortExps nil).
+			// Hash agg bypassed that sort, so re-add it using the merged
+			// groupBySortExps key, which covers the ORDER BY prefix and
+			// produces more deterministic within-group ordering.
+			if stmt.orderBy != nil && len(scanSpecs.orderBySortExps) == 0 {
+				sortRdr, sErr := newSortRowReader(rowReader, scanSpecs.groupBySortExps)
+				if sErr != nil {
+					return nil, sErr
+				}
+				rowReader = sortRdr
+			}
+		} else {
+			// groupBySortExps == 0: the index already provides GROUP BY order;
+			// stream-aggregate directly without an explicit sort.
+			var groupedRowReader *groupedRowReader
+			groupedRowReader, err = newGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
 			if err != nil {
 				return nil, err
 			}
-			rowReader = sortRowReader
+			rowReader = groupedRowReader
 		}
-
-		var groupedRowReader *groupedRowReader
-		groupedRowReader, err = newGroupedRowReader(rowReader, allAggregations(stmt.targets), stmt.extractGroupByCols(), stmt.groupBy)
-		if err != nil {
-			return nil, err
-		}
-		rowReader = groupedRowReader
 
 		if stmt.having != nil {
 			rowReader = newConditionalRowReader(rowReader, stmt.having)
 		}
 	}
 
+applyOrderBy:
 	if len(scanSpecs.orderBySortExps) > 0 {
-		var sortRowReader *sortRowReader
-		sortRowReader, err = newSortRowReader(rowReader, stmt.orderBy)
+		var sortRdr *sortRowReader
+		sortRdr, err = newSortRowReader(rowReader, stmt.orderBy)
 		if err != nil {
 			return nil, err
 		}
-		rowReader = sortRowReader
+		// Top-N heap optimisation: when ORDER BY is paired with a small
+		// constant LIMIT and no OFFSET, use a bounded heap instead of a
+		// full sort so that only N rows are kept in memory.
+		if stmt.limit != nil && stmt.offset == nil {
+			if lv, lErr := evalExpAsInt(tx, stmt.limit, params); lErr == nil && lv > 0 && lv <= topNSortThreshold {
+				sortRdr.topNLimit = lv
+			}
+		}
+		rowReader = sortRdr
+	}
+
+	// Detect window functions in targets and wrap with windowRowReader
+	var windowFns []*WindowFnExp
+	for i, t := range stmt.targets {
+		if wfn, ok := t.Exp.(*WindowFnExp); ok {
+			if wfn.alias == "" {
+				if t.As != "" {
+					wfn.alias = t.As
+				} else {
+					wfn.alias = fmt.Sprintf("%s_%d", wfn.fnName, i)
+				}
+			}
+			windowFns = append(windowFns, wfn)
+		}
+	}
+
+	if len(windowFns) > 0 {
+		maxRows := 0
+		if tx != nil && tx.engine != nil {
+			maxRows = tx.engine.maxWindowRows
+		}
+		winReader, wErr := newWindowRowReader(ctx, rowReader, windowFns, maxRows)
+		if wErr != nil {
+			return nil, wErr
+		}
+		rowReader = winReader
 	}
 
 	projectedRowReader, err := newProjectedRowReader(ctx, rowReader, stmt.as, stmt.targets)
@@ -3434,25 +4307,37 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		var offset int
 		offset, err = evalExpAsInt(tx, stmt.offset, params)
 		if err != nil {
-			return nil, fmt.Errorf("%w: invalid offset", err)
+			// During InferParameters the bind value for OFFSET is not yet
+			// available; skip so the rest of the statement can be type-
+			// checked. Note: normalizeParams replaces nil with an empty
+			// non-nil map, so len(params)==0 is the inference signal.
+			if len(params) == 0 && errors.Is(err, ErrMissingParameter) {
+				err = nil
+			} else {
+				return nil, fmt.Errorf("%w: invalid offset", err)
+			}
+		} else {
+			rowReader = newOffsetRowReader(rowReader, offset)
 		}
-
-		rowReader = newOffsetRowReader(rowReader, offset)
 	}
 
 	if stmt.limit != nil {
 		var limit int
 		limit, err = evalExpAsInt(tx, stmt.limit, params)
 		if err != nil {
-			return nil, fmt.Errorf("%w: invalid limit", err)
-		}
-
-		if limit < 0 {
-			return nil, fmt.Errorf("%w: invalid limit", ErrIllegalArguments)
-		}
-
-		if limit > 0 {
-			rowReader = newLimitRowReader(rowReader, limit)
+			// Same inference-phase tolerance as for OFFSET above.
+			if len(params) == 0 && errors.Is(err, ErrMissingParameter) {
+				err = nil
+			} else {
+				return nil, fmt.Errorf("%w: invalid limit", err)
+			}
+		} else {
+			if limit < 0 {
+				return nil, fmt.Errorf("%w: invalid limit", ErrIllegalArguments)
+			}
+			if limit > 0 {
+				rowReader = newLimitRowReader(rowReader, limit)
+			}
 		}
 	}
 	return rowReader, nil
@@ -3521,6 +4406,135 @@ func (stmt *SelectStmt) containsAggregations() bool {
 		}
 	}
 	return false
+}
+
+// expContainsSubquery reports whether exp contains any correlated subquery
+// expression (EXISTS, IN-subquery).  Those expressions reference outer-scope
+// columns through their inner SELECT rather than through the Selector graph,
+// so selectors() cannot enumerate them.  When present, projection pushdown
+// must be disabled for safety.
+func expContainsSubquery(exp ValueExp) bool {
+	switch e := exp.(type) {
+	case *ExistsBoolExp:
+		return true
+	case *InSubQueryExp:
+		return true
+	case *BinBoolExp:
+		return expContainsSubquery(e.left) || expContainsSubquery(e.right)
+	case *NotBoolExp:
+		return expContainsSubquery(e.exp)
+	case *CmpBoolExp:
+		return expContainsSubquery(e.left) || expContainsSubquery(e.right)
+	case *CaseWhenExp:
+		if e.exp != nil && expContainsSubquery(e.exp) {
+			return true
+		}
+		for _, wt := range e.whenThen {
+			if expContainsSubquery(wt.when) || expContainsSubquery(wt.then) {
+				return true
+			}
+		}
+		if e.elseExp != nil {
+			return expContainsSubquery(e.elseExp)
+		}
+		return false
+	}
+	return false
+}
+
+// collectNeededColIDs walks all expressions in the statement and returns the
+// set of column IDs from table that must be decoded.  The second return value
+// is true when all columns are required (wildcard SELECT or unresolvable ref),
+// in which case projection pushdown must not be applied.
+//
+// Conservative by design: any doubt → returns (nil, true) → decode all.
+func (stmt *SelectStmt) collectNeededColIDs(table *Table, tableAlias string) (map[uint32]bool, bool) {
+	// SELECT * is represented as an empty targets slice; the expansion to
+	// individual columns happens later in newProjectedRowReader.  Skip pushdown.
+	if len(stmt.targets) == 0 {
+		return nil, true
+	}
+
+	// Window functions do not expose inner column references through selectors().
+	// Disable pushdown for any query that has them.
+	for _, t := range stmt.targets {
+		if _, isWin := t.Exp.(*WindowFnExp); isWin {
+			return nil, true
+		}
+	}
+
+	// Correlated subqueries reference outer columns through the inner SELECT,
+	// which is invisible to selectors().  Disable pushdown when present.
+	for _, exp := range []ValueExp{stmt.where, stmt.having} {
+		if exp != nil && expContainsSubquery(exp) {
+			return nil, true
+		}
+	}
+
+	// Gather all ValueExp nodes whose column references must be decoded.
+	allExps := make([]ValueExp, 0, len(stmt.targets)+4)
+	for _, t := range stmt.targets {
+		allExps = append(allExps, t.Exp)
+	}
+	if stmt.where != nil {
+		allExps = append(allExps, stmt.where)
+	}
+	for _, gb := range stmt.groupBy {
+		allExps = append(allExps, gb)
+	}
+	for _, ob := range stmt.orderBy {
+		allExps = append(allExps, ob.exp)
+	}
+	if stmt.having != nil {
+		allExps = append(allExps, stmt.having)
+	}
+	for _, j := range stmt.joins {
+		if j.cond != nil {
+			allExps = append(allExps, j.cond)
+		}
+	}
+
+	needed := make(map[uint32]bool)
+	for _, exp := range allExps {
+		for _, sel := range exp.selectors() {
+			var colName, colTable string
+			switch s := sel.(type) {
+			case *ColSelector:
+				if s.col == "*" {
+					return nil, true // SELECT * — decode everything
+				}
+				colName, colTable = s.col, s.table
+			case *AggColSelector:
+				if s.col == "*" {
+					continue // COUNT(*) needs no specific column
+				}
+				colName, colTable = s.col, s.table
+			default:
+				return nil, true // unknown selector type, be safe
+			}
+			if colTable != "" && colTable != tableAlias {
+				continue // column belongs to a joined table, not this scan
+			}
+			col, err := table.GetColumnByName(colName)
+			if err != nil {
+				return nil, true // unresolvable, decode all
+			}
+			needed[col.id] = true
+		}
+	}
+	return needed, false
+}
+
+// isBareCountStar reports whether the statement is exactly
+// SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or HAVING.
+// Such queries can be answered by counting index keys without decoding values.
+func (stmt *SelectStmt) isBareCountStar() bool {
+	if len(stmt.targets) != 1 || stmt.where != nil ||
+		len(stmt.groupBy) > 0 || stmt.having != nil || len(stmt.joins) > 0 {
+		return false
+	}
+	agg, ok := stmt.targets[0].Exp.(*AggColSelector)
+	return ok && agg.aggFn == COUNT && agg.col == "*" && !agg.distinct
 }
 
 func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, error) {
@@ -3603,7 +4617,22 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 	if stmt.where != nil {
 		err = stmt.where.selectorRanges(table, tableRef.Alias(), params, rangesByColID)
 		if err != nil {
-			return nil, err
+			// In a JOIN context, the outer-table selectorRanges pass can
+			// legitimately encounter unqualified column references that
+			// resolve to one of the inner joined tables (e.g. Gitea's
+			// `WHERE issue_id = ?` where issue_id lives on
+			// issue_dependency). These can't be turned into index ranges
+			// for the outer table, but they're still valid as runtime
+			// WHERE predicates evaluated on the joint row. Swallow the
+			// column-not-found error only when joins are actually in
+			// scope — single-table queries keep the strict behaviour
+			// that propagates `column does not exist`.
+			if len(stmt.joins) > 0 && errors.Is(err, ErrColumnDoesNotExist) {
+				// reset partial ranges to avoid indexing on a partial WHERE
+				rangesByColID = make(map[uint32]*typedValueRange)
+			} else {
+				return nil, err
+			}
 		}
 	}
 
@@ -3631,6 +4660,16 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		return nil, fmt.Errorf("%w: diff queries are supported over primary index", ErrIllegalArguments)
 	}
 
+	// INLJ fallback: when no sort-based index was found and this is not a
+	// history/diff scan, look for a secondary index whose leading columns are
+	// fully covered by equality ranges. This turns O(N×M) nested-loop join
+	// inner scans into O(N+M) index seeks without touching history/diff paths.
+	if sortingIndex == table.primaryIndex && !tableRef.history && !tableRef.diff {
+		if idx := stmt.selectINLJIndex(table, rangesByColID); idx != nil {
+			sortingIndex = idx
+		}
+	}
+
 	var descOrder bool
 	if len(groupByCols) > 0 && sortingIndex.coversOrdCols(groupByCols, rangesByColID) {
 		groupByCols = nil
@@ -3643,6 +4682,17 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 
 	groupByCols, orderByCols = stmt.rearrangeOrdExps(groupByCols, orderByCols)
 
+	// Projection pushdown: compute the set of column IDs that need to be
+	// decoded for this query.  nil means decode all (history/diff/metadata
+	// scans always decode everything; wildcard SELECT does too).
+	var neededColIDs map[uint32]bool
+	if !tableRef.history && !tableRef.diff && !stmt.hasTxMetadata() {
+		ids, wildcard := stmt.collectNeededColIDs(table, tableRef.Alias())
+		if !wildcard {
+			neededColIDs = ids
+		}
+	}
+
 	return &ScanSpecs{
 		Index:             sortingIndex,
 		rangesByColID:     rangesByColID,
@@ -3652,6 +4702,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 		DescOrder:         descOrder,
 		groupBySortExps:   groupByCols,
 		orderBySortExps:   orderByCols,
+		neededColIDs:      neededColIDs,
 	}, nil
 }
 
@@ -3671,6 +4722,28 @@ func (stmt *SelectStmt) selectSortingIndex(groupByCols, orderByCols []*OrdExp, t
 		}
 	}
 	return nil
+}
+
+// selectINLJIndex picks the most selective secondary index for an index-nested-
+// loop join (INLJ) fallback. It counts how many consecutive leading columns of
+// each non-primary index are covered by point-equality ranges and returns the
+// index with the highest count (ties broken by iteration order).
+//
+// Only called from genScanSpecs when there are no sort columns and the scan is
+// not a history/diff read (those require the primary index).
+func (stmt *SelectStmt) selectINLJIndex(table *Table, rangesByColID map[uint32]*typedValueRange) *Index {
+	var best *Index
+	var bestCovered int
+	for _, idx := range table.indexes {
+		if idx.IsPrimary() {
+			continue
+		}
+		if n := idx.countEqualityCoveredCols(rangesByColID); n > bestCovered {
+			best = idx
+			bestCovered = n
+		}
+	}
+	return best
 }
 
 func (stmt *SelectStmt) getPreferredIndex(table *Table) (*Index, error) {
@@ -3693,6 +4766,7 @@ func (stmt *SelectStmt) getPreferredIndex(table *Table) (*Index, error) {
 type UnionStmt struct {
 	distinct    bool
 	left, right DataSource
+	as          string
 }
 
 func (stmt *UnionStmt) readOnly() bool {
@@ -3746,6 +4820,10 @@ func (stmt *UnionStmt) resolveUnionAll(ctx context.Context, tx *SQLTx, params ma
 		return nil, err
 	}
 
+	if stmt.as != "" {
+		rowReader.alias = stmt.as
+	}
+
 	return rowReader, nil
 }
 
@@ -3772,7 +4850,749 @@ func (stmt *UnionStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string
 }
 
 func (stmt *UnionStmt) Alias() string {
-	return ""
+	return stmt.as
+}
+
+// ExceptStmt implements EXCEPT set operation (rows in left but not in right)
+type ExceptStmt struct {
+	left, right DataSource
+	as          string
+}
+
+func (stmt *ExceptStmt) readOnly() bool                            { return true }
+func (stmt *ExceptStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *ExceptStmt) Alias() string                             { return stmt.as }
+
+func (stmt *ExceptStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
+		return err
+	}
+	return stmt.right.inferParameters(ctx, tx, params)
+}
+
+func (stmt *ExceptStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ExceptStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	leftReader, err := stmt.left.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			leftReader.Close()
+		}
+	}()
+
+	rightReader, err := stmt.right.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			rightReader.Close()
+		}
+	}()
+
+	return newSetOpRowReader(ctx, leftReader, rightReader, setOpExcept)
+}
+
+// IntersectStmt implements INTERSECT set operation (rows in both left and right)
+type IntersectStmt struct {
+	left, right DataSource
+	as          string
+}
+
+func (stmt *IntersectStmt) readOnly() bool                            { return true }
+func (stmt *IntersectStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *IntersectStmt) Alias() string                             { return stmt.as }
+
+func (stmt *IntersectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
+		return err
+	}
+	return stmt.right.inferParameters(ctx, tx, params)
+}
+
+func (stmt *IntersectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *IntersectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	leftReader, err := stmt.left.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			leftReader.Close()
+		}
+	}()
+
+	rightReader, err := stmt.right.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			rightReader.Close()
+		}
+	}()
+
+	return newSetOpRowReader(ctx, leftReader, rightReader, setOpIntersect)
+}
+
+// ExplainStmt returns the query plan as text rows
+type ExplainStmt struct {
+	query DataSource
+}
+
+func (stmt *ExplainStmt) readOnly() bool                     { return true }
+func (stmt *ExplainStmt) requiredPrivileges() []SQLPrivilege  { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *ExplainStmt) Alias() string                      { return "" }
+
+func (stmt *ExplainStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return stmt.query.inferParameters(ctx, tx, params)
+}
+
+func (stmt *ExplainStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ExplainStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+	// Build a description of the query plan
+	lines := stmt.describePlan(stmt.query, 0)
+
+	cols := []ColDescriptor{{Column: "plan", Type: VarcharType}}
+	rows := make([][]ValueExp, len(lines))
+	for i, line := range lines {
+		rows[i] = []ValueExp{NewVarchar(line)}
+	}
+
+	return NewValuesRowReader(tx, nil, cols, true, "explain", rows)
+}
+
+func (stmt *ExplainStmt) describePlan(ds DataSource, indent int) []string {
+	prefix := ""
+	for i := 0; i < indent; i++ {
+		prefix += "  "
+	}
+
+	var lines []string
+
+	switch s := ds.(type) {
+	case *SelectStmt:
+		scanType := "Seq Scan"
+		tableName := ""
+
+		if tr, ok := s.ds.(*tableRef); ok {
+			tableName = tr.table
+			if tr.as != "" {
+				tableName = tr.table + " " + tr.as
+			}
+		}
+
+		if s.indexOn != nil && len(s.indexOn) > 0 {
+			scanType = fmt.Sprintf("Index Scan using (%s)", strings.Join(s.indexOn, ", "))
+		}
+
+		line := fmt.Sprintf("%s-> %s on %s", prefix, scanType, tableName)
+		lines = append(lines, line)
+
+		if s.where != nil {
+			lines = append(lines, fmt.Sprintf("%s  Filter: %s", prefix, s.where.String()))
+		}
+
+		if s.joins != nil {
+			for _, j := range s.joins {
+				joinName := "Inner Join"
+				switch j.joinType {
+				case LeftJoin:
+					joinName = "Left Join"
+				case RightJoin:
+					joinName = "Right Join"
+				case CrossJoin:
+					joinName = "Cross Join"
+				case FullOuterJoin:
+					joinName = "Full Outer Join"
+				}
+				lines = append(lines, fmt.Sprintf("%s  -> %s", prefix, joinName))
+				if j.cond != nil {
+					lines = append(lines, fmt.Sprintf("%s    Cond: %s", prefix, j.cond.String()))
+				}
+				lines = append(lines, stmt.describePlan(j.ds, indent+2)...)
+			}
+		}
+
+		if s.groupBy != nil {
+			cols := make([]string, len(s.groupBy))
+			for i, g := range s.groupBy {
+				cols[i] = g.String()
+			}
+			lines = append(lines, fmt.Sprintf("%s  Group By: %s", prefix, strings.Join(cols, ", ")))
+		}
+
+		if s.orderBy != nil {
+			cols := make([]string, len(s.orderBy))
+			for i, o := range s.orderBy {
+				dir := "ASC"
+				if o.descOrder {
+					dir = "DESC"
+				}
+				cols[i] = fmt.Sprintf("%s %s", o.exp.String(), dir)
+			}
+			lines = append(lines, fmt.Sprintf("%s  Order By: %s", prefix, strings.Join(cols, ", ")))
+		}
+
+		if s.limit != nil {
+			lines = append(lines, fmt.Sprintf("%s  Limit: %s", prefix, s.limit.String()))
+		}
+
+	case *UnionStmt:
+		lines = append(lines, fmt.Sprintf("%s-> Union", prefix))
+		lines = append(lines, stmt.describePlan(s.left, indent+1)...)
+		lines = append(lines, stmt.describePlan(s.right, indent+1)...)
+
+	case *ExceptStmt:
+		lines = append(lines, fmt.Sprintf("%s-> Except", prefix))
+		lines = append(lines, stmt.describePlan(s.left, indent+1)...)
+		lines = append(lines, stmt.describePlan(s.right, indent+1)...)
+
+	case *IntersectStmt:
+		lines = append(lines, fmt.Sprintf("%s-> Intersect", prefix))
+		lines = append(lines, stmt.describePlan(s.left, indent+1)...)
+		lines = append(lines, stmt.describePlan(s.right, indent+1)...)
+
+	case *CTEStmt:
+		lines = append(lines, fmt.Sprintf("%s-> CTE", prefix))
+		for _, cte := range s.ctes {
+			lines = append(lines, fmt.Sprintf("%s  CTE %s:", prefix, cte.name))
+			lines = append(lines, stmt.describePlan(cte.query, indent+2)...)
+		}
+		lines = append(lines, stmt.describePlan(s.query, indent+1)...)
+
+	case *tableRef:
+		lines = append(lines, fmt.Sprintf("%s-> Seq Scan on %s", prefix, s.table))
+
+	default:
+		lines = append(lines, fmt.Sprintf("%s-> Scan", prefix))
+	}
+
+	return lines
+}
+
+// CreateSequenceStmt creates a named sequence for auto-incrementing values
+type CreateSequenceStmt struct {
+	name       string
+	startValue int64
+	increment  int64
+}
+
+func (stmt *CreateSequenceStmt) readOnly() bool                     { return false }
+func (stmt *CreateSequenceStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *CreateSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CreateSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	tx.engine.CreateSequence(stmt.name, stmt.startValue, stmt.increment)
+
+	seq := tx.engine.sequences[stmt.name]
+	if err := persistSequence(tx, seq); err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+// DropSequenceStmt removes a named sequence
+type DropSequenceStmt struct {
+	name     string
+	ifExists bool
+}
+
+func (stmt *DropSequenceStmt) readOnly() bool                     { return false }
+func (stmt *DropSequenceStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeDrop} }
+
+func (stmt *DropSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *DropSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.engine.DropSequence(stmt.name) && !stmt.ifExists {
+		return nil, fmt.Errorf("sequence does not exist (%s)", stmt.name)
+	}
+
+	if err := deleteSequence(ctx, tx, stmt.name); err != nil && !stmt.ifExists {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+// ReturningStmt wraps a DML statement (INSERT/UPDATE/DELETE) with a RETURNING clause,
+// making it behave as a DataSource that returns the affected rows.
+type ReturningStmt struct {
+	dml       SQLStmt
+	returning []TargetEntry
+	tableName string
+}
+
+func (stmt *ReturningStmt) readOnly() bool                     { return false }
+func (stmt *ReturningStmt) requiredPrivileges() []SQLPrivilege  { return stmt.dml.requiredPrivileges() }
+func (stmt *ReturningStmt) Alias() string                      { return "" }
+
+func (stmt *ReturningStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return stmt.dml.inferParameters(ctx, tx, params)
+}
+
+func (stmt *ReturningStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	// DML execution happens in Resolve to avoid double execution
+	// (QueryPreparedStmt calls execAt then Resolve)
+	return tx, nil
+}
+
+func (stmt *ReturningStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+	// Execute the DML. When called during the InferParameters pre-pass
+	// (the pgsql adapter calls SQLQueryPrepared with nil params to
+	// discover result-column shape before binding), execAt may fail
+	// with "missing parameter" on every Param-bound INSERT/UPDATE.
+	// In that case fall back to an empty row reader with the right
+	// column descriptors so the caller can describe the result shape.
+	_, err := stmt.dml.execAt(ctx, tx, params)
+	if err != nil {
+		if len(params) == 0 && errors.Is(err, ErrMissingParameter) {
+			table, tErr := stmt.resolveTable(tx)
+			if tErr != nil {
+				return nil, tErr
+			}
+			cols := stmt.buildReturnCols(table)
+			return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, nil)
+		}
+		return nil, err
+	}
+
+	// Get the captured rows from the DML statement
+	var capturedRows []*Row
+	switch s := stmt.dml.(type) {
+	case *UpsertIntoStmt:
+		capturedRows = s.returnedRows
+	case *UpdateStmt:
+		capturedRows = s.returnedRows
+	case *DeleteFromStmt:
+		capturedRows = s.returnedRows
+	}
+
+	if len(capturedRows) == 0 {
+		// Return empty result with correct columns
+		table, tErr := stmt.resolveTable(tx)
+		if tErr != nil {
+			return nil, tErr
+		}
+		cols := stmt.buildReturnCols(table)
+		return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, nil)
+	}
+
+	// Build column descriptors from captured rows and returning targets
+	table, err := stmt.resolveTable(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	cols := stmt.buildReturnCols(table)
+
+	// Filter captured rows to only include returning columns
+	rows := make([][]ValueExp, len(capturedRows))
+	for i, r := range capturedRows {
+		rowVals := make([]ValueExp, len(cols))
+		for j, col := range cols {
+			sel := EncodeSelector("", stmt.tableName, col.Column)
+			if v, ok := r.ValuesBySelector[sel]; ok {
+				rowVals[j] = v.(ValueExp)
+			} else {
+				rowVals[j] = NewNull(col.Type)
+			}
+		}
+		rows[i] = rowVals
+	}
+
+	return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, rows)
+}
+
+func (stmt *ReturningStmt) resolveTable(tx *SQLTx) (*Table, error) {
+	return tx.catalog.GetTableByName(stmt.tableName)
+}
+
+func (stmt *ReturningStmt) buildReturnCols(table *Table) []ColDescriptor {
+	// Check for RETURNING * (star)
+	if len(stmt.returning) == 1 {
+		if _, isStar := stmt.returning[0].Exp.(*ColSelector); isStar {
+			sel := stmt.returning[0].Exp.(*ColSelector)
+			if sel.col == "*" {
+				cols := make([]ColDescriptor, len(table.Cols()))
+				for i, c := range table.Cols() {
+					cols[i] = ColDescriptor{Column: c.Name(), Type: c.Type()}
+				}
+				return cols
+			}
+		}
+	}
+
+	cols := make([]ColDescriptor, len(stmt.returning))
+	for i, t := range stmt.returning {
+		colName := t.As
+		if colName == "" {
+			if sel, ok := t.Exp.(*ColSelector); ok {
+				colName = sel.col
+			} else {
+				colName = fmt.Sprintf("col%d", i)
+			}
+		}
+
+		colType := AnyType
+		if col, err := table.GetColumnByName(colName); err == nil {
+			colType = col.Type()
+		}
+
+		cols[i] = ColDescriptor{Column: colName, Type: colType}
+	}
+	return cols
+}
+
+// CTEDef holds a single CTE definition (name + query)
+type CTEDef struct {
+	name      string
+	query     DataSource
+	recursive bool
+}
+
+// CTEStmt wraps a query with Common Table Expressions (WITH clause)
+type CTEStmt struct {
+	ctes  []*CTEDef
+	query DataSource
+}
+
+func (stmt *CTEStmt) readOnly() bool                     { return true }
+func (stmt *CTEStmt) requiredPrivileges() []SQLPrivilege  { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *CTEStmt) Alias() string                      { return stmt.query.Alias() }
+
+func (stmt *CTEStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	for _, cte := range stmt.ctes {
+		if err := cte.query.inferParameters(ctx, tx, params); err != nil {
+			return err
+		}
+	}
+	return stmt.query.inferParameters(ctx, tx, params)
+}
+
+func (stmt *CTEStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
+	// Materialize each CTE and register as a temporary table resolver
+	registeredCTEs := make([]string, 0, len(stmt.ctes))
+
+	cleanup := func() {
+		for _, name := range registeredCTEs {
+			delete(tx.engine.tableResolvers, name)
+		}
+	}
+
+	for _, cte := range stmt.ctes {
+		if cte.recursive {
+			cols, rows, err := materializeRecursiveCTE(ctx, tx, cte, params)
+			if err != nil {
+				cleanup()
+				return nil, err
+			}
+			tx.engine.registerTableResolver(cte.name, &cteResolver{
+				name: cte.name,
+				cols: cols,
+				rows: rows,
+			})
+			registeredCTEs = append(registeredCTEs, cte.name)
+			continue
+		}
+
+		cols, rows, err := materializeCTE(ctx, tx, cte, params)
+		if err != nil {
+			cleanup()
+			return nil, err
+		}
+		tx.engine.registerTableResolver(cte.name, &cteResolver{
+			name: cte.name,
+			cols: cols,
+			rows: rows,
+		})
+		registeredCTEs = append(registeredCTEs, cte.name)
+	}
+
+	// Resolve the main query with CTEs available
+	mainReader, err := stmt.query.Resolve(ctx, tx, params, scanSpecs)
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+
+	// Schedule cleanup when the reader is closed
+	mainReader.onClose(cleanup)
+
+	return mainReader, nil
+}
+
+func materializeCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params map[string]interface{}) ([]ColDescriptor, [][]ValueExp, error) {
+	reader, err := cte.query.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
+	}
+	defer reader.Close()
+
+	rawCols, err := reader.Columns(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error resolving CTE '%s': %w", cte.name, err)
+	}
+
+	cols := make([]ColDescriptor, len(rawCols))
+	for i, c := range rawCols {
+		cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
+	}
+
+	var rows [][]ValueExp
+	for {
+		row, err := reader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("error materializing CTE '%s': %w", cte.name, err)
+		}
+		rowValues := make([]ValueExp, len(row.ValuesByPosition))
+		for i, v := range row.ValuesByPosition {
+			rowValues[i] = v.(ValueExp)
+		}
+		rows = append(rows, rowValues)
+	}
+
+	return cols, rows, nil
+}
+
+const maxRecursiveCTEIterations = 1000
+
+func materializeRecursiveCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params map[string]interface{}) ([]ColDescriptor, [][]ValueExp, error) {
+	// A recursive CTE query must be a UNION (base UNION ALL recursive)
+	unionStmt, isUnion := cte.query.(*UnionStmt)
+	if !isUnion {
+		// Non-union recursive CTE — just materialize normally
+		return materializeCTE(ctx, tx, cte, params)
+	}
+
+	// Step 1: Execute the base (non-recursive) term
+	baseReader, err := unionStmt.left.Resolve(ctx, tx, params, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error resolving recursive CTE '%s' base: %w", cte.name, err)
+	}
+
+	rawCols, err := baseReader.Columns(ctx)
+	if err != nil {
+		baseReader.Close()
+		return nil, nil, fmt.Errorf("error resolving recursive CTE '%s': %w", cte.name, err)
+	}
+
+	cols := make([]ColDescriptor, len(rawCols))
+	for i, c := range rawCols {
+		cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
+	}
+
+	var allRows [][]ValueExp
+	var newRows [][]ValueExp
+
+	for {
+		row, err := baseReader.Read(ctx)
+		if err == ErrNoMoreRows {
+			break
+		}
+		if err != nil {
+			baseReader.Close()
+			return nil, nil, fmt.Errorf("error materializing recursive CTE '%s': %w", cte.name, err)
+		}
+		rowValues := make([]ValueExp, len(row.ValuesByPosition))
+		for i, v := range row.ValuesByPosition {
+			rowValues[i] = v.(ValueExp)
+		}
+		allRows = append(allRows, rowValues)
+		newRows = append(newRows, rowValues)
+	}
+	baseReader.Close()
+
+	// Step 2: Iteratively execute the recursive term
+	for iteration := 0; iteration < maxRecursiveCTEIterations; iteration++ {
+		if len(newRows) == 0 {
+			break
+		}
+
+		// Register current results as the CTE resolver (so recursive term can reference it)
+		tx.engine.registerTableResolver(cte.name, &cteResolver{
+			name: cte.name,
+			cols: cols,
+			rows: newRows, // Only new rows from the previous iteration
+		})
+
+		recReader, err := unionStmt.right.Resolve(ctx, tx, params, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error in recursive CTE '%s' iteration %d: %w", cte.name, iteration, err)
+		}
+
+		newRows = nil
+		for {
+			row, err := recReader.Read(ctx)
+			if err == ErrNoMoreRows {
+				break
+			}
+			if err != nil {
+				recReader.Close()
+				return nil, nil, fmt.Errorf("error in recursive CTE '%s' iteration %d: %w", cte.name, iteration, err)
+			}
+			rowValues := make([]ValueExp, len(row.ValuesByPosition))
+			for i, v := range row.ValuesByPosition {
+				rowValues[i] = v.(ValueExp)
+			}
+			allRows = append(allRows, rowValues)
+			newRows = append(newRows, rowValues)
+		}
+		recReader.Close()
+	}
+
+	return cols, allRows, nil
+}
+
+// cteResolver implements TableResolver for materialized CTEs
+type cteResolver struct {
+	name string
+	cols []ColDescriptor
+	rows [][]ValueExp
+}
+
+func (r *cteResolver) Table() string { return r.name }
+
+func (r *cteResolver) Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error) {
+	if alias == "" {
+		alias = r.name
+	}
+	return NewValuesRowReader(tx, nil, r.cols, true, alias, r.rows)
+}
+
+// CreateViewStmt creates a named view backed by a SELECT query
+type CreateViewStmt struct {
+	viewName    string
+	ifNotExists bool
+	query       DataSource
+	querySQL    string // raw SQL for persistence
+}
+
+func (stmt *CreateViewStmt) readOnly() bool                     { return false }
+func (stmt *CreateViewStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *CreateViewStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CreateViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.engine.tableResolveFor(stmt.viewName) != nil {
+		if stmt.ifNotExists {
+			return tx, nil
+		}
+		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, stmt.viewName)
+	}
+
+	// Check that the view name doesn't conflict with a real table
+	if tx.catalog != nil {
+		if _, exists := tx.catalog.tablesByName[stmt.viewName]; exists {
+			return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, stmt.viewName)
+		}
+	}
+
+	tx.engine.registerTableResolver(stmt.viewName, &viewResolver{
+		name:  stmt.viewName,
+		query: stmt.query,
+	})
+
+	// Persist view to catalog storage so it survives restart
+	if stmt.querySQL != "" {
+		if err := persistView(tx, stmt.viewName, stmt.querySQL); err != nil {
+			return nil, fmt.Errorf("failed to persist view %s: %w", stmt.viewName, err)
+		}
+	}
+
+	return tx, nil
+}
+
+// DropViewStmt removes a named view
+type DropViewStmt struct {
+	viewName string
+	ifExists bool
+}
+
+func (stmt *DropViewStmt) readOnly() bool                     { return false }
+func (stmt *DropViewStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+
+func (stmt *DropViewStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *DropViewStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.engine.tableResolveFor(stmt.viewName) == nil {
+		if stmt.ifExists {
+			return tx, nil
+		}
+		return nil, fmt.Errorf("view does not exist (%s)", stmt.viewName)
+	}
+
+	delete(tx.engine.tableResolvers, stmt.viewName)
+
+	// Remove from persistent storage (ignore errors for legacy session-scoped views)
+	_ = deleteView(ctx, tx, stmt.viewName)
+
+	return tx, nil
+}
+
+// viewResolver implements TableResolver for views
+type viewResolver struct {
+	name     string
+	query    DataSource
+	querySQL string // stored for persistence
+}
+
+func (r *viewResolver) Table() string { return r.name }
+
+func (r *viewResolver) Resolve(ctx context.Context, tx *SQLTx, alias string) (RowReader, error) {
+	// Re-parse from SQL if query is nil (loaded from persistence)
+	q := r.query
+	if q == nil && r.querySQL != "" {
+		stmts, err := ParseSQL(strings.NewReader(r.querySQL))
+		if err != nil {
+			return nil, fmt.Errorf("error parsing view '%s': %w", r.name, err)
+		}
+		if len(stmts) != 1 {
+			return nil, fmt.Errorf("view '%s' must contain exactly one statement", r.name)
+		}
+		ds, ok := stmts[0].(DataSource)
+		if !ok {
+			return nil, fmt.Errorf("view '%s' must be a SELECT statement", r.name)
+		}
+		q = ds
+	}
+	if q == nil {
+		return nil, fmt.Errorf("view '%s' has no query", r.name)
+	}
+
+	reader, err := q.Resolve(ctx, tx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving view '%s': %w", r.name, err)
+	}
+	return reader, nil
 }
 
 func NewTableRef(table string, as string) *tableRef {
@@ -3925,6 +5745,17 @@ func (stmt *tableRef) Resolve(ctx context.Context, tx *SQLTx, params map[string]
 
 	table, err := stmt.referencedTable(tx)
 	if err == nil {
+		// System tables (pg_type, future pg_class/pg_attribute/...) are
+		// catalog-present for schema lookups but backed by Go code for
+		// row production. Route them past the storage reader entirely;
+		// a nil Scan (as with pg_type today) yields zero rows.
+		if table.systemScan != nil {
+			rows, err := table.systemScan(ctx, tx)
+			if err != nil {
+				return nil, err
+			}
+			return newSystemTableRowReader(tx, table, stmt.Alias(), rows)
+		}
 		if stmt.diff {
 			return newDiffRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 		}
@@ -4026,11 +5857,27 @@ type JoinSpec struct {
 	ds       DataSource
 	cond     ValueExp
 	indexOn  []string
+	natural  bool // NATURAL JOIN — condition is built at resolve time from matching column names
+	lateral  bool // LATERAL — subquery can reference columns from preceding FROM items
 }
 
+type NullsOrder int
+
+const (
+	NullsDefault NullsOrder = iota
+	NullsFirst
+	NullsLast
+)
+
 type OrdExp struct {
-	exp       ValueExp
-	descOrder bool
+	exp        ValueExp
+	descOrder  bool
+	nullsOrder NullsOrder
+	// wasAliasResolved is set when resolveOrderByAliases rewrote exp
+	// from a SELECT target alias to the target's underlying expression.
+	// Carried so the aggregation validator in execAt can skip these
+	// entries regardless of whether Resolve ran before inferParameters.
+	wasAliasResolved bool
 }
 
 func (oc *OrdExp) AsSelector() Selector {
@@ -4077,11 +5924,18 @@ func (sel *ColSelector) inferType(cols map[string]ColDescriptor, params map[stri
 	_, table, col := sel.resolve(implicitTable)
 	encSel := EncodeSelector("", table, col)
 
-	desc, ok := cols[encSel]
-	if !ok {
-		return AnyType, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+	if desc, ok := cols[encSel]; ok {
+		return desc.Type, nil
 	}
-	return desc.Type, nil
+	// Unqualified column: in a JOIN context implicitTable points at the
+	// outer table, but the col may live on an inner joined table. Scan
+	// the cols map for a unique bare-name match before giving up.
+	if sel.table == "" {
+		if desc, ok := lookupUnqualifiedCol(cols, col); ok {
+			return desc.Type, nil
+		}
+	}
+	return AnyType, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 }
 
 func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -4089,6 +5943,15 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescript
 	encSel := EncodeSelector("", table, col)
 
 	desc, ok := cols[encSel]
+	if !ok {
+		// Same JOIN unqualified-lookup fallback as inferType.
+		if sel.table == "" {
+			if d, found := lookupUnqualifiedCol(cols, col); found {
+				desc = d
+				ok = true
+			}
+		}
+	}
 	if !ok {
 		return fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
@@ -4098,6 +5961,30 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescript
 	}
 
 	return nil
+}
+
+// lookupUnqualifiedCol searches a col-descriptors map for a bare column
+// name matching any table. Returns the descriptor only when there's
+// exactly one match — ambiguous names (col present on two tables)
+// return false so the caller falls through to the ErrColumnDoesNotExist
+// path rather than silently picking one.
+func lookupUnqualifiedCol(cols map[string]ColDescriptor, col string) (ColDescriptor, bool) {
+	suffix := "." + col + ")"
+	var match ColDescriptor
+	matches := 0
+	for k, d := range cols {
+		if strings.HasSuffix(k, suffix) {
+			match = d
+			matches++
+			if matches > 1 {
+				return ColDescriptor{}, false
+			}
+		}
+	}
+	if matches == 1 {
+		return match, true
+	}
+	return ColDescriptor{}, false
 }
 
 func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -4111,11 +5998,37 @@ func (sel *ColSelector) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 
 	aggFn, table, col := sel.resolve(implicitTable)
 
-	v, ok := row.ValuesBySelector[EncodeSelector(aggFn, table, col)]
-	if !ok {
-		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+	if v, ok := row.ValuesBySelector[EncodeSelector(aggFn, table, col)]; ok {
+		return v, nil
 	}
-	return v, nil
+
+	// Unqualified column in a JOIN context: implicitTable is the outer
+	// reader's alias, but the column may live on one of the joined inner
+	// tables. Postgres resolves unqualified column references across all
+	// FROM-scope tables; ORMs like Gitea's XORM emit this for JOIN ON
+	// predicates ("JOIN issue_assignees ON assignee_id = user.id").
+	// Scan row.ValuesBySelector for a matching bare column name on any
+	// table. Falls through to the error only if the col is truly missing
+	// or ambiguous.
+	if sel.table == "" {
+		suffix := "." + col + ")"
+		var match TypedValue
+		matches := 0
+		for k, v := range row.ValuesBySelector {
+			if strings.HasSuffix(k, suffix) {
+				match = v
+				matches++
+				if matches > 1 {
+					break
+				}
+			}
+		}
+		if matches == 1 {
+			return match, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 }
 
 func (sel *ColSelector) selectors() []Selector {
@@ -4145,10 +6058,19 @@ func (sel *ColSelector) String() string {
 	return sel.col
 }
 
+// Selector returns the encoded form "aggFn(table.col)" used as keys in
+// Row.ValuesBySelector. Only meaningful when the table alias is explicit
+// (e.g. in a JOIN condition like "r.customer_id = c.customer_id").
+func (sel *ColSelector) Selector() string {
+	return EncodeSelector("", sel.table, sel.col)
+}
+
 type AggColSelector struct {
-	aggFn AggregateFn
-	table string
-	col   string
+	aggFn     AggregateFn
+	table     string
+	col       string
+	distinct  bool
+	separator string // for STRING_AGG(col, separator)
 }
 
 func NewAggColSelector(aggFn AggregateFn, table, col string) *AggColSelector {
@@ -4476,9 +6398,10 @@ func (bexp *NotBoolExp) String() string {
 }
 
 type LikeBoolExp struct {
-	val     ValueExp
-	notLike bool
-	pattern ValueExp
+	val             ValueExp
+	notLike         bool
+	caseInsensitive bool // ILIKE
+	pattern         ValueExp
 }
 
 func NewLikeBoolExp(val ValueExp, notLike bool, pattern ValueExp) *LikeBoolExp {
@@ -4535,9 +6458,10 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 	}
 
 	return &LikeBoolExp{
-		val:     val,
-		notLike: bexp.notLike,
-		pattern: pattern,
+		val:             val,
+		notLike:         bexp.notLike,
+		caseInsensitive: bexp.caseInsensitive,
+		pattern:         pattern,
 	}, nil
 }
 
@@ -4569,12 +6493,56 @@ func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Type
 		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
 	}
 
-	matched, err := regexp.MatchString(rpattern.RawValue().(string), rvalStr)
+	patternStr := rpattern.RawValue().(string)
+
+	// Convert SQL LIKE wildcards to regex:
+	// % -> .* (match any sequence)
+	// _ -> .  (match single char)
+	// Escape all other regex metacharacters
+	regexPattern := sqlLikeToRegex(patternStr)
+
+	if bexp.caseInsensitive {
+		regexPattern = "(?i)" + regexPattern
+	}
+	matched, err := regexp.MatchString(regexPattern, rvalStr)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
 	return &Bool{val: matched != bexp.notLike}, nil
+}
+
+// sqlLikeToRegex converts a SQL LIKE pattern to a Go regex pattern.
+// SQL LIKE uses % for any sequence and _ for single char.
+// All regex metacharacters in the literal parts are escaped.
+// Backslash escapes in the pattern (\% and \_) are honored.
+func sqlLikeToRegex(pattern string) string {
+	var b strings.Builder
+	b.WriteString("^")
+
+	i := 0
+	for i < len(pattern) {
+		ch := pattern[i]
+		switch {
+		case ch == '\\' && i+1 < len(pattern):
+			// Escaped character — treat next char as literal
+			next := pattern[i+1]
+			b.WriteString(regexp.QuoteMeta(string(next)))
+			i += 2
+		case ch == '%':
+			b.WriteString(".*")
+			i++
+		case ch == '_':
+			b.WriteString(".")
+			i++
+		default:
+			b.WriteString(regexp.QuoteMeta(string(ch)))
+			i++
+		}
+	}
+
+	b.WriteString("$")
+	return b.String()
 }
 
 func (bexp *LikeBoolExp) selectors() []Selector {
@@ -4594,11 +6562,14 @@ func (bexp *LikeBoolExp) selectorRanges(table *Table, asTable string, params map
 }
 
 func (bexp *LikeBoolExp) String() string {
-	fmtStr := "(%s LIKE %s)"
-	if bexp.notLike {
-		fmtStr = "(%s NOT LIKE %s)"
+	op := "LIKE"
+	if bexp.caseInsensitive {
+		op = "ILIKE"
 	}
-	return fmt.Sprintf(fmtStr, bexp.val.String(), bexp.pattern.String())
+	if bexp.notLike {
+		op = "NOT " + op
+	}
+	return fmt.Sprintf("(%s %s %s)", bexp.val.String(), op, bexp.pattern.String())
 }
 
 type CmpBoolExp struct {
@@ -4677,6 +6648,46 @@ func coerceTypes(t1, t2 SQLValueType) (SQLValueType, bool) {
 		return Float64Type, true
 	}
 	return "", false
+}
+
+// coerceTypesForCase is a permissive variant of coerceTypes used at
+// CASE arm unification. PostgreSQL implicitly widens non-string
+// scalar types to TEXT when CASE arms differ; the runtime converter
+// matrix in type_conversion.go already supports every pair we accept
+// here (INT/FLOAT/BOOL/TIMESTAMP/UUID/BLOB ↔ VARCHAR), so the
+// widening is free to implement at inference time.
+//
+// Kept distinct from coerceTypes because arithmetic and comparison
+// operators intentionally stay strict — `1 + 'x'` should still error
+// at plan time, as should `WHERE age = 'old'`. Only CASE-like
+// contexts (CASE arms, later also COALESCE / NULLIF / UNION) call
+// through this widened function.
+func coerceTypesForCase(t1, t2 SQLValueType) (SQLValueType, bool) {
+	if merged, ok := coerceTypes(t1, t2); ok {
+		return merged, true
+	}
+	// Either side VARCHAR wins — every other scalar has a
+	// runtime converter to VARCHAR.
+	if t1 == VarcharType && isCoercibleToVarchar(t2) {
+		return VarcharType, true
+	}
+	if t2 == VarcharType && isCoercibleToVarchar(t1) {
+		return VarcharType, true
+	}
+	return "", false
+}
+
+// isCoercibleToVarchar returns true for every scalar type the
+// runtime's getConverter(src, VarcharType) supports. Kept in lockstep
+// with the src switch in embedded/sql/type_conversion.go — if a new
+// source type gets a Varchar converter there, add it here too.
+func isCoercibleToVarchar(t SQLValueType) bool {
+	switch t {
+	case IntegerType, Float64Type, BooleanType,
+		TimestampType, UUIDType, BLOBType:
+		return true
+	}
+	return false
 }
 
 func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
@@ -5162,11 +7173,14 @@ type ExistsBoolExp struct {
 }
 
 func (bexp *ExistsBoolExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
-	return AnyType, fmt.Errorf("error inferring type in 'EXISTS' clause: %w", ErrNoSupported)
+	return BooleanType, nil
 }
 
 func (bexp *ExistsBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	return fmt.Errorf("error inferring type in 'EXISTS' clause: %w", ErrNoSupported)
+	if t != BooleanType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return nil
 }
 
 func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -5174,7 +7188,39 @@ func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (bexp *ExistsBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
-	return nil, fmt.Errorf("'EXISTS' clause: %w", ErrNoSupported)
+	if tx == nil {
+		return nil, fmt.Errorf("'EXISTS' clause: %w", ErrNoSupported)
+	}
+
+	// For correlated subqueries, reduce the inner query's selectors using the outer row
+	ds := bexp.q
+	if row != nil {
+		if sel, ok := ds.(*SelectStmt); ok && sel.where != nil {
+			ds = &SelectStmt{
+				ds:      sel.ds,
+				targets: sel.targets,
+				where:   sel.where.reduceSelectors(row, implicitTable),
+				joins:   sel.joins,
+				indexOn: sel.indexOn,
+			}
+		}
+	}
+
+	reader, err := ds.Resolve(tx.tx.Context(), tx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'EXISTS' clause: %w", err)
+	}
+	defer reader.Close()
+
+	_, err = reader.Read(tx.tx.Context())
+	if err != nil {
+		if err == ErrNoMoreRows {
+			return &Bool{val: false}, nil
+		}
+		return nil, fmt.Errorf("error in 'EXISTS' clause: %w", err)
+	}
+
+	return &Bool{val: true}, nil
 }
 
 func (bexp *ExistsBoolExp) selectors() []Selector {
@@ -5204,19 +7250,105 @@ type InSubQueryExp struct {
 }
 
 func (bexp *InSubQueryExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
-	return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
+	return BooleanType, nil
 }
 
 func (bexp *InSubQueryExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
-	return fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
+	if t != BooleanType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
+	}
+	return nil
 }
 
 func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
-	return bexp, nil
+	// Propagate $N substitution into the inner subquery's WHERE (and
+	// HAVING / LIMIT / OFFSET). reduce() later Resolves the subquery
+	// with nil params, so any $N markers left un-substituted here
+	// would hit "missing parameter(paramN)" at WHERE evaluation time.
+	// Gitea's FindRecentlyPushedNewBranches is the canonical caller:
+	//   … repo_id IN (SELECT id FROM repository WHERE is_fork=$4 AND …)
+	// where $4 is bound by the outer statement and never reaches the
+	// inner WHERE without this walk.
+	newVal := bexp.val
+	if newVal != nil {
+		sv, err := newVal.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+		newVal = sv
+	}
+	newQ, err := substituteSelectStmtParams(bexp.q, params)
+	if err != nil {
+		return nil, err
+	}
+	return &InSubQueryExp{val: newVal, notIn: bexp.notIn, q: newQ}, nil
 }
 
 func (bexp *InSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
-	return nil, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
+	if tx == nil {
+		return nil, fmt.Errorf("'IN' subquery clause: %w", ErrNoSupported)
+	}
+
+	rval, err := bexp.val.reduce(tx, row, implicitTable)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+	}
+
+	// For correlated subqueries, reduce the inner query's selectors using the outer row
+	q := bexp.q
+	if row != nil && q.where != nil {
+		q = &SelectStmt{
+			ds:      q.ds,
+			targets: q.targets,
+			where:   q.where.reduceSelectors(row, implicitTable),
+			joins:   q.joins,
+			indexOn: q.indexOn,
+		}
+	}
+
+	reader, err := q.Resolve(tx.tx.Context(), tx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
+	}
+	defer reader.Close()
+
+	cols, err := reader.Columns(tx.tx.Context())
+	if err != nil {
+		return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
+	}
+
+	if len(cols) == 0 {
+		return nil, fmt.Errorf("error in 'IN' subquery: subquery must return exactly one column")
+	}
+
+	var found bool
+
+	for {
+		subRow, err := reader.Read(tx.tx.Context())
+		if err != nil {
+			if err == ErrNoMoreRows {
+				break
+			}
+			return nil, fmt.Errorf("error in 'IN' subquery: %w", err)
+		}
+
+		if len(subRow.ValuesByPosition) == 0 {
+			continue
+		}
+
+		subVal := subRow.ValuesByPosition[0]
+		r, err := rval.Compare(subVal)
+		if err != nil {
+			continue
+		}
+
+		if r == 0 {
+			found = true
+			break
+		}
+	}
+
+	return &Bool{val: found != bexp.notIn}, nil
 }
 
 func (bexp *InSubQueryExp) selectors() []Selector {
@@ -5303,8 +7435,6 @@ func (bexp *InListExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedV
 		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
 	}
 
-	var found bool
-
 	for _, v := range bexp.values {
 		rv, err := v.reduce(tx, row, implicitTable)
 		if err != nil {
@@ -5317,12 +7447,15 @@ func (bexp *InListExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedV
 		}
 
 		if r == 0 {
-			// TODO: short-circuit evaluation may be preferred when upfront static type inference is in place
-			found = found || true
+			// Short-circuit: with N=10000 IN values evaluated per row,
+			// stopping at the first match cuts mean comparisons in
+			// half. Crucial when the IN clause is the bottleneck (the
+			// classic `WHERE pk IN (… many …) LIMIT M OFFSET N` shape).
+			return &Bool{val: !bexp.notIn}, nil
 		}
 	}
 
-	return &Bool{val: found != bexp.notIn}, nil
+	return &Bool{val: bexp.notIn}, nil
 }
 
 func (bexp *InListExp) selectors() []Selector {
@@ -5351,7 +7484,78 @@ func (bexp *InListExp) isConstant() bool {
 }
 
 func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
-	// TODO: may be determiined by smallest and bigggest value in the list
+	// `WHERE col IN (v1, …, vN)` against an indexed column doesn't
+	// give us the exact set, but the [min, max] spread DOES narrow
+	// the index scan: instead of walking every row in the table the
+	// engine seeks to min and stops at max. Combined with the per-row
+	// short-circuit IN evaluator above, this turns `WHERE pk IN
+	// (…) LIMIT N OFFSET M` from a full-table scan into an
+	// index-bounded scan whose cost depends on the value spread
+	// rather than the table size — the canonical fix for #2062.
+	//
+	// Bail out unless:
+	//   - The left side is a ColSelector for the asTable.
+	//   - The IN list is non-empty and is "constants only" after
+	//     parameter substitution.
+	//   - This is a positive IN (NOT IN doesn't define a useful
+	//     contiguous range).
+	if bexp.notIn || len(bexp.values) == 0 {
+		return nil
+	}
+	sel, isSel := bexp.val.(*ColSelector)
+	if !isSel {
+		return nil
+	}
+	aggFn, t, col := sel.resolve(table.name)
+	if aggFn != "" || t != asTable {
+		return nil
+	}
+	column, err := table.GetColumnByName(col)
+	if err != nil {
+		// Range hints are best-effort — defer real validation to the
+		// per-row evaluator so existing error semantics (e.g. column
+		// does not exist) surface on Read like before.
+		return nil
+	}
+
+	var minVal, maxVal TypedValue
+	for _, v := range bexp.values {
+		sv, err := v.substitute(params)
+		if err != nil {
+			// Includes ErrMissingParameter and any constant-folding
+			// error like `true + 'foo'`. Skip the hint silently.
+			return nil
+		}
+		rv, err := sv.reduce(nil, nil, table.name)
+		if err != nil {
+			return nil
+		}
+		if minVal == nil {
+			minVal = rv
+			maxVal = rv
+			continue
+		}
+		c, err := rv.Compare(minVal)
+		if err != nil {
+			return nil
+		}
+		if c < 0 {
+			minVal = rv
+		}
+		c, err = rv.Compare(maxVal)
+		if err != nil {
+			return nil
+		}
+		if c > 0 {
+			maxVal = rv
+		}
+	}
+	if minVal == nil {
+		return nil
+	}
+
+	_ = updateRangeFor(column.id, minVal, GE, rangesByColID)
+	_ = updateRangeFor(column.id, maxVal, LE, rangesByColID)
 	return nil
 }
 
@@ -5841,7 +8045,9 @@ func (stmt *FnDataSourceStmt) resolveListGrants(ctx context.Context, tx *SQLTx, 
 
 // DropTableStmt represents a statement to delete a table.
 type DropTableStmt struct {
-	table string
+	table    string
+	ifExists bool // DROP TABLE IF EXISTS: succeed silently if table does not exist
+	cascade  bool // DROP TABLE ... CASCADE: no-op in immudb (no FKs), accepted for compat
 }
 
 func NewDropTableStmt(table string) *DropTableStmt {
@@ -5869,6 +8075,10 @@ the data is not deleted, but the metadata is updated.
 */
 func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.catalog.ExistTable(stmt.table) {
+		if stmt.ifExists {
+			// DROP TABLE IF EXISTS on a non-existent table is a no-op.
+			return tx, nil
+		}
 		return nil, ErrTableDoesNotExist
 	}
 
@@ -5955,6 +8165,119 @@ func (stmt *DropTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[str
 	}
 
 	tx.mutatedCatalog = true
+
+	return tx, nil
+}
+
+// TruncateTableStmt empties a table by dropping its catalog metadata and
+// recreating it with the same schema under a fresh table ID. Old row keys
+// remain on disk but are no longer reachable through the catalog, so the
+// table appears empty. Unlike row-by-row DELETE this is O(schema), so it
+// never hits the per-transaction entry limit.
+type TruncateTableStmt struct {
+	table string
+}
+
+func NewTruncateTableStmt(table string) *TruncateTableStmt {
+	return &TruncateTableStmt{table: table}
+}
+
+func (stmt *TruncateTableStmt) readOnly() bool {
+	return false
+}
+
+func (stmt *TruncateTableStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop, SQLPrivilegeCreate}
+}
+
+func (stmt *TruncateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *TruncateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if !tx.catalog.ExistTable(stmt.table) {
+		return nil, ErrTableDoesNotExist
+	}
+
+	table, err := tx.catalog.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	// Capture schema before the drop mutates the in-memory catalog.
+	origCols := table.ColumnsByID()
+	colsSpec := make([]*ColSpec, 0, len(origCols))
+	for _, c := range origCols {
+		colsSpec = append(colsSpec, &ColSpec{
+			colName:       c.colName,
+			colType:       c.colType,
+			maxLen:        c.maxLen,
+			autoIncrement: c.autoIncrement,
+			notNull:       c.notNull,
+			defaultValue:  c.defaultValue,
+		})
+	}
+
+	var pkColNames PrimaryKeyConstraint
+	if table.primaryIndex != nil {
+		for _, c := range table.primaryIndex.cols {
+			pkColNames = append(pkColNames, c.colName)
+		}
+	}
+
+	// Capture checks; we re-assign IDs via the create path.
+	checks := make([]CheckConstraint, 0, len(table.checkConstraints))
+	for _, cc := range table.checkConstraints {
+		checks = append(checks, CheckConstraint{name: cc.name, exp: cc.exp})
+	}
+
+	// Capture non-primary indexes to recreate after the table exists again.
+	type savedIndex struct {
+		unique    bool
+		colNames  []string
+		predicate ValueExp
+	}
+	var savedIndexes []savedIndex
+	for _, idx := range table.indexes {
+		if idx == table.primaryIndex {
+			continue
+		}
+		colNames := make([]string, 0, len(idx.cols))
+		for _, c := range idx.cols {
+			colNames = append(colNames, c.colName)
+		}
+		savedIndexes = append(savedIndexes, savedIndex{unique: idx.unique, colNames: colNames, predicate: idx.predicate})
+	}
+
+	// Drop the existing table (metadata-only, bounded work).
+	drop := &DropTableStmt{table: stmt.table}
+	if _, err := drop.execAt(ctx, tx, params); err != nil {
+		return nil, err
+	}
+
+	// Recreate the table with the captured schema.
+	create := &CreateTableStmt{
+		table:      stmt.table,
+		colsSpec:   colsSpec,
+		checks:     checks,
+		pkColNames: pkColNames,
+	}
+	if _, err := create.execAt(ctx, tx, params); err != nil {
+		return nil, err
+	}
+
+	// Recreate secondary indexes.
+	for _, si := range savedIndexes {
+		idxStmt := &CreateIndexStmt{
+			unique:    si.unique,
+			table:     stmt.table,
+			cols:      si.colNames,
+			predicate: si.predicate,
+		}
+		if _, err := idxStmt.execAt(ctx, tx, params); err != nil {
+			return nil, err
+		}
+	}
 
 	return tx, nil
 }
@@ -6116,4 +8439,265 @@ func (stmt *AlterPrivilegesStmt) execAt(ctx context.Context, tx *SQLTx, params m
 
 func (stmt *AlterPrivilegesStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
+}
+
+// ScalarSubQueryExp wraps a SELECT statement so it can be used as a
+// scalar value expression — e.g. `UPDATE t SET col = (SELECT count(*)
+// FROM other) WHERE …` or `SELECT … WHERE x = (SELECT max(y) FROM z)`.
+//
+// The subquery is evaluated lazily on first reduce(); the result is the
+// FIRST column of the FIRST row, matching standard SQL semantics. If
+// the subquery produces zero rows the value is NULL. If it produces
+// more than one row, only the first is used (real PG would error;
+// keeping the relaxed behaviour avoids breaking ORM patterns that
+// happen to be unique-by-construction).
+type ScalarSubQueryExp struct {
+	stmt *SelectStmt
+}
+
+func (sq *ScalarSubQueryExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	// Don't recurse into the subquery: SelectStmt.inferParameters needs
+	// a tx to resolve table references, but inferType is called at
+	// parse time before any tx exists. Returning AnyType lets the
+	// outer expression accept the subquery; runtime evaluation in
+	// reduce() handles real type resolution.
+	return AnyType, nil
+}
+
+func (sq *ScalarSubQueryExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	// Walk the subquery's expression tree for `$N` parameter
+	// references and register each in the outer params map as AnyType.
+	// Without this, ParameterDescription advertises 0 params for a
+	// statement like `UPDATE t SET col = (SELECT … WHERE x = $1) WHERE
+	// y = $2` and the client's Bind trips
+	//   "got N parameters but the statement requires 0".
+	collectSubQueryParams(sq.stmt, params)
+	return nil
+}
+
+// collectSubQueryParams registers every `$N` Param reference reachable
+// from a SelectStmt's expression nodes into the supplied params map as
+// AnyType. Used during parse-time parameter inference for scalar
+// subqueries; cannot rely on requiresType on each expression because
+// ColSelector/etc. need a populated cols map (which we don't have yet).
+func collectSubQueryParams(stmt *SelectStmt, params map[string]SQLValueType) {
+	if stmt == nil {
+		return
+	}
+	collectExpParams(stmt.where, params)
+	collectExpParams(stmt.having, params)
+	collectExpParams(stmt.limit, params)
+	collectExpParams(stmt.offset, params)
+	for _, t := range stmt.targets {
+		collectExpParams(t.Exp, params)
+	}
+	for _, j := range stmt.joins {
+		collectExpParams(j.cond, params)
+	}
+	// Recurse into nested subqueries in FROM (selectStmtDataSource).
+	if sub, ok := stmt.ds.(*SelectStmt); ok {
+		collectSubQueryParams(sub, params)
+	}
+}
+
+func collectExpParams(e ValueExp, params map[string]SQLValueType) {
+	if e == nil {
+		return
+	}
+	switch ex := e.(type) {
+	case *Param:
+		if _, exists := params[ex.id]; !exists {
+			params[ex.id] = AnyType
+		}
+	case *CmpBoolExp:
+		collectExpParams(ex.left, params)
+		collectExpParams(ex.right, params)
+	case *BinBoolExp:
+		collectExpParams(ex.left, params)
+		collectExpParams(ex.right, params)
+	case *NotBoolExp:
+		collectExpParams(ex.exp, params)
+	case *NumExp:
+		collectExpParams(ex.left, params)
+		collectExpParams(ex.right, params)
+	case *LikeBoolExp:
+		collectExpParams(ex.val, params)
+		collectExpParams(ex.pattern, params)
+	case *Cast:
+		collectExpParams(ex.val, params)
+	case *FnCall:
+		for _, p := range ex.params {
+			collectExpParams(p, params)
+		}
+	case *ScalarSubQueryExp:
+		collectSubQueryParams(ex.stmt, params)
+	case *InListExp:
+		collectExpParams(ex.val, params)
+		for _, v := range ex.values {
+			collectExpParams(v, params)
+		}
+	case *InSubQueryExp:
+		// `col IN (SELECT … WHERE x = $1)` — XORM's builder lowers
+		// builder.In(col, subquery) to this shape; the $N lives in the
+		// subquery's WHERE, not in the outer IN-list.
+		collectExpParams(ex.val, params)
+		if ex.q != nil {
+			collectSubQueryParams(ex.q, params)
+		}
+	case *ExistsBoolExp:
+		// `WHERE EXISTS (SELECT … WHERE x = $1)` — ORM nullable-reference
+		// checks emit this; the DataSource is *SelectStmt in practice
+		// (the grammar wraps non-SelectStmt sources in one).
+		if sub, ok := ex.q.(*SelectStmt); ok {
+			collectSubQueryParams(sub, params)
+		}
+	case *CaseWhenExp:
+		collectExpParams(ex.exp, params)
+		for _, wt := range ex.whenThen {
+			collectExpParams(wt.when, params)
+			collectExpParams(wt.then, params)
+		}
+		collectExpParams(ex.elseExp, params)
+	case *ExtractFromTimestampExp:
+		collectExpParams(ex.Exp, params)
+	}
+}
+
+func (sq *ScalarSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	// Propagate $N substitution into the inner subquery's WHERE (and
+	// HAVING / LIMIT / OFFSET). reduce() later Resolves the subquery
+	// with nil params, so leaving $N markers un-substituted here trips
+	// "missing parameter(paramN)" at inner WHERE evaluation time.
+	newStmt, err := substituteSelectStmtParams(sq.stmt, params)
+	if err != nil {
+		return nil, err
+	}
+	return &ScalarSubQueryExp{stmt: newStmt}, nil
+}
+
+// substituteSelectStmtParams returns a shallow clone of stmt with $N
+// markers in WHERE / HAVING / LIMIT / OFFSET / targets / join
+// conditions substituted against params. It does NOT recurse into
+// nested subqueries other than via the substitute() methods on
+// ValueExp, which do their own recursion. Called from the subquery-
+// holding ValueExp substitute() paths so inner WHEREs see the
+// outer-scope parameter binds.
+func substituteSelectStmtParams(stmt *SelectStmt, params map[string]interface{}) (*SelectStmt, error) {
+	if stmt == nil {
+		return nil, nil
+	}
+	cp := *stmt
+	var err error
+	if cp.where != nil {
+		cp.where, err = cp.where.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cp.having != nil {
+		cp.having, err = cp.having.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cp.limit != nil {
+		cp.limit, err = cp.limit.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cp.offset != nil {
+		cp.offset, err = cp.offset.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(cp.targets) > 0 {
+		newTargets := make([]TargetEntry, len(cp.targets))
+		copy(newTargets, cp.targets)
+		for i := range newTargets {
+			if newTargets[i].Exp != nil {
+				newTargets[i].Exp, err = newTargets[i].Exp.substitute(params)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		cp.targets = newTargets
+	}
+	if len(cp.joins) > 0 {
+		newJoins := make([]*JoinSpec, len(cp.joins))
+		for i, j := range cp.joins {
+			nj := *j
+			if nj.cond != nil {
+				nj.cond, err = nj.cond.substitute(params)
+				if err != nil {
+					return nil, err
+				}
+			}
+			newJoins[i] = &nj
+		}
+		cp.joins = newJoins
+	}
+	return &cp, nil
+}
+
+func (sq *ScalarSubQueryExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	ctx := context.Background()
+	reader, err := sq.stmt.Resolve(ctx, tx, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	cols, err := reader.colsBySelector(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(cols) == 0 {
+		return &NullValue{t: AnyType}, nil
+	}
+
+	r, err := reader.Read(ctx)
+	if errors.Is(err, ErrNoMoreRows) {
+		// "no rows" → SQL NULL by definition
+		return &NullValue{t: AnyType}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Pick the first column's value. RowReader.Columns() returns them
+	// in select-list order; matching key from r.ValuesBySelector.
+	colDescs, err := reader.Columns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	first := colDescs[0]
+	val, ok := r.ValuesBySelector[first.Selector()]
+	if !ok {
+		return &NullValue{t: AnyType}, nil
+	}
+	return val, nil
+}
+
+func (sq *ScalarSubQueryExp) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return sq
+}
+
+func (sq *ScalarSubQueryExp) isConstant() bool {
+	// Not a constant — depends on table state.
+	return false
+}
+
+func (sq *ScalarSubQueryExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (sq *ScalarSubQueryExp) selectors() []Selector {
+	return nil
+}
+
+func (sq *ScalarSubQueryExp) String() string {
+	return "(<subquery>)"
 }

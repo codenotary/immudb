@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -120,6 +120,7 @@ func TestDocumentID_FromRawBytes(t *testing.T) {
 }
 
 func BenchmarkHex(b *testing.B) {
+	b.ReportAllocs()
 	id := NewDocumentIDFromTx(0)
 	for i := 0; i < b.N; i++ {
 		id.EncodeToHexString()

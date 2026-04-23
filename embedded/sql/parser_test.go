@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -31,8 +31,79 @@ func init() {
 }
 
 func TestEmptyInput(t *testing.T) {
-	_, err := ParseSQLString("")
+	// PostgreSQL treats an empty query or a comment-only query as a valid
+	// (empty) parse — it replies with EmptyQueryResponse, not a syntax
+	// error. Mirror that so pg clients (k3s kine, pgx, libpq) can issue
+	// `-- ping` health checks against the pgwire endpoint.
+	res, err := ParseSQLString("")
+	require.NoError(t, err)
+	require.Nil(t, res)
+}
+
+func TestCommentOnlyInput(t *testing.T) {
+	testCases := []string{
+		"-- ping",
+		"-- ping\n",
+		"/* block */",
+		"   \n  -- trailing\n",
+		"-- first\n-- second\n",
+		"/* a */ -- b\n",
+	}
+
+	for _, input := range testCases {
+		res, err := ParseSQLString(input)
+		require.NoError(t, err, "input %q", input)
+		require.Nil(t, res, "input %q", input)
+	}
+}
+
+func TestDateTypedLiteral(t *testing.T) {
+	// PostgreSQL / SQL-92 typed literal syntax: `DATE '…'`, `TIMESTAMP '…'`,
+	// `TIMESTAMPTZ '…'`. Lexer maps all three keywords to TIMESTAMP_TYPE,
+	// so a single grammar production (val: TIMESTAMP_TYPE VARCHAR_LIT)
+	// covers them. The production lowers to the same AST as
+	// `CAST('…' AS TIMESTAMP)` — the engine's VarcharType→TimestampType
+	// converter does the actual parsing at execution time.
+	testCases := []string{
+		"SELECT DATE '2025-01-01'",
+		"SELECT TIMESTAMP '2025-01-01 12:00:00'",
+		"SELECT TIMESTAMPTZ '2025-01-01 12:00:00+02'",
+		"INSERT INTO t (dob) VALUES (DATE '2025-01-01')",
+		"SELECT * FROM t WHERE dob = DATE '2025-01-01'",
+	}
+
+	for _, input := range testCases {
+		_, err := ParseSQLString(input)
+		require.NoError(t, err, "input %q", input)
+	}
+}
+
+func TestFriendlyParseError(t *testing.T) {
+	// goyacc's verbose-error mode emits raw token names from the grammar
+	// (VARCHAR_LIT, INTEGER_LIT, …). Rewrite them to something end users
+	// recognise — "string literal", "integer", etc.
+	_, err := ParseSQLString("SELECT 1 'foo'")
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "string literal")
+	require.NotContains(t, err.Error(), "VARCHAR_LIT")
+}
+
+func TestLineCommentAroundStatement(t *testing.T) {
+	// Verify that line comments adjacent to a real statement don't
+	// interfere with parsing. We only assert len==1 + no-error so this
+	// doesn't depend on the exact AST shape of SELECT.
+	testCases := []string{
+		"SELECT * FROM t -- trailing comment",
+		"SELECT * FROM t; -- trailing comment\n",
+		"-- leading comment\nSELECT * FROM t",
+		"-- c1\nSELECT * FROM t -- c2\n",
+	}
+
+	for _, input := range testCases {
+		res, err := ParseSQLString(input)
+		require.NoError(t, err, "input %q", input)
+		require.Len(t, res, 1, "input %q", input)
+	}
 }
 
 func TestCreateDatabaseStmt(t *testing.T) {
@@ -436,7 +507,7 @@ func TestAlterTable(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting DROP or ADD or RENAME at position 25"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting DROP or ALTER or ADD or RENAME at position 25"),
 		},
 		{
 			input: "ALTER TABLE table1 RENAME COLUMN title TO newtitle",

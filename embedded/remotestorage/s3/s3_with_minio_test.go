@@ -2,7 +2,7 @@
 // +build minio
 
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -30,18 +30,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// minioTestConfig returns the endpoint/credentials/bucket for the local MinIO
+// used by this test file. It honors env overrides so CI and local docker setups
+// that run MinIO on a non-default port can supply their own values.
+func minioTestConfig() (endpoint, accessKey, secretKey, bucket string) {
+	endpoint = os.Getenv("IMMUDB_S3_TEST_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "http://localhost:9000"
+	}
+	accessKey = os.Getenv("IMMUDB_S3_TEST_ACCESS_KEY")
+	if accessKey == "" {
+		accessKey = "minioadmin"
+	}
+	secretKey = os.Getenv("IMMUDB_S3_TEST_SECRET_KEY")
+	if secretKey == "" {
+		secretKey = "minioadmin"
+	}
+	bucket = os.Getenv("IMMUDB_S3_TEST_BUCKET")
+	if bucket == "" {
+		bucket = "immudb"
+	}
+	return
+}
+
 func TestS3WithServer(t *testing.T) {
 	randomBytes := make([]byte, 8)
 	_, err := rand.Read(randomBytes)
 	require.NoError(t, err)
 
+	endpoint, ak, sk, bucket := minioTestConfig()
 	s, err := Open(
-		"http://localhost:9000",
+		endpoint,
 		false,
 		"",
-		"minioadmin",
-		"minioadmin",
-		"immudb",
+		ak,
+		sk,
+		bucket,
 		"",
 		fmt.Sprintf("prefix_%x", randomBytes),
 		"",

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 
 func (s *session) writeVersionInfo() error {
 	cols := []sql.ColDescriptor{{Column: "version", Type: sql.VarcharType}}
-	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
+	if _, err := s.writeMessage(buildMultiColRowDescription(cols)); err != nil {
 		return err
 	}
 
@@ -33,7 +33,7 @@ func (s *session) writeVersionInfo() error {
 		ValuesByPosition: []sql.TypedValue{value},
 		ValuesBySelector: map[string]sql.TypedValue{"version": value},
 	}}
-	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
+	if _, err := s.writeMessage(bm.DataRow(rows, 1, nil)); err != nil {
 		return err
 	}
 

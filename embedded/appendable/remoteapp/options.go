@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@ limitations under the License.
 package remoteapp
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 )
+
+var ErrInvalidOptions = fmt.Errorf("%w: invalid remoteapp options", ErrIllegalArguments)
 
 type Options struct {
 	multiapp.Options
@@ -43,16 +46,46 @@ func DefaultOptions() *Options {
 	}
 }
 
+// Validate returns nil if opts is a usable configuration, or a descriptive
+// error wrapping ErrInvalidOptions otherwise.
+//
+// Compression is not yet supported by the remote appendable (see
+// OpenAppendable in remote_app.go which rejects non-default
+// CompressionFormat); callers must leave compression at the default.
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
+	if err := opts.Options.Validate(); err != nil {
+		return fmt.Errorf("%w: embedded multiapp options: %v", ErrInvalidOptions, err)
+	}
+	if opts.parallelUploads <= 0 {
+		return fmt.Errorf("%w: parallelUploads must be > 0", ErrInvalidOptions)
+	}
+	if opts.parallelUploads >= 100000 {
+		return fmt.Errorf("%w: parallelUploads must be < 100000", ErrInvalidOptions)
+	}
+	if opts.retryMinDelay <= 0 {
+		return fmt.Errorf("%w: retryMinDelay must be > 0", ErrInvalidOptions)
+	}
+	if opts.retryMaxDelay <= 0 {
+		return fmt.Errorf("%w: retryMaxDelay must be > 0", ErrInvalidOptions)
+	}
+	if opts.retryMaxDelay < opts.retryMinDelay {
+		return fmt.Errorf("%w: retryMaxDelay must be >= retryMinDelay", ErrInvalidOptions)
+	}
+	if opts.retryDelayExp <= 1 {
+		return fmt.Errorf("%w: retryDelayExp must be > 1", ErrInvalidOptions)
+	}
+	if opts.retryDelayJitter < 0 || opts.retryDelayJitter > 1 {
+		return fmt.Errorf("%w: retryDelayJitter must be in [0, 1]", ErrInvalidOptions)
+	}
+	return nil
+}
+
+// Valid is a back-compat wrapper around Validate for existing callers.
 func (opts *Options) Valid() bool {
-	// TODO: implement signature `Validate() error``
-	// TODO: Compression is not supported ATM, this must be disabled
-	return opts != nil &&
-		opts.Options.Validate() == nil &&
-		opts.parallelUploads > 0 &&
-		opts.parallelUploads < 100000 &&
-		opts.retryMinDelay > 0 &&
-		opts.retryMaxDelay > 0 &&
-		opts.retryDelayExp > 1
+	return opts.Validate() == nil
 }
 
 func (opts *Options) WithParallelUploads(parallelUploads int) *Options {

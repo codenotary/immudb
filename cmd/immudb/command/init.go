@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("replication-skip-integrity-check", options.ReplicationOptions.SkipIntegrityCheck, "disable integrity check when reading data during replication")
 	cmd.Flags().Bool("replication-wait-for-indexing", options.ReplicationOptions.WaitForIndexing, "wait for indexing to be up to date during replication")
 	cmd.Flags().Int("max-active-databases", options.MaxActiveDatabases, "the maximum number of databases that can be active simultaneously")
+	cmd.Flags().Int("max-key-length", options.MaxKeyLen, "engine-side max length (bytes) for indexed VARCHAR columns; 0 keeps the embedded/sql default (1024). Allowed range: [64, 65535]. The store-layer composite-key cap (default 1024 B) is the practical insert ceiling.")
 	cmd.Flags().String("config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
@@ -90,6 +91,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("s3-external-identifier", false, "use the remote identifier if there is no local identifier")
 	cmd.Flags().String("s3-instance-metadata-url", "http://169.254.169.254", "s3 instance metadata url")
 	cmd.Flags().String("s3-use-fargate-credentials", "false", "use fargate credentials for s3 authentication: true/false")
+	cmd.Flags().String("s3-server-side-encryption", "", "s3 server-side encryption algorithm: empty (bucket default), AES256, or aws:kms")
+	cmd.Flags().String("s3-sse-kms-key-id", "", "optional KMS key id, only used when s3-server-side-encryption=aws:kms")
 	cmd.Flags().Int("max-sessions", 100, "maximum number of simultaneously opened sessions")
 	cmd.Flags().Duration("max-session-inactivity-time", 3*time.Minute, "max session inactivity time is a duration after which an active session is declared inactive by the server. A session is kept active if server is still receiving requests from client (keep-alive or other methods)")
 	cmd.Flags().Duration("max-session-age-time", 0, "the current default value is infinity. max session age time is a duration after which session will be forcibly closed")
@@ -99,6 +102,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("grpc-reflection", options.GRPCReflectionServerEnabled, "GRPC reflection server enabled")
 	cmd.Flags().Bool("swaggerui", options.SwaggerUIEnabled, "Swagger UI enabled")
 	cmd.Flags().Bool("log-request-metadata", options.LogRequestMetadata, "log request information in transaction metadata")
+	cmd.Flags().Bool("audit-log", options.AuditLog, "enable structured audit logging of all operations to an immutable audit trail")
+	cmd.Flags().String("audit-log-events", options.AuditLogEvents, "audit event filter: all, write, admin")
 
 	flagNameMapping := map[string]string{
 		"replication-enabled":           "replication-is-replica",
@@ -129,6 +134,8 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("log-rotation-size", options.LogRotationSize)
 	viper.SetDefault("log-rotation-age", options.LogRotationAge)
 	viper.SetDefault("log-access", options.LogAccess)
+	viper.SetDefault("audit-log", options.AuditLog)
+	viper.SetDefault("audit-log-events", options.AuditLogEvents)
 	viper.SetDefault("mtls", false)
 	viper.SetDefault("auth", options.GetAuth())
 	viper.SetDefault("max-recv-msg-size", options.MaxRecvMsgSize)
@@ -166,6 +173,7 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("max-session-inactivity-time", 3*time.Minute)
 	viper.SetDefault("max-session-age-time", 0)
 	viper.SetDefault("max-active-databases", options.MaxActiveDatabases)
+	viper.SetDefault("max-key-length", options.MaxKeyLen)
 	viper.SetDefault("session-timeout", 2*time.Minute)
 	viper.SetDefault("sessions-guard-check-interval", 1*time.Minute)
 	viper.SetDefault("logformat", logger.LogFormatText)

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -29,10 +29,11 @@ const (
 
 	PgsqlProtocolVersion           = "3.0"
 	PgsqlSSLRequestProtocolVersion = "1234.5679"
-	PgsqlServerVersion             = "9.6"
+	PgsqlServerVersion             = "14.0"
+	PgsqlServerVersionNum          = "140000"
 )
 
-var PgsqlServerVersionMessage = fmt.Sprintf("pgsql server %s or greater version implemented by immudb", PgsqlServerVersion)
+var PgsqlServerVersionMessage = fmt.Sprintf("PostgreSQL %s (immudb compatible)", PgsqlServerVersion)
 var ErrInvalidPgsqlProtocolVersion = errors.New("invalid pgsql protocol version")
 
 // PgTypeMap maps the immudb type descriptor with pgsql pgtype map.
@@ -41,13 +42,21 @@ var ErrInvalidPgsqlProtocolVersion = errors.New("invalid pgsql protocol version"
 var PgTypeMap = map[string][]int{
 	sql.BooleanType:   {16, 1},    //bool
 	sql.BLOBType:      {17, -1},   //bytea
-	sql.TimestampType: {20, 8},    //int8
+	sql.TimestampType: {1114, 8},  //timestamp without time zone — Rails/pg decode via Time.parse; tagging as int8 (20) made the pg gem call .to_i on the text value and keep only the leading year digits
 	sql.IntegerType:   {20, 8},    //int8
 	sql.VarcharType:   {25, -1},   //text
 	sql.UUIDType:      {2950, 16}, //uuid
 	sql.Float64Type:   {701, 8},   //double-precision floating point number
-	sql.JSONType:      {114, -1},  //json
-	sql.AnyType:       {17, -1},   // bytea
+	sql.JSONType:      {3802, -1}, //jsonb — Rails registers OID 3802 to decode via JSON.parse into Hash/Array; OID 114 (json) would work too but we advertise jsonb in pg_attribute so stay consistent
+	// AnyType maps to OID 0 ("unknown") so ParameterDescription doesn't
+	// pick a concrete type for placeholders whose type the engine didn't
+	// infer. Previously we used 17 (bytea), which made the pq driver
+	// encode every text value as bytea-hex literal `\xHEX` — string
+	// `"version"` arrived at the engine as the 16-char string
+	// `\x76657273696f6e` and broke any handler that compared the bound
+	// value to a real catalog name. With OID 0 the driver falls back to
+	// its default text encoding (raw bytes for text/varchar).
+	sql.AnyType: {0, 0},
 }
 
 const PgSeverityError = "ERROR"
@@ -82,6 +91,9 @@ var MTypes = map[byte]string{
 	't': "parameterDesctiption",
 	'B': "bind",
 	'H': "flush",
+	'd': "copyData",
+	'c': "copyDone",
+	'f': "copyFail",
 }
 
 var MaxMsgSize = 32 << 20 // 32MB

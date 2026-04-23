@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 // GetKeyValuesFromFiles returns an array of stream.KeyValue from full file names paths. Each key value is composed by a key that is the file name and a reader of the content of the file, if exists.
 // @todo Michele use only base path to avoid to use  pieces of local file system as key
 func GetKeyValuesFromFiles(filenames ...string) ([]*stream.KeyValue, error) {
-	var kvs []*stream.KeyValue
+	kvs := make([]*stream.KeyValue, 0, len(filenames))
 	for _, fn := range filenames {
 		fs, err := os.Stat(fn)
 		if err != nil {
@@ -38,10 +38,15 @@ func GetKeyValuesFromFiles(filenames ...string) ([]*stream.KeyValue, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Filename bytes are small and read sequentially once; a bytes.Reader
+		// satisfies the io.Reader contract without the ~4KB bufio buffer
+		// allocation. Convert once and reuse for both the content and Size.
+		nameBytes := []byte(fn)
 		kv := &stream.KeyValue{
 			Key: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer([]byte(fn))),
-				Size:    len([]byte(fn)),
+				Content: bytes.NewReader(nameBytes),
+				Size:    len(nameBytes),
 			},
 			Value: &stream.ValueSize{
 				Content: bufio.NewReader(f),

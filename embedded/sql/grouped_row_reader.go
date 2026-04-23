@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -125,7 +125,18 @@ func (gr *groupedRowReader) colsBySelector(ctx context.Context) (map[string]ColD
 
 		encSel := des.Selector()
 
-		if aggFn == COUNT {
+		if aggFn == COUNT && !sel.distinct {
+			colDescriptors[encSel] = des
+			continue
+		}
+
+		if aggFn == COUNT && sel.distinct {
+			// COUNT(DISTINCT col) needs the column type for selector resolution
+			colDesc, ok := colDescriptors[EncodeSelector("", table, col)]
+			if !ok {
+				return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+			}
+			des.Type = colDesc.Type
 			colDescriptors[encSel] = des
 			continue
 		}
@@ -309,7 +320,8 @@ func (gr *groupedRowReader) initAggregations(row *Row) error {
 	// augment row with aggregated values
 	for _, sel := range gr.selectors {
 		aggFn, table, col := sel.resolve(gr.rowReader.TableAlias())
-		v, err := initAggValue(aggFn, table, col)
+
+		v, err := initAggValue(aggFn, table, col, sel.distinct, sel.separator)
 		if err != nil {
 			return err
 		}
@@ -335,16 +347,27 @@ func (gr *groupedRowReader) initAggregations(row *Row) error {
 	return updateRow(row, row)
 }
 
-func initAggValue(aggFn, table, col string) (TypedValue, error) {
+func initAggValue(aggFn, table, col string, opts ...interface{}) (TypedValue, error) {
+	isDistinct := false
+	separator := ", "
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case bool:
+			isDistinct = v
+		case string:
+			separator = v
+		}
+	}
+
 	var v TypedValue
 	switch aggFn {
 	case COUNT:
 		{
-			if col != "*" {
-				return nil, ErrLimitedCount
+			cv := &CountValue{sel: EncodeSelector("", table, col), distinct: isDistinct, allRows: col == "*"}
+			if isDistinct {
+				cv.seen = make(map[string]bool)
 			}
-
-			v = &CountValue{sel: EncodeSelector("", table, col)}
+			v = cv
 		}
 	case SUM:
 		{
@@ -371,6 +394,13 @@ func initAggValue(aggFn, table, col string) (TypedValue, error) {
 		{
 			v = &AVGValue{
 				s:   &NullValue{t: AnyType},
+				sel: EncodeSelector("", table, col),
+			}
+		}
+	case STRING_AGG:
+		{
+			v = &StringAggValue{
+				sep: separator,
 				sel: EncodeSelector("", table, col),
 			}
 		}

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -992,6 +992,7 @@ func TestResetCornerCases(t *testing.T) {
 }
 
 func BenchmarkAppend(b *testing.B) {
+	b.ReportAllocs()
 	opts := DefaultOptions().
 		WithWriteBufferSize(1 << 26). //64Mb
 		WithRetryableSync(true).

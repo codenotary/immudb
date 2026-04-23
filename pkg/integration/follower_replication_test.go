@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -761,6 +761,7 @@ func BenchmarkExportTx(b *testing.B) {
 	streamServiceFactory := stream.NewStreamServiceFactory(replication.DefaultChunkSize)
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	// measure exportTx performance
 	for i := 0; i < b.N; i++ {
@@ -920,6 +921,7 @@ func BenchmarkStreamExportTx(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	b.ReportAllocs()
 
 	// measure exportTx performance
 	for i := 0; i < b.N; i++ {

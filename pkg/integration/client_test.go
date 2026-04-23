@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -911,7 +911,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.SetAll(ctx, nil)
-	require.ErrorContains(t, err, "Marshal called with nil")
+	require.ErrorContains(t, err, "no entries provided")
 
 	setRequest := &schema.SetRequest{KVs: []*schema.KeyValue{}}
 	_, err = client.SetAll(ctx, setRequest)
@@ -980,7 +980,7 @@ func TestImmuClient_Delete(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.Delete(ctx, nil)
-	require.ErrorContains(t, err, "Marshal called with nil")
+	require.ErrorContains(t, err, "no entries provided")
 
 	deleteRequest := &schema.DeleteKeysRequest{}
 	_, err = client.Delete(ctx, deleteRequest)

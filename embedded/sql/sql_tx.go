@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -19,12 +19,21 @@ package sql
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/store"
 )
+
+// savepointState captures SQLTx state at a SAVEPOINT for later rollback.
+type savepointState struct {
+	updatedRows      int
+	lastInsertedPKs  map[string]int64
+	firstInsertedPKs map[string]int64
+	mutatedCatalog   bool
+}
 
 // SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
@@ -37,6 +46,12 @@ type SQLTx struct {
 
 	catalog *Catalog // in-mem catalog
 
+	// openCatalogVersion is engine.cachedCatalogVersion at the time this tx
+	// was opened. Compared on commit (D2 Phase 2) to determine whether this
+	// tx's catalog can safely populate the engine cache: if the version has
+	// changed, an invalidation happened concurrently and our view is stale.
+	openCatalogVersion uint64
+
 	mutatedCatalog bool // set when a DDL stmt was executed within the current tx
 
 	updatedRows      int
@@ -46,6 +61,8 @@ type SQLTx struct {
 	txHeader *store.TxHeader // header is set once tx is committed
 
 	onCommittedCallbacks []onCommittedCallback
+
+	savepoints map[string]*savepointState
 }
 
 type onCommittedCallback = func(sqlTx *SQLTx) error
@@ -96,6 +113,10 @@ func (sqlTx *SQLTx) distinctLimit() int {
 	return sqlTx.engine.distinctLimit
 }
 
+func (sqlTx *SQLTx) distinctSpillThreshold() int {
+	return sqlTx.engine.distinctSpillThreshold
+}
+
 func (sqlTx *SQLTx) newKeyReader(rSpec store.KeyReaderSpec) (store.KeyReader, error) {
 	return sqlTx.tx.NewKeyReader(rSpec)
 }
@@ -116,6 +137,65 @@ func (sqlTx *SQLTx) getWithPrefix(ctx context.Context, prefix, neq []byte) (key 
 	return sqlTx.tx.GetWithPrefix(ctx, prefix, neq)
 }
 
+func (sqlTx *SQLTx) Savepoint(name string) {
+	if sqlTx.savepoints == nil {
+		sqlTx.savepoints = make(map[string]*savepointState)
+	}
+
+	// Copy current state
+	lastPKs := make(map[string]int64)
+	for k, v := range sqlTx.lastInsertedPKs {
+		lastPKs[k] = v
+	}
+	firstPKs := make(map[string]int64)
+	for k, v := range sqlTx.firstInsertedPKs {
+		firstPKs[k] = v
+	}
+
+	sqlTx.savepoints[name] = &savepointState{
+		updatedRows:      sqlTx.updatedRows,
+		lastInsertedPKs:  lastPKs,
+		firstInsertedPKs: firstPKs,
+		mutatedCatalog:   sqlTx.mutatedCatalog,
+	}
+}
+
+func (sqlTx *SQLTx) RollbackToSavepoint(name string) error {
+	if sqlTx.savepoints == nil {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	sp, ok := sqlTx.savepoints[name]
+	if !ok {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	// Restore state
+	sqlTx.updatedRows = sp.updatedRows
+	sqlTx.lastInsertedPKs = sp.lastInsertedPKs
+	sqlTx.firstInsertedPKs = sp.firstInsertedPKs
+	sqlTx.mutatedCatalog = sp.mutatedCatalog
+
+	// Remove this savepoint and any created after it
+	// (PostgreSQL behavior: ROLLBACK TO destroys savepoints created after the named one)
+	delete(sqlTx.savepoints, name)
+
+	return nil
+}
+
+func (sqlTx *SQLTx) ReleaseSavepoint(name string) error {
+	if sqlTx.savepoints == nil {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	if _, ok := sqlTx.savepoints[name]; !ok {
+		return fmt.Errorf("savepoint %s does not exist", name)
+	}
+
+	delete(sqlTx.savepoints, name)
+	return nil
+}
+
 func (sqlTx *SQLTx) Cancel() error {
 	defer sqlTx.removeTempFiles()
 
@@ -134,6 +214,24 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) error {
 	sqlTx.txHeader, err = sqlTx.tx.AsyncCommit(ctx)
 	if err != nil && !errors.Is(err, store.ErrNoEntriesProvided) {
 		return err
+	}
+
+	// DDL committed: the cached catalog is now stale; clear it so the next
+	// read-only transaction reloads the schema from the store.
+	if sqlTx.mutatedCatalog {
+		sqlTx.engine.invalidateCatalogCache()
+	} else {
+		// D2 Phase 2: opportunistically populate the engine catalog cache
+		// from this RW tx's view. Subsequent RW txs then take the Clone
+		// fast path (saves the per-NewTx catalog.load); option (a) from
+		// the prior comment is now satisfied because NewTx's Clone branch
+		// calls seedCatalogReadSet, restoring the MVCC read-set entries
+		// that catalog.load would have produced.
+		//
+		// tryPopulateCatalogCache is no-op when the cache is already
+		// warm or when an invalidation happened during this tx's
+		// lifetime (cachedCatalogVersion mismatch).
+		sqlTx.engine.tryPopulateCatalogCache(sqlTx.catalog, sqlTx.openCatalogVersion)
 	}
 
 	merr := multierr.NewMultiErr()
@@ -164,6 +262,14 @@ func (sqlTx *SQLTx) addOnCommittedCallback(callback onCommittedCallback) error {
 	return nil
 }
 
+// createTempFile returns an os.CreateTemp("", "immudb") file and registers
+// it with the SQLTx for observability + defensive cleanup. Ownership of
+// the close/remove sits with the caller (e.g. fileSorter.Close), which
+// must call deregisterTempFile to drop the registration before the
+// surrounding tx Cancel/Commit closes it. This split avoids a race where
+// the tx's deferred removeTempFiles would force-close a file the caller's
+// row reader is still consuming — see embedded/sql/file_sort.go and the
+// JOIN+GROUP+ORDER regression in joint_row_reader.go:198.
 func (sqlTx *SQLTx) createTempFile() (*os.File, error) {
 	tempFile, err := os.CreateTemp("", "immudb")
 	if err == nil {
@@ -172,6 +278,22 @@ func (sqlTx *SQLTx) createTempFile() (*os.File, error) {
 	return tempFile, err
 }
 
+// deregisterTempFile removes f from sqlTx.tempFiles so the deferred
+// removeTempFiles in Cancel/Commit will not touch it. The caller is then
+// responsible for closing and removing the file. Safe to call with a file
+// that was never registered.
+func (sqlTx *SQLTx) deregisterTempFile(f *os.File) {
+	for i, tf := range sqlTx.tempFiles {
+		if tf == f {
+			sqlTx.tempFiles = append(sqlTx.tempFiles[:i], sqlTx.tempFiles[i+1:]...)
+			return
+		}
+	}
+}
+
+// removeTempFiles closes and removes any temp files still registered with
+// the tx. Run from Cancel/Commit as a defensive safety net for files the
+// caller never explicitly closed.
 func (sqlTx *SQLTx) removeTempFiles() error {
 	for _, file := range sqlTx.tempFiles {
 		err := file.Close()
@@ -184,6 +306,7 @@ func (sqlTx *SQLTx) removeTempFiles() error {
 			return err
 		}
 	}
+	sqlTx.tempFiles = nil
 	return nil
 }
 

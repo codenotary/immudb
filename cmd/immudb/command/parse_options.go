@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -92,8 +92,11 @@ func parseOptions() (options *server.Options, err error) {
 	grpcReflectionServerEnabled := viper.GetBool("grpc-reflection")
 	swaggerUIEnabled := viper.GetBool("swaggerui")
 	logRequestMetadata := viper.GetBool("log-request-metadata")
+	auditLog := viper.GetBool("audit-log")
+	auditLogEvents := viper.GetString("audit-log-events")
 
 	maxActiveDatabases := viper.GetInt("max-active-databases")
+	maxKeyLen := viper.GetInt("max-key-length")
 
 	s3Storage := viper.GetBool("s3-storage")
 	s3RoleEnabled := viper.GetBool("s3-role-enabled")
@@ -107,6 +110,8 @@ func parseOptions() (options *server.Options, err error) {
 	s3ExternalIdentifier := viper.GetBool("s3-external-identifier")
 	s3MetadataURL := viper.GetString("s3-instance-metadata-url")
 	s3UseFargateCredentials := viper.GetBool("s3-use-fargate-credentials")
+	s3ServerSideEncryption := viper.GetString("s3-server-side-encryption")
+	s3SSEKMSKeyID := viper.GetString("s3-sse-kms-key-id")
 
 	remoteStorageOptions := server.DefaultRemoteStorageOptions().
 		WithS3Storage(s3Storage).
@@ -120,7 +125,9 @@ func parseOptions() (options *server.Options, err error) {
 		WithS3PathPrefix(s3PathPrefix).
 		WithS3ExternalIdentifier(s3ExternalIdentifier).
 		WithS3InstanceMetadataURL(s3MetadataURL).
-		WithS3UseFargateCredentials(s3UseFargateCredentials)
+		WithS3UseFargateCredentials(s3UseFargateCredentials).
+		WithS3ServerSideEncryption(s3ServerSideEncryption).
+		WithS3SSEKMSKeyID(s3SSEKMSKeyID)
 
 	sessionOptions := sessions.DefaultOptions().
 		WithMaxSessions(viper.GetInt("max-sessions")).
@@ -172,7 +179,10 @@ func parseOptions() (options *server.Options, err error) {
 		WithSwaggerUIEnabled(swaggerUIEnabled).
 		WithGRPCReflectionServerEnabled(grpcReflectionServerEnabled).
 		WithLogRequestMetadata(logRequestMetadata).
-		WithMaxActiveDatabases(maxActiveDatabases)
+		WithMaxActiveDatabases(maxActiveDatabases).
+		WithMaxKeyLen(maxKeyLen).
+		WithAuditLog(auditLog).
+		WithAuditLogEvents(auditLogEvents)
 
 	return options, nil
 }

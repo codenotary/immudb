@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 type AggregatedValue interface {
 	TypedValue
@@ -26,8 +29,13 @@ type AggregatedValue interface {
 }
 
 type CountValue struct {
-	c   int64
-	sel string
+	c        int64
+	sel      string
+	distinct bool
+	// allRows is true for COUNT(*) — every row counts including NULLs.
+	// false for COUNT(col) — NULL values are skipped per SQL semantics.
+	allRows bool
+	seen    map[string]bool // for DISTINCT tracking
 }
 
 func (v *CountValue) Selector() string {
@@ -35,7 +43,7 @@ func (v *CountValue) Selector() string {
 }
 
 func (v *CountValue) ColBounded() bool {
-	return false
+	return v.distinct
 }
 
 func (v *CountValue) Type() SQLValueType {
@@ -73,6 +81,25 @@ func (v *CountValue) Compare(val TypedValue) (int, error) {
 }
 
 func (v *CountValue) updateWith(val TypedValue) error {
+	if v.distinct {
+		if val == nil || val.IsNull() {
+			return nil // NULL values are not counted in DISTINCT
+		}
+		key := val.String()
+		if v.seen == nil {
+			v.seen = make(map[string]bool)
+		}
+		if v.seen[key] {
+			return nil // already seen this value
+		}
+		v.seen[key] = true
+	} else if !v.allRows {
+		// COUNT(col) — skip NULL values per SQL semantics. Only
+		// COUNT(*) counts every row regardless of value.
+		if val == nil || val.IsNull() {
+			return nil
+		}
+	}
 	v.c++
 	return nil
 }
@@ -545,5 +572,102 @@ func (v *AVGValue) isConstant() bool {
 }
 
 func (v *AVGValue) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+// StringAggValue implements STRING_AGG(col, separator)
+type StringAggValue struct {
+	parts []string
+	sep   string
+	sel   string
+}
+
+func (v *StringAggValue) Selector() string {
+	return v.sel
+}
+
+func (v *StringAggValue) ColBounded() bool {
+	return true
+}
+
+func (v *StringAggValue) Type() SQLValueType {
+	return VarcharType
+}
+
+func (v *StringAggValue) IsNull() bool {
+	return len(v.parts) == 0
+}
+
+func (v *StringAggValue) String() string {
+	return strings.Join(v.parts, v.sep)
+}
+
+func (v *StringAggValue) RawValue() interface{} {
+	if len(v.parts) == 0 {
+		return ""
+	}
+	return strings.Join(v.parts, v.sep)
+}
+
+func (v *StringAggValue) Compare(val TypedValue) (int, error) {
+	if val.Type() != VarcharType {
+		return 0, ErrNotComparableValues
+	}
+	s1 := v.String()
+	s2 := val.RawValue().(string)
+	if s1 == s2 {
+		return 0, nil
+	}
+	if s1 > s2 {
+		return 1, nil
+	}
+	return -1, nil
+}
+
+func (v *StringAggValue) updateWith(val TypedValue) error {
+	if val != nil && !val.IsNull() {
+		// Strip surrounding quotes from varchar values
+		s := val.RawValue().(string)
+		v.parts = append(v.parts, s)
+	}
+	return nil
+}
+
+func (v *StringAggValue) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
+	return VarcharType, nil
+}
+
+func (v *StringAggValue) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) error {
+	if t != VarcharType {
+		return ErrNotComparableValues
+	}
+	return nil
+}
+
+func (v *StringAggValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *StringAggValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *StringAggValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, nil
+}
+
+func (v *StringAggValue) selectors() []Selector {
+	return nil
+}
+
+func (v *StringAggValue) reduceSelectors(row *Row, implicitTable string) ValueExp {
+	return nil
+}
+
+func (v *StringAggValue) isConstant() bool {
+	return false
+}
+
+func (v *StringAggValue) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }

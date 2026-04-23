@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -71,6 +71,16 @@ type TxReplicator struct {
 	exportTxStreamReceiver stream.MsgReceiver
 
 	lastTx uint64
+
+	// lastSentTx is the highest tx ID for which an ExportTxRequest has
+	// been Send()'d on exportTxStream but whose response may not yet
+	// have been ReadFully()'d. Tracks the pipeline depth (A4): when
+	// fetchPipelineDepth > 1 and async replication is in use,
+	// fetchNextTx pre-sends up to (lastTx + pipelineDepth) requests
+	// while ReadFully drains the responses one at a time. Reset to 0
+	// on disconnect so a reconnected stream doesn't try to drain
+	// orphaned in-flight sends.
+	lastSentTx uint64
 
 	prefetchTxBuffer       chan prefetchTxEntry // buffered channel of exported txs
 	replicationConcurrency int
@@ -168,6 +178,10 @@ func (txr *TxReplicator) Start() error {
 	txr.logger.Infof("Initializing replication from '%s' to '%s'...", txr._primaryDB, txr.db.GetName())
 
 	txr.context, txr.cancelFunc = context.WithCancel(context.Background())
+
+	// Recreate the prefetch buffer so a Stop→Start cycle doesn't reuse a
+	// closed channel (which would panic on the next send).
+	txr.prefetchTxBuffer = make(chan prefetchTxEntry, cap(txr.prefetchTxBuffer))
 
 	txr.running = true
 
@@ -318,6 +332,11 @@ func (txr *TxReplicator) disconnect() {
 		txr.exportTxStream = nil
 	}
 
+	// lastSentTx is currently unread (A4 pipelining was reverted in
+	// fetchNextTx; see the long comment there). The reset stays so a
+	// future re-enable picks up clean state.
+	txr.lastSentTx = 0
+
 	txr.client.CloseSession(txr.context)
 	txr.client = nil
 
@@ -363,14 +382,36 @@ func (txr *TxReplicator) fetchNextTx() error {
 		}
 	}
 
+	// A4 pipelined-fetch wiring intentionally REVERTED. The earlier
+	// implementation broke `pkg/integration/replication` because it
+	// conflated "highest tx Sent" with "highest tx whose response was
+	// applied". Whenever ReadFully consumed a response without bumping
+	// txr.lastTx — e.g. ErrNoNewTransactions on the async polling path,
+	// or the empty-etx primary-state-only sync path — the next call
+	// thought the request for nextTx was still in flight, skipped the
+	// Send, and ReadFully blocked forever waiting for a response that
+	// would never arrive. Sync-replication suite hung at the test
+	// timeout (600s) for this reason.
+	//
+	// The protocol is request/response (the primary doesn't block on a
+	// future tx; it returns ErrNoNewTransactions immediately when
+	// req.Tx > committed). Pipelining a poll-style protocol requires
+	// either (a) primary-side blocking semantics (so each Send
+	// translates 1:1 to a useful response) or (b) explicit drain/
+	// re-poll handling for stale responses. Neither is in scope today.
+	//
+	// The Options.fetchPipelineDepth knob and the pipeline.go helpers
+	// remain in tree as tested scaffolding for a future redesign; this
+	// loop ships the pre-A4 single Send + ReadFully behaviour.
 	req := &schema.ExportTxRequest{
 		Tx:                 nextTx,
 		ReplicaState:       state,
 		AllowPreCommitted:  syncReplicationEnabled,
 		SkipIntegrityCheck: txr.skipIntegrityCheck,
 	}
-
-	txr.exportTxStream.Send(req)
+	if err := txr.exportTxStream.Send(req); err != nil {
+		return err
+	}
 
 	etx, emd, err := txr.exportTxStreamReceiver.ReadFully()
 	if err != nil {

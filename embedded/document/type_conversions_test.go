@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -178,7 +178,7 @@ func TestSQLValueTypeDefaultLength(t *testing.T) {
 		{
 			name:      "varchar",
 			valueType: sql.VarcharType,
-			length:    sql.MaxKeyLen,
+			length:    maxDocumentFieldLen,
 			expectErr: nil,
 		},
 		{

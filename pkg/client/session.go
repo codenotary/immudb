@@ -37,7 +37,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 
 	dialOptions := c.SetupDialOptions(c.Options)
 
-	clientConn, err := grpc.Dial(c.Options.Bind(), dialOptions...)
+	clientConn, err := grpc.NewClient(c.Options.Bind(), dialOptions...)
 	if err != nil {
 		return err
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ func testServerClient(t *testing.T) (*servertest.BufconnServer, *sql.DB) {
 	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	require.NoError(t, bs.Start())
 	t.Cleanup(func() { bs.Stop() })
 
 	opts := client.DefaultOptions()
@@ -254,7 +254,7 @@ func TestImmuConnector_ConnectErr(t *testing.T) {
 
 	_, err := db.ExecContext(ctx, "this will not be executed")
 	require.Error(t, err)
-	require.Regexp(t, "context deadline exceeded|Error while dialing", err.Error())
+	require.Regexp(t, "context deadline exceeded|Error while dialing|name resolver error", err.Error())
 }
 
 func TestImmuConnector_ConnectLoginErr(t *testing.T) {

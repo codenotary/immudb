@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -794,19 +794,24 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 	}
 }
 
-func TestYetUnsupportedExistsBoolExp(t *testing.T) {
+func TestExistsBoolExp(t *testing.T) {
 	exp := &ExistsBoolExp{}
 
-	_, err := exp.inferType(nil, nil, "")
-	require.Error(t, err)
+	tp, err := exp.inferType(nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, BooleanType, tp)
 
 	err = exp.requiresType(BooleanType, nil, nil, "")
+	require.NoError(t, err)
+
+	err = exp.requiresType(IntegerType, nil, nil, "")
 	require.Error(t, err)
 
 	rexp, err := exp.substitute(nil)
 	require.NoError(t, err)
 	require.Equal(t, exp, rexp)
 
+	// reduce with nil tx returns error (no transaction context)
 	_, err = exp.reduce(nil, nil, "")
 	require.Error(t, err)
 
@@ -817,21 +822,26 @@ func TestYetUnsupportedExistsBoolExp(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 }
 
-func TestYetUnsupportedInSubQueryExp(t *testing.T) {
+func TestInSubQueryExp(t *testing.T) {
 	exp := &InSubQueryExp{}
 
-	_, err := exp.inferType(nil, nil, "")
-	require.ErrorIs(t, err, ErrNoSupported)
+	tp, err := exp.inferType(nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, BooleanType, tp)
 
 	err = exp.requiresType(BooleanType, nil, nil, "")
-	require.ErrorIs(t, err, ErrNoSupported)
+	require.NoError(t, err)
+
+	err = exp.requiresType(IntegerType, nil, nil, "")
+	require.Error(t, err)
 
 	rexp, err := exp.substitute(nil)
 	require.NoError(t, err)
 	require.Equal(t, exp, rexp)
 
+	// reduce with nil tx returns error (no transaction context)
 	_, err = exp.reduce(nil, nil, "")
-	require.ErrorIs(t, err, ErrNoSupported)
+	require.Error(t, err)
 
 	require.Equal(t, exp, exp.reduceSelectors(nil, ""))
 
@@ -896,6 +906,9 @@ func TestCaseWhenExp(t *testing.T) {
 					},
 				},
 				elseExp: &Integer{1},
+				// resType is populated by requiresType above (which
+				// runs inferType); reduceSelectors preserves it.
+				resType: IntegerType,
 			}, e.reduceSelectors(row, ""))
 
 		v, err := e.reduce(nil, row, "")
@@ -952,14 +965,20 @@ func TestInferTypeCaseWhenExp(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		_, err = e.inferType(
+		// Contract change: coerceTypesForCase now widens INT+VARCHAR
+		// → VARCHAR (same runtime converter exists in
+		// type_conversion.go). Previously rejected with
+		// ErrInferredMultipleTypes; now the query succeeds at plan
+		// time and the INT arm is stringified at reduce time.
+		widenedType, err := e.inferType(
 			map[string]ColDescriptor{
 				EncodeSelector("", "", "salary"): {Type: IntegerType},
 			},
 			nil,
 			"",
 		)
-		require.ErrorIs(t, err, ErrInferredMultipleTypes)
+		require.NoError(t, err)
+		require.Equal(t, VarcharType, widenedType)
 
 		e, err = ParseExpFromString(
 			"CASE WHEN salary > 0 THEN 10 ELSE 0 END",
@@ -1023,11 +1042,15 @@ func TestExtractFromTimestampType(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		// VARCHAR→TIMESTAMP is now accepted at type-check time; the
+		// literal is coerced to a timestamp via ISO-8601 parsing at
+		// runtime. EXTRACT then yields an INTEGER (convertible to
+		// Float64), so both checks must succeed.
 		err = e.requiresType(Float64Type, nil, nil, "")
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		err = e.requiresType(IntegerType, nil, nil, "")
-		require.Error(t, err)
+		require.NoError(t, err)
 	})
 }
 

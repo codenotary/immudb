@@ -4,6 +4,10 @@ import (
 	"context"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+
+	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks"
+	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/readtxs"
+	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 func SendResultsToInfluxDb(host string, token string, bucket string, runner string, version string, r *BenchmarkSuiteResult) {
@@ -20,18 +24,36 @@ func SendResultsToInfluxDb(host string, token string, bucket string, runner stri
 			AddTag("runner", runner).
 			AddTag("version", version).
 			AddField("duration", b.Duration.Seconds()).
-			AddField("txTotal", b.Results.TxTotal).
-			AddField("kvTotal", b.Results.KvTotal).
-			AddField("txs", b.Results.Txs).
-			AddField("kvs", b.Results.Kvs).
-			AddField("cpuTime", b.Results.HWStats.CPUTime).
-			AddField("vmm", b.Results.HWStats.VMM).
-			AddField("rss", b.Results.HWStats.RSS).
-			AddField("IOBytesWrite", b.Results.HWStats.IOBytesWrite).
-			AddField("IOBytesRead", b.Results.HWStats.IOBytesRead).
-			AddField("IOCallsRead", b.Results.HWStats.IOCallsRead).
-			AddField("IOCallsWrite", b.Results.HWStats.IOCallsWrite).
 			SetTime(b.EndTime)
+
+		// Results is any of the per-benchmark Result types (writetxs,
+		// readtxs, …). Type-switch to emit the fields each one
+		// publishes. HWStats is the only field they all share.
+		var hw *benchmarks.HWStats
+		switch res := b.Results.(type) {
+		case *writetxs.Result:
+			p = p.
+				AddField("txTotal", res.TxTotal).
+				AddField("kvTotal", res.KvTotal).
+				AddField("txs", res.Txs).
+				AddField("kvs", res.Kvs)
+			hw = res.HWStats
+		case *readtxs.Result:
+			p = p.
+				AddField("getTotal", res.GetTotal).
+				AddField("gets", res.Gets)
+			hw = res.HWStats
+		}
+		if hw != nil {
+			p = p.
+				AddField("cpuTime", hw.CPUTime).
+				AddField("vmm", hw.VMM).
+				AddField("rss", hw.RSS).
+				AddField("IOBytesWrite", hw.IOBytesWrite).
+				AddField("IOBytesRead", hw.IOBytesRead).
+				AddField("IOCallsRead", hw.IOCallsRead).
+				AddField("IOCallsWrite", hw.IOCallsWrite)
+		}
 
 		writer.WritePoint(context.Background(), p)
 

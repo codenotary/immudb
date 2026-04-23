@@ -1,5 +1,5 @@
 /*
-Copyright 2022 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,10 +17,50 @@ limitations under the License.
 %{
 package sql
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func setResult(l yyLexer, stmts []SQLStmt) {
     l.(*lexer).result = stmts
+}
+
+func buildUsingCond(cols []string) ValueExp {
+    if len(cols) == 0 {
+        return &Bool{val: true}
+    }
+    var cond ValueExp
+    for _, col := range cols {
+        eq := &CmpBoolExp{
+            op:    EQ,
+            left:  &ColSelector{col: col},
+            right: &ColSelector{col: col},
+        }
+        if cond == nil {
+            cond = eq
+        } else {
+            cond = &BinBoolExp{op: AND, left: cond, right: eq}
+        }
+    }
+    return cond
+}
+
+func aggFnName(fn AggregateFn) string {
+    switch fn {
+    case COUNT:
+        return "COUNT"
+    case SUM:
+        return "SUM"
+    case MAX:
+        return "MAX"
+    case MIN:
+        return "MIN"
+    case AVG:
+        return "AVG"
+    default:
+        return "UNKNOWN"
+    }
 }
 %}
 
@@ -69,6 +109,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     update *colUpdate
     updates []*colUpdate
     onConflict *OnConflictDo
+    nullsOrder NullsOrder
+    cteDef *CTEDef
+    cteDefs []*CTEDef
     permission Permission
     sqlPrivilege SQLPrivilege
     sqlPrivileges []SQLPrivilege
@@ -78,15 +121,15 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     timestampField TimestampFieldType
 }
 
-%token <keyword> CREATE DROP USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY DIFF SINCE AFTER BEFORE UNTIL TX OF
+%token <keyword> CREATE DROP TRUNCATE USE DATABASE USER WITH PASSWORD READ READWRITE ADMIN SNAPSHOT HISTORY DIFF SINCE AFTER BEFORE UNTIL TX OF
 %token <keyword> INTEGER_TYPE BOOLEAN_TYPE VARCHAR_TYPE UUID_TYPE BLOB_TYPE TIMESTAMP_TYPE FLOAT_TYPE JSON_TYPE
 %token <keyword> TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN CONSTRAINT PRIMARY KEY CHECK GRANT REVOKE GRANTS FOR PRIVILEGES
-%token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK
+%token <keyword> BEGIN TRANSACTION COMMIT ROLLBACK SAVEPOINT RELEASE
 %token <keyword> INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING RETURNING
-%token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END
-%token <keyword> NOT LIKE IF EXISTS IN IS
-%token <keyword> AUTO_INCREMENT NULL CAST SCAST
-%token <keyword> SHOW DATABASES TABLES USERS
+%token <keyword> SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL CASE WHEN THEN ELSE END EXCEPT INTERSECT NULLS FIRST LAST
+%token <keyword> NOT LIKE ILIKE IF EXISTS IN IS OVER PARTITION EXPLAIN RECURSIVE NATURAL USING FETCH ROWS ONLY LATERAL
+%token <keyword> AUTO_INCREMENT NULL CAST SCAST DEFAULT
+%token <keyword> SHOW DATABASES TABLES USERS VIEW FOREIGN REFERENCES SEQUENCE CASCADE
 %token <keyword> BETWEEN
 %token <keyword> EXTRACT YEAR MONTH DAY HOUR MINUTE SECOND
 
@@ -117,7 +160,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %right NOT
 
-%nonassoc CMPOP LIKE NOT_MATCHES_OP IS
+%nonassoc CMPOP LIKE ILIKE NOT_MATCHES_OP IS
 
 %left '+' '-'
 %left '*' '/' '%'
@@ -150,15 +193,20 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <check> check
 %type <tableElem> tableElem
 %type <tableElems> tableElems
-%type <exp> exp opt_exp opt_where opt_having boundexp opt_else orExp andExp cmpExp primaryBool addExp notExp
+%type <exp> exp opt_exp opt_where opt_having boundexp opt_else orExp andExp cmpExp primaryBool addExp notExp opt_join_cond
 mulExp unaryExp primary
 %type <cols> opt_groupby
 %type <exp> opt_limit opt_offset case_when_exp
-%type <targets> opt_targets targets
+%type <targets> opt_targets targets opt_returning
 %type <integer> opt_max_len
 %type <id> opt_as
 %type <ordexps> ordexps opt_orderby
 %type <opt_ord> opt_ord
+%type <nullsOrder> opt_nulls_order
+%type <cteDef> cte_def
+%type <cteDefs> cte_defs
+%type <values> opt_partition
+%type <exp> opt_default
 %type <colNames> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not opt_primary_key
 %type <update> update
@@ -181,6 +229,11 @@ sql: sqlstmts
     {
         $$ = $1
         setResult(yylex, $1)
+    }
+|
+    /* empty */
+    {
+        setResult(yylex, nil)
     }
 
 sqlstmts:
@@ -217,6 +270,26 @@ ddlstmt:
     ROLLBACK
     {
         $$ = &RollbackStmt{}
+    }
+|
+    SAVEPOINT IDENTIFIER
+    {
+        $$ = &SavepointStmt{name: $2}
+    }
+|
+    RELEASE SAVEPOINT IDENTIFIER
+    {
+        $$ = &ReleaseSavepointStmt{name: $3}
+    }
+|
+    ROLLBACK TO SAVEPOINT IDENTIFIER
+    {
+        $$ = &RollbackToSavepointStmt{name: $4}
+    }
+|
+    ROLLBACK TO IDENTIFIER
+    {
+        $$ = &RollbackToSavepointStmt{name: $3}
     }
 |
     CREATE DATABASE IF NOT EXISTS IDENTIFIER
@@ -259,14 +332,79 @@ ddlstmt:
         $$ = &DropTableStmt{table: $3}
     }
 |
+    DROP TABLE IF EXISTS qualifiedName
+    {
+        $$ = &DropTableStmt{table: $5, ifExists: true}
+    }
+|
+    DROP TABLE qualifiedName CASCADE
+    {
+        $$ = &DropTableStmt{table: $3, cascade: true}
+    }
+|
+    DROP TABLE IF EXISTS qualifiedName CASCADE
+    {
+        $$ = &DropTableStmt{table: $5, ifExists: true, cascade: true}
+    }
+|
+    TRUNCATE TABLE qualifiedName
+    {
+        $$ = &TruncateTableStmt{table: $3}
+    }
+|
+    CREATE VIEW IF NOT EXISTS IDENTIFIER AS dqlstmt
+    {
+        $$ = &CreateViewStmt{viewName: $6, ifNotExists: true, query: $8.(DataSource)}
+    }
+|
+    CREATE VIEW IDENTIFIER AS dqlstmt
+    {
+        $$ = &CreateViewStmt{viewName: $3, query: $5.(DataSource)}
+    }
+|
+    DROP VIEW IF EXISTS IDENTIFIER
+    {
+        $$ = &DropViewStmt{viewName: $5, ifExists: true}
+    }
+|
+    DROP VIEW IDENTIFIER
+    {
+        $$ = &DropViewStmt{viewName: $3}
+    }
+|
+    CREATE SEQUENCE IDENTIFIER
+    {
+        $$ = &CreateSequenceStmt{name: $3, startValue: 1, increment: 1}
+    }
+|
+    DROP SEQUENCE IDENTIFIER
+    {
+        $$ = &DropSequenceStmt{name: $3}
+    }
+|
+    DROP SEQUENCE IF EXISTS IDENTIFIER
+    {
+        $$ = &DropSequenceStmt{name: $5, ifExists: true}
+    }
+|
     CREATE INDEX opt_if_not_exists ON tableName '(' col_names ')'
     {
         $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7}
     }
 |
+    CREATE INDEX opt_if_not_exists ON tableName '(' col_names ')' WHERE exp
+    {
+        $$ = &CreateIndexStmt{ifNotExists: $3, table: $5, cols: $7, predicate: $10}
+    }
+|
     CREATE UNIQUE INDEX opt_if_not_exists ON tableName '(' col_names ')'
     {
         $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8}
+    }
+|
+    CREATE UNIQUE INDEX opt_if_not_exists ON tableName '(' col_names ')' WHERE exp
+    {
+        $$ = &CreateIndexStmt{unique: true, ifNotExists: $4, table: $6, cols: $8, predicate: $11}
     }
 |
     DROP INDEX ON tableName '(' col_names ')'
@@ -302,6 +440,25 @@ ddlstmt:
     ALTER TABLE tableName DROP CONSTRAINT IDENTIFIER
     {
         $$ = &DropConstraintStmt{table: $3, constraintName: $6}
+    }
+|
+    ALTER TABLE tableName ALTER COLUMN col_name SET NOT NULL
+    {
+        $$ = &AlterColumnStmt{table: $3, colName: $6, action: AlterColumnSetNotNull}
+    }
+|
+    ALTER TABLE tableName ALTER COLUMN col_name DROP NOT NULL
+    {
+        $$ = &AlterColumnStmt{table: $3, colName: $6, action: AlterColumnDropNotNull}
+    }
+|
+    ALTER TABLE tableName ALTER COLUMN col_name IDENTIFIER sql_type
+    {
+        if strings.ToUpper($7) != "TYPE" {
+            yylex.Error("expected TYPE keyword")
+            goto ret1
+        }
+        $$ = &AlterColumnStmt{table: $3, colName: $6, action: AlterColumnSetType, newType: $8}
     }
 |
     CREATE USER IDENTIFIER WITH PASSWORD VARCHAR_LIT permission
@@ -416,24 +573,44 @@ opt_if_not_exists:
 ;
 
 dmlstmt:
-    INSERT INTO tableRef insert_cols values_or_query opt_on_conflict
+    INSERT INTO tableRef insert_cols values_or_query opt_on_conflict opt_returning
     {
-        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $4, ds: $5, onConflict: $6}
+        stmt := &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $4, ds: $5, onConflict: $6}
+        if $7 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $7, tableName: $3.table}
+        } else {
+            $$ = stmt
+        }
     }
 |
-    UPSERT INTO tableRef insert_cols values_or_query
+    UPSERT INTO tableRef insert_cols values_or_query opt_returning
     {
-        $$ = &UpsertIntoStmt{tableRef: $3, cols: $4, ds: $5}
+        stmt := &UpsertIntoStmt{tableRef: $3, cols: $4, ds: $5}
+        if $6 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $6, tableName: $3.table}
+        } else {
+            $$ = stmt
+        }
     }
 |
-    DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset
+    DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset opt_returning
     {
-        $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: $6, offset: $7}
+        stmt := &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: $6, offset: $7}
+        if $8 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $8, tableName: $3.table}
+        } else {
+            $$ = stmt
+        }
     }
 |
-    UPDATE tableRef SET updates opt_where opt_indexon opt_limit opt_offset
+    UPDATE tableRef SET updates opt_where opt_indexon opt_limit opt_offset opt_returning
     {
-        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: $7, offset: $8}
+        stmt := &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: $7, offset: $8}
+        if $9 != nil {
+            $$ = &ReturningStmt{dml: stmt, returning: $9, tableName: $2.table}
+        } else {
+            $$ = stmt
+        }
     }
 
 values_or_query:
@@ -456,6 +633,26 @@ opt_on_conflict:
     ON CONFLICT DO NOTHING
     {
         $$ = &OnConflictDo{}
+    }
+|
+    ON CONFLICT DO UPDATE SET updates
+    {
+        $$ = &OnConflictDo{updates: $6}
+    }
+
+opt_returning:
+    {
+        $$ = nil
+    }
+|
+    RETURNING '*'
+    {
+        $$ = []TargetEntry{{Exp: &ColSelector{col: "*"}}}
+    }
+|
+    RETURNING targets
+    {
+        $$ = $2
     }
 
 updates:
@@ -555,9 +752,24 @@ val:
         $$ = &Cast{val: $3, t: $5}
     }
 |
+    TIMESTAMP_TYPE VARCHAR_LIT
+    {
+        $$ = &Cast{val: &Varchar{val: $2}, t: TimestampType}
+    }
+|
     fnCall
     {
         $$ = $1
+    }
+|
+    AGGREGATE_FUNC '(' '*' ')' OVER '(' opt_partition opt_orderby ')'
+    {
+        $$ = &WindowFnExp{fnName: aggFnName($1), partitionBy: $7, orderBy: $8}
+    }
+|
+    AGGREGATE_FUNC '(' col ')' OVER '(' opt_partition opt_orderby ')'
+    {
+        $$ = &WindowFnExp{fnName: aggFnName($1), params: []ValueExp{&ColSelector{table: $3.table, col: $3.col}}, partitionBy: $7, orderBy: $8}
     }
 |
     NPARAM
@@ -592,6 +804,11 @@ fnCall:
     {
         $$ = &FnCall{fn: $1, params: $3}
     }
+|
+    IDENTIFIER '(' opt_values ')' OVER '(' opt_partition opt_orderby ')'
+    {
+        $$ = &WindowFnExp{fnName: strings.ToUpper($1), params: $3, partitionBy: $7, orderBy: $8}
+    }
 
 tableElems:
     tableElem
@@ -619,18 +836,24 @@ tableElem:
     {
         $$ = PrimaryKeyConstraint($3)
     }
+|
+    FOREIGN KEY '(' col_names ')' REFERENCES tableName '(' col_names ')'
+    {
+        $$ = &ForeignKeyConstraint{cols: $4, refTable: $7, refCols: $9}
+    }
 ;
 
 colSpec:
-    col_name sql_type opt_max_len opt_not_null opt_auto_increment opt_primary_key
+    col_name sql_type opt_max_len opt_not_null opt_default opt_auto_increment opt_primary_key
     {
         $$ = &ColSpec{
-            colName: $1, 
-            colType: $2, 
-            maxLen: int($3), 
-            notNull: $4 || $6, 
-            autoIncrement: $5,
-            primaryKey: $6,
+            colName: $1,
+            colType: $2,
+            maxLen: int($3),
+            notNull: $4 || $7,
+            defaultValue: $5,
+            autoIncrement: $6,
+            primaryKey: $7,
         }
     }
 ;
@@ -657,6 +880,16 @@ opt_max_len:
     }
 |
     '(' INTEGER_LIT ')'
+    {
+        $$ = $2
+    }
+
+opt_default:
+    {
+        $$ = nil
+    }
+|
+    DEFAULT exp
     {
         $$ = $2
     }
@@ -692,12 +925,54 @@ dqlstmt:
         $$ = $1
     }
 |
+    WITH cte_defs select_stmt
+    {
+        $$ = &CTEStmt{ctes: $2, query: $3.(DataSource)}
+    }
+|
+    WITH cte_defs select_stmt UNION opt_all dqlstmt
+    {
+        $$ = &CTEStmt{ctes: $2, query: &UnionStmt{distinct: $5, left: $3.(DataSource), right: $6.(DataSource)}}
+    }
+|
+    WITH RECURSIVE cte_defs select_stmt
+    {
+        for _, c := range $3 {
+            c.recursive = true
+        }
+        $$ = &CTEStmt{ctes: $3, query: $4.(DataSource)}
+    }
+|
+    WITH RECURSIVE cte_defs select_stmt UNION opt_all dqlstmt
+    {
+        for _, c := range $3 {
+            c.recursive = true
+        }
+        $$ = &CTEStmt{ctes: $3, query: &UnionStmt{distinct: $6, left: $4.(DataSource), right: $7.(DataSource)}}
+    }
+|
     select_stmt UNION opt_all dqlstmt
     {
         $$ = &UnionStmt{
             distinct: $3,
             left: $1.(DataSource),
             right: $4.(DataSource),
+        }
+    }
+|
+    select_stmt EXCEPT dqlstmt
+    {
+        $$ = &ExceptStmt{
+            left: $1.(DataSource),
+            right: $3.(DataSource),
+        }
+    }
+|
+    select_stmt INTERSECT dqlstmt
+    {
+        $$ = &IntersectStmt{
+            left: $1.(DataSource),
+            right: $3.(DataSource),
         }
     }
 |
@@ -741,6 +1016,11 @@ dqlstmt:
          $$ = &SelectStmt{
             ds: &FnDataSourceStmt{fnCall: &FnCall{fn: "grants", params: []ValueExp{&Varchar{val: $4}}}},
         }
+    }
+|
+    EXPLAIN dqlstmt
+    {
+        $$ = &ExplainStmt{query: $2.(DataSource)}
     }
 
 select_stmt: SELECT opt_distinct opt_targets FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset
@@ -831,6 +1111,25 @@ selector:
     AGGREGATE_FUNC '(' col ')'
     {
         $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col}
+    }
+|
+    AGGREGATE_FUNC '(' DISTINCT col ')'
+    {
+        $$ = &AggColSelector{aggFn: $1, table: $4.table, col: $4.col, distinct: true}
+    }
+|
+    AGGREGATE_FUNC '(' DISTINCT '(' col ')' ')'
+    {
+        // Accept `COUNT(DISTINCT(col))` — XORM's builder wraps the
+        // distinct argument in extra parens when it emits aggregated
+        // SELECTs (Gitea GetUserOrgsList per-org repo count uses this).
+        // Semantically identical to COUNT(DISTINCT col).
+        $$ = &AggColSelector{aggFn: $1, table: $5.table, col: $5.col, distinct: true}
+    }
+|
+    AGGREGATE_FUNC '(' col ',' VARCHAR_LIT ')'
+    {
+        $$ = &AggColSelector{aggFn: $1, table: $3.table, col: $3.col, separator: $5}
     }
 
 jsonFields:
@@ -958,7 +1257,16 @@ ds:
 |
     '(' dqlstmt ')' opt_as
     {
-        $2.(*SelectStmt).as = $4
+        switch s := $2.(type) {
+        case *SelectStmt:
+            s.as = $4
+        case *UnionStmt:
+            s.as = $4
+        case *ExceptStmt:
+            s.as = $4
+        case *IntersectStmt:
+            s.as = $4
+        }
         $$ = $2.(DataSource)
     }
 |
@@ -1072,9 +1380,52 @@ joins:
     }
 
 join:
-    opt_join_type JOIN ds opt_indexon ON exp
+    opt_join_type JOIN ds opt_indexon opt_join_cond
     {
-        $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: $6}
+        if $5 == nil && $1 != CrossJoin {
+            yylex.Error("ON clause is required for non-CROSS joins")
+            goto ret1
+        }
+        cond := $5
+        if cond == nil {
+            cond = &Bool{val: true}
+        }
+        $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: cond.(ValueExp)}
+    }
+|
+    opt_join_type JOIN ds USING '(' col_names ')'
+    {
+        $$ = &JoinSpec{joinType: $1, ds: $3, cond: buildUsingCond($6)}
+    }
+|
+    NATURAL opt_join_type JOIN ds
+    {
+        $$ = &JoinSpec{joinType: $2, ds: $4, natural: true, cond: &Bool{val: true}}
+    }
+|
+    ',' LATERAL ds
+    {
+        $$ = &JoinSpec{joinType: InnerJoin, ds: $3, lateral: true, cond: &Bool{val: true}}
+    }
+|
+    ',' ds
+    {
+        // SQL-89 implicit cross-join: `FROM a, b` is equivalent to
+        // `FROM a CROSS JOIN b`. Postgres and every other ORM-facing
+        // dialect accepts this; immudb's grammar used to require an
+        // explicit LATERAL keyword after the comma, which broke ORM
+        // queries like Gitea's labelStatsQueryNumIssues:
+        //     SELECT COUNT(*) FROM issue_label, issue WHERE ...
+        $$ = &JoinSpec{joinType: CrossJoin, ds: $2, cond: &Bool{val: true}}
+    }
+|
+    opt_join_type JOIN LATERAL ds opt_indexon opt_join_cond
+    {
+        cond := $6
+        if cond == nil {
+            cond = &Bool{val: true}
+        }
+        $$ = &JoinSpec{joinType: $1, ds: $4, indexOn: $5, cond: cond.(ValueExp), lateral: true}
     }
 
 opt_join_type:
@@ -1085,6 +1436,16 @@ opt_join_type:
     JOINTYPE
     {
         $$ = $1
+    }
+
+opt_join_cond:
+    {
+        $$ = nil
+    }
+|
+    ON exp
+    {
+        $$ = $2
     }
 
 opt_where:
@@ -1126,6 +1487,21 @@ opt_limit:
     {
         $$ = $2
     }
+|
+    LIMIT ALL
+    {
+        $$ = nil
+    }
+|
+    FETCH FIRST exp ROWS ONLY
+    {
+        $$ = $3
+    }
+|
+    FETCH FIRST exp ROWS
+    {
+        $$ = $3
+    }
 
 opt_offset:
     {
@@ -1159,14 +1535,14 @@ opt_indexon:
 ;
 
 ordexps:
-    exp opt_ord
+    exp opt_ord opt_nulls_order
     {
-        $$ = []*OrdExp{{exp: $1, descOrder: $2}}
+        $$ = []*OrdExp{{exp: $1, descOrder: $2, nullsOrder: $3}}
     }
 |
-    ordexps ',' exp opt_ord
+    ordexps ',' exp opt_ord opt_nulls_order
     {
-        $$ = append($1, &OrdExp{exp: $3, descOrder: $4})
+        $$ = append($1, &OrdExp{exp: $3, descOrder: $4, nullsOrder: $5})
     }
 
 opt_ord:
@@ -1184,6 +1560,48 @@ opt_ord:
         $$ = true
     }
 
+opt_nulls_order:
+    {
+        $$ = NullsDefault
+    }
+|
+    NULLS FIRST
+    {
+        $$ = NullsFirst
+    }
+|
+    NULLS LAST
+    {
+        $$ = NullsLast
+    }
+
+opt_partition:
+    {
+        $$ = nil
+    }
+|
+    PARTITION BY values
+    {
+        $$ = $3
+    }
+
+cte_defs:
+    cte_def
+    {
+        $$ = []*CTEDef{$1}
+    }
+|
+    cte_defs ',' cte_def
+    {
+        $$ = append($1, $3)
+    }
+
+cte_def:
+    IDENTIFIER AS '(' dqlstmt ')'
+    {
+        $$ = &CTEDef{name: $1, query: $4.(DataSource)}
+    }
+
 opt_as:
     {
         $$ = ""
@@ -1197,6 +1615,27 @@ opt_as:
     AS qualifiedName
     {
         $$ = $2
+    }
+|
+    AS colNameKeyword
+    {
+        // Allow reserved type names (TIMESTAMP, INTEGER, VARCHAR, …) to
+        // appear as column aliases, e.g. Gitea's heatmap query:
+        //   SELECT created_unix / 900 * 900 AS timestamp, count(..) AS ...
+        // Postgres accepts this; immudb's grammar previously rejected it
+        // because qualifiedName only covered IDENTIFIER / unreserved_keyword.
+        $$ = string($2)
+    }
+|
+    AS AGGREGATE_FUNC
+    {
+        // Accept aggregate-function names (count, sum, max, min, avg,
+        // string_agg) as column aliases. Postgres treats these as
+        // non-reserved — they can appear in any identifier position.
+        // Gitea's getUserIssueStats emits
+        //   SELECT COUNT(issue.id) AS count FROM issue …
+        // which failed at Parse with "unexpected AGGREGATE_FUNC".
+        $$ = string($2)
     }
 ;
 
@@ -1296,13 +1735,27 @@ cmpExp
         }
     }
     | addExp opt_not LIKE addExp    { $$ = &LikeBoolExp{val: $1, notLike: $2, pattern: $4} }
+    | addExp ILIKE addExp           { $$ = &LikeBoolExp{val: $1, caseInsensitive: true, pattern: $3} }
+    | addExp NOT ILIKE addExp       { $$ = &LikeBoolExp{val: $1, notLike: true, caseInsensitive: true, pattern: $4} }
     | addExp NOT_MATCHES_OP addExp  { $$ = &LikeBoolExp{val: $1, notLike: true, pattern: $3} }
     | primaryBool
     ;
 
 primaryBool
     : EXISTS '(' dqlstmt ')'            { $$ = &ExistsBoolExp{q: ($3).(DataSource)} }
-    | addExp opt_not IN '(' dqlstmt ')' { $$ = &InSubQueryExp{val: $1, notIn: $2, q: $5.(*SelectStmt)} }
+    | addExp opt_not IN '(' dqlstmt ')' {
+        ds, ok := $5.(DataSource)
+        if !ok {
+            yylex.Error("IN subquery must be a SELECT statement")
+            goto ret1
+        }
+        sel, isSel := ds.(*SelectStmt)
+        if !isSel {
+            // Wrap non-SelectStmt DataSource in a SelectStmt for compatibility
+            sel = &SelectStmt{ds: ds}
+        }
+        $$ = &InSubQueryExp{val: $1, notIn: $2, q: sel}
+    }
     | addExp opt_not IN '(' values ')'  { $$ = &InListExp{val: $1, notIn: $2, values: $5} }
     | case_when_exp                     { $$ = $1 }
     | addExp
@@ -1338,6 +1791,7 @@ unaryExp
 
 primary
     : '(' exp ')' { $$ = $2 }
+    | '(' select_stmt ')' { $$ = &ScalarSubQueryExp{stmt: $2.(*SelectStmt)} }
     | boundexp
     ;
 

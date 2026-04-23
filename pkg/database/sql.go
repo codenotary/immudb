@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -288,10 +288,26 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 }
 
 func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, err error) {
+	// txCtx is intentionally derived from context.Background(), NOT from the
+	// caller's ctx.  The OngoingTx returned by NewTx stores txCtx in its ctx
+	// field and uses it for snapshot reads that may happen on *subsequent*
+	// RPCs (TxSQLQuery, TxSQLExec, etc.) bound to the same session.  If we
+	// derived txCtx from the caller's ctx, gRPC would cancel the caller's ctx
+	// as soon as the NewTx RPC returned, which would poison the stored ctx
+	// and make every follow-up read on the transaction fail with
+	// "context canceled".  Transaction lifetime is explicit (Commit/Rollback)
+	// and independent of any single RPC.
+	//
+	// txCancel is still useful for the caller's ctx.Done() branch below: it
+	// aborts an in-progress NewTx call inside the goroutine so the goroutine
+	// exits promptly instead of leaking.
 	txCtx, txCancel := context.WithCancel(context.Background())
 
-	txChan := make(chan *sql.SQLTx)
-	errChan := make(chan error)
+	// Buffered channels (capacity 1) ensure the goroutine can always send its
+	// result and exit, even when the outer select has already returned on
+	// ctx.Done() — preventing a goroutine leak.
+	txChan := make(chan *sql.SQLTx, 1)
+	errChan := make(chan error, 1)
 
 	defer func() {
 		if err != nil {
@@ -304,37 +320,39 @@ func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, 
 	}()
 
 	go func() {
+		// Do NOT defer txCancel() here: the OngoingTx returned by NewTx
+		// stores txCtx in its ctx field and uses it for all subsequent
+		// snapshot reads.  Cancelling txCtx in this goroutine's defer
+		// would fire immediately after txChan <- t, making every read on
+		// the freshly-created transaction fail with "context canceled".
+		// txCancel() is called by the outer defer (on error) or by the
+		// ctx.Done() branch below (to interrupt an in-progress NewTx).
 		md := schema.MetadataFromContext(ctx)
 		if len(md) > 0 {
-			data, err := md.Marshal()
-			if err != nil {
-				errChan <- err
+			data, e := md.Marshal()
+			if e != nil {
+				errChan <- e
 				return
 			}
 			opts = opts.WithExtra(data)
 		}
 
-		tx, err = d.sqlEngine.NewTx(txCtx, opts)
-		if err != nil {
-			errChan <- err
+		t, e := d.sqlEngine.NewTx(txCtx, opts)
+		if e != nil {
+			errChan <- e
 		} else {
-			txChan <- tx
+			txChan <- t
 		}
 	}()
 
 	select {
 	case <-ctx.Done():
-		{
-			return nil, ctx.Err()
-		}
+		txCancel() // interrupt the in-progress NewTx call inside the goroutine
+		return nil, ctx.Err()
 	case tx = <-txChan:
-		{
-			return tx, nil
-		}
+		return tx, nil
 	case err = <-errChan:
-		{
-			return nil, err
-		}
+		return nil, err
 	}
 }
 

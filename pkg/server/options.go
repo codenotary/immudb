@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -84,6 +84,9 @@ type Options struct {
 	SwaggerUIEnabled            bool
 	LogRequestMetadata          bool
 	MaxActiveDatabases          int
+	AuditLog                    bool
+	AuditLogEvents              string
+	MaxKeyLen                   int
 }
 
 type RemoteStorageOptions struct {
@@ -99,6 +102,13 @@ type RemoteStorageOptions struct {
 	S3ExternalIdentifier    bool
 	S3InstanceMetadataURL   string
 	S3UseFargateCredentials bool
+
+	// S3ServerSideEncryption selects server-side encryption for PUT operations:
+	// "" (bucket default / none), "AES256" (SSE-S3), or "aws:kms" (SSE-KMS).
+	S3ServerSideEncryption string
+	// S3SSEKMSKeyID is an optional KMS key id, only used when
+	// S3ServerSideEncryption == "aws:kms".
+	S3SSEKMSKeyID string `json:"-"`
 }
 
 type ReplicationOptions struct {
@@ -159,6 +169,9 @@ func DefaultOptions() *Options {
 		LogDir:                      "immulog",
 		LogAccess:                   false,
 		MaxActiveDatabases:          100,
+		AuditLog:                    false,
+		AuditLogEvents:              "all",
+		MaxKeyLen:                   0, // 0 = use embedded/sql package default
 	}
 }
 
@@ -387,6 +400,10 @@ func (o *Options) String() string {
 		if !o.RemoteStorageOptions.S3UseFargateCredentials {
 		  opts = append(opts, rightPad("   metadata url", o.RemoteStorageOptions.S3InstanceMetadataURL))
 		}
+		if o.RemoteStorageOptions.S3ServerSideEncryption != "" {
+			opts = append(opts, rightPad("   sse", o.RemoteStorageOptions.S3ServerSideEncryption))
+			// intentionally do not print SSEKMSKeyID; callers may treat it as sensitive
+		}
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
 		opts = append(opts, "----------------------------------------")
@@ -549,6 +566,27 @@ func (o *Options) WithMaxActiveDatabases(n int) *Options {
 	return o
 }
 
+// WithMaxKeyLen sets the engine-side maximum length (in bytes) for
+// indexed VARCHAR columns. 0 leaves the embedded/sql package default
+// in place; positive values must be in [64, 65535] (validated in
+// embedded/sql.Options.Validate). The store-layer composite-key cap
+// is still the practical insert ceiling — see embedded/sql/options.go
+// WithMaxKeyLen for details.
+func (o *Options) WithMaxKeyLen(n int) *Options {
+	o.MaxKeyLen = n
+	return o
+}
+
+func (o *Options) WithAuditLog(enabled bool) *Options {
+	o.AuditLog = enabled
+	return o
+}
+
+func (o *Options) WithAuditLogEvents(events string) *Options {
+	o.AuditLogEvents = events
+	return o
+}
+
 // RemoteStorageOptions
 
 func (opts *RemoteStorageOptions) WithS3Storage(S3Storage bool) *RemoteStorageOptions {
@@ -608,6 +646,16 @@ func (opts *RemoteStorageOptions) WithS3InstanceMetadataURL(url string) *RemoteS
 
 func (opts *RemoteStorageOptions) WithS3UseFargateCredentials(s3UseFargateCredentials bool) *RemoteStorageOptions {
 	opts.S3UseFargateCredentials = s3UseFargateCredentials
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3ServerSideEncryption(algorithm string) *RemoteStorageOptions {
+	opts.S3ServerSideEncryption = algorithm
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3SSEKMSKeyID(keyID string) *RemoteStorageOptions {
+	opts.S3SSEKMSKeyID = keyID
 	return opts
 }
 

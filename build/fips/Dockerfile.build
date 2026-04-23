@@ -1,4 +1,4 @@
-FROM golang:1.24 AS build
+FROM golang:1.25 AS build
 ENV GOFIPS140=latest
 ARG USERNAME=fipsadmin
 ARG USER_UID=1000

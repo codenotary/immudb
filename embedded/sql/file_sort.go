@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -44,6 +44,14 @@ type fileSorter struct {
 	writer       *bufio.Writer
 	tempFileSize uint64
 
+	// allTempFiles tracks every os.File that fileSorter has opened so they
+	// can be closed and removed when the consuming reader chain calls
+	// Close(). Lifecycle is owned by fileSorter (not the surrounding SQLTx)
+	// so the files survive a tx Cancel that fires mid-iteration of the
+	// returned resultReader — see the JOIN+GROUP+ORDER race documented at
+	// embedded/sql/joint_row_reader.go:198.
+	allTempFiles []*os.File
+
 	chunksToMerge []sortedChunk
 }
 
@@ -85,7 +93,33 @@ func (s *fileSorter) finalize() (resultReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.mergeAllChunks()
+	reader, err := s.mergeAllChunks()
+	if err != nil {
+		// merge failed — make sure we don't leak temp files we opened.
+		s.Close()
+		return nil, err
+	}
+	return reader, nil
+}
+
+// Close closes and removes every temp file opened by this sorter, after
+// first deregistering them from the SQLTx so the tx's deferred
+// removeTempFiles won't double-close. Safe to call multiple times.
+func (s *fileSorter) Close() error {
+	var firstErr error
+	for _, f := range s.allTempFiles {
+		if s.tx != nil {
+			s.tx.deregisterTempFile(f)
+		}
+		if err := f.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+		if err := os.Remove(f.Name()); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	s.allTempFiles = nil
+	return firstErr
 }
 
 func (s *fileSorter) mergeAllChunks() (resultReader, error) {
@@ -95,6 +129,7 @@ func (s *fileSorter) mergeAllChunks() (resultReader, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.allTempFiles = append(s.allTempFiles, outFile)
 
 	lbuf := &bufio.Reader{}
 	rbuf := &bufio.Reader{}
@@ -169,6 +204,7 @@ func (s *fileSorter) mergeAllChunks() (resultReader, error) {
 		colTypes:         s.colTypes,
 		colPosBySelector: s.colPosBySelector,
 		reader:           bufio.NewReader(io.NewSectionReader(currFile, 0, int64(s.tempFileSize))),
+		closer:           s.Close,
 	}, nil
 }
 
@@ -237,6 +273,10 @@ func (s *fileSorter) mergeChunks(lr, rr *fileRowReader, writer io.Writer) error 
 
 type resultReader interface {
 	Read() (*Row, error)
+	// Close releases any temp files or other resources owned by the reader.
+	// Safe to call multiple times. Implementations that have nothing to
+	// release return nil.
+	Close() error
 }
 
 type bufferResultReader struct {
@@ -254,6 +294,10 @@ func (r *bufferResultReader) Read() (*Row, error) {
 	return row, nil
 }
 
+func (r *bufferResultReader) Close() error {
+	return nil
+}
+
 type fileRowReader struct {
 	colPosBySelector map[string]int
 	colTypes         []SQLValueType
@@ -261,6 +305,16 @@ type fileRowReader struct {
 	rowBuf           bytes.Buffer
 	row              *Row
 	reuseRow         bool
+	closer           func() error
+}
+
+func (r *fileRowReader) Close() error {
+	if r.closer == nil {
+		return nil
+	}
+	c := r.closer
+	r.closer = nil
+	return c()
 }
 
 func (r *fileRowReader) readValues(out []TypedValue) error {
@@ -388,6 +442,7 @@ func (s *fileSorter) tempFileWriter() (*bufio.Writer, error) {
 		return nil, err
 	}
 	s.tempFile = file
+	s.allTempFiles = append(s.allTempFiles, file)
 	s.writer = bufio.NewWriter(file)
 	return s.writer, nil
 }

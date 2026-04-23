@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package server
 
 import (
 	"encoding/binary"
+	"io"
 	"fmt"
 	"math"
 	"net"
@@ -50,7 +51,7 @@ func NewMessageReader(conn net.Conn) *messageReader {
 
 func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	t := make([]byte, 1)
-	if _, err := r.conn.Read(t); err != nil {
+	if _, err := io.ReadFull(r.conn, t); err != nil {
 		return nil, err
 	}
 	if _, ok := pgmeta.MTypes[t[0]]; !ok {
@@ -58,7 +59,7 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	}
 
 	lb := make([]byte, 4)
-	if _, err := r.conn.Read(lb); err != nil {
+	if _, err := io.ReadFull(r.conn, lb); err != nil {
 		return nil, err
 	}
 	pLen := binary.BigEndian.Uint32(lb) - 4
@@ -70,7 +71,7 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 		return nil, errors.ErrMessageTooLarge
 	}
 	payload := make([]byte, pLen)
-	if _, err := r.conn.Read(payload); err != nil {
+	if _, err := io.ReadFull(r.conn, payload); err != nil {
 		return nil, err
 	}
 

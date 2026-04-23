@@ -39,10 +39,13 @@ func (s *ImmuServer) logAccess(ctx context.Context, method string, rpcDuration t
 
 	ip := ipAddrFromContext(ctx)
 
+	// Pass rpcDuration directly and use %v so fmt invokes Duration.String()
+	// only inside the logger's level-gated Printf — saves one allocation per
+	// RPC when LogAccess is enabled but the underlying log level is above Info.
 	if rpcErr == nil {
-		s.Logger.Infof("user=%s,ip=%s,method=%s,duration=%s", username, ip, method, rpcDuration.String())
+		s.Logger.Infof("user=%s,ip=%s,method=%s,duration=%v", username, ip, method, rpcDuration)
 	} else {
-		s.Logger.Infof("user=%s,ip=%s,method=%s,duration=%s,error=%s", username, ip, method, rpcDuration.String(), rpcErr)
+		s.Logger.Infof("user=%s,ip=%s,method=%s,duration=%v,error=%s", username, ip, method, rpcDuration, rpcErr)
 	}
 	return nil
 }

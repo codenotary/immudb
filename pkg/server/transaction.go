@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -151,5 +151,5 @@ func (s *ImmuServer) TxSQLQuery(req *schema.SQLQueryRequest, srv schema.ImmuServ
 	}
 	defer reader.Close()
 
-	return s.streamRows(context.Background(), reader, tx.Database().MaxResultSize(), srv.Send)
+	return s.streamRows(srv.Context(), reader, tx.Database().MaxResultSize(), srv.Send)
 }

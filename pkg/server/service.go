@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 package server
+
+import "log"
 
 // Service ...
 type Service struct {
@@ -33,5 +35,7 @@ func (s Service) Stop() {
 
 // Run - blocking run service
 func (s Service) Run() {
-	s.ImmuServerIf.Start()
+	if err := s.ImmuServerIf.Start(); err != nil {
+		log.Fatalf("immudb failed to start: %v", err)
+	}
 }

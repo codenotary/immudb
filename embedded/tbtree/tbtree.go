@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -172,9 +172,26 @@ type TBtree struct {
 
 	logger logger.Logger
 
-	nLog   appendable.Appendable
-	cache  *cache.Cache
-	nmutex sync.Mutex // mutex for cache and file reading
+	nLog appendable.Appendable
+	cache *cache.Cache
+	// nmutex serialises cache+nLog state coherence for *structural*
+	// mutations (cache puts + file reads). nodeAt's fast path (cache
+	// hit) takes RLock so concurrent B-tree descents can share the
+	// cache without serialising behind each other; the slow path
+	// (cache miss) escalates to Lock with a double-checked re-read
+	// before the file IO. cache.Cache has its own internal sync.Mutex
+	// protecting LRU list mutation, which is correct for that data
+	// structure but wasted cycles when the outer lock is already held
+	// exclusive.
+	nmutex sync.RWMutex
+
+	// inflight dedupes concurrent slow-path loads of the same offset,
+	// per-offset. Cache miss N goroutines on the same offset → 1 disk
+	// read instead of N. Different offsets stay fully concurrent
+	// (unlike the old global Lock around readNodeAt that serialised
+	// every miss). Keyed by encoded offset, same as cache.
+	inflightMu sync.Mutex
+	inflight   map[int64]*nodeLoad
 
 	hLog   appendable.Appendable
 	cLog   appendable.Appendable
@@ -581,6 +598,7 @@ func OpenWith(path, tsFile string, nLog, hLog, cLog appendable.Appendable, opts 
 		cLog:                     cLog,
 		tsFile:                   tsFile,
 		cache:                    nodeCache,
+		inflight:                 make(map[int64]*nodeLoad),
 		maxNodeSize:              maxNodeSize,
 		maxKeySize:               maxKeySize,
 		maxValueSize:             maxValueSize,
@@ -756,6 +774,14 @@ func (t *TBtree) GetOptions() *Options {
 		WithAppRemoveFunc(t.appRemove)
 }
 
+// nodeLoad holds the result of a single in-flight cache-miss load.
+// Waiters block on done, then read n/err.
+type nodeLoad struct {
+	done chan struct{}
+	n    node
+	err  error
+}
+
 func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
@@ -772,40 +798,67 @@ func encodeOffset(id uint16, offset int64) int64 {
 }
 
 func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
-	t.nmutex.Lock()
-	defer t.nmutex.Unlock()
-
-	size := t.cache.EntriesCount()
-	metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(size))
-
 	encOffset := encodeOffset(t.id, offset)
 
+	// Fast path: cache hit. RLock lets concurrent readers share the
+	// cache lookup; LRU-list mutation inside cache.Get is guarded by
+	// cache.Cache's own internal mutex.
+	t.nmutex.RLock()
 	v, err := t.cache.Get(encOffset)
+	t.nmutex.RUnlock()
 	if err == nil {
 		metricsCacheHit.WithLabelValues(t.path).Inc()
 		return v.(node), nil
 	}
-
-	if err == cache.ErrKeyNotFound {
-		metricsCacheMiss.WithLabelValues(t.path).Inc()
-
-		n, err := t.readNodeAt(offset)
-		if err != nil {
-			return nil, err
-		}
-
-		if updateCache {
-			size, _ := n.size()
-			r, _, _ := t.cache.PutWeighted(encOffset, n, size)
-			if r != nil {
-				metricsCacheEvict.WithLabelValues(t.path).Inc()
-			}
-		}
-
-		return n, nil
+	if err != cache.ErrKeyNotFound {
+		return nil, err
 	}
 
-	return nil, err
+	// Slow path: cache miss. Per-offset singleflight: dedupe concurrent
+	// loads of the same offset through one disk read while keeping
+	// different offsets fully concurrent. The prior global Lock here
+	// serialised every miss across all offsets — pprof during the
+	// long-run showed 46 of 78 tbtree-spawned goroutines parked on it
+	// during each indexer-flush burst, which is exactly the p95
+	// ratchet the long-run surfaced.
+	t.inflightMu.Lock()
+	if p, ok := t.inflight[encOffset]; ok {
+		t.inflightMu.Unlock()
+		<-p.done
+		return p.n, p.err
+	}
+	p := &nodeLoad{done: make(chan struct{})}
+	t.inflight[encOffset] = p
+	t.inflightMu.Unlock()
+
+	metricsCacheMiss.WithLabelValues(t.path).Inc()
+
+	n, err := t.readNodeAt(offset)
+	if err == nil && updateCache {
+		size, _ := n.size()
+		r, _, _ := t.cache.PutWeighted(encOffset, n, size)
+		if r != nil {
+			metricsCacheEvict.WithLabelValues(t.path).Inc()
+		}
+		// Emit the cache-size gauge on the slow path only (misses are
+		// infrequent vs hits). Prometheus scrapes the gauge value, so
+		// lagging updates are acceptable. The prior per-hot-path Set
+		// imposed cache.Cache's internal mutex on every B-tree descent.
+		metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(t.cache.EntriesCount()))
+	}
+
+	p.n = n
+	p.err = err
+	close(p.done)
+
+	t.inflightMu.Lock()
+	delete(t.inflight, encOffset)
+	t.inflightMu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func (t *TBtree) readNodeAt(off int64) (node, error) {
@@ -1609,14 +1662,19 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 }
 
 func (t *TBtree) Close() error {
-	t.logger.Infof("closing index '%s' {ts=%d}...", t.path, t.root.ts())
-
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
 	}
+
+	// Reading t.root.ts() requires the rwmutex because the indexer goroutine
+	// mutates leafNode._ts under the same lock (see leafNode.setTs). Prior
+	// code emitted the log line *before* acquiring the lock, which was the
+	// -race failure pair documented against tbtree.go:2634 (writer) vs
+	// tbtree.go:2621 (ts reader).
+	t.logger.Infof("closing index '%s' {ts=%d}...", t.path, t.root.ts())
 
 	if len(t.snapshots) > 0 {
 		return ErrSnapshotsNotClosed

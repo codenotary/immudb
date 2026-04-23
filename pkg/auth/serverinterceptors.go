@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package auth
 
 import (
 	"context"
-	"strings"
+	"net"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -76,16 +76,25 @@ var localAddress = map[string]struct{}{
 	"127.0.0.1": {},
 	"localhost": {},
 	"bufconn":   {},
+	"::1":       {},
 }
 
 func isLocalClient(ctx context.Context) bool {
-	isLocal := false
 	p, ok := peer.FromContext(ctx)
-	if ok && p != nil {
-		ipAndPort := strings.Split(p.Addr.String(), ":")
-		if len(ipAndPort) > 0 {
-			_, isLocal = localAddress[ipAndPort[0]]
-		}
+	if !ok || p == nil {
+		return false
 	}
+
+	addr := p.Addr.String()
+	// net.SplitHostPort correctly parses both IPv4 and IPv6 (e.g. "[::1]:443").
+	// strings.Split(addr, ":") returns "[" for IPv6 and would miss "::1".
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// Some addresses (bufconn mocks in tests) have no port — fall back to
+		// matching the raw string against the localAddress set.
+		host = addr
+	}
+
+	_, isLocal := localAddress[host]
 	return isLocal
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -121,11 +121,13 @@ func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interfa
 }
 
 func (c *tx) SQLQueryReader(ctx context.Context, sql string, params map[string]interface{}) (SQLQueryRowReader, error) {
-	stream, err := c.sqlQuery(ctx, sql, params, true)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	stream, err := c.sqlQuery(cancelCtx, sql, params, true)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	return newSQLQueryRowReader(stream)
+	return newSQLQueryRowReader(stream, cancel)
 }
 
 func (c *tx) sqlQuery(ctx context.Context, sql string, params map[string]interface{}, acceptStream bool) (schema.ImmuService_TxSQLQueryClient, error) {

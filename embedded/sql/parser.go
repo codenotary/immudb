@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 var keywords = map[string]int{
 	"CREATE":         CREATE,
 	"DROP":           DROP,
+	"TRUNCATE":       TRUNCATE,
 	"USE":            USE,
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
@@ -67,11 +68,35 @@ var keywords = map[string]int{
 	"TRANSACTION":    TRANSACTION,
 	"COMMIT":         COMMIT,
 	"ROLLBACK":       ROLLBACK,
+	"SAVEPOINT":      SAVEPOINT,
+	"RELEASE":        RELEASE,
+	"LATERAL":        LATERAL,
 	"SELECT":         SELECT,
 	"DISTINCT":       DISTINCT,
 	"FROM":           FROM,
 	"UNION":          UNION,
 	"ALL":            ALL,
+	"EXCEPT":         EXCEPT,
+	"INTERSECT":      INTERSECT,
+	"NULLS":          NULLS,
+	"FIRST":          FIRST,
+	"LAST":           LAST,
+	"VIEW":           VIEW,
+	"OVER":           OVER,
+	"PARTITION":      PARTITION,
+	"EXPLAIN":        EXPLAIN,
+	"RECURSIVE":      RECURSIVE,
+	"NATURAL":        NATURAL,
+	"USING":          USING,
+	"ILIKE":          ILIKE,
+	"DEFAULT":        DEFAULT,
+	"FETCH":          FETCH,
+	"ROWS":           ROWS,
+	"ONLY":           ONLY,
+	"FOREIGN":        FOREIGN,
+	"REFERENCES":     REFERENCES,
+	"CASCADE":        CASCADE,
+	"SEQUENCE":       SEQUENCE,
 	"TX":             TX,
 	"JOIN":           JOIN,
 	"HAVING":         HAVING,
@@ -121,13 +146,30 @@ var keywords = map[string]int{
 	"END":            END,
 	"EXTRACT":        EXTRACT,
 	"INTEGER":        INTEGER_TYPE,
+	"INT":            INTEGER_TYPE,
+	"INT4":           INTEGER_TYPE,
+	"INT8":           INTEGER_TYPE,
+	"BIGINT":         INTEGER_TYPE,
+	"SMALLINT":       INTEGER_TYPE,
+	"SERIAL":         INTEGER_TYPE,
+	"BIGSERIAL":      INTEGER_TYPE,
 	"BOOLEAN":        BOOLEAN_TYPE,
 	"VARCHAR":        VARCHAR_TYPE,
 	"TIMESTAMP":      TIMESTAMP_TYPE,
+	"TIMESTAMPTZ":    TIMESTAMP_TYPE,
+	"DATE":           TIMESTAMP_TYPE,
 	"FLOAT":          FLOAT_TYPE,
+	"FLOAT4":         FLOAT_TYPE,
+	"FLOAT8":         FLOAT_TYPE,
+	"DOUBLE":         FLOAT_TYPE,
+	"REAL":           FLOAT_TYPE,
+	"NUMERIC":        FLOAT_TYPE,
+	"DECIMAL":        FLOAT_TYPE,
 	"BLOB":           BLOB_TYPE,
+	"BYTEA":          BLOB_TYPE,
 	"UUID":           UUID_TYPE,
 	"JSON":           JSON_TYPE,
+	"JSONB":          JSON_TYPE,
 	"YEAR":           YEAR,
 	"MONTH":          MONTH,
 	"DAY":            DAY,
@@ -140,14 +182,17 @@ var joinTypes = map[string]JoinType{
 	"INNER": InnerJoin,
 	"LEFT":  LeftJoin,
 	"RIGHT": RightJoin,
+	"CROSS": CrossJoin,
+	"FULL":  FullOuterJoin,
 }
 
 var aggregateFns = map[string]AggregateFn{
-	"COUNT": COUNT,
-	"SUM":   SUM,
-	"MAX":   MAX,
-	"MIN":   MIN,
-	"AVG":   AVG,
+	"COUNT":      COUNT,
+	"SUM":        SUM,
+	"MAX":        MAX,
+	"MIN":        MIN,
+	"AVG":        AVG,
+	"STRING_AGG": STRING_AGG,
 }
 
 var boolValues = map[string]bool{
@@ -283,6 +328,23 @@ func (l *lexer) Lex(lval *yySymType) int {
 				if ch == '*' && l.r.nextChar == '/' {
 					l.r.ReadByte() // consume closing slash
 					break
+				}
+			}
+
+			continue
+		}
+
+		if ch == '-' && l.r.nextChar == '-' {
+			l.r.ReadByte() // consume second dash
+
+			for {
+				ch, err := l.r.ReadByte()
+				if err == io.EOF || isLineBreak(ch) {
+					break
+				}
+				if err != nil {
+					lval.err = err
+					return ERROR
 				}
 			}
 
@@ -573,8 +635,37 @@ func (l *lexer) Lex(lval *yySymType) int {
 	return int(ch)
 }
 
+// tokenFriendlyNames rewrites goyacc's raw grammar-token names into
+// descriptions a human who has never read sql_grammar.y will recognise.
+// Applies to yyerror output such as
+//
+//	"syntax error: unexpected VARCHAR_LIT, expecting ')'"
+//
+// which becomes "... unexpected string literal, expecting ')'".
+// Only uppercase-with-underscore names appear in goyacc's verbose error
+// format, so there is no risk of matching inside an identifier.
+var tokenFriendlyNames = strings.NewReplacer(
+	"VARCHAR_LIT", "string literal",
+	"INTEGER_LIT", "integer",
+	"FLOAT_LIT", "number",
+	"BLOB_LIT", "binary literal",
+	"BOOLEAN_LIT", "boolean",
+	"NPARAM", "named parameter",
+	"PPARAM", "positional parameter",
+	"VARCHAR_TYPE", "VARCHAR",
+	"INTEGER_TYPE", "INTEGER",
+	"BOOLEAN_TYPE", "BOOLEAN",
+	"BLOB_TYPE", "BLOB",
+	"FLOAT_TYPE", "FLOAT",
+	"TIMESTAMP_TYPE", "TIMESTAMP",
+	"UUID_TYPE", "UUID",
+	"JSON_TYPE", "JSON",
+	"AGGREGATE_FUNC", "aggregate function",
+	"STMT_SEPARATOR", "';'",
+)
+
 func (l *lexer) Error(err string) {
-	l.err = fmt.Errorf("%s at position %d", err, l.r.ReadCount())
+	l.err = fmt.Errorf("%s at position %d", tokenFriendlyNames.Replace(err), l.r.ReadCount())
 }
 
 func (l *lexer) readWord() (string, error) {

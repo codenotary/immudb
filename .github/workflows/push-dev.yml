@@ -1,8 +1,8 @@
 name: build-push-dev
 
 env:
-  GO_VERSION: "1.24"
-  MIN_SUPPORTED_GO_VERSION: "1.24"
+  GO_VERSION: "1.25"
+  MIN_SUPPORTED_GO_VERSION: "1.25"
 
 on:
   push:

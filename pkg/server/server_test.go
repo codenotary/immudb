@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Codenotary Inc. All rights reserved.
+Copyright 2026 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -1406,19 +1406,19 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorContains(t, err, "unknown permission")
 
 	// getLoggedInUserDataFromUsername errors
-	userdata := s.userdata.Userdata[username]
-	delete(s.userdata.Userdata, username)
+	userdata, _ := s.userdata.Get(username)
+	s.userdata.DeleteUserdata(username)
 	_, err = s.getLoggedInUserDataFromUsername(username)
 	require.ErrorIs(t, err, ErrNotLoggedIn)
-	s.userdata.Userdata[username] = userdata
+	s.userdata.SetUserdata(username, userdata)
 
 	// getDBFromCtx errors
-	adminUserdata := s.userdata.Userdata[auth.SysAdminUsername]
-	delete(s.userdata.Userdata, auth.SysAdminUsername)
+	adminUserdata, _ := s.userdata.Get(auth.SysAdminUsername)
+	s.userdata.DeleteUserdata(auth.SysAdminUsername)
 	s.Options.maintenance = true
 	_, err = s.getDBFromCtx(adminCtx, "ListUsers")
 	require.ErrorIs(t, err, ErrNotLoggedIn)
-	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
+	s.userdata.SetUserdata(auth.SysAdminUsername, adminUserdata)
 	s.Options.maintenance = false
 
 	// SetActiveUser errors
@@ -1430,10 +1430,10 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
-	delete(s.userdata.Userdata, auth.SysAdminUsername)
+	s.userdata.DeleteUserdata(auth.SysAdminUsername)
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: username, Active: false})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
-	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
+	s.userdata.SetUserdata(auth.SysAdminUsername, adminUserdata)
 
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
 	require.ErrorContains(t, err, "changing your own status is not allowed")
@@ -1479,10 +1479,10 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.Options.auth = true
 
-	delete(s.userdata.Userdata, auth.SysAdminUsername)
+	s.userdata.DeleteUserdata(auth.SysAdminUsername)
 	_, err = s.ChangePermission(userCtx, cpr)
 	require.ErrorIs(t, err, ErrNotLoggedIn)
-	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
+	s.userdata.SetUserdata(auth.SysAdminUsername, adminUserdata)
 
 	cpr.Username = ""
 	_, err = s.ChangePermission(userCtx, cpr)
