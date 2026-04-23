@@ -84,7 +84,7 @@ func (s *session) handleCopyFromStdin(table string, cols []string) error {
 			s.log.Warningf("COPY %s: error reading message: %v", table, err)
 			return err
 		}
-		s.log.Infof("COPY %s: received message type %T", table, msg)
+		s.log.Infof("COPY %s: received protocol message", table)
 
 		switch v := msg.(type) {
 		case fm.CopyDataMsg:
