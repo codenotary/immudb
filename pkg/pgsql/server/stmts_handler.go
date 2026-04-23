@@ -88,7 +88,7 @@ var (
 	// (pg_tables, pg_indexes, pg_views, pg_sequences). A match flags
 	// the query as a candidate for engine passthrough;
 	// allPgRefsRegistered decides whether it actually qualifies.
-	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences)\b`)
+	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences|pg_attrdef|pg_collation)\b`)
 
 	// pgAnyTableRe finds every reference to a pg_ table in the statement.
 	// Used by allPgRefsRegistered to decide whether a JOIN-containing
@@ -119,6 +119,15 @@ var (
 		"pg_indexes":   true,
 		"pg_views":     true,
 		"pg_sequences": true,
+		// pkg/pgsql/sys/ — empty stubs for psql \d subqueries (A6)
+		// psql's \d <table> has correlated subqueries joining
+		// pg_attrdef (column defaults) and pg_collation (collation
+		// metadata). immudb has no natural row source for either,
+		// but registering them empty keeps the engine-passthrough
+		// dispatcher happy and the subqueries return NULL which is
+		// what psql expects for "no default / no collation".
+		"pg_attrdef":   true,
+		"pg_collation": true,
 	}
 
 	// pgBuiltinFunctions are known pg_catalog-qualified functions built

@@ -215,6 +215,27 @@ func TestAllPgRefsRegistered(t *testing.T) {
 			sql:  `SELECT 'pg_extension matched' FROM pg_catalog.pg_class`,
 			want: true,
 		},
+		{
+			// psql `\d <table>` column detail query. FROM pg_attribute
+			// with subqueries against pg_attrdef (default expr) and
+			// pg_collation/pg_type (collation). Both subquery tables
+			// must be registered (A6 empty stubs) or the query falls
+			// to the canned pgAdminProbe handler and the user sees
+			// 23 NULL rows instead of their actual column metadata.
+			name: "psql_describe_columns_with_subqueries",
+			sql: `SELECT a.attname, pg_catalog.format_type(a.atttypid, a.atttypmod), ` +
+				`(SELECT pg_catalog.pg_get_expr(d.adbin, d.adrelid, true) ` +
+				` FROM pg_catalog.pg_attrdef d ` +
+				` WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef), ` +
+				`a.attnotnull, ` +
+				`(SELECT c.collname FROM pg_catalog.pg_collation c, pg_catalog.pg_type t ` +
+				` WHERE c.oid = a.attcollation AND t.oid = a.atttypid ` +
+				`       AND a.attcollation <> t.typcollation) AS attcollation ` +
+				`FROM pg_catalog.pg_attribute a ` +
+				`WHERE a.attrelid = '16384' AND a.attnum > 0 AND NOT a.attisdropped ` +
+				`ORDER BY a.attnum`,
+			want: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
