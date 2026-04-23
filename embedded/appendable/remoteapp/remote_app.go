@@ -23,7 +23,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -532,21 +531,19 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 			return nil, 0, ErrInvalidLocalStorage
 		}
 
-		if id < 0 || id > int64(math.MaxInt) {
+		if id < 0 {
 			return nil, 0, fmt.Errorf("chunk id %d out of range", id)
 		}
-		// idInt is bounded by the check above; the local conversion
-		// makes the safety visible to CodeQL's taint analysis, which
-		// otherwise flags every `int(id)` call site as an
-		// unchecked 64→int truncation (go/incorrect-integer-conversion).
-		idInt := int(id)
+		// Index with int64 directly; matches the rest of the file (see
+		// OpenAppendable) and avoids a 64→int narrowing cast that
+		// CodeQL's taint analysis flags even when bounds-checked.
 
-		for len(chunkInfos) <= idInt {
+		for int64(len(chunkInfos)) <= id {
 			chunkInfos = append(chunkInfos, chunkInfo{state: chunkState_Invalid})
 		}
 
-		chunkInfos[idInt].state = chunkState_Local
-		chunkInfos[idInt].storageSize = fi.Size()
+		chunkInfos[id].state = chunkState_Local
+		chunkInfos[id].storageSize = fi.Size()
 	}
 
 	// Scan remote chunks
@@ -566,19 +563,17 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 			return nil, 0, ErrInvalidRemoteStorage
 		}
 
-		if id < 0 || id > int64(math.MaxInt) {
+		if id < 0 {
 			return nil, 0, fmt.Errorf("chunk id %d out of range", id)
 		}
-		// See earlier loop — local `idInt` makes the bounds-checked
-		// 64→int narrowing visible to CodeQL's taint analysis.
-		idInt := int(id)
+		// Index with int64 directly; see earlier loop.
 
-		for len(chunkInfos) <= idInt {
+		for int64(len(chunkInfos)) <= id {
 			chunkInfos = append(chunkInfos, chunkInfo{state: chunkState_Invalid})
 		}
 
-		if chunkInfos[idInt].state == chunkState_Local {
-			if entry.Size > chunkInfos[idInt].storageSize {
+		if chunkInfos[id].state == chunkState_Local {
+			if entry.Size > chunkInfos[id].storageSize {
 				// Chunk size can only grow in size,
 				// if the local file is smaller than the remote object,
 				// there must have been some corruption of local file
@@ -586,8 +581,8 @@ func (r *RemoteStorageAppendable) OpenInitialAppendable(opts *multiapp.Options, 
 				return nil, 0, ErrInvalidRemoteStorage
 			}
 		} else {
-			chunkInfos[idInt].state = chunkState_Remote
-			chunkInfos[idInt].storageSize = entry.Size
+			chunkInfos[id].state = chunkState_Remote
+			chunkInfos[id].storageSize = entry.Size
 		}
 	}
 

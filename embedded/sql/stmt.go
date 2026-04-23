@@ -682,6 +682,18 @@ func persistColumn(tx *SQLTx, col *Column) error {
 
 	colNameBytes := []byte(col.Name())
 
+	// Column names and default expressions are hard-capped so that the
+	// allocation size below cannot overflow on any supported platform and
+	// CodeQL can see the bound at the call site.
+	const maxColNameLen = math.MaxUint16
+	const maxDefaultSQLLen = 1 << 20 // 1 MiB is already absurdly large for a column default
+	if len(colNameBytes) > maxColNameLen {
+		return fmt.Errorf("column name too long: %d bytes (max %d)", len(colNameBytes), maxColNameLen)
+	}
+	if len(defaultSQL) > maxDefaultSQLLen {
+		return fmt.Errorf("column default expression too long: %d bytes (max %d)", len(defaultSQL), maxDefaultSQLLen)
+	}
+
 	var v []byte
 	if hasDefault {
 		// New format: {flags(1)}{maxLen(4)}{colNameLen(2)}{colName}{defaultSQL}
