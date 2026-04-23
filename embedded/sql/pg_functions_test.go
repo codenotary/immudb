@@ -140,6 +140,72 @@ func TestPgFn_PrivilegeChecks(t *testing.T) {
 	}
 }
 
+// TestPgFn_FormatType covers the OIDs psql actually sends in the
+// `\d <table>` column-detail query. Before this was expanded,
+// VARCHAR columns (OID 1043) rendered as "unknown (OID=1043)" in
+// psql's Type column because the lookup table only knew about the
+// handful of OIDs Rails uses.
+func TestPgFn_FormatType(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	cases := []struct {
+		oid     int64
+		typmod  int64
+		want    string
+	}{
+		{16, -1, "boolean"},
+		{20, -1, "bigint"},
+		{23, -1, "integer"},
+		{25, -1, "text"},
+		{1043, -1, "character varying"},           // bare VARCHAR — no typmod
+		{1043, 132, "character varying(128)"},     // PG typmod convention: N+4
+		{1042, 14, "character(10)"},               // bpchar with length
+		{1114, -1, "timestamp without time zone"},
+		{2950, -1, "uuid"},
+		{701, -1, "double precision"},
+		{3802, -1, "jsonb"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.want, func(t *testing.T) {
+			r, err := engine.Query(context.Background(), nil,
+				"SELECT format_type("+
+					itoaInt(tc.oid)+", "+itoaInt(tc.typmod)+")", nil)
+			require.NoError(t, err)
+			defer r.Close()
+
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tc.want, row.ValuesByPosition[0].RawValue(),
+				"format_type(%d, %d)", tc.oid, tc.typmod)
+		})
+	}
+}
+
+// itoaInt is a test helper — keeps the format_type test readable
+// without pulling strconv into the top of the file.
+func itoaInt(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	var buf [20]byte
+	pos := len(buf)
+	for n > 0 {
+		pos--
+		buf[pos] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		pos--
+		buf[pos] = '-'
+	}
+	return string(buf[pos:])
+}
+
 // TestPgFn_RegisteredFunctionsAccessor asserts the accessor returns
 // a map populated with the built-in functions. Used by pg_proc's
 // Scan; a nil/empty return would make `\df` return zero rows.

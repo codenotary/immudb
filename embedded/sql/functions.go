@@ -729,15 +729,58 @@ func (f *pgFormatType) RequiresType(t SQLValueType, cols map[string]ColDescripto
 	return nil
 }
 
+// oidToTypeName maps every PG type OID our wire layer advertises
+// (see pkg/pgsql/sys/types.go pgTypeOIDForSQLType) to a human-
+// readable type string. format_type uses this to render type
+// labels in psql's `\d` output; every OID we might emit in
+// pg_attribute.atttypid needs a row here or psql falls back to the
+// `unknown (OID=N)` stringification.
+//
+// Keep in lockstep with pgTypeOIDForSQLType — if a new immudb type
+// gets a PG OID there, add a matching row here.
 var oidToTypeName = map[int64]string{
-	16:   "boolean",
-	17:   "bytea",
-	20:   "bigint",
-	25:   "text",
-	114:  "json",
-	701:  "double precision",
-	1114: "timestamp without time zone",
-	2950: "uuid",
+	16:   "boolean",                    // bool
+	17:   "bytea",                      // bytea
+	20:   "bigint",                     // int8
+	21:   "smallint",                   // int2
+	23:   "integer",                    // int4
+	25:   "text",                       // text
+	26:   "oid",                        // oid
+	114:  "json",                       // json
+	700:  "real",                       // float4
+	701:  "double precision",           // float8
+	1042: "character",                  // bpchar
+	1043: "character varying",          // varchar — used by every immudb VARCHAR column
+	1082: "date",                       // date
+	1083: "time without time zone",     // time
+	1114: "timestamp without time zone", // timestamp — immudb's TIMESTAMP type
+	1184: "timestamp with time zone",   // timestamptz
+	1186: "interval",                   // interval
+	1700: "numeric",                    // numeric
+	2950: "uuid",                       // uuid
+	2276: "any",                        // any (pseudo-type)
+	3802: "jsonb",                      // jsonb
+}
+
+// varcharTypeWithModifier renders a VARCHAR/CHAR type with its
+// typmod-derived length, matching PG's format_type conventions:
+//
+//	format_type(1043, 128) → "character varying(124)"    (typmod = N+4)
+//	format_type(1043, -1)  → "character varying"
+//
+// Real PG uses the "N+4" convention so 0 can signal "unsized".
+// Our pg_attribute emits typmod = -1 for immudb types (we don't
+// store PG-style typmods), so the sized form is only reached when
+// a client-supplied literal typmod arrives.
+func varcharTypeWithModifier(oid, typmod int64) string {
+	base := oidToTypeName[oid]
+	if typmod < 0 {
+		return base
+	}
+	if typmod >= 4 {
+		return fmt.Sprintf("%s(%d)", base, typmod-4)
+	}
+	return fmt.Sprintf("%s(%d)", base, typmod)
 }
 
 func (f *pgFormatType) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
@@ -757,6 +800,15 @@ func (f *pgFormatType) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error)
 	name, exists := oidToTypeName[oid]
 	if !exists {
 		return NewVarchar(fmt.Sprintf("unknown (OID=%d)", oid)), nil
+	}
+	// Only VARCHAR / CHAR carry a meaningful typmod. Every other
+	// type ignores the second argument, matching PG behaviour.
+	if oid == 1043 || oid == 1042 {
+		if !params[1].IsNull() {
+			if typmod, ok := params[1].RawValue().(int64); ok {
+				return NewVarchar(varcharTypeWithModifier(oid, typmod)), nil
+			}
+		}
 	}
 	return NewVarchar(name), nil
 }

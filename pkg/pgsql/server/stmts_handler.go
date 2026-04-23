@@ -88,7 +88,7 @@ var (
 	// (pg_tables, pg_indexes, pg_views, pg_sequences). A match flags
 	// the query as a candidate for engine passthrough;
 	// allPgRefsRegistered decides whether it actually qualifies.
-	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences|pg_attrdef|pg_collation)\b`)
+	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences|pg_attrdef|pg_collation|pg_inherits|pg_policy|pg_publication|pg_statistic_ext)\b`)
 
 	// pgAnyTableRe finds every reference to a pg_ table in the statement.
 	// Used by allPgRefsRegistered to decide whether a JOIN-containing
@@ -128,6 +128,15 @@ var (
 		// what psql expects for "no default / no collation".
 		"pg_attrdef":   true,
 		"pg_collation": true,
+		// pkg/pgsql/sys/ — empty stubs for psql \d tail sections
+		// (inheritance / RLS policies / logical-replication
+		// publications / extended statistics). All empty, all for
+		// the same reason: stop the canned pgAdminProbe from
+		// inventing bogus rows for features immudb doesn't have.
+		"pg_inherits":      true,
+		"pg_policy":        true,
+		"pg_publication":   true,
+		"pg_statistic_ext": true,
 	}
 
 	// pgBuiltinFunctions are known pg_catalog-qualified functions built
