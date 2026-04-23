@@ -288,10 +288,20 @@ func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string)
 }
 
 func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, err error) {
-	// Derive txCtx from the caller's context so that the engine-level NewTx
-	// call inherits the caller's deadline/cancellation.  txCancel lets us
-	// signal the goroutine to stop if we return early.
-	txCtx, txCancel := context.WithCancel(ctx)
+	// txCtx is intentionally derived from context.Background(), NOT from the
+	// caller's ctx.  The OngoingTx returned by NewTx stores txCtx in its ctx
+	// field and uses it for snapshot reads that may happen on *subsequent*
+	// RPCs (TxSQLQuery, TxSQLExec, etc.) bound to the same session.  If we
+	// derived txCtx from the caller's ctx, gRPC would cancel the caller's ctx
+	// as soon as the NewTx RPC returned, which would poison the stored ctx
+	// and make every follow-up read on the transaction fail with
+	// "context canceled".  Transaction lifetime is explicit (Commit/Rollback)
+	// and independent of any single RPC.
+	//
+	// txCancel is still useful for the caller's ctx.Done() branch below: it
+	// aborts an in-progress NewTx call inside the goroutine so the goroutine
+	// exits promptly instead of leaking.
+	txCtx, txCancel := context.WithCancel(context.Background())
 
 	// Buffered channels (capacity 1) ensure the goroutine can always send its
 	// result and exit, even when the outer select has already returned on
