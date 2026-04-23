@@ -88,7 +88,7 @@ var (
 	// (pg_tables, pg_indexes, pg_views, pg_sequences). A match flags
 	// the query as a candidate for engine passthrough;
 	// allPgRefsRegistered decides whether it actually qualifies.
-	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences|pg_attrdef|pg_collation|pg_inherits|pg_policy|pg_publication|pg_statistic_ext)\b`)
+	pgVirtualTableFromRe = regexp.MustCompile(`(?i)\bfrom\s+(?:pg_catalog\.)?(?:pg_class|pg_attribute|pg_index|pg_namespace|pg_am|pg_type|pg_settings|pg_constraint|pg_database|pg_roles|pg_description|pg_proc|pg_tables|pg_indexes|pg_views|pg_sequences|pg_attrdef|pg_collation|pg_inherits)\b`)
 
 	// pgAnyTableRe finds every reference to a pg_ table in the statement.
 	// Used by allPgRefsRegistered to decide whether a JOIN-containing
@@ -128,15 +128,21 @@ var (
 		// what psql expects for "no default / no collation".
 		"pg_attrdef":   true,
 		"pg_collation": true,
-		// pkg/pgsql/sys/ — empty stubs for psql \d tail sections
-		// (inheritance / RLS policies / logical-replication
-		// publications / extended statistics). All empty, all for
-		// the same reason: stop the canned pgAdminProbe from
-		// inventing bogus rows for features immudb doesn't have.
-		"pg_inherits":      true,
-		"pg_policy":        true,
-		"pg_publication":   true,
-		"pg_statistic_ext": true,
+		// pkg/pgsql/sys/ — empty stubs for psql \d tail sections.
+		// Only pg_inherits is allowlisted — the psql probe for it is
+		// a simple `SELECT count(*) FROM pg_inherits WHERE …` that
+		// the engine handles cleanly. pg_policy / pg_publication /
+		// pg_statistic_ext are intentionally NOT allowlisted: psql
+		// emits `array(SELECT …)` subquery-array constructors and
+		// UNION joins against unregistered pg_publication_rel in
+		// those probes — neither is in immudb's grammar, so routing
+		// to the engine returns a red "syntax error" psql. Better
+		// to let them fall to the canned pgAdminProbe which returns
+		// cosmetically-noisy but harmless rows (the "Policies:
+		// POLICY ''" / "Publications:" sections at the bottom of
+		// `\d` output). Upstream fix for that noise lives in the
+		// engine grammar, not here.
+		"pg_inherits": true,
 	}
 
 	// pgBuiltinFunctions are known pg_catalog-qualified functions built
