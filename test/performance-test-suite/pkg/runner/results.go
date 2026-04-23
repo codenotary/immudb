@@ -18,8 +18,6 @@ package runner
 
 import (
 	"time"
-
-	"github.com/codenotary/immudb/test/performance-test-suite/pkg/benchmarks/writetxs"
 )
 
 type Duration time.Duration
@@ -45,8 +43,13 @@ type BenchmarkRunResult struct {
 	EndTime           time.Time                `json:"endTime"`
 	Duration          Duration                 `json:"duration"`
 	RequestedDuration Duration                 `json:"requestedDuration"`
-	Results           *writetxs.Result         `json:"results"`
-	Timeline          []BenchmarkTimelineEntry `json:"timeline"`
+	// Results is the benchmark-specific result payload. Held as
+	// `any` so the runner can carry either a *writetxs.Result or a
+	// *readtxs.Result (or any future benchmark Result type) without
+	// a hardcoded interface-to-concrete assertion. JSON encoding
+	// flows through the inner struct's own tags.
+	Results  any                      `json:"results"`
+	Timeline []BenchmarkTimelineEntry `json:"timeline"`
 }
 
 type ProcessInfo struct {
