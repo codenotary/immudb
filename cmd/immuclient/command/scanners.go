@@ -42,8 +42,8 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 
 func (cl *commandline) scan(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "scan prefix",
-		Short:             "Iterate over keys having the specified prefix",
+		Use:               "scan [prefix]",
+		Short:             "Iterate over keys having the specified prefix. If no prefix is given, all keys are returned",
 		Aliases:           []string{"scn"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
@@ -55,7 +55,7 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }

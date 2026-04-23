@@ -23,7 +23,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 27M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 157M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 

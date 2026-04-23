@@ -385,3 +385,109 @@ func TestLazyDB(t *testing.T) {
 		require.False(t, m.IsLoaded(0))
 	})
 }
+
+func TestDBManagerGetIndexByName(t *testing.T) {
+	manager := NewDBManager(openMockDB, 5, logger.NewMemoryLogger())
+	manager.Put("alpha", DefaultOptions(), false)
+	manager.Put("beta", DefaultOptions(), false)
+	manager.Put("gamma", DefaultOptions(), false)
+
+	require.Equal(t, 0, manager.GetIndexByName("alpha"))
+	require.Equal(t, 1, manager.GetIndexByName("beta"))
+	require.Equal(t, 2, manager.GetIndexByName("gamma"))
+	require.Equal(t, -1, manager.GetIndexByName("nonexistent"))
+}
+
+func TestDBManagerGetNameByIndex(t *testing.T) {
+	manager := NewDBManager(openMockDB, 5, logger.NewMemoryLogger())
+	manager.Put("db1", DefaultOptions(), false)
+	manager.Put("db2", DefaultOptions(), false)
+
+	require.Equal(t, "db1", manager.GetNameByIndex(0))
+	require.Equal(t, "db2", manager.GetNameByIndex(1))
+	require.Equal(t, "", manager.GetNameByIndex(-1))
+	require.Equal(t, "", manager.GetNameByIndex(999))
+}
+
+func TestDBManagerGetOptionsByIndex(t *testing.T) {
+	manager := NewDBManager(openMockDB, 5, logger.NewMemoryLogger())
+	manager.Put("testdb", DefaultOptions(), false)
+
+	require.NotNil(t, manager.GetOptionsByIndex(0))
+	require.Nil(t, manager.GetOptionsByIndex(-1))
+	require.Nil(t, manager.GetOptionsByIndex(999))
+}
+
+func TestDBManagerLength(t *testing.T) {
+	manager := NewDBManager(openMockDB, 5, logger.NewMemoryLogger())
+	require.Equal(t, 0, manager.Length())
+
+	manager.Put("a", DefaultOptions(), false)
+	manager.Put("b", DefaultOptions(), false)
+	manager.Put("c", DefaultOptions(), false)
+	require.Equal(t, 3, manager.Length())
+}
+
+func TestDBManagerHasIndex(t *testing.T) {
+	manager := NewDBManager(openMockDB, 5, logger.NewMemoryLogger())
+	manager.Put("testdb", DefaultOptions(), false)
+
+	require.True(t, manager.HasIndex(0))
+	require.False(t, manager.HasIndex(-1))
+	require.False(t, manager.HasIndex(999))
+
+	// Close then delete - HasIndex should return false for deleted DBs
+	db, err := manager.Get(0)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	manager.Release(0)
+
+	err = manager.Close(0)
+	require.NoError(t, err)
+
+	err = manager.Delete("testdb")
+	require.NoError(t, err)
+
+	require.False(t, manager.HasIndex(0))
+}
+
+func TestDBManagerResize(t *testing.T) {
+	manager := NewDBManager(openMockDB, 2, logger.NewMemoryLogger())
+
+	manager.Put("db0", DefaultOptions(), false)
+	manager.Put("db1", DefaultOptions(), false)
+
+	db0, err := manager.Get(0)
+	require.NoError(t, err)
+	require.NotNil(t, db0)
+	manager.Release(0)
+
+	db1, err := manager.Get(1)
+	require.NoError(t, err)
+	require.NotNil(t, db1)
+	manager.Release(1)
+
+	// Resize to larger capacity
+	manager.Resize(5)
+
+	manager.Put("db2", DefaultOptions(), false)
+	manager.Put("db3", DefaultOptions(), false)
+	manager.Put("db4", DefaultOptions(), false)
+
+	for i := 0; i < 5; i++ {
+		db, err := manager.Get(i)
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		manager.Release(i)
+	}
+}
+
+func TestDBManagerPutUpdate(t *testing.T) {
+	manager := NewDBManager(openMockDB, 5, logger.NewMemoryLogger())
+
+	idx1 := manager.Put("mydb", DefaultOptions(), false)
+	idx2 := manager.Put("mydb", DefaultOptions(), false)
+
+	require.Equal(t, idx1, idx2, "re-putting same name should return same index")
+	require.Equal(t, 1, manager.Length(), "should not create duplicate entry")
+}

@@ -1,4 +1,5 @@
-FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build
+FROM golang:1.24 AS build
+ENV GOFIPS140=latest
 WORKDIR /src
 COPY . .
 RUN GOOS=linux GOARCH=${BUILD_ARCH} make immuclient-fips

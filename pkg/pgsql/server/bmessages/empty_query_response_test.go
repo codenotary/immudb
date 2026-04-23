@@ -1,8 +1,5 @@
-//go:build fips
-// +build fips
-
 /*
-Copyright 2026 Codenotary Inc. All rights reserved.
+Copyright 2025 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,12 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package bmessages
 
 import (
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
+	"encoding/binary"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func main() {
-	immudb.Execute()
+func TestEmptyQueryResponse(t *testing.T) {
+	resp := EmptyQueryResponse()
+	require.NotNil(t, resp)
+
+	// Message type 'I'
+	require.Equal(t, byte('I'), resp[0])
+
+	// Message length (4 bytes, value = 4)
+	length := binary.BigEndian.Uint32(resp[1:5])
+	require.Equal(t, uint32(4), length)
+
+	require.Len(t, resp, 5)
 }

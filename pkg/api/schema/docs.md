@@ -1717,8 +1717,8 @@ Only succeed if given key was not modified after given transaction
 | prefix | [bytes](#bytes) |  | search for entries with this prefix only |
 | desc | [bool](#bool) |  | If set to true, sort items in descending order |
 | limit | [uint64](#uint64) |  | maximum number of entries to get, if not specified, the default value is used |
-| sinceTx | [uint64](#uint64) |  | If non-zero, only require transactions up to this transaction to be indexed, newer transaction may still be pending |
-| noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for indexing to be done before finishing this call |
+| sinceTx | [uint64](#uint64) |  | Controls the visibility lower bound of the scan. - If 0 (default): the server captures the latest committed transaction id at call-reception time and blocks until the indexer has processed at least that transaction before taking the snapshot. This gives "read-latest" / read-your-writes semantics without the caller needing to know the latest tx id (useful when multiple client processes write concurrently, see issue #2082). - If &gt; 0: the server only requires transactions up to sinceTx to be indexed; transactions committed after sinceTx may still be pending and may or may not appear in the result. |
+| noWait | [bool](#bool) |  | Deprecated and currently ignored by Scan: the server always waits for the tx id resolved from sinceTx (see above) to be indexed before returning. |
 | inclusiveSeek | [bool](#bool) |  | If set to true, results will include seekKey |
 | inclusiveEnd | [bool](#bool) |  | If set to true, results will include endKey if needed |
 | offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |

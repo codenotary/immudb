@@ -1724,10 +1724,19 @@ type ScanRequest struct {
 	Desc bool `protobuf:"varint,3,opt,name=desc,proto3" json:"desc,omitempty"`
 	// maximum number of entries to get, if not specified, the default value is used
 	Limit uint64 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	// If non-zero, only require transactions up to this transaction to be
-	// indexed, newer transaction may still be pending
+	// Controls the visibility lower bound of the scan.
+	//   - If 0 (default): the server captures the latest committed transaction
+	//     id at call-reception time and blocks until the indexer has processed
+	//     at least that transaction before taking the snapshot. This gives
+	//     "read-latest" / read-your-writes semantics without the caller needing
+	//     to know the latest tx id (useful when multiple client processes write
+	//     concurrently, see issue #2082).
+	//   - If > 0: the server only requires transactions up to sinceTx to be
+	//     indexed; transactions committed after sinceTx may still be pending
+	//     and may or may not appear in the result.
 	SinceTx uint64 `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	// Deprecated: If set to true, do not wait for indexing to be done before finishing this call
+	// Deprecated and currently ignored by Scan: the server always waits for the
+	// tx id resolved from sinceTx (see above) to be indexed before returning.
 	NoWait bool `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`
 	// If set to true, results will include seekKey
 	InclusiveSeek bool `protobuf:"varint,8,opt,name=inclusiveSeek,proto3" json:"inclusiveSeek,omitempty"`

@@ -19,7 +19,8 @@ SHELL=/bin/bash -o pipefail
 VERSION=1.11.0
 DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
-TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
+# TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
+TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/arm64 freebsd/amd64 darwin/arm64
 SWAGGER?=false
 FIPSENABLED?=false
 SWAGGERUIVERSION=4.15.5
@@ -246,12 +247,12 @@ dist: webconsole dist/binaries dist/fips
 # build FIPS binary from docker image (no arm or non-linux support)
 .PHONY: dist/fips
 dist/fips: clean
-	$(DOCKER) build -t fips:build -f build/fips/Dockerfile.build .
-	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "WEBCONSOLE=default make immudb-fips"
+	$(DOCKER) build -t fips:build -f build/fips/Dockerfile.build --build-arg USER_UID=$(shell id -u) --build-arg USER_GID=$(shell id -g) .
+	$(DOCKER) run -v ${PWD}:/src --rm fips:build -c "WEBCONSOLE=default make immudb-fips"
 	mv immudb ./dist/immudb-v${VERSION}-linux-amd64-fips
-	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuclient-fips"
+	$(DOCKER) run -v ${PWD}:/src --rm fips:build -c "make immuclient-fips"
 	mv immuclient ./dist/immuclient-v${VERSION}-linux-amd64-fips
-	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuadmin-fips"
+	$(DOCKER) run -v ${PWD}:/src --rm fips:build -c "make immuadmin-fips"
 	mv immuadmin ./dist/immuadmin-v${VERSION}-linux-amd64-fips
 
 .PHONY: dist/binaries

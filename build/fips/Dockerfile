@@ -1,5 +1,5 @@
-# This version of Go is a Go+BoringCrypto release for FIPS 140-2 compliance
-FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build-fips
+FROM golang:1.24 AS build-fips
+ENV GOFIPS140=latest
 ARG BUILD_ARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum /src/

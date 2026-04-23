@@ -1,8 +1,5 @@
-//go:build fips
-// +build fips
-
 /*
-Copyright 2026 Codenotary Inc. All rights reserved.
+Copyright 2025 Codenotary Inc. All rights reserved.
 
 SPDX-License-Identifier: BUSL-1.1
 you may not use this file except in compliance with the License.
@@ -17,12 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package fmessages
 
 import (
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func main() {
-	immudb.Execute()
+func TestParseFlushMsg(t *testing.T) {
+	msg, err := ParseFlushMsg(nil)
+	require.NoError(t, err)
+	require.Equal(t, FlushMsg{}, msg)
+
+	msg, err = ParseFlushMsg([]byte{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, FlushMsg{}, msg)
 }
