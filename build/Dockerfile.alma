@@ -12,7 +12,7 @@ RUN mkdir /empty
 
 FROM almalinux:8-minimal as alma
 LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
-USER nonroot:nonroot
+
 ARG IMMUDB_HOME="/usr/share/immudb"
 ARG IMMU_UID="65532"
 ARG IMMU_GID="65532"
