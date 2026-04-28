@@ -1768,8 +1768,8 @@ func (d *db) FindTruncationPoint(ctx context.Context, until time.Time) (*schema.
 			break
 		}
 
-		if ctx.Err() != nil {
-			return nil, err
+		if errC := ctx.Err(); errC != nil {
+			return nil, errC
 		}
 
 		hdr, err = d.st.ReadTxHeader(hdr.ID-1, false, false)
