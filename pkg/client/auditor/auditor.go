@@ -76,6 +76,7 @@ type defaultAuditor struct {
 	notificationConfig  AuditNotificationConfig
 	serviceClient       schema.ImmuServiceClient
 	uuidProvider        state.UUIDProvider
+	verifyValues        bool
 
 	slugifyRegExp *regexp.Regexp
 	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState)
@@ -83,7 +84,14 @@ type defaultAuditor struct {
 	monitoringHTTPAddr *string
 }
 
-// DefaultAuditor creates initializes a default auditor implementation
+// DefaultAuditor creates initializes a default auditor implementation.
+//
+// When verifyValues is true, each audit cycle additionally fetches the KV
+// entries committed since the last audited state with EntriesSpec.RAW_VALUE,
+// which forces the server to read each value from disk and trigger the
+// integrity check at embedded/store/immustore.go:readValueAt. This detects
+// on-disk value tampering and bit-rot at the cost of O(entries) extra reads
+// per cycle. Default (false) behavior is the original chain-only audit.
 func DefaultAuditor(
 	interval time.Duration,
 	serverAddress string,
@@ -98,7 +106,8 @@ func DefaultAuditor(
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState),
 	log logger.Logger,
-	monitoringHTTPAddr *string) (Auditor, error) {
+	monitoringHTTPAddr *string,
+	verifyValues bool) (Auditor, error) {
 
 	password, err := auth.DecodeBase64Password(passwordBase64)
 	if err != nil {
@@ -115,24 +124,25 @@ func DefaultAuditor(
 	}
 
 	return &defaultAuditor{
-		0,
-		0,
-		log,
-		serverAddress,
-		dialOptions,
-		history,
-		client.NewTimestampService(dt),
-		[]byte(username),
-		nil,
-		[]byte(password),
-		auditDatabases,
-		serverSigningPubKey,
-		notificationConfig,
-		serviceClient,
-		uuidProvider,
-		slugifyRegExp,
-		updateMetrics,
-		monitoringHTTPAddr,
+		index:               0,
+		databaseIndex:       0,
+		logger:              log,
+		serverAddress:       serverAddress,
+		dialOptions:         dialOptions,
+		history:             history,
+		ts:                  client.NewTimestampService(dt),
+		username:            []byte(username),
+		databases:           nil,
+		password:            []byte(password),
+		auditDatabases:      auditDatabases,
+		serverSigningPubKey: serverSigningPubKey,
+		notificationConfig:  notificationConfig,
+		serviceClient:       serviceClient,
+		uuidProvider:        uuidProvider,
+		verifyValues:        verifyValues,
+		slugifyRegExp:       slugifyRegExp,
+		updateMetrics:       updateMetrics,
+		monitoringHTTPAddr:  monitoringHTTPAddr,
 	}, nil
 }
 
@@ -313,6 +323,13 @@ func (a *defaultAuditor) audit() error {
 
 		verified = store.VerifyDualProof(dualProof, prevState.TxId, state.TxId, schema.DigestFromProto(prevState.TxHash), schema.DigestFromProto(state.TxHash))
 
+		if verified && a.verifyValues {
+			if vErr := a.verifyValuesInRange(ctx, prevState.TxId, state.TxId); vErr != nil {
+				a.logger.Errorf("audit #%d value-integrity check failed for db %s: %v", a.index, dbName, vErr)
+				verified = false
+			}
+		}
+
 		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t previous state:	%x at tx: %d\n  current state:	%x at tx: %d",
 			a.index, dbName, verified, prevState.TxHash, prevState.TxId, state.TxHash, state.TxId)
 
@@ -363,6 +380,32 @@ func (a *defaultAuditor) audit() error {
 		a.index, time.Since(start), time.Now().Format(time.RFC3339Nano))
 
 	return noErr
+}
+
+// verifyValuesInRange iterates the txs in (fromTx, toTx] and asks the server to
+// return their KV/Z entries with raw values. The server-side code path
+// (db.serializeTx -> store.ReadValue -> readValueAt) computes sha256 over each
+// value read from the .val file and compares it with the committed hash; any
+// mismatch surfaces as ErrCorruptedData ("data is corrupted: value length or
+// digest mismatch"). Returns the first such error, or nil if all values verify.
+//
+// This is the value-integrity counterpart to the dual-proof chain check; it
+// detects on-disk tampering / bit-rot that the chain check cannot see.
+func (a *defaultAuditor) verifyValuesInRange(ctx context.Context, fromTx, toTx uint64) error {
+	spec := &schema.EntriesSpec{
+		KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		ZEntriesSpec:  &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+	}
+	for txID := fromTx + 1; txID <= toTx; txID++ {
+		if _, err := a.serviceClient.TxById(ctx, &schema.TxRequest{
+			Tx:                       txID,
+			EntriesSpec:              spec,
+			KeepReferencesUnresolved: true,
+		}); err != nil {
+			return fmt.Errorf("tx %d: %w", txID, err)
+		}
+	}
+	return nil
 }
 
 func (a *defaultAuditor) verifyStateSignature(serverID string, serverState *schema.ImmutableState) error {

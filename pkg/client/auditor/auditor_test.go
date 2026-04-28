@@ -59,7 +59,8 @@ func TestDefaultAuditor(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 	require.IsType(t, &defaultAuditor{}, da)
 }
@@ -89,7 +90,8 @@ func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+		false)
 	require.ErrorContains(t, err, "illegal base64 data at input byte 0")
 }
 
@@ -122,7 +124,8 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -160,7 +163,8 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -200,7 +204,8 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -243,7 +248,8 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -289,7 +295,8 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -363,7 +370,8 @@ func testDefaultAuditorRunOnDbWithInvalidSignature(t *testing.T, pk *ecdsa.Publi
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)

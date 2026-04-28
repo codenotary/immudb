@@ -95,6 +95,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 			auditDatabases = append(auditDatabases, dbPrefix)
 		}
 	}
+	auditVerifyValues := viper.GetBool("audit-verify-values")
 	auditNotificationURL := viper.GetString("audit-notification-url")
 	auditNotificationUsername := viper.GetString("audit-notification-username")
 	auditNotificationPassword := viper.GetString("audit-notification-password")
@@ -139,7 +140,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		cache.NewHistoryFileCache(auditCacheDir),
 		cAgent.metrics.updateMetrics,
 		cAgent.logger,
-		&auditMonitoringHTTPAddr)
+		&auditMonitoringHTTPAddr,
+		auditVerifyValues)
 	if err != nil {
 		return nil, err
 	}

@@ -129,6 +129,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil,
+		false,
 	)
 	require.NoError(t, err)
 	auditorDone := make(chan struct{}, 2)
@@ -218,7 +219,8 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
@@ -309,7 +311,8 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 
 	auditorStop := make(chan struct{}, 1)
@@ -403,7 +406,8 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+		false)
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
