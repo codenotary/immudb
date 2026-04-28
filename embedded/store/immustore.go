@@ -409,6 +409,22 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("%w: can not read '%s' from metadata", ErrCorruptedCLog, "MaxValueLen")
 	}
 
+	// These limits are persisted to metadata at store creation and cannot be changed
+	// on subsequent opens. Warn the caller when the supplied option differs from the
+	// stored value so that silent ignore doesn't surprise users (see issue #1864).
+	if opts.MaxValueLen != maxValueLen {
+		opts.logger.Warningf("MaxValueLen option (%d) ignored; using stored value (%d) set at store creation", opts.MaxValueLen, maxValueLen)
+	}
+	if opts.MaxKeyLen != maxKeyLen {
+		opts.logger.Warningf("MaxKeyLen option (%d) ignored; using stored value (%d) set at store creation", opts.MaxKeyLen, maxKeyLen)
+	}
+	if opts.MaxTxEntries != maxTxEntries {
+		opts.logger.Warningf("MaxTxEntries option (%d) ignored; using stored value (%d) set at store creation", opts.MaxTxEntries, maxTxEntries)
+	}
+	if opts.FileSize != fileSize {
+		opts.logger.Warningf("FileSize option (%d) ignored; using stored value (%d) set at store creation", opts.FileSize, fileSize)
+	}
+
 	cLogSize, err := cLog.Size()
 	if err != nil {
 		return nil, fmt.Errorf("corrupted commit-log: could not get size: %w", err)

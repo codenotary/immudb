@@ -546,16 +546,28 @@ func (opts *Options) WithMaxIOConcurrency(maxIOConcurrency int) *Options {
 	return opts
 }
 
+// WithMaxTxEntries sets the maximum number of entries per transaction.
+// Only takes effect when creating a new store. On subsequent opens the value persisted
+// at creation time is authoritative; a different value supplied here will be ignored
+// and a warning will be logged.
 func (opts *Options) WithMaxTxEntries(maxTxEntries int) *Options {
 	opts.MaxTxEntries = maxTxEntries
 	return opts
 }
 
+// WithMaxKeyLen sets the maximum allowed key length.
+// Only takes effect when creating a new store. On subsequent opens the value persisted
+// at creation time is authoritative; a different value supplied here will be ignored
+// and a warning will be logged.
 func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
 	opts.MaxKeyLen = maxKeyLen
 	return opts
 }
 
+// WithMaxValueLen sets the maximum allowed value length.
+// Only takes effect when creating a new store. On subsequent opens the value persisted
+// at creation time is authoritative; a different value supplied here will be ignored
+// and a warning will be logged.
 func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
 	opts.MaxValueLen = maxValueLen
 	return opts
@@ -571,6 +583,10 @@ func (opts *Options) WithVLogCacheSize(vLogCacheSize int) *Options {
 	return opts
 }
 
+// WithFileSize sets the size of each segment file backing the store.
+// Only takes effect when creating a new store. On subsequent opens the value persisted
+// at creation time is authoritative; a different value supplied here will be ignored
+// and a warning will be logged.
 func (opts *Options) WithFileSize(fileSize int) *Options {
 	opts.FileSize = fileSize
 	return opts
