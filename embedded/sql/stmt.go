@@ -3282,12 +3282,12 @@ func (c *Cast) requiresType(t SQLValueType, cols map[string]ColDescriptor, param
 }
 
 func (c *Cast) substitute(params map[string]interface{}) (ValueExp, error) {
+	// See NumExp.substitute for the no-mutation rationale (#1153).
 	val, err := c.val.substitute(params)
 	if err != nil {
 		return nil, err
 	}
-	c.val = val
-	return c, nil
+	return &Cast{val: val, t: c.t}, nil
 }
 
 func (c *Cast) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
@@ -6263,6 +6263,11 @@ func (bexp *NumExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, 
 }
 
 func (bexp *NumExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	// Must not mutate the receiver: this AST is shared across queries
+	// when the pgsql layer caches parsed statements (see #1153). Returning
+	// a fresh node keeps the cached AST pristine so the next query's
+	// substitute starts from the original Param placeholders, not from
+	// the previous bound value.
 	rlexp, err := bexp.left.substitute(params)
 	if err != nil {
 		return nil, err
@@ -6273,10 +6278,7 @@ func (bexp *NumExp) substitute(params map[string]interface{}) (ValueExp, error) 
 		return nil, err
 	}
 
-	bexp.left = rlexp
-	bexp.right = rrexp
-
-	return bexp, nil
+	return &NumExp{op: bexp.op, left: rlexp, right: rrexp}, nil
 }
 
 func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
@@ -6351,14 +6353,13 @@ func (bexp *NotBoolExp) requiresType(t SQLValueType, cols map[string]ColDescript
 }
 
 func (bexp *NotBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	// See NumExp.substitute for the no-mutation rationale (#1153).
 	rexp, err := bexp.exp.substitute(params)
 	if err != nil {
 		return nil, err
 	}
 
-	bexp.exp = rexp
-
-	return bexp, nil
+	return &NotBoolExp{exp: rexp}, nil
 }
 
 func (bexp *NotBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
@@ -6700,6 +6701,11 @@ func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]ColDescript
 }
 
 func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	// See NumExp.substitute for the no-mutation rationale (#1153). The
+	// pgsql layer caches parsed statements per session, so a previous
+	// substitute that replaced this node's Param child with a Varchar
+	// would otherwise pin the WHERE clause to the first bound value
+	// forever and silently filter on it for every subsequent execution.
 	rlexp, err := bexp.left.substitute(params)
 	if err != nil {
 		return nil, err
@@ -6710,10 +6716,7 @@ func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 		return nil, err
 	}
 
-	bexp.left = rlexp
-	bexp.right = rrexp
-
-	return bexp, nil
+	return &CmpBoolExp{op: bexp.op, left: rlexp, right: rrexp}, nil
 }
 
 func (bexp *CmpBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
@@ -7052,6 +7055,7 @@ func (bexp *BinBoolExp) requiresType(t SQLValueType, cols map[string]ColDescript
 }
 
 func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	// See NumExp.substitute for the no-mutation rationale (#1153).
 	rlexp, err := bexp.left.substitute(params)
 	if err != nil {
 		return nil, err
@@ -7062,10 +7066,7 @@ func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 		return nil, err
 	}
 
-	bexp.left = rlexp
-	bexp.right = rrexp
-
-	return bexp, nil
+	return &BinBoolExp{op: bexp.op, left: rlexp, right: rrexp}, nil
 }
 
 func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {

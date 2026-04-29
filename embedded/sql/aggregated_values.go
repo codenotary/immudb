@@ -43,7 +43,10 @@ func (v *CountValue) Selector() string {
 }
 
 func (v *CountValue) ColBounded() bool {
-	return v.distinct
+	// COUNT(*) doesn't need the column value (every row counts).
+	// COUNT(col) and COUNT(DISTINCT col) need the value to skip NULLs
+	// (and to track DISTINCT seen-set).
+	return !v.allRows
 }
 
 func (v *CountValue) Type() SQLValueType {

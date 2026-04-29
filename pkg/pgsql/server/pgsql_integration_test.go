@@ -640,6 +640,63 @@ func TestPgsqlServer_F1DBCompatRegressions(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("parametrized WHERE re-binds across calls (issue #1153)", func(t *testing.T) {
+		// Pre-fix the boolean-expression substitute() methods (CmpBoolExp
+		// / NumExp / NotBoolExp / BinBoolExp / Cast) mutated the AST in
+		// place, replacing their child Param node with the bound value.
+		// Combined with the per-session prepared-statement cache in the
+		// pgsql wire layer, that pinned the WHERE clause to the FIRST
+		// parameter value forever — every subsequent execution of the
+		// same prepared SELECT silently filtered on the previous bind.
+		// Repro: insert two rows with distinct keys, look them up by
+		// parametrized SELECT in two consecutive calls, expect the
+		// second call to return the second row (not the first).
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (k VARCHAR(20) NOT NULL, v VARCHAR(20), PRIMARY KEY(k))", tbl))
+		require.NoError(t, err)
+		_, err = db.Exec(fmt.Sprintf(
+			"INSERT INTO %s (k, v) VALUES ('alice', 'one'), ('charlie', 'two')", tbl))
+		require.NoError(t, err)
+
+		var got string
+		require.NoError(t, db.QueryRow(
+			fmt.Sprintf("SELECT v FROM %s WHERE k = $1", tbl), "alice").Scan(&got))
+		require.Equal(t, "one", got, "first parametrized lookup")
+
+		err = db.QueryRow(
+			fmt.Sprintf("SELECT v FROM %s WHERE k = $1", tbl), "charlie").Scan(&got)
+		require.NoError(t, err)
+		require.Equal(t, "two", got,
+			"#1153: second lookup of the same prepared SELECT must rebind $1 — pre-fix this returned 'one' because CmpBoolExp.substitute mutated the cached AST")
+
+		// Non-existent key must miss, not return some stale row.
+		err = db.QueryRow(
+			fmt.Sprintf("SELECT v FROM %s WHERE k = $1", tbl), "nobody").Scan(&got)
+		require.ErrorIs(t, err, sql.ErrNoRows, "non-matching parametrized lookup must return no rows")
+	})
+
+	t.Run("TIMESTAMP parameter bind round-trips (issue #1149)", func(t *testing.T) {
+		// JDBC's setTimestamp and lib/pq both emit the timestamp in
+		// space-separated form with a `Z` (UTC) or `±HH:MM` suffix
+		// when the value carries a timezone. The original report
+		// ("value is not a timestamp: invalid value provided") was
+		// caused by pgTextTimestamp not recognizing that shape.
+		tbl := getRandomTableName()
+		_, err := db.Exec(fmt.Sprintf(
+			"CREATE TABLE %s (username VARCHAR(50), created_at TIMESTAMP, PRIMARY KEY (username))", tbl))
+		require.NoError(t, err)
+
+		now := time.Now().UTC()
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (username, created_at) VALUES ($1, $2)", tbl),
+			"u1", now)
+		require.NoError(t, err, "parametrized TIMESTAMP INSERT must succeed")
+
+		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET created_at = $1 WHERE username = $2", tbl),
+			now.Add(time.Hour), "u1")
+		require.NoError(t, err, "parametrized TIMESTAMP UPDATE must succeed")
+	})
+
 	t.Run("DECIMAL column accepts integer literal", func(t *testing.T) {
 		tbl := getRandomTableName()
 		_, err := db.Exec(fmt.Sprintf(

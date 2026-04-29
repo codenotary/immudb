@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -245,4 +246,55 @@ func Test_pgTextTimestamp(t *testing.T) {
 	}
 	_, ok := pgTextTimestamp("not a date")
 	require.False(t, ok)
+
+	// Issue #1149: lib/pq and JDBC's setTimestamp emit space-separated
+	// timestamps with a trailing tz suffix when the time.Time carries a
+	// location. The original layouts only handled the `T`-separated
+	// (RFC3339) form, so binds in the space-separated form were rejected
+	// with "invalid timestamp bind value". Verify the variants we expect
+	// to see on the wire:
+	wantNanos := time.Date(2026, 4, 29, 14, 59, 19, 125014887, time.UTC)
+	for _, in := range []string{
+		"2026-04-29 14:59:19.125014887Z",   // lib/pq UTC, 9-digit fraction
+		"2026-04-29 14:59:19.125014Z",      // 6-digit fraction (Rails-style + UTC)
+		"2026-04-29 14:59:19Z",             // no fraction
+	} {
+		got, ok := pgTextTimestamp(in)
+		require.Truef(t, ok, "input %q", in)
+		require.Truef(t, got.Equal(time.Date(2026, 4, 29, 14, 59, 19, parseFracNs(in), time.UTC)),
+			"got=%v want match for %q", got, in)
+	}
+	// Sanity check on the 9-digit fraction round-trip
+	got, ok := pgTextTimestamp("2026-04-29 14:59:19.125014887Z")
+	require.True(t, ok)
+	require.True(t, got.Equal(wantNanos), "got=%v want=%v", got, wantNanos)
+
+	// Non-UTC offsets must also round-trip on the space-separated form.
+	gotPositive, ok := pgTextTimestamp("2026-04-29 16:59:19.125014887+02:00")
+	require.True(t, ok)
+	require.True(t, gotPositive.Equal(wantNanos),
+		"+02:00 offset must equal the same instant as UTC")
+}
+
+func parseFracNs(s string) int {
+	// pull the fractional-second portion out of "...:SS.fff[...]" and
+	// pad to nanoseconds.
+	idx := strings.Index(s, ".")
+	if idx < 0 {
+		return 0
+	}
+	end := idx + 1
+	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
+		end++
+	}
+	frac := s[idx+1 : end]
+	for len(frac) < 9 {
+		frac += "0"
+	}
+	frac = frac[:9]
+	n := 0
+	for _, c := range frac {
+		n = n*10 + int(c-'0')
+	}
+	return n
 }

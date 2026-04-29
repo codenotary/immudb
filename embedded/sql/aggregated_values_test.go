@@ -23,7 +23,12 @@ import (
 )
 
 func TestCountValue(t *testing.T) {
-	cval := &CountValue{}
+	// allRows=true models COUNT(*): every row counts, no need for the
+	// column value, so ColBounded is false. (Plain COUNT(col) and
+	// COUNT(DISTINCT col) report ColBounded=true so updateRow fetches
+	// the value to honour SQL NULL-skip / DISTINCT semantics — see
+	// aggregated_values.go:45.)
+	cval := &CountValue{allRows: true}
 	require.Equal(t, "", cval.Selector())
 	require.False(t, cval.ColBounded())
 	require.False(t, cval.IsNull())

@@ -43,7 +43,13 @@ func pgTextBool(s string) (bool, bool) {
 
 // pgTextTimestamp parses the common text formats Postgres/Rails send
 // for TIMESTAMP binds: "YYYY-MM-DD HH:MM:SS[.fff][Z|±HH:MM]" or RFC3339.
+// The "Z07:00" layouts cover both `Z` (UTC) and `±HH:MM` / `±HHMM` /
+// `±HH` offsets — that's what lib/pq and JDBC's setTimestamp emit when
+// the time value carries a timezone (issue #1149).
 var pgTimestampLayouts = []string{
+	"2006-01-02 15:04:05.999999999Z07:00",
+	"2006-01-02 15:04:05.999999Z07:00",
+	"2006-01-02 15:04:05Z07:00",
 	"2006-01-02 15:04:05.999999999",
 	"2006-01-02 15:04:05.999999",
 	"2006-01-02 15:04:05.999",

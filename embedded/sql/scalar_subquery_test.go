@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -152,6 +153,81 @@ func TestCountColSkipsNulls(t *testing.T) {
 	require.Equal(t, int64(4), rows[0].ValuesByPosition[0].RawValue(), "COUNT(*) — every row")
 	require.Equal(t, int64(2), rows[0].ValuesByPosition[1].RawValue(), "COUNT(label) — non-NULLs only")
 	require.Equal(t, int64(2), rows[0].ValuesByPosition[2].RawValue(), "COUNT(DISTINCT label)")
+
+	// Standalone COUNT(col) — must work without being combined with COUNT(*).
+	// Pre-fix this returned 0 because CountValue.ColBounded() only returned
+	// true for DISTINCT, so updateRow called updateWith(nil) and the null-skip
+	// path declined to increment. The original bug from #2042 surfaced here.
+	rows, err = queryAll(t, eng, `SELECT COUNT(label) FROM t`, nil)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Equal(t, int64(2), rows[0].ValuesByPosition[0].RawValue(),
+		"#2042: standalone COUNT(label) must count non-NULL rows")
+
+	rows, err = queryAll(t, eng, `SELECT COUNT(id) FROM t`, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(4), rows[0].ValuesByPosition[0].RawValue(),
+		"#2042: standalone COUNT(id) must count every row when column is NOT NULL")
+
+	// The original #2042 query shape — SELECT COUNT(id) WHERE col = ''.
+	_, _, err = eng.Exec(ctx, nil, `INSERT INTO t (id, label) VALUES (5, ''), (6, '');`, nil)
+	require.NoError(t, err)
+	rows, err = queryAll(t, eng, `SELECT COUNT(id) FROM t WHERE label = ''`, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), rows[0].ValuesByPosition[0].RawValue(),
+		"#2042: SELECT COUNT(id) WHERE label='' must count matching rows")
+}
+
+// TestParamSubstituteIsPure guards against issue #1153: prepared-stmt ASTs
+// must survive being run multiple times with different parameter binds.
+// Pre-fix the boolean-expression substitute() methods (CmpBoolExp / NumExp /
+// NotBoolExp / BinBoolExp / Cast) mutated their receivers in place, so the
+// second use of a cached parsed statement saw the first call's bound value
+// pinned into the WHERE node and silently filtered against it. The pgsql
+// wire layer caches parsed statements per session, so the bug surfaced
+// through any client doing parametrized SELECTs back-to-back.
+func TestParamSubstituteIsPure(t *testing.T) {
+	opts := store.DefaultOptions().WithMultiIndexing(true)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+	st, err := store.Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	eng, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	_, _, err = eng.Exec(ctx, nil,
+		`CREATE TABLE p (k VARCHAR[20], v VARCHAR[20], PRIMARY KEY(k));
+		 INSERT INTO p (k, v) VALUES ('alice', 'one'), ('charlie', 'two');`, nil)
+	require.NoError(t, err)
+
+	// Parse ONCE and reuse the same DataSource across the two
+	// QueryPreparedStmt calls. This mimics what the pgsql layer's
+	// stmtCache does: hand the same AST back for each execution.
+	stmts, err := ParseSQL(strings.NewReader(`SELECT v FROM p WHERE k = @param1`))
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+	ds, ok := stmts[0].(DataSource)
+	require.True(t, ok)
+
+	for _, tc := range []struct {
+		bind, want string
+	}{
+		{"alice", "one"},
+		{"charlie", "two"},
+		{"alice", "one"}, // round-trip: rebinding back must still work
+	} {
+		r, err := eng.QueryPreparedStmt(ctx, nil, ds, map[string]interface{}{"param1": tc.bind})
+		require.NoError(t, err)
+		rows, err := ReadAllRows(ctx, r)
+		r.Close()
+		require.NoError(t, err)
+		require.Lenf(t, rows, 1, "bind=%q expected exactly one row", tc.bind)
+		require.Equalf(t, tc.want, rows[0].ValuesByPosition[0].RawValue(),
+			"#1153: bind=%q must return %q (cached AST must rebind, not stay pinned to a previous value)",
+			tc.bind, tc.want)
+	}
 }
 
 // TestInListWithLimitOffset covers issue #2062's pattern:
