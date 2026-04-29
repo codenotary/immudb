@@ -3456,6 +3456,82 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestImmudbStoreRecoversBacklogLargerThanMaxActiveTransactions reproduces
+// issue #2086: an ungraceful shutdown (OOMKill) that left more pre-committed
+// transactions on disk than the MaxActiveTransactions cap used to make the
+// store permanently unopenable, with
+//
+//	"buffer is full: while loading pre-committed transaction: N"
+//
+// The fix grows the recovery buffer when the on-disk backlog exceeds the
+// runtime cap (precommit_buffer.go:grow + immustore.go:OpenStore retry).
+func TestImmudbStoreRecoversBacklogLargerThanMaxActiveTransactions(t *testing.T) {
+	dir := t.TempDir()
+
+	const totalTxs = 30
+	const recoveryCap = 8
+
+	opts := DefaultOptions().
+		WithEmbeddedValues(false).
+		WithPreallocFiles(false).
+		WithMaxActiveTransactions(100) // generous on the write path
+
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+
+	for i := 0; i < totalTxs; i++ {
+		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		require.NoError(t, err)
+		require.NoError(t, tx.Set([]byte{byte(i)}, nil, []byte{byte(i)}))
+		_, err = tx.Commit(context.Background())
+		require.NoError(t, err)
+	}
+	require.NoError(t, immuStore.Close())
+
+	// Rewind the cLog so only the first ~5 tx records remain. txLog still
+	// holds all 30 txs, so on the next Open the recovery loop sees ~25
+	// pre-committed-but-not-cLog-committed txs to replay — well beyond the
+	// MaxActiveTransactions=8 cap we'll reopen with. This is the on-disk
+	// shape the reporter's pod ended up in after the OOMKill: cLog far
+	// behind txLog.
+	cLogFile := filepath.Join(dir, "commit/00000000.txi")
+	stat, err := os.Stat(cLogFile)
+	require.NoError(t, err)
+	// Drop the last (totalTxs-5) entries from the cLog. The metadata header
+	// at the start of the file is preserved by truncating relative to the
+	// current size — same pattern as TestImmudbStoreTruncatedCommitLog.
+	const keepTxs = 5
+	dropBytes := int64(totalTxs-keepTxs) * int64(cLogEntrySizeV2)
+	require.Less(t, dropBytes, stat.Size(), "cLog must be larger than the truncate target")
+	require.NoError(t, os.Truncate(cLogFile, stat.Size()-dropBytes))
+
+	// The index references cLog offsets; truncating the cLog invalidates
+	// it, so wipe it for the reopen the same way TestImmudbStoreTruncatedCommitLog
+	// does (issue #858).
+	require.NoError(t, os.RemoveAll(filepath.Join(dir, "index")))
+
+	// Reopen with the small cap. Pre-fix this errored at the 9th replayed
+	// tx; post-fix the recovery buffer grows to fit.
+	reopenOpts := DefaultOptions().
+		WithEmbeddedValues(false).
+		WithPreallocFiles(false).
+		WithMaxActiveTransactions(recoveryCap)
+
+	immuStore, err = Open(dir, reopenOpts)
+	require.NoError(t, err, "#2086: reopen must not fail with 'buffer is full'")
+
+	// Verify all 30 txs are visible after recovery.
+	require.NoError(t, immuStore.WaitForIndexingUpto(context.Background(), totalTxs))
+	for i := 0; i < totalTxs; i++ {
+		valRef, err := immuStore.Get(context.Background(), []byte{byte(i)})
+		require.NoErrorf(t, err, "Get key %d after recovery", i)
+		val, err := valRef.Resolve()
+		require.NoError(t, err)
+		require.Equalf(t, []byte{byte(i)}, val, "value for key %d after recovery", i)
+	}
+	require.NoError(t, immuStore.Close())
+}
+
 func TestImmudbPreconditionIndexing(t *testing.T) {
 	immuStore, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)

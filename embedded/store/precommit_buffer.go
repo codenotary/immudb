@@ -150,3 +150,41 @@ func (b *precommitBuffer) advanceReader(n int) error {
 
 	return nil
 }
+
+// grow expands the buffer to at least newSize slots, preserving the
+// occupied entries in their logical (insertion) order. It is intended for
+// the single-threaded recovery path in OpenStore, where the on-disk backlog
+// of pre-committed transactions can exceed MaxActiveTransactions (the size
+// the buffer was created at — fine for runtime back-pressure, too small
+// for replay after a crash that left cLog flushing behind). See #2086.
+//
+// Concurrent readers and writers are NOT supported; callers must serialise
+// against put / readAhead / advanceReader / recedeWriter.
+func (b *precommitBuffer) grow(newSize int) {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+
+	if newSize <= len(b.buf) {
+		return
+	}
+
+	count := len(b.buf) - b.freeSlots()
+	newBuf := make([]*precommittedEntry, newSize)
+	for i := range newBuf {
+		newBuf[i] = &precommittedEntry{}
+	}
+	// Replay occupied slots in logical order into newBuf[1..count] — put
+	// writes at (wpos+1)%size and readAhead reads at (rpos+1)%size, so
+	// after the resize rpos=0 with the head at slot 1 makes the next
+	// readAhead(0) return the first entry, and wpos=count makes the next
+	// put write at slot count+1.
+	for i := 0; i < count; i++ {
+		src := (b.rpos + 1 + i) % len(b.buf)
+		newBuf[i+1] = b.buf[src]
+	}
+
+	b.buf = newBuf
+	b.rpos = 0
+	b.wpos = count
+	b.full = count == newSize
+}

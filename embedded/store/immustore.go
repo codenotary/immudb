@@ -586,6 +586,17 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		txSize := int(txReader.ReadCount() - (precommittedTxLogSize - committedTxLogSize))
 
 		err = cLogBuf.put(precommittedTxID, precommittedAlh, precommittedTxLogSize, txSize)
+		if errors.Is(err, ErrBufferIsFull) {
+			// Recovery path: cLogBuf is sized at MaxActiveTransactions,
+			// which caps in-flight precommitted txs as a runtime back-
+			// pressure mechanism. After an ungraceful shutdown (e.g.
+			// OOMKill) async cLog flushing can leave more pre-committed
+			// txs on disk than that, so the recovery loop must grow the
+			// buffer to fit instead of refusing to open the store. See
+			// issue #2086.
+			cLogBuf.grow(2 * len(cLogBuf.buf))
+			err = cLogBuf.put(precommittedTxID, precommittedAlh, precommittedTxLogSize, txSize)
+		}
 		if err != nil {
 			txPool.Release(tx)
 			return nil, fmt.Errorf("%v: while loading pre-committed transaction: %v", err, precommittedTxID+1)
