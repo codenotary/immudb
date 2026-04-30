@@ -228,3 +228,76 @@ func TestVerifiableSQLGet(t *testing.T) {
 		require.Contains(t, err.Error(), "incorrect number of primary key values")
 	})
 }
+
+// TestSQLExec_InsertThenUpdateSameRow_Issue2092 reproduces the regression
+// reported in codenotary/immudb#2092: an INSERT followed by an UPDATE on the
+// same row, sent as a single SQLExec call (multi-statement SQL string in one
+// gRPC SQLExecRequest), trips store.ErrCannotUpdateKeyTransiency.
+//
+// The same SQL works fine when split across two SQLExec calls (one tx per
+// call). The failure shape matches 35bb7962 ("disjoint keyRef spaces") but
+// that fix only covered the indexer-walk path inside OngoingTx.set; the SQL
+// engine's per-non-PK-index transient write inside doUpsert reaches a sibling
+// site that is still allocating colliding keyRefs on the second statement.
+//
+// This test goes through the same db.SQLExec entry point that pkg/server uses,
+// so passing it confirms the fix at the layer where production hits the bug.
+func TestSQLExec_InsertThenUpdateSameRow_Issue2092(t *testing.T) {
+	t.Run("plain table no secondary index", func(t *testing.T) {
+		db := makeDb(t)
+
+		_, _, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: "CREATE TABLE t2 (id INTEGER AUTO_INCREMENT, k1 VARCHAR[64], v VARCHAR[64], PRIMARY KEY id);",
+		})
+		require.NoError(t, err)
+
+		_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: "INSERT INTO t2 (k1, v) VALUES ('a', 'orig'); UPDATE t2 SET v = 'upd' WHERE k1 = 'a';",
+		})
+		require.NoError(t, err,
+			"INSERT + UPDATE on the same row in a single SQLExec call must commit cleanly — see #2092")
+	})
+
+	t.Run("table with UNIQUE composite index", func(t *testing.T) {
+		db := makeDb(t)
+
+		_, _, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: `CREATE TABLE t (
+				id INTEGER AUTO_INCREMENT,
+				k1 VARCHAR[64],
+				k2 VARCHAR[64],
+				v  VARCHAR[64],
+				PRIMARY KEY id
+			);
+			CREATE UNIQUE INDEX ON t(k1, k2);`,
+		})
+		require.NoError(t, err)
+
+		_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: "INSERT INTO t (k1, k2, v) VALUES ('a', 'b', 'orig'); UPDATE t SET v = 'upd' WHERE k1 = 'a' AND k2 = 'b';",
+		})
+		require.NoError(t, err,
+			"INSERT + UPDATE on the same row in a single SQLExec call (UNIQUE composite index variant) must commit cleanly — see #2092")
+	})
+
+	// Control: split into two SQLExec calls — must keep working (one tx per
+	// call so the per-tx transient state is gone before the UPDATE runs).
+	t.Run("control split across two SQLExec calls", func(t *testing.T) {
+		db := makeDb(t)
+
+		_, _, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: "CREATE TABLE t2 (id INTEGER AUTO_INCREMENT, k1 VARCHAR[64], v VARCHAR[64], PRIMARY KEY id);",
+		})
+		require.NoError(t, err)
+
+		_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: "INSERT INTO t2 (k1, v) VALUES ('a', 'orig');",
+		})
+		require.NoError(t, err)
+
+		_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{
+			Sql: "UPDATE t2 SET v = 'upd' WHERE k1 = 'a';",
+		})
+		require.NoError(t, err)
+	})
+}
