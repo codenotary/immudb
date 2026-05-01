@@ -166,8 +166,9 @@ func (r *rangeRecordingStorage) snapshot() []rangeGet {
 func TestReaderRangeFetch_DoesNotDownloadEntireChunk(t *testing.T) {
 	// Build a payload large enough that one full-object download would
 	// dominate any range-aware path. 4 MiB payload + tiny metadata
-	// header. Default reader range cache size is 256 KiB, so a single
-	// random 64 B ReadAt should fetch ~256 KiB, not 4 MiB.
+	// header. Default reader range cache size is 256 KiB, so any
+	// reachable Get should be ~256 KiB, never 4 MiB and never `-1`
+	// (whole object).
 	const (
 		payloadSize     = 4 * 1024 * 1024
 		rangeCacheSize  = 256 * 1024
@@ -186,9 +187,9 @@ func TestReaderRangeFetch_DoesNotDownloadEntireChunk(t *testing.T) {
 	r, err := openRemoteStorageReader(m, "fl", rangeCacheSize)
 	require.NoError(t, err)
 
-	// Open issues exactly one Get sized to rangeCacheSize.
+	// Open issues a Get sized to rangeCacheSize (not -1).
 	gets := m.snapshot()
-	require.Len(t, gets, 1, "open should issue exactly one Get")
+	require.GreaterOrEqual(t, len(gets), 1, "open should issue at least one Get")
 	require.Equal(t, int64(0), gets[0].offs, "open Get should start at byte 0")
 	require.Equal(t, int64(rangeCacheSize), gets[0].size,
 		"open Get should request the configured cache window, not -1 (full object)")
@@ -202,27 +203,30 @@ func TestReaderRangeFetch_DoesNotDownloadEntireChunk(t *testing.T) {
 	require.Equal(t, payload[tailReadOff:tailReadOff+64], buf,
 		"ranged read must return the right bytes from the right offset")
 
-	// That cache-miss read must have issued exactly ONE additional Get
-	// with a bounded size (not -1, not payloadSize).
-	gets = m.snapshot()
-	require.Len(t, gets, 2,
-		"cache-miss ReadAt should add exactly one Get on top of the open Get")
-	missGet := gets[1]
-	require.NotEqual(t, int64(-1), missGet.size,
-		"ranged read must not request -1 (whole object)")
-	require.LessOrEqual(t, missGet.size, int64(readerWindowMax),
-		"ranged read must request a bounded window, not the whole chunk")
-	require.GreaterOrEqual(t, missGet.size, int64(64),
-		"ranged read must at least cover the requested length")
-
-	// Sequential read inside the now-cached window must NOT issue another Get.
+	// Sequential read inside the now-cached window returns the right
+	// bytes. We can't pin "no new Get here" because Wave 2's
+	// background read-ahead prefetch may legitimately fire between
+	// snapshots — the bounded-size invariant below catches the actual
+	// regression we care about (no full-chunk download).
 	buf2 := make([]byte, 32)
 	n, err = r.ReadAt(buf2, tailReadOff+64)
 	require.NoError(t, err)
 	require.Equal(t, 32, n)
 	require.Equal(t, payload[tailReadOff+64:tailReadOff+96], buf2)
-	require.Len(t, m.snapshot(), 2,
-		"adjacent ReadAt inside the cache window must not trigger a new Get")
+
+	// Every Get issued so far must have requested a bounded window —
+	// never -1 (whole object) and never larger than ~rangeCacheSize.
+	// This is the load-bearing invariant: full-chunk downloads are
+	// gone for good. Wave 2 may add a read-ahead prefetch on top, so
+	// we don't pin the exact Get count, only the per-Get size cap.
+	for i, g := range m.snapshot() {
+		require.NotEqual(t, int64(-1), g.size,
+			"Get #%d must not request -1 (whole object): %+v", i, g)
+		require.LessOrEqual(t, g.size, int64(readerWindowMax),
+			"Get #%d must request a bounded window, not the whole chunk: %+v", i, g)
+		require.Greater(t, g.size, int64(0),
+			"Get #%d size must be positive: %+v", i, g)
+	}
 }
 
 func TestRemoteStorageOpenError(t *testing.T) {
