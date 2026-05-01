@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
@@ -70,7 +71,7 @@ func TestRemoteStorageReadAt(t *testing.T) {
 		1, 2, 3, 4, // Data, 4 bytes
 	})
 
-	r, err := openRemoteStorageReader(m, "fl")
+	r, err := openRemoteStorageReader(m, "fl", 0)
 	require.NoError(t, err)
 
 	b := make([]byte, 4)
@@ -112,7 +113,7 @@ func TestRemoteStorageCorruptedHeader(t *testing.T) {
 			m := memory.Open()
 			storeData(t, m, "fl", d.bytes)
 
-			r, err := openRemoteStorageReader(m, "fl")
+			r, err := openRemoteStorageReader(m, "fl", 0)
 			require.ErrorIs(t, err, ErrCorruptedMetadata)
 			require.Nil(t, r)
 		})
@@ -132,6 +133,98 @@ func (r *remoteStorageErrorInjector) Get(ctx context.Context, name string, offs,
 	return nil, r.err
 }
 
+// rangeRecordingStorage wraps an inner Storage and records (offs, size)
+// for every Get call. Used by TestReaderRangeFetch_DoesNotDownloadEntireChunk
+// to assert the reader actually issues bounded Range GETs after open
+// rather than dragging the whole object on every ReadAt.
+type rangeRecordingStorage struct {
+	remotestorage.Storage
+	mu   sync.Mutex
+	gets []rangeGet
+}
+
+type rangeGet struct {
+	offs int64
+	size int64
+}
+
+func (r *rangeRecordingStorage) Get(ctx context.Context, name string, offs, size int64) (io.ReadCloser, error) {
+	r.mu.Lock()
+	r.gets = append(r.gets, rangeGet{offs, size})
+	r.mu.Unlock()
+	return r.Storage.Get(ctx, name, offs, size)
+}
+
+func (r *rangeRecordingStorage) snapshot() []rangeGet {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]rangeGet, len(r.gets))
+	copy(out, r.gets)
+	return out
+}
+
+func TestReaderRangeFetch_DoesNotDownloadEntireChunk(t *testing.T) {
+	// Build a payload large enough that one full-object download would
+	// dominate any range-aware path. 4 MiB payload + tiny metadata
+	// header. Default reader range cache size is 256 KiB, so a single
+	// random 64 B ReadAt should fetch ~256 KiB, not 4 MiB.
+	const (
+		payloadSize     = 4 * 1024 * 1024
+		rangeCacheSize  = 256 * 1024
+		readerWindowMax = rangeCacheSize + 4096 // small slack for header bytes
+	)
+
+	header := []byte{0, 0, 0, 0} // 0-byte metadata
+	payload := make([]byte, payloadSize)
+	for i := range payload {
+		payload[i] = byte(i & 0xff)
+	}
+
+	m := &rangeRecordingStorage{Storage: memory.Open()}
+	storeData(t, m, "fl", append(header, payload...))
+
+	r, err := openRemoteStorageReader(m, "fl", rangeCacheSize)
+	require.NoError(t, err)
+
+	// Open issues exactly one Get sized to rangeCacheSize.
+	gets := m.snapshot()
+	require.Len(t, gets, 1, "open should issue exactly one Get")
+	require.Equal(t, int64(0), gets[0].offs, "open Get should start at byte 0")
+	require.Equal(t, int64(rangeCacheSize), gets[0].size,
+		"open Get should request the configured cache window, not -1 (full object)")
+
+	// Read 64 bytes near the END of the payload — guaranteed cache miss.
+	const tailReadOff = payloadSize - 100
+	buf := make([]byte, 64)
+	n, err := r.ReadAt(buf, tailReadOff)
+	require.NoError(t, err)
+	require.Equal(t, 64, n)
+	require.Equal(t, payload[tailReadOff:tailReadOff+64], buf,
+		"ranged read must return the right bytes from the right offset")
+
+	// That cache-miss read must have issued exactly ONE additional Get
+	// with a bounded size (not -1, not payloadSize).
+	gets = m.snapshot()
+	require.Len(t, gets, 2,
+		"cache-miss ReadAt should add exactly one Get on top of the open Get")
+	missGet := gets[1]
+	require.NotEqual(t, int64(-1), missGet.size,
+		"ranged read must not request -1 (whole object)")
+	require.LessOrEqual(t, missGet.size, int64(readerWindowMax),
+		"ranged read must request a bounded window, not the whole chunk")
+	require.GreaterOrEqual(t, missGet.size, int64(64),
+		"ranged read must at least cover the requested length")
+
+	// Sequential read inside the now-cached window must NOT issue another Get.
+	buf2 := make([]byte, 32)
+	n, err = r.ReadAt(buf2, tailReadOff+64)
+	require.NoError(t, err)
+	require.Equal(t, 32, n)
+	require.Equal(t, payload[tailReadOff+64:tailReadOff+96], buf2)
+	require.Len(t, m.snapshot(), 2,
+		"adjacent ReadAt inside the cache window must not trigger a new Get")
+}
+
 func TestRemoteStorageOpenError(t *testing.T) {
 	for _, duringRead := range []bool{false, true} {
 		m := &remoteStorageErrorInjector{
@@ -145,7 +238,7 @@ func TestRemoteStorageOpenError(t *testing.T) {
 			1, 2, 3, 4, // Data, 4 bytes
 		})
 
-		r, err := openRemoteStorageReader(m, "fl")
+		r, err := openRemoteStorageReader(m, "fl", 0)
 		require.Equal(t, m.err, err)
 		require.Nil(t, r)
 	}
