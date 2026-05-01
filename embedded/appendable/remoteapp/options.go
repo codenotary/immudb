@@ -33,16 +33,22 @@ type Options struct {
 	retryMaxDelay    time.Duration
 	retryDelayExp    float64
 	retryDelayJitter float64
+
+	// readerRangeCacheSize is the per-reader sliding-window size for
+	// range-fetch ReadAt against the remote storage. 0 means "use
+	// DefaultReaderRangeCacheSize".
+	readerRangeCacheSize int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		Options:          *multiapp.DefaultOptions(),
-		parallelUploads:  10,
-		retryMinDelay:    time.Second,
-		retryMaxDelay:    2 * time.Minute,
-		retryDelayExp:    2,
-		retryDelayJitter: 0.1,
+		Options:              *multiapp.DefaultOptions(),
+		parallelUploads:      10,
+		retryMinDelay:        time.Second,
+		retryMaxDelay:        2 * time.Minute,
+		retryDelayExp:        2,
+		retryDelayJitter:     0.1,
+		readerRangeCacheSize: DefaultReaderRangeCacheSize,
 	}
 }
 
@@ -110,5 +116,14 @@ func (opts *Options) WithRetryDelayExp(retryDelayExp float64) *Options {
 
 func (opts *Options) WithRetryDelayJitter(retryDelayJitter float64) *Options {
 	opts.retryDelayJitter = retryDelayJitter
+	return opts
+}
+
+// WithReaderRangeCacheSize sets the per-reader sliding-window cache size
+// used by the remote-storage reader to absorb sequential ReadAt calls
+// without re-issuing a Range GET each time. Pass 0 to keep the package
+// default (DefaultReaderRangeCacheSize).
+func (opts *Options) WithReaderRangeCacheSize(size int) *Options {
+	opts.readerRangeCacheSize = size
 	return opts
 }

@@ -63,6 +63,8 @@ type RemoteStorageAppendable struct {
 	retryDelayExp float64
 	retryJitter   float64
 
+	readerRangeCacheSize int
+
 	mainContext           context.Context
 	mainCancelFunc        context.CancelFunc
 	uploadThrottler       chan struct{}
@@ -97,13 +99,14 @@ func Open(path string, remotePath string, storage remotestorage.Storage, opts *O
 		fileExt:         opts.GetFileExt(),
 		fileMode:        opts.GetFileMode(),
 		remotePath:      remotePath,
-		retryMinDelay:   opts.retryMinDelay,
-		retryMaxDelay:   opts.retryMaxDelay,
-		retryDelayExp:   opts.retryDelayExp,
-		retryJitter:     opts.retryDelayJitter,
-		mainContext:     mainContext,
-		mainCancelFunc:  mainCancelFunc,
-		uploadThrottler: make(chan struct{}, opts.parallelUploads),
+		retryMinDelay:        opts.retryMinDelay,
+		retryMaxDelay:        opts.retryMaxDelay,
+		retryDelayExp:        opts.retryDelayExp,
+		retryJitter:          opts.retryDelayJitter,
+		readerRangeCacheSize: opts.readerRangeCacheSize,
+		mainContext:          mainContext,
+		mainCancelFunc:       mainCancelFunc,
+		uploadThrottler:      make(chan struct{}, opts.parallelUploads),
 	}
 	ret.chunkUploadFinished = sync.NewCond(&ret.mutex)
 	ret.chunkDownloadFinished = sync.NewCond(&ret.mutex)
@@ -619,6 +622,7 @@ func (r *RemoteStorageAppendable) openRemoteAppendableReader(name string) (appen
 	return openRemoteStorageReader(
 		r.rStorage,
 		r.remotePath+name,
+		r.readerRangeCacheSize,
 	)
 }
 
