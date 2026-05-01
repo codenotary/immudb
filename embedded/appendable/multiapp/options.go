@@ -47,6 +47,15 @@ type Options struct {
 	maxOpenedFiles    int
 	compressionFormat int
 	compressionLevel  int
+
+	// prefetchAheadDepth, if > 0, kicks off background opens of the
+	// next K chunks whenever a sequential ReadAt advances into a new
+	// chunk. Default 0 (off) — local FS opens are cheap and the
+	// inline open path already handles them. Remote-storage backed
+	// multiapps (remoteapp) bump this to 4 by default so each chunk's
+	// network-bound open overlaps with the consumer's per-chunk work
+	// instead of serializing on the Get RTT.
+	prefetchAheadDepth int
 }
 
 func DefaultOptions() *Options {
@@ -156,6 +165,15 @@ func (opts *Options) WithWriteBufferSize(size int) *Options {
 func (opts *Options) WithPrealloc(prealloc bool) *Options {
 	opts.prealloc = prealloc
 	return opts
+}
+
+func (opts *Options) WithPrefetchAheadDepth(depth int) *Options {
+	opts.prefetchAheadDepth = depth
+	return opts
+}
+
+func (opts *Options) GetPrefetchAheadDepth() int {
+	return opts.prefetchAheadDepth
 }
 
 func (opt *Options) GetFileExt() string {

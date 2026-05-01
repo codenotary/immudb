@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/remotestorage/memory"
 	"github.com/stretchr/testify/require"
@@ -43,9 +44,14 @@ func TestRemoteStorageReaderUnsupportedMethods(t *testing.T) {
 	require.Panics(t, func() { r.SetOffset(0) })
 	require.Panics(t, func() { r.Append([]byte{0}) })
 	require.Panics(t, func() { r.DiscardUpto(0) })
-	require.Panics(t, func() { r.CompressionFormat() })
-	require.Panics(t, func() { r.CompressionLevel() })
 	require.Panics(t, func() { r.Copy("/tmp") })
+
+	// CompressionFormat/Level used to panic but are now real
+	// accessors — required for the multiapp prefetch snapshot to
+	// work and for the chunk-level decompress path. A zero-value
+	// reader reports NoCompression / level 0.
+	require.Equal(t, appendable.NoCompression, r.CompressionFormat())
+	require.Equal(t, 0, r.CompressionLevel())
 }
 
 func TestRemoteStorageFlush(t *testing.T) {
@@ -187,12 +193,19 @@ func TestReaderRangeFetch_DoesNotDownloadEntireChunk(t *testing.T) {
 	r, err := openRemoteStorageReader(m, "fl", rangeCacheSize)
 	require.NoError(t, err)
 
-	// Open issues a Get sized to rangeCacheSize (not -1).
+	// Open issues a Get sized close to rangeCacheSize (not -1).
+	// Wave 3 over-fetches by openHeaderSlack so the first cached
+	// payload window covers a full aligned region after stripping
+	// the metadata header — assert bounded, not exact.
 	gets := m.snapshot()
 	require.GreaterOrEqual(t, len(gets), 1, "open should issue at least one Get")
 	require.Equal(t, int64(0), gets[0].offs, "open Get should start at byte 0")
-	require.Equal(t, int64(rangeCacheSize), gets[0].size,
-		"open Get should request the configured cache window, not -1 (full object)")
+	require.NotEqual(t, int64(-1), gets[0].size,
+		"open Get must not request -1 (full object)")
+	require.LessOrEqual(t, gets[0].size, int64(rangeCacheSize+openHeaderSlack),
+		"open Get must be bounded by rangeCacheSize + openHeaderSlack")
+	require.GreaterOrEqual(t, gets[0].size, int64(rangeCacheSize),
+		"open Get must cover at least rangeCacheSize")
 
 	// Read 64 bytes near the END of the payload — guaranteed cache miss.
 	const tailReadOff = payloadSize - 100

@@ -38,11 +38,33 @@ type Options struct {
 	// range-fetch ReadAt against the remote storage. 0 means "use
 	// DefaultReaderRangeCacheSize".
 	readerRangeCacheSize int
+
+	// verifyUploads, when true, retains the legacy post-upload
+	// behaviour: after Put, do an Exists round trip and then a fresh
+	// remote-reader open (which downloads at least one cache window
+	// of bytes) to confirm the chunk is readable, then swap the
+	// cache. False (default) skips Exists and substitutes a lazy
+	// reader that opens the chunk on the first subsequent ReadAt —
+	// most uploaded chunks are never read again, so this saves one
+	// RTT plus a window-sized download per upload on the common
+	// path. Modern S3 is read-after-write consistent, so the
+	// verification is no longer load-bearing.
+	verifyUploads bool
 }
 
+// DefaultPrefetchAheadDepth is how many chunks the multiapp layer
+// pre-warms on a sequential read. Each pre-warm is one S3 GET of
+// roughly DefaultReaderRangeCacheSize bytes, so the worst-case
+// extra in-flight bandwidth is depth × cache window. 4 is enough
+// to hide up to ~4 × RTT of consumer compute behind a single open;
+// at 50 ms S3 RTT that's 200 ms of latency overlapped with replay.
+const DefaultPrefetchAheadDepth = 4
+
 func DefaultOptions() *Options {
+	mopts := *multiapp.DefaultOptions()
+	mopts.WithPrefetchAheadDepth(DefaultPrefetchAheadDepth)
 	return &Options{
-		Options:              *multiapp.DefaultOptions(),
+		Options:              mopts,
 		parallelUploads:      10,
 		retryMinDelay:        time.Second,
 		retryMaxDelay:        2 * time.Minute,
@@ -125,5 +147,13 @@ func (opts *Options) WithRetryDelayJitter(retryDelayJitter float64) *Options {
 // default (DefaultReaderRangeCacheSize).
 func (opts *Options) WithReaderRangeCacheSize(size int) *Options {
 	opts.readerRangeCacheSize = size
+	return opts
+}
+
+// WithVerifyUploads toggles the legacy post-upload verification path
+// (Exists round trip + fresh remote-reader open). Defaults to false;
+// pass true to opt back into the legacy behaviour.
+func (opts *Options) WithVerifyUploads(verify bool) *Options {
+	opts.verifyUploads = verify
 	return opts
 }

@@ -83,13 +83,33 @@ func TestOpenRemoteStorageAppendable(t *testing.T) {
 }
 
 func TestOpenRemoteStorageAppendableCompression(t *testing.T) {
+	// Compression is now supported end-to-end through remoteapp.
+	// Open should succeed; a round-trip Append + ReadAt must
+	// return the original bytes after going via the remote
+	// storage and through the per-frame decompress path.
 	opts := DefaultOptions()
 	opts.WithCompressionFormat(appendable.FlateCompression).
-		WithCompresionLevel(appendable.BestCompression)
+		WithCompresionLevel(appendable.BestCompression).
+		WithFileSize(64).
+		WithFileExt("aof")
 
-	app, err := Open(t.TempDir(), "", memory.Open(), opts)
-	require.ErrorIs(t, err, ErrCompressionNotSupported)
-	require.Nil(t, app)
+	mem := memory.Open()
+	app, err := Open(t.TempDir(), "", mem, opts)
+	require.NoError(t, err)
+	defer app.Close()
+
+	payload := []byte("compressible compressible compressible compressible payload")
+	off, n, err := app.Append(payload)
+	require.NoError(t, err)
+	require.EqualValues(t, len(payload), n)
+
+	require.NoError(t, app.Flush())
+
+	got := make([]byte, len(payload))
+	rn, err := app.ReadAt(got, off)
+	require.NoError(t, err)
+	require.EqualValues(t, len(payload), rn)
+	require.Equal(t, payload, got)
 }
 
 func TestRemoteStorageOpenAppendableInvalidName(t *testing.T) {
@@ -479,7 +499,13 @@ func TestRemoteStorageUploadRetry(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions().WithRetryMinDelay(time.Microsecond).WithRetryMaxDelay(time.Microsecond)
+	// Opt into the legacy verification path so the Get + Exists
+	// retry counters this test cares about are still on. The default
+	// fast path skips both round trips.
+	opts := DefaultOptions().
+		WithRetryMinDelay(time.Microsecond).
+		WithRetryMaxDelay(time.Microsecond).
+		WithVerifyUploads(true)
 	opts.WithFileExt("tst").WithFileSize(10)
 	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
@@ -544,7 +570,11 @@ func TestRemoteStorageUploadCancel(t *testing.T) {
 
 			}
 
-			opts := DefaultOptions()
+			// Get / Exists error injections fire only on the legacy
+			// post-upload verification path. Opt back into it for
+			// this test so the cancel-during-retry semantics stay
+			// observable.
+			opts := DefaultOptions().WithVerifyUploads(true)
 			opts.WithFileExt("tst").WithFileSize(10)
 			app, err := Open(path, "", mem, opts)
 			require.NoError(t, err)
