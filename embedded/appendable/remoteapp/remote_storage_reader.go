@@ -1,6 +1,11 @@
 package remoteapp
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"compress/lzw"
+	"compress/zlib"
 	"context"
 	"encoding/binary"
 	"io"
@@ -8,25 +13,41 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// DefaultReaderRangeCacheSize is the per-reader sliding window used to
-// service ReadAt without re-issuing an S3 GET on every call. It also
-// caps the open-time header download — the open path does one GET of
-// this size, parses the metadata length prefix from the first 4 bytes,
-// keeps the trailing payload bytes as the initial cache, and (when the
-// response was strictly shorter than the request) pins the payload
-// size so subsequent ReadAt past EOF can short-circuit without an S3
-// round trip.
+// DefaultReaderRangeCacheSize is the per-window size used by the
+// remote-storage reader's LRU cache. Sized to match immudb's default
+// multiapp chunk size (`WithFileSize(1<<20)` = 1 MiB), so a sequential
+// full-chunk read on a default-configured deployment does **one** S3
+// GET on open — same as the pre-Wave-1 reader — while a partial read
+// of a large chunk still pays only the windows it actually touches.
 //
-// 256 KiB is large enough that hot-restore replay and SQL scans fall
-// almost entirely inside the cache while sequentially walking a chunk,
-// and small enough that random-access patterns don't drag a megabyte
-// per ReadAt call. Tunable via WithReaderRangeCacheSize on the
-// remoteapp options.
-const DefaultReaderRangeCacheSize = 256 * 1024
+// Tunable via WithReaderRangeCacheSize on the remoteapp options.
+const DefaultReaderRangeCacheSize = 1 * 1024 * 1024
+
+// openHeaderSlack is the extra bytes the open-time GET pulls beyond
+// `rangeCacheSize` so the first cached window covers a full aligned
+// payload region even after the variable-length metadata header is
+// stripped. Without this, baseOffset (4 + metadata length) eats into
+// the first window, the payload portion ends before the next aligned
+// window boundary, and the next read past it forces an extra GET to
+// fetch a window we'd otherwise have ended on. 4 KiB is large enough
+// for any plausible appendable metadata while staying tiny relative
+// to the cache window.
+const openHeaderSlack = 4096
+
+// DefaultReaderCacheWindows is the LRU depth of the per-reader cache.
+// Each cached window is up to DefaultReaderRangeCacheSize bytes, so
+// the worst-case resident memory per reader is
+// DefaultReaderCacheWindows * DefaultReaderRangeCacheSize.
+//
+// Depth 4 trades ~4 MiB per reader for an order-of-magnitude better
+// hit rate on sparse / random access patterns: revisiting a window
+// touched within the last 3 misses is a memcpy instead of an S3 GET.
+const DefaultReaderCacheWindows = 4
 
 // pendingFetch represents a single in-flight read-ahead Get. The
 // fetcher goroutine sets data/err and then closes done. Foreground
@@ -41,15 +62,33 @@ type pendingFetch struct {
 	err  error
 }
 
+// cachedWindow is one entry in the LRU. data holds payload bytes for
+// offsets [offs, offs+len(data)).
+type cachedWindow struct {
+	offs int64
+	data []byte
+}
+
 type remoteStorageReader struct {
 	r              remotestorage.Storage
 	name           string
 	baseOffset     int64
 	rangeCacheSize int
+	maxWindows     int
+
+	// compressionFormat is parsed from the chunk's metadata header
+	// at open time. When non-zero (i.e. anything other than
+	// appendable.NoCompression), ReadAt reproduces the per-entry
+	// length-prefix + decompress protocol that singleapp's writer
+	// uses, on top of the same range cache that handles raw byte
+	// fetches. compressionLevel is parsed alongside but only used
+	// for symmetry — the readers infer level from the compressed
+	// stream.
+	compressionFormat int
+	compressionLevel  int
 
 	mu          sync.Mutex
-	cache       []byte // payload bytes [cacheOffs, cacheOffs+len(cache))
-	cacheOffs   int64
+	windows     []cachedWindow // MRU at index 0, LRU at the tail
 	sizeKnown   bool
 	payloadSize int64 // valid only when sizeKnown
 
@@ -72,7 +111,8 @@ func openRemoteStorageReader(r remotestorage.Storage, name string, rangeCacheSiz
 	// window. A short response (len < rangeCacheSize) means we've
 	// seen the whole object, in which case pin payloadSize so
 	// out-of-range ReadAt calls don't issue a wasted GET.
-	reader, err := r.Get(ctx, name, 0, int64(rangeCacheSize))
+	openFetchSize := int64(rangeCacheSize) + openHeaderSlack
+	reader, err := r.Get(ctx, name, 0, openFetchSize)
 	if err != nil {
 		metricsUncachedReadErrors.Inc()
 		return nil, err
@@ -96,29 +136,45 @@ func openRemoteStorageReader(r remotestorage.Storage, name string, rangeCacheSiz
 		return nil, ErrCorruptedMetadata
 	}
 
+	// Parse the chunk metadata to find out whether the upstream
+	// writer used singleapp's per-entry compression. If yes, ReadAt
+	// reproduces the same length-prefix + decompress protocol;
+	// otherwise we serve raw bytes. Metadata key matches
+	// singleapp.MetaCompressionFormat (the on-disk format key).
+	//
+	// Defensive: NewMetadata panics on bytes that don't follow the
+	// expected TLV layout (some test fixtures + any non-singleapp
+	// producer). Recover and default to NoCompression rather than
+	// failing the whole open.
+	compressionFormat := appendable.NoCompression
+	if baseOffset > 4 {
+		compressionFormat = parseCompressionFormat(data[4:baseOffset])
+	}
+
 	pCtx, pCancel := context.WithCancel(context.Background())
 	sr := &remoteStorageReader{
-		r:              r,
-		name:           name,
-		baseOffset:     baseOffset,
-		rangeCacheSize: rangeCacheSize,
-		cache:          data[baseOffset:],
-		cacheOffs:      0,
+		r:                 r,
+		name:              name,
+		baseOffset:        baseOffset,
+		rangeCacheSize:    rangeCacheSize,
+		maxWindows:        DefaultReaderCacheWindows,
+		compressionFormat: compressionFormat,
+		windows: []cachedWindow{
+			{offs: 0, data: data[baseOffset:]},
+		},
 		prefetchCtx:    pCtx,
 		prefetchCancel: pCancel,
 	}
-	if int64(len(data)) < int64(rangeCacheSize) {
+	if int64(len(data)) < openFetchSize {
 		sr.sizeKnown = true
-		sr.payloadSize = int64(len(sr.cache))
-	} else {
-		// Pipeline the second window while the caller processes the
-		// first — Wave 2 read-ahead. Hot-restore replay, SQL scans,
-		// and replication catch-up all walk a chunk linearly, so this
-		// shaves one full RTT per window from the wall-clock.
-		sr.mu.Lock()
-		sr.maybeStartPrefetchLocked()
-		sr.mu.Unlock()
+		sr.payloadSize = int64(len(sr.windows[0].data))
 	}
+	// Wave 3: do NOT start a prefetch on open. If the consumer never
+	// issues a ReadAt past the initial window, no further GET fires.
+	// Prefetch is started lazily from fetchAndCopyLocked once we've
+	// observed an actual cache miss — that's evidence the consumer is
+	// reading sequentially past the cache and will benefit from the
+	// next window arriving in parallel.
 	return sr, nil
 }
 
@@ -147,11 +203,11 @@ func (r *remoteStorageReader) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (r *remoteStorageReader) CompressionFormat() int {
-	panic("unimplemented")
+	return r.compressionFormat
 }
 
 func (r *remoteStorageReader) CompressionLevel() int {
-	panic("unimplemented")
+	return r.compressionLevel
 }
 
 func (r *remoteStorageReader) Flush() error {
@@ -166,6 +222,11 @@ func (r *remoteStorageReader) SwitchToReadOnlyMode() error {
 	return nil
 }
 
+// ReadAt is the public entry. For uncompressed chunks it delegates
+// straight to the raw range-cache path. For compressed chunks it
+// reproduces singleapp's per-entry frame protocol on top of the raw
+// reader: read the 4-byte length prefix at off, fetch that many
+// compressed bytes at off+4, decompress in memory, then copy.
 func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 	if off < 0 {
 		return 0, ErrIllegalArguments
@@ -174,6 +235,16 @@ func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 		return 0, nil
 	}
 
+	if r.compressionFormat == appendable.NoCompression {
+		return r.readAtRaw(bs, off)
+	}
+	return r.readAtCompressedFrame(bs, off)
+}
+
+// readAtRaw is the uncompressed range-cache + prefetch path. Also
+// used by readAtCompressedFrame to fetch the underlying compressed
+// bytes (length prefix + compressed payload) before decompressing.
+func (r *remoteStorageReader) readAtRaw(bs []byte, off int64) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -181,16 +252,16 @@ func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
-	// Fast path: requested range starts inside the cache.
-	if off >= r.cacheOffs && off < r.cacheOffs+int64(len(r.cache)) {
-		return r.serveFromCacheLocked(bs, off)
+	// Cache hit: any of the LRU windows covers this offset?
+	if w, ok := r.lookupWindowLocked(off); ok {
+		return r.serveFromWindowLocked(bs, off, w)
 	}
 
-	// Cache miss. If the in-flight prefetch matches the requested
-	// offset, wait on it instead of issuing a fresh GET. The fetcher
-	// goroutine doesn't take r.mu, so dropping the lock while we wait
-	// is safe and lets other state (e.g. an unrelated Close) progress.
-	if r.pf != nil && r.pf.offs == off {
+	// Cache miss. If an in-flight prefetch is fetching the
+	// window-sized region containing this offset, wait on it instead
+	// of issuing a fresh GET. The fetcher goroutine doesn't take
+	// r.mu, so dropping the lock while we wait is safe.
+	if r.pf != nil && off >= r.pf.offs && off < r.pf.offs+int64(r.rangeCacheSize) {
 		pf := r.pf
 		r.mu.Unlock()
 		<-pf.done
@@ -200,17 +271,20 @@ func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 		if r.pf == pf {
 			r.pf = nil
 			if pf.err == nil {
-				r.cache = pf.data
-				r.cacheOffs = off
+				r.insertWindowLocked(pf.offs, pf.data)
 				if int64(len(pf.data)) < int64(r.rangeCacheSize) {
 					r.sizeKnown = true
-					r.payloadSize = off + int64(len(pf.data))
+					r.payloadSize = pf.offs + int64(len(pf.data))
 				}
+				// Keep the pipeline primed for the next window — without
+				// this, every adoption would stall the next sequential
+				// miss for a full RTT instead of overlapping.
+				r.maybeStartPrefetchLocked()
 			}
 		}
 
-		if off >= r.cacheOffs && off < r.cacheOffs+int64(len(r.cache)) {
-			return r.serveFromCacheLocked(bs, off)
+		if w, ok := r.lookupWindowLocked(off); ok {
+			return r.serveFromWindowLocked(bs, off, w)
 		}
 		// Prefetch errored or was preempted; fall through to direct fetch.
 	}
@@ -218,18 +292,45 @@ func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 	return r.fetchAndCopyLocked(bs, off)
 }
 
-// serveFromCacheLocked copies from the in-memory cache into bs and
-// handles partial reads (cache window boundary or end of object). On
-// a partial read it either returns io.EOF (if the object is exhausted)
-// or recursively fetches the next window. Caller must hold r.mu.
-func (r *remoteStorageReader) serveFromCacheLocked(bs []byte, off int64) (int, error) {
-	rel := off - r.cacheOffs
-	n := copy(bs, r.cache[rel:])
+// lookupWindowLocked returns the window covering off, moving it to
+// MRU position on hit. Caller must hold r.mu.
+func (r *remoteStorageReader) lookupWindowLocked(off int64) (cachedWindow, bool) {
+	for i, w := range r.windows {
+		if off >= w.offs && off < w.offs+int64(len(w.data)) {
+			if i > 0 {
+				// Move w to MRU (index 0); shift the prefix right.
+				copy(r.windows[1:i+1], r.windows[0:i])
+				r.windows[0] = w
+			}
+			return w, true
+		}
+	}
+	return cachedWindow{}, false
+}
+
+// insertWindowLocked installs a freshly-fetched window at MRU,
+// evicting the LRU entry if we're at capacity. Caller must hold r.mu.
+func (r *remoteStorageReader) insertWindowLocked(offs int64, data []byte) {
+	nw := cachedWindow{offs: offs, data: data}
+	if len(r.windows) < r.maxWindows {
+		// Grow by one and shift everything right by one slot.
+		r.windows = append(r.windows, cachedWindow{})
+	}
+	copy(r.windows[1:], r.windows[:len(r.windows)-1])
+	r.windows[0] = nw
+}
+
+// serveFromWindowLocked copies from `w` into bs and handles partial
+// reads (cache window boundary or end of object). On a partial read
+// it either returns io.EOF (object exhausted) or recursively fetches
+// the next window. Caller must hold r.mu.
+func (r *remoteStorageReader) serveFromWindowLocked(bs []byte, off int64, w cachedWindow) (int, error) {
+	rel := off - w.offs
+	n := copy(bs, w.data[rel:])
 	metricsReads.Inc()
 	metricsReadBytes.Add(float64(n))
 
 	if n == len(bs) {
-		r.maybeStartPrefetchLocked()
 		return n, nil
 	}
 	if r.sizeKnown && off+int64(n) >= r.payloadSize {
@@ -239,17 +340,24 @@ func (r *remoteStorageReader) serveFromCacheLocked(bs []byte, off int64) (int, e
 	return n + more, err
 }
 
-// fetchAndCopyLocked issues a Range GET starting at payload offset
-// `off` big enough to cover the request, refreshes the per-reader
-// cache with the result, and copies into bs. Caller must hold r.mu.
+// fetchAndCopyLocked issues a Range GET aligned to a fixed window
+// boundary that contains `off`, inserts the result as the new MRU
+// cache window, and copies into bs. Aligning to fixed boundaries
+// (rather than starting the GET at the random caller offset) means
+// subsequent reads near the same region land in the same cached
+// window — without alignment, two sparse reads that fall in the
+// "same logical 1 MiB region" but at different offsets would each
+// fetch their own overlapping window and the cache would thrash.
+//
+// If the request straddles two windows, this fetches the first one
+// and recurses for the remainder. Caller must hold r.mu.
 func (r *remoteStorageReader) fetchAndCopyLocked(bs []byte, off int64) (int, error) {
-	fetchLen := int64(r.rangeCacheSize)
-	if int64(len(bs)) > fetchLen {
-		fetchLen = int64(len(bs))
-	}
+	windowSize := int64(r.rangeCacheSize)
+	windowOffs := (off / windowSize) * windowSize
+	fetchLen := windowSize
 
 	ctx := context.Background()
-	reader, err := r.r.Get(ctx, r.name, off+r.baseOffset, fetchLen)
+	reader, err := r.r.Get(ctx, r.name, windowOffs+r.baseOffset, fetchLen)
 	if err != nil {
 		metricsUncachedReadErrors.Inc()
 		return 0, err
@@ -263,37 +371,71 @@ func (r *remoteStorageReader) fetchAndCopyLocked(bs []byte, off int64) (int, err
 	metricsUncachedReads.Inc()
 	metricsUncachedReadBytes.Add(float64(len(data)))
 
-	r.cache = data
-	r.cacheOffs = off
+	r.insertWindowLocked(windowOffs, data)
 	if int64(len(data)) < fetchLen {
 		r.sizeKnown = true
-		r.payloadSize = off + int64(len(data))
+		r.payloadSize = windowOffs + int64(len(data))
 	}
 
-	n := copy(bs, data)
+	rel := off - windowOffs
+	if rel >= int64(len(data)) {
+		// Window doesn't actually contain off (object ended inside
+		// the aligned window before this offset). EOF.
+		return 0, io.EOF
+	}
+	n := copy(bs, data[rel:])
 	metricsReads.Inc()
 	metricsReadBytes.Add(float64(n))
 	if n < len(bs) {
-		return n, io.EOF
+		// Request straddles a window boundary or extends past EOF.
+		if r.sizeKnown && off+int64(n) >= r.payloadSize {
+			return n, io.EOF
+		}
+		more, err := r.fetchAndCopyLocked(bs[n:], off+int64(n))
+		return n + more, err
 	}
+	// Wave 3: only kick a prefetch from the cache-miss path. Cache
+	// hits don't fire one because every hit on a random pattern would
+	// otherwise queue a wasted GET — and on a sequential pattern the
+	// next miss will fire it just as effectively.
 	r.maybeStartPrefetchLocked()
 	return n, nil
 }
 
 // maybeStartPrefetchLocked spawns one background Get for the window
-// immediately after the current cache, if and only if no prefetch is
-// already in flight and we don't already know the payload ends inside
-// the current cache. Caller must hold r.mu.
+// immediately after the current MRU cache entry, if and only if (a)
+// no useful prefetch is already in flight and (b) we don't already
+// know the payload ends inside the cached prefix. A completed but
+// stale prefetch (offs no longer matches the next-after-MRU we want)
+// is dropped first so a new one can start. Caller must hold r.mu.
 func (r *remoteStorageReader) maybeStartPrefetchLocked() {
-	if r.pf != nil {
-		return
-	}
 	if r.sizeKnown {
 		return
 	}
-	nextOffs := r.cacheOffs + int64(len(r.cache))
+	if len(r.windows) == 0 {
+		return
+	}
+	mru := r.windows[0]
+	nextOffs := mru.offs + int64(len(mru.data))
 	if nextOffs <= 0 {
 		return
+	}
+
+	// Existing prefetch already lined up correctly? Leave it.
+	if r.pf != nil && r.pf.offs == nextOffs {
+		return
+	}
+	// Existing prefetch in flight for a different offset? Don't start
+	// a second concurrent fetch; let the in-flight one drain first.
+	// If it's already completed but stale, drop it so we can issue
+	// the right one.
+	if r.pf != nil {
+		select {
+		case <-r.pf.done:
+			r.pf = nil
+		default:
+			return
+		}
 	}
 
 	pf := &pendingFetch{
@@ -317,6 +459,83 @@ func (r *remoteStorageReader) maybeStartPrefetchLocked() {
 		}
 		pf.data = data
 	}()
+}
+
+// readAtCompressedFrame implements singleapp's per-Append frame
+// protocol on top of readAtRaw:
+//
+//	[ 4-byte big-endian length N ][ N bytes of compressed payload ]
+//
+// The frame at `off` decompresses to one Append's payload. We copy
+// up to len(bs) bytes of that payload into bs and return io.EOF if
+// the decoded payload was shorter than the request.
+func (r *remoteStorageReader) readAtCompressedFrame(bs []byte, off int64) (int, error) {
+	var lenBuf [4]byte
+	if _, err := r.readAtRaw(lenBuf[:], off); err != nil {
+		return 0, err
+	}
+	clen := binary.BigEndian.Uint32(lenBuf[:])
+	if clen == 0 {
+		return 0, io.EOF
+	}
+
+	cBs := make([]byte, clen)
+	if _, err := r.readAtRaw(cBs, off+4); err != nil {
+		return 0, err
+	}
+
+	dec, err := newDecompressReader(r.compressionFormat, bytes.NewReader(cBs))
+	if err != nil {
+		return 0, err
+	}
+	defer dec.Close()
+
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(dec); err != nil {
+		return 0, err
+	}
+	rbs := buf.Bytes()
+
+	n := copy(bs, rbs)
+	if n < len(bs) {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+// parseCompressionFormat extracts singleapp's MetaCompressionFormat
+// from a chunk's TLV metadata bytes. Returns NoCompression on any
+// parse failure — the metadata is owned by the writer and may legally
+// be in formats this package doesn't understand.
+func parseCompressionFormat(metaBytes []byte) (cf int) {
+	defer func() {
+		if r := recover(); r != nil {
+			cf = appendable.NoCompression
+		}
+	}()
+	md := appendable.NewMetadata(metaBytes)
+	if v, ok := md.GetInt(singleapp.MetaCompressionFormat); ok {
+		return v
+	}
+	return appendable.NoCompression
+}
+
+// newDecompressReader returns a decoder for the given compression
+// format. Mirrors singleapp.AppendableFile.reader so the on-disk
+// frame format stays identical between local and remote chunks.
+func newDecompressReader(format int, src io.Reader) (io.ReadCloser, error) {
+	switch format {
+	case appendable.FlateCompression:
+		return flate.NewReader(src), nil
+	case appendable.GZipCompression:
+		return gzip.NewReader(src)
+	case appendable.LZWCompression:
+		return lzw.NewReader(src, lzw.MSB, 8), nil
+	case appendable.ZLibCompression:
+		return zlib.NewReader(src)
+	default:
+		return nil, ErrCorruptedMetadata
+	}
 }
 
 func (r *remoteStorageReader) Close() error {

@@ -64,6 +64,7 @@ type RemoteStorageAppendable struct {
 	retryJitter   float64
 
 	readerRangeCacheSize int
+	verifyUploads        bool
 
 	mainContext           context.Context
 	mainCancelFunc        context.CancelFunc
@@ -104,6 +105,7 @@ func Open(path string, remotePath string, storage remotestorage.Storage, opts *O
 		retryDelayExp:        opts.retryDelayExp,
 		retryJitter:          opts.retryDelayJitter,
 		readerRangeCacheSize: opts.readerRangeCacheSize,
+		verifyUploads:        opts.verifyUploads,
 		mainContext:          mainContext,
 		mainCancelFunc:       mainCancelFunc,
 		uploadThrottler:      make(chan struct{}, opts.parallelUploads),
@@ -218,28 +220,41 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 			return true, nil
 		})
 
-		// Wait for the chunk to become ready
-		cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
-			exists, err := r.rStorage.Exists(ctx, r.remotePath+appName)
-			if err == nil && exists {
-				return false, nil
-			}
+		if r.verifyUploads {
+			// Legacy behaviour: confirm Exists then open a fresh
+			// remote reader (which downloads at least one window of
+			// bytes) before swapping the cache.
+			cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
+				exists, err := r.rStorage.Exists(ctx, r.remotePath+appName)
+				if err == nil && exists {
+					return false, nil
+				}
 
-			metricsUploadRetried.Inc()
-			return true, nil
-		})
+				metricsUploadRetried.Inc()
+				return true, nil
+			})
 
-		// Open new appendable from the remote storage
-		cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
-			app, err := r.openRemoteAppendableReader(appName)
-			if err == nil {
-				newApp = app
-				return false, nil
-			}
+			cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
+				app, err := r.openRemoteAppendableReader(appName)
+				if err == nil {
+					newApp = app
+					return false, nil
+				}
 
-			metricsUploadRetried.Inc()
-			return true, nil
-		})
+				metricsUploadRetried.Inc()
+				return true, nil
+			})
+		} else {
+			// Fast path: trust S3's read-after-write consistency,
+			// skip the Exists round trip and the verification
+			// download. Hand the cache a lazy wrapper that opens
+			// the remote reader on first ReadAt — most uploaded
+			// chunks are never read again, so the open cost is
+			// usually deferred forever.
+			newApp = newLazyRemoteReader(func() (appendable.Appendable, error) {
+				return r.openRemoteAppendableReader(appName)
+			})
+		}
 
 		// Replace the cached instance of appendable for the chunk
 		cp.Step(func() error {
@@ -416,9 +431,12 @@ func (r *RemoteStorageAppendable) Close() error {
 }
 
 func (r *RemoteStorageAppendable) OpenAppendable(options *singleapp.Options, appname string, activeChunk bool) (appendable.Appendable, error) {
-	if options.GetCompressionFormat() != appendable.NoCompression {
-		return nil, ErrCompressionNotSupported
-	}
+	// Compression is now supported end-to-end. The local writer (the
+	// active chunk) compresses each Append into a length-prefixed
+	// frame; on upload the chunk file is uploaded as-is; on read,
+	// remoteStorageReader detects the compression format from the
+	// chunk's metadata header and reproduces the same per-frame
+	// decompress protocol that singleapp uses locally.
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()

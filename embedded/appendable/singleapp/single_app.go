@@ -51,6 +51,14 @@ const (
 	metaWrappedMeta       = "WRAPPED_METADATA"
 )
 
+// MetaCompressionFormat is the metadata key that records the
+// compression format used by an AppendableFile. Exported so
+// downstream readers (e.g. remoteapp) that operate on the raw
+// chunk file rather than going through this package's reader can
+// extract the format from the chunk header and reproduce the
+// per-entry decompression protocol.
+const MetaCompressionFormat = metaCompressionFormat
+
 var _ appendable.Appendable = (*AppendableFile)(nil)
 
 type AppendableFile struct {

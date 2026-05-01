@@ -17,6 +17,7 @@ limitations under the License.
 package multiapp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -31,6 +32,8 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/fileutils"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
+
+	"golang.org/x/sync/singleflight"
 )
 
 var ErrorPathIsNotADirectory = errors.New("multiapp: path is not a directory")
@@ -116,6 +119,18 @@ type MultiFileAppendable struct {
 	hooks MultiFileAppendableHooks
 
 	mutex sync.Mutex
+
+	// Sequential read-ahead state. Background goroutines open the
+	// next prefetchAheadDepth chunks whenever ReadAt advances into a
+	// new chunk in monotonically increasing order. singleflight keys
+	// each open by appID so concurrent foreground+prefetch attempts
+	// for the same chunk do at most one OpenAppendable. Cancelled on
+	// Close via prefetchCancel.
+	prefetchAheadDepth int
+	prefetchCtx        context.Context
+	prefetchCancel     context.CancelFunc
+	prefetchSf         singleflight.Group
+	prefetchPrevAppID  int64 // -1 sentinel = no previous read
 }
 
 func Open(path string, opts *Options) (*MultiFileAppendable, error) {
@@ -187,22 +202,27 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 
 	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
 
+	pCtx, pCancel := context.WithCancel(context.Background())
 	return &MultiFileAppendable{
-		appendables:    appendableCache{cache: cache},
-		currAppID:      currAppID,
-		currApp:        currApp,
-		path:           path,
-		readOnly:       opts.readOnly,
-		retryableSync:  opts.retryableSync,
-		autoSync:       opts.autoSync,
-		fileMode:       opts.fileMode,
-		fileSize:       fileSize,
-		fileExt:        opts.fileExt,
-		readBufferSize: opts.readBufferSize,
-		prealloc:       opts.prealloc,
-		writeBuffer:    writeBuffer,
-		closed:         false,
-		hooks:          hooks,
+		appendables:        appendableCache{cache: cache},
+		currAppID:          currAppID,
+		currApp:            currApp,
+		path:               path,
+		readOnly:           opts.readOnly,
+		retryableSync:      opts.retryableSync,
+		autoSync:           opts.autoSync,
+		fileMode:           opts.fileMode,
+		fileSize:           fileSize,
+		fileExt:            opts.fileExt,
+		readBufferSize:     opts.readBufferSize,
+		prealloc:           opts.prealloc,
+		writeBuffer:        writeBuffer,
+		closed:             false,
+		hooks:              hooks,
+		prefetchAheadDepth: opts.prefetchAheadDepth,
+		prefetchCtx:        pCtx,
+		prefetchCancel:     pCancel,
+		prefetchPrevAppID:  -1,
 	}, nil
 }
 
@@ -532,9 +552,9 @@ func (mf *MultiFileAppendable) DiscardUpto(off int64) error {
 
 func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, error) {
 	mf.mutex.Lock()
-	defer mf.mutex.Unlock()
 
 	if mf.closed {
+		mf.mutex.Unlock()
 		return nil, ErrAlreadyClosed
 	}
 
@@ -542,50 +562,247 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 
 	if appID == mf.currAppID {
 		metricsCacheHit.Inc()
+		mf.maybePrefetchAheadLocked(appID)
+		mf.mutex.Unlock()
 		return mf.currApp, nil
 	}
 
-	app, err := mf.appendables.Get(appID)
-
-	if err != nil {
-		if !errors.Is(err, cache.ErrKeyNotFound) {
-			return nil, err
-		}
-
-		metricsCacheMiss.Inc()
-
-		raw, err := mf.openAppendable(appendableName(appID, mf.fileExt), false, false)
-		if err != nil {
-			return nil, err
-		}
-
-		_, ejectedApp, err := mf.appendables.Put(appID, raw)
-		if err != nil {
-			return nil, err
-		}
-
-		if ejectedApp != nil {
-			metricsCacheEvicted.Inc()
-			err = ejectedApp.Close()
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		// Re-fetch via Get so the caller gets the refcounted wrapper
-		// (with one ref already taken). Returning the raw pointer
-		// from openAppendable would bypass the refcount and reproduce
-		// the close-while-reading race that this whole machinery
-		// exists to prevent.
-		app, err = mf.appendables.Get(appID)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	// Cache hit fast path.
+	if app, gerr := mf.appendables.Get(appID); gerr == nil {
 		metricsCacheHit.Inc()
+		mf.maybePrefetchAheadLocked(appID)
+		mf.mutex.Unlock()
+		return app, nil
+	} else if !errors.Is(gerr, cache.ErrKeyNotFound) {
+		mf.mutex.Unlock()
+		return nil, gerr
 	}
 
+	metricsCacheMiss.Inc()
+
+	// Snapshot the writer-mutable bits the open path needs, then
+	// drop the mutex so the slow openAppendable can run in parallel
+	// with other readers and (more importantly) with any in-flight
+	// background prefetch for the same appID. Foreground and
+	// prefetch coalesce on mf.prefetchSf so a single Get covers both.
+	snap := openAppendableSnapshot{
+		compressionFormat: mf.currApp.CompressionFormat(),
+		compressionLevel:  mf.currApp.CompressionLevel(),
+		metadata:          mf.currApp.Metadata(),
+	}
+	mf.mutex.Unlock()
+
+	key := strconv.FormatInt(appID, 10)
+	_, err, _ := mf.prefetchSf.Do(key, func() (interface{}, error) {
+		// Race check: someone may have inserted while we were
+		// waiting for the singleflight slot.
+		mf.mutex.Lock()
+		if mf.closed {
+			mf.mutex.Unlock()
+			return nil, ErrAlreadyClosed
+		}
+		if v, gerr := mf.appendables.Get(appID); gerr == nil {
+			mf.mutex.Unlock()
+			if rc, ok := v.(*refCountedApp); ok {
+				_ = rc.Release()
+			}
+			return nil, nil
+		}
+		mf.mutex.Unlock()
+
+		raw, err := mf.openAppendableFromSnapshot(snap, appendableName(appID, mf.fileExt), false, false)
+		if err != nil {
+			return nil, err
+		}
+
+		mf.mutex.Lock()
+		defer mf.mutex.Unlock()
+		if mf.closed {
+			_ = raw.Close()
+			return nil, ErrAlreadyClosed
+		}
+		// One last cache check: another opener might have raced us
+		// while our open was outstanding.
+		if v, gerr := mf.appendables.Get(appID); gerr == nil {
+			if rc, ok := v.(*refCountedApp); ok {
+				_ = rc.Release()
+			}
+			_ = raw.Close()
+			return nil, nil
+		}
+		_, ejected, perr := mf.appendables.Put(appID, raw)
+		if perr != nil {
+			_ = raw.Close()
+			return nil, perr
+		}
+		if ejected != nil {
+			metricsCacheEvicted.Inc()
+			_ = ejected.Close()
+		}
+		return nil, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
+	if mf.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	app, err := mf.appendables.Get(appID)
+	if err != nil {
+		return nil, err
+	}
+
+	mf.maybePrefetchAheadLocked(appID)
 	return app, nil
+}
+
+// openAppendableSnapshot is a snapshot of the bits that openAppendable
+// reads from mutable struct fields. Captured under mf.mutex by
+// maybePrefetchAheadLocked so the spawned prefetch goroutine can call
+// the per-singleapp open path without taking the multiapp mutex (and
+// thus without serializing on the writer's chunk-rotation update of
+// currApp).
+type openAppendableSnapshot struct {
+	compressionFormat int
+	compressionLevel  int
+	metadata          []byte
+}
+
+// maybePrefetchAheadLocked spawns background opens for the next
+// prefetchAheadDepth chunks when the read pattern is sequential
+// (current appID == previous appID + 1). For remoteapp-backed
+// multiapps, each open downloads ~rangeCacheSize bytes — running
+// them in parallel with the consumer overlaps per-chunk RTT with
+// per-chunk decode work. Uses singleflight so a foreground miss on
+// the same appID coalesces with an in-flight prefetch instead of
+// duplicating the open.
+//
+// Caller must hold mf.mutex. The spawned goroutines do NOT take
+// mf.mutex during their open call (they take it briefly only to
+// insert into the cache), so foreground readers don't block on a
+// background network I/O.
+func (mf *MultiFileAppendable) maybePrefetchAheadLocked(appID int64) {
+	if mf.prefetchAheadDepth <= 0 {
+		mf.prefetchPrevAppID = appID
+		return
+	}
+	if mf.closed {
+		return
+	}
+	if mf.prefetchPrevAppID < 0 || mf.prefetchPrevAppID != appID-1 {
+		// Not sequential — could be a random-access workload, or
+		// the very first read (prefetchPrevAppID = -1 sentinel).
+		// Reset and skip prefetch; we don't want to download
+		// speculative chunks for random patterns or when we
+		// haven't yet established a sequential trend.
+		mf.prefetchPrevAppID = appID
+		return
+	}
+	mf.prefetchPrevAppID = appID
+
+	// Snapshot the per-currApp bits under the mutex so the goroutine
+	// doesn't read mf.currApp concurrently with the writer's
+	// chunk-rotation. CompressionFormat/Level/Metadata are themselves
+	// stable across an appendable's lifetime, but mf.currApp is a
+	// pointer that the writer reassigns when rotating to the next
+	// chunk — that pointer reassignment is the race we're avoiding.
+	snap := openAppendableSnapshot{
+		compressionFormat: mf.currApp.CompressionFormat(),
+		compressionLevel:  mf.currApp.CompressionLevel(),
+		metadata:          mf.currApp.Metadata(),
+	}
+
+	ctx := mf.prefetchCtx
+	for i := int64(1); i <= int64(mf.prefetchAheadDepth); i++ {
+		nextID := appID + i
+		// Don't prefetch the writer's currently active chunk or
+		// anything beyond it. For remoteapp the OpenAppendable
+		// hook would extend chunkInfos for nonexistent IDs and
+		// leave intermediate slots in chunkState_Invalid, which
+		// the writer then trips on with ErrInvalidChunkState.
+		if nextID >= mf.currAppID {
+			break
+		}
+		// Already cached?
+		if v, err := mf.appendables.Get(nextID); err == nil {
+			if rc, ok := v.(*refCountedApp); ok {
+				_ = rc.Release()
+			}
+			continue
+		}
+
+		key := strconv.FormatInt(nextID, 10)
+		go mf.prefetchOne(ctx, nextID, key, snap)
+	}
+}
+
+// prefetchOne is the worker that actually issues an open for the
+// pre-warmed chunk. Runs in its own goroutine; coalesces concurrent
+// callers via singleflight; bails on context cancellation.
+func (mf *MultiFileAppendable) prefetchOne(ctx context.Context, appID int64, key string, snap openAppendableSnapshot) {
+	_, _, _ = mf.prefetchSf.Do(key, func() (interface{}, error) {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		raw, err := mf.openAppendableFromSnapshot(snap, appendableName(appID, mf.fileExt), false, false)
+		if err != nil {
+			return nil, err
+		}
+
+		mf.mutex.Lock()
+		defer mf.mutex.Unlock()
+
+		if mf.closed {
+			_ = raw.Close()
+			return nil, ErrAlreadyClosed
+		}
+		// Lost the race against another opener? Drop our raw, keep
+		// what's already cached.
+		if existing, gerr := mf.appendables.Get(appID); gerr == nil {
+			if rc, ok := existing.(*refCountedApp); ok {
+				_ = rc.Release()
+			}
+			_ = raw.Close()
+			return nil, nil
+		}
+		_, ejected, perr := mf.appendables.Put(appID, raw)
+		if perr != nil {
+			_ = raw.Close()
+			return nil, perr
+		}
+		if ejected != nil {
+			_ = ejected.Close()
+		}
+		return nil, nil
+	})
+}
+
+// openAppendableFromSnapshot is the lock-free variant of
+// openAppendable used by the prefetch goroutine. It reads only
+// invariant struct fields (set once at construction) plus the
+// caller-supplied snapshot of the writer-mutable currApp bits.
+func (mf *MultiFileAppendable) openAppendableFromSnapshot(snap openAppendableSnapshot, appname string, createIfNotExists, activeChunk bool) (appendable.Appendable, error) {
+	appendableOpts := singleapp.DefaultOptions().
+		WithReadOnly(mf.readOnly).
+		WithRetryableSync(mf.retryableSync).
+		WithAutoSync(mf.autoSync).
+		WithFileMode(mf.fileMode).
+		WithCreateIfNotExists(createIfNotExists).
+		WithReadBufferSize(mf.readBufferSize).
+		WithCompressionFormat(snap.compressionFormat).
+		WithCompresionLevel(snap.compressionLevel).
+		WithMetadata(snap.metadata)
+
+	if mf.prealloc {
+		appendableOpts.WithPreallocSize(mf.fileSize)
+	}
+
+	return mf.hooks.OpenAppendable(appendableOpts, appname, activeChunk)
 }
 
 func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
@@ -714,6 +931,11 @@ func (mf *MultiFileAppendable) Close() error {
 	}
 
 	mf.closed = true
+	if mf.prefetchCancel != nil {
+		// Stop accepting new prefetch starts; in-flight ones will
+		// notice mf.closed when they reach the cache-insert step.
+		mf.prefetchCancel()
+	}
 
 	err := mf.appendables.Apply(func(k int64, v appendable.Appendable) error {
 		return v.Close()
