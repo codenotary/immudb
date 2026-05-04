@@ -220,6 +220,12 @@ type ImmuStore struct {
 	_valBs    [DefaultMaxValueLen]byte // pre-allocated buffer to support tx exportation
 	_valBsMux sync.Mutex
 
+	// Pool of maxKeyLen-sized scratch buffers used by tx-metadata read paths
+	// (e.g. ReadTxHeader) where the entry's key slice is throwaway after the
+	// call returns. Stored as *[]byte to avoid per-Get interface boxing of
+	// the slice header.
+	txEntryKeyPool sync.Pool
+
 	aht                  *ahtree.AHtree
 	inmemPrecommitWHub   *watchers.WatchersHub
 	durablePrecommitWHub *watchers.WatchersHub
@@ -710,6 +716,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		opts: opts,
 
 		compactionDisabled: opts.CompactionDisabled,
+	}
+
+	store.txEntryKeyPool.New = func() any {
+		b := make([]byte, store.maxKeyLen)
+		return &b
 	}
 
 	if store.aht.Size() > precommittedTxID {
@@ -2165,13 +2176,16 @@ func (s *ImmuStore) mayCommit() error {
 	var commitUpToTxID uint64
 	var commitUpToTxAlh [sha256.Size]byte
 
+	// cLog.Append copies the input slice into its own write buffer
+	// (singleapp.AppendableFile.write copies into writeBuffer), so reusing
+	// a single scratch buffer across iterations is safe.
+	cb := make([]byte, s.cLogEntrySize)
 	for i := 0; i < txsCountToBeCommitted; i++ {
 		txID, alh, txOff, txSize, err := s.cLogBuf.readAhead(i)
 		if err != nil {
 			return err
 		}
 
-		cb := make([]byte, s.cLogEntrySize)
 		binary.BigEndian.PutUint64(cb, uint64(txOff))
 		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 
@@ -3140,7 +3154,12 @@ func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool, skipIntegr
 		return nil, err
 	}
 
-	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
+	// The TxEntry's key buffer is scratch — the returned *TxHeader carries
+	// no entries, and the digest funcs only copy from e.k (no retention).
+	// Pull a pre-sized buffer from the pool and return it on exit.
+	kbufPtr := s.txEntryKeyPool.Get().(*[]byte)
+	defer s.txEntryKeyPool.Put(kbufPtr)
+	e := &TxEntry{k: *kbufPtr}
 
 	for i := 0; i < header.NEntries; i++ {
 		err = tdr.readEntry(e)
@@ -3374,18 +3393,21 @@ func (s *ImmuStore) sync() error {
 	}
 
 	for i := range s.vLogs {
-		vLog, err := s.fetchVLog(i + 1)
-		if err != nil {
-			return err
-		}
-		defer s.releaseVLog(i + 1)
+		// Scope each vLog flush+sync in its own block so the per-vLog lock
+		// is released as soon as the work completes, instead of being held
+		// (via defer) until sync() returns.
+		err := func() error {
+			vLog, err := s.fetchVLog(i + 1)
+			if err != nil {
+				return err
+			}
+			defer s.releaseVLog(i + 1)
 
-		err = vLog.Flush()
-		if err != nil {
-			return err
-		}
-
-		err = vLog.Sync()
+			if err := vLog.Flush(); err != nil {
+				return err
+			}
+			return vLog.Sync()
+		}()
 		if err != nil {
 			return err
 		}
@@ -3422,13 +3444,16 @@ func (s *ImmuStore) sync() error {
 	var commitUpToTxID uint64
 	var commitUpToTxAlh [sha256.Size]byte
 
+	// cLog.Append copies the input slice into its own write buffer
+	// (singleapp.AppendableFile.write copies into writeBuffer), so reusing
+	// a single scratch buffer across iterations is safe.
+	cb := make([]byte, s.cLogEntrySize)
 	for i := 0; i < txsCountToBeCommitted; i++ {
 		txID, alh, txOff, txSize, err := s.cLogBuf.readAhead(i)
 		if err != nil {
 			return err
 		}
 
-		cb := make([]byte, s.cLogEntrySize)
 		binary.BigEndian.PutUint64(cb, uint64(txOff))
 		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 

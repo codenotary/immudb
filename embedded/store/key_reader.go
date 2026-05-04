@@ -406,6 +406,9 @@ type storeKeyReader struct {
 
 func (r *storeKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		key, indexedVal, tx, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
 			return nil, nil, err
@@ -445,6 +448,9 @@ func (r *storeKeyReader) ReadBetween(ctx context.Context, initialTxID, finalTxID
 
 func (r *storeKeyReader) Read(ctx context.Context) (key []byte, val ValueRef, err error) {
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
 			return nil, nil, err

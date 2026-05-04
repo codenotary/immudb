@@ -125,6 +125,24 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	return cp(v), ts, hc, err
 }
 
+// GetReadonly is a zero-copy variant of Get. The returned value points into
+// the snapshot's backing storage and MUST NOT be mutated by the caller. The
+// slice is valid for the lifetime of the snapshot.
+func (s *Snapshot) GetReadonly(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	if s.closed {
+		return nil, 0, 0, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return nil, 0, 0, ErrIllegalArguments
+	}
+
+	return s.root.get(key)
+}
+
 func (s *Snapshot) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
