@@ -619,6 +619,100 @@ func (r *rawRowReader) CountAll(ctx context.Context) (int64, error) {
 	}
 }
 
+// CountAllWithKeyFilter iterates the index scan and counts entries that
+// satisfy `where`, evaluating the predicate against values decoded from the
+// index key alone (no value-reference resolution, no row payload decode).
+//
+// The caller must guarantee that every column referenced by `where` belongs
+// to r.scanSpecs.Index.cols; see SelectStmt.canCountWithKeyOnly. The encoded
+// key layout is documented in unmapIndexEntry (catalog.go) — sqlPrefix +
+// MappedPrefix + tableID + indexID + (per-column tag+payload) + PK bytes.
+func (r *rawRowReader) CountAllWithKeyFilter(ctx context.Context, where ValueExp) (int64, error) {
+	if where == nil {
+		return r.CountAll(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if err := r.reduceTxRange(); errors.Is(err, store.ErrTxNotFound) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	index := r.scanSpecs.Index
+	// Bytes preceding the per-column data: sqlPrefix + MappedPrefix +
+	// tableID(4) + indexID(4). Anything after this offset is the ordered
+	// sequence of indexed-column tag+payload runs, terminated by the PK.
+	headerLen := len(r.tx.engine.prefix) + len(MappedPrefix) + 2*EncIDLen
+
+	// Reusable per-iteration buffers; sparse Row keyed only by index columns.
+	valuesBySelector := make(map[string]TypedValue, len(index.cols))
+	row := &Row{ValuesBySelector: valuesBySelector}
+
+	var n int64
+	for {
+		var (
+			mkey []byte
+			err  error
+		)
+		if r.txRange == nil {
+			mkey, _, err = r.reader.Read(ctx)
+		} else {
+			mkey, _, err = r.reader.ReadBetween(ctx, r.txRange.initialTxID, r.txRange.finalTxID)
+		}
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			return n, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+
+		if len(mkey) < headerLen {
+			return 0, ErrCorruptedData
+		}
+
+		off := headerLen
+		// Reset map entries from the previous iteration. Re-using the map
+		// avoids per-row allocation on a hot count loop.
+		for k := range valuesBySelector {
+			delete(valuesBySelector, k)
+		}
+
+		for _, col := range index.cols {
+			val, consumed, derr := DecodeValueFromKey(mkey[off:], col.colType, col.MaxLen())
+			if derr != nil {
+				return 0, derr
+			}
+			off += consumed
+
+			sel := EncodeSelector("", r.tableAlias, col.colName)
+			valuesBySelector[sel] = val
+		}
+
+		cond, err := where.substitute(r.params)
+		if err != nil {
+			return 0, fmt.Errorf("%w: when evaluating WHERE clause", err)
+		}
+
+		res, err := cond.reduce(r.tx, row, r.tableAlias)
+		if err != nil {
+			return 0, fmt.Errorf("%w: when evaluating WHERE clause", err)
+		}
+
+		if nv, isNull := res.(*NullValue); isNull && nv.Type() == BooleanType {
+			continue
+		}
+		bv, isBool := res.(*Bool)
+		if !isBool {
+			return 0, fmt.Errorf("%w: expected '%s' in WHERE clause, but '%s' was provided", ErrInvalidCondition, BooleanType, res.Type())
+		}
+		if bv.val {
+			n++
+		}
+	}
+}
+
 func (r *rawRowReader) parseTxMetadata(txmd *store.TxMetadata) (TypedValue, error) {
 	if txmd == nil {
 		return &NullValue{t: JSONType}, nil
