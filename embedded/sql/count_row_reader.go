@@ -111,3 +111,39 @@ func (cr *countingRowReader) Read(ctx context.Context) (*Row, error) {
 func (cr *countingRowReader) Close() error {
 	return cr.rawReader.Close()
 }
+
+// keyFilterCountingRowReader extends the COUNT(*) fast-path to queries with a
+// WHERE clause whose columns are all part of the chosen index. The predicate
+// is evaluated against values decoded from the index key, so the row payload
+// is never resolved or decoded — see rawRowReader.CountAllWithKeyFilter.
+type keyFilterCountingRowReader struct {
+	*countingRowReader
+	where ValueExp
+}
+
+func newKeyFilterCountingRowReader(rawReader *rawRowReader, agg *AggColSelector, where ValueExp) *keyFilterCountingRowReader {
+	return &keyFilterCountingRowReader{
+		countingRowReader: newCountingRowReader(rawReader, agg),
+		where:             where,
+	}
+}
+
+// Read evaluates the index-only WHERE filter while counting entries, returning
+// a single Row with the resulting count. Subsequent calls return ErrNoMoreRows.
+func (cr *keyFilterCountingRowReader) Read(ctx context.Context) (*Row, error) {
+	if cr.done {
+		return nil, ErrNoMoreRows
+	}
+	cr.done = true
+
+	n, err := cr.rawReader.CountAllWithKeyFilter(ctx, cr.where)
+	if err != nil {
+		return nil, err
+	}
+
+	val := &Integer{val: n}
+	return &Row{
+		ValuesByPosition: []TypedValue{val},
+		ValuesBySelector: map[string]TypedValue{cr.encSel: val},
+	}, nil
+}

@@ -4180,17 +4180,27 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 		}
 	}
 
-	if effectiveWhere != nil {
-		rowReader = newConditionalRowReader(rowReader, effectiveWhere)
+	// Fast-path: SELECT COUNT(*) FROM tbl [WHERE …] with no JOINs, GROUP BY,
+	// HAVING, DISTINCT, or subqueries. Count index keys directly without
+	// decoding the row payload — the WHERE predicate (if any) is evaluated
+	// against values decoded from the index key, which is sound only when
+	// every column referenced by WHERE belongs to the chosen index.
+	if rawRdr, ok := rowReader.(*rawRowReader); ok {
+		if stmt.isCountStarShape() {
+			agg := stmt.targets[0].Exp.(*AggColSelector)
+			if effectiveWhere == nil {
+				rowReader = newCountingRowReader(rawRdr, agg)
+				goto applyOrderBy
+			}
+			if stmt.canCountWithKeyOnly(rawRdr.scanSpecs.Index, effectiveWhere, rawRdr.tableAlias, params) {
+				rowReader = newKeyFilterCountingRowReader(rawRdr, agg, effectiveWhere)
+				goto applyOrderBy
+			}
+		}
 	}
 
-	// Fast-path: SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or
-	// HAVING.  Count index keys directly without decoding any column values.
-	if stmt.isBareCountStar() {
-		if rawRdr, ok := rowReader.(*rawRowReader); ok {
-			rowReader = newCountingRowReader(rawRdr, stmt.targets[0].Exp.(*AggColSelector))
-			goto applyOrderBy
-		}
+	if effectiveWhere != nil {
+		rowReader = newConditionalRowReader(rowReader, effectiveWhere)
 	}
 
 	if stmt.containsAggregations() || len(stmt.groupBy) > 0 {
@@ -4525,16 +4535,57 @@ func (stmt *SelectStmt) collectNeededColIDs(table *Table, tableAlias string) (ma
 	return needed, false
 }
 
-// isBareCountStar reports whether the statement is exactly
-// SELECT COUNT(*) FROM tbl with no WHERE, JOINs, GROUP BY, or HAVING.
-// Such queries can be answered by counting index keys without decoding values.
-func (stmt *SelectStmt) isBareCountStar() bool {
-	if len(stmt.targets) != 1 || stmt.where != nil ||
+// isCountStarShape reports whether the statement is `SELECT COUNT(*) FROM tbl
+// [WHERE …]` with no JOINs, GROUP BY, HAVING, or DISTINCT. WHERE is permitted;
+// eligibility for the index-only count path is then narrowed further by
+// canCountWithKeyOnly.
+func (stmt *SelectStmt) isCountStarShape() bool {
+	if len(stmt.targets) != 1 ||
 		len(stmt.groupBy) > 0 || stmt.having != nil || len(stmt.joins) > 0 {
+		return false
+	}
+	if stmt.distinct {
 		return false
 	}
 	agg, ok := stmt.targets[0].Exp.(*AggColSelector)
 	return ok && agg.aggFn == COUNT && agg.col == "*" && !agg.distinct
+}
+
+// canCountWithKeyOnly reports whether `where` can be evaluated against values
+// decoded from `idx`'s key alone, i.e. every selector inside the predicate
+// resolves to a column that is part of `idx`. This is the precondition for
+// rawRowReader.CountAllWithKeyFilter.
+//
+// We rely on ValueExp.selectors() (which recurses through expression trees
+// and function-call arguments) to enumerate every selector the predicate
+// will dereference at reduce-time. Any reference outside `idx.cols`, any
+// aggregate selector, or any unrecognised selector kind disqualifies the
+// fast path.
+func (stmt *SelectStmt) canCountWithKeyOnly(idx *Index, where ValueExp, tableAlias string, params map[string]interface{}) bool {
+	if where == nil || idx == nil {
+		return false
+	}
+
+	indexedCols := make(map[string]struct{}, len(idx.cols))
+	for _, c := range idx.cols {
+		indexedCols[c.colName] = struct{}{}
+	}
+
+	for _, sel := range where.selectors() {
+		switch s := sel.(type) {
+		case *ColSelector:
+			_, _, col := s.resolve(tableAlias)
+			if _, ok := indexedCols[col]; !ok {
+				return false
+			}
+		default:
+			// AggColSelector and any future selector kinds we haven't
+			// vetted: bail to the safe path.
+			_ = s
+			return false
+		}
+	}
+	return true
 }
 
 func evalExpAsInt(tx *SQLTx, exp ValueExp, params map[string]interface{}) (int, error) {

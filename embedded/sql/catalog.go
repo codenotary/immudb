@@ -1548,6 +1548,135 @@ func EncodeRawValueAsKey(val interface{}, colType SQLValueType, maxLen int) ([]b
 	return nil, 0, ErrInvalidValue
 }
 
+// DecodeValueFromKey is the inverse of EncodeRawValueAsKey for the bytes that
+// follow the per-column tag in an index key. `buf` must start with the tag
+// byte (KeyValPrefixNull or KeyValPrefixNotNull). It returns the decoded
+// TypedValue and the number of bytes consumed from `buf`.
+//
+// The encoded form mirrors EncodeRawValueAsKey:
+//
+//	NULL:                 [tag]                                         (1 byte)
+//	NotNull, fixed-width: [tag][maxLen bytes]                           (1+maxLen bytes)
+//	NotNull, var-width:   [tag][maxLen bytes payload][len uint32 BE]    (1+maxLen+EncLenLen bytes)
+//
+// For Integer/Timestamp the lexical sign-flip is reversed; for Float64 the
+// lexical mangling is reversed; for Varchar/BLOB the trailing length suffix
+// trims the zero padding.
+func DecodeValueFromKey(buf []byte, colType SQLValueType, maxLen int) (TypedValue, int, error) {
+	if maxLen <= 0 {
+		return nil, 0, ErrInvalidValue
+	}
+	if len(buf) < 1 {
+		return nil, 0, ErrCorruptedData
+	}
+
+	switch buf[0] {
+	case KeyValPrefixNull:
+		return &NullValue{t: colType}, 1, nil
+	case KeyValPrefixNotNull:
+		// fall through to type-specific decode
+	default:
+		return nil, 0, ErrCorruptedData
+	}
+
+	switch colType {
+	case VarcharType:
+		need := 1 + maxLen + EncLenLen
+		if len(buf) < need {
+			return nil, 0, ErrCorruptedData
+		}
+		strLen := int(binary.BigEndian.Uint32(buf[1+maxLen:]))
+		if strLen < 0 || strLen > maxLen {
+			return nil, 0, ErrCorruptedData
+		}
+		return &Varchar{val: string(buf[1 : 1+strLen])}, need, nil
+
+	case IntegerType:
+		if maxLen != 8 {
+			return nil, 0, ErrCorruptedData
+		}
+		if len(buf) < 9 {
+			return nil, 0, ErrCorruptedData
+		}
+		var raw [8]byte
+		copy(raw[:], buf[1:9])
+		raw[0] ^= 0x80
+		return &Integer{val: int64(binary.BigEndian.Uint64(raw[:]))}, 9, nil
+
+	case BooleanType:
+		if maxLen != 1 {
+			return nil, 0, ErrCorruptedData
+		}
+		if len(buf) < 2 {
+			return nil, 0, ErrCorruptedData
+		}
+		return &Bool{val: buf[1] != 0}, 2, nil
+
+	case BLOBType:
+		need := 1 + maxLen + EncLenLen
+		if len(buf) < need {
+			return nil, 0, ErrCorruptedData
+		}
+		blobLen := int(binary.BigEndian.Uint32(buf[1+maxLen:]))
+		if blobLen < 0 || blobLen > maxLen {
+			return nil, 0, ErrCorruptedData
+		}
+		// copy out so the result is independent of the input buffer
+		out := make([]byte, blobLen)
+		copy(out, buf[1:1+blobLen])
+		return &Blob{val: out}, need, nil
+
+	case UUIDType:
+		if maxLen != 16 {
+			return nil, 0, ErrCorruptedData
+		}
+		if len(buf) < 17 {
+			return nil, 0, ErrCorruptedData
+		}
+		var u uuid.UUID
+		copy(u[:], buf[1:17])
+		return &UUID{val: u}, 17, nil
+
+	case TimestampType:
+		if maxLen != 8 {
+			return nil, 0, ErrCorruptedData
+		}
+		if len(buf) < 9 {
+			return nil, 0, ErrCorruptedData
+		}
+		var raw [8]byte
+		copy(raw[:], buf[1:9])
+		raw[0] ^= 0x80
+		nanos := int64(binary.BigEndian.Uint64(raw[:]))
+		return &Timestamp{val: time.Unix(0, nanos).UTC()}, 9, nil
+
+	case Float64Type:
+		if maxLen != 8 {
+			return nil, 0, ErrCorruptedData
+		}
+		if len(buf) < 9 {
+			return nil, 0, ErrCorruptedData
+		}
+		var raw [8]byte
+		copy(raw[:], buf[1:9])
+		// Reverse the encode-time mangling: positive numbers had only the
+		// leading sign bit flipped; negative numbers had every byte flipped.
+		if raw[0]&0x80 != 0 {
+			// originally positive: just flip the sign bit back
+			raw[0] ^= 0x80
+		} else {
+			// originally negative: flip all bytes
+			for i := range raw {
+				raw[i] = ^raw[i]
+			}
+		}
+		bits := binary.BigEndian.Uint64(raw[:])
+		return &Float64{val: math.Float64frombits(bits)}, 9, nil
+	}
+
+	return nil, 0, ErrInvalidValue
+}
+
 func getEncodeRawValue(val TypedValue, colType SQLValueType) (interface{}, error) {
 	if colType != JSONType || val.Type() == JSONType {
 		return val.RawValue(), nil

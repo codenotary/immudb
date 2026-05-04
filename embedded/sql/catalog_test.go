@@ -18,10 +18,13 @@ package sql
 
 import (
 	"context"
+	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -145,6 +148,124 @@ func TestEncodeRawValueAsKey(t *testing.T) {
 
 			prevEncKey = encKey
 		}
+	})
+}
+
+func TestEncodeDecodeValueAsKeyRoundtrip(t *testing.T) {
+	t.Run("integer", func(t *testing.T) {
+		for _, v := range []int64{math.MinInt64, -1234567, -1, 0, 1, 1234567, math.MaxInt64} {
+			enc, _, err := EncodeValueAsKey(&Integer{val: v}, IntegerType, 8)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, IntegerType, 8)
+			require.NoError(t, err)
+			require.Equal(t, len(enc), n)
+			require.Equal(t, v, got.RawValue())
+		}
+	})
+
+	t.Run("varchar", func(t *testing.T) {
+		for _, v := range []string{"", "a", "key", "key2", "exactly-ten"[:10]} {
+			enc, _, err := EncodeValueAsKey(&Varchar{val: v}, VarcharType, 10)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, VarcharType, 10)
+			require.NoError(t, err)
+			require.Equal(t, len(enc), n)
+			require.Equal(t, v, got.RawValue())
+		}
+	})
+
+	t.Run("boolean", func(t *testing.T) {
+		for _, v := range []bool{false, true} {
+			enc, _, err := EncodeValueAsKey(&Bool{val: v}, BooleanType, 1)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, BooleanType, 1)
+			require.NoError(t, err)
+			require.Equal(t, len(enc), n)
+			require.Equal(t, v, got.RawValue())
+		}
+	})
+
+	t.Run("blob", func(t *testing.T) {
+		for _, v := range [][]byte{nil, {}, {0x00}, {0xFF, 0x00, 0xCA, 0xFE}} {
+			enc, _, err := EncodeValueAsKey(&Blob{val: v}, BLOBType, 8)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, BLOBType, 8)
+			require.NoError(t, err)
+			require.Equal(t, len(enc), n)
+			gotBytes, _ := got.RawValue().([]byte)
+			require.Equal(t, append([]byte{}, v...), gotBytes)
+		}
+	})
+
+	t.Run("uuid", func(t *testing.T) {
+		u := uuid.MustParse("12345678-1234-5678-1234-567812345678")
+		enc, _, err := EncodeValueAsKey(&UUID{val: u}, UUIDType, 16)
+		require.NoError(t, err)
+		got, n, err := DecodeValueFromKey(enc, UUIDType, 16)
+		require.NoError(t, err)
+		require.Equal(t, len(enc), n)
+		require.Equal(t, u, got.RawValue())
+	})
+
+	t.Run("timestamp", func(t *testing.T) {
+		for _, v := range []time.Time{
+			time.Unix(0, 0).UTC(),
+			time.Unix(1774990800, 123456789).UTC(),
+			time.Unix(-1, 0).UTC(),
+		} {
+			enc, _, err := EncodeValueAsKey(&Timestamp{val: v}, TimestampType, 8)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, TimestampType, 8)
+			require.NoError(t, err)
+			require.Equal(t, len(enc), n)
+			require.True(t, v.Equal(got.RawValue().(time.Time)),
+				"timestamp roundtrip mismatch: %v != %v", v, got.RawValue())
+		}
+	})
+
+	t.Run("float64", func(t *testing.T) {
+		for _, v := range []float64{
+			-math.MaxFloat64, -1.5, -0.0, 0.0, 0.5, 1.0, 3.14159, math.MaxFloat64,
+		} {
+			enc, _, err := EncodeValueAsKey(&Float64{val: v}, Float64Type, 8)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, Float64Type, 8)
+			require.NoError(t, err)
+			require.Equal(t, len(enc), n)
+			require.Equal(t, v, got.RawValue())
+		}
+	})
+
+	t.Run("null", func(t *testing.T) {
+		for _, ct := range []SQLValueType{IntegerType, VarcharType, BooleanType, BLOBType, UUIDType, TimestampType, Float64Type} {
+			maxLen := 8
+			switch ct {
+			case BooleanType:
+				maxLen = 1
+			case UUIDType:
+				maxLen = 16
+			case VarcharType, BLOBType:
+				maxLen = 10
+			}
+			enc, _, err := EncodeValueAsKey(&NullValue{t: ct}, ct, maxLen)
+			require.NoError(t, err)
+			got, n, err := DecodeValueFromKey(enc, ct, maxLen)
+			require.NoError(t, err)
+			require.Equal(t, 1, n)
+			require.True(t, got.IsNull())
+			require.Equal(t, ct, got.Type())
+		}
+	})
+
+	t.Run("corrupt input", func(t *testing.T) {
+		_, _, err := DecodeValueFromKey(nil, IntegerType, 8)
+		require.ErrorIs(t, err, ErrCorruptedData)
+
+		_, _, err = DecodeValueFromKey([]byte{0x00}, IntegerType, 8)
+		require.ErrorIs(t, err, ErrCorruptedData)
+
+		_, _, err = DecodeValueFromKey([]byte{KeyValPrefixNotNull, 1, 2}, IntegerType, 8)
+		require.ErrorIs(t, err, ErrCorruptedData)
 	})
 }
 
