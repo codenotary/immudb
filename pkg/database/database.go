@@ -424,19 +424,25 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	}
 	defer tx.Cancel()
 
-	keys := make(map[[sha256.Size]byte]struct{}, len(req.KVs))
+	// Skip the dedup map and per-key sha256 hash for the common single-KV
+	// case; dedup is only meaningful when there's more than one KV.
+	var keys map[[sha256.Size]byte]struct{}
+	if len(req.KVs) > 1 {
+		keys = make(map[[sha256.Size]byte]struct{}, len(req.KVs))
+	}
 
 	for _, kv := range req.KVs {
 		if len(kv.Key) == 0 {
 			return nil, ErrIllegalArguments
 		}
 
-		kid := sha256.Sum256(kv.Key)
-		_, ok := keys[kid]
-		if ok {
-			return nil, schema.ErrDuplicatedKeysNotSupported
+		if keys != nil {
+			kid := sha256.Sum256(kv.Key)
+			if _, ok := keys[kid]; ok {
+				return nil, schema.ErrDuplicatedKeysNotSupported
+			}
+			keys[kid] = struct{}{}
 		}
-		keys[kid] = struct{}{}
 
 		e := EncodeEntrySpec(
 			kv.Key,

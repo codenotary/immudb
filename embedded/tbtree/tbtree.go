@@ -1041,6 +1041,24 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	return cp(v), ts, hc, err
 }
 
+// GetReadonly is a zero-copy variant of Get. The returned value points into
+// the leaf node's backing buffer and MUST NOT be mutated by the caller. The
+// slice is valid until the next compaction.
+func (t *TBtree) GetReadonly(key []byte) (value []byte, ts uint64, hc uint64, err error) {
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
+
+	if t.closed {
+		return nil, 0, 0, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return nil, 0, 0, ErrIllegalArguments
+	}
+
+	return t.root.get(key)
+}
+
 func (t *TBtree) GetBetween(key []byte, initialTs, finalTs uint64) (value []byte, ts uint64, hc uint64, err error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
