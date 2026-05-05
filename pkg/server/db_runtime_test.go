@@ -242,3 +242,63 @@ func TestServerDatabaseRuntimeEdgeCases(t *testing.T) {
 	_, err = s.CloseSession(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 }
+
+// TestDatabaseListV2WithUnloadedDatabase regresses issue #1997: an unloaded
+// (closed) database used to make DatabaseListV2 abort with "already closed"
+// because CurrentState was called unconditionally. The listing must now
+// include the unloaded entry with Loaded=false and not error out.
+func TestDatabaseListV2WithUnloadedDatabase(t *testing.T) {
+	dir := t.TempDir()
+
+	s := DefaultServer()
+	s.WithOptions(DefaultOptions().WithDir(dir))
+	s.Initialize()
+
+	ctx := context.Background()
+
+	resp, err := s.OpenSession(ctx, &schema.OpenSessionRequest{
+		Username:     []byte(auth.SysAdminUsername),
+		Password:     []byte(auth.SysAdminPassword),
+		DatabaseName: DefaultDBName,
+	})
+	require.NoError(t, err)
+	ctx = metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
+
+	_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{Name: "loaded_db"})
+	require.NoError(t, err)
+
+	_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{Name: "unloaded_db"})
+	require.NoError(t, err)
+
+	_, err = s.UnloadDatabase(ctx, &schema.UnloadDatabaseRequest{Database: "unloaded_db"})
+	require.NoError(t, err)
+
+	listResp, err := s.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
+	require.NoError(t, err)
+	require.NotNil(t, listResp)
+
+	got := map[string]bool{}
+	for _, db := range listResp.Databases {
+		got[db.Name] = db.Loaded
+	}
+
+	loaded, ok := got["loaded_db"]
+	require.True(t, ok, "loaded_db should be present in the listing")
+	require.True(t, loaded)
+
+	loaded, ok = got["unloaded_db"]
+	require.True(t, ok, "unloaded_db should be present in the listing even though it is closed")
+	require.False(t, loaded)
+
+	v1Resp, err := s.DatabaseList(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+	v1Names := map[string]bool{}
+	for _, db := range v1Resp.Databases {
+		v1Names[db.DatabaseName] = true
+	}
+	require.True(t, v1Names["loaded_db"])
+	require.True(t, v1Names["unloaded_db"])
+
+	_, err = s.CloseSession(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+}

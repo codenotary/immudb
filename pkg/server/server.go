@@ -1543,20 +1543,27 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			return nil, err
 		}
 
-		state, err := db.CurrentState()
-		if err != nil {
-			return nil, err
+		info := &schema.DatabaseInfo{
+			Name:      dbName,
+			Settings:  dbOpts.databaseNullableSettings(),
+			Loaded:    !db.IsClosed(),
+			DiskSize:  uint64(size),
+			CreatedAt: uint64(dbOpts.CreatedAt.Unix()),
+			CreatedBy: dbOpts.CreatedBy,
 		}
 
-		info := &schema.DatabaseInfo{
-			Name:            db.GetName(),
-			Settings:        dbOpts.databaseNullableSettings(),
-			Loaded:          !db.IsClosed(),
-			DiskSize:        uint64(size),
-			NumTransactions: state.TxId,
-			CreatedAt:       uint64(dbOpts.CreatedAt.Unix()),
-			CreatedBy:       dbOpts.CreatedBy,
+		// Only fetch state for loaded databases — a closed/unloadable DB
+		// would return store.ErrAlreadyClosed and abort the entire listing
+		// (issue #1997).
+		if info.Loaded {
+			state, err := db.CurrentState()
+			if err == nil {
+				info.NumTransactions = state.TxId
+			} else {
+				s.Logger.Warningf("unable to get state for database '%s': %v", dbName, err)
+			}
 		}
+
 		resp.Databases = append(resp.Databases, info)
 	}
 	return resp, nil
