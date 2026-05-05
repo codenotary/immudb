@@ -60,7 +60,8 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Long:  "Create a new user inside a database with permissions",
 		Example: `immuadmin user create user1 read mydb
 immuadmin user create user1 readwrite mydb
-immuadmin user create user1 admin mydb`,
+immuadmin user create user1 admin mydb
+immuadmin user create user1 sysadmin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.userCreate(cmd, args)
 			if err != nil {
@@ -117,7 +118,7 @@ immuadmin user create user1 admin mydb`,
 		Args: cobra.ExactArgs(1),
 	}
 	userPermission := &cobra.Command{
-		Use:     "permission [grant|revoke] {username} [read|readwrite|admin] {database}",
+		Use:     "permission [grant|revoke] {username} [read|readwrite|admin|sysadmin] {database}",
 		Short:   "Set user permission",
 		Example: "immuadmin user permission grant user1 readwrite mydb",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -380,9 +381,13 @@ func permissionFromString(permissionStr string) (uint32, error) {
 		permission = auth.PermissionAdmin
 	case "readwrite":
 		permission = auth.PermissionRW
+	case "sysadmin":
+		// Global permission — applies across every database. Useful for
+		// bootstrapping a second sysadmin from the CLI (issue #2052).
+		permission = auth.PermissionSysAdmin
 	default:
 		return 0, fmt.Errorf(
-			"Permission %s not recognized: allowed permissions are read, readwrite, admin",
+			"Permission %s not recognized: allowed permissions are read, readwrite, admin, sysadmin",
 			permissionStr)
 	}
 	return permission, nil
