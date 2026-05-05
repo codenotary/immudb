@@ -1,5 +1,7 @@
-FROM golang:1.25 AS build
+FROM --platform=$BUILDPLATFORM golang:1.25 AS build
 ENV GOFIPS140=latest
+ARG TARGETARCH
+ARG BUILD_ARCH=${TARGETARCH:-amd64}
 WORKDIR /src
 COPY . .
 RUN GOOS=linux GOARCH=${BUILD_ARCH} make immuclient-fips

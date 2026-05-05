@@ -225,69 +225,63 @@ jobs:
         DOCKER_IMAGE_IMMUADMIN_FIPS: "${{ vars.DOCKER_HUB_USER }}/immuadmin-fips"
         DOCKER_IMAGE_IMMUCLIENT: "${{ vars.DOCKER_HUB_USER }}/immuclient"
         DOCKER_IMAGE_IMMUCLIENT_FIPS: "${{ vars.DOCKER_HUB_USER }}/immuclient-fips"
-        DOCKER_BUILDKIT: "1"
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
+        PLATFORMS: linux/amd64,linux/arm64
       steps:
         - uses: actions/checkout@v6
-        - name: Build docker images
+
+        - name: Set up QEMU
+          uses: docker/setup-qemu-action@v3
+
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Log in to Docker Hub
+          uses: docker/login-action@v3
+          with:
+            username: ${{ secrets.REGISTRY_USER }}
+            password: ${{ secrets.REGISTRY_PASS }}
+
+        - name: Build and push docker images
           shell: bash
           run: |
+            set -euo pipefail
+
             if [[ "${GITHUB_REF}" =~ ^refs/tags/v([0-9]+)\.([A-Z0-9]+)\.([0-9]+)$ ]]; then
               VERSION_TAG="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
               VERSION_TAG_SHORT="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
             fi
 
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" --target scratch -f build/Dockerfile .
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" --target ${DEBIAN_VERSION} -f build/Dockerfile .
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" -f build/Dockerfile.alma .
-            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f build/Dockerfile.immuadmin .
-            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f build/Dockerfile.immuclient .
-            docker build --tag "${DOCKER_IMAGE_IMMUDB_FIPS}:dev" -f build/fips/Dockerfile .
-            docker build --tag "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev" -f build/fips/Dockerfile.immuadmin .
-            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev" -f build/fips/Dockerfile.immuclient .
+            # Emit one --tag per name; on a release tag, emit dev + version + version-short + latest.
+            tags() {
+              local image=$1 ; shift
+              local suffix=${1:-}
+              echo -n "--tag ${image}:dev${suffix:+-$suffix}"
+              if [[ -n "${VERSION_TAG:-}" ]]; then
+                for t in "${VERSION_TAG}" "${VERSION_TAG_SHORT}" "latest"; do
+                  echo -n " --tag ${image}:${t}${suffix:+-$suffix}"
+                done
+              fi
+            }
 
-            docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
+            buildx() {
+              docker buildx build \
+                --platform "${PLATFORMS}" \
+                --provenance=false \
+                --push \
+                "$@" \
+                .
+            }
 
-            docker push "${DOCKER_IMAGE_IMMUDB}:dev"
-            docker push "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}"
-            docker push "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}"
-            docker push "${DOCKER_IMAGE_IMMUADMIN}:dev"
-            docker push "${DOCKER_IMAGE_IMMUCLIENT}:dev"
-            docker push "${DOCKER_IMAGE_IMMUDB_FIPS}:dev"
-            docker push "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev"
-            docker push "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev"
-
-            if [[ ! -z "$VERSION_TAG" ]]; then
-              for tag in "${VERSION_TAG}" "${VERSION_TAG_SHORT}" "latest"; do
-                docker tag "${DOCKER_IMAGE_IMMUDB}:dev" "${DOCKER_IMAGE_IMMUDB}:${tag}"
-                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}"
-
-                docker tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" "${DOCKER_IMAGE_IMMUDB}:${tag}-${DEBIAN_VERSION}"
-                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}-${DEBIAN_VERSION}"
-
-                docker tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" "${DOCKER_IMAGE_IMMUDB}:${tag}-${ALMA_VERSION}"
-                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}-${ALMA_VERSION}"
-
-                docker tag "${DOCKER_IMAGE_IMMUADMIN}:dev" "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
-                docker push "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
-
-                docker tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" "${DOCKER_IMAGE_IMMUCLIENT}:${tag}"
-                docker push "${DOCKER_IMAGE_IMMUCLIENT}:${tag}"
-
-                docker tag "${DOCKER_IMAGE_IMMUDB_FIPS}:dev" "${DOCKER_IMAGE_IMMUDB_FIPS}:${tag}"
-                docker push "${DOCKER_IMAGE_IMMUDB_FIPS}:${tag}"
-
-                docker tag "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev" "${DOCKER_IMAGE_IMMUADMIN_FIPS}:${tag}"
-                docker push "${DOCKER_IMAGE_IMMUADMIN_FIPS}:${tag}"
-
-                docker tag "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev" "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:${tag}"
-                docker push "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:${tag}"
-
-              done
-            fi
-
-            docker logout
+            buildx $(tags "${DOCKER_IMAGE_IMMUDB}")                  --target scratch          -f build/Dockerfile
+            buildx $(tags "${DOCKER_IMAGE_IMMUDB}" "${DEBIAN_VERSION}") --target ${DEBIAN_VERSION} -f build/Dockerfile
+            buildx $(tags "${DOCKER_IMAGE_IMMUDB}" "${ALMA_VERSION}")                              -f build/Dockerfile.alma
+            buildx $(tags "${DOCKER_IMAGE_IMMUADMIN}")                                              -f build/Dockerfile.immuadmin
+            buildx $(tags "${DOCKER_IMAGE_IMMUCLIENT}")                                             -f build/Dockerfile.immuclient
+            buildx $(tags "${DOCKER_IMAGE_IMMUDB_FIPS}")                                            -f build/fips/Dockerfile
+            buildx $(tags "${DOCKER_IMAGE_IMMUADMIN_FIPS}")                                         -f build/fips/Dockerfile.immuadmin
+            buildx $(tags "${DOCKER_IMAGE_IMMUCLIENT_FIPS}")                                        -f build/fips/Dockerfile.immuclient
 
 
   coveralls:

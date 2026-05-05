@@ -1,6 +1,7 @@
-FROM golang:1.25 AS build-fips
+FROM --platform=$BUILDPLATFORM golang:1.25 AS build-fips
 ENV GOFIPS140=latest
-ARG BUILD_ARCH=amd64
+ARG TARGETARCH
+ARG BUILD_ARCH=${TARGETARCH:-amd64}
 WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download -x

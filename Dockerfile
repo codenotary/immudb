@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.24 as build
-ARG BUILD_ARCH=amd64
+FROM --platform=$BUILDPLATFORM golang:1.24 as build
+ARG TARGETARCH
+ARG BUILD_ARCH=${TARGETARCH:-amd64}
 WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download -x
