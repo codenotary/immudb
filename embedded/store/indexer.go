@@ -41,7 +41,24 @@ var ErrWriteStalling = errors.New("write stalling")
 const (
 	writeStallingSleepDurationMin = 10 * time.Millisecond
 	writeStallingSleepDurationMax = 50 * time.Millisecond
+
+	indexerErrBackoffMin = 100 * time.Millisecond
+	indexerErrBackoffMax = 60 * time.Second
 )
+
+// nextIndexerErrBackoff returns the next sleep duration after an indexing
+// error, doubling on each call, starting at indexerErrBackoffMin and capped
+// at indexerErrBackoffMax. Pass 0 for the first error in a run.
+func nextIndexerErrBackoff(prev time.Duration) time.Duration {
+	if prev <= 0 {
+		return indexerErrBackoffMin
+	}
+	next := prev * 2
+	if next > indexerErrBackoffMax {
+		return indexerErrBackoffMax
+	}
+	return next
+}
 
 type indexer struct {
 	path string
@@ -442,6 +459,8 @@ func (idx *indexer) doIndexing() {
 	committedTxID := idx.store.LastCommittedTxID()
 	idx.metricsLastCommittedTrx.Set(float64(committedTxID))
 
+	var errBackoff time.Duration
+
 	for {
 		lastIndexedTx := idx.index.Ts()
 		idx.metricsLastIndexedTrx.Set(float64(lastIndexedTx))
@@ -450,13 +469,17 @@ func (idx *indexer) doIndexing() {
 			idx.wHub.DoneUpto(lastIndexedTx)
 		}
 
+		erroredThisIter := false
+
 		err := idx.store.commitWHub.WaitFor(idx.ctx, lastIndexedTx+1)
 		if idx.ctx.Err() != nil || errors.Is(err, watchers.ErrAlreadyClosed) {
 			return
 		}
 		if err != nil {
 			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
-			time.Sleep(60 * time.Second)
+			errBackoff = nextIndexerErrBackoff(errBackoff)
+			time.Sleep(errBackoff)
+			erroredThisIter = true
 		}
 
 		committedTxID := idx.store.LastCommittedTxID()
@@ -485,12 +508,20 @@ func (idx *indexer) doIndexing() {
 
 		if err != nil && !errors.Is(err, ErrWriteStalling) {
 			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
-			time.Sleep(60 * time.Second)
+			errBackoff = nextIndexerErrBackoff(errBackoff)
+			time.Sleep(errBackoff)
+			erroredThisIter = true
 		}
 
 		if err := idx.handleWriteStalling(err); err != nil {
 			idx.store.logger.Errorf("indexing failed at '%s' due to error: %v", idx.store.path, err)
-			time.Sleep(60 * time.Second)
+			errBackoff = nextIndexerErrBackoff(errBackoff)
+			time.Sleep(errBackoff)
+			erroredThisIter = true
+		}
+
+		if !erroredThisIter {
+			errBackoff = 0
 		}
 	}
 }

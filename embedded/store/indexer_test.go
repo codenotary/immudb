@@ -259,6 +259,25 @@ func TestIndexFlushShouldReleaseMemory(t *testing.T) {
 	require.Zero(t, store.memSemaphore.Value())
 }
 
+func TestNextIndexerErrBackoff(t *testing.T) {
+	require.Equal(t, indexerErrBackoffMin, nextIndexerErrBackoff(0))
+	require.Equal(t, indexerErrBackoffMin, nextIndexerErrBackoff(-1))
+
+	d := nextIndexerErrBackoff(0)
+	for i := 0; i < 64 && d < indexerErrBackoffMax; i++ {
+		next := nextIndexerErrBackoff(d)
+		require.Greater(t, next, d, "backoff must grow until cap")
+		require.LessOrEqual(t, next, indexerErrBackoffMax, "backoff must never exceed cap")
+		d = next
+	}
+	require.Equal(t, indexerErrBackoffMax, d, "backoff must reach the cap")
+	require.Equal(t, indexerErrBackoffMax, nextIndexerErrBackoff(indexerErrBackoffMax))
+
+	// First retry should be sub-second so a transient indexing error never
+	// freezes ingestion for a full minute (regression for #2061).
+	require.Less(t, nextIndexerErrBackoff(0), time.Second)
+}
+
 func TestIndexerWriteStalling(t *testing.T) {
 	d := t.TempDir()
 	store, err := Open(d, DefaultOptions().WithMultiIndexing(true).WithIndexOptions(DefaultIndexOptions().WithMaxBufferedDataSize(1024).WithMaxGlobalBufferedDataSize(1024)))
