@@ -704,19 +704,14 @@ func (r *rawRowReader) CountAllWithKeyFilter(ctx context.Context, where ValueExp
 			valuesBySelector[selectors[i]] = val
 		}
 
-		res, err := cond.reduce(r.tx, row, r.tableAlias)
+		match, isNull, err := reduceBoolValueExp(r.tx, row, r.tableAlias, cond)
 		if err != nil {
 			return 0, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}
-
-		if nv, isNull := res.(*NullValue); isNull && nv.Type() == BooleanType {
+		if isNull {
 			continue
 		}
-		bv, isBool := res.(*Bool)
-		if !isBool {
-			return 0, fmt.Errorf("%w: expected '%s' in WHERE clause, but '%s' was provided", ErrInvalidCondition, BooleanType, res.Type())
-		}
-		if bv.val {
+		if match {
 			n++
 		}
 	}

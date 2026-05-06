@@ -2467,6 +2467,12 @@ func (v *NullValue) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValu
 	return v, nil
 }
 
+// reduceBool implements the alloc-free boolean evaluation path used by
+// CountAllWithKeyFilter. A bare NULL in WHERE position yields SQL UNKNOWN.
+func (v *NullValue) reduceBool(_ *SQLTx, _ *Row, _ string) (val, isNull bool, err error) {
+	return false, true, nil
+}
+
 func (v *NullValue) reduceSelectors(row *Row, implicitTable string) ValueExp {
 	return v
 }
@@ -2879,6 +2885,12 @@ func (v *Bool) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *Bool) reduce(tx *SQLTx, row *Row, implicitTable string) (TypedValue, error) {
 	return v, nil
+}
+
+// reduceBool implements the alloc-free boolean evaluation path used by
+// CountAllWithKeyFilter.
+func (v *Bool) reduceBool(_ *SQLTx, _ *Row, _ string) (val, isNull bool, err error) {
+	return v.val, false, nil
 }
 
 func (v *Bool) reduceSelectors(row *Row, implicitTable string) ValueExp {
@@ -6427,6 +6439,19 @@ func (bexp *NotBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 	return &Bool{val: !r}, nil
 }
 
+// reduceBool mirrors reduce but returns the boolean directly, avoiding the
+// per-call *Bool allocation on the COUNT(*) hot path.
+func (bexp *NotBoolExp) reduceBool(tx *SQLTx, row *Row, implicitTable string) (val, isNull bool, err error) {
+	inner, innerNull, err := reduceBoolValueExp(tx, row, implicitTable, bexp.exp)
+	if err != nil {
+		return false, false, err
+	}
+	if innerNull {
+		return false, false, ErrInvalidCondition
+	}
+	return !inner, false, nil
+}
+
 func (bexp *NotBoolExp) selectors() []Selector {
 	return bexp.exp.selectors()
 }
@@ -6787,6 +6812,25 @@ func (bexp *CmpBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 	}
 
 	return &Bool{val: cmpSatisfiesOp(r, bexp.op)}, nil
+}
+
+// reduceBool mirrors reduce but returns the boolean directly, avoiding the
+// per-call *Bool allocation on the COUNT(*) hot path. Operand evaluation still
+// goes through the regular reduce — only the wrapping *Bool is elided.
+func (bexp *CmpBoolExp) reduceBool(tx *SQLTx, row *Row, implicitTable string) (val, isNull bool, err error) {
+	vl, err := bexp.left.reduce(tx, row, implicitTable)
+	if err != nil {
+		return false, false, err
+	}
+	vr, err := bexp.right.reduce(tx, row, implicitTable)
+	if err != nil {
+		return false, false, err
+	}
+	cmp, err := vl.Compare(vr)
+	if err != nil {
+		return false, false, err
+	}
+	return cmpSatisfiesOp(cmp, bexp.op), false, nil
 }
 
 func (bexp *CmpBoolExp) selectors() []Selector {
@@ -7158,6 +7202,74 @@ func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitTable string) (Typed
 	}
 
 	return nil, ErrUnexpected
+}
+
+// reduceBool mirrors reduce but returns the boolean directly, avoiding the
+// per-call *Bool allocations on the COUNT(*) hot path. Children are evaluated
+// via reduceBoolValueExp so AND/OR trees compose without intermediate boxing.
+// Short-circuit semantics are preserved.
+func (bexp *BinBoolExp) reduceBool(tx *SQLTx, row *Row, implicitTable string) (val, isNull bool, err error) {
+	bl, lNull, err := reduceBoolValueExp(tx, row, implicitTable, bexp.left)
+	if err != nil {
+		return false, false, err
+	}
+	if lNull {
+		// Match reduce's behavior: a non-bool (NULL included) on the left
+		// is treated as an invalid operand to AND/OR.
+		return false, false, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
+	}
+
+	if (bl && bexp.op == Or) || (!bl && bexp.op == And) {
+		return bl, false, nil
+	}
+
+	br, rNull, err := reduceBoolValueExp(tx, row, implicitTable, bexp.right)
+	if err != nil {
+		return false, false, err
+	}
+	if rNull {
+		return false, false, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
+	}
+
+	switch bexp.op {
+	case And:
+		return bl && br, false, nil
+	case Or:
+		return bl || br, false, nil
+	}
+	return false, false, ErrUnexpected
+}
+
+// reduceBoolValueExp evaluates e as a SQL boolean, taking the alloc-free
+// reduceBool fast path when e implements it (Bool, NullValue, CmpBoolExp,
+// BinBoolExp, NotBoolExp) and falling back to the regular reduce + type-check
+// otherwise. Used by COUNT(*) on indexed WHERE; semantics match the slow path.
+func reduceBoolValueExp(tx *SQLTx, row *Row, implicitTable string, e ValueExp) (val, isNull bool, err error) {
+	switch ex := e.(type) {
+	case *Bool:
+		return ex.val, false, nil
+	case *NullValue:
+		return false, true, nil
+	case *CmpBoolExp:
+		return ex.reduceBool(tx, row, implicitTable)
+	case *BinBoolExp:
+		return ex.reduceBool(tx, row, implicitTable)
+	case *NotBoolExp:
+		return ex.reduceBool(tx, row, implicitTable)
+	}
+
+	res, err := e.reduce(tx, row, implicitTable)
+	if err != nil {
+		return false, false, err
+	}
+	if nv, isn := res.(*NullValue); isn && nv.Type() == BooleanType {
+		return false, true, nil
+	}
+	bv, isBool := res.(*Bool)
+	if !isBool {
+		return false, false, fmt.Errorf("%w: expected '%s' in WHERE clause, but '%s' was provided", ErrInvalidCondition, BooleanType, res.Type())
+	}
+	return bv.val, false, nil
 }
 
 func (bexp *BinBoolExp) selectors() []Selector {
