@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.24 as build
+FROM --platform=$BUILDPLATFORM golang:1.25 as build
 ARG TARGETARCH
 ARG BUILD_ARCH=${TARGETARCH:-amd64}
 WORKDIR /src
