@@ -15,8 +15,8 @@ FROM almalinux:8-minimal as alma
 LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 
 ARG IMMUDB_HOME="/usr/share/immudb"
-ARG IMMU_UID="65532"
-ARG IMMU_GID="65532"
+ARG IMMU_UID="3322"
+ARG IMMU_GID="3322"
 
 ENV IMMUDB_HOME="${IMMUDB_HOME}" \
     IMMUDB_DIR="/var/lib/immudb" \
@@ -41,11 +41,11 @@ COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_HOME"
 COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_DIR"
 
 
-RUN echo "immu:x:3322:" >> /etc/group && \
-    echo "immu:x:3322:3322:immudb:$IMMUDB_HOME:/bin/false" >> /etc/passwd && \
+RUN echo "immu:x:$IMMU_GID:" >> /etc/group && \
+    echo "immu:x:$IMMU_UID:$IMMU_GID:immudb:$IMMUDB_HOME:/bin/false" >> /etc/passwd && \
     mkdir -p "$IMMUDB_HOME" && \
     mkdir -p "$IMMUDB_DIR" && \
-    chown -R $IMMUDB_UID:$IMMUDB_GID "$IMMUDB_HOME" "$IMMUDB_DIR" && \
+    chown -R $IMMU_UID:$IMMU_GID "$IMMUDB_HOME" "$IMMUDB_DIR" && \
     chmod -R 755 "$IMMUDB_HOME" "$IMMUDB_DIR" && \
     chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin
 
