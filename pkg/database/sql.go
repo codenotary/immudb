@@ -400,6 +400,10 @@ func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRe
 		return nil, err
 	}
 
+	if len(stmts) == 0 {
+		return nil, sql.ErrExpectingDQLStmt
+	}
+
 	stmt, ok := stmts[0].(sql.DataSource)
 	if !ok {
 		return nil, sql.ErrExpectingDQLStmt
