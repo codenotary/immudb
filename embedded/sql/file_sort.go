@@ -412,7 +412,7 @@ func (s *fileSorter) flushBuffer() error {
 
 	var chunkSize uint64
 	for _, row := range s.sortBuf[:s.nextIdx] {
-		data, err := encodeRow(row)
+		data, err := s.encodeRow(row)
 		if err != nil {
 			return err
 		}
@@ -447,11 +447,18 @@ func (s *fileSorter) tempFileWriter() (*bufio.Writer, error) {
 	return s.writer, nil
 }
 
-func encodeRow(r *Row) ([]byte, error) {
+func (s *fileSorter) encodeRow(r *Row) ([]byte, error) {
 	var buf bytes.Buffer
 	buf.Write([]byte{0, 0}) // make room for size field
 
-	for _, v := range r.ValuesByPosition {
+	for i, v := range r.ValuesByPosition {
+		// Projection pushdown (rawRowReader.Read) leaves nil slots for table
+		// columns the query does not need; the nil zero-value is semantically
+		// NULL. Substitute a typed NULL so encoding never dereferences nil and
+		// the slot round-trips through the temp file as NULL.
+		if v == nil {
+			v = &NullValue{t: s.colTypes[i]}
+		}
 		rawValue, err := EncodeNullableValue(v, v.Type(), -1)
 		if err != nil {
 			return nil, err
