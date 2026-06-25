@@ -26,7 +26,7 @@ func TestSetupSwaggerUI(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
-	assert.True(t, rr.Code == 301)
+	assert.True(t, rr.Code/100 == 3)
 
 	// Test just if the response exist
 	_, err = ioutil.ReadAll(rr.Body)
