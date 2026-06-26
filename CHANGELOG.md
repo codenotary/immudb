@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.11.1"></a>
+## [v1.11.1] - 2026-06-26
+
+### Features
+- **immuadmin:** `sysadmin` permission now accepted by `user create` and `user permission` CLI commands, enabling operators to bootstrap additional sysadmin accounts from the command line without relying solely on the default `immudb` account ([#2052](https://github.com/codenotary/immudb/issues/2052))
+- **auditor:** new opt-in `--audit-verify-values` flag re-reads and SHA-256-verifies each committed value after the chain proof check; any on-disk tampering surfaces as a failed audit cycle without changing default (chain-only) behavior ([#2091](https://github.com/codenotary/immudb/issues/2091))
+
+### Performance
+- **embedded/sql:** index-only `COUNT(*)` for indexed `WHERE` queries — `SELECT COUNT(*) FROM t WHERE indexed_col = ?` no longer fetches full rows, satisfying the count entirely from the secondary index ([#2093](https://github.com/codenotary/immudb/pull/2093))
+- **embedded/sql:** `reduceBool` fast path avoids per-row heap-boxing of boolean expressions in the `COUNT(*)` hot path; combined with hoisting `substitute` and `EncodeSelector` out of the per-row loop, a 50k-row composite-index `COUNT(*)` drops from 20.87 ms to 14.92 ms and from 234k to 150k allocations/op
+- **embedded/store:** hot-path allocation and lock-contention reductions on critical read/write paths
+- **embedded/appendable/remoteapp:** range-fetch `ReadAt` — issues a bounded range request (~256 KiB window) instead of downloading the entire chunk; for a 4 MiB chunk with a 64 B tail read, bytes on the wire shrink from 4 MiB to ~256 KiB
+- **embedded/appendable/remoteapp:** background prefetch pipelines the next read window to hide latency on sequential scans
+- **remote/s3 (Wave 4):** drop upload-verify round-trips, parallel chunk prefetch, end-to-end compression
+
+### Bug Fixes
+- **embedded/sql:** two server-crashing panics introduced in v1.11.0 ([#2100](https://github.com/codenotary/immudb/pull/2100)):
+  - Nil pointer dereference in the disk-spill sort path: large `ORDER BY … OFFSET` result sets that spill to disk panicked because projection-pushdown left unaccessed column slots as `nil`; the encode path now substitutes a typed `NULL` for nil slots
+  - Index out-of-range in `db.SQLQuery`: empty or comment-only SQL input (accepted by the parser since v1.11.0) returned an empty statement slice, causing a crash; a `len(stmts) == 0` guard now returns `ErrExpectingDQLStmt`
+- **embedded/sql:** standalone `COUNT(col)` returned 0 for any non-empty table; `CountValue.ColBounded()` now returns `true` for both `COUNT(col)` and `COUNT(DISTINCT col)`, preserving SQL `NULL`-skip semantics ([#2042](https://github.com/codenotary/immudb/issues/2042))
+- **embedded/sql:** `TIMESTAMP` parameter binds with timezone suffixes (`Z`, `±HH:MM`) were rejected by the PG wire bind path; space-separated layouts are now accepted alongside RFC3339 ([#1149](https://github.com/codenotary/immudb/issues/1149))
+- **embedded/sql:** parametrized `SELECT WHERE col = $1` reused the first bound value on subsequent executions of a cached prepared statement; `substitute()` now returns fresh AST nodes instead of mutating the cached receiver ([#1153](https://github.com/codenotary/immudb/issues/1153))
+- **embedded/store:** database permanently unrecoverable after ungraceful shutdown (e.g. OOMKill) that left more pre-committed transactions on disk than `MaxActiveTransactions`; the recovery path now grows the precommit buffer dynamically (doubling on overflow) instead of returning `ErrBufferIsFull` ([#2086](https://github.com/codenotary/immudb/issues/2086))
+- **embedded/store:** hard 60-second ingestion freeze on every indexing error replaced with bounded exponential backoff (100 ms doubling to 60 s, reset on a fully successful iteration) ([#2061](https://github.com/codenotary/immudb/issues/2061))
+- **embedded/store:** supplying different `MaxValueLen`, `MaxKeyLen`, `MaxTxEntries`, or `FileSize` values on store re-open was silently ignored; a warning is now emitted naming both the supplied and stored values ([#1864](https://github.com/codenotary/immudb/issues/1864))
+- **pkg/server:** `DatabaseListV2` failed entirely when any database was closed or unloadable; unloaded databases now appear in the listing with `Loaded=false, NumTransactions=0` ([#1997](https://github.com/codenotary/immudb/issues/1997))
+- **docker:** almalinux-8-minimal image failed to start with `permission denied` on `/var/lib/immudb/immudb.identifier` due to a UID/GID mismatch (directories owned by 65532, runtime user `immu` running as 3322); `IMMU_UID`/`IMMU_GID` are now consistently set to 3322 ([#2098](https://github.com/codenotary/immudb/pull/2098))
+
+### CI
+- **docker:** official images are now built for `linux/amd64` and `linux/arm64` via `docker buildx`; Go cross-compiles natively on the build platform without QEMU ([#2069](https://github.com/codenotary/immudb/pull/2069))
+
+### Dependencies
+- `golang.org/x/crypto` v0.48.0 → v0.52.0 (8 HIGH + 5 MEDIUM CVEs)
+- `golang.org/x/net` v0.50.0 → v0.55.0 (7 HIGH + 1 MEDIUM CVEs)
+- `golang.org/x/sys` v0.41.0 → v0.45.0 (CVE-2026-39824, required transitively)
+- `github.com/jackc/pgx/v5` v5.9.1 → v5.9.2 (CVE-2026-41889)
+- `github.com/sirupsen/logrus` v1.8.1 → v1.9.3 (DoS via `Entry.Writer()`)
+- `urllib3` (test/e2e) → v2.7.0 (CVE-2026-44432, GHSA-2xpw-w6gg-jr37)
+
 <a name="v1.11.0"></a>
 ## [v1.11.0] - 2026-04-23
 ### Features
