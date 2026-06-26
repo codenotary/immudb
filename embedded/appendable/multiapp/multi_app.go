@@ -646,19 +646,34 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 	}
 
 	mf.mutex.Lock()
-	defer mf.mutex.Unlock()
 
 	if mf.closed {
+		mf.mutex.Unlock()
 		return nil, ErrAlreadyClosed
 	}
 
 	app, err := mf.appendables.Get(appID)
-	if err != nil {
+	if err == nil {
+		mf.maybePrefetchAheadLocked(appID)
+		mf.mutex.Unlock()
+		return app, nil
+	}
+	mf.mutex.Unlock()
+
+	if !errors.Is(err, cache.ErrKeyNotFound) {
 		return nil, err
 	}
 
-	mf.maybePrefetchAheadLocked(appID)
-	return app, nil
+	// The chunk was opened and cached by the singleflight above, but a
+	// concurrent insert (foreground miss or background prefetch) evicted
+	// or replaced it before we could take our ref. The data is still
+	// readable — re-open a detached, self-closing handle for this read
+	// rather than surfacing a spurious ErrKeyNotFound to the caller.
+	raw, err := mf.openAppendableFromSnapshot(snap, appendableName(appID, mf.fileExt), false, false)
+	if err != nil {
+		return nil, err
+	}
+	return newDetachedApp(raw), nil
 }
 
 // openAppendableSnapshot is a snapshot of the bits that openAppendable
