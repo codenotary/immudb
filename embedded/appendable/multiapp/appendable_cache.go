@@ -91,6 +91,19 @@ func (r *refCountedApp) Close() error {
 	return nil
 }
 
+// newDetachedApp wraps an appendable that lives *outside* the cache and
+// is handed to a single reader which must Release() it exactly once. It
+// starts already-evicted with one ref, so that Release performs the
+// underlying Close — there is no cache entry to govern its lifetime.
+//
+// Used as a fallback when a freshly-opened chunk is evicted (or
+// replaced) by a concurrent insert before the foreground reader can
+// take its ref: rather than fail the read with a spurious
+// `key not found`, the reader is served from this detached handle.
+func newDetachedApp(value appendable.Appendable) *refCountedApp {
+	return &refCountedApp{Appendable: value, refs: 1, evicted: true}
+}
+
 type appendableCache struct {
 	cache *cache.Cache
 }
