@@ -474,6 +474,10 @@ We have SDKs available for the following programming languages:
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
+> **Note on Rust:** There is no official Rust SDK. The [`immudb` crate on crates.io](https://crates.io/crates/immudb) is an unofficial, third-party package and is not maintained by us. Rust users have two supported options:
+> - **SQL:** immudb speaks the PostgreSQL wire protocol, so standard Postgres clients such as [`tokio-postgres`](https://crates.io/crates/tokio-postgres) / [`postgres`](https://crates.io/crates/postgres) work directly — no immudb-specific crate required.
+> - **gRPC (key-value, verified reads/writes):** generate a client from our protobuf definitions (`pkg/api/schema/schema.proto` and `pkg/api/proto/*.proto`) using [`tonic`](https://crates.io/crates/tonic) and [`prost`](https://crates.io/crates/prost).
+
 To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/immudb.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
 
 Our [immudb Playground](https://play.codenotary.com) provides a guided environment to learn the Python SDK.
