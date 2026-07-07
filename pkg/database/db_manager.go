@@ -485,14 +485,22 @@ func (m *DBManager) CloseAll(ctx context.Context) error {
 
 		busyDBs := 0
 		m.dbCache.Apply(func(_, value interface{}) error {
-			ref := value.(*dbRef)
+			ref, _ := value.(*dbRef)
+			if ref == nil {
+				return nil
+			}
 
 			if atomic.LoadUint32(&ref.count) > 0 {
 				busyDBs++
 				return nil
 			}
 
-			ref.db.Close()
+			// ref.db may be nil if the database was never successfully opened
+			// (e.g. openDB failed in Get and left a db-less ref in the cache).
+			// Guard here as every other close site in this file does.
+			if ref.db != nil {
+				ref.db.Close()
+			}
 			return nil
 		})
 		tryClose = busyDBs > 0

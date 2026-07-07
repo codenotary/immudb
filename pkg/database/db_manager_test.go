@@ -491,3 +491,32 @@ func TestDBManagerPutUpdate(t *testing.T) {
 	require.Equal(t, idx1, idx2, "re-putting same name should return same index")
 	require.Equal(t, 1, manager.Length(), "should not create duplicate entry")
 }
+
+func TestDBManagerCloseAllAfterFailedOpen(t *testing.T) {
+	// A database whose open fails leaves a db-less ref in the cache: Get() has
+	// allocDB Put() a &dbRef{count: 1}, openDB then fails and Release() only
+	// decrements the count without removing the entry. CloseAll must skip such a
+	// ref instead of dereferencing its nil db.
+	openErr := fmt.Errorf("open failed")
+	openDB := func(name string, opts *Options) (DB, error) {
+		return nil, openErr
+	}
+
+	manager := NewDBManager(openDB, 5, logger.NewMemoryLogger())
+	manager.Put("testdb", DefaultOptions(), false)
+
+	_, err := manager.Get(0)
+	require.ErrorIs(t, err, openErr)
+
+	// The failed open must have left a ref with a nil db in the cache.
+	v, err := manager.dbCache.Get(0)
+	require.NoError(t, err)
+	ref, _ := v.(*dbRef)
+	require.NotNil(t, ref)
+	require.Nil(t, ref.db)
+	require.Zero(t, atomic.LoadUint32(&ref.count))
+
+	require.NotPanics(t, func() {
+		require.NoError(t, manager.CloseAll(context.Background()))
+	})
+}
