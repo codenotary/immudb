@@ -67,8 +67,10 @@ func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.Do
 			return nil, mayTranslateError(err)
 		}
 
-		docIDBytes := row.ValuesByPosition[0].RawValue().([]byte)
-		docBytes := row.ValuesByPosition[1].RawValue().([]byte)
+		docIDBytes, docBytes, err := docRowBytes(row)
+		if err != nil {
+			return nil, err
+		}
 
 		doc := &structpb.Struct{}
 		err = proto.Unmarshal(docBytes, doc)
@@ -85,6 +87,27 @@ func (r *documentReader) ReadN(ctx context.Context, count int) ([]*protomodel.Do
 	}
 
 	return revisions, err
+}
+
+// docRowBytes extracts the raw document-id and encoded-document bytes from
+// a SQL row. Slots may be nil when an upstream reader skipped decoding
+// unneeded columns (projection pushdown), so guard before dereferencing.
+func docRowBytes(row *sql.Row) (docIDBytes, docBytes []byte, err error) {
+	if len(row.ValuesByPosition) < 2 || row.ValuesByPosition[0] == nil || row.ValuesByPosition[1] == nil {
+		return nil, nil, ErrUnexpectedValue
+	}
+
+	docIDBytes, ok := row.ValuesByPosition[0].RawValue().([]byte)
+	if !ok {
+		return nil, nil, ErrUnexpectedValue
+	}
+
+	docBytes, ok = row.ValuesByPosition[1].RawValue().([]byte)
+	if !ok {
+		return nil, nil, ErrUnexpectedValue
+	}
+
+	return docIDBytes, docBytes, nil
 }
 
 func (r *documentReader) Close() error {
@@ -106,8 +129,10 @@ func (r *documentReader) Read(ctx context.Context) (*protomodel.DocumentAtRevisi
 		return nil, mayTranslateError(err)
 	}
 
-	docIDBytes := row.ValuesByPosition[0].RawValue().([]byte)
-	docBytes := row.ValuesByPosition[1].RawValue().([]byte)
+	docIDBytes, docBytes, err := docRowBytes(row)
+	if err != nil {
+		return nil, err
+	}
 
 	doc := &structpb.Struct{}
 	err = proto.Unmarshal(docBytes, doc)

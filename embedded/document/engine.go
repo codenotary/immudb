@@ -906,7 +906,15 @@ func (e *Engine) ReplaceDocuments(ctx context.Context, username string, query *p
 			return nil, mayTranslateError(err)
 		}
 
-		val := row.ValuesByPosition[0].RawValue().([]byte)
+		if len(row.ValuesByPosition) == 0 || row.ValuesByPosition[0] == nil {
+			return nil, ErrUnexpectedValue
+		}
+
+		val, ok := row.ValuesByPosition[0].RawValue().([]byte)
+		if !ok {
+			return nil, ErrUnexpectedValue
+		}
+
 		docID, err := NewDocumentIDFromRawBytes(val)
 		if err != nil {
 			return nil, err
@@ -1057,7 +1065,16 @@ func (e *Engine) CountDocuments(ctx context.Context, query *protomodel.Query, of
 		return 0, err
 	}
 
-	return row.ValuesByPosition[0].RawValue().(int64), nil
+	if len(row.ValuesByPosition) == 0 || row.ValuesByPosition[0] == nil {
+		return 0, ErrUnexpectedValue
+	}
+
+	count, ok := row.ValuesByPosition[0].RawValue().(int64)
+	if !ok {
+		return 0, ErrUnexpectedValue
+	}
+
+	return count, nil
 }
 
 func (e *Engine) GetEncodedDocument(ctx context.Context, collectionName string, docID DocumentID, txID uint64) (collectionID uint32, documentIdFieldName string, encodedDoc *EncodedDocument, err error) {

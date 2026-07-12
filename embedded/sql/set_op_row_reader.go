@@ -97,7 +97,8 @@ func (sr *setOpRowReader) loadRight(ctx context.Context) error {
 func rowDigest(row *Row) string {
 	var b []byte
 	for _, v := range row.ValuesByPosition {
-		if v.IsNull() {
+		// a nil slot (column skipped by projection pushdown) digests as NULL
+		if v == nil || v.IsNull() {
 			b = append(b, 0)
 		} else {
 			b = append(b, 1)

@@ -113,6 +113,11 @@ func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 		binary.BigEndian.PutUint32(b[:], uint32(i))
 		h.Write(b[:])
 
+		// a nil slot (column skipped by projection pushdown) digests as NULL
+		if v == nil {
+			continue
+		}
+
 		_, isNull := v.(*NullValue)
 		if isNull {
 			continue
