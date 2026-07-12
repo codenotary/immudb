@@ -5406,6 +5406,26 @@ func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]i
 	return mainReader, nil
 }
 
+// rowValuesToValueExps converts a row's positional values into ValueExps
+// for CTE materialization. A slot may be nil when an upstream reader
+// skipped decoding unneeded columns (projection pushdown) — substitute a
+// typed SQL NULL instead of type-asserting on a nil interface.
+func rowValuesToValueExps(row *Row, cols []ColDescriptor) []ValueExp {
+	rowValues := make([]ValueExp, len(row.ValuesByPosition))
+	for i, v := range row.ValuesByPosition {
+		if v == nil {
+			t := AnyType
+			if i < len(cols) {
+				t = cols[i].Type
+			}
+			rowValues[i] = &NullValue{t: t}
+			continue
+		}
+		rowValues[i] = v
+	}
+	return rowValues
+}
+
 func materializeCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params map[string]interface{}) ([]ColDescriptor, [][]ValueExp, error) {
 	reader, err := cte.query.Resolve(ctx, tx, params, nil)
 	if err != nil {
@@ -5432,10 +5452,7 @@ func materializeCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params map[stri
 		if err != nil {
 			return nil, nil, fmt.Errorf("error materializing CTE '%s': %w", cte.name, err)
 		}
-		rowValues := make([]ValueExp, len(row.ValuesByPosition))
-		for i, v := range row.ValuesByPosition {
-			rowValues[i] = v.(ValueExp)
-		}
+		rowValues := rowValuesToValueExps(row, cols)
 		rows = append(rows, rowValues)
 	}
 
@@ -5481,10 +5498,7 @@ func materializeRecursiveCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params
 			baseReader.Close()
 			return nil, nil, fmt.Errorf("error materializing recursive CTE '%s': %w", cte.name, err)
 		}
-		rowValues := make([]ValueExp, len(row.ValuesByPosition))
-		for i, v := range row.ValuesByPosition {
-			rowValues[i] = v.(ValueExp)
-		}
+		rowValues := rowValuesToValueExps(row, cols)
 		allRows = append(allRows, rowValues)
 		newRows = append(newRows, rowValues)
 	}

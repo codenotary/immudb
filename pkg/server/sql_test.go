@@ -206,3 +206,24 @@ func (s *ImmuService_SQLQueryServerMock) Send(res *schema.SQLQueryResult) error 
 func (s *ImmuService_SQLQueryServerMock) Context() context.Context {
 	return s.ctx
 }
+
+// A nil positional value (column skipped by projection pushdown) must
+// serialize as SQL NULL instead of being dereferenced — see issue #2100.
+func TestSQLRowsToProtoTreatsNilSlotAsNull(t *testing.T) {
+	descriptors := []sql.ColDescriptor{
+		{Column: "a", Type: sql.IntegerType},
+		{Column: "b", Type: sql.IntegerType},
+	}
+
+	rows := []*sql.Row{
+		{ValuesByPosition: []sql.TypedValue{nil, sql.NewInteger(5)}},
+	}
+
+	out := sqlRowsToProto(descriptors, rows, make([]*schema.Row, len(rows)))
+	require.Len(t, out, 1)
+
+	_, isNull := out[0].Values[0].Value.(*schema.SQLValue_Null)
+	require.True(t, isNull)
+
+	require.Equal(t, int64(5), out[0].Values[1].GetN())
+}

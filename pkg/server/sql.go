@@ -200,8 +200,9 @@ func sqlRowsToProto(descriptors []sql.ColDescriptor, rows []*sql.Row, outRows []
 			row.Columns[i] = descriptors[i].Selector()
 
 			v := sqlRow.ValuesByPosition[i]
+			// a nil slot (column skipped by projection pushdown) serializes as NULL
 			_, isNull := v.(*sql.NullValue)
-			if isNull {
+			if v == nil || isNull {
 				row.Values[i] = &schema.SQLValue{Value: &schema.SQLValue_Null{}}
 			} else {
 				row.Values[i] = schema.TypedValueToRowValue(v)
