@@ -403,6 +403,26 @@ func TestSession_QueriesMachine(t *testing.T) {
 			},
 			out: nil,
 		},
+		{
+			// Regression for the issue #2100 follow-up: since 1.11.0 the
+			// grammar accepts empty/comment-only input and ParseSQL returns
+			// zero statements without an error, so a Parse message carrying
+			// such SQL panicked on stmts[0] (index out of range [0]).
+			name: "parse empty or comment-only statement does not panic",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("-- ping"), h.I16(1), h.I32(0)})))
+				parseComplete := make([]byte, len(bmessages.ParseComplete()))
+				c2.Read(parseComplete)
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S(""), h.S(""), h.I16(1), h.I32(0)})))
+				parseComplete = make([]byte, len(bmessages.ParseComplete()))
+				c2.Read(parseComplete)
+				// Terminate message
+				c2.Write(h.Msg('X', []byte{0}))
+			},
+			out: nil,
+		},
 	}
 
 	for i, tt := range tests {
