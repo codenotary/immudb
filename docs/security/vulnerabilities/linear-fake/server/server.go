@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -192,7 +193,7 @@ func (db *dbWrapper) DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQuer
 	return nil, db.unsupported()
 }
 
-func (db *dbWrapper) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
+func (db *dbWrapper) WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error {
 	return db.unsupported()
 }
 
@@ -204,8 +205,8 @@ func (db *dbWrapper) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	return nil, db.unsupported()
 }
 
-func (db *dbWrapper) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
-	return nil, db.unsupported()
+func (db *dbWrapper) ExportTxByID(req *schema.ExportTxRequest) ([]byte, uint64, [sha256.Size]byte, error) {
+	return nil, 0, [sha256.Size]byte{}, db.unsupported()
 }
 
 func (db *dbWrapper) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
