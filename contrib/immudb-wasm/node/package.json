@@ -1,0 +1,44 @@
+{
+  "name": "immudb-wasm",
+  "version": "0.1.0",
+  "description": "Embed immudb in Node.js, in-process, via WASM + WASI — an append-only, cryptographically verifiable KV + SQL store. No server, no container, no native prebuilds.",
+  "type": "module",
+  "main": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs"
+    }
+  },
+  "files": [
+    "index.mjs",
+    "host.mjs",
+    "index.d.ts",
+    "immudb.wasm"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test 'test/*.mjs'"
+  },
+  "keywords": [
+    "immudb",
+    "wasm",
+    "wasi",
+    "embedded",
+    "database",
+    "key-value",
+    "sql",
+    "tamper-evident",
+    "verifiable",
+    "merkle"
+  ],
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codenotary/immudb",
+    "directory": "contrib/immudb-wasm"
+  }
+}
