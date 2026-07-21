@@ -71,6 +71,30 @@ make test     # run unit tests (ledger + real verification)
 make vet
 ```
 
+## Evals
+
+An agent-level eval case lives under `evals/`. It checks the plugin's headline
+flow: the assistant records a decision and then **cryptographically verifies**
+it, reporting the result honestly.
+
+```
+evals/record-and-verify/
+├── prompt.md            # the task given to the agent
+└── graders/criteria.md  # LLM-graded rubric
+```
+
+Run it (requires `bin/immuledger` built, and grants the plugin's MCP tools):
+
+```
+make build
+IMMULEDGER_DATA_DIR="$(mktemp -d)" \
+  claude plugin eval immuledger@immuledger --case record-and-verify \
+    --allow-tools 'mcp__*'
+```
+
+Setting `IMMULEDGER_DATA_DIR` to a throwaway directory keeps eval runs out of
+your real ledger.
+
 The plugin is a self-contained Go module that builds against the immudb checkout above it (`replace github.com/codenotary/immudb => ../../`).
 
 ## Limitations (v0.1)
