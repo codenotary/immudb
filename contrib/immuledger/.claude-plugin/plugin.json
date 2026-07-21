@@ -1,0 +1,23 @@
+{
+  "name": "immuledger",
+  "description": "Tamper-evident decision & compliance ledger for Claude Code, backed by embedded immudb. Records project decisions and CLAUDE.md changes into an in-process immudb (no server, no container) and lets Claude check current work against past decisions so it stays on track even when context is lost. Supports real in-process cryptographic verification of any decision.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Dennis Zimmer"
+  },
+  "homepage": "https://github.com/codenotary/immudb/tree/master/contrib/immuledger",
+  "repository": "https://github.com/codenotary/immudb",
+  "license": "MIT",
+  "keywords": ["immudb", "audit", "decisions", "adr", "compliance", "ledger", "tamper-evident", "embedded"],
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": {
+    "immuledger": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/immuledger",
+      "args": ["serve"],
+      "env": {
+        "PROJECT_DIR": "${CLAUDE_PROJECT_DIR}",
+        "IMMULEDGER_DATA_DIR": "${IMMULEDGER_DATA_DIR}"
+      }
+    }
+  }
+}
