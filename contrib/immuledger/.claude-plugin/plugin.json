@@ -9,7 +9,6 @@
   "repository": "https://github.com/codenotary/immudb",
   "license": "MIT",
   "keywords": ["immudb", "audit", "decisions", "adr", "compliance", "ledger", "tamper-evident", "embedded"],
-  "hooks": "./hooks/hooks.json",
   "mcpServers": {
     "immuledger": {
       "command": "${CLAUDE_PLUGIN_ROOT}/bin/immuledger",
