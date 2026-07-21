@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	projectpkg "github.com/codenotary/immudb/contrib/immuledger/internal/project"
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -33,10 +34,33 @@ import (
 const (
 	dbName        = "immuledger"
 	lockTimeout   = 30 * time.Second
-	maxScan       = 1000
+	dirPerm       = 0o700
 	statusActive  = "active"
 	statusRetired = "superseded"
+
+	// Field length caps, applied before storage so an oversized input can never
+	// produce an unbounded record.
+	maxTitle        = 512
+	maxRationale    = 16384
+	maxAlternatives = 8192
+	maxTags         = 512
+	maxAuthor       = 256
+	maxSummary      = 1024
+	maxPayload      = 16384
+	maxPath         = 2048
+	maxHash         = 128
 )
+
+// scanBatch is the page size for full scans (we paginate to exhaustion). It is a
+// var, not a const, only so tests can shrink it to exercise the pagination loop.
+var scanBatch = 512
+
+func clip(s string, max int) string {
+	if len(s) > max {
+		return s[:max]
+	}
+	return s
+}
 
 // Decision is a recorded architecture/design decision (an ADR).
 type Decision struct {
@@ -106,9 +130,12 @@ func (l *Ledger) DataDir() string { return l.dataDir }
 // and closes the store. immudb's logger is sent to stderr so it never corrupts
 // the MCP stdout stream or a hook's stdout digest.
 func (l *Ledger) withDB(ctx context.Context, fn func(ctx context.Context, db database.DB) error) (err error) {
-	if err = os.MkdirAll(l.dataDir, 0o755); err != nil {
+	if err = os.MkdirAll(l.dataDir, dirPerm); err != nil {
 		return fmt.Errorf("create data dir: %w", err)
 	}
+	// Decisions and rationales can be sensitive; keep the ledger private to the
+	// owner even if MkdirAll found a pre-existing, more-permissive directory.
+	_ = os.Chmod(l.dataDir, dirPerm)
 
 	release, err := acquireLock(filepath.Join(l.dataDir, ".immuledger.lock"), lockTimeout)
 	if err != nil {
@@ -161,13 +188,6 @@ func seqKey(project, kind string) string {
 
 // --- low-level KV ---------------------------------------------------------
 
-func kvSet(ctx context.Context, db database.DB, key string, val []byte) error {
-	_, err := db.Set(ctx, &schema.SetRequest{
-		KVs: []*schema.KeyValue{{Key: []byte(key), Value: val}},
-	})
-	return err
-}
-
 func kvGet(ctx context.Context, db database.DB, key string) ([]byte, bool, error) {
 	e, err := db.Get(ctx, &schema.KeyRequest{Key: []byte(key)})
 	if errors.Is(err, store.ErrKeyNotFound) {
@@ -179,24 +199,67 @@ func kvGet(ctx context.Context, db database.DB, key string) ([]byte, bool, error
 	return e.Value, true, nil
 }
 
-func kvScan(ctx context.Context, db database.DB, prefix string, limit uint64) ([]*schema.Entry, error) {
-	entries, err := db.Scan(ctx, &schema.ScanRequest{Prefix: []byte(prefix), Limit: limit})
-	if err != nil {
-		return nil, err
+// scanAll returns every entry under prefix, paginating to exhaustion so results
+// are never silently truncated regardless of how many records exist.
+func scanAll(ctx context.Context, db database.DB, prefix string) ([]*schema.Entry, error) {
+	var out []*schema.Entry
+	seek := []byte(nil)
+	for {
+		entries, err := db.Scan(ctx, &schema.ScanRequest{
+			Prefix:  []byte(prefix),
+			SeekKey: seek,
+			Limit:   uint64(scanBatch),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(entries.Entries) == 0 {
+			break
+		}
+		out = append(out, entries.Entries...)
+		if len(entries.Entries) < scanBatch {
+			break
+		}
+		// Continue strictly after the last key (SeekKey is exclusive by default).
+		seek = entries.Entries[len(entries.Entries)-1].Key
 	}
-	return entries.Entries, nil
+	return out, nil
 }
 
-func nextSeq(ctx context.Context, db database.DB, project, kind string) (int, error) {
-	cur := 0
-	if v, ok, err := kvGet(ctx, db, seqKey(project, kind)); err != nil {
-		return 0, err
-	} else if ok {
-		cur, _ = strconv.Atoi(strings.TrimSpace(string(v)))
+// kvPair is a key/value write for an atomic multi-key commit.
+type kvPair struct {
+	key string
+	val []byte
+}
+
+// execAll writes all pairs in a single immudb transaction, so related keys (a
+// sequence counter, a new record, a superseded record) can never be left half
+// written on a partial failure.
+func execAll(ctx context.Context, db database.DB, pairs ...kvPair) error {
+	ops := make([]*schema.Op, 0, len(pairs))
+	for _, p := range pairs {
+		ops = append(ops, &schema.Op{Operation: &schema.Op_Kv{
+			Kv: &schema.KeyValue{Key: []byte(p.key), Value: p.val},
+		}})
 	}
-	n := cur + 1
-	if err := kvSet(ctx, db, seqKey(project, kind), []byte(strconv.Itoa(n))); err != nil {
+	_, err := db.ExecAll(ctx, &schema.ExecAllRequest{Operations: ops})
+	return err
+}
+
+// readSeq returns the current sequence value for kind. A non-empty but
+// unparseable value is treated as corruption (fatal) rather than silently reset
+// to 0, which would restart ids at 1 and overwrite existing records.
+func readSeq(ctx context.Context, db database.DB, project, kind string) (int, error) {
+	v, ok, err := kvGet(ctx, db, seqKey(project, kind))
+	if err != nil {
 		return 0, err
+	}
+	if !ok {
+		return 0, nil
+	}
+	n, perr := strconv.Atoi(strings.TrimSpace(string(v)))
+	if perr != nil {
+		return 0, fmt.Errorf("corrupted %s sequence for project %q: %q", kind, project, string(v))
 	}
 	return n, nil
 }
@@ -206,12 +269,20 @@ func nextSeq(ctx context.Context, db database.DB, project, kind string) (int, er
 // RecordDecision appends a decision and, if supersedes > 0, marks the prior
 // decision superseded (its earlier version is retained in immudb history).
 func (l *Ledger) RecordDecision(ctx context.Context, project string, d Decision) (Decision, error) {
+	project = projectpkg.Sanitize(project)
+	d.Title = clip(d.Title, maxTitle)
+	d.Rationale = clip(d.Rationale, maxRationale)
+	d.Alternatives = clip(d.Alternatives, maxAlternatives)
+	d.Tags = clip(d.Tags, maxTags)
+	d.Author = clip(d.Author, maxAuthor)
+
 	var out Decision
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
-		id, err := nextSeq(ctx, db, project, "decision")
+		cur, err := readSeq(ctx, db, project, "decision")
 		if err != nil {
 			return err
 		}
+		id := cur + 1
 		d.ID = id
 		d.Project = project
 		d.Status = statusActive
@@ -222,25 +293,36 @@ func (l *Ledger) RecordDecision(ctx context.Context, project string, d Decision)
 		if err != nil {
 			return err
 		}
-		if err := kvSet(ctx, db, decisionKey(project, id), body); err != nil {
-			return err
+
+		// Sequence bump + new decision (+ superseded decision) commit atomically.
+		writes := []kvPair{
+			{seqKey(project, "decision"), []byte(strconv.Itoa(id))},
+			{decisionKey(project, id), body},
 		}
 
 		if d.Supersedes > 0 {
-			if prev, ok, err := kvGet(ctx, db, decisionKey(project, d.Supersedes)); err != nil {
-				return err
-			} else if ok {
-				var od Decision
-				if json.Unmarshal(prev, &od) == nil {
-					od.Status = statusRetired
-					od.SupersededBy = id
-					if nb, err := json.Marshal(od); err == nil {
-						if err := kvSet(ctx, db, decisionKey(project, d.Supersedes), nb); err != nil {
-							return err
-						}
-					}
-				}
+			prev, ok, gerr := kvGet(ctx, db, decisionKey(project, d.Supersedes))
+			if gerr != nil {
+				return gerr
 			}
+			if !ok {
+				return fmt.Errorf("cannot supersede decision #%d: not found in project %q", d.Supersedes, project)
+			}
+			var od Decision
+			if err := json.Unmarshal(prev, &od); err != nil {
+				return err
+			}
+			od.Status = statusRetired
+			od.SupersededBy = id
+			nb, err := json.Marshal(od)
+			if err != nil {
+				return err
+			}
+			writes = append(writes, kvPair{decisionKey(project, d.Supersedes), nb})
+		}
+
+		if err := execAll(ctx, db, writes...); err != nil {
+			return err
 		}
 		out = d
 		return nil
@@ -250,6 +332,7 @@ func (l *Ledger) RecordDecision(ctx context.Context, project string, d Decision)
 
 // GetDecision returns a single decision by id.
 func (l *Ledger) GetDecision(ctx context.Context, project string, id int) (*Decision, error) {
+	project = projectpkg.Sanitize(project)
 	var found *Decision
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
 		b, ok, err := kvGet(ctx, db, decisionKey(project, id))
@@ -274,10 +357,13 @@ func (l *Ledger) ListDecisions(ctx context.Context, project, status, tag string,
 		return nil, err
 	}
 	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "" {
+		status = statusActive // empty defaults to active, matching the documented behavior
+	}
 	tag = strings.ToLower(strings.TrimSpace(tag))
 	out := make([]Decision, 0, len(all))
 	for _, d := range all {
-		if status != "" && status != "all" && !strings.EqualFold(d.Status, status) {
+		if status != "all" && !strings.EqualFold(d.Status, status) {
 			continue
 		}
 		if tag != "" && !strings.Contains(strings.ToLower(d.Tags), tag) {
@@ -307,9 +393,10 @@ func (l *Ledger) SearchDecisions(ctx context.Context, project, query string, lim
 }
 
 func (l *Ledger) loadDecisions(ctx context.Context, project string) ([]Decision, error) {
+	project = projectpkg.Sanitize(project)
 	var out []Decision
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
-		entries, err := kvScan(ctx, db, decisionPrefix(project), maxScan)
+		entries, err := scanAll(ctx, db, decisionPrefix(project))
 		if err != nil {
 			return err
 		}
@@ -328,9 +415,10 @@ func (l *Ledger) loadDecisions(ctx context.Context, project string) ([]Decision,
 
 // Stats returns per-project counts.
 func (l *Ledger) Stats(ctx context.Context, project string) (Stats, error) {
+	project = projectpkg.Sanitize(project)
 	s := Stats{Project: project}
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
-		dec, err := kvScan(ctx, db, decisionPrefix(project), maxScan)
+		dec, err := scanAll(ctx, db, decisionPrefix(project))
 		if err != nil {
 			return err
 		}
@@ -343,7 +431,7 @@ func (l *Ledger) Stats(ctx context.Context, project string) (Stats, error) {
 				}
 			}
 		}
-		ev, err := kvScan(ctx, db, eventPrefix(project), maxScan)
+		ev, err := scanAll(ctx, db, eventPrefix(project))
 		if err != nil {
 			return err
 		}
@@ -362,12 +450,20 @@ func (l *Ledger) Stats(ctx context.Context, project string) (Stats, error) {
 
 // RecordEvent appends a generic event to the ledger.
 func (l *Ledger) RecordEvent(ctx context.Context, project string, e Event) (Event, error) {
+	project = projectpkg.Sanitize(project)
+	e.Type = clip(e.Type, maxTags)
+	e.Summary = clip(e.Summary, maxSummary)
+	e.Payload = clip(e.Payload, maxPayload)
+	e.Path = clip(e.Path, maxPath)
+	e.Hash = clip(e.Hash, maxHash)
+
 	var out Event
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
-		id, err := nextSeq(ctx, db, project, "event")
+		cur, err := readSeq(ctx, db, project, "event")
 		if err != nil {
 			return err
 		}
+		id := cur + 1
 		e.ID = id
 		e.Project = project
 		if e.CreatedAt == "" {
@@ -377,7 +473,11 @@ func (l *Ledger) RecordEvent(ctx context.Context, project string, e Event) (Even
 		if err != nil {
 			return err
 		}
-		if err := kvSet(ctx, db, eventKey(project, id), body); err != nil {
+		// Sequence bump + event commit atomically.
+		if err := execAll(ctx, db,
+			kvPair{seqKey(project, "event"), []byte(strconv.Itoa(id))},
+			kvPair{eventKey(project, id), body},
+		); err != nil {
 			return err
 		}
 		out = e
@@ -389,9 +489,10 @@ func (l *Ledger) RecordEvent(ctx context.Context, project string, e Event) (Even
 // ListEvents returns events for a project (newest first), optionally filtered
 // by type.
 func (l *Ledger) ListEvents(ctx context.Context, project, eventType string, limit int) ([]Event, error) {
+	project = projectpkg.Sanitize(project)
 	var out []Event
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
-		entries, err := kvScan(ctx, db, eventPrefix(project), maxScan)
+		entries, err := scanAll(ctx, db, eventPrefix(project))
 		if err != nil {
 			return err
 		}
@@ -428,4 +529,10 @@ func capDecisions(d []Decision, limit int) []Decision {
 
 func nowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+// sanitizeProject normalizes a project name (auto-detected or caller-supplied)
+// into a safe, bounded key segment.
+func sanitizeProject(p string) string {
+	return projectpkg.Sanitize(p)
 }

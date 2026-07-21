@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -23,6 +24,14 @@ type VerifyResult struct {
 	Detail     string `json:"detail"`
 }
 
+// TrustNote documents the scope of the in-process proof. The trust anchor is the
+// local store's own current root, so verification proves internal consistency
+// (a record cannot be altered in place without detection). It does NOT by itself
+// detect wholesale replacement of the data directory with a different, internally
+// consistent store — for that, pin an external expected root via the expectedRoot
+// argument to VerifyDecision (or store one out of band and compare).
+const TrustNote = "Proof anchor is this store's current root; pass an expected root to detect directory replacement."
+
 // VerifyDecision performs a genuine client-side verified read of a decision,
 // fully in-process (no immudb server). It mirrors the verification pkg/client
 // does for VerifiedGet: it checks the entry's inclusion proof against the
@@ -30,7 +39,12 @@ type VerifyResult struct {
 // the ledger's current committed state. Because the embedded store builds a
 // complete DualProof (including the linear-advance proof), no gRPC round trip is
 // required.
-func (l *Ledger) VerifyDecision(ctx context.Context, project string, id int) (VerifyResult, error) {
+// VerifyDecision verifies decision id. If expectedRoot is non-empty, it must
+// equal the ledger's current root hash (hex); this lets a caller pin an
+// externally recorded anchor so a replaced data directory is detected, not just
+// in-place tampering.
+func (l *Ledger) VerifyDecision(ctx context.Context, project string, id int, expectedRoot string) (VerifyResult, error) {
+	project = sanitizeProject(project)
 	res := VerifyResult{DecisionID: id, Key: decisionKey(project, id)}
 
 	err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
@@ -38,6 +52,14 @@ func (l *Ledger) VerifyDecision(ctx context.Context, project string, id int) (Ve
 		state, err := db.CurrentState()
 		if err != nil {
 			return err
+		}
+
+		if expectedRoot != "" && !strings.EqualFold(expectedRoot, hex.EncodeToString(state.TxHash)) {
+			res.Verified = false
+			res.RootTxID = state.TxId
+			res.RootHash = hex.EncodeToString(state.TxHash)
+			res.Detail = "current ledger root does not match the expected root: the data directory may have been replaced"
+			return nil
 		}
 
 		key := []byte(decisionKey(project, id))

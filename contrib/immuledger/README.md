@@ -63,6 +63,14 @@ Decisions and events are stored as immudb key-value entries (JSON values) under 
 
 If a decision's bytes were tampered with, step 3 fails and `verified` is `false`.
 
+**Trust anchor.** The anchor in step 1 is the local store's *own* current root, so
+verification proves the ledger is internally consistent — a record can't be
+altered in place undetected. It does not, by itself, detect wholesale
+*replacement* of the data directory with a different but internally consistent
+store. To guard against that, record a root out of band and pass it to
+`verify_decision` as `expected_root` (hex); verification then also requires the
+current root to match your pinned anchor.
+
 ## Development
 
 ```

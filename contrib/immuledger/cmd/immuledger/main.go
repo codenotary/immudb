@@ -128,10 +128,15 @@ type hookPayload struct {
 // recordClaudeMD reads the PostToolUse hook payload on stdin and, when the edited
 // file is CLAUDE.md or lives under .claude/, records a tamper-evident
 // claude_md_change event with a sha256 of the new file contents.
+const (
+	maxHookStdin = 1 << 20 // 1 MiB cap on hook payloads
+	maxHashBytes = 8 << 20 // hash at most 8 MiB of a changed file
+)
+
 func recordClaudeMD() {
 	defer func() { _ = recover() }()
 
-	raw, err := io.ReadAll(os.Stdin)
+	raw, err := io.ReadAll(io.LimitReader(os.Stdin, maxHookStdin))
 	if err != nil || len(strings.TrimSpace(string(raw))) == 0 {
 		return
 	}
@@ -143,14 +148,28 @@ func recordClaudeMD() {
 	if filePath == "" {
 		filePath = p.ToolInput.Path
 	}
-	if filePath == "" || !isTracked(filePath) {
+	if filePath == "" {
+		return
+	}
+
+	// Resolve relative paths against the hook's cwd, not this process's cwd, so
+	// tracking and hashing act on the file the tool actually touched.
+	if !filepath.IsAbs(filePath) && p.Cwd != "" {
+		filePath = filepath.Join(p.Cwd, filePath)
+	}
+	filePath = filepath.Clean(filePath)
+
+	if !isTracked(filePath) {
 		return
 	}
 
 	digestHex := ""
-	if data, rerr := os.ReadFile(filePath); rerr == nil {
-		sum := sha256.Sum256(data)
-		digestHex = fmt.Sprintf("%x", sum)
+	if f, oerr := os.Open(filePath); oerr == nil {
+		h := sha256.New()
+		if _, cerr := io.Copy(h, io.LimitReader(f, maxHashBytes)); cerr == nil {
+			digestHex = fmt.Sprintf("%x", h.Sum(nil))
+		}
+		f.Close()
 	}
 
 	ctx := context.Background()
@@ -171,7 +190,9 @@ func isTracked(filePath string) bool {
 	if strings.EqualFold(base, "CLAUDE.md") {
 		return true
 	}
-	return strings.Contains(lower, "/.claude/") || strings.HasSuffix(lower, "/.claude")
+	return strings.HasPrefix(lower, ".claude/") ||
+		strings.Contains(lower, "/.claude/") ||
+		strings.HasSuffix(lower, "/.claude")
 }
 
 func firstNonEmpty(vals ...string) string {

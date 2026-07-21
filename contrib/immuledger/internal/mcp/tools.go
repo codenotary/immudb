@@ -31,7 +31,7 @@ func NewServer(l *ledger.Ledger) *server.MCPServer {
 func register(s *server.MCPServer, l *ledger.Ledger) {
 	proj := func(req mcp.CallToolRequest) string {
 		if p := strings.TrimSpace(req.GetString("project", "")); p != "" {
-			return p
+			return project.Sanitize(p)
 		}
 		return project.Name("")
 	}
@@ -225,15 +225,16 @@ func register(s *server.MCPServer, l *ledger.Ledger) {
 	})
 
 	s.AddTool(mcp.NewTool("verify_decision",
-		mcp.WithDescription("Cryptographically verify a decision in-process: checks its inclusion proof and a dual proof linking it to the ledger's current root. Returns verified true/false and the root anchor."),
+		mcp.WithDescription("Cryptographically verify a decision in-process: checks its inclusion proof and a dual proof linking it to the ledger's current root. Returns verified true/false and the root anchor. Optionally pass expected_root to also confirm the current root matches an externally recorded anchor (detects a replaced data directory)."),
 		mcp.WithNumber("id", mcp.Required(), mcp.Description("Decision id to verify.")),
+		mcp.WithString("expected_root", mcp.Description("Optional expected current root hash (hex) to pin an external anchor.")),
 		mcp.WithString("project", mcp.Description("Override the auto-detected project name.")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id := req.GetInt("id", 0)
 		if id <= 0 {
 			return mcp.NewToolResultError("id is required"), nil
 		}
-		res, err := l.VerifyDecision(ctx, proj(req), id)
+		res, err := l.VerifyDecision(ctx, proj(req), id, req.GetString("expected_root", ""))
 		if err != nil {
 			return errResult(err), nil
 		}

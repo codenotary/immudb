@@ -3,6 +3,8 @@ package ledger
 import (
 	"context"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/database"
 )
 
 func TestLedgerLifecycle(t *testing.T) {
@@ -96,6 +98,74 @@ func TestLedgerLifecycle(t *testing.T) {
 	}
 }
 
+func TestSupersedeMissingFails(t *testing.T) {
+	ctx := context.Background()
+	l := New(t.TempDir())
+	_, err := l.RecordDecision(ctx, "p", Decision{
+		Title: "x", Rationale: "y", Supersedes: 999,
+	})
+	if err == nil {
+		t.Fatal("expected error superseding a non-existent decision, got nil")
+	}
+	// The failed write must not have leaked a decision or bumped the sequence.
+	all, err := l.ListDecisions(ctx, "p", "all", "", 50)
+	if err != nil {
+		t.Fatalf("ListDecisions: %v", err)
+	}
+	if len(all) != 0 {
+		t.Fatalf("expected no decisions after failed supersede, got %d", len(all))
+	}
+}
+
+func TestSeqCorruptionIsFatal(t *testing.T) {
+	ctx := context.Background()
+	l := New(t.TempDir())
+	if _, err := l.RecordDecision(ctx, "p", Decision{Title: "a", Rationale: "b"}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// Corrupt the sequence value directly.
+	if err := l.withDB(ctx, func(ctx context.Context, db database.DB) error {
+		return execAll(ctx, db, kvPair{seqKey("p", "decision"), []byte("not-a-number")})
+	}); err != nil {
+		t.Fatalf("corrupt seq: %v", err)
+	}
+	if _, err := l.RecordDecision(ctx, "p", Decision{Title: "c", Rationale: "d"}); err == nil {
+		t.Fatal("expected fatal error on corrupted sequence, got nil")
+	}
+}
+
+func TestPaginationBeyondBatch(t *testing.T) {
+	old := scanBatch
+	scanBatch = 10
+	defer func() { scanBatch = old }()
+
+	ctx := context.Background()
+	l := New(t.TempDir())
+	const n = 25 // > 2 pages
+	for i := range n {
+		if _, err := l.RecordDecision(ctx, "p", Decision{
+			Title: "d", Rationale: "r", Tags: "t",
+		}); err != nil {
+			t.Fatalf("record %d: %v", i, err)
+		}
+	}
+	stats, err := l.Stats(ctx, "p")
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.DecisionsTotal != n {
+		t.Fatalf("pagination lost records: got %d want %d", stats.DecisionsTotal, n)
+	}
+	// Newest-first ordering must survive pagination.
+	all, err := l.ListDecisions(ctx, "p", "all", "", 1000)
+	if err != nil || len(all) != n {
+		t.Fatalf("ListDecisions: %v count=%d", err, len(all))
+	}
+	if all[0].ID != n {
+		t.Fatalf("expected newest id %d first, got %d", n, all[0].ID)
+	}
+}
+
 func TestVerifyDecision(t *testing.T) {
 	ctx := context.Background()
 	l := New(t.TempDir())
@@ -116,7 +186,7 @@ func TestVerifyDecision(t *testing.T) {
 		}
 	}
 
-	res, err := l.VerifyDecision(ctx, project, d.ID)
+	res, err := l.VerifyDecision(ctx, project, d.ID, "")
 	if err != nil {
 		t.Fatalf("VerifyDecision: %v", err)
 	}
@@ -125,5 +195,20 @@ func TestVerifyDecision(t *testing.T) {
 	}
 	if res.RootHash == "" || res.TxID == 0 {
 		t.Fatalf("missing proof anchor: %+v", res)
+	}
+
+	// Pinning the correct current root still verifies.
+	okRes, err := l.VerifyDecision(ctx, project, d.ID, res.RootHash)
+	if err != nil || !okRes.Verified {
+		t.Fatalf("expected verified with matching expected root: %+v err=%v", okRes, err)
+	}
+
+	// Pinning a wrong root must fail (models a replaced data directory).
+	badRes, err := l.VerifyDecision(ctx, project, d.ID, "deadbeef")
+	if err != nil {
+		t.Fatalf("VerifyDecision(expected mismatch): %v", err)
+	}
+	if badRes.Verified {
+		t.Fatalf("expected verified=false for mismatched root, got true")
 	}
 }

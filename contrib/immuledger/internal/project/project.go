@@ -27,11 +27,11 @@ func Name(startDir string) string {
 	}
 
 	if top := gitToplevel(dir); top != "" {
-		return sanitize(filepath.Base(top))
+		return Sanitize(filepath.Base(top))
 	}
 	if dir != "" {
 		if abs, err := filepath.Abs(dir); err == nil {
-			return sanitize(filepath.Base(abs))
+			return Sanitize(filepath.Base(abs))
 		}
 	}
 	return "default"
@@ -58,13 +58,26 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-// sanitize keeps the project name usable as a key segment: it must not contain
-// the '/' separator used to build ledger keys.
-func sanitize(name string) string {
-	name = strings.ReplaceAll(name, "/", "_")
+// maxProjectLen bounds the project segment so a caller-supplied override cannot
+// produce unbounded keys.
+const maxProjectLen = 128
+
+// Sanitize keeps a project name usable and safe as a key segment: it strips the
+// '/' separator used to build ledger keys, removes control characters, trims,
+// and length-limits. Applied to both auto-detected names and caller overrides.
+func Sanitize(name string) string {
+	name = strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r < 0x20 {
+			return '_'
+		}
+		return r
+	}, name)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "default"
+	}
+	if len(name) > maxProjectLen {
+		name = name[:maxProjectLen]
 	}
 	return name
 }
