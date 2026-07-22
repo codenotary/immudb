@@ -9,8 +9,8 @@
   "license": "BUSL-1.1",
   "mcpServers": {
     "immudb-wasm": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs"],
+      "command": "npx",
+      "args": ["-y", "immudb-wasm-mcp@0.1.0"],
       "env": {
         "PROJECT_DIR": "${CLAUDE_PROJECT_DIR}",
         "IMMUDB_WASM_DATA_DIR": "${IMMUDB_WASM_DATA_DIR}"

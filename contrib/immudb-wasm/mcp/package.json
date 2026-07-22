@@ -1,0 +1,27 @@
+{
+  "name": "immudb-wasm-mcp",
+  "version": "0.1.0",
+  "description": "MCP (stdio) server exposing a tamper-evident KV + SQL store backed by embedded immudb-wasm. Pure JS + wasm, no native binary. Run with: npx -y immudb-wasm-mcp",
+  "type": "module",
+  "bin": {
+    "immudb-wasm-mcp": "server.mjs"
+  },
+  "files": [
+    "server.mjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "immudb-wasm": "^0.1.0",
+    "zod": "^3.23.0"
+  },
+  "keywords": ["immudb", "wasm", "mcp", "claude", "tamper-evident", "verifiable", "kv", "sql"],
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codenotary/immudb",
+    "directory": "contrib/immudb-wasm/mcp"
+  }
+}
