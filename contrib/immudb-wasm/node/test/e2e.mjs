@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { open } from '../index.mjs';
@@ -88,4 +88,25 @@ test('single-writer lock rejects a second open', () => {
   // after close, reopening works
   const db2 = open(dir);
   db2.close();
+});
+
+test('failed setup releases the lock (no stale lock left behind)', () => {
+  const dir = tmpDir();
+  // Simulate WASI/store setup failing after the lock is taken.
+  assert.throws(
+    () =>
+      open(dir, {
+        hostFactory: () => {
+          throw new Error('simulated WASI init failure');
+        },
+      }),
+    /simulated WASI init failure/,
+  );
+  // The lock must be gone...
+  assert.equal(existsSync(join(dir, '.immudb-wasm.lock')), false);
+  // ...and a normal open must succeed rather than hit a stale lock.
+  const db = open(dir);
+  db.set('ok', '1');
+  assert.equal(db.get('ok').value.toString(), '1');
+  db.close();
 });

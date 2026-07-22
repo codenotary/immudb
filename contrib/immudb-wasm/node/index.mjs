@@ -11,7 +11,10 @@ const LOCK = '.immudb-wasm.lock';
 // open opens (creating if needed) an immudb store at `dir` and returns a Db.
 // The store is single-writer; a lockfile guards against a second open of the
 // same directory in this or another process.
-export function open(dir) {
+//
+// The optional `hostFactory` is an internal seam for testing failure paths; the
+// public API is just open(dir).
+export function open(dir, { hostFactory = Host.create } = {}) {
   const path = resolve(dir);
   mkdirSync(path, { recursive: true });
 
@@ -29,13 +32,16 @@ export function open(dir) {
     throw e;
   }
 
-  const host = Host.create(path);
-  let handle;
+  // Everything after the lock is acquired must release it on failure — including
+  // WASI instantiation (Host.create), not just the store open — otherwise a
+  // failed setup leaves a stale lock that wedges the directory.
+  let host, handle;
   try {
+    host = hostFactory(path);
     handle = host.open('/data'); // the preopened directory
   } catch (e) {
     closeSync(lockFd);
-    unlinkSync(lockPath);
+    if (existsSync(lockPath)) unlinkSync(lockPath);
     throw e;
   }
   return new Db(host, handle, lockFd, lockPath);
