@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "immudb-wasm",
+  "owner": {
+    "name": "Dennis Zimmer"
+  },
+  "metadata": {
+    "description": "Tamper-evident KV + SQL store for Claude Code, backed by embedded immudb-wasm (pure JS + wasm).",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "immudb-wasm",
+      "source": "./",
+      "description": "Embedded immudb (WASM) as an MCP server: tamper-evident KV + SQL with in-process cryptographic verification, no native binary.",
+      "version": "0.1.0",
+      "author": { "name": "Dennis Zimmer" },
+      "category": "productivity",
+      "keywords": ["immudb", "wasm", "tamper-evident", "verifiable"]
+    }
+  ]
+}

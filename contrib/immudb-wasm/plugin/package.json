@@ -1,0 +1,12 @@
+{
+  "name": "immudb-wasm-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code MCP plugin: a tamper-evident KV+SQL store backed by embedded immudb-wasm (pure JS + wasm, no native binary).",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "immudb-wasm": "file:../node",
+    "zod": "^3.23.0"
+  }
+}

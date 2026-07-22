@@ -1,0 +1,4 @@
+# Installed dependencies (immudb-wasm + MCP SDK). Restore with:
+#   npm install --install-links
+/node_modules/
+/package-lock.json

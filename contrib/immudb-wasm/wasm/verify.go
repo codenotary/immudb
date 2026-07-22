@@ -43,6 +43,10 @@ func (e *engine) verifiedGet(key []byte) (verifyResult, error) {
 	var res verifyResult
 
 	lastTxID, lastAlh := e.st.CommittedAlh()
+	// The current committed root is a property of the store, not of the key, so
+	// report it even when the key is absent (callers use it as a status anchor).
+	res.RootTxID = lastTxID
+	res.RootHash = hexString(lastAlh[:])
 
 	ikey := kvKey(key)
 	valRef, err := e.st.Get(ctx, ikey)
@@ -59,8 +63,6 @@ func (e *engine) verifiedGet(key []byte) (verifyResult, error) {
 	res.Found = true
 	res.Value = value
 	res.TxID = valRef.Tx()
-	res.RootTxID = lastTxID
-	res.RootHash = hexString(lastAlh[:])
 
 	// Read the committing transaction and build the entry inclusion proof.
 	tx, err := e.txPool.Alloc()
