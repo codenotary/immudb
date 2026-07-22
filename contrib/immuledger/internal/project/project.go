@@ -15,10 +15,13 @@ import (
 // startDir may be empty, in which case PROJECT_DIR, then CLAUDE_PROJECT_DIR,
 // then the current working directory are tried in order.
 func Name(startDir string) string {
+	if strings.Contains(startDir, "${") { // ignore an unexpanded placeholder
+		startDir = ""
+	}
 	dir := firstNonEmpty(
-		startDir,
-		os.Getenv("PROJECT_DIR"),
-		os.Getenv("CLAUDE_PROJECT_DIR"),
+		strings.TrimSpace(startDir),
+		cleanEnv("PROJECT_DIR"),
+		cleanEnv("CLAUDE_PROJECT_DIR"),
 	)
 	if dir == "" {
 		if wd, err := os.Getwd(); err == nil {
@@ -35,6 +38,17 @@ func Name(startDir string) string {
 		}
 	}
 	return "default"
+}
+
+// cleanEnv returns a trimmed env value, treating an unexpanded "${VAR}"
+// placeholder (which the plugin runtime passes when the variable is unset) as
+// empty so it is never used as a literal path.
+func cleanEnv(name string) string {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" || strings.Contains(v, "${") {
+		return ""
+	}
+	return v
 }
 
 func gitToplevel(dir string) string {

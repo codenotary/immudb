@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, existsSync } from 'node:fs';
+import { mkdtempSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { open } from '../index.mjs';
@@ -83,11 +83,27 @@ test('data persists across reopen', () => {
 test('single-writer lock rejects a second open', () => {
   const dir = tmpDir();
   const db = open(dir);
-  assert.throws(() => open(dir), /already open/);
+  assert.throws(() => open(dir), /held by a running process|single-writer/);
   db.close();
   // after close, reopening works
   const db2 = open(dir);
   db2.close();
+});
+
+test('a stale lock from a dead process is reclaimed', () => {
+  const dir = tmpDir();
+  const db0 = open(dir);
+  db0.set('x', '1');
+  db0.close();
+
+  // Simulate a lock leaked by a crashed process (a pid that does not exist).
+  const lock = join(dir, '.immudb-wasm.lock');
+  writeFileSync(lock, '2147483646');
+
+  const db = open(dir); // must break the stale lock and open
+  assert.equal(db.get('x').value.toString(), '1');
+  db.close();
+  assert.equal(existsSync(lock), false);
 });
 
 test('failed setup releases the lock (no stale lock left behind)', () => {

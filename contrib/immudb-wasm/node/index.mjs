@@ -2,15 +2,95 @@
 // No server, no container, no native prebuilds. One portable .wasm.
 //
 // SPDX-License-Identifier: BUSL-1.1
-import { mkdirSync, openSync, closeSync, unlinkSync, existsSync } from 'node:fs';
+import {
+  mkdirSync,
+  openSync,
+  closeSync,
+  unlinkSync,
+  existsSync,
+  writeSync,
+  readFileSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Host, toB64, fromB64 } from './host.mjs';
 
 const LOCK = '.immudb-wasm.lock';
 
+// Lock files this process owns, unlinked on exit so a crash/kill (that Node can
+// still trap) does not leave a stale lock wedging the directory.
+const heldLocks = new Set();
+let exitHookInstalled = false;
+function installExitHook() {
+  if (exitHookInstalled) return;
+  exitHookInstalled = true;
+  const cleanup = () => {
+    for (const p of heldLocks) {
+      try {
+        unlinkSync(p);
+      } catch {
+        /* best effort */
+      }
+    }
+  };
+  process.on('exit', cleanup);
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(sig, () => {
+      cleanup();
+      process.exit(process.exitCode ?? 0);
+    });
+  }
+}
+
+function ownerAlive(pid) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0); // signal 0 just probes existence
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM'; // exists but not ours
+  }
+}
+
+// acquireLock takes the single-writer lock, recording our pid. A lock left by a
+// dead process is treated as stale and broken; a lock held by a live process is
+// rejected.
+function acquireLock(lockPath) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const fd = openSync(lockPath, 'wx'); // fails if it already exists
+      writeSync(fd, String(process.pid));
+      heldLocks.add(lockPath);
+      installExitHook();
+      return fd;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      let owner = 0;
+      try {
+        owner = parseInt(String(readFileSync(lockPath, 'utf8')).trim(), 10) || 0;
+      } catch {
+        /* unreadable lock — treat as stale */
+      }
+      if (ownerAlive(owner)) {
+        throw new Error(
+          `immudb store lock is held by a running process (pid ${owner}). ` +
+            `The directory is single-writer; close the other handle first.`,
+        );
+      }
+      // Stale lock from a dead process — break it and retry once.
+      try {
+        unlinkSync(lockPath);
+      } catch {
+        /* raced with another breaker; retry */
+      }
+    }
+  }
+  throw new Error('could not acquire immudb store lock');
+}
+
 // open opens (creating if needed) an immudb store at `dir` and returns a Db.
 // The store is single-writer; a lockfile guards against a second open of the
-// same directory in this or another process.
+// same directory in this or another live process. A lock left behind by a
+// crashed process is detected and reclaimed.
 //
 // The optional `hostFactory` is an internal seam for testing failure paths; the
 // public API is just open(dir).
@@ -19,18 +99,7 @@ export function open(dir, { hostFactory = Host.create } = {}) {
   mkdirSync(path, { recursive: true });
 
   const lockPath = join(path, LOCK);
-  let lockFd;
-  try {
-    lockFd = openSync(lockPath, 'wx'); // fails if it already exists
-  } catch (e) {
-    if (e.code === 'EEXIST') {
-      throw new Error(
-        `immudb store at ${path} is already open (lock ${LOCK} exists). ` +
-          `Close the other handle, or remove the lock file if it is stale.`,
-      );
-    }
-    throw e;
-  }
+  const lockFd = acquireLock(lockPath);
 
   // Everything after the lock is acquired must release it on failure — including
   // WASI instantiation (Host.create), not just the store open — otherwise a
@@ -41,6 +110,7 @@ export function open(dir, { hostFactory = Host.create } = {}) {
     handle = host.open('/data'); // the preopened directory
   } catch (e) {
     closeSync(lockFd);
+    heldLocks.delete(lockPath);
     if (existsSync(lockPath)) unlinkSync(lockPath);
     throw e;
   }
@@ -133,6 +203,7 @@ class Db {
       this.#host.close(this.#handle);
     } finally {
       closeSync(this.#lockFd);
+      heldLocks.delete(this.#lockPath);
       if (existsSync(this.#lockPath)) unlinkSync(this.#lockPath);
     }
   }

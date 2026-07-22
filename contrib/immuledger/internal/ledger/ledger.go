@@ -114,13 +114,24 @@ func New(dataDir string) *Ledger {
 // DefaultDataDir resolves the ledger location: IMMULEDGER_DATA_DIR, else
 // ~/.immuledger, else ./.immuledger.
 func DefaultDataDir() string {
-	if d := strings.TrimSpace(os.Getenv("IMMULEDGER_DATA_DIR")); d != "" {
+	if d := cleanEnv("IMMULEDGER_DATA_DIR"); d != "" {
 		return d
 	}
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		return filepath.Join(home, ".immuledger")
 	}
 	return ".immuledger"
+}
+
+// cleanEnv returns a trimmed env value, treating an unexpanded "${VAR}"
+// placeholder (which the plugin runtime passes when the variable is unset) as
+// empty so it is never used as a literal path.
+func cleanEnv(name string) string {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" || strings.Contains(v, "${") {
+		return ""
+	}
+	return v
 }
 
 // DataDir returns the resolved data directory.
