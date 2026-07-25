@@ -1,0 +1,31 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "immudb",
+  "owner": {
+    "name": "Dennis Zimmer"
+  },
+  "metadata": {
+    "description": "Claude Code plugins backed by embedded immudb — tamper-evident storage with no server, no container.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "immudb-wasm",
+      "source": "./contrib/immudb-wasm/plugin",
+      "description": "Embedded immudb (WASM) as an MCP server: tamper-evident KV + SQL with in-process cryptographic verification, no native binary.",
+      "version": "0.1.0",
+      "author": { "name": "Dennis Zimmer" },
+      "category": "productivity",
+      "keywords": ["immudb", "wasm", "tamper-evident", "verifiable"]
+    },
+    {
+      "name": "immuledger",
+      "source": "./contrib/immuledger",
+      "description": "Records project decisions and CLAUDE.md changes into an in-process immudb (no server, no container), and lets Claude check current work against past decisions. Includes real in-process cryptographic verification.",
+      "version": "0.1.0",
+      "author": { "name": "Dennis Zimmer" },
+      "category": "productivity",
+      "keywords": ["immudb", "audit", "decisions", "adr", "compliance", "tamper-evident", "embedded"]
+    }
+  ]
+}
