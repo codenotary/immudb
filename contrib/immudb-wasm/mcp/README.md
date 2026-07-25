@@ -35,6 +35,14 @@ Unset values passed as an unexpanded `${VAR}` placeholder are ignored.
 
 ## Use as an MCP server (outside the plugin)
 
+One command, no repository clone and no build:
+
+```sh
+claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.1.0
+```
+
+Or declare it in an MCP config file directly:
+
 ```json
 {
   "mcpServers": {
@@ -46,6 +54,10 @@ Unset values passed as an unexpanded `${VAR}` placeholder are ignored.
   }
 }
 ```
+
+The plugin in [`../plugin`](../plugin) does nothing more than this — its
+manifest holds no code, just the same `npx` invocation — so registering the
+server directly is equivalent and skips the git-based plugin transport.
 
 ## Notes
 

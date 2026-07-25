@@ -9,18 +9,41 @@ The plugin is just a manifest: its MCP server runs via **`npx -y immudb-wasm-mcp
 so once that package is published to npm there is **no build step** — installing
 from a marketplace is enough.
 
-## Install (once published)
+## Install
+
+Both packages are published to npm, so nothing is compiled at install time.
+Requires **Node 20+**; no Go, no server, no container.
+
+### Fastest — register the MCP server directly (no clone)
+
+```sh
+claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.1.0
+```
+
+This is the whole plugin. The manifest below contains no code — only a pointer
+to that same npm package — so adding the server directly gets you an identical
+setup without fetching this repository.
+
+### Or install as a plugin (marketplace discoverability)
 
 ```
-/plugin marketplace add codenotary/immudb        # or the marketplace repo
+/plugin marketplace add codenotary/immudb
 /plugin install immudb-wasm
 ```
 
-On first use, `npx` fetches and caches `immudb-wasm-mcp` (which bundles the
-`.wasm`) and runs it. Requires Node 20+ on the machine running Claude Code.
+The plugin transport is git-based, so this clones the repository to deliver a
+few KB of manifest. On a monorepo this size, prefer a sparse checkout:
+
+```
+/plugin marketplace add codenotary/immudb --sparse .claude-plugin contrib/immudb-wasm/plugin
+```
+
+Either way, on first launch `npx` fetches and caches `immudb-wasm-mcp` (which
+bundles the `.wasm`) and runs it.
 
 Data lives in `~/.immudb-wasm-plugin/<project>` (override with
-`IMMUDB_WASM_DATA_DIR`), scoped per project.
+`IMMUDB_WASM_DATA_DIR`), scoped per project. MCP servers start with the
+session, so start a new session after installing.
 
 ## MCP tools
 
@@ -31,10 +54,11 @@ Data lives in `~/.immudb-wasm-plugin/<project>` (override with
 consistency against the current committed root) and returns `verified` plus the
 root hash — no server involved.
 
-## Testing locally before publishing
+## Testing unreleased changes
 
-The manifest points `npx` at the published `immudb-wasm-mcp`. To exercise the
-plugin before publishing, link the packages so `npx` resolves them locally:
+The manifest pins `npx` to a published `immudb-wasm-mcp` version. To exercise
+local edits before releasing them, link the packages so `npx` resolves them
+from the working tree instead:
 
 ```sh
 cd ../node && make -C .. build && npm link           # publishes immudb-wasm to the local link store

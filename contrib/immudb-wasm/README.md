@@ -27,6 +27,17 @@ db.sqlQuery('SELECT id, name FROM items ORDER BY id');
 db.close();
 ```
 
+## Use it from an agent (MCP)
+
+The [`mcp/`](./mcp) package exposes this store as an MCP server, installable
+with no clone and no build:
+
+```sh
+claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.1.0
+```
+
+See [`plugin/`](./plugin) for the equivalent marketplace plugin.
+
 ## API
 
 | Method | Description |
