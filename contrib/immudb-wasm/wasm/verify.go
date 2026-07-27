@@ -19,7 +19,6 @@ limitations under the License.
 package main
 
 import (
-	"crypto/sha256"
 	"errors"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -37,8 +36,9 @@ type verifyResult struct {
 // verifiedGet performs an in-process client-side verified read: it proves the
 // stored value is included in its committing transaction (inclusion proof), then
 // that this transaction is consistent with the store's current committed root
-// (dual proof). Uses store-native proof primitives only — no server, no gRPC,
-// no protobuf.
+// (dual proof). Both proofs always run — verified is never reported off the
+// inclusion proof alone. Uses store-native proof primitives only — no server, no
+// gRPC, no protobuf.
 func (e *engine) verifiedGet(key []byte) (verifyResult, error) {
 	var res verifyResult
 
@@ -63,6 +63,19 @@ func (e *engine) verifiedGet(key []byte) (verifyResult, error) {
 	res.Found = true
 	res.Value = value
 	res.TxID = valRef.Tx()
+
+	// Re-read the committed root now that the value is resolved, so the root the
+	// proof is built against can never be older than the transaction being
+	// proven.
+	lastTxID, lastAlh = e.st.CommittedAlh()
+	res.RootTxID = lastTxID
+	res.RootHash = hexString(lastAlh[:])
+
+	if res.TxID > lastTxID {
+		// The value comes from a transaction the store has not committed yet.
+		// Nothing links it to the current root, so it is not verified.
+		return res, nil
+	}
 
 	// Read the committing transaction and build the entry inclusion proof.
 	tx, err := e.txPool.Alloc()
@@ -91,23 +104,32 @@ func (e *engine) verifiedGet(key []byte) (verifyResult, error) {
 		return res, nil
 	}
 
-	// Link the committing transaction to the current committed root.
-	if res.TxID < lastTxID {
-		targetHdr, err := e.st.ReadTxHeader(lastTxID, false, false)
-		if err != nil {
-			return res, err
-		}
-		dualProof, err := e.st.DualProof(vHdr, targetHdr)
-		if err != nil {
-			return res, err
-		}
-		var srcAlh, tgtAlh [sha256.Size]byte
-		srcAlh = vHdr.Alh()
-		tgtAlh = lastAlh
-		if !store.VerifyDualProof(dualProof, res.TxID, lastTxID, srcAlh, tgtAlh) {
-			res.Verified = false
-			return res, nil
-		}
+	// Link the committing transaction to the current committed root. This runs
+	// unconditionally, including when the value's transaction IS the current root
+	// — the ordinary "just wrote it" case, which previously short-circuited to
+	// verified.
+	//
+	// The inclusion proof above is checked against vHdr.Eh, a field of the very
+	// transaction it is meant to attest, so on its own it says nothing about the
+	// store's state. The dual proof is what ties that header to the committed
+	// root: VerifyDualProof recomputes the Alh of both endpoint headers and
+	// requires them to equal the values passed here, and Alh covers Eh. So even
+	// at source == target this proves the header behind the inclusion proof is
+	// the one the store's committed root names, and additionally checks the
+	// hash tree's last inclusion against the header's BlRoot. (The consistency
+	// check degenerates to a tautology when the endpoints coincide; the Alh
+	// binding and the last-inclusion check are what carry the weight there.)
+	targetHdr, err := e.st.ReadTxHeader(lastTxID, false, false)
+	if err != nil {
+		return res, err
+	}
+	dualProof, err := e.st.DualProof(vHdr, targetHdr)
+	if err != nil {
+		return res, err
+	}
+	if !store.VerifyDualProof(dualProof, res.TxID, lastTxID, vHdr.Alh(), lastAlh) {
+		res.Verified = false
+		return res, nil
 	}
 
 	res.Verified = true

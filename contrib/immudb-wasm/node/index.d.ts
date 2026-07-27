@@ -37,9 +37,15 @@ export interface SqlQueryResult {
   rows: unknown[][];
 }
 
-/** An open immudb store. Single-writer; call close() to release the lock. */
+/**
+ * An open immudb store. Single-writer; call close() to release the lock.
+ *
+ * Entry size limits: keys up to 1023 bytes, values up to 1 MiB. Exceeding
+ * either throws. The limits are fixed when a store is created, so a store
+ * created by an earlier version keeps immudb's 4 KB value default.
+ */
 export interface Db {
-  /** Write key -> value; returns the transaction id. */
+  /** Write key -> value; returns the transaction id. Throws if the key exceeds 1023 bytes or the value exceeds the store's value limit. */
   set(key: Bytes, value: Bytes): number;
   /** Read the latest value for key, or null if absent. */
   get(key: Bytes): GetResult | null;

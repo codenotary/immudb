@@ -55,12 +55,25 @@ func kvKey(key []byte) []byte {
 	return append(append([]byte{}, kvPrefix...), key...)
 }
 
+// maxValueLen is the per-value limit the store is created with. immudb's default
+// is 4 KB, small enough that an ordinary document is rejected with an opaque
+// "max value length exceeded". The limit is written into store metadata at
+// creation and is authoritative on every later open, so raising it here only
+// affects newly created stores; existing ones keep the limit they were created
+// with.
+//
+// Keys are not raised: store.MaxKeyLen (1024) is a hard ceiling in the engine,
+// and kvKey prepends one prefix byte, so a user key is capped at 1023 bytes.
+// Both limits are documented in README.md ("Notes, limits, and trade-offs").
+const maxValueLen = 1 << 20
+
 // openStore opens (creating if needed) the immudb store at path with the
 // multi-indexing required by the SQL engine, initializes the KV index, and
 // registers a handle.
 func openStore(path string) (int32, error) {
 	opts := store.DefaultOptions().
 		WithMultiIndexing(true).
+		WithMaxValueLen(maxValueLen).
 		WithLogger(logger.NewSimpleLoggerWithLevel("immudb-wasm", io.Discard, logger.LogError))
 
 	st, err := store.Open(path, opts)

@@ -12,7 +12,7 @@ from a marketplace is enough.
 ## Install
 
 Both packages are published to npm, so nothing is compiled at install time.
-Requires **Node 20+**; no Go, no server, no container.
+Requires **Node 22+**; no Go, no server, no container.
 
 ### Fastest — register the MCP server directly (no clone)
 

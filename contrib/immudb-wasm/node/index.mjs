@@ -8,13 +8,44 @@ import {
   closeSync,
   unlinkSync,
   existsSync,
-  writeSync,
+  writeFileSync,
   readFileSync,
+  statSync,
+  linkSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Host, toB64, fromB64 } from './host.mjs';
 
 const LOCK = '.immudb-wasm.lock';
+
+// How long to keep trying for the lock before giving up, and how long an
+// unreadable lock file must sit untouched before it is assumed to be debris
+// rather than a lock in the middle of being published.
+const LOCK_TIMEOUT_MS = 5000;
+const LOCK_RETRY_MS = 25;
+const UNREADABLE_LOCK_GRACE_MS = 10_000;
+
+// Node 20's bundled uvwasi aborts the whole process (SIGABRT, an assertion in
+// node_wasi.cc, no catchable JS error) on the poll_oneoff call the Go wasip1
+// runtime makes during store open. Fail with an explanation instead.
+const MIN_NODE_MAJOR = 22;
+
+function assertSupportedNode() {
+  const major = Number.parseInt(process.versions.node.split('.')[0], 10);
+  if (Number.isFinite(major) && major < MIN_NODE_MAJOR) {
+    throw new Error(
+      `immudb-wasm requires Node ${MIN_NODE_MAJOR} or newer (running ${process.versions.node}). ` +
+        `Older versions abort the process inside node:wasi instead of raising an error.`,
+    );
+  }
+}
+
+// sleepSync blocks the thread; open() is a synchronous API, so the retry loop
+// cannot await.
+const sleepBuf = new Int32Array(new SharedArrayBuffer(4));
+function sleepSync(ms) {
+  Atomics.wait(sleepBuf, 0, 0, ms);
+}
 
 // Lock files this process owns, unlinked on exit so a crash/kill (that Node can
 // still trap) does not leave a stale lock wedging the directory.
@@ -51,40 +82,96 @@ function ownerAlive(pid) {
   }
 }
 
-// acquireLock takes the single-writer lock, recording our pid. A lock left by a
-// dead process is treated as stale and broken; a lock held by a live process is
-// rejected.
-function acquireLock(lockPath) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+// publishLock atomically creates lockPath already containing our pid.
+//
+// The obvious openSync(lockPath, 'wx') + writeSync(pid) is not atomic: between
+// the two calls the lock exists but is empty, and a second process reading it
+// there sees no pid, concludes the owner is dead, and unlinks a live lock —
+// after which both processes open the same store and corrupt it. Writing the pid
+// to a private temp file and hard-linking it into place has no such window:
+// link() fails with EEXIST if the lock is held, and when it succeeds the file
+// already has its contents.
+function publishLock(lockPath) {
+  const tmp = `${lockPath}.${process.pid}.${lockSeq++}`;
+  try {
+    writeFileSync(tmp, String(process.pid), { flag: 'wx' });
+    linkSync(tmp, lockPath); // throws EEXIST if another process holds it
+  } finally {
     try {
-      const fd = openSync(lockPath, 'wx'); // fails if it already exists
-      writeSync(fd, String(process.pid));
+      unlinkSync(tmp);
+    } catch {
+      /* nothing to clean up */
+    }
+  }
+  return openSync(lockPath, 'r');
+}
+let lockSeq = 0;
+
+// readLockOwner returns the pid recorded in the lock, or null when the lock
+// cannot be read as a pid — which is NOT the same as "the owner is dead".
+function readLockOwner(lockPath) {
+  try {
+    const pid = Number.parseInt(String(readFileSync(lockPath, 'utf8')).trim(), 10);
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+// ageMs is how long the lock file has sat untouched, or 0 if that can't be told.
+function ageMs(lockPath) {
+  try {
+    return Date.now() - statSync(lockPath).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+// acquireLock takes the single-writer lock, recording our pid. A lock whose
+// recorded owner is gone is broken and reclaimed; a lock held by a live process
+// is rejected. A lock that cannot be read is retried rather than broken, and is
+// only reclaimed once it has sat untouched well past the moment it takes to
+// publish one.
+function acquireLock(lockPath) {
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const fd = publishLock(lockPath);
       heldLocks.add(lockPath);
       installExitHook();
       return fd;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
-      let owner = 0;
-      try {
-        owner = parseInt(String(readFileSync(lockPath, 'utf8')).trim(), 10) || 0;
-      } catch {
-        /* unreadable lock — treat as stale */
-      }
-      if (ownerAlive(owner)) {
-        throw new Error(
-          `immudb store lock is held by a running process (pid ${owner}). ` +
-            `The directory is single-writer; close the other handle first.`,
-        );
-      }
-      // Stale lock from a dead process — break it and retry once.
+    }
+
+    const owner = readLockOwner(lockPath);
+    if (owner !== null && ownerAlive(owner)) {
+      throw new Error(
+        `immudb store lock is held by a running process (pid ${owner}). ` +
+          `The directory is single-writer; close the other handle first.`,
+      );
+    }
+
+    const reclaimable = owner !== null || ageMs(lockPath) > UNREADABLE_LOCK_GRACE_MS;
+    if (reclaimable) {
       try {
         unlinkSync(lockPath);
+        continue; // retry immediately
       } catch {
-        /* raced with another breaker; retry */
+        /* raced with another breaker, or we may not remove it — fall through */
       }
     }
+
+    if (Date.now() >= deadline) {
+      throw new Error(
+        owner === null
+          ? `could not acquire immudb store lock at ${lockPath}: the lock file exists but ` +
+            `records no owner. If no other process is using this directory, remove it.`
+          : `could not acquire immudb store lock at ${lockPath} (held by pid ${owner}).`,
+      );
+    }
+    sleepSync(LOCK_RETRY_MS);
   }
-  throw new Error('could not acquire immudb store lock');
 }
 
 // open opens (creating if needed) an immudb store at `dir` and returns a Db.
@@ -95,6 +182,7 @@ function acquireLock(lockPath) {
 // The optional `hostFactory` is an internal seam for testing failure paths; the
 // public API is just open(dir).
 export function open(dir, { hostFactory = Host.create } = {}) {
+  assertSupportedNode();
   const path = resolve(dir);
   mkdirSync(path, { recursive: true });
 

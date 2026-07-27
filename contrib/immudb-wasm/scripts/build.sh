@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the immudb-wasm reactor from the Go export layer. Requires Go 1.24+.
+# Build the immudb-wasm reactor from the Go export layer. Requires Go 1.25+.
 # Produces node/immudb.wasm (the artifact shipped inside the npm package).
 set -euo pipefail
 cd "$(dirname "$0")/.."
