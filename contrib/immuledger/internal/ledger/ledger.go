@@ -1,3 +1,19 @@
+/*
+Copyright 2026 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://mariadb.com/bsl11/
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 // Package ledger is the immudb-backed data layer for the immuledger plugin.
 //
 // immudb is embedded in-process (via pkg/database): there is no immudb server
@@ -39,7 +55,9 @@ const (
 	statusRetired = "superseded"
 
 	// Field length caps, applied before storage so an oversized input can never
-	// produce an unbounded record.
+	// produce an unbounded record. They must all fit, together with the JSON
+	// envelope, inside storeMaxValueLen below — a record is marshalled into a
+	// single immudb value.
 	maxTitle        = 512
 	maxRationale    = 16384
 	maxAlternatives = 8192
@@ -49,6 +67,14 @@ const (
 	maxPayload      = 16384
 	maxPath         = 2048
 	maxHash         = 128
+
+	// storeMaxValueLen is the per-value ceiling the store is created with.
+	// immudb's default is 4 KB (store.DefaultMaxValueLen), which is smaller than
+	// the field caps above, so an ordinary ADR-length rationale would be
+	// rejected at commit time. The limit is written into store metadata at
+	// creation and is authoritative on every later open, so this only applies to
+	// ledgers created from here on.
+	storeMaxValueLen = 1 << 20
 )
 
 // scanBatch is the page size for full scans (we paginate to exhaustion). It is a
@@ -155,7 +181,9 @@ func (l *Ledger) withDB(ctx context.Context, fn func(ctx context.Context, db dat
 	defer release()
 
 	log := logger.NewSimpleLoggerWithLevel("immuledger", os.Stderr, logger.LogError)
-	opts := database.DefaultOptions().WithDBRootPath(l.dataDir)
+	opts := database.DefaultOptions().
+		WithDBRootPath(l.dataDir).
+		WithStoreOptions(store.DefaultOptions().WithMaxValueLen(storeMaxValueLen))
 
 	var db database.DB
 	if _, statErr := os.Stat(filepath.Join(l.dataDir, dbName)); errors.Is(statErr, os.ErrNotExist) {
@@ -254,6 +282,16 @@ func execAll(ctx context.Context, db database.DB, pairs ...kvPair) error {
 		}})
 	}
 	_, err := db.ExecAll(ctx, &schema.ExecAllRequest{Operations: ops})
+	if errors.Is(err, store.ErrMaxValueLenExceeded) {
+		// The store's per-value limit is frozen at creation, so a ledger created
+		// before storeMaxValueLen was set still enforces immudb's 4 KB default
+		// and cannot be raised in place. Say so, rather than let this surface as
+		// an opaque "could not reach the ledger".
+		return fmt.Errorf("%w: this record is larger than the ledger's maximum value size. "+
+			"Ledgers created before immuledger set an explicit limit are capped at 4 KB per record "+
+			"and that limit cannot be raised in place; shorten the rationale, alternatives or payload, "+
+			"or start a fresh IMMULEDGER_DATA_DIR", err)
+	}
 	return err
 }
 
@@ -273,6 +311,33 @@ func readSeq(ctx context.Context, db database.DB, project, kind string) (int, er
 		return 0, fmt.Errorf("corrupted %s sequence for project %q: %q", kind, project, string(v))
 	}
 	return n, nil
+}
+
+// decodeDecision and decodeEvent turn a scanned entry back into a record. Like
+// readSeq, an unreadable value is fatal rather than skipped: silently dropping a
+// record would erase it from every read path — the listings, the search, the
+// counts — and present the remaining ones as a complete ledger, which is exactly
+// what a tamper-evident record exists to prevent.
+func decodeDecision(e *schema.Entry) (Decision, error) {
+	var d Decision
+	if err := json.Unmarshal(e.Value, &d); err != nil {
+		return d, fmt.Errorf("corrupted decision record at key %q: %w", string(e.Key), err)
+	}
+	if d.ID == 0 {
+		return d, fmt.Errorf("corrupted decision record at key %q: missing id", string(e.Key))
+	}
+	return d, nil
+}
+
+func decodeEvent(e *schema.Entry) (Event, error) {
+	var evt Event
+	if err := json.Unmarshal(e.Value, &evt); err != nil {
+		return evt, fmt.Errorf("corrupted event record at key %q: %w", string(e.Key), err)
+	}
+	if evt.ID == 0 {
+		return evt, fmt.Errorf("corrupted event record at key %q: missing id", string(e.Key))
+	}
+	return evt, nil
 }
 
 // --- decisions ------------------------------------------------------------
@@ -412,10 +477,11 @@ func (l *Ledger) loadDecisions(ctx context.Context, project string) ([]Decision,
 			return err
 		}
 		for _, e := range entries {
-			var d Decision
-			if json.Unmarshal(e.Value, &d) == nil && d.ID != 0 {
-				out = append(out, d)
+			d, derr := decodeDecision(e)
+			if derr != nil {
+				return derr
 			}
+			out = append(out, d)
 		}
 		return nil
 	})
@@ -434,12 +500,13 @@ func (l *Ledger) Stats(ctx context.Context, project string) (Stats, error) {
 			return err
 		}
 		for _, e := range dec {
-			var d Decision
-			if json.Unmarshal(e.Value, &d) == nil && d.ID != 0 {
-				s.DecisionsTotal++
-				if strings.EqualFold(d.Status, statusActive) {
-					s.DecisionsActive++
-				}
+			d, derr := decodeDecision(e)
+			if derr != nil {
+				return derr
+			}
+			s.DecisionsTotal++
+			if strings.EqualFold(d.Status, statusActive) {
+				s.DecisionsActive++
 			}
 		}
 		ev, err := scanAll(ctx, db, eventPrefix(project))
@@ -447,10 +514,10 @@ func (l *Ledger) Stats(ctx context.Context, project string) (Stats, error) {
 			return err
 		}
 		for _, e := range ev {
-			var evt Event
-			if json.Unmarshal(e.Value, &evt) == nil && evt.ID != 0 {
-				s.EventsTotal++
+			if _, derr := decodeEvent(e); derr != nil {
+				return derr
 			}
+			s.EventsTotal++
 		}
 		return nil
 	})
@@ -508,11 +575,12 @@ func (l *Ledger) ListEvents(ctx context.Context, project, eventType string, limi
 			return err
 		}
 		for _, e := range entries {
-			var evt Event
-			if json.Unmarshal(e.Value, &evt) == nil && evt.ID != 0 {
-				if eventType == "" || strings.EqualFold(evt.Type, eventType) {
-					out = append(out, evt)
-				}
+			evt, derr := decodeEvent(e)
+			if derr != nil {
+				return derr
+			}
+			if eventType == "" || strings.EqualFold(evt.Type, eventType) {
+				out = append(out, evt)
 			}
 		}
 		return nil

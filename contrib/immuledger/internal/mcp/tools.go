@@ -1,3 +1,19 @@
+/*
+Copyright 2026 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://mariadb.com/bsl11/
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 // Package mcp registers the immuledger MCP tools and delegates them to the
 // embedded-immudb ledger. The tool names match the reference design so the
 // slash-command prompts work unchanged.
@@ -6,6 +22,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,6 +31,7 @@ import (
 
 	"github.com/codenotary/immudb/contrib/immuledger/internal/ledger"
 	"github.com/codenotary/immudb/contrib/immuledger/internal/project"
+	"github.com/codenotary/immudb/embedded/store"
 )
 
 // Version is reported to MCP clients.
@@ -225,22 +243,57 @@ func register(s *server.MCPServer, l *ledger.Ledger) {
 	})
 
 	s.AddTool(mcp.NewTool("verify_decision",
-		mcp.WithDescription("Cryptographically verify a decision in-process: checks its inclusion proof and a dual proof linking it to the ledger's current root. Returns verified true/false and the root anchor. Optionally pass expected_root to also confirm the current root matches an externally recorded anchor (detects a replaced data directory)."),
+		mcp.WithDescription("Cryptographically verify a decision in-process: checks its inclusion proof and a dual proof linking it to the ledger's current root. Returns verified true/false and the root anchor. Optionally pass an externally recorded anchor as expected_root plus expected_root_tx_id (both are returned together by ledger_status) to also prove the current root is a consistent extension of that anchor, which detects a replaced data directory."),
 		mcp.WithNumber("id", mcp.Required(), mcp.Description("Decision id to verify.")),
-		mcp.WithString("expected_root", mcp.Description("Optional expected current root hash (hex) to pin an external anchor.")),
+		mcp.WithString("expected_root", mcp.Description("Optional externally recorded root hash (hex) to pin as an anchor.")),
+		mcp.WithNumber("expected_root_tx_id", mcp.Description("Transaction id the expected_root was recorded at. Required for an anchor taken before later writes: without it only equality with the current root can be checked, which no longer holds once anything has been appended.")),
 		mcp.WithString("project", mcp.Description("Override the auto-detected project name.")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id := req.GetInt("id", 0)
 		if id <= 0 {
 			return mcp.NewToolResultError("id is required"), nil
 		}
-		res, err := l.VerifyDecision(ctx, proj(req), id, req.GetString("expected_root", ""))
+		anchorTx := req.GetInt("expected_root_tx_id", 0)
+		if anchorTx < 0 {
+			return mcp.NewToolResultError("expected_root_tx_id must not be negative"), nil
+		}
+		res, err := l.VerifyDecision(ctx, proj(req), id, req.GetString("expected_root", ""), uint64(anchorTx))
 		if err != nil {
 			return errResult(err), nil
 		}
 		return ok(map[string]any{"ok": true, "verified": res.Verified, "decision_id": res.DecisionID,
 			"tx_id": res.TxID, "root_tx_id": res.RootTxID, "root_hash": res.RootHash, "detail": res.Detail})
 	})
+}
+
+// maxKeywords bounds how many words of a task description are searched for.
+const maxKeywords = 12
+
+// taskKeywords extracts the words a task description is searched by, in first
+// appearance order and deduplicated.
+//
+// The order matters: ranging over a map to pick the first maxKeywords words
+// would hand back a different set on every call, because Go randomizes map
+// iteration order. That made check_compliance non-deterministic — the same
+// question could surface the decision the work violates on one run and omit it
+// on the next, which is precisely the failure the tool exists to prevent.
+func taskKeywords(task string, max int) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, w := range strings.FieldsFunc(task, func(r rune) bool {
+		return r == ' ' || r == ',' || r == '.' || r == '\n'
+	}) {
+		w = strings.ToLower(w)
+		if len(w) <= 3 || seen[w] {
+			continue
+		}
+		seen[w] = true
+		out = append(out, w)
+		if len(out) >= max {
+			break
+		}
+	}
+	return out
 }
 
 // relevantDecisions surfaces active/superseded decisions whose text overlaps the
@@ -251,18 +304,7 @@ func relevantDecisions(ctx context.Context, l *ledger.Ledger, project, task stri
 	}
 	seen := map[int]bool{}
 	var out []ledger.Decision
-	words := map[string]bool{}
-	for _, w := range strings.FieldsFunc(task, func(r rune) bool { return r == ' ' || r == ',' || r == '.' || r == '\n' }) {
-		if len(w) > 3 {
-			words[strings.ToLower(w)] = true
-		}
-	}
-	n := 0
-	for w := range words {
-		if n >= 12 {
-			break
-		}
-		n++
+	for _, w := range taskKeywords(task, maxKeywords) {
 		rows, err := l.SearchDecisions(ctx, project, w, 10)
 		if err != nil {
 			continue
@@ -285,12 +327,37 @@ func ok(payload map[string]any) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(string(b)), nil
 }
 
+// errResult reports a ledger failure. It must go back as a tool *error*: with
+// only "ok": false in an otherwise successful result the caller is being told a
+// decision was recorded when nothing was written, which defeats the point of an
+// audit trail. NewToolResultError sets IsError on the result; NewToolResultText
+// does not.
 func errResult(err error) *mcp.CallToolResult {
 	payload := map[string]any{
 		"ok":    false,
 		"error": err.Error(),
-		"hint":  "Could not reach the embedded immudb ledger. Check IMMULEDGER_DATA_DIR is writable and that no other immuledger process is stuck holding the lock.",
+		"hint":  errHint(err),
 	}
-	b, _ := json.MarshalIndent(payload, "", "  ")
-	return mcp.NewToolResultText(string(b))
+	b, merr := json.MarshalIndent(payload, "", "  ")
+	if merr != nil {
+		return mcp.NewToolResultError(err.Error())
+	}
+	return mcp.NewToolResultError(string(b))
+}
+
+// errHint gives the caller something actionable. Blaming connectivity for every
+// failure is worse than saying nothing — an oversized record or a corrupted
+// entry has nothing to do with IMMULEDGER_DATA_DIR being writable.
+func errHint(err error) string {
+	msg := err.Error()
+	switch {
+	case errors.Is(err, store.ErrMaxValueLenExceeded):
+		return "The record exceeds this ledger's per-value size limit. Shorten the rationale, alternatives or payload, or start a fresh IMMULEDGER_DATA_DIR (the limit is fixed when a ledger is created)."
+	case strings.Contains(msg, "could not acquire ledger lock"):
+		return "Another immuledger process (an MCP server, a SessionStart digest, or a parallel session) is holding the ledger lock. Retry shortly; if it persists, remove a stale .immuledger.lock in IMMULEDGER_DATA_DIR."
+	case strings.Contains(msg, "corrupted"):
+		return "The ledger contains a record that cannot be read back. This is reported rather than skipped so a missing record is never presented as a complete history — inspect IMMULEDGER_DATA_DIR and restore from a backup."
+	default:
+		return "Could not complete the ledger operation. Check IMMULEDGER_DATA_DIR exists and is writable, and that no other immuledger process is stuck holding the lock."
+	}
 }

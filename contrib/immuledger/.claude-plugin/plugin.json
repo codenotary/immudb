@@ -7,11 +7,11 @@
   },
   "homepage": "https://github.com/codenotary/immudb/tree/master/contrib/immuledger",
   "repository": "https://github.com/codenotary/immudb",
-  "license": "MIT",
+  "license": "BUSL-1.1",
   "keywords": ["immudb", "audit", "decisions", "adr", "compliance", "ledger", "tamper-evident", "embedded"],
   "mcpServers": {
     "immuledger": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/bin/immuledger",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/immuledger.sh",
       "args": ["serve"],
       "env": {
         "PROJECT_DIR": "${CLAUDE_PROJECT_DIR}",

@@ -26,6 +26,7 @@ A normal database would let you store decisions — but also let anyone quietly 
 ## Requirements
 
 - **Go 1.25+** on the machine running Claude Code (to build the plugin binary once).
+- A POSIX shell for the launcher script — on Windows, build `bin/immuledger.exe` and point the plugin at it directly.
 - No immudb server, no container, no other services.
 
 ## Setup
@@ -35,14 +36,20 @@ A normal database would let you store decisions — but also let anyone quietly 
    /plugin marketplace add /path/to/immudb/contrib/immuledger
    /plugin install immuledger
    ```
-2. **Build the binary** (parallels a `pip install` step):
-   ```
-   cd /path/to/immudb/contrib/immuledger
-   make build            # or: ./scripts/build.sh
-   ```
-   This produces `bin/immuledger`, which the plugin's MCP server and hooks invoke.
-3. (Optional) set `IMMULEDGER_DATA_DIR` to choose where the ledger lives (default `~/.immuledger`). See `.env.example`.
-4. Start a session and run `/verify` (or `/decision` once) — the ledger is created automatically on first use.
+2. (Optional) set `IMMULEDGER_DATA_DIR` to choose where the ledger lives (default `~/.immuledger`). See `.env.example`.
+3. Start a session and run `/verify` (or `/decision` once) — the ledger is created automatically on first use.
+
+The plugin's MCP server and hooks go through `scripts/immuledger.sh`, which builds
+`bin/immuledger` the first time it is needed (`bin/` is a build artifact and is not
+committed) and execs it directly from then on. To build it up front instead:
+
+```
+cd /path/to/immudb/contrib/immuledger
+make build            # or: ./scripts/build.sh
+```
+
+If Go is not installed the launcher says so on stderr and exits non-zero rather than
+failing silently.
 
 ## MCP tools exposed
 
@@ -67,9 +74,19 @@ If a decision's bytes were tampered with, step 3 fails and `verified` is `false`
 verification proves the ledger is internally consistent — a record can't be
 altered in place undetected. It does not, by itself, detect wholesale
 *replacement* of the data directory with a different but internally consistent
-store. To guard against that, record a root out of band and pass it to
-`verify_decision` as `expected_root` (hex); verification then also requires the
-current root to match your pinned anchor.
+store.
+
+To guard against that, record an anchor out of band — `ledger_status` returns
+`root_tx_id` and `root_hash` together — and pass **both** back to
+`verify_decision` as `expected_root_tx_id` and `expected_root`. Verification then
+also proves, with a dual proof from that transaction to the current one, that the
+ledger's current root is a consistent *extension* of your anchor.
+
+Pin both values, not just the hash. Every append advances the root, so an anchor
+compared for equality against the current root stops matching the moment the next
+decision or CLAUDE.md event lands — which is why passing `expected_root` on its
+own only works if nothing has been written since, and reports a mismatch (with an
+explanation) otherwise.
 
 ## Development
 
@@ -108,7 +125,12 @@ The plugin is a self-contained Go module that builds against the immudb checkout
 ## Limitations (v0.1)
 
 - Key-value storage with per-project sequence ids; there is no SQL query layer yet.
+- A record is one immudb value, so it is bounded by the store's per-value limit. New ledgers are created with a 1 MiB limit, comfortably above the field caps (16 KB rationale, 8 KB alternatives, 16 KB payload). That limit is fixed when a ledger is created and cannot be raised in place, so a ledger created before this was set keeps immudb's 4 KB default — oversized records there fail with an explicit message rather than being silently truncated.
+- A record that cannot be parsed back is reported as an error rather than skipped, so a corrupted entry can never quietly disappear from the listings while the rest is presented as a complete history.
 - Decision ids are read/allocated assuming low write concurrency (a single dev session at a time), which fits the intended use; the file lock serializes concurrent processes.
 - A focused starting point meant to be extended (richer compliance heuristics, SQL-backed querying, more event types).
 
-MIT licensed.
+## License
+
+BUSL-1.1 — immuledger links the immudb engine into its binary, so it carries the
+same license as immudb. See `LICENSE`.

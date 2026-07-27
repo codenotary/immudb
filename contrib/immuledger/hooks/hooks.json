@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/immuledger\" digest"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/immuledger.sh\" digest"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/immuledger\" record-claudemd"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/immuledger.sh\" record-claudemd"
           }
         ]
       }

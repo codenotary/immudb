@@ -17,11 +17,18 @@ Decision id (may be empty): "$ARGUMENTS"
    Report whether it returned `verified: true`, and relay the `detail` — this is
    an actual in-process proof (inclusion proof + dual proof against the current
    root), performed by embedded immudb with no server involved.
-3. Explain briefly: immudb keeps every version of every record in a
+3. If the user has an anchor recorded out of band (a `root_hash` with the
+   `root_tx_id` it was taken at), pass both to `verify_decision` as
+   `expected_root` and `expected_root_tx_id`. That additionally proves the
+   current root is a consistent extension of their anchor, which detects a
+   replaced data directory. Do not pass `expected_root` without its tx id
+   unless nothing has been written since it was taken — every append advances
+   the root, so a bare hash will not match.
+4. Explain briefly: immudb keeps every version of every record in a
    tamper-evident Merkle tree, so a silently altered decision would fail
    `verify_decision`. Unlike a pg-wire connection to a running immudb, this
    plugin embeds immudb and can validate the Merkle proof client-side itself.
-4. Optionally, if the user asks to see recent changes, call `list_events` to
+5. Optionally, if the user asks to see recent changes, call `list_events` to
    show recorded CLAUDE.md changes and other events.
 
 Keep the summary tight and factual. State plainly whether the proof passed.

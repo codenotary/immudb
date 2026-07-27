@@ -1,12 +1,31 @@
+/*
+Copyright 2026 Codenotary Inc. All rights reserved.
+
+SPDX-License-Identifier: BUSL-1.1
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://mariadb.com/bsl11/
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 // Package project derives a stable, human-friendly identifier for the repo the
 // user is working in, so one immuledger data directory can serve many projects.
 package project
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 // Name returns a stable project identifier: the git repository's top-level
@@ -76,22 +95,53 @@ func firstNonEmpty(vals ...string) string {
 // produce unbounded keys.
 const maxProjectLen = 128
 
+// disambiguatorLen is the length of the "-xxxxxxxx" suffix appended to any name
+// that could not be represented losslessly.
+const disambiguatorLen = 9
+
 // Sanitize keeps a project name usable and safe as a key segment: it strips the
 // '/' separator used to build ledger keys, removes control characters, trims,
 // and length-limits. Applied to both auto-detected names and caller overrides.
+//
+// Every project's records and its id sequence live under the same
+// "immuledger/<project>/..." prefix, so two distinct names must never collapse
+// into the same segment — that would merge separate ledgers. Whenever the
+// mapping is lossy (a character was replaced, or the name had to be truncated)
+// a short digest of the original is appended, so "team/billing" and
+// "team_billing" stay distinct and any two long names that share a prefix do
+// too. Clean, short names — the overwhelmingly common auto-detected case — are
+// returned unchanged.
 func Sanitize(name string) string {
-	name = strings.Map(func(r rune) rune {
+	original := strings.TrimSpace(name)
+	if original == "" {
+		return "default"
+	}
+
+	safe := strings.Map(func(r rune) rune {
 		if r == '/' || r == '\\' || r < 0x20 {
 			return '_'
 		}
 		return r
-	}, name)
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "default"
+	}, original)
+
+	if safe == original && len(safe) <= maxProjectLen {
+		return safe
 	}
-	if len(name) > maxProjectLen {
-		name = name[:maxProjectLen]
+
+	// Lossy: truncate on a rune boundary (a byte-slice can cut a multi-byte
+	// rune and yield invalid UTF-8) and tag with a digest of the original.
+	sum := sha256.Sum256([]byte(original))
+	return truncateRunes(safe, maxProjectLen-disambiguatorLen) + "-" + hex.EncodeToString(sum[:])[:8]
+}
+
+// truncateRunes shortens s to at most max bytes without splitting a rune.
+func truncateRunes(s string, max int) string {
+	if len(s) <= max {
+		return s
 	}
-	return name
+	s = s[:max]
+	for len(s) > 0 && !utf8.ValidString(s) {
+		s = s[:len(s)-1]
+	}
+	return s
 }
