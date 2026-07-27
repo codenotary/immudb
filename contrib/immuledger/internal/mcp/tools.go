@@ -35,7 +35,7 @@ import (
 )
 
 // Version is reported to MCP clients.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // NewServer builds the MCP server backed by the given ledger.
 func NewServer(l *ledger.Ledger) *server.MCPServer {
