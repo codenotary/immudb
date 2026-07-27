@@ -99,16 +99,27 @@ engine, _ := sql.NewEngine(st, sql.DefaultOptions().WithPrefix([]byte("sql")))
 
 (Layer A's `NewDB`/`OpenDB` already sets this for you.)
 
-## Important: single-writer, one process per data directory
+## Important: single-writer — immudb does not lock the data directory
 
-A data directory is locked by the process that opens it. **Only one process may
-open a given directory at a time.** Within that process the store is safe for
-concurrent use by multiple goroutines.
+A data directory must be opened by **one process at a time**. Within that process
+the store is safe for concurrent use by multiple goroutines.
 
-This is exactly what you want for true in-process embedding. But if your host
-can launch **several processes** that would each try to open the *same*
-directory, they will conflict — give each its own directory, or funnel all
-access through a single long-lived process.
+**immudb does not enforce this for you.** There is no lock file and no `flock`:
+calling `store.Open` (or `NewDB`/`OpenDB`) on a directory another live process
+already has open **succeeds**, and both processes will then append to the same
+transaction log and index. The result is silent corruption — the very failure
+this constraint exists to prevent. Nothing will warn you.
+
+Mutual exclusion is the embedder's responsibility. Either:
+
+- give each process its own directory;
+- funnel all access through a single long-lived process; or
+- take your own cross-process lock around opening the store.
+
+For a worked example of the last option, see
+[`contrib/immuledger/internal/ledger/lock_unix.go`](../contrib/immuledger/internal/ledger/lock_unix.go),
+which takes an advisory `flock` on a sidecar lock file before opening the store
+and releases it on close.
 
 ## Data directory layout
 
