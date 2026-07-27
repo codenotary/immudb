@@ -13,7 +13,7 @@
       "name": "immudb-wasm",
       "source": "./contrib/immudb-wasm/plugin",
       "description": "Embedded immudb (WASM) as an MCP server: tamper-evident KV + SQL with in-process cryptographic verification, no native binary.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": { "name": "Dennis Zimmer" },
       "category": "productivity",
       "keywords": ["immudb", "wasm", "tamper-evident", "verifiable"]

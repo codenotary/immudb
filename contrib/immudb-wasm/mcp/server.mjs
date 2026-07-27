@@ -12,6 +12,7 @@ import { open } from 'immudb-wasm';
 import { homedir } from 'node:os';
 import { join, basename, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 
 // env returns an environment value unless it is empty or an unexpanded
 // "${VAR}" placeholder (which the plugin runtime passes when the var is unset).
@@ -21,19 +22,33 @@ function env(name) {
   return v;
 }
 
+const dataRoot = env('IMMUDB_WASM_DATA_DIR') || join(homedir(), '.immudb-wasm-plugin');
+
 // Project scope: the project directory's name, plus a short digest of its full
 // path. One data root serves many projects, and the digest is what keeps two
 // unrelated checkouts that happen to share a folder name (two "app" directories)
 // from landing on the same store — and therefore contending for the same
 // single-writer lock.
+//
+// Releases before 0.2.0 scoped by bare basename. A store already sitting at the
+// old path keeps being used, so upgrading never strands a ledger that a user
+// still has; only projects with no existing store get the disambiguated name.
 function projectName() {
-  const dir = resolve(env('PROJECT_DIR') || process.cwd());
-  const base = basename(dir.replace(/[/\\]+$/, '')) || 'default';
-  const digest = createHash('sha256').update(dir).digest('hex').slice(0, 8);
-  return `${base}-${digest}`;
+  const src = resolve(env('PROJECT_DIR') || process.cwd());
+  const legacy = basename(src.replace(/[/\\]+$/, '')) || 'default';
+  const scoped = `${legacy}-${createHash('sha256').update(src).digest('hex').slice(0, 8)}`;
+
+  if (!existsSync(join(dataRoot, scoped)) && existsSync(join(dataRoot, legacy))) {
+    process.stderr.write(
+      `[immudb-wasm] using the pre-0.2.0 data directory ${join(dataRoot, legacy)}. ` +
+        `Newer installs scope by project path to avoid two same-named projects sharing one store; ` +
+        `move or remove that directory to adopt the new layout.\n`,
+    );
+    return legacy;
+  }
+  return scoped;
 }
 
-const dataRoot = env('IMMUDB_WASM_DATA_DIR') || join(homedir(), '.immudb-wasm-plugin');
 const project = projectName();
 const dir = join(dataRoot, project);
 
@@ -83,7 +98,7 @@ const guard = (fn) => async (args) => {
   }
 };
 
-const server = new McpServer({ name: 'immudb-wasm', version: '0.1.0' });
+const server = new McpServer({ name: 'immudb-wasm', version: '0.2.0' });
 
 server.registerTool(
   'immudb_set',

@@ -17,7 +17,7 @@ Requires **Node 22+**; no Go, no server, no container.
 ### Fastest — register the MCP server directly (no clone)
 
 ```sh
-claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.1.0
+claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.2.0
 ```
 
 This is the whole plugin. The manifest below contains no code — only a pointer

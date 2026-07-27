@@ -1,7 +1,7 @@
 {
   "name": "immudb-wasm",
   "description": "A tamper-evident key-value + SQL store for Claude Code, backed by embedded immudb compiled to WebAssembly. Pure JS + one .wasm — no native binary, no server, no container. Exposes verified (cryptographically proven) reads in-process.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Dennis Zimmer"
   },
@@ -10,7 +10,7 @@
   "mcpServers": {
     "immudb-wasm": {
       "command": "npx",
-      "args": ["-y", "immudb-wasm-mcp@0.1.0"],
+      "args": ["-y", "immudb-wasm-mcp@0.2.0"],
       "env": {
         "PROJECT_DIR": "${CLAUDE_PROJECT_DIR}",
         "IMMUDB_WASM_DATA_DIR": "${IMMUDB_WASM_DATA_DIR}"

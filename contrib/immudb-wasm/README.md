@@ -33,7 +33,7 @@ The [`mcp/`](./mcp) package exposes this store as an MCP server, installable
 with no clone and no build:
 
 ```sh
-claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.1.0
+claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.2.0
 ```
 
 See [`plugin/`](./plugin) for the equivalent marketplace plugin.

@@ -1,6 +1,6 @@
 {
   "name": "immudb-wasm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Embed immudb in Node.js, in-process, via WASM + WASI — an append-only, cryptographically verifiable KV + SQL store. No server, no container, no native prebuilds.",
   "type": "module",
   "main": "index.mjs",

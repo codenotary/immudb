@@ -29,7 +29,14 @@ root hash.
 | Env var | Meaning | Default |
 |---|---|---|
 | `IMMUDB_WASM_DATA_DIR` | Root directory for stores | `~/.immudb-wasm-plugin` |
-| `PROJECT_DIR` | Project whose basename scopes the store | current working dir |
+| `PROJECT_DIR` | Project that scopes the store | current working dir |
+
+Each project gets its own store under `IMMUDB_WASM_DATA_DIR`, named
+`<basename>-<digest of the project path>`. The digest keeps two unrelated
+checkouts that happen to share a folder name from landing on the same
+single-writer store. Releases before 0.2.0 used the bare basename; a store
+already sitting at that older path keeps being used, so upgrading never strands
+an existing ledger.
 
 Unset values passed as an unexpanded `${VAR}` placeholder are ignored.
 
@@ -38,7 +45,7 @@ Unset values passed as an unexpanded `${VAR}` placeholder are ignored.
 One command, no repository clone and no build:
 
 ```sh
-claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.1.0
+claude mcp add immudb-wasm -- npx -y immudb-wasm-mcp@0.2.0
 ```
 
 Or declare it in an MCP config file directly:
@@ -48,7 +55,7 @@ Or declare it in an MCP config file directly:
   "mcpServers": {
     "immudb-wasm": {
       "command": "npx",
-      "args": ["-y", "immudb-wasm-mcp@0.1.0"],
+      "args": ["-y", "immudb-wasm-mcp@0.2.0"],
       "env": { "IMMUDB_WASM_DATA_DIR": "/path/to/data" }
     }
   }
