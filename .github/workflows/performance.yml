@@ -95,7 +95,7 @@ jobs:
           exit 0
       - name: Upload perf-delta report
         if: always() && hashFiles('perf-delta.md') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perf-delta Report (${{ matrix.target.name }})
           path: perf-delta.md
