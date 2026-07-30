@@ -1202,7 +1202,13 @@ func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultC
 	}
 
 	ntx, _, err := s.db.SQLExecPrepared(s.ctx, tx, []sql.SQLStmt{st}, params)
-	s.tx = ntx
+
+	// Same orphaning hazard as the session transaction path: a statement rejected
+	// before execution returns no transaction while leaving the ongoing one open,
+	// so replacing the reference would leak its snapshots.
+	if ntx != nil || tx == nil || tx.Closed() {
+		s.tx = ntx
+	}
 
 	return err
 }
