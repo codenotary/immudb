@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.MIN_SUPPORTED_GO_VERSION }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: make all
 
   gosec:
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run Gosec Security Scanner
         uses: securego/gosec@v2.28.0
         with:
@@ -54,7 +54,7 @@ jobs:
         - uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
-        - uses: actions/checkout@v6
+        - uses: actions/checkout@v7
         - name: Build binaries
           run: WEBCONSOLE=default SWAGGER=true make dist
         - id: list-binaries
@@ -160,7 +160,7 @@ jobs:
     - uses: actions/setup-go@v7
       with:
         go-version: ${{ env.GO_VERSION }}
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Run KV stress test
       run: |
         go run ./tools/testing/stress_tool_test_kv/ \
@@ -229,7 +229,7 @@ jobs:
         ALMA_VERSION: almalinux-8-minimal
         PLATFORMS: linux/amd64,linux/arm64
       steps:
-        - uses: actions/checkout@v6
+        - uses: actions/checkout@v7
 
         - name: Set up QEMU
           uses: docker/setup-qemu-action@v4
@@ -294,7 +294,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: |
           # Spawn minio docker container in the background
           docker run -d -t -p 9000:9000 --name minio \
