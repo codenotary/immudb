@@ -17,7 +17,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jaswdr/faker v1.19.1
 	github.com/lib/pq v1.10.9
-	github.com/mattn/goveralls v0.0.11
+	github.com/mattn/goveralls v0.0.12
 	github.com/o1egl/paseto v1.0.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/ory/go-acc v0.2.8
