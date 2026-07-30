@@ -34,7 +34,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Test
         run: make test
@@ -98,7 +98,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: securego/gosec@v2.28.0
         with:
           args: -fmt=json -out=results-$JOB_ID.json -no-fail ./...
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           set -o pipefail
@@ -169,7 +169,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - run: ./perf-test-suite > perf-test-results.json
       - name: Upload test results
