@@ -6,7 +6,6 @@ updates:
       - "/test/columns"
       - "/test/e2e/truncation"
       - "/test/document_storage_tests/documents_tests"
-      - "/test/document_storage_tests/documents_tests_deprecated"
       - "/tools/mkdb"
       - "/docs/security/vulnerabilities/linear-fake/go"
       - "/docs/security/vulnerabilities/linear-fake/server"
