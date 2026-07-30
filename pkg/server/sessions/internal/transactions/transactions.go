@@ -121,7 +121,17 @@ func (tx *transaction) SQLExec(ctx context.Context, request *schema.SQLExecReque
 		return sql.ErrNoOngoingTx
 	}
 
-	tx.sqlTx, _, err = tx.db.SQLExec(ctx, tx.sqlTx, request)
+	ntx, _, err := tx.db.SQLExec(ctx, tx.sqlTx, request)
+
+	// A statement rejected before the engine executes it - a parse error, for
+	// instance - returns no transaction while leaving the ongoing one open and
+	// uncancelled. Overwriting the reference in that case orphans it along with
+	// the snapshots it holds, which are then never released. On execution errors
+	// the engine cancels the transaction itself, so the reference is replaced as
+	// usual and the session drops it.
+	if ntx != nil || tx.sqlTx.Closed() {
+		tx.sqlTx = ntx
+	}
 
 	return err
 }

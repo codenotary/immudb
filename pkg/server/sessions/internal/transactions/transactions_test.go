@@ -23,6 +23,8 @@ import (
 
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/stretchr/testify/require"
 )
@@ -54,4 +56,68 @@ func TestNewTx(t *testing.T) {
 
 	_, err = tx.Commit(context.Background())
 	require.ErrorIs(t, err, sql.ErrNoOngoingTx)
+}
+
+// A statement that fails before reaching the engine (a parse error, for example)
+// must leave the ongoing transaction untouched: the engine never got a chance to
+// cancel it, so dropping the reference here would orphan it together with the
+// snapshots it holds. See issue #2127.
+func TestSQLExecPreExecutionErrorKeepsTxOpen(t *testing.T) {
+	db, err := database.NewDB("db1", nil, database.DefaultOptions().WithDBRootPath(t.TempDir()), logger.NewSimpleLogger("logger", os.Stdout))
+	require.NoError(t, err)
+
+	tx, err := NewTransaction(context.Background(), sql.DefaultTxOptions(), db, "session1")
+	require.NoError(t, err)
+
+	err = tx.SQLExec(context.Background(), &schema.SQLExecRequest{Sql: "THIS IS NOT SQL"})
+	require.Error(t, err)
+
+	require.False(t, tx.IsClosed(), "a parse error must not close the transaction")
+
+	// the client can still roll back, which is what releases the snapshots
+	require.NoError(t, tx.Rollback())
+	require.True(t, tx.IsClosed())
+}
+
+// An execution-stage error is cancelled by the engine itself, so the transaction
+// is expected to end up closed. Pinned here so the fix for #2127 does not quietly
+// change this path.
+func TestSQLExecExecutionErrorClosesTx(t *testing.T) {
+	db, err := database.NewDB("db1", nil, database.DefaultOptions().WithDBRootPath(t.TempDir()), logger.NewSimpleLogger("logger", os.Stdout))
+	require.NoError(t, err)
+
+	tx, err := NewTransaction(context.Background(), sql.DefaultTxOptions(), db, "session1")
+	require.NoError(t, err)
+
+	err = tx.SQLExec(context.Background(), &schema.SQLExecRequest{Sql: "INSERT INTO nonexistent(id) VALUES (1);"})
+	require.Error(t, err)
+
+	require.True(t, tx.IsClosed(), "the engine cancels the tx on execution errors")
+	require.ErrorIs(t, tx.Rollback(), sql.ErrNoOngoingTx)
+}
+
+// Repeated pre-execution failures used to leak one tbtree snapshot each, so after
+// maxActiveSnapshots of them no further transaction could be opened until the
+// server was restarted. See issue #2127.
+func TestSQLExecPreExecutionErrorDoesNotLeakSnapshots(t *testing.T) {
+	const maxActiveSnapshots = 4
+
+	storeOpts := store.DefaultOptions().
+		WithIndexOptions(store.DefaultIndexOptions().WithMaxActiveSnapshots(maxActiveSnapshots))
+
+	db, err := database.NewDB("db1", nil,
+		database.DefaultOptions().WithDBRootPath(t.TempDir()).WithStoreOptions(storeOpts),
+		logger.NewSimpleLogger("logger", os.Stdout))
+	require.NoError(t, err)
+
+	// mirrors the reported production cycle: the client submits an invalid
+	// statement, attempts a rollback, and carries on regardless of its outcome
+	for i := 0; i < maxActiveSnapshots*2; i++ {
+		tx, err := NewTransaction(context.Background(), sql.DefaultTxOptions(), db, "session1")
+		require.NoErrorf(t, err, "opening a transaction failed on iteration %d: snapshots are leaking", i)
+
+		require.Error(t, tx.SQLExec(context.Background(), &schema.SQLExecRequest{Sql: "THIS IS NOT SQL"}))
+
+		_ = tx.Rollback()
+	}
 }
