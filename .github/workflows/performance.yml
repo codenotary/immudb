@@ -44,7 +44,7 @@ jobs:
       INFLUX_TOKEN: ${{ secrets.INFLUX_TOKEN }}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
