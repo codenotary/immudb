@@ -24,7 +24,6 @@ import (
 
 	"google.golang.org/grpc/status"
 
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/require"
 )
 
@@ -105,5 +104,8 @@ func TestTx_Errors(t *testing.T) {
 	require.ErrorContains(t, err, "syntax error: unexpected IDENTIFIER at position 4")
 
 	_, err = tx.QueryContext(context.Background(), "this is also very wrong")
-	require.ErrorIs(t, err, sessions.ErrTransactionNotFound)
+	require.ErrorContains(t, err, "syntax error: unexpected IDENTIFIER at position 4")
+
+	// the tx survived both parse errors and can still be rolled back (#2127)
+	require.NoError(t, tx.Rollback())
 }
