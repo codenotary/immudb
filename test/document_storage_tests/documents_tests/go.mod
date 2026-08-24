@@ -14,7 +14,7 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/imkira/go-interpol v1.1.0 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect
