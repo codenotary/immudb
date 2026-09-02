@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.12.1
 )
 
 require (
@@ -18,7 +18,6 @@ require (
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/imkira/go-interpol v1.1.0 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
@@ -32,6 +31,7 @@ require (
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0 // indirect
 	github.com/yudai/gojsondiff v1.0.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
@@ -39,10 +39,4 @@ require (
 	moul.io/http2curl/v2 v2.3.0 // indirect
 )
 
-require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/gavv/httpexpect/v2 v2.15.0
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
+require github.com/gavv/httpexpect/v2 v2.15.0
