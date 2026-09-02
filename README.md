@@ -11,7 +11,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 # immudb <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
 
 
-[![Documentation](https://img.shields.io/website?label=Docs&url=https%3A%2F%2Fdocs.immudb.io%2F)](https://docs.immudb.io/)
+[![Documentation](https://img.shields.io/website?label=Docs&url=https%3A%2F%2Fimmudb.io%2Fdocs%2F)](https://immudb.io/docs/)
 [![Build Status](https://github.com/codenotary/immudb/actions/workflows/push.yml/badge.svg)](https://github.com/codenotary/immudb/actions/workflows/push.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
 [![View SBOM](https://img.shields.io/badge/sbom.sh-viewSBOM-blue?link=https%3A%2F%2Fsbom.sh%2F37cbffcf-1bd3-4daf-86b7-77deb71575b7)](https://sbom.sh/37cbffcf-1bd3-4daf-86b7-77deb71575b7)
@@ -27,7 +27,7 @@ Don't forget to ⭐ this repo if you like immudb!
 
 ---
 
-Detailed documentation can be found at https://docs.immudb.io/
+Detailed documentation can be found at https://immudb.io/docs/
 
 ---
 
@@ -450,7 +450,7 @@ This branch significantly hardens the PostgreSQL wire protocol and SQL engine ag
 
 ## Using immudb
 
-Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
+Lot of useful documentation and step by step guides can be found at https://immudb.io/docs/
 
 ### Real world examples
 
@@ -478,7 +478,7 @@ We have SDKs available for the following programming languages:
 > - **SQL:** immudb speaks the PostgreSQL wire protocol, so standard Postgres clients such as [`tokio-postgres`](https://crates.io/crates/tokio-postgres) / [`postgres`](https://crates.io/crates/postgres) work directly — no immudb-specific crate required.
 > - **gRPC (key-value, verified reads/writes):** generate a client from our protobuf definitions (`pkg/api/schema/schema.proto` and `pkg/api/proto/*.proto`) using [`tonic`](https://crates.io/crates/tonic) and [`prost`](https://crates.io/crates/prost).
 
-To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/immudb.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
+To get started with development, there is a [quickstart in our documentation](https://immudb.io/docs/immudb/): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
 
 Our [immudb Playground](https://play.codenotary.com) provides a guided environment to learn the Python SDK.
 
