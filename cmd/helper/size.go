@@ -15,7 +15,7 @@ const (
 	ExaByte
 )
 
-var unitMap = map[int]string{
+var unitMap = map[int64]string{
 	Byte:     "B",
 	KiloByte: "KB",
 	MegaByte: "MB",
@@ -36,7 +36,7 @@ func FormatByteSize(size uint64) string {
 	return strings.TrimSuffix(strconv.FormatFloat(fsize, 'f', 1, 64), ".0") + " " + unitMap[u]
 }
 
-func getUnit(size uint64) int {
+func getUnit(size uint64) int64 {
 	switch {
 	case size >= ExaByte:
 		return ExaByte
