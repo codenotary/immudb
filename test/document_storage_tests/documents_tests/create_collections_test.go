@@ -23,6 +23,7 @@ import (
 
 	"github.com/codenotary/immudb/test/document_storage_tests/documents_tests/actions"
 	"github.com/gavv/httpexpect/v2"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
