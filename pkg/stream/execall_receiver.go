@@ -67,6 +67,9 @@ func (eas *execAllStreamReceiver) Next() (IsOp_Operation, error) {
 		case TOp_ZAdd:
 			zr := &schema.ZAddRequest{}
 			zaddm, err := ReadValue(eas.s, eas.BufferSize)
+			if err != nil {
+				return nil, err
+			}
 			err = proto.Unmarshal(zaddm, zr)
 			if err != nil {
 				return nil, errors.New(ErrUnableToReassembleExecAllMessage)
