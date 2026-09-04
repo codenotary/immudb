@@ -18,7 +18,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -39,11 +38,30 @@ type DBManager struct {
 	databases []*dbInfo
 	dbIndex   map[string]int
 
-	mtx         sync.Mutex
-	waitCond    *sync.Cond
+	mtx          sync.Mutex
+	waitCond     *sync.Cond
 	pendingClose map[int]*dbRef // refs removed from cache but still in use
 
 	closed bool
+}
+
+// openRetryInterval bounds how often GetState re-drives a failed open. Without
+// it, every CurrentState call on a permanently broken database would hammer the
+// underlying (possibly remote) storage.
+const openRetryInterval = 5 * time.Second
+
+// openFailure records a failed attempt to open a database.
+type openFailure struct {
+	err error
+	at  time.Time
+}
+
+// DatabaseOpenFailure reports a database whose most recent open attempt failed
+// and which has not been opened successfully since.
+type DatabaseOpenFailure struct {
+	Name string
+	Err  error
+	At   time.Time
 }
 
 type dbInfo struct {
@@ -55,6 +73,23 @@ type dbInfo struct {
 	name    string
 	deleted bool
 	closed  bool
+
+	// lastOpenFail is read by readiness probes while an open is in flight, so it
+	// is accessed atomically rather than under mtx: mtx is held for the entire
+	// duration of an open, which is exactly when a probe wants an answer.
+	lastOpenFail atomic.Pointer[openFailure]
+}
+
+func (db *dbInfo) recordOpenFailure(err error) {
+	db.lastOpenFail.Store(&openFailure{err: err, at: time.Now()})
+}
+
+func (db *dbInfo) clearOpenFailure() {
+	db.lastOpenFail.Store(nil)
+}
+
+func (db *dbInfo) openFailure() *openFailure {
+	return db.lastOpenFail.Load()
 }
 
 func (db *dbInfo) cacheInfo(s *schema.ImmutableState, opts *Options) {
@@ -87,6 +122,7 @@ func (db *dbInfo) close() error {
 		return store.ErrAlreadyClosed
 	}
 	db.closed = true
+	db.clearOpenFailure()
 
 	return nil
 }
@@ -94,6 +130,11 @@ func (db *dbInfo) close() error {
 type dbRef struct {
 	db    DB
 	count uint32
+
+	// opened is set to 1 once db has been assigned. It lets readers determine
+	// whether the ref backs a real database without reading db itself, which is
+	// only safe under the owning dbInfo's mutex.
+	opened uint32
 }
 
 type OpenDBFunc func(name string, opts *Options) (DB, error)
@@ -131,7 +172,9 @@ func createCache(m *DBManager, capacity int) *cache.Cache {
 		// Moreover, since the reference cannot be altered after it has been set,
 		// there is not need to acquire the database lock.
 		if ref.db == nil {
-			m.logger.Errorf("db not initialised during eviction")
+			// Benign: a ref whose open failed can be evicted by another database's
+			// allocDB before Release pops it.
+			m.logger.Debugf("db not initialised during eviction")
 			return
 		}
 
@@ -151,6 +194,7 @@ func createCache(m *DBManager, capacity int) *cache.Cache {
 			m.databases[i].cacheInfo(state, opts)
 		}
 		ref.db = nil
+		atomic.StoreUint32(&ref.opened, 0)
 	})
 	return c
 }
@@ -164,6 +208,7 @@ func (m *DBManager) Put(dbName string, opts *Options, closed bool) int {
 		ref.deleted = false
 		ref.closed = closed
 		ref.opts = opts
+		ref.clearOpenFailure()
 		return idx
 	}
 
@@ -190,17 +235,31 @@ func (m *DBManager) Get(idx int) (DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.mtx.Unlock()
 
+	// NOTE: allocDB returns with db.mtx held. It is unlocked explicitly rather
+	// than deferred because the failed-open path must release it *before*
+	// Release acquires m.mtx: allocDB takes m.mtx then db.mtx, so holding
+	// db.mtx while waiting on m.mtx deadlocks against a concurrent allocDB.
 	if ref.db == nil {
 		d, err := m.openDB(db.name, db.opts)
 		if err != nil {
+			db.recordOpenFailure(err)
+			db.mtx.Unlock()
+
+			// Drops the db-less ref from the cache so a later access retries the
+			// open instead of observing a permanently poisoned entry.
 			m.Release(idx)
 			return nil, err
 		}
 		ref.db = d
+		atomic.StoreUint32(&ref.opened, 1)
+		db.clearOpenFailure()
 	}
-	return ref.db, nil
+
+	opened := ref.db
+	db.mtx.Unlock()
+
+	return opened, nil
 }
 
 func (m *DBManager) allocDB(idx int, db *dbInfo) (*dbRef, error) {
@@ -250,27 +309,32 @@ func (m *DBManager) Release(idx int) {
 		return
 	}
 
-	if atomic.AddUint32(&ref.count, ^uint32(0)) == 0 {
-		m.signal()
-		// If Close() deferred the underlying close to us, finalize it now.
-		m.mtx.Lock()
-		if pc := m.pendingClose[idx]; pc == ref {
-			delete(m.pendingClose, idx)
-			m.mtx.Unlock()
-			if ref.db != nil {
-				ref.db.Close()
-			}
-			return
-		}
-		m.mtx.Unlock()
+	if atomic.AddUint32(&ref.count, ^uint32(0)) != 0 {
+		return
 	}
-}
 
-func (m *DBManager) signal() {
+	var toClose DB
+
 	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
+	if pc := m.pendingClose[idx]; pc == ref {
+		// Close() deferred the underlying close to us; finalize it below.
+		delete(m.pendingClose, idx)
+		toClose = ref.db
+	} else if v, err := m.dbCache.Get(idx); err == nil &&
+		v.(*dbRef) == ref &&
+		atomic.LoadUint32(&ref.count) == 0 &&
+		atomic.LoadUint32(&ref.opened) == 0 {
+		// The open failed and nobody picked this ref up in the meantime. Drop it,
+		// so a dbRef with a nil db is never observable: leaving it cached is what
+		// made a transient storage error terminal until restart.
+		m.dbCache.Pop(idx)
+	}
 	m.waitCond.Signal()
+	m.mtx.Unlock()
+
+	if toClose != nil {
+		toClose.Close()
+	}
 }
 
 func (m *DBManager) Has(name string) bool {
@@ -319,17 +383,6 @@ func (m *DBManager) GetOptionsByIndex(idx int) *Options {
 	if !has {
 		return nil
 	}
-
-	ref, err := m.dbCache.Get(idx)
-	if err == nil {
-		dbInfo.mtx.Lock()
-		defer dbInfo.mtx.Unlock()
-
-		if dbRef := ref.(*dbRef); dbRef != nil && dbRef.db != nil {
-			return dbInfo.opts
-		}
-		return nil
-	}
 	return dbInfo.getOptions()
 }
 
@@ -339,20 +392,25 @@ func (m *DBManager) GetState(idx int) (*schema.ImmutableState, error) {
 		return nil, ErrDatabaseNotExists
 	}
 
-	ref, err := m.dbCache.Get(idx)
-	if err == nil {
+	if ref, err := m.dbCache.Get(idx); err == nil {
 		dbInfo.mtx.Lock()
-		defer dbInfo.mtx.Unlock()
-
 		if dbRef := ref.(*dbRef); dbRef != nil && dbRef.db != nil {
+			defer dbInfo.mtx.Unlock()
 			return dbRef.db.CurrentState()
 		}
-		// this condition should never happen
-		return nil, fmt.Errorf("unable to get state")
+		// The open behind this ref failed, or is still in flight. Fall through and
+		// let m.Get drive it. The unlock is explicit: m.Get -> allocDB acquires
+		// this same mutex, so deferring it here would self-deadlock.
+		dbInfo.mtx.Unlock()
 	}
 
-	s := dbInfo.getState()
-	if s != nil {
+	if failure := dbInfo.openFailure(); failure != nil {
+		// A recorded failure outranks any state cached by a previous successful
+		// open, otherwise a database that fails to *re*open never retries.
+		if time.Since(failure.at) < openRetryInterval {
+			return nil, failure.err
+		}
+	} else if s := dbInfo.getState(); s != nil {
 		return s, nil
 	}
 
@@ -495,9 +553,9 @@ func (m *DBManager) CloseAll(ctx context.Context) error {
 				return nil
 			}
 
-			// ref.db may be nil if the database was never successfully opened
-			// (e.g. openDB failed in Get and left a db-less ref in the cache).
-			// Guard here as every other close site in this file does.
+			// Defensive: Release pops the ref left behind by a failed open, but
+			// that ref stays briefly observable in between. Guard as every other
+			// close site in this file does.
 			if ref.db != nil {
 				ref.db.Close()
 			}
@@ -511,7 +569,37 @@ func (m *DBManager) CloseAll(ctx context.Context) error {
 	return nil
 }
 
+// IsActive reports whether the database is currently open. A database whose
+// open failed is not active, even while its ref is still cached.
 func (m *DBManager) IsActive(idx int) bool {
-	_, err := m.dbCache.Get(idx)
-	return err == nil
+	v, err := m.dbCache.Get(idx)
+	if err != nil {
+		return false
+	}
+
+	ref, _ := v.(*dbRef)
+	return ref != nil && atomic.LoadUint32(&ref.opened) == 1
+}
+
+// OpenFailures returns every database whose most recent open attempt failed and
+// which has not been opened successfully since. It is the basis of the
+// readiness signal: a database that was never accessed has never attempted an
+// open and is not reported here.
+func (m *DBManager) OpenFailures() []DatabaseOpenFailure {
+	m.dbMutex.RLock()
+	dbs := make([]*dbInfo, len(m.databases))
+	copy(dbs, m.databases)
+	m.dbMutex.RUnlock()
+
+	// NOTE: no dbInfo mutex is taken here. db.mtx is held for the whole duration
+	// of an open, which is precisely when a probe needs an answer. A closed or
+	// deleted database cannot carry a recorded failure: close() and Put() both
+	// clear it, and allocDB refuses to open a deleted database.
+	var failures []DatabaseOpenFailure
+	for _, db := range dbs {
+		if failure := db.openFailure(); failure != nil {
+			failures = append(failures, DatabaseOpenFailure{Name: db.name, Err: failure.err, At: failure.at})
+		}
+	}
+	return failures
 }

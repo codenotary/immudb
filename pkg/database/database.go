@@ -242,6 +242,7 @@ func OpenDB(
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
+		dbi.st.Close()
 		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
@@ -250,12 +251,14 @@ func OpenDB(
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
-		return nil, err
+		dbi.st.Close()
+		return nil, logErr(dbi.Logger, "unable to load document-engine: %s", err)
 	}
 	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
 
 	txPool, err := dbi.st.NewTxHolderPool(opts.readTxPoolSize, false)
 	if err != nil {
+		dbi.st.Close()
 		return nil, logErr(dbi.Logger, "unable to create tx pool: %s", err)
 	}
 	dbi.txPool = txPool
@@ -369,6 +372,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log 
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sqlOpts)
 	if err != nil {
+		dbi.st.Close()
 		dbi.Logger.Errorf("unable to load sql-engine for database '%s' {replica = %v}. %v", dbName, opts.replica, err)
 		return nil, err
 	}
@@ -376,6 +380,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log 
 
 	dbi.documentEngine, err = document.NewEngine(dbi.st, document.DefaultOptions().WithPrefix([]byte{DocumentPrefix}))
 	if err != nil {
+		dbi.st.Close()
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 	dbi.Logger.Infof("document-engine ready for database '%s' {replica = %v}", dbName, opts.replica)
