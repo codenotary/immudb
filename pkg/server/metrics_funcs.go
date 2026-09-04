@@ -141,6 +141,28 @@ func (s *ImmuServer) metricFuncComputeLoadedDBSize() float64 {
 	return float64(s.dbList.Length())
 }
 
+// metricFuncComputeReadiness reports whether every database that attempted an
+// open actually opened. A transient remote-storage failure during an open used
+// to be invisible to orchestrators: the process stayed healthy while the
+// database was unusable.
+func (s *ImmuServer) metricFuncComputeReadiness() (bool, []string) {
+	if s.dbList == nil {
+		return true, nil
+	}
+
+	failures := s.dbList.OpenFailures()
+	if len(failures) == 0 {
+		return true, nil
+	}
+
+	reasons := make([]string, 0, len(failures))
+	for _, f := range failures {
+		reasons = append(reasons, fmt.Sprintf(
+			"database %s failed to open at %s: %v", f.Name, f.At.UTC().Format(time.RFC3339), f.Err))
+	}
+	return false, reasons
+}
+
 func (s *ImmuServer) metricFuncComputeSessionCount() float64 {
 	if s.SessManager == nil {
 		s.Logger.Warningf(

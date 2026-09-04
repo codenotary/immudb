@@ -53,6 +53,10 @@ func (dbm dbMock) GetOptions() *database.Options {
 	return database.DefaultOptions()
 }
 
+func (dbm dbMock) Size() (uint64, error) {
+	return 0, nil
+}
+
 func (dbm dbMock) GetName() string {
 	if dbm.getNameF != nil {
 		return dbm.getNameF()
@@ -115,6 +119,58 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 	s.dbList = nil
 	s.sysDB = nil
 	s.metricFuncComputeDBEntries()
+}
+
+func TestMetricFuncComputeReadiness(t *testing.T) {
+	openErr := fmt.Errorf("403 Forbidden")
+
+	failOpen := true
+	dbList := database.NewDatabaseList(database.NewDBManager(
+		func(name string, opts *database.Options) (database.DB, error) {
+			if failOpen {
+				return nil, openErr
+			}
+			return &dbMock{getNameF: func() string { return name }}, nil
+		}, 10, logger.NewMemoryLogger()))
+
+	s := ImmuServer{dbList: dbList}
+
+	ready, reasons := s.metricFuncComputeReadiness()
+	require.True(t, ready, "no databases registered")
+	require.Empty(t, reasons)
+
+	dbList.Put("audit", database.DefaultOptions())
+
+	ready, reasons = s.metricFuncComputeReadiness()
+	require.True(t, ready, "a database that was never accessed has not failed to open")
+	require.Empty(t, reasons)
+
+	db, err := dbList.GetByIndex(0)
+	require.NoError(t, err)
+
+	_, err = db.CurrentState()
+	require.ErrorIs(t, err, openErr)
+
+	ready, reasons = s.metricFuncComputeReadiness()
+	require.False(t, ready, "a database that failed to open must fail readiness")
+	require.Len(t, reasons, 1)
+	require.Contains(t, reasons[0], "audit")
+	require.Contains(t, reasons[0], "403 Forbidden")
+
+	failOpen = false
+
+	// Size() goes through DBManager.Get, which re-drives the open.
+	_, err = db.Size()
+	require.NoError(t, err)
+
+	ready, reasons = s.metricFuncComputeReadiness()
+	require.True(t, ready, "a successful open clears the readiness failure")
+	require.Empty(t, reasons)
+
+	// nil db list must not report unready
+	s.dbList = nil
+	ready, _ = s.metricFuncComputeReadiness()
+	require.True(t, ready)
 }
 
 func TestMetricFuncServerUptimeCounter(t *testing.T) {
