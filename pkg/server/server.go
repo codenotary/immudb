@@ -349,6 +349,7 @@ func (s *ImmuServer) Start() (err error) {
 			s.metricFuncComputeDBEntries,
 			s.metricFuncComputeLoadedDBSize,
 			s.metricFuncComputeSessionCount,
+			s.metricFuncComputeReadiness,
 			s.Options.PProf)
 
 		defer func() {

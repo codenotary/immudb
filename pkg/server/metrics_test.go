@@ -48,6 +48,7 @@ func TestStartMetricsHTTP(t *testing.T) {
 		func() map[string]float64 { return make(map[string]float64) },
 		func() float64 { return 1.0 },
 		func() float64 { return 2.0 },
+		func() (bool, []string) { return true, nil },
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
@@ -73,6 +74,7 @@ func TestStartMetricsHTTPS(t *testing.T) {
 		func() map[string]float64 { return make(map[string]float64) },
 		func() float64 { return 1.0 },
 		func() float64 { return 2.0 },
+		func() (bool, []string) { return true, nil },
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
@@ -107,6 +109,7 @@ func TestStartMetricsFail(t *testing.T) {
 		func() map[string]float64 { return make(map[string]float64) },
 		func() float64 { return 1.0 },
 		func() float64 { return 2.0 },
+		func() (bool, []string) { return true, nil },
 		false,
 	)
 	time.Sleep(200 * time.Millisecond)
@@ -291,6 +294,43 @@ func TestImmudbHealthHandlerFunc(t *testing.T) {
 	handler := corsHandlerFunc(ImmudbHealthHandlerFunc())
 	handler.ServeHTTP(rr, req)
 	require.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestImmudbReadinessHandlerFunc(t *testing.T) {
+	t.Run("ready", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/readyz", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		corsHandlerFunc(ImmudbReadinessHandlerFunc(func() (bool, []string) {
+			return true, nil
+		})).ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("not ready reports the databases that failed to open", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/readyz", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		corsHandlerFunc(ImmudbReadinessHandlerFunc(func() (bool, []string) {
+			return false, []string{"database audit failed to open: 403 Forbidden"}
+		})).ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusServiceUnavailable, rr.Code)
+		require.Contains(t, rr.Body.String(), "database audit failed to open")
+	})
+
+	t.Run("no readiness func stays healthy", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/readyz", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		corsHandlerFunc(ImmudbReadinessHandlerFunc(nil)).ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
 }
 
 func TestImmudbVersionHandlerFunc(t *testing.T) {
