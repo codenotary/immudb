@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"expvar"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -412,6 +413,7 @@ func StartMetrics(
 	computeDBEntries func() map[string]float64,
 	computeLoadedDBSize func() float64,
 	computeSessionCount func() float64,
+	computeReadiness func() (bool, []string),
 	addPProf bool,
 ) *http.Server {
 	Metrics.WithUptimeCounter(uptimeCounter)
@@ -449,7 +451,7 @@ func StartMetrics(
 		mux.HandleFunc("/debug/pprof/trace", corsHandlerFunc(pprof.Trace))
 	}
 	mux.HandleFunc("/initz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
-	mux.HandleFunc("/readyz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
+	mux.HandleFunc("/readyz", corsHandlerFunc(ImmudbReadinessHandlerFunc(computeReadiness)))
 	mux.HandleFunc("/livez", corsHandlerFunc(ImmudbHealthHandlerFunc()))
 	mux.HandleFunc("/version", corsHandlerFunc(ImmudbVersionHandlerFunc))
 
@@ -482,6 +484,30 @@ func StartMetrics(
 func ImmudbHealthHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// ImmudbReadinessHandlerFunc serves /readyz. Unlike /livez and /initz, which
+// only report that the process is up, it fails while a database that attempted
+// an open is not open, so an orchestrator can act on it.
+func ImmudbReadinessHandlerFunc(computeReadiness func() (bool, []string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if computeReadiness == nil {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		ready, reasons := computeReadiness()
+		if ready {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		for _, reason := range reasons {
+			fmt.Fprintln(w, reason)
+		}
 	}
 }
 

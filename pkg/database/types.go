@@ -29,6 +29,7 @@ type DatabaseList interface {
 	Length() int
 	Resize(n int)
 	CloseAll(ctx context.Context) error
+	OpenFailures() []DatabaseOpenFailure
 }
 
 type databaseList struct {
@@ -99,4 +100,10 @@ func (d *databaseList) CloseAll(ctx context.Context) error {
 
 func (d *databaseList) Resize(n int) {
 	d.m.Resize(n)
+}
+
+// OpenFailures returns the databases whose most recent open attempt failed and
+// which have not been opened successfully since.
+func (d *databaseList) OpenFailures() []DatabaseOpenFailure {
+	return d.m.OpenFailures()
 }
