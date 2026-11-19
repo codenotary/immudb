@@ -3979,17 +3979,15 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			// alias "x" is present in stmt.groupBy; we treat that as
 			// covering the aliased target. Gitea's heatmap emits this
 			// pattern: SELECT created_unix/900*900 AS timestamp … GROUP BY timestamp.
-			if t.As != "" {
-				matched := false
-				for _, gb := range stmt.groupBy {
-					if gb.table == "" && strings.EqualFold(gb.col, t.As) {
-						matched = true
-						break
-					}
+			matched := false
+			for _, gb := range stmt.groupBy {
+				if groupByNamesAlias(gb, t) {
+					matched = true
+					break
 				}
-				if matched {
-					continue
-				}
+			}
+			if matched {
+				continue
 			}
 			for _, sel := range t.Exp.selectors() {
 				if _, isAgg := sel.(*AggColSelector); isAgg {
@@ -4098,17 +4096,18 @@ func (stmt *SelectStmt) groupByContains(sel Selector) bool {
 func (stmt *SelectStmt) groupByAliasExps() map[string]ValueExp {
 	exps := make(map[string]ValueExp)
 	for _, gb := range stmt.groupBy {
-		if gb.table != "" {
-			continue
-		}
 		for _, t := range stmt.targets {
-			if t.As != "" && strings.EqualFold(gb.col, t.As) {
+			if groupByNamesAlias(gb, t) {
 				exps[gb.col] = t.Exp
 				break
 			}
 		}
 	}
 	return exps
+}
+
+func groupByNamesAlias(gb *ColSelector, t TargetEntry) bool {
+	return gb.table == "" && t.As != "" && strings.EqualFold(gb.col, t.As)
 }
 
 func (stmt *SelectStmt) extractGroupByCols() []*AggColSelector {
