@@ -4094,6 +4094,23 @@ func (stmt *SelectStmt) groupByContains(sel Selector) bool {
 	return false
 }
 
+// groupByAliasExps maps each GROUP BY entry naming a target alias to that target's expression.
+func (stmt *SelectStmt) groupByAliasExps() map[string]ValueExp {
+	exps := make(map[string]ValueExp)
+	for _, gb := range stmt.groupBy {
+		if gb.table != "" {
+			continue
+		}
+		for _, t := range stmt.targets {
+			if t.As != "" && strings.EqualFold(gb.col, t.As) {
+				exps[gb.col] = t.Exp
+				break
+			}
+		}
+	}
+	return exps
+}
+
 func (stmt *SelectStmt) extractGroupByCols() []*AggColSelector {
 	cols := make([]*AggColSelector, 0, len(stmt.targets))
 
@@ -4235,6 +4252,7 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			if hErr != nil {
 				return nil, hErr
 			}
+			hashGrpRdr.aliasExps = stmt.groupByAliasExps()
 			rowReader = hashGrpRdr
 
 			// Case (c): ORDER BY was merged into the GROUP BY sort by
