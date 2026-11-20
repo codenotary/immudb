@@ -32,6 +32,8 @@ type hashGroupedRowReader struct {
 	// Read() is overridden below and takes precedence over the promoted one.
 	*groupedRowReader
 
+	aliasExps map[string]ValueExp // GROUP BY entries that name a select alias
+
 	groups  []*Row // aggregated groups, in insertion order
 	nextIdx int
 	built   bool
@@ -74,6 +76,27 @@ func (h *hashGroupedRowReader) groupKey(row *Row) (string, error) {
 	return string(key), nil
 }
 
+// evalAliases stores each aliased GROUP BY expression in row; a source column of the same name wins.
+func (h *hashGroupedRowReader) evalAliases(row *Row) error {
+	tableAlias := h.rowReader.TableAlias()
+	for alias, exp := range h.aliasExps {
+		encSel := EncodeSelector("", tableAlias, alias)
+		if _, ok := row.ValuesBySelector[encSel]; ok {
+			continue
+		}
+		e, err := exp.substitute(h.Parameters())
+		if err != nil {
+			return err
+		}
+		val, err := e.reduce(h.Tx(), row, tableAlias)
+		if err != nil {
+			return err
+		}
+		row.ValuesBySelector[encSel] = val
+	}
+	return nil
+}
+
 // buildGroups performs one full scan of the inner reader and populates h.groups.
 func (h *hashGroupedRowReader) buildGroups(ctx context.Context) error {
 	order := make([]string, 0)
@@ -85,6 +108,10 @@ func (h *hashGroupedRowReader) buildGroups(ctx context.Context) error {
 			break
 		}
 		if err != nil {
+			return err
+		}
+
+		if err := h.evalAliases(row); err != nil {
 			return err
 		}
 

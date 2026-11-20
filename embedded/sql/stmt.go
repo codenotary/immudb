@@ -1157,7 +1157,7 @@ func persistColumnDeletion(ctx context.Context, tx *SQLTx, col *Column) error {
 type AlterColumnAction int
 
 const (
-	AlterColumnSetNotNull  AlterColumnAction = iota
+	AlterColumnSetNotNull AlterColumnAction = iota
 	AlterColumnDropNotNull
 	AlterColumnSetType
 )
@@ -1169,8 +1169,10 @@ type AlterColumnStmt struct {
 	newType SQLValueType
 }
 
-func (stmt *AlterColumnStmt) readOnly() bool                     { return false }
-func (stmt *AlterColumnStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+func (stmt *AlterColumnStmt) readOnly() bool { return false }
+func (stmt *AlterColumnStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
 
 func (stmt *AlterColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
@@ -3979,17 +3981,15 @@ func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string
 			// alias "x" is present in stmt.groupBy; we treat that as
 			// covering the aliased target. Gitea's heatmap emits this
 			// pattern: SELECT created_unix/900*900 AS timestamp … GROUP BY timestamp.
-			if t.As != "" {
-				matched := false
-				for _, gb := range stmt.groupBy {
-					if gb.table == "" && strings.EqualFold(gb.col, t.As) {
-						matched = true
-						break
-					}
+			matched := false
+			for _, gb := range stmt.groupBy {
+				if groupByNamesAlias(gb, t) {
+					matched = true
+					break
 				}
-				if matched {
-					continue
-				}
+			}
+			if matched {
+				continue
 			}
 			for _, sel := range t.Exp.selectors() {
 				if _, isAgg := sel.(*AggColSelector); isAgg {
@@ -4092,6 +4092,24 @@ func (stmt *SelectStmt) groupByContains(sel Selector) bool {
 		}
 	}
 	return false
+}
+
+// groupByAliasExps maps each GROUP BY entry naming a target alias to that target's expression.
+func (stmt *SelectStmt) groupByAliasExps() map[string]ValueExp {
+	exps := make(map[string]ValueExp)
+	for _, gb := range stmt.groupBy {
+		for _, t := range stmt.targets {
+			if groupByNamesAlias(gb, t) {
+				exps[gb.col] = t.Exp
+				break
+			}
+		}
+	}
+	return exps
+}
+
+func groupByNamesAlias(gb *ColSelector, t TargetEntry) bool {
+	return gb.table == "" && t.As != "" && strings.EqualFold(gb.col, t.As)
 }
 
 func (stmt *SelectStmt) extractGroupByCols() []*AggColSelector {
@@ -4235,6 +4253,7 @@ func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[strin
 			if hErr != nil {
 				return nil, hErr
 			}
+			hashGrpRdr.aliasExps = stmt.groupByAliasExps()
 			rowReader = hashGrpRdr
 
 			// Case (c): ORDER BY was merged into the GROUP BY sort by
@@ -4922,9 +4941,11 @@ type ExceptStmt struct {
 	as          string
 }
 
-func (stmt *ExceptStmt) readOnly() bool                            { return true }
-func (stmt *ExceptStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
-func (stmt *ExceptStmt) Alias() string                             { return stmt.as }
+func (stmt *ExceptStmt) readOnly() bool { return true }
+func (stmt *ExceptStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+func (stmt *ExceptStmt) Alias() string { return stmt.as }
 
 func (stmt *ExceptStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
@@ -4967,9 +4988,11 @@ type IntersectStmt struct {
 	as          string
 }
 
-func (stmt *IntersectStmt) readOnly() bool                            { return true }
-func (stmt *IntersectStmt) requiredPrivileges() []SQLPrivilege        { return []SQLPrivilege{SQLPrivilegeSelect} }
-func (stmt *IntersectStmt) Alias() string                             { return stmt.as }
+func (stmt *IntersectStmt) readOnly() bool { return true }
+func (stmt *IntersectStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+func (stmt *IntersectStmt) Alias() string { return stmt.as }
 
 func (stmt *IntersectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	if err := stmt.left.inferParameters(ctx, tx, params); err != nil {
@@ -5011,9 +5034,11 @@ type ExplainStmt struct {
 	query DataSource
 }
 
-func (stmt *ExplainStmt) readOnly() bool                     { return true }
-func (stmt *ExplainStmt) requiredPrivileges() []SQLPrivilege  { return []SQLPrivilege{SQLPrivilegeSelect} }
-func (stmt *ExplainStmt) Alias() string                      { return "" }
+func (stmt *ExplainStmt) readOnly() bool { return true }
+func (stmt *ExplainStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeSelect}
+}
+func (stmt *ExplainStmt) Alias() string { return "" }
 
 func (stmt *ExplainStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return stmt.query.inferParameters(ctx, tx, params)
@@ -5152,8 +5177,10 @@ type CreateSequenceStmt struct {
 	increment  int64
 }
 
-func (stmt *CreateSequenceStmt) readOnly() bool                     { return false }
-func (stmt *CreateSequenceStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+func (stmt *CreateSequenceStmt) readOnly() bool { return false }
+func (stmt *CreateSequenceStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
 
 func (stmt *CreateSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
@@ -5176,8 +5203,10 @@ type DropSequenceStmt struct {
 	ifExists bool
 }
 
-func (stmt *DropSequenceStmt) readOnly() bool                     { return false }
-func (stmt *DropSequenceStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeDrop} }
+func (stmt *DropSequenceStmt) readOnly() bool { return false }
+func (stmt *DropSequenceStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeDrop}
+}
 
 func (stmt *DropSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
@@ -5204,7 +5233,7 @@ type ReturningStmt struct {
 }
 
 func (stmt *ReturningStmt) readOnly() bool                     { return false }
-func (stmt *ReturningStmt) requiredPrivileges() []SQLPrivilege  { return stmt.dml.requiredPrivileges() }
+func (stmt *ReturningStmt) requiredPrivileges() []SQLPrivilege { return stmt.dml.requiredPrivileges() }
 func (stmt *ReturningStmt) Alias() string                      { return "" }
 
 func (stmt *ReturningStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -5338,7 +5367,7 @@ type CTEStmt struct {
 }
 
 func (stmt *CTEStmt) readOnly() bool                     { return true }
-func (stmt *CTEStmt) requiredPrivileges() []SQLPrivilege  { return []SQLPrivilege{SQLPrivilegeSelect} }
+func (stmt *CTEStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeSelect} }
 func (stmt *CTEStmt) Alias() string                      { return stmt.query.Alias() }
 
 func (stmt *CTEStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -5569,8 +5598,10 @@ type CreateViewStmt struct {
 	querySQL    string // raw SQL for persistence
 }
 
-func (stmt *CreateViewStmt) readOnly() bool                     { return false }
-func (stmt *CreateViewStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+func (stmt *CreateViewStmt) readOnly() bool { return false }
+func (stmt *CreateViewStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
 
 func (stmt *CreateViewStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
@@ -5612,8 +5643,10 @@ type DropViewStmt struct {
 	ifExists bool
 }
 
-func (stmt *DropViewStmt) readOnly() bool                     { return false }
-func (stmt *DropViewStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege{SQLPrivilegeCreate} }
+func (stmt *DropViewStmt) readOnly() bool { return false }
+func (stmt *DropViewStmt) requiredPrivileges() []SQLPrivilege {
+	return []SQLPrivilege{SQLPrivilegeCreate}
+}
 
 func (stmt *DropViewStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil

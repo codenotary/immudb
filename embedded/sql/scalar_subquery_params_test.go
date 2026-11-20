@@ -276,3 +276,43 @@ func TestCaseWhenWithBindParam_InferParameters(t *testing.T) {
 		"inferParameters must descend into CASE/WHEN arms; got %v", params)
 	require.Contains(t, params, "param1")
 }
+
+func TestGroupBySelectAlias(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil,
+		`CREATE TABLE action (id INTEGER AUTO_INCREMENT, created_unix INTEGER NOT NULL, PRIMARY KEY id);
+		INSERT INTO action (created_unix) VALUES (0), (1), (2), (900), (901), (902), (1800), (1801), (1802);`, nil)
+	require.NoError(t, err)
+
+	query := func(sql string) [][]interface{} {
+		reader, err := engine.Query(ctx, nil, sql, nil)
+		require.NoError(t, err)
+		defer reader.Close()
+
+		var out [][]interface{}
+		for {
+			row, err := reader.Read(ctx)
+			if err == ErrNoMoreRows {
+				return out
+			}
+			require.NoError(t, err)
+
+			vals := make([]interface{}, len(row.ValuesByPosition))
+			for i, v := range row.ValuesByPosition {
+				vals[i] = v.RawValue()
+			}
+			out = append(out, vals)
+		}
+	}
+
+	buckets := [][]interface{}{{int64(0), int64(3)}, {int64(900), int64(3)}, {int64(1800), int64(3)}}
+
+	require.ElementsMatch(t, buckets, query(`SELECT created_unix/900*900 AS ts, COUNT(*) AS cnt FROM action GROUP BY ts`))
+	require.Equal(t, buckets, query(`SELECT created_unix/900*900 AS ts, COUNT(*) AS cnt FROM action GROUP BY ts ORDER BY ts`))
+	require.Len(t, query(`SELECT created_unix AS x, COUNT(*) FROM action GROUP BY x`), 9)
+
+	// a source column wins over a select alias of the same name
+	require.Len(t, query(`SELECT created_unix/900 AS created_unix, COUNT(*) FROM action GROUP BY created_unix`), 9)
+}
