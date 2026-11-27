@@ -311,7 +311,6 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			PrimaryHost:                  &schema.NullableString{Value: opts.PrimaryHost},
 			PrimaryPort:                  &schema.NullableUint32{Value: uint32(opts.PrimaryPort)},
 			PrimaryUsername:              &schema.NullableString{Value: opts.PrimaryUsername},
-			PrimaryPassword:              &schema.NullableString{Value: opts.PrimaryPassword},
 			SyncAcks:                     &schema.NullableUint32{Value: uint32(opts.SyncAcks)},
 			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
 			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},

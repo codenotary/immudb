@@ -116,3 +116,19 @@ func TestPrimaryOptions(t *testing.T) {
 	opts.RetentionPeriod = -1
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 }
+
+func TestDatabaseNullableSettingsOmitsPrimaryPassword(t *testing.T) {
+	dir := t.TempDir()
+
+	s, closer := testServer(DefaultOptions().WithDir(dir))
+	defer closer()
+
+	opts := s.defaultDBOptions("db1", "user")
+	opts.Replica = true
+	opts.PrimaryUsername = "primary-username"
+	opts.PrimaryPassword = "primary-pwd"
+
+	rs := opts.databaseNullableSettings().ReplicationSettings
+	require.Equal(t, "primary-username", rs.PrimaryUsername.GetValue())
+	require.Nil(t, rs.PrimaryPassword)
+}
