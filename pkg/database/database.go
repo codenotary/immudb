@@ -329,7 +329,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, opts *Options, log 
 		return nil, fmt.Errorf("database directories already exist: %s", dbDir)
 	}
 
-	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
+	if err = os.MkdirAll(dbDir, store.DefaultFileMode); err != nil {
 		return nil, logErr(dbi.Logger, "unable to create data folder: %s", err)
 	}
 

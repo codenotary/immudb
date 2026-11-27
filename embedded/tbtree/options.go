@@ -38,7 +38,7 @@ const (
 	DefaultMaxActiveSnapshots            = 100
 	DefaultRenewSnapRootAfter            = time.Duration(1000) * time.Millisecond
 	DefaultCacheSize                     = 1 << 27 // 128Mb
-	DefaultFileMode                      = os.FileMode(0755)
+	DefaultFileMode                      = os.FileMode(0700)
 	DefaultFileSize                      = 1 << 26 // 64Mb
 	DefaultMaxKeySize                    = 1024
 	DefaultMaxValueSize                  = 512

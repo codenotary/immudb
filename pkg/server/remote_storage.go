@@ -149,7 +149,7 @@ func (s *ImmuServer) loadRemoteIdentifier(ctx context.Context, storage remotesto
 		return nil
 	}
 
-	if err := os.WriteFile(localIdentifierFile, remoteID, os.ModePerm); err != nil {
+	if err := os.WriteFile(localIdentifierFile, remoteID, 0600); err != nil {
 		return err
 	}
 
@@ -161,7 +161,7 @@ func (s *ImmuServer) initRemoteIdentifier(ctx context.Context, storage remotesto
 	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
 
 	s.UUID = xid.New()
-	if err := os.WriteFile(localIdentifierFile, s.UUID.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(localIdentifierFile, s.UUID.Bytes(), 0600); err != nil {
 		return err
 	}
 	return storage.Put(ctx, IDENTIFIER_FNAME, localIdentifierFile)

@@ -636,7 +636,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	}
 
 	opts := s.databaseOptionsFrom(dbOpts)
-	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), os.ModePerm)
+	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), store.DefaultFileMode)
 
 	db := s.dbList.Put(dbOpts.Database, opts)
 
@@ -1089,7 +1089,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	}
 
 	opts := s.databaseOptionsFrom(dbOpts)
-	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), os.ModePerm)
+	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), store.DefaultFileMode)
 	db := s.dbList.Put(dbOpts.Database, s.databaseOptionsFrom(dbOpts))
 
 	s.multidbmode = true

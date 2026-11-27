@@ -88,7 +88,7 @@ func getUUID(fname string) (xid.ID, error) {
 }
 
 func setUUID(guid xid.ID, fname string) error {
-	return ioutil.WriteFile(fname, guid.Bytes(), os.ModePerm)
+	return ioutil.WriteFile(fname, guid.Bytes(), 0600)
 }
 
 func moveUUIDFile(guid xid.ID, fileInDataDir, fileInDefaultDbDir string) error {

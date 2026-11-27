@@ -25,7 +25,7 @@ import (
 )
 
 const DefaultFileSize = multiapp.DefaultFileSize
-const DefaultFileMode = os.FileMode(0755)
+const DefaultFileMode = os.FileMode(0700)
 const DefaultDataCacheSlots = 1_000
 const DefaultDigestsCacheSlots = 100_000
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
