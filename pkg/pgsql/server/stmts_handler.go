@@ -187,7 +187,11 @@ var (
 // pgTypeReplacements handles that before the statement reaches the
 // engine. Do NOT re-add them to this blacklist — blacklisting turns
 // them into silent no-ops, which destroys uniqueness guarantees.
-var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|GRANT\s|REVOKE\s|COMMENT\s+ON|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
+var pgUnsupportedDDL = regexp.MustCompile(`(?i)^\s*(CREATE\s+TYPE|CREATE\s+FUNCTION|CREATE\s+OR\s+REPLACE\s+FUNCTION|CREATE\s+TRIGGER|CREATE\s+RULE|CREATE\s+EXTENSION|CREATE\s+CAST|CREATE\s+OPERATOR|CREATE\s+AGGREGATE|CREATE\s+DOMAIN|ALTER\s+TABLE\s+\S+\s+OWNER\s+TO|ALTER\s+TABLE\s+\S+\s+ALTER\s+COLUMN|ALTER\s+TABLE\s+ONLY|ALTER\s+TABLE\s+\S+\s+DISABLE|ALTER\s+TABLE\s+\S+\s+ENABLE|ALTER\s+TABLE\s+\S+\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY|ALTER\s+TABLE\s+\S+\s+ADD\b|ALTER\s+SEQUENCE|ALTER\s+FUNCTION|ALTER\s+TYPE|COMMENT\s+ON|SELECT\s+pg_catalog\.|SELECT\s+setval|SET\s+default_tablespace|SET\s+default_table_access_method|SET\s+transaction_timeout|DROP\s+INDEX)`)
+
+// pg_dump emits table and schema ACLs that immudb has no equivalent for
+var pgObjectGrant = regexp.MustCompile(`(?i)^\s*(GRANT|REVOKE)\s`)
+var pgOnDatabase = regexp.MustCompile(`(?i)\sON\s+DATABASE\s`)
 
 // allPgRefsRegistered returns true when every pg_* identifier in
 // statement is either a registered system table (registeredPgTables)
@@ -265,6 +269,11 @@ func (s *session) isInBlackList(statement string) bool {
 
 	// Silently ignore unsupported PostgreSQL DDL statements
 	if pgUnsupportedDDL.MatchString(statement) {
+		return true
+	}
+
+	if pgObjectGrant.MatchString(statement) && !pgOnDatabase.MatchString(statement) {
+		s.log.Warningf("pgsql: ignoring GRANT/REVOKE that is not ON DATABASE")
 		return true
 	}
 

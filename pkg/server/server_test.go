@@ -2312,3 +2312,44 @@ func TestServerDatabaseAdminCannotTakeOverOtherDatabaseUser(t *testing.T) {
 	require.False(t, bob.HasSQLPrivilege("dba", "SELECT"))
 	require.True(t, bob.HasSQLPrivilege("dbb", "INSERT"))
 }
+
+func TestServerDeleteDatabaseRevokesUserAccess(t *testing.T) {
+	serverOptions := DefaultOptions().
+		WithDir(t.TempDir()).
+		WithMetricsServer(false).
+		WithPort(0).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s, closer := testServer(serverOptions)
+	defer closer()
+
+	require.NoError(t, s.Initialize())
+
+	lr, err := s.Login(context.Background(), &schema.LoginRequest{User: []byte(auth.SysAdminUsername), Password: []byte(auth.SysAdminPassword)})
+	require.NoError(t, err)
+	sysCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", lr.Token))
+
+	for _, db := range []string{"dba", "dbb"} {
+		_, err := s.CreateDatabaseV2(sysCtx, &schema.CreateDatabaseRequest{Name: db})
+		require.NoError(t, err)
+	}
+
+	_, err = s.CreateUser(sysCtx, &schema.CreateUserRequest{User: []byte("bob"), Password: []byte("Passw0rd!"), Permission: auth.PermissionRW, Database: "dba"})
+	require.NoError(t, err)
+
+	_, err = s.ChangePermission(sysCtx, &schema.ChangePermissionRequest{Action: schema.PermissionAction_GRANT, Username: "bob", Database: "dbb", Permission: auth.PermissionRW})
+	require.NoError(t, err)
+
+	_, err = s.UnloadDatabase(sysCtx, &schema.UnloadDatabaseRequest{Database: "dba"})
+	require.NoError(t, err)
+
+	_, err = s.DeleteDatabase(sysCtx, &schema.DeleteDatabaseRequest{Database: "dba"})
+	require.NoError(t, err)
+
+	bob, err := s.getUser(context.Background(), []byte("bob"))
+	require.NoError(t, err)
+	require.EqualValues(t, auth.PermissionNone, bob.WhichPermission("dba"))
+	require.False(t, bob.HasSQLPrivilege("dba", "SELECT"))
+	require.EqualValues(t, auth.PermissionRW, bob.WhichPermission("dbb"))
+	require.True(t, bob.HasSQLPrivilege("dbb", "SELECT"))
+}

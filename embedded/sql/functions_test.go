@@ -16,6 +16,7 @@ limitations under the License.
 package sql
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -87,5 +88,33 @@ func TestPGFunctions(t *testing.T) {
 		v, err := f.Apply(nil, []TypedValue{NewVarchar(""), NewVarchar("")})
 		require.NoError(t, err)
 		require.Empty(t, v.RawValue())
+	})
+}
+
+func TestStringFunctionsInvalidLengths(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		fn   Function
+		args []TypedValue
+	}{
+		{"lpad negative", &padFn{}, []TypedValue{NewVarchar("abc"), NewInteger(-1)}},
+		{"rpad negative", &padFn{isRight: true}, []TypedValue{NewVarchar("abc"), NewInteger(-1), NewVarchar("x")}},
+		{"lpad too long", &padFn{}, []TypedValue{NewVarchar("abc"), NewInteger(math.MaxInt64), NewVarchar("x")}},
+		{"rpad too long", &padFn{isRight: true}, []TypedValue{NewVarchar("abc"), NewInteger(maxFnResultLen + 1)}},
+		{"repeat too long", &repeatFn{}, []TypedValue{NewVarchar("abc"), NewInteger(maxFnResultLen)}},
+		{"repeat overflow", &repeatFn{}, []TypedValue{NewVarchar("abc"), NewInteger(math.MaxInt64)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				_, err := tc.fn.Apply(nil, tc.args)
+				require.ErrorIs(t, err, ErrIllegalArguments)
+			})
+		})
+	}
+
+	t.Run("substring length overflow", func(t *testing.T) {
+		v, err := (&SubstringFn{}).Apply(nil, []TypedValue{NewVarchar("abc"), NewInteger(2), NewInteger(math.MaxInt64)})
+		require.NoError(t, err)
+		require.Equal(t, "bc", v.RawValue())
 	})
 }

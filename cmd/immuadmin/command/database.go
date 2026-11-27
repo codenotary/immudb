@@ -905,6 +905,6 @@ func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) stri
 
 func addDbTruncateFlags(c *cobra.Command) {
 	c.Flags().Bool("yes-i-know-what-i-am-doing", false, "safety flag to confirm database truncation")
-	c.Flags().Duration("retention-period", 0, "duration of time to retain data in storage")
+	c.Flags().Duration("retention-period", 0, "duration of time to retain data in storage (minimum 24h)")
 	c.MarkFlagRequired("yes-i-know-what-i-am-doing")
 }

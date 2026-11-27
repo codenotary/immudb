@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/logger"
@@ -457,8 +458,40 @@ func TestSession_QueriesMachine(t *testing.T) {
 	}
 }
 
+func TestSession_QueryMachineDoesNotLogPasswords(t *testing.T) {
+	for _, query := range []string{
+		"CREATE USER bob WITH PASSWORD 's3cr3t'",
+		"alter user bob password 'it''s s3cr3t'",
+	} {
+		c1, c2 := net.Pipe()
+		memLog := logger.NewMemoryLoggerWithLevel(logger.LogDebug)
+
+		s := session{
+			log:        memLog,
+			mr:         &messageReader{conn: c1},
+			statements: make(map[string]*statement),
+			portals:    make(map[string]*portal),
+			db:         &mockDB{},
+		}
+
+		go func() {
+			ready4Query := make([]byte, len(bmessages.ReadyForQuery(bmessages.TxStatusIdle)))
+			c2.Read(ready4Query)
+			c2.Write(h.Msg('Q', h.S(query)))
+			c2.Close()
+		}()
+
+		require.NoError(t, s.QueryMachine())
+		require.NotContains(t, strings.Join(memLog.GetLogs(), "\n"), "s3cr3t")
+	}
+}
+
 type mockDB struct {
 	database.DB
+}
+
+func (db *mockDB) SQLExecPrepared(ctx context.Context, tx *sql.SQLTx, stmts []sql.SQLStmt, params map[string]interface{}) (*sql.SQLTx, []*sql.SQLTx, error) {
+	return nil, nil, fmt.Errorf("dummy error")
 }
 
 func (db *mockDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {

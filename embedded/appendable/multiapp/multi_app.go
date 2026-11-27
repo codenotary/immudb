@@ -270,7 +270,7 @@ func (mf *MultiFileAppendable) Copy(dstPath string) error {
 }
 
 func copyFile(srcPath, dstPath string) (int64, error) {
-	dstFile, err := os.Create(dstPath)
+	dstFile, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return 0, err
 	}

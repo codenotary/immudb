@@ -27,6 +27,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -58,6 +59,7 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -245,8 +247,14 @@ func (s *ImmuServer) Initialize() error {
 
 	uuidContext := NewUUIDContext(s.UUID)
 
+	recoverPanic := grpc_recovery.WithRecoveryHandler(func(p any) error {
+		s.Logger.Errorf("recovered from panic in gRPC handler: %v\n%s", p, debug.Stack())
+		return status.Error(codes.Internal, "internal error")
+	})
+
 	uis := []grpc.UnaryServerInterceptor{
 		ErrorMapper, // converts errors in gRPC ones. Need to be the first
+		grpc_recovery.UnaryServerInterceptor(recoverPanic),
 		s.AuditLogInterceptor,
 		s.AccessLogInterceptor,
 		s.KeepAliveSessionInterceptor,
@@ -259,6 +267,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
+		grpc_recovery.StreamServerInterceptor(recoverPanic),
 		s.AuditLogStreamInterceptor,
 		s.AccessLogStreamInterceptor,
 		s.KeepALiveSessionStreamInterceptor,
@@ -627,7 +636,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	}
 
 	opts := s.databaseOptionsFrom(dbOpts)
-	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), os.ModePerm)
+	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), store.DefaultFileMode)
 
 	db := s.dbList.Put(dbOpts.Database, opts)
 
@@ -1080,7 +1089,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	}
 
 	opts := s.databaseOptionsFrom(dbOpts)
-	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), os.ModePerm)
+	os.MkdirAll(path.Join(opts.GetDBRootPath(), dbOpts.Database), store.DefaultFileMode)
 	db := s.dbList.Put(dbOpts.Database, s.databaseOptionsFrom(dbOpts))
 
 	s.multidbmode = true
@@ -1289,6 +1298,11 @@ func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatab
 	defer s.dbListMutex.Unlock()
 
 	db, err := s.dbList.Delete(req.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.revokeAllAccessTo(ctx, req.Database)
 	if err != nil {
 		return nil, err
 	}

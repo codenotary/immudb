@@ -105,7 +105,7 @@ func (s *session) handlePgSystemQuery(query string) error {
 	}
 
 	// Debug logging
-	s.log.Infof("pgcompat: intercepted query: %q", query)
+	s.log.Debugf("pgcompat: intercepted query: %q", maskPasswords(query))
 	s.log.Infof("pgcompat: extracted columns: %v", cols)
 	s.log.Infof("pgcompat: query length: %d bytes", len(query))
 
@@ -621,6 +621,10 @@ func (s *session) handleXormColumnsQuery(query string, params []*schema.NamedPar
 		return nil
 	}
 	defer tx.Cancel()
+
+	if err := tx.CheckSelectPrivilege(s.ctx); err != nil {
+		return err
+	}
 
 	catalog := tx.Catalog()
 	table, err := catalog.GetTableByName(tableName)

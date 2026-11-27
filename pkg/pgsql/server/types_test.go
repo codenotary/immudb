@@ -26,6 +26,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -297,4 +298,15 @@ func parseFracNs(s string) int {
 		n = n*10 + int(c-'0')
 	}
 	return n
+}
+
+func Test_buildNamedParams_TooFewValues(t *testing.T) {
+	cols := []sql.ColDescriptor{{Column: "p1", Type: sql.IntegerType}, {Column: "p2", Type: sql.VarcharType}}
+
+	for _, vals := range [][]interface{}{nil, {"1"}} {
+		require.NotPanics(t, func() {
+			_, err := buildNamedParams(cols, vals)
+			require.ErrorIs(t, err, pserr.ErrMalformedMessage)
+		})
+	}
 }

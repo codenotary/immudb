@@ -109,7 +109,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		return nil, err
 	}
 
-	f, err := os.OpenFile(fileName, flag, opts.fileMode)
+	f, err := os.OpenFile(fileName, flag, opts.fileMode&^0111)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (aof *AppendableFile) Copy(dstPath string) error {
 		return ErrAlreadyClosed
 	}
 
-	dstFile, err := os.Create(dstPath)
+	dstFile, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

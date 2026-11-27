@@ -25,12 +25,14 @@ import (
 var ErrMaxValueLenExceeded = "internal store max value length exceeded"
 var ErrMaxTxValuesLenExceeded = "max transaction values length exceeded"
 var ErrChunkTooSmall = fmt.Sprintf("minimum chunk size is %d", MinChunkSize)
+var ErrInvalidMsgSize = "invalid stream message size"
 var ErrRefOptNotImplemented = "reference operation is not implemented"
 var ErrUnableToReassembleExecAllMessage = "unable to reassemble ZAdd message on a streamExecAll"
 
 func init() {
 	errors.CodeMap[ErrMaxValueLenExceeded] = errors.CodDataException
 	errors.CodeMap[ErrMaxTxValuesLenExceeded] = errors.CodDataException
+	errors.CodeMap[ErrInvalidMsgSize] = errors.CodDataException
 	errors.CodeMap[ErrRefOptNotImplemented] = errors.CodUndefinedFunction
 	errors.CodeMap[ErrUnableToReassembleExecAllMessage] = errors.CodInternalError
 }

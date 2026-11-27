@@ -12177,3 +12177,46 @@ func (r *mockTableResolver) Resolve(ctx context.Context, tx *SQLTx, alias string
 		r.values,
 	)
 }
+
+func TestCTEIsScopedToItsStatement(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil, `CREATE TABLE orders (id INTEGER, PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+	_, _, err = engine.Exec(ctx, nil, `INSERT INTO orders (id) VALUES (1), (2)`, nil)
+	require.NoError(t, err)
+	_, _, err = engine.Exec(ctx, nil, `CREATE VIEW shared AS SELECT id FROM orders`, nil)
+	require.NoError(t, err)
+
+	countRows := func(query string) int {
+		rows, err := engine.queryAll(ctx, nil, query, nil)
+		require.NoError(t, err)
+		return len(rows)
+	}
+
+	t.Run("cte named like a view leaves the view intact", func(t *testing.T) {
+		require.Equal(t, 1, countRows(`WITH shared AS (SELECT id FROM orders WHERE id = 1) SELECT id FROM shared`))
+		require.Equal(t, 2, countRows(`SELECT id FROM shared`))
+	})
+
+	t.Run("parameters are inferred through cte", func(t *testing.T) {
+		params, err := engine.InferParameters(ctx, nil, `WITH c AS (SELECT id FROM orders WHERE id > @min) SELECT id FROM c WHERE id < @max`)
+		require.NoError(t, err)
+		require.Equal(t, map[string]SQLValueType{"min": IntegerType, "max": IntegerType}, params)
+	})
+
+	t.Run("concurrent cte queries", func(t *testing.T) {
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := 0; j < 50; j++ {
+					require.Equal(t, 2, countRows(`WITH c AS (SELECT id FROM orders) SELECT id FROM c`))
+				}
+			}()
+		}
+		wg.Wait()
+	})
+}

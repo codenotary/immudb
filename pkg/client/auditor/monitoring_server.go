@@ -19,7 +19,6 @@ package auditor
 import (
 	"context"
 	"encoding/json"
-	"expvar"
 	"net/http"
 
 	"github.com/codenotary/immudb/embedded/logger"
@@ -39,7 +38,6 @@ func StartHTTPServerForMonitoring(
 	promhttpHander := corsHandler(promhttp.Handler())
 	mux.Handle("/", promhttpHander)
 	mux.Handle("/metrics", promhttpHander)
-	mux.Handle("/debug/vars", corsHandler(expvar.Handler()))
 	mux.HandleFunc("/initz", corsHandlerFunc(AuditorHealthHandlerFunc(immuServiceClient)))
 	mux.HandleFunc("/readyz", corsHandlerFunc(AuditorHealthHandlerFunc(immuServiceClient)))
 	mux.HandleFunc("/livez", corsHandlerFunc(AuditorHealthHandlerFunc(immuServiceClient)))

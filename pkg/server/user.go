@@ -617,6 +617,43 @@ func (s *ImmuServer) saveUserAndLogout(ctx context.Context, u *auth.User) error 
 	return nil
 }
 
+// revokeAllAccessTo keeps a later database of the same name from inheriting old grants.
+func (s *ImmuServer) revokeAllAccessTo(ctx context.Context, database string) error {
+	items, err := s.sysDB.Scan(ctx, &schema.ScanRequest{Prefix: []byte{KeyPrefixUser}, NoWait: true})
+	if err != nil {
+		return logErr(s.Logger, "error listing users: %v", err)
+	}
+
+	for _, item := range items.Entries {
+		u, err := s.getUser(ctx, item.Key[1:])
+		if err != nil {
+			return logErr(s.Logger, "error getting user: %v", err)
+		}
+
+		revoked := u.RevokePermission(database)
+
+		privileges := make([]auth.SQLPrivilege, 0, len(u.SQLPrivileges))
+		for _, p := range u.SQLPrivileges {
+			if p.Database != database {
+				privileges = append(privileges, p)
+			}
+		}
+		revoked = revoked || len(privileges) != len(u.SQLPrivileges)
+
+		if !revoked {
+			continue
+		}
+
+		u.SQLPrivileges = privileges
+		u.HasPrivileges = true
+
+		if err := s.saveUserAndLogout(ctx, u); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 	s.userdata.AddSession(u)
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 )
 
-const DefaultFileMode = os.FileMode(0644)
+const DefaultFileMode = os.FileMode(0600)
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultReadBufferSize = 4096

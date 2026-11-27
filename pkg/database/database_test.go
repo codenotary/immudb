@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	iofs "io/fs"
 	"log"
 	"math"
 	"os"
@@ -165,6 +166,30 @@ func TestDefaultDbCreation(t *testing.T) {
 
 	dbPath := path.Join(options.GetDBRootPath(), db.GetName())
 	require.DirExists(t, dbPath)
+}
+
+func TestDbCreationUsesPrivatePermissions(t *testing.T) {
+	db := makeDb(t)
+
+	_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("k"), Value: []byte("v")}}})
+	require.NoError(t, err)
+
+	dbPath := path.Join(db.GetOptions().GetDBRootPath(), db.GetName())
+
+	err = filepath.WalkDir(dbPath, func(p string, d iofs.DirEntry, err error) error {
+		require.NoError(t, err)
+
+		info, err := d.Info()
+		require.NoError(t, err)
+
+		if d.IsDir() {
+			require.Equal(t, os.FileMode(0700), info.Mode().Perm(), p)
+		} else {
+			require.Equal(t, os.FileMode(0600), info.Mode().Perm(), p)
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }
 
 func TestDbCreationInAlreadyExistentDirectories(t *testing.T) {

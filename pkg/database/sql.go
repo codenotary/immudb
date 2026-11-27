@@ -46,6 +46,10 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	}
 	defer sqlTx.Cancel()
 
+	if err := sqlTx.CheckSelectPrivilege(ctx); err != nil {
+		return nil, err
+	}
+
 	table, err := sqlTx.Catalog().GetTableByName(req.SqlGetRequest.Table)
 	if err != nil {
 		return nil, err

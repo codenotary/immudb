@@ -60,6 +60,33 @@ func TestStartMetricsHTTP(t *testing.T) {
 	require.IsType(t, &http.Server{}, server)
 }
 
+func TestStartMetricsDebugVarsOnlyWithPProf(t *testing.T) {
+	for _, addPProf := range []bool{false, true} {
+		server := StartMetrics(
+			time.Hour,
+			"127.0.0.1:0",
+			nil,
+			&mockLogger{},
+			func() float64 { return 0 },
+			func() map[string]float64 { return nil },
+			func() map[string]float64 { return nil },
+			func() float64 { return 0 },
+			func() float64 { return 0 },
+			addPProf,
+		)
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = server.Shutdown(ctx)
+		}()
+
+		rec := httptest.NewRecorder()
+		server.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/debug/vars", nil))
+
+		require.Equal(t, addPProf, rec.Code == http.StatusOK)
+	}
+}
+
 func TestStartMetricsHTTPS(t *testing.T) {
 	tlsConfig := tlsConfigTest(t)
 
