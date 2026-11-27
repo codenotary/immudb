@@ -358,7 +358,7 @@ func (r *RemoteStorageAppendable) downloadChunk(chunkID int64) {
 			}
 			defer data.Close()
 
-			flTmp, err = os.OpenFile(fileNameTmp, os.O_CREATE|os.O_RDWR, r.fileMode)
+			flTmp, err = os.OpenFile(fileNameTmp, os.O_CREATE|os.O_RDWR, r.fileMode&^0111)
 			if err != nil {
 				// Couldn't create temporary local file, something is broken on local FS
 				return false, err
