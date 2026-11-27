@@ -29,6 +29,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func setupTestServer(t *testing.T) (*server.ImmuServer, int) {
@@ -1435,6 +1436,60 @@ func TestPgsqlCompat_GolangMigrateFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(20260414), version)
 	require.False(t, dirty)
+}
+
+func TestPgsqlGrantRevokeReachEngine(t *testing.T) {
+	srv, port := setupTestServer(t)
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer db.Close()
+
+	lr, err := srv.Login(context.Background(), &schema.LoginRequest{User: []byte("immudb"), Password: []byte("immudb")})
+	require.NoError(t, err)
+	adminCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", lr.Token))
+
+	_, err = srv.CreateUser(adminCtx, &schema.CreateUserRequest{User: []byte("grantee"), Password: []byte("Grantee1!pass"), Database: "defaultdb", Permission: auth.PermissionR})
+	require.NoError(t, err)
+
+	hasInsert := func() bool {
+		users, err := srv.ListUsers(adminCtx, &emptypb.Empty{})
+		require.NoError(t, err)
+		for _, u := range users.Users {
+			if string(u.User) == "grantee" {
+				for _, p := range u.SqlPrivileges {
+					if p.Database == "defaultdb" && p.Privilege == "INSERT" {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+
+	tests := []struct {
+		name      string
+		stmt      string
+		wantErr   bool
+		hasInsert bool
+	}{
+		{"unsupported grant", "GRANT SELECT ON TABLE t TO grantee", true, false},
+		{"grant", "GRANT INSERT ON DATABASE defaultdb TO USER grantee", false, true},
+		{"unsupported revoke", "REVOKE INSERT ON TABLE t FROM grantee", true, true},
+		{"revoke", "REVOKE INSERT ON DATABASE defaultdb TO USER grantee", false, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := db.Exec(tc.stmt)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tc.hasInsert, hasInsert())
+		})
+	}
 }
 
 func TestPgsqlCatalogHandlersRequireSelectPrivilege(t *testing.T) {
