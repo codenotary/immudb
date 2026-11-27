@@ -26,9 +26,11 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/require"
 )
 
@@ -131,4 +133,30 @@ func tlsConfigTest(t *testing.T) *tls.Config {
 			PrivateKey:  key,
 		}},
 	}
+}
+
+func TestLocalOnlyWithoutAuth(t *testing.T) {
+	authEnabled, devMode := auth.AuthEnabled, auth.DevMode
+	defer func() { auth.AuthEnabled, auth.DevMode = authEnabled, devMode }()
+
+	h := localOnlyWithoutAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+
+	status := func(remoteAddr string) int {
+		r := httptest.NewRequest(http.MethodPost, "/api/db/list/v2", nil)
+		r.RemoteAddr = remoteAddr
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w.Code
+	}
+
+	auth.AuthEnabled, auth.DevMode = false, false
+	require.Equal(t, http.StatusForbidden, status("10.0.0.5:4321"))
+	require.Equal(t, http.StatusOK, status("127.0.0.1:4321"))
+	require.Equal(t, http.StatusOK, status("[::1]:4321"))
+
+	auth.AuthEnabled = true
+	require.Equal(t, http.StatusOK, status("10.0.0.5:4321"))
+
+	auth.AuthEnabled, auth.DevMode = false, true
+	require.Equal(t, http.StatusOK, status("10.0.0.5:4321"))
 }

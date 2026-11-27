@@ -85,7 +85,11 @@ func isLocalClient(ctx context.Context) bool {
 		return false
 	}
 
-	addr := p.Addr.String()
+	return IsLocalAddr(p.Addr.String())
+}
+
+// IsLocalAddr reports whether addr (host or host:port) is a loopback address.
+func IsLocalAddr(addr string) bool {
 	// net.SplitHostPort correctly parses both IPv4 and IPv6 (e.g. "[::1]:443").
 	// strings.Split(addr, ":") returns "[" for IPv6 and would miss "::1".
 	host, _, err := net.SplitHostPort(addr)

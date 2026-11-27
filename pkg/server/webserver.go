@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/protomodel"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/swagger"
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -86,7 +87,7 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 		}
 	}
 
-	httpServer := &http.Server{Addr: httpAddr, Handler: webMux}
+	httpServer := &http.Server{Addr: httpAddr, Handler: localOnlyWithoutAuth(webMux)}
 	httpServer.TLSConfig = tlsConfig
 
 	go func() {
@@ -107,6 +108,18 @@ func startWebServer(ctx context.Context, grpcAddr string, httpAddr string, tlsCo
 	}()
 
 	return httpServer, conn, nil
+}
+
+// localOnlyWithoutAuth applies the gRPC local-clients rule to HTTP: the gateway
+// reaches gRPC over loopback, so the gRPC check alone admits every HTTP client.
+func localOnlyWithoutAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !auth.AuthEnabled && !auth.DevMode && !auth.IsLocalAddr(r.RemoteAddr) {
+			http.Error(w, "server has authentication disabled: only local connections are accepted", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // newGrpcClientConn opens a gRPC client connection to grpcAddr.
