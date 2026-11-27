@@ -1274,6 +1274,9 @@ func (stmt *UpsertIntoStmt) requiredPrivileges() []SQLPrivilege {
 	if stmt.ds != nil {
 		privileges = append(privileges, stmt.ds.requiredPrivileges()...)
 	}
+	if stmt.onConflict != nil {
+		privileges = append(privileges, colUpdatesPrivileges(stmt.onConflict.updates)...)
+	}
 	return privileges
 }
 
@@ -1934,7 +1937,7 @@ func (stmt *UpdateStmt) readOnly() bool {
 }
 
 func (stmt *UpdateStmt) requiredPrivileges() []SQLPrivilege {
-	return []SQLPrivilege{SQLPrivilegeUpdate}
+	return append([]SQLPrivilege{SQLPrivilegeUpdate}, append(subqueryPrivileges(stmt.where), colUpdatesPrivileges(stmt.updates)...)...)
 }
 
 func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -2152,7 +2155,7 @@ func (stmt *DeleteFromStmt) readOnly() bool {
 }
 
 func (stmt *DeleteFromStmt) requiredPrivileges() []SQLPrivilege {
-	return []SQLPrivilege{SQLPrivilegeDelete}
+	return append([]SQLPrivilege{SQLPrivilegeDelete}, subqueryPrivileges(stmt.where)...)
 }
 
 func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
@@ -5232,9 +5235,11 @@ type ReturningStmt struct {
 	tableName string
 }
 
-func (stmt *ReturningStmt) readOnly() bool                     { return false }
-func (stmt *ReturningStmt) requiredPrivileges() []SQLPrivilege { return stmt.dml.requiredPrivileges() }
-func (stmt *ReturningStmt) Alias() string                      { return "" }
+func (stmt *ReturningStmt) readOnly() bool { return false }
+func (stmt *ReturningStmt) requiredPrivileges() []SQLPrivilege {
+	return append(stmt.dml.requiredPrivileges(), SQLPrivilegeSelect)
+}
+func (stmt *ReturningStmt) Alias() string { return "" }
 
 func (stmt *ReturningStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return stmt.dml.inferParameters(ctx, tx, params)
@@ -5930,7 +5935,63 @@ func (ds *valuesDataSource) readOnly() bool {
 }
 
 func (ds *valuesDataSource) requiredPrivileges() []SQLPrivilege {
+	for _, row := range ds.rows {
+		if p := subqueryPrivileges(row.Values...); p != nil {
+			return p
+		}
+	}
 	return nil
+}
+
+func colUpdatesPrivileges(updates []*colUpdate) []SQLPrivilege {
+	for _, u := range updates {
+		if p := subqueryPrivileges(u.val); p != nil {
+			return p
+		}
+	}
+	return nil
+}
+
+// subqueryPrivileges returns SELECT when any expression embeds a subquery, since it reads other tables.
+func subqueryPrivileges(exps ...ValueExp) []SQLPrivilege {
+	for _, exp := range exps {
+		if containsSubquery(exp) {
+			return []SQLPrivilege{SQLPrivilegeSelect}
+		}
+	}
+	return nil
+}
+
+func containsSubquery(exp ValueExp) bool {
+	switch e := exp.(type) {
+	case *ExistsBoolExp, *InSubQueryExp, *ScalarSubQueryExp:
+		return true
+	case *BinBoolExp:
+		return subqueryPrivileges(e.left, e.right) != nil
+	case *NumExp:
+		return subqueryPrivileges(e.left, e.right) != nil
+	case *CmpBoolExp:
+		return subqueryPrivileges(e.left, e.right) != nil
+	case *NotBoolExp:
+		return containsSubquery(e.exp)
+	case *LikeBoolExp:
+		return subqueryPrivileges(e.val, e.pattern) != nil
+	case *InListExp:
+		return subqueryPrivileges(append([]ValueExp{e.val}, e.values...)...) != nil
+	case *FnCall:
+		return subqueryPrivileges(e.params...) != nil
+	case *Cast:
+		return containsSubquery(e.val)
+	case *ExtractFromTimestampExp:
+		return containsSubquery(e.Exp)
+	case *CaseWhenExp:
+		exps := []ValueExp{e.exp, e.elseExp}
+		for _, wt := range e.whenThen {
+			exps = append(exps, wt.when, wt.then)
+		}
+		return subqueryPrivileges(exps...) != nil
+	}
+	return false
 }
 
 func (ds *valuesDataSource) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {

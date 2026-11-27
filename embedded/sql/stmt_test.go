@@ -1827,6 +1827,36 @@ func TestRequiredPrivileges(t *testing.T) {
 	}
 }
 
+func TestRequiredPrivilegesReadingDML(t *testing.T) {
+	tests := []struct {
+		sql        string
+		privileges []SQLPrivilege
+	}{
+		{"INSERT INTO t(id) VALUES (1)", []SQLPrivilege{SQLPrivilegeInsert}},
+		{"INSERT INTO t(id) VALUES (1) RETURNING id", []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeSelect}},
+		{"UPDATE t SET v = 1 RETURNING id", []SQLPrivilege{SQLPrivilegeUpdate, SQLPrivilegeSelect}},
+		{"DELETE FROM t WHERE id = 1 RETURNING id", []SQLPrivilege{SQLPrivilegeDelete, SQLPrivilegeSelect}},
+		{"INSERT INTO t(id) VALUES ((SELECT MAX(id) FROM s))", []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeSelect}},
+		{"UPSERT INTO t(id) VALUES (CAST((SELECT MAX(id) FROM s) AS INTEGER))", []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeUpdate, SQLPrivilegeSelect}},
+		{"INSERT INTO t(id) VALUES (1) ON CONFLICT DO UPDATE SET v = (SELECT MAX(id) FROM s)", []SQLPrivilege{SQLPrivilegeInsert, SQLPrivilegeSelect}},
+		{"UPDATE t SET v = (SELECT MAX(id) FROM s)", []SQLPrivilege{SQLPrivilegeUpdate, SQLPrivilegeSelect}},
+		{"UPDATE t SET v = 1 WHERE id IN (SELECT id FROM s)", []SQLPrivilege{SQLPrivilegeUpdate, SQLPrivilegeSelect}},
+		{"UPDATE t SET v = 1 WHERE id = 1 OR NOT EXISTS (SELECT 1 FROM s)", []SQLPrivilege{SQLPrivilegeUpdate, SQLPrivilegeSelect}},
+		{"DELETE FROM t WHERE id > (SELECT MAX(id) FROM s)", []SQLPrivilege{SQLPrivilegeDelete, SQLPrivilegeSelect}},
+		{"DELETE FROM t WHERE id IN (1, (SELECT MAX(id) FROM s))", []SQLPrivilege{SQLPrivilegeDelete, SQLPrivilegeSelect}},
+		{"DELETE FROM t WHERE id = 1", []SQLPrivilege{SQLPrivilegeDelete}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.sql, func(t *testing.T) {
+			stmts, err := ParseSQLString(tc.sql)
+			require.NoError(t, err)
+			require.Len(t, stmts, 1)
+			require.ElementsMatch(t, tc.privileges, stmts[0].requiredPrivileges())
+		})
+	}
+}
+
 func TestExprSelectors(t *testing.T) {
 	type testCase struct {
 		Expr      ValueExp
