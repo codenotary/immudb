@@ -26,6 +26,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 )
 
 // pgTextBool mirrors Postgres' text-format boolean accepted values:
@@ -72,6 +73,10 @@ func pgTextTimestamp(s string) (time.Time, bool) {
 }
 
 func buildNamedParams(paramsType []sql.ColDescriptor, paramsVal []interface{}) ([]*schema.NamedParam, error) {
+	if len(paramsVal) < len(paramsType) {
+		return nil, fmt.Errorf("%w: bind message supplies %d parameters, but prepared statement requires %d", pserr.ErrMalformedMessage, len(paramsVal), len(paramsType))
+	}
+
 	pMap := make(map[string]interface{})
 	for index, param := range paramsType {
 		name := param.Column
