@@ -87,6 +87,14 @@ func (sqlTx *SQLTx) Catalog() *Catalog {
 	return sqlTx.catalog
 }
 
+// CheckSelectPrivilege applies the engine's SELECT check to the logged user.
+func (sqlTx *SQLTx) CheckSelectPrivilege(ctx context.Context) error {
+	if sqlTx.engine.multidbHandler == nil {
+		return nil
+	}
+	return sqlTx.engine.checkUserPermissions(ctx, &SelectStmt{})
+}
+
 func (sqlTx *SQLTx) IsExplicitCloseRequired() bool {
 	return sqlTx.opts.ExplicitClose
 }

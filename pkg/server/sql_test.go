@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -116,6 +117,62 @@ func TestSQLInteraction(t *testing.T) {
 		ProveSinceTx:  100,
 	})
 	require.ErrorIs(t, err, database.ErrIllegalState)
+}
+
+func TestVerifiableSQLGetRequiresSelectPrivilege(t *testing.T) {
+	s := DefaultServer().WithOptions(DefaultOptions().
+		WithDir(t.TempDir()).
+		WithMetricsServer(false).
+		WithPort(0).
+		WithAdminPassword(auth.SysAdminPassword)).(*ImmuServer)
+	require.NoError(t, s.Initialize())
+
+	lr, err := s.Login(context.Background(), &schema.LoginRequest{User: []byte(auth.SysAdminUsername), Password: []byte(auth.SysAdminPassword)})
+	require.NoError(t, err)
+	adminCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", lr.Token))
+
+	_, err = s.SQLExec(adminCtx, &schema.SQLExecRequest{Sql: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id); INSERT INTO table1 (id) VALUES (1)"})
+	require.NoError(t, err)
+
+	_, err = s.CreateUser(adminCtx, &schema.CreateUserRequest{User: testUsername, Password: testPassword, Database: DefaultDBName, Permission: auth.PermissionRW})
+	require.NoError(t, err)
+
+	req := &schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}}},
+	}
+
+	require.Eventually(t, func() bool {
+		_, err := s.VerifiableSQLGet(adminCtx, req)
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	tests := []struct {
+		name   string
+		action schema.PermissionAction
+		err    error
+	}{
+		{"without select", schema.PermissionAction_REVOKE, sql.ErrAccessDenied},
+		{"with select", schema.PermissionAction_GRANT, nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := s.ChangeSQLPrivileges(adminCtx, &schema.ChangeSQLPrivilegesRequest{
+				Action:     tc.action,
+				Username:   string(testUsername),
+				Database:   DefaultDBName,
+				Privileges: []string{string(sql.SQLPrivilegeSelect)},
+			})
+			require.NoError(t, err)
+
+			userLogin, err := s.Login(context.Background(), &schema.LoginRequest{User: testUsername, Password: testPassword})
+			require.NoError(t, err)
+			userCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", userLogin.Token))
+
+			_, err = s.VerifiableSQLGet(userCtx, req)
+			require.ErrorIs(t, err, tc.err)
+		})
+	}
 }
 
 func TestSQLExecResult(t *testing.T) {

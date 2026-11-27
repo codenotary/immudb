@@ -607,6 +607,10 @@ func (s *session) handlePgAttributeForTable(tableName string, extQueryMode bool)
 	}
 	defer tx.Cancel()
 
+	if err := tx.CheckSelectPrivilege(s.ctx); err != nil {
+		return err
+	}
+
 	catalog := tx.Catalog()
 	table, err := catalog.GetTableByName(tableName)
 	if err != nil {

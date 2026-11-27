@@ -23,9 +23,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/metadata"
 )
 
 func setupTestServer(t *testing.T) (*server.ImmuServer, int) {
@@ -1432,4 +1435,59 @@ func TestPgsqlCompat_GolangMigrateFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(20260414), version)
 	require.False(t, dirty)
+}
+
+func TestPgsqlCatalogHandlersRequireSelectPrivilege(t *testing.T) {
+	srv, port := setupTestServer(t)
+
+	connect := func(user, pass string) *sql.DB {
+		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=%s dbname=defaultdb password=%s", port, user, pass))
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+		return db
+	}
+
+	_, err := connect("immudb", "immudb").Exec(`CREATE TABLE secret_tbl (id INTEGER, PRIMARY KEY id)`)
+	require.NoError(t, err)
+
+	lr, err := srv.Login(context.Background(), &schema.LoginRequest{User: []byte("immudb"), Password: []byte("immudb")})
+	require.NoError(t, err)
+	adminCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", lr.Token))
+
+	_, err = srv.CreateUser(adminCtx, &schema.CreateUserRequest{User: []byte("limited"), Password: []byte("Limited1!pass"), Database: "defaultdb", Permission: auth.PermissionRW})
+	require.NoError(t, err)
+
+	queries := []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{"pg_attribute", `SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a WHERE a.attrelid = 'secret_tbl'::regclass`, nil},
+		{"xorm columns", `SELECT column_name, column_default FROM pg_attribute JOIN pg_class c ON c.oid = pg_attribute.attrelid WHERE c.relname = $1`, []any{"secret_tbl"}},
+	}
+
+	for _, action := range []schema.PermissionAction{schema.PermissionAction_REVOKE, schema.PermissionAction_GRANT} {
+		_, err = srv.ChangeSQLPrivileges(adminCtx, &schema.ChangeSQLPrivilegesRequest{
+			Action: action, Username: "limited", Database: "defaultdb", Privileges: []string{"SELECT"},
+		})
+		require.NoError(t, err)
+
+		for _, tc := range queries {
+			t.Run(fmt.Sprintf("%s %s", action, tc.name), func(t *testing.T) {
+				rows, err := connect("limited", "Limited1!pass").Query(tc.query, tc.args...)
+				if err == nil {
+					for rows.Next() {
+					}
+					err = rows.Err()
+					rows.Close()
+				}
+
+				if action == schema.PermissionAction_REVOKE {
+					require.ErrorContains(t, err, "access denied")
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
+	}
 }
