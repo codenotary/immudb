@@ -1473,9 +1473,10 @@ func TestPgsqlGrantRevokeReachEngine(t *testing.T) {
 		wantErr   bool
 		hasInsert bool
 	}{
-		{"unsupported grant", "GRANT SELECT ON TABLE t TO grantee", true, false},
+		{"table grant ignored", "GRANT SELECT ON TABLE t TO grantee", false, false},
 		{"grant", "GRANT INSERT ON DATABASE defaultdb TO USER grantee", false, true},
-		{"unsupported revoke", "REVOKE INSERT ON TABLE t FROM grantee", true, true},
+		{"table revoke ignored", "REVOKE INSERT ON TABLE t FROM grantee", false, true},
+		{"schema revoke ignored", "REVOKE ALL ON SCHEMA public FROM PUBLIC", false, true},
 		{"revoke", "REVOKE INSERT ON DATABASE defaultdb TO USER grantee", false, false},
 	}
 
