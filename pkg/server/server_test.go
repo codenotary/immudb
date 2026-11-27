@@ -2237,3 +2237,78 @@ func TestServerAccountChangeEndsAllV1Logins(t *testing.T) {
 	_, err = s.Set(carolCtx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: testKey, Value: testValue}}})
 	require.Error(t, err)
 }
+
+func TestServerDatabaseAdminCannotTakeOverOtherDatabaseUser(t *testing.T) {
+	serverOptions := DefaultOptions().
+		WithDir(t.TempDir()).
+		WithMetricsServer(false).
+		WithPort(0).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s, closer := testServer(serverOptions)
+	defer closer()
+
+	require.NoError(t, s.Initialize())
+
+	loginCtx := func(user, password string) context.Context {
+		lr, err := s.Login(context.Background(), &schema.LoginRequest{User: []byte(user), Password: []byte(password)})
+		require.NoError(t, err)
+		return metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", lr.Token))
+	}
+
+	sysCtx := loginCtx(auth.SysAdminUsername, auth.SysAdminPassword)
+
+	for _, db := range []string{"dba", "dbb"} {
+		_, err := s.CreateDatabaseV2(sysCtx, &schema.CreateDatabaseRequest{Name: db})
+		require.NoError(t, err)
+	}
+
+	for _, u := range []struct {
+		name, db   string
+		permission uint32
+	}{{"admina", "dba", auth.PermissionAdmin}, {"bob", "dbb", auth.PermissionRW}} {
+		_, err := s.CreateUser(sysCtx, &schema.CreateUserRequest{
+			User:       []byte(u.name),
+			Password:   []byte("Passw0rd!"),
+			Permission: u.permission,
+			Database:   u.db,
+		})
+		require.NoError(t, err)
+	}
+
+	adminCtx := loginCtx("admina", "Passw0rd!")
+
+	_, err := s.ChangePermission(adminCtx, &schema.ChangePermissionRequest{
+		Action:     schema.PermissionAction_GRANT,
+		Username:   "bob",
+		Database:   "dba",
+		Permission: auth.PermissionR,
+	})
+	require.NoError(t, err)
+
+	_, err = s.ChangePassword(adminCtx, &schema.ChangePasswordRequest{User: []byte("bob"), NewPassword: []byte("Hijack3d!")})
+	require.Error(t, err)
+
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: "bob", Active: false})
+	require.Error(t, err)
+
+	bob, err := s.getUser(context.Background(), []byte("bob"))
+	require.NoError(t, err)
+	require.Equal(t, auth.SysAdminUsername, bob.CreatedBy)
+	require.True(t, bob.HasSQLPrivilege("dbb", "INSERT"))
+	require.True(t, bob.HasSQLPrivilege("dba", "SELECT"))
+	require.False(t, bob.HasSQLPrivilege("dba", "INSERT"))
+
+	_, err = s.ChangePermission(adminCtx, &schema.ChangePermissionRequest{
+		Action:     schema.PermissionAction_REVOKE,
+		Username:   "bob",
+		Database:   "dba",
+		Permission: auth.PermissionR,
+	})
+	require.NoError(t, err)
+
+	bob, err = s.getUser(context.Background(), []byte("bob"))
+	require.NoError(t, err)
+	require.False(t, bob.HasSQLPrivilege("dba", "SELECT"))
+	require.True(t, bob.HasSQLPrivilege("dbb", "INSERT"))
+}

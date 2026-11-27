@@ -335,8 +335,6 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return nil, err
 	}
 
-	targetUser.CreatedBy = user.Username
-	targetUser.CreatedAt = time.Now()
 	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
 		return nil, err
 	}
@@ -422,9 +420,16 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 		targetUser.GrantPermission(r.Database, r.Permission)
 	}
 
-	targetUser.CreatedBy = user.Username
-	targetUser.CreatedAt = time.Now()
-	targetUser.SQLPrivileges = defaultSQLPrivilegesForPermission(r.Database, r.Permission)
+	privileges := make([]auth.SQLPrivilege, 0, len(targetUser.SQLPrivileges))
+	for _, p := range targetUser.SQLPrivileges {
+		if p.Database != r.Database {
+			privileges = append(privileges, p)
+		}
+	}
+	if r.Action != schema.PermissionAction_REVOKE {
+		privileges = append(privileges, defaultSQLPrivilegesForPermission(r.Database, r.Permission)...)
+	}
+	targetUser.SQLPrivileges = privileges
 	targetUser.HasPrivileges = true
 
 	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
@@ -478,8 +483,6 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	}
 
 	targetUser.Active = r.Active
-	targetUser.CreatedBy = user.Username
-	targetUser.CreatedAt = time.Now()
 
 	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
 		return nil, err
@@ -725,8 +728,6 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 		targetUser.GrantSQLPrivileges(r.Database, privileges)
 	}
 
-	targetUser.CreatedBy = user.Username
-	targetUser.CreatedAt = time.Now()
 	targetUser.HasPrivileges = true
 
 	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
