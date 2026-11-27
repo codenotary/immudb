@@ -16,11 +16,16 @@ limitations under the License.
 
 package fmessages
 
+import pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
+
 type QueryMsg struct {
 	statements string
 }
 
 func ParseQueryMsg(payload []byte) (QueryMsg, error) {
+	if len(payload) < 1 {
+		return QueryMsg{}, pgserrors.ErrMalformedMessage
+	}
 	msg := payload[:len(payload)-1] //-1 A null-terminated string
 	return QueryMsg{statements: string(msg)}, nil
 }

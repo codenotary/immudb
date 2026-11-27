@@ -16,6 +16,8 @@ limitations under the License.
 
 package fmessages
 
+import pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
+
 type DescribeMsg struct {
 	// 'S' to describe a prepared statement; or 'P' to describe a portal.
 	DescType string
@@ -24,6 +26,9 @@ type DescribeMsg struct {
 }
 
 func ParseDescribeMsg(msg []byte) (DescribeMsg, error) {
+	if len(msg) < 2 {
+		return DescribeMsg{}, pgserrors.ErrMalformedMessage
+	}
 	descType := msg[0]
 	return DescribeMsg{
 		DescType: string(descType),

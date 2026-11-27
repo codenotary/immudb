@@ -16,11 +16,16 @@ limitations under the License.
 
 package fmessages
 
+import pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
+
 type PasswordMsg struct {
 	secret string
 }
 
 func ParsePasswordMsg(payload []byte) (PasswordMsg, error) {
+	if len(payload) < 1 {
+		return PasswordMsg{}, pgserrors.ErrMalformedMessage
+	}
 	password := payload[:len(payload)-1] //-1 A null-terminated string
 	return PasswordMsg{secret: string(password)}, nil
 }

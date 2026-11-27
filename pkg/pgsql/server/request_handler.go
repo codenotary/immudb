@@ -18,10 +18,19 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 )
 
 func (s *pgsrv) handleRequest(ctx context.Context, conn net.Conn) (err error) {
+	// a panic in this per-connection goroutine would otherwise kill the whole server
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Errorf("pgsql connection from %s: recovered from panic: %v", conn.RemoteAddr(), r)
+			err = fmt.Errorf("recovered from panic: %v", r)
+		}
+	}()
+
 	ss := s.newSession(conn)
 	defer ss.Close()
 
