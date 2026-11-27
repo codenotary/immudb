@@ -29,8 +29,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const maxFnResultLen = 1 << 25
+
 const (
-	CoalesceFnCall           string = "COALESCE"
+	CoalesceFnCall          string = "COALESCE"
 	LengthFnCall             string = "LENGTH"
 	SubstringFnCall          string = "SUBSTRING"
 	ConcatFnCall             string = "CONCAT"
@@ -379,9 +381,9 @@ func (f *SubstringFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) 
 		return &Varchar{val: ""}, nil
 	}
 
-	end := pos - 1 + length
-	if end > int64(len(s)) {
-		end = int64(len(s))
+	end := int64(len(s))
+	if length < end-(pos-1) {
+		end = pos - 1 + length
 	}
 	return &Varchar{val: s[pos-1 : end]}, nil
 }
@@ -1297,6 +1299,9 @@ func (f *repeatFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	if n <= 0 {
 		return NewVarchar(""), nil
 	}
+	if len(s) > 0 && n > maxFnResultLen/int64(len(s)) {
+		return nil, fmt.Errorf("%w: '%s' result exceeds the maximum length of %d", ErrIllegalArguments, RepeatFnCall, maxFnResultLen)
+	}
 	return NewVarchar(strings.Repeat(s, int(n))), nil
 }
 
@@ -1420,11 +1425,15 @@ func (f *padFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	if fill == "" {
 		fill = " "
 	}
-	for int64(len(s)) < length {
+	if length < 0 || length > maxFnResultLen {
+		return nil, fmt.Errorf("%w: LPAD/RPAD length must be between 0 and %d", ErrIllegalArguments, maxFnResultLen)
+	}
+	if need := length - int64(len(s)); need > 0 {
+		padding := strings.Repeat(fill, int((need+int64(len(fill))-1)/int64(len(fill))))
 		if f.isRight {
-			s = s + fill
+			s = s + padding
 		} else {
-			s = fill + s
+			s = padding + s
 		}
 	}
 	if int64(len(s)) > length {
