@@ -1302,6 +1302,11 @@ func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatab
 		return nil, err
 	}
 
+	err = s.revokeAllAccessTo(ctx, req.Database)
+	if err != nil {
+		return nil, err
+	}
+
 	err = s.deleteDBOptionsFor(req.Database)
 	if err != nil {
 		return nil, err
