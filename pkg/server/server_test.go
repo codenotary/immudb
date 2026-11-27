@@ -2086,6 +2086,14 @@ func TestServerDatabaseTruncate(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("attempt to delete with retention period 0 should fail", func(t *testing.T) {
+		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
+			Database:        "db1",
+			RetentionPeriod: 0,
+		})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
 	t.Run("attempt to delete with retention period < 1 day should fail", func(t *testing.T) {
 		rp := 23 * time.Hour
 		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{

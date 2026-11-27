@@ -5318,6 +5318,15 @@ func (stmt *ReturningStmt) Resolve(ctx context.Context, tx *SQLTx, params map[st
 	return NewValuesRowReader(tx, nil, cols, true, stmt.tableName, rows)
 }
 
+// ResultCols returns the RETURNING columns from the table schema without executing the DML.
+func (stmt *ReturningStmt) ResultCols(tx *SQLTx) ([]ColDescriptor, error) {
+	table, err := stmt.resolveTable(tx)
+	if err != nil {
+		return nil, err
+	}
+	return stmt.buildReturnCols(table), nil
+}
+
 func (stmt *ReturningStmt) resolveTable(tx *SQLTx) (*Table, error) {
 	return tx.catalog.GetTableByName(stmt.tableName)
 }

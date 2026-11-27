@@ -1237,8 +1237,22 @@ type statement struct {
 func (s *session) inferParamAndResultCols(stmt sql.SQLStmt) ([]sql.ColDescriptor, []sql.ColDescriptor, error) {
 	var resCols []sql.ColDescriptor
 
-	ds, ok := stmt.(sql.DataSource)
-	if ok {
+	if rs, ok := stmt.(*sql.ReturningStmt); ok {
+		tx := s.tx
+		if tx == nil {
+			var err error
+			if tx, err = s.db.NewSQLTx(s.ctx, sql.DefaultTxOptions().WithReadOnly(true)); err != nil {
+				return nil, nil, err
+			}
+			defer tx.Cancel()
+		}
+
+		cols, err := rs.ResultCols(tx)
+		if err != nil {
+			return nil, nil, err
+		}
+		resCols = cols
+	} else if ds, ok := stmt.(sql.DataSource); ok {
 		rr, err := s.db.SQLQueryPrepared(s.ctx, s.tx, ds, nil)
 		if err != nil {
 			return nil, nil, err

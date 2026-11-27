@@ -259,3 +259,25 @@ func TestExistingEmulationNotBroken(t *testing.T) {
 	// non-matching returns nil
 	require.Nil(t, s.isEmulableInternally("SELECT 1"))
 }
+
+func TestIsEmulableInternally_IgnoresCatalogWordsInLiterals(t *testing.T) {
+	s := &session{}
+
+	tests := []struct {
+		name      string
+		statement string
+	}{
+		{"insert pg_catalog", "INSERT INTO t(v) VALUES ('see pg_catalog.pg_class')"},
+		{"insert information_schema", "INSERT INTO t(v) VALUES ('information_schema.tables')"},
+		{"update pg_roles", "UPDATE t SET v = 'pg_roles' WHERE id = 1"},
+		{"insert current_setting", "INSERT INTO t(v) VALUES ('current_setting(x)')"},
+		{"insert from pg_class", "INSERT INTO t(v) VALUES ('select * from pg_class')"},
+		{"insert from information_schema", "INSERT INTO t(v) VALUES ('select 1 from information_schema.tables')"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Nil(t, s.isEmulableInternally(tt.statement))
+		})
+	}
+}

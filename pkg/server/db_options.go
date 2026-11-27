@@ -452,6 +452,11 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 				"prealloc files", opts.Database)
 		}
 
+		if settings.ExcludeCommitTime != nil && settings.ExcludeCommitTime.Value != opts.ExcludeCommitTime {
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments,
+				"exclude commit time", opts.Database)
+		}
+
 		if settings.IndexSettings != nil && settings.IndexSettings.MaxNodeSize != nil {
 			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max node size", opts.Database)
 		}

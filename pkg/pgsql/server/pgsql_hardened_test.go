@@ -945,3 +945,40 @@ func TestHardened_NullsFirstLastValues(t *testing.T) {
 	require.Equal(t, int64(3), ids[1], "score=90 should be second")
 	require.Equal(t, int64(2), ids[2], "NULL score should be last")
 }
+
+func TestHardened_ReturningExtendedProtocolWritesOnce(t *testing.T) {
+	_, port := setupTestServer(t)
+
+	conn, err := pgx.Connect(context.Background(),
+		fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", port))
+	require.NoError(t, err)
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(), "CREATE TABLE ret_once (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		query string
+		args  []any
+		rows  int
+	}{
+		{"insert literal", "INSERT INTO ret_once (name) VALUES ('a') RETURNING id", nil, 1},
+		{"insert param", "INSERT INTO ret_once (name) VALUES ($1) RETURNING id, name", []any{"b"}, 2},
+		{"update", "UPDATE ret_once SET name = 'c' WHERE name = 'b' RETURNING id", nil, 2},
+		{"delete", "DELETE FROM ret_once WHERE name = 'a' RETURNING id", nil, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows, err := conn.Query(context.Background(), tt.query, tt.args...)
+			require.NoError(t, err)
+			rows.Close()
+			require.NoError(t, rows.Err())
+
+			var n int
+			require.NoError(t, conn.QueryRow(context.Background(), "SELECT COUNT(*) FROM ret_once").Scan(&n))
+			require.Equal(t, tt.rows, n)
+		})
+	}
+}

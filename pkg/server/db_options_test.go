@@ -19,6 +19,7 @@ package server
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/stretchr/testify/require"
 )
@@ -131,4 +132,37 @@ func TestDatabaseNullableSettingsOmitsPrimaryPassword(t *testing.T) {
 	rs := opts.databaseNullableSettings().ReplicationSettings
 	require.Equal(t, "primary-username", rs.PrimaryUsername.GetValue())
 	require.Nil(t, rs.PrimaryPassword)
+}
+
+func TestOverwriteWithExcludeCommitTime(t *testing.T) {
+	s, closer := testServer(DefaultOptions().WithDir(t.TempDir()))
+	defer closer()
+
+	tests := []struct {
+		name     string
+		current  bool
+		settings *schema.NullableBool
+		wantErr  bool
+	}{
+		{"flip to true", false, &schema.NullableBool{Value: true}, true},
+		{"flip to false", true, &schema.NullableBool{Value: false}, true},
+		{"unchanged value", true, &schema.NullableBool{Value: true}, false},
+		{"not provided", false, nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := s.defaultDBOptions("db1", "user")
+			opts.ExcludeCommitTime = tt.current
+
+			err := s.overwriteWith(opts, &schema.DatabaseNullableSettings{ExcludeCommitTime: tt.settings}, true)
+
+			if tt.wantErr {
+				require.ErrorIs(t, err, ErrIllegalArguments)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.current, opts.ExcludeCommitTime)
+		})
+	}
 }

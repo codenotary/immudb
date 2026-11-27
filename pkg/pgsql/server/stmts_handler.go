@@ -367,7 +367,7 @@ func (s *session) isEmulableInternally(statement string) interface{} {
 	// a canned one-row response with column names extracted from the
 	// query's SELECT list — avoids "table does not exist" errors on
 	// clients that probe every possible system view at connect time.
-	if pgSystemQueryRe.MatchString(statement) {
+	if masked, _ := maskStringLiterals(statement); pgSystemQueryRe.MatchString(masked) {
 		return &pgAdminProbe{sql: statement}
 	}
 
