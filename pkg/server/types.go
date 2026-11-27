@@ -100,11 +100,11 @@ func (m *usernameToUserdataMap) SetUserdata(username string, u *auth.User) {
 	shard.mu.Unlock()
 }
 
-// DeleteUserdata removes a userdata entry without touching the session
-// counter. Intended for tests that want to simulate ErrNotLoggedIn.
-func (m *usernameToUserdataMap) DeleteUserdata(username string) {
+// RemoveUser drops the userdata entry and every session count for username.
+func (m *usernameToUserdataMap) RemoveUser(username string) {
 	shard := m.shardFor(username)
 	shard.mu.Lock()
+	delete(shard.sessionCounts, username)
 	delete(shard.Userdata, username)
 	shard.mu.Unlock()
 }
@@ -163,6 +163,7 @@ type ImmuServer struct {
 	Pid         PIDFile
 	quit        chan struct{}
 	userdata    *usernameToUserdataMap
+	accountMu   sync.RWMutex
 	multidbmode bool
 	//Cc                  CorruptionChecker
 	sysDB                database.DB

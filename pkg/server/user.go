@@ -40,6 +40,9 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
 
+	s.accountMu.RLock()
+	defer s.accountMu.RUnlock()
+
 	u, err := s.getValidatedUser(ctx, r.User, r.Password)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrInvalidUsernameOrPassword)
@@ -334,20 +337,11 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
-	if err := s.saveUser(ctx, targetUser); err != nil {
+	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
 	s.Logger.Infof("password for user %s was changed by user %s", targetUser.Username, user.Username)
-
-	// remove user from logged in users
-	s.removeUserFromLoginList(targetUser.Username)
-
-	// invalidate the token for this user
-	auth.DropTokenKeys(targetUser.Username)
-
-	// terminate active sessions for this user
-	s.SessManager.CloseSessionsForUser(targetUser.Username)
 
 	return new(empty.Empty), nil
 }
@@ -433,17 +427,11 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	targetUser.SQLPrivileges = defaultSQLPrivilegesForPermission(r.Database, r.Permission)
 	targetUser.HasPrivileges = true
 
-	if err := s.saveUser(ctx, targetUser); err != nil {
+	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
 	s.Logger.Infof("permissions of user %s for database %s was changed by user %s", targetUser.Username, r.Database, user.Username)
-
-	// remove user from loggedin users
-	s.removeUserFromLoginList(targetUser.Username)
-
-	// terminate active sessions for this user
-	s.SessManager.CloseSessionsForUser(targetUser.Username)
 
 	return new(empty.Empty), nil
 }
@@ -493,7 +481,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
 
-	if err := s.saveUser(ctx, targetUser); err != nil {
+	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
@@ -501,12 +489,6 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		true:  "activated",
 		false: "deactivated",
 	}[r.Active], user.Username)
-
-	//remove user from loggedin users
-	s.removeUserFromLoginList(targetUser.Username)
-
-	// terminate active sessions for this user
-	s.SessManager.CloseSessionsForUser(targetUser.Username)
 
 	return new(empty.Empty), nil
 }
@@ -613,6 +595,23 @@ func (s *ImmuServer) saveUser(ctx context.Context, user *auth.User) error {
 // entry when no sessions remain. Returns true when the last session was removed.
 func (s *ImmuServer) removeUserFromLoginList(username string) bool {
 	return s.userdata.RemoveSession(username)
+}
+
+// saveUserAndLogout stores u, then ends every v1 login, token and session of u,
+// so the change takes effect on the next request. accountMu keeps a concurrent
+// Login from caching the account as it was before the save.
+func (s *ImmuServer) saveUserAndLogout(ctx context.Context, u *auth.User) error {
+	s.accountMu.Lock()
+	defer s.accountMu.Unlock()
+
+	if err := s.saveUser(ctx, u); err != nil {
+		return err
+	}
+
+	s.userdata.RemoveUser(u.Username)
+	auth.DropTokenKeys(u.Username)
+	s.SessManager.CloseSessionsForUser(u.Username)
+	return nil
 }
 
 func (s *ImmuServer) addUserToLoginList(u *auth.User) {
@@ -730,17 +729,11 @@ func (s *ImmuServer) ChangeSQLPrivileges(ctx context.Context, r *schema.ChangeSQ
 	targetUser.CreatedAt = time.Now()
 	targetUser.HasPrivileges = true
 
-	if err := s.saveUser(ctx, targetUser); err != nil {
+	if err := s.saveUserAndLogout(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
 	s.Logger.Infof("permissions of user %s for database %s was changed by user %s", targetUser.Username, r.Database, user.Username)
-
-	// remove user from loggedin users
-	s.removeUserFromLoginList(targetUser.Username)
-
-	// terminate active sessions for this user
-	s.SessManager.CloseSessionsForUser(targetUser.Username)
 
 	return &schema.ChangeSQLPrivilegesResponse{}, nil
 }

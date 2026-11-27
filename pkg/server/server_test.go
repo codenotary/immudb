@@ -1407,14 +1407,14 @@ func TestServerErrors(t *testing.T) {
 
 	// getLoggedInUserDataFromUsername errors
 	userdata, _ := s.userdata.Get(username)
-	s.userdata.DeleteUserdata(username)
+	s.userdata.RemoveUser(username)
 	_, err = s.getLoggedInUserDataFromUsername(username)
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.SetUserdata(username, userdata)
 
 	// getDBFromCtx errors
 	adminUserdata, _ := s.userdata.Get(auth.SysAdminUsername)
-	s.userdata.DeleteUserdata(auth.SysAdminUsername)
+	s.userdata.RemoveUser(auth.SysAdminUsername)
 	s.Options.maintenance = true
 	_, err = s.getDBFromCtx(adminCtx, "ListUsers")
 	require.ErrorIs(t, err, ErrNotLoggedIn)
@@ -1430,7 +1430,7 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorContains(t, err, "this command is available only with authentication on")
 	s.Options.auth = true
 
-	s.userdata.DeleteUserdata(auth.SysAdminUsername)
+	s.userdata.RemoveUser(auth.SysAdminUsername)
 	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: username, Active: false})
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.SetUserdata(auth.SysAdminUsername, adminUserdata)
@@ -1479,7 +1479,7 @@ func TestServerErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.Options.auth = true
 
-	s.userdata.DeleteUserdata(auth.SysAdminUsername)
+	s.userdata.RemoveUser(auth.SysAdminUsername)
 	_, err = s.ChangePermission(userCtx, cpr)
 	require.ErrorIs(t, err, ErrNotLoggedIn)
 	s.userdata.SetUserdata(auth.SysAdminUsername, adminUserdata)
@@ -2173,4 +2173,67 @@ func makeCert(t *testing.T, dir, suffix string, expiration time.Duration) tls.Ce
 	require.NoError(t, err)
 
 	return cert
+}
+
+func TestServerAccountChangeEndsAllV1Logins(t *testing.T) {
+	serverOptions := DefaultOptions().
+		WithDir(t.TempDir()).
+		WithMetricsServer(false).
+		WithPort(0).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s, closer := testServer(serverOptions)
+	defer closer()
+
+	require.NoError(t, s.Initialize())
+
+	loginCtx := func(user, password string) context.Context {
+		lr, err := s.Login(context.Background(), &schema.LoginRequest{User: []byte(user), Password: []byte(password)})
+		require.NoError(t, err)
+		return metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", lr.Token))
+	}
+
+	adminCtx := loginCtx(auth.SysAdminUsername, auth.SysAdminPassword)
+
+	_, err := s.CreateUser(adminCtx, &schema.CreateUserRequest{
+		User:       []byte("bob"),
+		Password:   []byte("Bob1234!"),
+		Permission: auth.PermissionRW,
+		Database:   DefaultDBName,
+	})
+	require.NoError(t, err)
+
+	bobCtx := loginCtx("bob", "Bob1234!")
+	loginCtx("bob", "Bob1234!")
+
+	_, err = s.Set(bobCtx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: testKey, Value: testValue}}})
+	require.NoError(t, err)
+
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: "bob", Active: false})
+	require.NoError(t, err)
+
+	_, err = s.Set(bobCtx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: testKey, Value: testValue}}})
+	require.Error(t, err)
+
+	_, err = s.CreateUser(adminCtx, &schema.CreateUserRequest{
+		User:       []byte("carol"),
+		Password:   []byte("Carol123!"),
+		Permission: auth.PermissionRW,
+		Database:   DefaultDBName,
+	})
+	require.NoError(t, err)
+
+	carolCtx := loginCtx("carol", "Carol123!")
+	loginCtx("carol", "Carol123!")
+
+	_, err = s.ChangePermission(adminCtx, &schema.ChangePermissionRequest{
+		Action:     schema.PermissionAction_REVOKE,
+		Username:   "carol",
+		Database:   DefaultDBName,
+		Permission: auth.PermissionRW,
+	})
+	require.NoError(t, err)
+
+	_, err = s.Set(carolCtx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: testKey, Value: testValue}}})
+	require.Error(t, err)
 }
