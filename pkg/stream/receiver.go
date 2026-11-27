@@ -45,6 +45,14 @@ type msgReceiver struct {
 	msgSend bool
 }
 
+func msgLen(b []byte) (int, error) {
+	n := binary.BigEndian.Uint64(b)
+	if n > uint64(MaxMsgSize) {
+		return 0, errors.New(ErrInvalidMsgSize)
+	}
+	return int(n), nil
+}
+
 // ReadFully reads the entire message that could be transmitted in several chunks
 func (r *msgReceiver) ReadFully() (message []byte, metadata map[string][]byte, err error) {
 	firstChunk, err := r.stream.Recv()
@@ -55,7 +63,10 @@ func (r *msgReceiver) ReadFully() (message []byte, metadata map[string][]byte, e
 		return nil, firstChunk.Metadata, errors.New(ErrChunkTooSmall)
 	}
 
-	msgSize := int(binary.BigEndian.Uint64(firstChunk.Content))
+	msgSize, err := msgLen(firstChunk.Content)
+	if err != nil {
+		return nil, firstChunk.Metadata, err
+	}
 
 	b := make([]byte, msgSize)
 	read := 0
@@ -119,7 +130,10 @@ func (r *msgReceiver) Read(data []byte) (n int, err error) {
 			if err != nil {
 				return 0, err
 			}
-			r.tl = int(binary.BigEndian.Uint64(trailer))
+			r.tl, err = msgLen(trailer)
+			if err != nil {
+				return 0, err
+			}
 		}
 
 		// no more data in stream but buffer is not enough large to contains the expected value

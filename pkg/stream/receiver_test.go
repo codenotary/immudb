@@ -18,6 +18,7 @@ package stream
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"io"
 	"testing"
@@ -121,6 +122,34 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 	mr = NewMsgReceiver(sm)
 	_, _, err = mr.ReadFully()
 	require.ErrorIs(t, err, expectedErr)
+}
+
+func TestMsgReceiver_InvalidMessageSize(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		size uint64
+	}{
+		{"above max", uint64(MaxMsgSize) + 1},
+		{"negative after int cast", 1 << 63},
+		{"max uint64", ^uint64(0)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			trailer := make([]byte, 8)
+			binary.BigEndian.PutUint64(trailer, tc.size)
+			newReceiver := func() *msgReceiver {
+				return NewMsgReceiver(streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
+					{C: &schema.Chunk{Content: append(trailer, []byte("data")...)}, E: nil},
+					{C: nil, E: io.EOF},
+				}))
+			}
+
+			_, _, err := newReceiver().ReadFully()
+			require.ErrorContains(t, err, ErrInvalidMsgSize)
+
+			_, err = newReceiver().Read(make([]byte, 4096))
+			require.ErrorContains(t, err, ErrInvalidMsgSize)
+		})
+	}
 }
 
 func TestMsgReceiver_EmptyStream(t *testing.T) {
