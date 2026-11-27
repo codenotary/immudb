@@ -63,6 +63,22 @@ type SQLTx struct {
 	onCommittedCallbacks []onCommittedCallback
 
 	savepoints map[string]*savepointState
+
+	cteResolvers map[string]TableResolver
+}
+
+func (sqlTx *SQLTx) tableResolveFor(tableName string) TableResolver {
+	if r, ok := sqlTx.cteResolvers[tableName]; ok {
+		return r
+	}
+	return sqlTx.engine.tableResolveFor(tableName)
+}
+
+func (sqlTx *SQLTx) registerCTE(name string, r TableResolver) {
+	if sqlTx.cteResolvers == nil {
+		sqlTx.cteResolvers = make(map[string]TableResolver)
+	}
+	sqlTx.cteResolvers[name] = r
 }
 
 type onCommittedCallback = func(sqlTx *SQLTx) error

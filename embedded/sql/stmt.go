@@ -4686,7 +4686,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 
 	table, err := tableRef.referencedTable(tx)
 	if err != nil {
-		if tx.engine.tableResolveFor(tableRef.table) != nil {
+		if tx.tableResolveFor(tableRef.table) != nil {
 			return &ScanSpecs{
 				groupBySortExps: groupByCols,
 				orderBySortExps: orderByCols,
@@ -5371,11 +5371,44 @@ func (stmt *CTEStmt) requiredPrivileges() []SQLPrivilege { return []SQLPrivilege
 func (stmt *CTEStmt) Alias() string                      { return stmt.query.Alias() }
 
 func (stmt *CTEStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	defer func() {
+		for _, cte := range stmt.ctes {
+			delete(tx.cteResolvers, cte.name)
+		}
+	}()
+
 	for _, cte := range stmt.ctes {
+		// a recursive CTE is typed by its base term, which is also all its recursive term can see
+		q := cte.query
+		if u, ok := q.(*UnionStmt); ok && cte.recursive {
+			q = u.left
+		}
+
+		reader, err := q.Resolve(ctx, tx, nil, nil)
+		if err != nil {
+			return err
+		}
+		rawCols, err := reader.Columns(ctx)
+		reader.Close()
+		if err != nil {
+			return err
+		}
+
+		cols := make([]ColDescriptor, len(rawCols))
+		for i, c := range rawCols {
+			cols[i] = ColDescriptor{Column: c.Column, Type: c.Type}
+		}
+		resolver := &cteResolver{name: cte.name, cols: cols}
+
+		if cte.recursive {
+			tx.registerCTE(cte.name, resolver)
+		}
 		if err := cte.query.inferParameters(ctx, tx, params); err != nil {
 			return err
 		}
+		tx.registerCTE(cte.name, resolver)
 	}
+
 	return stmt.query.inferParameters(ctx, tx, params)
 }
 
@@ -5383,38 +5416,27 @@ func (stmt *CTEStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]in
 	return tx, nil
 }
 
-func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
-	// Materialize each CTE and register as a temporary table resolver
+func (stmt *CTEStmt) registerCTEs(ctx context.Context, tx *SQLTx, params map[string]interface{}) (cleanup func(), err error) {
 	registeredCTEs := make([]string, 0, len(stmt.ctes))
 
-	cleanup := func() {
+	cleanup = func() {
 		for _, name := range registeredCTEs {
-			delete(tx.engine.tableResolvers, name)
+			delete(tx.cteResolvers, name)
 		}
 	}
 
 	for _, cte := range stmt.ctes {
+		materialize := materializeCTE
 		if cte.recursive {
-			cols, rows, err := materializeRecursiveCTE(ctx, tx, cte, params)
-			if err != nil {
-				cleanup()
-				return nil, err
-			}
-			tx.engine.registerTableResolver(cte.name, &cteResolver{
-				name: cte.name,
-				cols: cols,
-				rows: rows,
-			})
-			registeredCTEs = append(registeredCTEs, cte.name)
-			continue
+			materialize = materializeRecursiveCTE
 		}
 
-		cols, rows, err := materializeCTE(ctx, tx, cte, params)
+		cols, rows, err := materialize(ctx, tx, cte, params)
 		if err != nil {
 			cleanup()
 			return nil, err
 		}
-		tx.engine.registerTableResolver(cte.name, &cteResolver{
+		tx.registerCTE(cte.name, &cteResolver{
 			name: cte.name,
 			cols: cols,
 			rows: rows,
@@ -5422,14 +5444,21 @@ func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]i
 		registeredCTEs = append(registeredCTEs, cte.name)
 	}
 
-	// Resolve the main query with CTEs available
+	return cleanup, nil
+}
+
+func (stmt *CTEStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
+	cleanup, err := stmt.registerCTEs(ctx, tx, params)
+	if err != nil {
+		return nil, err
+	}
+
 	mainReader, err := stmt.query.Resolve(ctx, tx, params, scanSpecs)
 	if err != nil {
 		cleanup()
 		return nil, err
 	}
 
-	// Schedule cleanup when the reader is closed
 	mainReader.onClose(cleanup)
 
 	return mainReader, nil
@@ -5540,7 +5569,7 @@ func materializeRecursiveCTE(ctx context.Context, tx *SQLTx, cte *CTEDef, params
 		}
 
 		// Register current results as the CTE resolver (so recursive term can reference it)
-		tx.engine.registerTableResolver(cte.name, &cteResolver{
+		tx.registerCTE(cte.name, &cteResolver{
 			name: cte.name,
 			cols: cols,
 			rows: newRows, // Only new rows from the previous iteration
@@ -5872,7 +5901,7 @@ func (stmt *tableRef) Resolve(ctx context.Context, tx *SQLTx, params map[string]
 		return newRawRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 	}
 
-	if resolver := tx.engine.tableResolveFor(stmt.table); resolver != nil {
+	if resolver := tx.tableResolveFor(stmt.table); resolver != nil {
 		return resolver.Resolve(ctx, tx, stmt.Alias())
 	}
 	return nil, err
