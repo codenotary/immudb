@@ -440,8 +440,8 @@ func StartMetrics(
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", corsHandler(promhttp.Handler()))
-	mux.Handle("/debug/vars", corsHandler(expvar.Handler()))
 	if addPProf {
+		mux.Handle("/debug/vars", corsHandler(expvar.Handler()))
 		mux.HandleFunc("/debug/pprof/", corsHandlerFunc(pprof.Index))
 		mux.HandleFunc("/debug/pprof/cmdline", corsHandlerFunc(pprof.Cmdline))
 		mux.HandleFunc("/debug/pprof/profile", corsHandlerFunc(pprof.Profile))
