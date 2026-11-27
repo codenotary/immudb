@@ -205,7 +205,7 @@ func (s *session) refreshSessionActivity() {
 		sessionID := s.client.GetSessionID()
 		if sessionID != "" {
 			s.sessManager.UpdateSessionActivityTime(sessionID)
-			s.log.Infof("pgcompat: refreshed session activity for %s", sessionID)
+			s.log.Debugf("pgcompat: refreshed session activity")
 		}
 	} else {
 		s.log.Warningf("pgcompat: cannot refresh session: sessManager=%v client=%v", s.sessManager != nil, s.client != nil)

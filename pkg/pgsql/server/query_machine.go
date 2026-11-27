@@ -40,6 +40,12 @@ const (
 	maxRowsPerMessage = 1024
 )
 
+var passwordLiteral = regexp.MustCompile(`(?i)(password\s*=?\s*)'(?:[^']|'')*'`)
+
+func maskPasswords(sql string) string {
+	return passwordLiteral.ReplaceAllString(sql, "${1}'***'")
+}
+
 func (s *session) QueryMachine() error {
 	var waitForSync = false
 
@@ -89,7 +95,7 @@ func (s *session) QueryMachine() error {
 
 			// Handle COPY ... FROM stdin
 			if strings.Contains(strings.ToUpper(statements), "COPY") {
-				s.log.Infof("pgcompat: found COPY in statement (first 200): %.200q", statements)
+				s.log.Debugf("pgcompat: found COPY in statement (first 200): %.200q", maskPasswords(statements))
 			}
 			if table, cols, ok := parseCopyStatement(statements); ok {
 				s.log.Infof("pgcompat: COPY detected for table=%s cols=%d", table, len(cols))
@@ -353,7 +359,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	}
 
 	if i := s.isEmulableInternally(statements); i != nil {
-		s.log.Infof("pgcompat: emulating query internally (extQueryMode=%v) sql=%.300s", extQueryMode, statements)
+		s.log.Debugf("pgcompat: emulating query internally (extQueryMode=%v) sql=%.300s", extQueryMode, maskPasswords(statements))
 		if probe, ok := i.(*pgAdminProbe); ok && extQueryMode {
 			// Extended protocol: Describe already sent RowDescription, only send DataRow
 			if err := s.handlePgSystemQueryDataOnly(probe.sql); err != nil {
@@ -398,7 +404,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return err
 	}
 
-	s.log.Infof("pgcompat: executing query via SQL engine: %.300s", statements)
+	s.log.Debugf("pgcompat: executing query via SQL engine: %.300s", maskPasswords(statements))
 	var err error
 	cacheKey := removePGCatalogReferences(statements)
 	var stmts []sql.SQLStmt

@@ -105,7 +105,7 @@ func (s *session) handlePgSystemQuery(query string) error {
 	}
 
 	// Debug logging
-	s.log.Infof("pgcompat: intercepted query: %q", query)
+	s.log.Debugf("pgcompat: intercepted query: %q", maskPasswords(query))
 	s.log.Infof("pgcompat: extracted columns: %v", cols)
 	s.log.Infof("pgcompat: query length: %d bytes", len(query))
 
