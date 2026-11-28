@@ -29,6 +29,9 @@ import (
 
 var copyFromStdinRe = regexp.MustCompile(`(?i)^\s*COPY\s+(\S+)\s*\(([^)]+)\)\s+FROM\s+stdin\s*;?\s*$`)
 
+// names are interpolated into the generated INSERT text
+var copyIdentRe = regexp.MustCompile(`^(?:[A-Za-z_][A-Za-z0-9_]*|"[A-Za-z_][A-Za-z0-9_]*")$`)
+
 // parseCopyStatement extracts table name and columns from a COPY ... FROM stdin statement.
 // Returns table, columns, ok.
 func parseCopyStatement(sql string) (string, []string, bool) {
@@ -42,12 +45,18 @@ func parseCopyStatement(sql string) (string, []string, bool) {
 	if idx := strings.LastIndex(table, "."); idx >= 0 {
 		table = table[idx+1:]
 	}
+	if !copyIdentRe.MatchString(table) {
+		return "", nil, false
+	}
 
 	colStr := matches[2]
 	parts := strings.Split(colStr, ",")
 	cols := make([]string, 0, len(parts))
 	for _, p := range parts {
 		col := strings.TrimSpace(p)
+		if col != "" && !copyIdentRe.MatchString(col) {
+			return "", nil, false
+		}
 		// Strip double quotes from column names and handle reserved words
 		col = strings.Trim(col, "\"")
 		if col != "" {
