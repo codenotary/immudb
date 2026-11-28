@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -49,6 +50,14 @@ func (s *ImmuServer) NewTx(ctx context.Context, request *schema.NewTxRequest) (*
 		WithReadOnly(request.Mode == schema.TxMode_ReadOnly)
 
 	if request.SnapshotMustIncludeTxID != nil {
+		state, err := sess.GetDatabase().CurrentState()
+		if err != nil {
+			return nil, err
+		}
+		if request.SnapshotMustIncludeTxID.GetValue() > state.PrecommittedTxId {
+			return nil, store.ErrTxNotFound
+		}
+
 		opts.WithSnapshotMustIncludeTxID(func(_ uint64) uint64 {
 			return request.SnapshotMustIncludeTxID.GetValue()
 		})

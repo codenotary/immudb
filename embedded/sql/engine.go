@@ -149,6 +149,7 @@ type Engine struct {
 	multidbHandler                MultiDBHandler
 	tableResolvers                map[string]TableResolver
 	sequences                     map[string]*Sequence
+	seqMu                         sync.Mutex
 
 	// catalogMu guards cachedCatalog. The cached catalog is built once from the
 	// store and reused across read-only transactions to avoid redundant B-tree
@@ -175,18 +176,26 @@ type Sequence struct {
 	started   bool
 }
 
-func (e *Engine) CreateSequence(name string, startValue, increment int64) {
+func (e *Engine) CreateSequence(name string, startValue, increment int64) Sequence {
+	e.seqMu.Lock()
+	defer e.seqMu.Unlock()
+
 	if e.sequences == nil {
 		e.sequences = make(map[string]*Sequence)
 	}
-	e.sequences[name] = &Sequence{
+	seq := &Sequence{
 		name:      name,
 		currValue: startValue - increment, // first NEXTVAL will return startValue
 		increment: increment,
 	}
+	e.sequences[name] = seq
+	return *seq
 }
 
 func (e *Engine) DropSequence(name string) bool {
+	e.seqMu.Lock()
+	defer e.seqMu.Unlock()
+
 	if e.sequences == nil {
 		return false
 	}
@@ -197,20 +206,23 @@ func (e *Engine) DropSequence(name string) bool {
 	return exists
 }
 
-func (e *Engine) NextVal(name string) (int64, error) {
-	if e.sequences == nil {
-		return 0, fmt.Errorf("sequence does not exist (%s)", name)
-	}
+func (e *Engine) NextVal(name string) (Sequence, error) {
+	e.seqMu.Lock()
+	defer e.seqMu.Unlock()
+
 	seq, exists := e.sequences[name]
 	if !exists {
-		return 0, fmt.Errorf("sequence does not exist (%s)", name)
+		return Sequence{}, fmt.Errorf("sequence does not exist (%s)", name)
 	}
 	seq.currValue += seq.increment
 	seq.started = true
-	return seq.currValue, nil
+	return *seq, nil
 }
 
 func (e *Engine) CurrVal(name string) (int64, error) {
+	e.seqMu.Lock()
+	defer e.seqMu.Unlock()
+
 	if e.sequences == nil {
 		return 0, fmt.Errorf("sequence does not exist (%s)", name)
 	}
@@ -471,12 +483,14 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	}
 
 	// Load persisted sequences (only once, on first tx)
+	e.seqMu.Lock()
 	if e.sequences == nil {
 		if err := e.loadSequences(ctx, tx); err != nil {
 			// Non-fatal: sequences are optional
 			_ = err
 		}
 	}
+	e.seqMu.Unlock()
 
 	// Load persisted views (only once, on first tx open)
 	if len(e.tableResolvers) == 0 {

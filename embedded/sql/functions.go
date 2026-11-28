@@ -1895,7 +1895,7 @@ func (f *nextValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w: '%s' expects a string argument", ErrIllegalArguments, NextValFnCall)
 	}
-	val, err := tx.engine.NextVal(name)
+	seq, err := tx.engine.NextVal(name)
 	if err != nil {
 		return nil, err
 	}
@@ -1903,11 +1903,9 @@ func (f *nextValFn) Apply(tx *SQLTx, params []TypedValue) (TypedValue, error) {
 	// Best-effort persistence — sequence counter is always updated in-memory.
 	// Persistence may fail in read-only transactions (SELECT NEXTVAL),
 	// but succeeds when called within DML or explicit transactions.
-	if seq, exists := tx.engine.sequences[name]; exists {
-		_ = persistSequence(tx, seq)
-	}
+	_ = persistSequence(tx, &seq)
 
-	return NewInteger(val), nil
+	return NewInteger(seq.currValue), nil
 }
 
 // currval(sequence_name) — returns current value of sequence

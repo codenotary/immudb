@@ -19,6 +19,7 @@ package server
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/stretchr/testify/require"
@@ -165,4 +166,17 @@ func TestOverwriteWithExcludeCommitTime(t *testing.T) {
 			require.Equal(t, tt.current, opts.ExcludeCommitTime)
 		})
 	}
+}
+
+func TestValidateRejectsZeroTruncationFrequencyWithRetention(t *testing.T) {
+	s, closer := testServer(DefaultOptions().WithDir(t.TempDir()))
+	defer closer()
+
+	opts := s.defaultDBOptions("db1", "user")
+	opts.RetentionPeriod = Milliseconds(store.MinimumRetentionPeriod.Milliseconds())
+	opts.TruncationFrequency = 0
+	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
+
+	opts.RetentionPeriod = 0
+	require.NoError(t, opts.Validate())
 }

@@ -263,3 +263,11 @@ func TestTruncator_with_nothing_to_truncate(t *testing.T) {
 	err = tr.Stop()
 	require.NoError(t, err)
 }
+
+func TestTruncatorRejectsZeroFrequency(t *testing.T) {
+	options := database.DefaultOptions().WithDBRootPath(t.TempDir())
+	db := makeDbWith(t, "db", options)
+
+	tr := NewTruncator(db, time.Hour, 0, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.ErrorIs(t, tr.Start(), ErrInvalidFrequency)
+}
