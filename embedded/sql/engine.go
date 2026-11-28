@@ -488,6 +488,8 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		if err := e.loadSequences(ctx, tx); err != nil {
 			// Non-fatal: sequences are optional
 			_ = err
+		} else if e.sequences == nil {
+			e.sequences = make(map[string]*Sequence)
 		}
 	}
 	e.seqMu.Unlock()
