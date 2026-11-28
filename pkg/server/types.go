@@ -196,7 +196,7 @@ func DefaultServer() *ImmuServer {
 	}
 
 	s.dbList = database.NewDatabaseList(database.NewDBManager(func(name string, opts *database.Options) (database.DB, error) {
-		return database.OpenDB(name, s.multidbHandler(), opts, s.Logger)
+		return database.OpenDB(name, s.multidbHandler(name), opts, s.Logger)
 	}, s.Options.MaxActiveDatabases, s.Logger))
 	return s
 }

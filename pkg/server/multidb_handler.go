@@ -26,11 +26,12 @@ import (
 )
 
 type multidbHandler struct {
-	s *ImmuServer
+	s      *ImmuServer
+	dbName string // permissions are checked here, not on the session database, which USE can move
 }
 
-func (s *ImmuServer) multidbHandler() sql.MultiDBHandler {
-	return &multidbHandler{s}
+func (s *ImmuServer) multidbHandler(dbName string) sql.MultiDBHandler {
+	return &multidbHandler{s: s, dbName: dbName}
 }
 
 func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
@@ -56,21 +57,16 @@ func (h *multidbHandler) GetLoggedUser(ctx context.Context) (sql.User, error) {
 		return nil, err
 	}
 
-	db, err := h.s.getDBFromCtx(ctx, "SQLQuery")
-	if err != nil {
-		return nil, err
-	}
-
 	isSysAdmin := user.Username == auth.SysAdminUsername
 
 	privileges := make([]sql.SQLPrivilege, 0, len(user.SQLPrivileges))
 	for _, p := range user.SQLPrivileges {
-		if isSysAdmin || p.Database == db.GetName() {
+		if isSysAdmin || p.Database == h.dbName {
 			privileges = append(privileges, sql.SQLPrivilege(p.Privilege))
 		}
 	}
 
-	permCode := user.WhichPermission(db.GetName())
+	permCode := user.WhichPermission(h.dbName)
 	return &User{
 		username:      user.Username,
 		perm:          sql.PermissionFromCode(permCode),

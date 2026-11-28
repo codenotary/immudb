@@ -12220,3 +12220,45 @@ func TestCTEIsScopedToItsStatement(t *testing.T) {
 		wg.Wait()
 	})
 }
+
+func TestCheckConstraintWithQuotedLiteralSurvivesReload(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil, `CREATE TABLE notes (id INTEGER, txt VARCHAR, CONSTRAINT no_ob CHECK (txt <> 'O''Brien'), PRIMARY KEY id)`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(ctx, nil, `INSERT INTO notes (id, txt) VALUES (1, 'O''Neil')`, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(ctx, nil, `INSERT INTO notes (id, txt) VALUES (2, 'O''Brien')`, nil)
+	require.ErrorIs(t, err, ErrCheckConstraintViolation)
+}
+
+func TestConcurrentSequenceAccess(t *testing.T) {
+	engine := setupCommonTest(t)
+	ctx := context.Background()
+
+	_, _, err := engine.Exec(ctx, nil, `CREATE SEQUENCE s`, nil)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				_, _, err := engine.Exec(ctx, nil, `CREATE SEQUENCE s`, nil)
+				require.NoError(t, err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				_, err := engine.queryAll(ctx, nil, `SELECT NEXTVAL('s')`, nil)
+				require.NoError(t, err)
+			}
+		}()
+	}
+	wg.Wait()
+}

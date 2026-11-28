@@ -90,3 +90,23 @@ func TestSanitizeColumnNameAcceptsCommonIdentifiers(t *testing.T) {
 		}
 	}
 }
+
+func TestParseCopyStatementRequiresIdentifiers(t *testing.T) {
+	cases := []struct {
+		sql   string
+		table string
+		ok    bool
+	}{
+		{`COPY public.actor (actor_id, first_name) FROM stdin;`, "actor", true},
+		{`COPY public."order" ("id", "user") FROM stdin;`, `"order"`, true},
+		{`COPY t1(v)VALUES('x');USE/**/dbrw;INSERT/**/INTO/**/t1 (v) FROM stdin`, "", false},
+		{`COPY t1 (v FROM t2 WHERE 1=1 -- ) FROM stdin`, "", false},
+	}
+
+	for _, c := range cases {
+		table, _, ok := parseCopyStatement(c.sql)
+		if ok != c.ok || table != c.table {
+			t.Errorf("parseCopyStatement(%q) = %q, %v; want %q, %v", c.sql, table, ok, c.table, c.ok)
+		}
+	}
+}

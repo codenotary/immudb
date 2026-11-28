@@ -524,7 +524,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
 	_, err = s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
+		s.sysDB, err = database.OpenDB(dbOpts.Database, s.multidbHandler(dbOpts.Database), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("database '%s' was not correctly initialized.\n"+"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
@@ -573,7 +573,7 @@ func (s *ImmuServer) loadSystemDatabase(
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
+	s.sysDB, err = database.NewDB(dbOpts.Database, s.multidbHandler(dbOpts.Database), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}

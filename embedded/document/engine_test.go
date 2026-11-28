@@ -2167,3 +2167,13 @@ func BenchmarkInsertion(b *testing.B) {
 		wg.Wait()
 	}
 }
+
+func TestQueryComparisonLimit(t *testing.T) {
+	comparisons := make([]*protomodel.FieldComparison, maxQueryComparisons)
+	for i := range comparisons {
+		comparisons[i] = &protomodel.FieldComparison{Field: "f", Operator: protomodel.ComparisonOperator_EQ, Value: structpb.NewNumberValue(1)}
+	}
+
+	_, err := generateSQLFilteringExpression([]*protomodel.QueryExpression{{FieldComparisons: comparisons}}, nil)
+	require.ErrorIs(t, err, ErrMaxLengthExceeded)
+}

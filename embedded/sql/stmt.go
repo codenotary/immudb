@@ -2684,7 +2684,7 @@ func (v *Varchar) IsNull() bool {
 }
 
 func (v *Varchar) String() string {
-	return fmt.Sprintf("'%s'", v.val)
+	return "'" + strings.ReplaceAll(v.val, "'", "''") + "'"
 }
 
 func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitTable string) (SQLValueType, error) {
@@ -5190,10 +5190,8 @@ func (stmt *CreateSequenceStmt) inferParameters(ctx context.Context, tx *SQLTx, 
 }
 
 func (stmt *CreateSequenceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	tx.engine.CreateSequence(stmt.name, stmt.startValue, stmt.increment)
-
-	seq := tx.engine.sequences[stmt.name]
-	if err := persistSequence(tx, seq); err != nil {
+	seq := tx.engine.CreateSequence(stmt.name, stmt.startValue, stmt.increment)
+	if err := persistSequence(tx, &seq); err != nil {
 		return nil, err
 	}
 

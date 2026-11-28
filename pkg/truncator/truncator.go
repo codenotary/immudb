@@ -30,6 +30,7 @@ import (
 var (
 	ErrTruncatorAlreadyRunning = errors.New("truncator already running")
 	ErrTruncatorAlreadyStopped = errors.New("truncator already stopped")
+	ErrInvalidFrequency        = errors.New("truncation frequency must be positive")
 )
 
 type Truncator struct {
@@ -75,6 +76,10 @@ func (t *Truncator) Start() error {
 
 	if t.hasStarted {
 		return ErrTruncatorAlreadyRunning
+	}
+
+	if t.truncationFrequency <= 0 {
+		return ErrInvalidFrequency
 	}
 
 	t.hasStarted = true

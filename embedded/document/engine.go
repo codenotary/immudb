@@ -1149,8 +1149,19 @@ func (e *Engine) AuditDocument(ctx context.Context, collectionName string, docID
 }
 
 // generateSQLFilteringExpression generates a boolean expression in Disjunctive Normal Form from a list of expressions
+// maxQueryComparisons bounds the nested expression the SQL engine evaluates recursively
+const maxQueryComparisons = 10_000
+
 func generateSQLFilteringExpression(expressions []*protomodel.QueryExpression, table *sql.Table) (sql.ValueExp, error) {
 	var outerExp sql.ValueExp
+
+	n := len(expressions)
+	for _, exp := range expressions {
+		n += len(exp.FieldComparisons)
+	}
+	if n > maxQueryComparisons {
+		return nil, fmt.Errorf("%w: query has more than %d comparisons", ErrMaxLengthExceeded, maxQueryComparisons)
+	}
 
 	for i, exp := range expressions {
 		if len(exp.FieldComparisons) == 0 {
